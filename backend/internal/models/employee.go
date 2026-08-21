@@ -73,13 +73,13 @@ const (
 )
 
 type EmployeeInvitation struct {
-	ID              uuid.UUID                  `json:"id" db:"id"`
-	EmployeeID      uuid.UUID                  `json:"employee_id" db:"employee_id"`
-	TokenHash       string                     `json:"-" db:"token_hash"`
-	Status          EmployeeInvitationStatus   `json:"status" db:"status"`
-	ExpiresAt       time.Time                  `json:"expires_at" db:"expires_at"`
-	AcceptedAt      *time.Time                 `json:"accepted_at,omitempty" db:"accepted_at"`
-	CreatedAt       time.Time                  `json:"created_at" db:"created_at"`
+	ID         uuid.UUID                `json:"id" db:"id"`
+	EmployeeID uuid.UUID                `json:"employee_id" db:"employee_id"`
+	TokenHash  string                   `json:"-" db:"token_hash"`
+	Status     EmployeeInvitationStatus `json:"status" db:"status"`
+	ExpiresAt  time.Time                `json:"expires_at" db:"expires_at"`
+	AcceptedAt *time.Time               `json:"accepted_at,omitempty" db:"accepted_at"`
+	CreatedAt  time.Time                `json:"created_at" db:"created_at"`
 }
 
 type CreateEmployeeInvitationRequest struct {
@@ -87,25 +87,25 @@ type CreateEmployeeInvitationRequest struct {
 }
 
 type EmployeeInvitationResponse struct {
-	ID              uuid.UUID                  `json:"id"`
-	EmployeeID      uuid.UUID                  `json:"employee_id"`
-	Status          EmployeeInvitationStatus   `json:"status"`
-	ExpiresAt       time.Time                  `json:"expires_at"`
-	InvitationURL   string                     `json:"invitation_url,omitempty"`
-	CreatedAt       time.Time                  `json:"created_at"`
+	ID            uuid.UUID                `json:"id"`
+	EmployeeID    uuid.UUID                `json:"employee_id"`
+	Status        EmployeeInvitationStatus `json:"status"`
+	ExpiresAt     time.Time                `json:"expires_at"`
+	InvitationURL string                   `json:"invitation_url,omitempty"`
+	CreatedAt     time.Time                `json:"created_at"`
 }
 
 type AcceptEmployeeInvitationRequest struct {
-	Token             string `json:"token" binding:"required"`
-	Password          string `json:"password" binding:"required,min=8"`
-	PasswordConfirm   string `json:"password_confirmation" binding:"required"`
+	Token           string `json:"token" binding:"required"`
+	Password        string `json:"password" binding:"required,min=8,max=64"`
+	PasswordConfirm string `json:"password_confirmation" binding:"required"`
 }
 
 type EmployeeActivationToken struct {
-	ID        uuid.UUID `json:"id" db:"id"`
-	UserID    uuid.UUID `json:"user_id" db:"user_id"`
-	TokenHash string    `json:"-" db:"token_hash"`
-	ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
+	ID        uuid.UUID  `json:"id" db:"id"`
+	UserID    uuid.UUID  `json:"user_id" db:"user_id"`
+	TokenHash string     `json:"-" db:"token_hash"`
+	ExpiresAt time.Time  `json:"expires_at" db:"expires_at"`
 	UsedAt    *time.Time `json:"used_at,omitempty" db:"used_at"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	CreatedAt time.Time  `json:"created_at" db:"created_at"`
 }

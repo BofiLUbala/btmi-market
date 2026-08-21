@@ -52,10 +52,11 @@ func (h *Handler) errResponse(c *gin.Context, statusCode int, errorCode, message
 // GET /api/v1/marketplace/shops
 func (h *Handler) ListShops(c *gin.Context) {
 	city := c.Query("city")
+	query := c.Query("q")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
-	shops, total, err := h.marketplaceService.ListShops(city, page, limit)
+	shops, total, err := h.marketplaceService.ListShops(query, city, page, limit)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -233,9 +234,9 @@ func (h *Handler) ListSubcategories(c *gin.Context) {
 	var subs []models.SubcategoryResponse
 	for _, s := range category.Subcategories {
 		subs = append(subs, models.SubcategoryResponse{
-			ID:       s.ID,
-			Name:     s.Name,
-			Slug:     s.Slug,
+			ID:        s.ID,
+			Name:      s.Name,
+			Slug:      s.Slug,
 			SortOrder: s.SortOrder,
 		})
 	}
@@ -280,9 +281,9 @@ func (h *Handler) ListProductsByCategory(c *gin.Context) {
 		Data: map[string]interface{}{
 			"products": products,
 			"pagination": models.PaginationInfo{
-				Page:  page,
-				Limit: limit,
-				Total: total,
+				Page:    page,
+				Limit:   limit,
+				Total:   total,
 				HasMore: (page * limit) < total,
 			},
 		},
@@ -306,9 +307,9 @@ func (h *Handler) ListCategoryTopShops(c *gin.Context) {
 		Data: map[string]interface{}{
 			"shops": shops,
 			"pagination": models.PaginationInfo{
-				Page:  page,
-				Limit: limit,
-				Total: total,
+				Page:    page,
+				Limit:   limit,
+				Total:   total,
 				HasMore: (page * limit) < total,
 			},
 		},
@@ -373,9 +374,9 @@ func (h *Handler) ListShopProducts(c *gin.Context) {
 		Data: map[string]interface{}{
 			"products": products,
 			"pagination": models.PaginationInfo{
-				Page:  params.Page,
-				Limit: params.Limit,
-				Total: total,
+				Page:    params.Page,
+				Limit:   params.Limit,
+				Total:   total,
 				HasMore: (params.Page * params.Limit) < total,
 			},
 		},
@@ -460,9 +461,9 @@ func (h *Handler) GetSimilarProducts(c *gin.Context) {
 		Data: map[string]interface{}{
 			"products": products,
 			"pagination": models.PaginationInfo{
-				Page:  page,
-				Limit: limit,
-				Total: total,
+				Page:    page,
+				Limit:   limit,
+				Total:   total,
 				HasMore: (page * limit) < total,
 			},
 		},

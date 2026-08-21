@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { LoadingBlock } from '@/components/ui/Feedback'
 import type { ReactNode } from 'react'
+import SellerEntryPage from '@/pages/seller/auth/SellerEntryPage'
 
 export function RequireAuth({ children }: { children?: ReactNode }) {
   const { user, loading } = useAuth()
@@ -32,10 +33,10 @@ export function PublicOnly({ children }: { children?: ReactNode }) {
 export function SellerIndexRedirect() {
   const { user, loading, accountType } = useAuth()
   if (loading) return <LoadingBlock label="Checking session…" />
-  if (!user) return <Navigate to="/seller/login" replace />
+  if (!user) return <SellerEntryPage />
   if (accountType === 'SELLER') return <Navigate to="/seller/dashboard" replace />
   if (accountType === 'EMPLOYEE') return <Navigate to="/employee/dashboard" replace />
-  return <Navigate to="/" replace />
+  return <SellerEntryPage />
 }
 
 export function RequireSeller({ children }: { children?: ReactNode }) {

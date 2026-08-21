@@ -124,7 +124,7 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 
-	var responses []models.BusinessResponse
+	responses := make([]models.BusinessResponse, 0)
 	for _, b := range businesses {
 		responses = append(responses, models.BusinessResponse{
 			ID:              b.ID,

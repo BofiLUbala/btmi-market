@@ -76,6 +76,10 @@ func (s *Service) BuildEmployeeInvitationURL(token string) string {
 	return fmt.Sprintf("%s/employee/invite/accept?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
 }
 
+func (s *Service) BuildPasswordResetURL(token string) string {
+	return fmt.Sprintf("%s/reset-password?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+}
+
 func (s *Service) SendEmployeeInvitationEmail(to, firstName, invitationURL string) error {
 	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
 		log.Printf("[DEV MODE] Employee Invitation URL for %s (%s): %s", to, firstName, invitationURL)
@@ -102,6 +106,35 @@ func (s *Service) SendEmployeeInvitationEmail(to, firstName, invitationURL strin
 </body>
 </html>
 `, firstName, invitationURL, invitationURL)
+
+	return s.sendEmail(to, subject, body)
+}
+
+func (s *Service) SendPasswordResetEmail(to, resetURL string) error {
+	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
+		log.Printf("[DEV MODE] Password Reset URL for %s: %s", to, resetURL)
+		return nil
+	}
+
+	subject := "Reset Your Password"
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Reset Your Password</title>
+</head>
+<body>
+    <h2>Password Reset Request</h2>
+    <p>You requested to reset your password. Please click the link below to create a new password:</p>
+    <p><a href="%s" style="background-color: #FF9800; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+    <p>Or copy and paste this link into your browser:</p>
+    <p>%s</p>
+    <p>This link will expire in 1 hour.</p>
+    <p>If you did not request a password reset, please ignore this email.</p>
+</body>
+</html>
+`, resetURL, resetURL)
 
 	return s.sendEmail(to, subject, body)
 }

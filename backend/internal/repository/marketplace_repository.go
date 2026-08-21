@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/database"
-	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/models"
+	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/google/uuid"
 )
 
 type MarketplaceRepository struct {
-	db         *database.DB
+	db          *database.DB
 	productRepo *ProductRepository
 }
 
@@ -21,10 +21,15 @@ func NewMarketplaceRepository(db *database.DB, productRepo *ProductRepository) *
 	return &MarketplaceRepository{db: db, productRepo: productRepo}
 }
 
-func (r *MarketplaceRepository) ListPublicShops(city string, page, limit int) ([]*models.PublicShopResponse, int, error) {
+func (r *MarketplaceRepository) ListPublicShops(searchQuery, city string, page, limit int) ([]*models.PublicShopResponse, int, error) {
 	where := []string{"s.status = 'ACTIVE'"}
 	args := []interface{}{}
 	argIdx := 1
+	if searchQuery != "" {
+		where = append(where, fmt.Sprintf("(s.name ILIKE $%d OR b.name ILIKE $%d)", argIdx, argIdx))
+		args = append(args, "%"+searchQuery+"%")
+		argIdx++
+	}
 
 	if city != "" {
 		where = append(where, fmt.Sprintf("s.city ILIKE $%d", argIdx))
@@ -34,13 +39,13 @@ func (r *MarketplaceRepository) ListPublicShops(city string, page, limit int) ([
 
 	whereClause := strings.Join(where, " AND ")
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM shops s WHERE %s", whereClause)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM shops s JOIN businesses b ON b.id = s.business_id WHERE %s", whereClause)
 	var total int
 	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	query := fmt.Sprintf(`
+	sqlQuery := fmt.Sprintf(`
 		SELECT s.id, s.business_id, b.name as business_name, s.name, s.type, s.city, s.address, s.phone, s.status,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
@@ -52,12 +57,13 @@ func (r *MarketplaceRepository) ListPublicShops(city string, page, limit int) ([
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = s.business_id
 		WHERE %s
-		ORDER BY s.name ASC
+		ORDER BY CASE WHEN s.name ILIKE $%d THEN 0 WHEN b.name ILIKE $%d THEN 1 ELSE 2 END, s.name ASC
 		LIMIT $%d OFFSET $%d
-	`, whereClause, argIdx, argIdx+1)
+	`, whereClause, argIdx, argIdx, argIdx+1, argIdx+2)
+	args = append(args, searchQuery+"%")
 	args = append(args, limit, (page-1)*limit)
 
-	rows, err := r.db.Query(query, args...)
+	rows, err := r.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1105,4 +1111,3 @@ func (r *MarketplaceRepository) GetSimilarProducts(ctx context.Context, productI
 
 	return results, total, nil
 }
-

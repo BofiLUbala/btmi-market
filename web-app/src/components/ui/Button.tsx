@@ -10,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', block, size = 'md', loading, className = '', children, disabled, ...rest },
+  { variant = 'primary', block, size = 'md', loading, className = '', children, disabled, type = 'button', ...rest },
   ref
 ) {
   const cls = [
@@ -23,7 +23,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     .filter(Boolean)
     .join(' ')
   return (
-    <button ref={ref} className={cls} disabled={disabled || loading} {...rest}>
+    <button ref={ref} type={type} className={cls} disabled={disabled || loading} {...rest}>
       {loading && <span className="spinner" aria-hidden />}
       {children}
     </button>

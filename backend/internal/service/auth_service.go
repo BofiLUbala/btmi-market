@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/btmi-ai-market/backend/internal/config"
 	"github.com/btmi-ai-market/backend/internal/email"
@@ -18,26 +20,29 @@ import (
 )
 
 type AuthService struct {
-	userRepo          *repository.UserRepository
-	activationRepo    *repository.ActivationTokenRepository
-	refreshTokenRepo  *repository.RefreshTokenRepository
-	emailService      *email.Service
-	config            *config.Config
+	userRepo              *repository.UserRepository
+	activationRepo        *repository.ActivationTokenRepository
+	passwordResetRepo     *repository.PasswordResetTokenRepository
+	refreshTokenRepo      *repository.RefreshTokenRepository
+	emailService          *email.Service
+	config                *config.Config
 }
 
 func NewAuthService(
 	userRepo *repository.UserRepository,
 	activationRepo *repository.ActivationTokenRepository,
+	passwordResetRepo *repository.PasswordResetTokenRepository,
 	refreshTokenRepo *repository.RefreshTokenRepository,
 	emailService *email.Service,
 	cfg *config.Config,
 ) *AuthService {
 	return &AuthService{
-		userRepo:         userRepo,
-		activationRepo:   activationRepo,
-		refreshTokenRepo: refreshTokenRepo,
-		emailService:     emailService,
-		config:           cfg,
+		userRepo:          userRepo,
+		activationRepo:    activationRepo,
+		passwordResetRepo: passwordResetRepo,
+		refreshTokenRepo:  refreshTokenRepo,
+		emailService:      emailService,
+		config:            cfg,
 	}
 }
 
@@ -59,7 +64,7 @@ func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accou
 		return nil, errors.New("PASSWORD_CONFIRMATION_MISMATCH")
 	}
 
-	if len(req.Password) < 8 {
+	if !IsStrongPassword(req.Password) {
 		return nil, errors.New("PASSWORD_TOO_WEAK")
 	}
 
@@ -105,6 +110,30 @@ func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accou
 	}
 
 	return user, nil
+}
+
+// IsStrongPassword is the single registration/invitation policy used by the API.
+func IsStrongPassword(password string) bool {
+	length := utf8.RuneCountInString(password)
+	if length < 8 || length > 64 {
+		return false
+	}
+	var upper, lower, number, special bool
+	for _, r := range password {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			upper = true
+		case r >= 'a' && r <= 'z':
+			lower = true
+		case r >= '0' && r <= '9':
+			number = true
+		case unicode.IsSpace(r):
+			special = true
+		default:
+			special = true
+		}
+	}
+	return upper && lower && number && special
 }
 
 func (s *AuthService) ActivateAccount(token string) error {
@@ -157,6 +186,96 @@ func (s *AuthService) ResendActivation(emailAddr string) error {
 	}
 
 	return nil
+}
+
+func (s *AuthService) RequestPasswordReset(emailAddr string) error {
+	user, err := s.userRepo.GetByEmail(emailAddr)
+	if err != nil {
+		// Don't reveal if user exists or not for security
+		return nil
+	}
+
+	// Only allow password reset for active, verified users
+	if user.Status != models.UserStatusActive || !user.EmailVerified {
+		return nil
+	}
+
+	if err := s.passwordResetRepo.InvalidateAllForUser(user.ID); err != nil {
+		return fmt.Errorf("failed to invalidate old tokens: %w", err)
+	}
+
+	if err := s.sendPasswordResetEmail(user); err != nil {
+		return fmt.Errorf("failed to send password reset email: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) ConfirmPasswordReset(token, newPassword, newPasswordConfirmation string) error {
+	if newPassword != newPasswordConfirmation {
+		return errors.New("PASSWORD_CONFIRMATION_MISMATCH")
+	}
+
+	if !IsStrongPassword(newPassword) {
+		return errors.New("PASSWORD_TOO_WEAK")
+	}
+
+	tokenHash := HashToken(token)
+
+	resetToken, err := s.passwordResetRepo.GetByTokenHash(tokenHash)
+	if err != nil {
+		return errors.New("RESET_LINK_INVALID")
+	}
+
+	if resetToken.UsedAt != nil {
+		return errors.New("RESET_LINK_ALREADY_USED")
+	}
+
+	if time.Now().After(resetToken.ExpiresAt) {
+		return errors.New("RESET_LINK_EXPIRED")
+	}
+
+	if err := s.passwordResetRepo.MarkAsUsed(resetToken.ID); err != nil {
+		return fmt.Errorf("failed to mark token as used: %w", err)
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.userRepo.UpdatePassword(resetToken.UserID, string(hashedPassword)); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	// Revoke all refresh tokens for security
+	if err := s.refreshTokenRepo.RevokeAllForUser(resetToken.UserID); err != nil {
+		return fmt.Errorf("failed to revoke refresh tokens: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) sendPasswordResetEmail(user *models.User) error {
+	rawToken, err := GenerateSecureToken(32)
+	if err != nil {
+		return err
+	}
+
+	tokenHash := HashToken(rawToken)
+
+	resetToken := &models.PasswordResetToken{
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: time.Now().Add(1 * time.Hour), // 1 hour expiry for password reset
+	}
+
+	if err := s.passwordResetRepo.Create(resetToken); err != nil {
+		return err
+	}
+
+	resetURL := s.emailService.BuildPasswordResetURL(rawToken)
+	return s.emailService.SendPasswordResetEmail(user.Email, resetURL)
 }
 
 func (s *AuthService) Login(email, password, userAgent, ipAddress string) (*models.LoginResponse, error) {
@@ -341,10 +460,11 @@ func (s *AuthService) generateTokenPair(user *models.User, userAgent, ipAddress 
 
 func (s *AuthService) generateAccessToken(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
-		"sub": user.ID.String(),
-		"email": user.Email,
-		"iat": time.Now().Unix(),
-		"exp": time.Now().Add(time.Duration(s.config.AccessTokenTTL) * time.Minute).Unix(),
+		"sub":          user.ID.String(),
+		"email":        user.Email,
+		"account_type": string(user.AccountType),
+		"iat":          time.Now().Unix(),
+		"exp":          time.Now().Add(time.Duration(s.config.AccessTokenTTL) * time.Minute).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

@@ -2,19 +2,23 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '@/store/auth'
 import { useCart } from '@/store/cart'
+import { loginWithReturnTo } from '@/lib/returnTo'
 
-const NAV_LINKS = [
+const PUBLIC_NAV_LINKS = [
   { to: '/', label: 'Marketplace', icon: '🏪' },
   { to: '/categories', label: 'Categories', icon: '🗂️' },
   { to: '/shops', label: 'Shops', icon: '🏬' },
+]
+
+const PROTECTED_NAV_LINKS = [
   { to: '/favorites', label: 'Favorites', icon: '❤️' },
   { to: '/orders', label: 'Orders', icon: '📦' },
-  { to: '/points', label: 'Points', icon: '⭐' }
+  { to: '/points', label: 'Points', icon: '⭐' },
 ]
 
 export function Header() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const { totalQty } = useCart()
   const [drawer, setDrawer] = useState(false)
   const [q, setQ] = useState('')
@@ -22,6 +26,13 @@ export function Header() {
   function onSearch(e: FormEvent) {
     e.preventDefault()
     navigate(q.trim() ? `/search?q=${encodeURIComponent(q.trim())}` : '/search')
+  }
+
+  function getNavLink(path: string) {
+    if (!user) {
+      return loginWithReturnTo(path)
+    }
+    return path
   }
 
   return (
@@ -43,7 +54,7 @@ export function Header() {
         </form>
 
         <nav className="header-nav" aria-label="Primary">
-          {NAV_LINKS.map((l) => (
+          {PUBLIC_NAV_LINKS.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
@@ -53,12 +64,40 @@ export function Header() {
               {l.label}
             </NavLink>
           ))}
+
+          {loading ? (
+            // Show loading placeholders for protected links while auth restores
+            PROTECTED_NAV_LINKS.map((l) => (
+              <span key={l.to} className="header-link loading-placeholder" aria-hidden="true">
+                {l.label}
+              </span>
+            ))
+          ) : user ? (
+            // Logged in - direct links
+            <>
+              {PROTECTED_NAV_LINKS.map((l) => (
+                <NavLink
+                  key={l.to}
+                  to={l.to}
+                  className={({ isActive }) => `header-link ${isActive ? 'active' : ''}`}
+                >
+                  {l.label}
+                </NavLink>
+              ))}
+            </>
+          ) : (
+            // Logged out - links with returnTo
+            PROTECTED_NAV_LINKS.map((l) => (
+              <Link key={l.to} to={getNavLink(l.to)} className="header-link">
+                {l.label}
+              </Link>
+            ))
+          )}
+
           <Link to="/cart" className="header-link">
             🛒 {totalQty > 0 ? `(${totalQty})` : ''}
           </Link>
-          <Link to="/notifications" className="header-link">
-            🔔
-          </Link>
+
           {user ? (
             <Link to="/account" className="header-link">
               {user.first_name}
@@ -89,24 +128,42 @@ export function Header() {
                 ✕
               </button>
             </div>
-            <nav className="drawer-nav" onClick={() => setDrawer(false)}>
-              {NAV_LINKS.map((l) => (
-                <Link key={l.to} to={l.to}>
+<nav className="drawer-nav" onClick={() => setDrawer(false)}>
+              {PUBLIC_NAV_LINKS.map((l) => (
+                <Link key={l.to} to={l.to} className="dnav-link">
                   <span className="dnav-icon">{l.icon}</span> {l.label}
                 </Link>
               ))}
-              <Link to="/cart">
+              {loading ? (
+                PROTECTED_NAV_LINKS.map((l) => (
+                  <span key={l.to} className="dnav-link loading-placeholder" aria-hidden="true">
+                    <span className="dnav-icon">{l.icon}</span> {l.label}
+                  </span>
+                ))
+              ) : user ? (
+                <>
+                  {PROTECTED_NAV_LINKS.map((l) => (
+                    <Link key={l.to} to={l.to} className="dnav-link">
+                      <span className="dnav-icon">{l.icon}</span> {l.label}
+                    </Link>
+                  ))}
+                </>
+              ) : (
+                PROTECTED_NAV_LINKS.map((l) => (
+                  <Link key={l.to} to={getNavLink(l.to)} className="dnav-link">
+                    <span className="dnav-icon">{l.icon}</span> {l.label}
+                  </Link>
+                ))
+              )}
+              <Link to="/cart" className="dnav-link">
                 <span className="dnav-icon">🛒</span> Cart{totalQty > 0 ? ` (${totalQty})` : ''}
               </Link>
-              <Link to="/notifications">
-                <span className="dnav-icon">🔔</span> Notifications
-              </Link>
               {user ? (
-                <Link to="/account">
+                <Link to="/account" className="dnav-link">
                   <span className="dnav-icon">👤</span> Account
                 </Link>
               ) : (
-                <Link to="/login">
+                <Link to="/login" className="dnav-link">
                   <span className="dnav-icon">🔑</span> Sign in
                 </Link>
               )}
@@ -120,21 +177,52 @@ export function Header() {
 
 export function MobileNav() {
   const { totalQty } = useCart()
+  const { user, loading } = useAuth()
   const tabs = [
     { to: '/', label: 'Home', icon: '🏠', end: true },
     { to: '/search', label: 'Search', icon: '🔍', end: false },
+  ]
+  const protectedTabs = [
     { to: '/favorites', label: 'Favorites', icon: '❤️', end: false },
     { to: '/orders', label: 'Orders', icon: '📦', end: false },
     { to: '/account', label: 'Account', icon: '👤', end: false }
   ]
+
+  function getMobileLink(path: string) {
+    if (!user) return loginWithReturnTo(path)
+    return path
+  }
+
   return (
     <nav className="mobile-nav" aria-label="Mobile">
       {tabs.map((t) => (
-        <NavLink key={t.to} to={t.to} end={t.end}>
+        <NavLink key={t.to} to={t.to} end={t.end} className="mnav-link">
           <span className="mnav-icon">{t.icon}</span>
           {t.label === 'Cart' && totalQty > 0 ? `Cart (${totalQty})` : t.label}
         </NavLink>
       ))}
+      {loading ? (
+        protectedTabs.map((t) => (
+          <span key={t.to} className="mnav-link loading-placeholder" aria-hidden="true">
+            <span className="mnav-icon">{t.icon}</span> {t.label}
+          </span>
+        ))
+      ) : user ? (
+        protectedTabs.map((t) => (
+          <NavLink key={t.to} to={t.to} end={t.end} className="mnav-link">
+            <span className="mnav-icon">{t.icon}</span> {t.label}
+          </NavLink>
+        ))
+      ) : (
+        protectedTabs.map((t) => (
+          <Link key={t.to} to={getMobileLink(t.to)} className="mnav-link">
+            <span className="mnav-icon">{t.icon}</span> {t.label}
+          </Link>
+        ))
+      )}
+      <Link to="/cart" className="mnav-link">
+        <span className="mnav-icon">🛒</span> Cart{totalQty > 0 ? ` (${totalQty})` : ''}
+      </Link>
     </nav>
   )
 }

@@ -223,6 +223,88 @@ func (h *Handler) ResendActivation(c *gin.Context) {
 	})
 }
 
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	var req models.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_REQUEST",
+				Message: "Invalid request body: " + err.Error(),
+			},
+		})
+		return
+	}
+
+	// Always return success to prevent email enumeration
+	err := h.authService.RequestPasswordReset(req.Email)
+	if err != nil {
+		// Log the error but still return success for security
+		// The error is already handled in the service (returns nil for non-existent users)
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "If an account with that email exists, a password reset link has been sent.",
+	})
+}
+
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req models.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_REQUEST",
+				Message: "Invalid request body: " + err.Error(),
+			},
+		})
+		return
+	}
+
+	err := h.authService.ConfirmPasswordReset(req.Token, req.Password, req.PasswordConfirmation)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		errorCode := "INVALID_REQUEST"
+
+		switch err.Error() {
+		case "PASSWORD_CONFIRMATION_MISMATCH":
+			statusCode = http.StatusBadRequest
+			errorCode = "PASSWORD_CONFIRMATION_MISMATCH"
+		case "PASSWORD_TOO_WEAK":
+			statusCode = http.StatusBadRequest
+			errorCode = "PASSWORD_TOO_WEAK"
+		case "RESET_LINK_INVALID":
+			statusCode = http.StatusNotFound
+			errorCode = "RESET_LINK_INVALID"
+		case "RESET_LINK_ALREADY_USED":
+			statusCode = http.StatusConflict
+			errorCode = "RESET_LINK_ALREADY_USED"
+		case "RESET_LINK_EXPIRED":
+			statusCode = http.StatusGone
+			errorCode = "RESET_LINK_EXPIRED"
+		}
+
+		c.JSON(statusCode, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    errorCode,
+				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Password has been reset successfully. You can now login with your new password.",
+	})
+}
+
 func (h *Handler) Login(c *gin.Context) {
 	var req models.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

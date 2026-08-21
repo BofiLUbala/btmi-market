@@ -39,6 +39,7 @@ import NotificationsPage from '@/pages/buyer/NotificationsPage'
 import PendingPurchasesPage from '@/pages/buyer/PendingPurchasesPage'
 
 import { SellerLayout } from '@/components/seller/SellerLayout'
+import { SellerPublicLayout } from '@/components/seller/SellerPublicLayout'
 import SellerRegisterPage from '@/pages/seller/auth/SellerRegisterPage'
 import SellerLoginPage from '@/pages/seller/auth/SellerLoginPage'
 import SellerActivatePage from '@/pages/seller/auth/SellerActivatePage'
@@ -126,9 +127,8 @@ export default function App() {
               </Route>
 
               {/* Seller Routes */}
-              <Route element={<SellerLayout />}>
+              <Route element={<SellerPublicLayout />}>
                 <Route path="/seller" element={<SellerIndexRedirect />} />
-
                 <Route element={<PublicOnly />}>
                   <Route path="/seller/register" element={<SellerRegisterPage />} />
                   <Route path="/seller/login" element={<SellerLoginPage />} />
@@ -136,10 +136,11 @@ export default function App() {
                   <Route path="/employee/login" element={<EmployeeLoginPage />} />
                   <Route path="/employee/invite/accept" element={<EmployeeInvitationAcceptPage />} />
                 </Route>
-
                 <Route path="/seller/activate" element={<SellerActivatePage />} />
-                <Route path="/employee/invite/accept" element={<EmployeeInvitationAcceptPage />} />
+                <Route path="/activate-account" element={<SellerActivatePage />} />
+              </Route>
 
+              <Route element={<SellerLayout />}>
                 <Route element={<RequireSeller />}>
                   <Route path="/seller/onboarding" element={<SellerOnboardingPage />} />
                   <Route path="/seller/dashboard" element={<SellerDashboardPage />} />

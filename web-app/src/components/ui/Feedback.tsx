@@ -16,7 +16,7 @@ export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => vo
     <div className="error-box" role="alert">
       <span>{error}</span>
       {onRetry && (
-        <button className="btn btn-ghost btn-sm" onClick={onRetry}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onRetry}>
           Retry
         </button>
       )}

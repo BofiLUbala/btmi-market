@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
 import type { CategoryResponse } from '@/api/types'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { initials, asArray } from '@/lib/format'
+import { asArray } from '@/lib/format'
+import { getCategoryVisual } from '@/lib/categoryVisuals'
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<CategoryResponse[]>([])
@@ -28,20 +29,37 @@ export default function CategoriesPage() {
 
   return (
     <div className="fade-in">
-      <h1 style={{ marginBottom: 12 }}>Categories</h1>
-      <p className="muted small">Browse the marketplace by category.</p>
+      <h1 style={{ marginBottom: 8 }}>Categories</h1>
+      <p className="muted small" style={{ marginBottom: 20 }}>
+        Browse products by category and find what you need.
+      </p>
       <div className="cat-grid">
-        {categories.map((c) => (
-          <Link key={c.id} to={`/categories/${c.slug}`} className="cat-card card card-hover">
-            <div className="cat-icon">{initials(c.name)}</div>
-            <div className="bold">{c.name}</div>
-            {c.subcategories && c.subcategories.length > 0 && (
-              <div className="cat-sub small muted">
-                {c.subcategories.slice(0, 3).map((s) => s.name).join(' · ')}
+        {categories.map((c, index) => {
+          const visual = getCategoryVisual(c.slug)
+          return (
+            <Link
+              key={c.id}
+              to={`/categories/${c.slug}`}
+              className="cat-card card card-hover"
+              style={{
+                background: visual.background,
+              }}
+            >
+              <div className="cat-image-wrap">
+                <img className="cat-image" src={visual.image} alt={`${c.name} category`}
+                  loading={index < 4 ? 'eager' : 'lazy'} decoding="async" />
               </div>
-            )}
-          </Link>
-        ))}
+              <div className="cat-card-copy">
+                <div className="bold" style={{ color: visual.accent }}>{c.name}</div>
+                {c.subcategories && c.subcategories.length > 0 && (
+                  <div className="cat-sub small muted">
+                    {c.subcategories.slice(0, 3).map((s) => s.name).join(' · ')}
+                  </div>
+                )}
+                </div>
+            </Link>
+          )
+        })}
       </div>
     </div>
   )

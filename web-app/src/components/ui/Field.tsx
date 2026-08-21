@@ -1,4 +1,5 @@
 import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes, type Ref, useState } from 'react'
+import { EyeIcon, EyeOffIcon } from './Icons'
 
 interface FieldProps {
   label?: string
@@ -40,8 +41,8 @@ function renderField(
             ref={ref as Ref<HTMLInputElement>}
             id={fieldId}
             className={`input ${className}`}
-            type={shouldShowToggle && showPassword ? 'text' : rest.type}
             {...rest}
+            type={shouldShowToggle && showPassword ? 'text' : rest.type}
           />
         )}
         {shouldShowToggle && (
@@ -52,7 +53,7 @@ function renderField(
             aria-label={showPassword ? 'Hide password' : 'Show password'}
             aria-pressed={showPassword}
           >
-            {showPassword ? '🙈' : '👁️'}
+            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         )}
       </div>

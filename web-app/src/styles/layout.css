@@ -215,3 +215,33 @@
 @media (min-width: 640px) {
   .footer-inner { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* Header loading placeholders */
+.loading-placeholder {
+  opacity: 0.5;
+  pointer-events: none;
+  position: relative;
+}
+.loading-placeholder::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Mobile nav loading */
+.mnav-link.loading-placeholder {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Drawer nav loading */
+.dnav-link.loading-placeholder {
+  opacity: 0.5;
+  pointer-events: none;
+}

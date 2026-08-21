@@ -80,6 +80,7 @@ func main() {
 	reviewRepo := repository.NewReviewRepository(db)
 	employeeInvitationRepo := repository.NewEmployeeInvitationRepository(db)
 	employeeActivationTokenRepo := repository.NewEmployeeActivationTokenRepository(db)
+	passwordResetRepo := repository.NewPasswordResetTokenRepository(db)
 
 	redisClient := redislib.NewClient(cfg)
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
@@ -98,7 +99,7 @@ func main() {
 	pointRedemptionService := service.NewPointRedemptionService(pointAccountRepo, pointTxnRepo, levelRepo, productRepo, variantRepo, inventoryRepo, shopRepo, buyerProfileRepo, pointConfigRepo)
 
 	emailService := email.NewService(cfg)
-	authService := service.NewAuthService(userRepo, activationRepo, refreshTokenRepo, emailService, cfg)
+	authService := service.NewAuthService(userRepo, activationRepo, passwordResetRepo, refreshTokenRepo, emailService, cfg)
 	businessService := service.NewBusinessService(userRepo, businessRepo, membershipRepo, db)
 	shopService := service.NewShopService(shopRepo, membershipRepo, db)
 	employeeService := service.NewEmployeeService(
@@ -174,6 +175,8 @@ authGroup := api.Group("/auth")
 		authGroup.POST("/login", authHandler.Login)
 		authGroup.POST("/refresh", authHandler.Refresh)
 		authGroup.POST("/logout", authHandler.Logout)
+		authGroup.POST("/forgot-password", authHandler.ForgotPassword)
+		authGroup.POST("/reset-password", authHandler.ResetPassword)
 		authGroup.POST("/employee/invite/accept", authHandler.AcceptEmployeeInvitation)
 		authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
 	}

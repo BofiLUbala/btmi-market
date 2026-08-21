@@ -75,9 +75,7 @@ body.has-mobile-nav .page {
   }
 }
 
-.fade-in {
-  animation: fadeIn 0.25s ease;
-}
+.fade-in { /* Route content paints immediately to avoid a page-wide navigation flash. */ }
 
 @keyframes fadeIn {
   from {

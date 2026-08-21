@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { asArray } from '@/lib/format'
+import { getCategoryVisual } from '@/lib/categoryVisuals'
 
 export default function CategoryBrowsePage() {
   const { slug = '' } = useParams()
@@ -16,6 +17,9 @@ export default function CategoryBrowsePage() {
   const [sub, setSub] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+
+  const visual = getCategoryVisual(slug)
+  const categoryName = slug.replace(/-/g, ' ')
 
   useEffect(() => {
     setSub('')
@@ -59,7 +63,22 @@ export default function CategoryBrowsePage() {
     <div className="fade-in">
       <div className="row-between">
         <div>
-          <h1 style={{ marginBottom: 4 }}>{slug.replace(/-/g, ' ')}</h1>
+          <div
+            className="cat-detail-header"
+            style={{
+              background: visual.background,
+            }}
+          >
+            <img className="cat-detail-image" src={visual.image} alt={`${categoryName} category`} />
+            <div>
+              <h1 style={{ marginBottom: 4, color: visual.accent }}>
+                {categoryName}
+              </h1>
+              <p className="muted small">
+                Browse {categoryName} products from BTMI sellers.
+              </p>
+            </div>
+          </div>
           <Link to="/categories" className="small section-link">
             ← All categories
           </Link>
@@ -68,11 +87,12 @@ export default function CategoryBrowsePage() {
 
       {subs.length > 0 && (
         <div className="category-rail" style={{ marginTop: 12 }}>
-          <button className={`category-chip ${!sub ? 'selected' : ''}`} onClick={() => setSub('')}>
+          <button type="button" className={`category-chip ${!sub ? 'selected' : ''}`} onClick={() => setSub('')}>
             All
           </button>
           {subs.map((s) => (
             <button
+              type="button"
               key={s.id}
               className={`category-chip ${sub === s.slug ? 'selected' : ''}`}
               onClick={() => setSub(s.slug)}
@@ -84,7 +104,9 @@ export default function CategoryBrowsePage() {
       )}
 
       {products.length === 0 && !loading ? (
-        <p className="muted" style={{ padding: '32px 0' }}>No products in this category yet.</p>
+        <p className="muted" style={{ padding: '32px 0' }}>
+          No products in this category yet.
+        </p>
       ) : (
         <>
           <div className="product-grid">

@@ -15,16 +15,16 @@ import (
 )
 
 type EmployeeService struct {
-	employeeRepo       *repository.EmployeeRepository
-	assignmentRepo     *repository.AssignmentRepository
-	shopRepo           *repository.ShopRepository
-	membershipRepo     *repository.MembershipRepository
-	invitationRepo     *repository.EmployeeInvitationRepository
+	employeeRepo        *repository.EmployeeRepository
+	assignmentRepo      *repository.AssignmentRepository
+	shopRepo            *repository.ShopRepository
+	membershipRepo      *repository.MembershipRepository
+	invitationRepo      *repository.EmployeeInvitationRepository
 	activationTokenRepo *repository.EmployeeActivationTokenRepository
-	userRepo           *repository.UserRepository
-	emailService       *email.Service
-	config             *config.Config
-	db                 *database.DB
+	userRepo            *repository.UserRepository
+	emailService        *email.Service
+	config              *config.Config
+	db                  *database.DB
 }
 
 func NewEmployeeService(
@@ -40,16 +40,16 @@ func NewEmployeeService(
 	db *database.DB,
 ) *EmployeeService {
 	return &EmployeeService{
-		employeeRepo:       employeeRepo,
-		assignmentRepo:     assignmentRepo,
-		shopRepo:           shopRepo,
-		membershipRepo:     membershipRepo,
-		invitationRepo:     invitationRepo,
+		employeeRepo:        employeeRepo,
+		assignmentRepo:      assignmentRepo,
+		shopRepo:            shopRepo,
+		membershipRepo:      membershipRepo,
+		invitationRepo:      invitationRepo,
 		activationTokenRepo: activationTokenRepo,
-		userRepo:           userRepo,
-		emailService:       emailService,
-		config:             cfg,
-		db:                 db,
+		userRepo:            userRepo,
+		emailService:        emailService,
+		config:              cfg,
+		db:                  db,
 	}
 }
 
@@ -343,7 +343,7 @@ func (s *EmployeeService) AcceptEmployeeInvitation(req *models.AcceptEmployeeInv
 		return nil, errors.New("PASSWORD_CONFIRMATION_MISMATCH")
 	}
 
-	if len(req.Password) < 8 {
+	if !IsStrongPassword(req.Password) {
 		return nil, errors.New("PASSWORD_TOO_WEAK")
 	}
 
@@ -433,4 +433,8 @@ func (s *EmployeeService) GetEmployeeWorkspaceByUserID(userID uuid.UUID) (*model
 	}
 
 	return employee, shops, nil
+}
+
+func (s *EmployeeService) BuildEmployeeInvitationURL(token string) string {
+	return s.emailService.BuildEmployeeInvitationURL(token)
 }

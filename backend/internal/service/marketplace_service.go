@@ -23,14 +23,14 @@ func NewMarketplaceService(
 	}
 }
 
-func (s *MarketplaceService) ListShops(city string, page, limit int) ([]*models.PublicShopResponse, int, error) {
+func (s *MarketplaceService) ListShops(query, city string, page, limit int) ([]*models.PublicShopResponse, int, error) {
 	if page <= 0 {
 		page = 1
 	}
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	return s.marketplaceRepo.ListPublicShops(city, page, limit)
+	return s.marketplaceRepo.ListPublicShops(query, city, page, limit)
 }
 
 func (s *MarketplaceService) GetShop(shopID uuid.UUID) (*models.PublicShopResponse, error) {
@@ -100,12 +100,12 @@ func (s *MarketplaceService) GetProductPrice(productID uuid.UUID, buyerProfileID
 
 	if buyerProfileID == nil {
 		return &models.BuyerPriceResponse{
-			BasePrice:       basePrice,
-			BuyerLevel:      "BRONZE",
-			DiscountPercent: 0,
-			DiscountAmount:  0,
-			FinalPrice:      basePrice,
-			FreeDelivery:    false,
+			BasePrice:        basePrice,
+			BuyerLevel:       "BRONZE",
+			DiscountPercent:  0,
+			DiscountAmount:   0,
+			FinalPrice:       basePrice,
+			FreeDelivery:     false,
 			DeliveryDiscount: 0,
 		}, nil
 	}

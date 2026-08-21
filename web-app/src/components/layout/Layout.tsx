@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Header, MobileNav } from './Header'
 
@@ -16,17 +16,23 @@ function Footer() {
           <div>
             <h4>Marketplace</h4>
             <p className="small stack" style={{ gap: 4 }}>
-              <a href="/categories">Categories</a>
-              <a href="/shops">Shops</a>
-              <a href="/search">Search</a>
+              <Link to="/categories">Categories</Link>
+              <Link to="/shops">Shops</Link>
+              <Link to="/search">Search</Link>
             </p>
           </div>
           <div>
             <h4>Your account</h4>
             <p className="small stack" style={{ gap: 4 }}>
-              <a href="/orders">Orders</a>
-              <a href="/points">Points</a>
-              <a href="/account">Profile</a>
+              <Link to="/orders">Orders</Link>
+              <Link to="/points">Points</Link>
+              <Link to="/account">Profile</Link>
+            </p>
+          </div>
+          <div>
+            <h4>Vends tes produits avec nous</h4>
+            <p className="small stack" style={{ gap: 4 }}>
+              <Link to="/seller">Espace vendeur</Link>
             </p>
           </div>
         </div>

@@ -1,0 +1,793 @@
+﻿[
+    {
+        "Test":  "Seller register",
+        "Expected":  "200/201 + user_id",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Seller account created. Please activate your account.\",\r\n    \"data\":  {\r\n                 \"user_id\":  \"4ad3d1d8-8224-48e3-a15f-efd114544a97\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Seller DB row",
+        "Expected":  "SELLER|PENDING_VERIFICATION|hash=True",
+        "Actual":  "SELLER|PENDING_VERIFICATION|true",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Activate invalid token",
+        "Expected":  "404 ACTIVATION_LINK_INVALID",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Activate valid token",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Activated DB state",
+        "Expected":  "ACTIVE|true",
+        "Actual":  "ACTIVE|true",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Reuse used token",
+        "Expected":  "409 ALREADY_USED",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Seller login response",
+        "Expected":  "200 + account_type=SELLER + expires_in",
+        "Actual":  "HTTP 200 type=SELLER exp=900",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Login wrong password",
+        "Expected":  "401 INVALID_CREDENTIALS",
+        "Actual":  "HTTP 401",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "GET /auth/me",
+        "Expected":  "200 account_type=SELLER",
+        "Actual":  "HTTP 200 type=SELLER",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Refresh token rotation",
+        "Expected":  "200 + new refresh != old",
+        "Actual":  "HTTP 200 rotated=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Old refresh revoked",
+        "Expected":  "401 REFRESH_TOKEN_REVOKED",
+        "Actual":  "HTTP 401",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "List businesses (empty)",
+        "Expected":  "200 []",
+        "Actual":  "HTTP 200 count=0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create business",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Business created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                 \"name\":  \"Web Test Biz 045337\",\r\n                 \"business_type\":  \"RETAIL\",\r\n                 \"category\":  \"general\",\r\n                 \"phone\":  \"+243811000100\",\r\n                 \"whatsapp\":  \"\",\r\n                 \"email\":  \"seller_web_045337@test.com\",\r\n                 \"country\":  \"CD\",\r\n                 \"city\":  \"Kinshasa\",\r\n                 \"default_currency\":  \"USD\",\r\n                 \"status\":  \"ACTIVE\",\r\n                 \"created_at\":  \"2026-08-21T03:53:41.75334Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:53:41.75334Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Business listed for owner",
+        "Expected":  "business visible",
+        "Actual":  "found=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "OWNER membership in DB",
+        "Expected":  "OWNER",
+        "Actual":  "OWNER",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create Shop A",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create Shop B",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shop A persisted (GET)",
+        "Expected":  "200 correct business_id",
+        "Actual":  "HTTP 200 biz=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Categories available",
+        "Expected":  "\u003e=1 category",
+        "Actual":  "cat=34ee875b-0c79-4eef-897d-dac1cd07cad1",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create product",
+        "Expected":  "200/201 DRAFT",
+        "Actual":  "HTTP 200 pub=DRAFT",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Publish product",
+        "Expected":  "200 PUBLISHED",
+        "Actual":  "HTTP 200 pub=PUBLISHED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create variant",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Add stock +10",
+        "Expected":  "200 available=10",
+        "Actual":  "HTTP 200 avail=10",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Inventory fields",
+        "Expected":  "on_hand/reserved/available present",
+        "Actual":  "rows=1 qty=10",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Record sale qty 2",
+        "Expected":  "200/201 success",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Sale recorded successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"3ae44332-5074-44e2-9cd8-fe3480df8abf\",\r\n                 \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                 \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                 \"product_id\":  \"cb69da3a-bef2-44aa-84c3-636df0200d81\",\r\n                 \"variant_id\":  \"fec4d682-103b-41e8-90cc-ec40edd3e599\",\r\n                 \"quantity\":  8,\r\n                 \"reserved_quantity\":  0,\r\n                 \"available\":  8,\r\n                 \"created_at\":  \"2026-08-21T03:53:42.385052Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:53:42.450621Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Stock after sale = 8",
+        "Expected":  "available=8",
+        "Actual":  "avail=8",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "SALE movement created",
+        "Expected":  "SALE movement with delta=2",
+        "Actual":  "HTTP 200 total=2 saleCount=1 type=SALE_PHYSICAL prev=10 new=8",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Stock movements retrieved successfully\",\r\n    \"data\":  [\r\n                 {\r\n                     \"id\":  \"a9584e96-61df-4207-ae83-3db03c8a0308\",\r\n                     \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                     \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                     \"product_id\":  \"cb69da3a-bef2-44aa-84c3-636df0200d81\",\r\n                     \"variant_id\":  \"fec4d682-103b-41e8-90cc-ec40edd3e599\",\r\n                     \"movement_type\":  \"SALE_PHYSICAL\",\r\n                     \"quantity\":  -2,\r\n                     \"previous_quantity\":  10,\r\n                     \"new_quantity\":  8,\r\n                     \"notes\":  \"\",\r\n                     \"performed_by\":  \"4ad3d1d8-8224-48e3-a15f-efd114544a97\",\r\n                     \"employee_id\":  null,\r\n                     \"created_at\":  \"2026-08-21T03:53:42.450621Z\"\r\n                 },\r\n                 {\r\n                     \"id\":  \"acfaa5a3-eabf-4219-b614-b16c3bcb2812\",\r\n                     \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                     \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                     \"product_id\":  \"cb69da3a-bef2-44aa-84c3-636df0200d81\",\r\n                     \"variant_id\":  \"fec4d682-103b-41e8-90cc-ec40edd3e599\",\r\n                     \"movement_type\":  \"STOCK_IN\",\r\n                     \"quantity\":  10,\r\n                     \"previous_quantity\":  0,\r\n                     \"new_quantity\":  10,\r\n                     \"notes\":  \"\",\r\n                     \"performed_by\":  \"4ad3d1d8-8224-48e3-a15f-efd114544a97\",\r\n                     \"employee_id\":  null,\r\n                     \"created_at\":  \"2026-08-21T03:53:42.385052Z\"\r\n                 }\r\n             ]\r\n}"
+    },
+    {
+        "Test":  "Insufficient stock rejected",
+        "Expected":  "400/409 no negative stock",
+        "Actual":  "HTTP 409 code=",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create race variant",
+        "Expected":  "created",
+        "Actual":  "HTTP 200 id=91a9851b-fa50-4949-b766-f9ebd1cb3b96",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Variant created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"91a9851b-fa50-4949-b766-f9ebd1cb3b96\",\r\n                 \"product_id\":  \"cb69da3a-bef2-44aa-84c3-636df0200d81\",\r\n                 \"sku\":  \"VAR-RACE-045337\",\r\n                 \"name\":  \"Race Variant\",\r\n                 \"attributes\":  {\r\n\r\n                                },\r\n                 \"sale_price\":  5000,\r\n                 \"purchase_price\":  0,\r\n                 \"barcode\":  \"\",\r\n                 \"unit\":  \"PCS\",\r\n                 \"status\":  \"ACTIVE\",\r\n                 \"created_at\":  \"2026-08-21T03:53:42.535752Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:53:42.535752Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Stock race variant = 1",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Stock added successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"b60dfcad-5433-4cc0-8c74-e5e53586df8a\",\r\n                 \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                 \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                 \"product_id\":  \"cb69da3a-bef2-44aa-84c3-636df0200d81\",\r\n                 \"variant_id\":  \"91a9851b-fa50-4949-b766-f9ebd1cb3b96\",\r\n                 \"quantity\":  1,\r\n                 \"reserved_quantity\":  0,\r\n                 \"available\":  1,\r\n                 \"created_at\":  \"2026-08-21T03:53:42.548546Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:53:42.548546Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Concurrent oversell blocked",
+        "Expected":  "exactly one sale wins, final stock \u003e= 0",
+        "Actual":  "j1= OK j2=ERR:409 avail=0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create customer",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Update customer",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Customer update persisted",
+        "Expected":  "phone=+243822000999",
+        "Actual":  "HTTP 200 phone=+243822000999",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Open cash session",
+        "Expected":  "201 OPEN",
+        "Actual":  "HTTP 200 status=OPEN",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Duplicate open session rejected",
+        "Expected":  "400/409",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Close cash session",
+        "Expected":  "200 CLOSED",
+        "Actual":  "HTTP 200 status=CLOSED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Reconcile session",
+        "Expected":  "200 RECONCILED",
+        "Actual":  "HTTP 200 status=RECONCILED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Business cash summary",
+        "Expected":  "200 total_cash_sales present",
+        "Actual":  "HTTP 200 sales=0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth points endpoint",
+        "Expected":  "200 or 404 pre-transaction (lazy account)",
+        "Actual":  "HTTP 404 code= pts=",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth level+trust",
+        "Expected":  "200 level/trust data",
+        "Actual":  "HTTP 200 level=STARTER trust=",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth benefits",
+        "Expected":  "200 benefits array",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth history",
+        "Expected":  "200 transactions",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller creates order",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Order created successfully\",\r\n    \"data\":  {\r\n                 \"order\":  {\r\n                               \"id\":  \"39f14eb2-a16b-44fe-a546-2701fee2b128\",\r\n                               \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                               \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                               \"customer_id\":  \"ae571fa4-9638-4437-9728-fd2a5319ad93\",\r\n                               \"buyer_profile_id\":  null,\r\n                               \"status\":  \"PENDING\",\r\n                               \"total_items\":  1,\r\n                               \"notes\":  \"walk-in sale\",\r\n                               \"created_by\":  \"4ad3d1d8-8224-48e3-a15f-efd114544a97\",\r\n                               \"base_total\":  0,\r\n                               \"points_used\":  0,\r\n                               \"points_discount_amount\":  0,\r\n                               \"final_total\":  0,\r\n                               \"idempotency_key\":  null,\r\n                               \"order_number\":  \"BTMI-1124\",\r\n                               \"delivery_method\":  \"\",\r\n                               \"delivery_fee_base\":  0,\r\n                               \"delivery_points_used\":  0,\r\n                               \"delivery_points_discount\":  0,\r\n                               \"delivery_fee_final\":  0,\r\n                               \"delivery_contact_name\":  \"\",\r\n                               \"delivery_phone\":  \"\",\r\n                               \"delivery_address\":  \"\",\r\n                               \"delivery_notes\":  \"\",\r\n                               \"points_finalized\":  false,\r\n                               \"created_at\":  \"2026-08-21T03:53:51.130408Z\",\r\n                               \"updated_at\":  \"2026-08-21T03:53:51.130408Z\"\r\n                           },\r\n                 \"lines\":  [\r\n                               {\r\n                                   \"id\":  \"c5af9afd-7930-44f8-966a-2ac5c99f5340\",\r\n                                   \"order_id\":  \"39f14eb2-a16b-44fe-a546-2701fee2b128\",\r\n                                   \"product_id\":  \"cb69da3a-bef2-44aa-84c3-636df0200d81\",\r\n                                   \"variant_id\":  \"fec4d682-103b-41e8-90cc-ec40edd3e599\",\r\n                                   \"quantity\":  1,\r\n                                   \"unit_price\":  15000,\r\n                                   \"base_unit_price\":  0,\r\n                                   \"points_discount_per_unit\":  0,\r\n                                   \"final_unit_price\":  0,\r\n                                   \"created_at\":  \"2026-08-21T03:53:51.130408Z\"\r\n                               }\r\n                           ]\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Order accept",
+        "Expected":  "200 ACCEPTED",
+        "Actual":  "HTTP 200 st=ACCEPTED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Invalid transition (accept twice)",
+        "Expected":  "400/409 rejected",
+        "Actual":  "HTTP 400",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Order prepare",
+        "Expected":  "200 PREPARING",
+        "Actual":  "HTTP 200 st=PREPARING",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Order complete",
+        "Expected":  "200 COMPLETED",
+        "Actual":  "HTTP 200 st=COMPLETED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create employee",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Assign employee to Shop A",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Duplicate assignment rejected",
+        "Expected":  "409 ALREADY_ASSIGNED",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Assignment to unknown shop fails",
+        "Expected":  "404 SHOP_NOT_FOUND",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Send invitation",
+        "Expected":  "200/201 PENDING",
+        "Actual":  "HTTP 200 st=PENDING",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Invitation expiry ~7 days",
+        "Expected":  "between 167-169h",
+        "Actual":  "168h",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Invitation stores 64-char hash only",
+        "Expected":  "1 row, hash len 64",
+        "Actual":  "1",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Duplicate pending invite rejected",
+        "Expected":  "409 INVITATION_ALREADY_PENDING",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Accept invitation",
+        "Expected":  "200 + user_id",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee user linked + EMPLOYEE type",
+        "Expected":  "EMPLOYEE",
+        "Actual":  "EMPLOYEE",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Invitation token single-use",
+        "Expected":  "400/404/409 rejected",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee login",
+        "Expected":  "200 EMPLOYEE",
+        "Actual":  "HTTP 200 type=EMPLOYEE",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "GET /employees/me",
+        "Expected":  "200 employee + Shop A only",
+        "Actual":  "HTTP 200 shops=3e481b8f-a664-4a3f-a77e-e684dde6b2bd",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee reads Shop A inventory",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee reads Shop B inventory",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee adds stock to Shop B",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee lists Shop B orders",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee self-assign shop blocked",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee self-update blocked",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee self-invite blocked",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee adds stock Shop A",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee records sale Shop A",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Sale movement keeps actor identity",
+        "Expected":  "performed_by NOT NULL",
+        "Actual":  "t",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Setup Business B + shop",
+        "Expected":  "created",
+        "Actual":  "biz=935a6a34-0db0-46c6-887b-694593b428b6 shop=75d82676-f7a1-4051-8e8e-58672fafd45d",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Owner A gets Business B detail",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B shops",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B employees",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B products",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B orders",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B customers",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A gets Business B cash summary",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A creates shop in Business B",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A creates employee in Business B",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee A reads Business B shop inventory",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Buyer register+activate+login",
+        "Expected":  "200 BUYER",
+        "Actual":  "type=BUYER",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "BUYER cannot create business",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "BUYER sees no businesses",
+        "Expected":  "200 empty/null",
+        "Actual":  "HTTP 200 count=0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates profile",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Buyer profile created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"4364cacd-338e-4bcf-ae7d-b8f21a857fb9\",\r\n                 \"user_id\":  \"9fbf0cc2-ae16-45fb-a3e0-7fc1db4b4bc7\",\r\n                 \"first_name\":  \"Buyer\",\r\n                 \"last_name\":  \"T\",\r\n                 \"phone\":  \"+243999000111\",\r\n                 \"email\":  \"buyer_web_045337@test.com\",\r\n                 \"city\":  \"Kinshasa\",\r\n                 \"commune\":  \"Gombe\",\r\n                 \"status\":  \"ACTIVE\",\r\n                 \"created_at\":  \"2026-08-21T03:53:55.395508Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:53:55.395508Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Product visible in marketplace",
+        "Expected":  "200 published",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer order preview",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates order",
+        "Expected":  "200/201 PENDING",
+        "Actual":  "HTTP 200 st=PENDING",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Buyer order created successfully\",\r\n    \"data\":  {\r\n                 \"order\":  {\r\n                               \"id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                               \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                               \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                               \"customer_id\":  null,\r\n                               \"buyer_profile_id\":  \"4364cacd-338e-4bcf-ae7d-b8f21a857fb9\",\r\n                               \"status\":  \"PENDING\",\r\n                               \"total_items\":  1,\r\n                               \"notes\":  \"\",\r\n                               \"created_by\":  null,\r\n                               \"base_total\":  15000,\r\n                               \"points_used\":  0,\r\n                               \"points_discount_amount\":  0,\r\n                               \"final_total\":  15000,\r\n                               \"idempotency_key\":  \"022ab5b0-34db-461c-8b90-a3badb8da94f\",\r\n                               \"order_number\":  \"BTMI-1125\",\r\n                               \"delivery_method\":  \"\",\r\n                               \"delivery_fee_base\":  0,\r\n                               \"delivery_points_used\":  0,\r\n                               \"delivery_points_discount\":  0,\r\n                               \"delivery_fee_final\":  0,\r\n                               \"delivery_contact_name\":  \"\",\r\n                               \"delivery_phone\":  \"\",\r\n                               \"delivery_address\":  \"\",\r\n                               \"delivery_notes\":  \"\",\r\n                               \"points_finalized\":  false,\r\n                               \"created_at\":  \"2026-08-21T03:53:55.532832Z\",\r\n                               \"updated_at\":  \"2026-08-21T03:53:55.532832Z\"\r\n                           },\r\n                 \"lines\":  [\r\n                               {\r\n                                   \"id\":  \"885e3e62-5d60-4d4a-a3d2-6c19aa904dce\",\r\n                                   \"order_id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                                   \"product_id\":  \"cb69da3a-bef2-44aa-84c3-636df0200d81\",\r\n                                   \"variant_id\":  \"fec4d682-103b-41e8-90cc-ec40edd3e599\",\r\n                                   \"quantity\":  1,\r\n                                   \"unit_price\":  15000,\r\n                                   \"base_unit_price\":  15000,\r\n                                   \"points_discount_per_unit\":  0,\r\n                                   \"final_unit_price\":  15000,\r\n                                   \"created_at\":  \"2026-08-21T03:53:55.532832Z\"\r\n                               }\r\n                           ]\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Seller sees buyer order in Shop A",
+        "Expected":  "order listed",
+        "Actual":  "found=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller accepts buyer order",
+        "Expected":  "200 ACCEPTED",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer delivery options",
+        "Expected":  "200",
+        "Actual":  "HTTP 200 opts=2",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer selects delivery",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates payment",
+        "Expected":  "200/201 PENDING",
+        "Actual":  "HTTP 200 st=PENDING",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Cash payment created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"06cc9119-980b-478f-9bed-ad8652b9f457\",\r\n                 \"order_id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                 \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                 \"shop_name\":  \"Shop A 045337\",\r\n                 \"buyer_profile_id\":  \"4364cacd-338e-4bcf-ae7d-b8f21a857fb9\",\r\n                 \"payment_method\":  \"CASH\",\r\n                 \"currency\":  \"CDF\",\r\n                 \"products_base_total\":  15000,\r\n                 \"products_points_used\":  0,\r\n                 \"products_points_discount\":  0,\r\n                 \"products_final_total\":  15000,\r\n                 \"delivery_fee_base\":  0,\r\n                 \"delivery_points_used\":  0,\r\n                 \"delivery_points_discount\":  0,\r\n                 \"delivery_fee_final\":  0,\r\n                 \"cash_due\":  15000,\r\n                 \"buyer_confirmed\":  false,\r\n                 \"buyer_confirmed_at\":  null,\r\n                 \"seller_confirmed\":  false,\r\n                 \"seller_confirmed_by\":  null,\r\n                 \"seller_confirmed_at\":  null,\r\n                 \"status\":  \"PENDING\",\r\n                 \"verified_at\":  null,\r\n                 \"created_at\":  \"2026-08-21T03:53:55.681503Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:53:55.681503Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Buyer confirms paid -\u003e CONFIRMED (not VERIFIED)",
+        "Expected":  "CONFIRMED",
+        "Actual":  "HTTP 200 st=CONFIRMED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller confirms cash -\u003e VERIFIED",
+        "Expected":  "VERIFIED",
+        "Actual":  "HTTP 200 st=VERIFIED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Worker processed jobs without errors",
+        "Expected":  "no errors in recent worker log",
+        "Actual":  "clean",
+        "Pass":  true,
+        "Notes":  "worker-1  | 2026/08/21 03:53:56 Verified payment 06cc9119-980b-478f-9bed-ad8652b9f457 processed successfully"
+    },
+    {
+        "Test":  "Verified transaction recorded",
+        "Expected":  "\u003e=1",
+        "Actual":  "1",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller growth points after verified sale",
+        "Expected":  "current_points \u003e 0",
+        "Actual":  "HTTP 200 pts=15",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller prepares order",
+        "Expected":  "200 PREPARING",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Order preparation started\",\r\n    \"data\":  {\r\n                 \"id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                 \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                 \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                 \"customer_id\":  null,\r\n                 \"buyer_profile_id\":  null,\r\n                 \"status\":  \"PREPARING\",\r\n                 \"total_items\":  1,\r\n                 \"notes\":  \"\",\r\n                 \"created_by\":  null,\r\n                 \"base_total\":  0,\r\n                 \"points_used\":  0,\r\n                 \"points_discount_amount\":  0,\r\n                 \"final_total\":  0,\r\n                 \"idempotency_key\":  null,\r\n                 \"order_number\":  \"\",\r\n                 \"delivery_method\":  \"\",\r\n                 \"delivery_fee_base\":  0,\r\n                 \"delivery_points_used\":  0,\r\n                 \"delivery_points_discount\":  0,\r\n                 \"delivery_fee_final\":  0,\r\n                 \"delivery_contact_name\":  \"\",\r\n                 \"delivery_phone\":  \"\",\r\n                 \"delivery_address\":  \"\",\r\n                 \"delivery_notes\":  \"\",\r\n                 \"points_finalized\":  false,\r\n                 \"created_at\":  \"2026-08-21T03:53:55.532832Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:54:01.512944Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Seller marks READY_FOR_PICKUP",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Order status updated\",\r\n    \"data\":  {\r\n                 \"id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                 \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                 \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                 \"customer_id\":  null,\r\n                 \"buyer_profile_id\":  \"4364cacd-338e-4bcf-ae7d-b8f21a857fb9\",\r\n                 \"status\":  \"READY_FOR_PICKUP\",\r\n                 \"total_items\":  1,\r\n                 \"notes\":  \"\",\r\n                 \"created_by\":  null,\r\n                 \"base_total\":  15000,\r\n                 \"points_used\":  0,\r\n                 \"points_discount_amount\":  0,\r\n                 \"final_total\":  15000,\r\n                 \"idempotency_key\":  \"022ab5b0-34db-461c-8b90-a3badb8da94f\",\r\n                 \"order_number\":  \"BTMI-1125\",\r\n                 \"delivery_method\":  \"PICKUP\",\r\n                 \"delivery_fee_base\":  0,\r\n                 \"delivery_points_used\":  0,\r\n                 \"delivery_points_discount\":  0,\r\n                 \"delivery_fee_final\":  0,\r\n                 \"delivery_contact_name\":  \"Buyer T\",\r\n                 \"delivery_phone\":  \"+243999000000\",\r\n                 \"delivery_address\":  \"Test addr\",\r\n                 \"delivery_notes\":  \"\",\r\n                 \"points_finalized\":  true,\r\n                 \"accepted_at\":  \"2026-08-21T03:53:55.594044Z\",\r\n                 \"preparing_at\":  \"2026-08-21T03:54:01.512944Z\",\r\n                 \"ready_at\":  \"2026-08-21T03:54:01.530324Z\",\r\n                 \"created_at\":  \"2026-08-21T03:53:55.532832Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:54:01.530324Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Buyer confirms received",
+        "Expected":  "200 COMPLETED (auto)",
+        "Actual":  "HTTP 200 st=COMPLETED",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Order received confirmed\",\r\n    \"data\":  {\r\n                 \"id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                 \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                 \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                 \"customer_id\":  null,\r\n                 \"buyer_profile_id\":  \"4364cacd-338e-4bcf-ae7d-b8f21a857fb9\",\r\n                 \"status\":  \"COMPLETED\",\r\n                 \"total_items\":  1,\r\n                 \"notes\":  \"\",\r\n                 \"created_by\":  null,\r\n                 \"base_total\":  15000,\r\n                 \"points_used\":  0,\r\n                 \"points_discount_amount\":  0,\r\n                 \"final_total\":  15000,\r\n                 \"idempotency_key\":  \"022ab5b0-34db-461c-8b90-a3badb8da94f\",\r\n                 \"order_number\":  \"BTMI-1125\",\r\n                 \"delivery_method\":  \"PICKUP\",\r\n                 \"delivery_fee_base\":  0,\r\n                 \"delivery_points_used\":  0,\r\n                 \"delivery_points_discount\":  0,\r\n                 \"delivery_fee_final\":  0,\r\n                 \"delivery_contact_name\":  \"Buyer T\",\r\n                 \"delivery_phone\":  \"+243999000000\",\r\n                 \"delivery_address\":  \"Test addr\",\r\n                 \"delivery_notes\":  \"\",\r\n                 \"points_finalized\":  true,\r\n                 \"accepted_at\":  \"2026-08-21T03:53:55.594044Z\",\r\n                 \"preparing_at\":  \"2026-08-21T03:54:01.512944Z\",\r\n                 \"ready_at\":  \"2026-08-21T03:54:01.530324Z\",\r\n                 \"received_at\":  \"2026-08-21T03:54:01.549789Z\",\r\n                 \"completed_at\":  \"2026-08-21T03:54:01.561435Z\",\r\n                 \"created_at\":  \"2026-08-21T03:53:55.532832Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:54:01.561435Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Terminal order rejects transition",
+        "Expected":  "400",
+        "Actual":  "HTTP 400",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Review eligibility",
+        "Expected":  "eligible=true",
+        "Actual":  "HTTP 200 eligible=True reason=VERIFIED_COMPLETED_PURCHASE",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates review",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Review created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"a1a51196-7a49-4a5e-aa4e-1da1f3884c22\",\r\n                 \"order_id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                 \"buyer_profile_id\":  \"4364cacd-338e-4bcf-ae7d-b8f21a857fb9\",\r\n                 \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                 \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                 \"rating\":  5,\r\n                 \"comment\":  \"Great service, fast pickup!\",\r\n                 \"verified_purchase\":  true,\r\n                 \"status\":  \"ACTIVE\",\r\n                 \"created_at\":  \"2026-08-21T03:54:01.630062Z\",\r\n                 \"updated_at\":  \"2026-08-21T03:54:01.630062Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Seller reads shop reviews",
+        "Expected":  "200 with review",
+        "Actual":  "HTTP 200 total=1",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller cannot edit buyer review",
+        "Expected":  "401/403/404",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Seller cannot delete buyer review",
+        "Expected":  "401/403/404",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Marketplace products list",
+        "Expected":  "200",
+        "Actual":  "HTTP 200 count=2",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Marketplace search",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Marketplace categories",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer points endpoint",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer orders list",
+        "Expected":  "200 includes order",
+        "Actual":  "HTTP 200 count=1",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Buyer orders retrieved successfully\",\r\n    \"data\":  [\r\n                 {\r\n                     \"id\":  \"89b0f950-c5fe-4059-b23d-987a88eeddaa\",\r\n                     \"business_id\":  \"91eb7ec0-476f-41f3-9845-af89f864f129\",\r\n                     \"shop_id\":  \"3e481b8f-a664-4a3f-a77e-e684dde6b2bd\",\r\n                     \"customer_id\":  null,\r\n                     \"buyer_profile_id\":  \"4364cacd-338e-4bcf-ae7d-b8f21a857fb9\",\r\n                     \"status\":  \"COMPLETED\",\r\n                     \"total_items\":  1,\r\n                     \"notes\":  \"\",\r\n                     \"created_by\":  null,\r\n                     \"base_total\":  15000,\r\n                     \"points_used\":  0,\r\n                     \"points_discount_amount\":  0,\r\n                     \"final_total\":  15000,\r\n                     \"idempotency_key\":  \"022ab5b0-34db-461c-8b90-a3badb8da94f\",\r\n                     \"order_number\":  \"BTMI-1125\",\r\n                     \"delivery_method\":  \"PICKUP\",\r\n                     \"delivery_fee_base\":  0,\r\n                     \"delivery_points_used\":  0,\r\n                     \"delivery_points_discount\":  0,\r\n                     \"delivery_fee_final\":  0,\r\n                     \"delivery_contact_name\":  \"Buyer T\",\r\n                     \"delivery_phone\":  \"+243999000000\",\r\n                     \"delivery_address\":  \"Test addr\",\r\n                     \"delivery_notes\":  \"\",\r\n                     \"points_finalized\":  true,\r\n                     \"accepted_at\":  \"2026-08-21T03:53:55.594044Z\",\r\n                     \"preparing_at\":  \"2026-08-21T03:54:01.512944Z\",\r\n                     \"ready_at\":  \"2026-08-21T03:54:01.530324Z\",\r\n                     \"out_for_delivery_at\":  null,\r\n                     \"delivered_at\":  null,\r\n                     \"received_at\":  \"2026-08-21T03:54:01.549789Z\",\r\n                     \"completed_at\":  \"2026-08-21T03:54:01.561435Z\",\r\n                     \"created_at\":  \"2026-08-21T03:53:55.532832Z\",\r\n                     \"updated_at\":  \"2026-08-21T03:54:01.561435Z\"\r\n                 }\r\n             ]\r\n}"
+    }
+]

@@ -10,6 +10,7 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
   const first = product.variants?.[0]
   return (
     <button
+      type="button"
       className="btn btn-sm"
       style={{
         background: 'rgba(0,0,0,0.35)',

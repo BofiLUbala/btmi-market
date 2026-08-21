@@ -44,7 +44,7 @@ type RegisterRequest struct {
 	LastName             string `json:"last_name" binding:"required"`
 	Phone                string `json:"phone" binding:"required"`
 	Email                string `json:"email" binding:"required,email"`
-	Password             string `json:"password" binding:"required,min=8"`
+	Password             string `json:"password" binding:"required,min=8,max=64"`
 	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
 }
 
@@ -81,6 +81,16 @@ type RefreshResponse struct {
 
 type ResendActivationRequest struct {
 	Email string `json:"email" binding:"required,email"`
+}
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ResetPasswordRequest struct {
+	Token                 string `json:"token" binding:"required"`
+	Password              string `json:"password" binding:"required,min=8,max=64"`
+	PasswordConfirmation  string `json:"password_confirmation" binding:"required"`
 }
 
 type ErrorResponse struct {

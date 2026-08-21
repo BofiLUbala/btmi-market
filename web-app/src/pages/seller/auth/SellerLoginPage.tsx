@@ -38,10 +38,11 @@ export default function SellerLoginPage() {
   }
 
   return (
-    <div className="auth-wrap">
-      <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Seller Sign In</h1>
-        <p className="muted small">Access your seller dashboard to manage your business.</p>
+    <div className="seller-login-wrap">
+      <form className="card seller-login-card" onSubmit={onSubmit}>
+        <span className="seller-eyebrow">BTMI Seller</span>
+        <h1>Bienvenue</h1>
+        <p className="muted">Connectez-vous pour gérer votre commerce.</p>
         {error && <ErrorBox error={error} />}
         <Field
           label="Email"
@@ -62,18 +63,20 @@ export default function SellerLoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
+          showPasswordToggle
         />
         <Button type="submit" block size="lg" loading={busy}>
-          Sign in
+          Se connecter
         </Button>
         <p className="small muted">
           No seller account? <Link to="/seller/register" className="section-link">Create one</Link>
           <br />
-          Not activated? <Link to="/seller/activation" className="section-link">Resend email</Link>
+          Not activated? <Link to="/seller/resend-activation" className="section-link">Resend email</Link>
         </p>
         <p className="small muted" style={{ marginTop: 8 }}>
           Employee? <Link to="/employee/login" className="section-link">Sign in as Employee</Link>
         </p>
+        <Link to="/" className="seller-auth-back">← Retour au Marketplace</Link>
       </form>
     </div>
   )

@@ -134,3 +134,9 @@ func (r *UserRepository) PhoneExists(phone string) (bool, error) {
 	err := r.db.QueryRow(query, phone).Scan(&exists)
 	return exists, err
 }
+
+func (r *UserRepository) UpdatePassword(id uuid.UUID, passwordHash string) error {
+	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
+	_, err := r.db.Exec(query, passwordHash, id)
+	return err
+}

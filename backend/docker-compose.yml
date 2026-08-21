@@ -27,7 +27,6 @@ services:
       - REDIS_DB=${REDIS_DB:-0}
       - BACKGROUND_WORKER_ENABLED=false
       - MIGRATIONS_DIR=/migrations
-      - E2E_TEST_MODE=true
     volumes:
       - ./migrations:/migrations:ro
     depends_on:
@@ -81,6 +80,12 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_DB=${REDIS_DB:-0}
       - BACKGROUND_WORKER_ENABLED=true
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:?set SMTP_USER in .env}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:?set SMTP_PASSWORD in .env}
+      - SMTP_FROM=${SMTP_FROM:-${SMTP_USER}}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy

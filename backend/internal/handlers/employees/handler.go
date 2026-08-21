@@ -156,7 +156,7 @@ func (h *Handler) List(c *gin.Context) {
 		return
 	}
 
-	var responses []models.EmployeeResponse
+	responses := make([]models.EmployeeResponse, 0)
 	for _, emp := range employees {
 		responses = append(responses, models.EmployeeResponse{
 			ID:           emp.ID,
@@ -843,7 +843,7 @@ func (h *Handler) CreateInvitation(c *gin.Context) {
 		return
 	}
 
-	invitation, _, err := h.employeeService.CreateEmployeeInvitation(userID.(uuid.UUID), employee.BusinessID, employeeID)
+	invitation, rawToken, err := h.employeeService.CreateEmployeeInvitation(userID.(uuid.UUID), employee.BusinessID, employeeID)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"
@@ -882,6 +882,7 @@ func (h *Handler) CreateInvitation(c *gin.Context) {
 			EmployeeID:    invitation.EmployeeID,
 			Status:        invitation.Status,
 			ExpiresAt:     invitation.ExpiresAt,
+			InvitationURL: h.employeeService.BuildEmployeeInvitationURL(rawToken),
 			CreatedAt:     invitation.CreatedAt,
 		},
 	})
