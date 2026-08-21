@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { get } from '@/api/client'
-import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 
 export default function SellerActivatePage() {
@@ -40,11 +39,9 @@ export default function SellerActivatePage() {
   return (
     <div className="auth-wrap">
       <div className="card auth-card">
-        <h1>{state === 'ok' ? '🎉 Activated' : 'Activation failed'}</h1>
+        <h1>{state === 'ok' ? 'Account activated' : 'Activation failed'}</h1>
         {state === 'error' ? <ErrorBox error={message} /> : <p className="muted">{message}</p>}
-        <Link to="/seller/login">
-          <Button block>Go to sign in</Button>
-        </Link>
+        <Link to="/seller/login" className="btn btn-primary btn-block">Go to sign in</Link>
       </div>
     </div>
   )

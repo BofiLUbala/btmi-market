@@ -215,6 +215,11 @@ export interface MarketplaceSearchResult {
   pagination: Pagination
 }
 
+export interface PaginatedShops {
+  shops: PublicShop[]
+  pagination: Pagination
+}
+
 export interface PaginatedProducts {
   products: PublicProduct[]
   pagination: Pagination

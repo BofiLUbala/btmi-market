@@ -19,6 +19,30 @@ export function RequireAuth({ children }: { children?: ReactNode }) {
   return children ?? <Outlet />
 }
 
+export function RequireBuyer({ children }: { children?: ReactNode }) {
+  const { user, loading, accountType } = useAuth()
+  const location = useLocation()
+  if (loading) return <LoadingBlock label="Checking session…" />
+  if (!user) {
+    return (
+      <Navigate
+        to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`}
+        replace
+      />
+    )
+  }
+  if (accountType !== 'BUYER') {
+    if (accountType === 'SELLER') {
+      return <Navigate to="/seller/dashboard" replace />
+    }
+    if (accountType === 'EMPLOYEE') {
+      return <Navigate to="/employee/dashboard" replace />
+    }
+    return <Navigate to="/" replace />
+  }
+  return children ?? <Outlet />
+}
+
 export function PublicOnly({ children }: { children?: ReactNode }) {
   const { user, loading, accountType } = useAuth()
   if (loading) return <LoadingBlock label="Loading…" />

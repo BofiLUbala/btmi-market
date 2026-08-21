@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
 import type { PublicProduct } from '@/api/types'
@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { asArray } from '@/lib/format'
+import { SearchAutocomplete } from '@/components/search/SearchAutocomplete'
 
 const SORTS = [
   { value: 'relevance', label: 'Relevance' },
@@ -53,12 +54,6 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQ])
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setPage(1)
-    runSearch(1, q, sort)
-  }
-
   function changeSort(s: string) {
     setSort(s)
     setPage(1)
@@ -68,19 +63,12 @@ export default function SearchPage() {
   return (
     <div className="fade-in">
       <h1 style={{ marginBottom: 12 }}>Search</h1>
-      <form onSubmit={onSubmit} className="row-between" style={{ marginBottom: 16 }}>
-        <input
-          className="input"
-          style={{ flex: 1 }}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search products or shops…"
-          aria-label="Search"
-        />
-        <Button type="submit" loading={loading}>
-          Search
-        </Button>
-      </form>
+      <SearchAutocomplete
+        variant="page"
+        initialQuery={initialQ}
+        onQueryChange={setQ}
+        className="search-page-autocomplete"
+      />
 
       <div className="row-between" style={{ marginBottom: 12 }}>
         <span className="small muted">

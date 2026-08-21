@@ -24,11 +24,11 @@ export default function ShopsPage() {
     marketplaceApi
       .shops({ page, limit: 12, city })
       .then(
-        (shops) => {
+        (response) => {
           if (!mounted) return
-          const list = asArray(shops)
+          const list = asArray(response.shops)
           setShops((prev) => (page === 1 ? list : [...prev, ...list]))
-          setHasMore(list.length === 12)
+          setHasMore(response.pagination.has_more)
           setLoading(false)
         },
         (e: unknown) => {

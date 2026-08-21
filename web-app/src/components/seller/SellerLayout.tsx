@@ -1,48 +1,93 @@
 import { Outlet, useLocation, NavLink, useNavigate, Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/store/auth'
 import { shopApi } from '@/api/seller'
+import {
+  BoxIcon,
+  BusinessIcon,
+  CashIcon,
+  CloseIcon,
+  CustomerIcon,
+  DashboardIcon,
+  GrowthIcon,
+  LogoutIcon,
+  MenuIcon,
+  OrdersIcon,
+  ReviewIcon,
+  SettingsIcon,
+  StockIcon,
+  StoreIcon,
+  UsersIcon,
+  ChevronDownIcon,
+  CheckIcon,
+} from '@/components/ui/Icons'
 
 const SELLER_NAV = [
-  { to: '/seller/dashboard', label: 'Dashboard', icon: '📊' },
-  { to: '/seller/business', label: 'Business', icon: '🏢' },
-  { to: '/seller/shops', label: 'Shops', icon: '🏪' },
-  { to: '/seller/employees', label: 'Employees', icon: '👥' },
-  { to: '/seller/products', label: 'Products', icon: '📦' },
-  { to: '/seller/stock', label: 'Stock', icon: '📋' },
-  { to: '/seller/orders', label: 'Orders', icon: '🧾' },
-  { to: '/seller/customers', label: 'Customers', icon: '👤' },
-  { to: '/seller/cash', label: 'Cash', icon: '💵' },
-  { to: '/seller/growth', label: 'Growth', icon: '📈' },
-  { to: '/seller/reviews', label: 'Reviews', icon: '⭐' },
-  { to: '/seller/profile', label: 'Profile', icon: '⚙️' },
+  { to: '/seller/dashboard', label: 'Dashboard', Icon: DashboardIcon },
+  { to: '/seller/business', label: 'Business', Icon: BusinessIcon },
+  { to: '/seller/shops', label: 'Shops', Icon: StoreIcon },
+  { to: '/seller/employees', label: 'Employees', Icon: UsersIcon },
+  { to: '/seller/products', label: 'Products', Icon: BoxIcon },
+  { to: '/seller/stock', label: 'Stock', Icon: StockIcon },
+  { to: '/seller/orders', label: 'Orders', Icon: OrdersIcon },
+  { to: '/seller/customers', label: 'Customers', Icon: CustomerIcon },
+  { to: '/seller/cash', label: 'Cash', Icon: CashIcon },
+  { to: '/seller/growth', label: 'Growth', Icon: GrowthIcon },
+  { to: '/seller/reviews', label: 'Reviews', Icon: ReviewIcon },
 ]
 
 const EMPLOYEE_NAV = [
-  { to: '/employee/dashboard', label: 'Dashboard', icon: '📊' },
+  { to: '/employee/dashboard', label: 'Dashboard', Icon: DashboardIcon },
 ]
 
 export function SellerLayout() {
   const { pathname } = useLocation()
-  const { user, activeBusiness, logout, accountType, activeShop, setActiveShop } = useAuth()
+  const {
+    user,
+    activeBusiness,
+    sellerBusinesses,
+    setActiveBusiness,
+    logout,
+    accountType,
+    activeShop,
+    setActiveShop,
+  } = useAuth()
   const navigate = useNavigate()
   const [drawer, setDrawer] = useState(false)
-  const [shopDrawer, setShopDrawer] = useState(false)
+  const [bizDropdown, setBizDropdown] = useState(false)
+  const [shopDropdown, setShopDropdown] = useState(false)
   const [shops, setShops] = useState<Array<{ id: string; name: string }>>([])
+  const bizRef = useRef<HTMLDivElement>(null)
+  const shopRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
-    document.body.classList.add('has-mobile-nav')
-    return () => {
-      document.body.classList.remove('has-mobile-nav')
-    }
+    setDrawer(false)
+    setBizDropdown(false)
+    setShopDropdown(false)
   }, [pathname])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (bizRef.current && !bizRef.current.contains(e.target as Node)) {
+        setBizDropdown(false)
+      }
+      if (shopRef.current && !shopRef.current.contains(e.target as Node)) {
+        setShopDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     if (activeBusiness) {
       loadShops()
+    } else {
+      setShops([])
+      setActiveShop(null)
     }
-  }, [activeBusiness])
+  }, [activeBusiness?.id])
 
   async function loadShops() {
     if (!activeBusiness) return
@@ -53,182 +98,265 @@ export function SellerLayout() {
         setActiveShop(data[0].id)
       }
     } catch {
-      // ignore
+      setShops([])
     }
-  }
-
-  function handleShopChange(shopId: string) {
-    setActiveShop(shopId)
-    setShopDrawer(false)
   }
 
   async function handleLogout() {
     await logout()
-    navigate('/')
+    navigate('/seller/login')
   }
 
   const isEmployee = accountType === 'EMPLOYEE'
   const navItems = isEmployee ? EMPLOYEE_NAV : SELLER_NAV
   const brandName = isEmployee ? 'BTMI Employee' : 'BTMI Seller'
+  const bizList = Array.isArray(sellerBusinesses) ? sellerBusinesses : []
+  const shopList = Array.isArray(shops) ? shops : []
 
   return (
-    <>
-      <header className="seller-header">
-        <div className="container seller-header-inner">
-          <NavLink to={isEmployee ? '/employee/dashboard' : '/seller/dashboard'} className="seller-brand">
+    <div className="seller-workspace-shell">
+      {/* ── Left Desktop Sidebar ── */}
+      <aside className="seller-sidebar">
+        <div className="seller-sidebar-brand">
+          <Link to={isEmployee ? '/employee/dashboard' : '/seller/dashboard'} className="seller-brand-link">
             <span className="brand-mark">B</span>
-            <span>{brandName}</span>
-          </NavLink>
+            <div className="brand-copy">
+              <span className="brand-title">{brandName}</span>
+              <span className="brand-sub">Workspace</span>
+            </div>
+          </Link>
+        </div>
 
-          <nav className="seller-nav" aria-label="Primary">
+        <nav className="seller-sidebar-nav" aria-label="Seller Navigation">
+          <div className="seller-nav-group">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === (isEmployee ? '/employee/dashboard' : '/seller/dashboard')}
-                className={({ isActive }) => `seller-nav-link ${isActive ? 'active' : ''}`}
+                className={({ isActive }) => `seller-sidebar-link ${isActive ? 'active' : ''}`}
               >
-                <span className="nav-icon">{item.icon}</span>
-                <span>{item.label}</span>
+                <span className="seller-sidebar-icon">
+                  <item.Icon />
+                </span>
+                <span className="seller-sidebar-label">{item.label}</span>
               </NavLink>
             ))}
-          </nav>
+          </div>
 
-          <div className="seller-header-right">
-            {activeBusiness && !isEmployee && (
-              <div className="business-selector" style={{ marginRight: 16 }}>
-                <span className="business-name small" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {activeBusiness.name}
+          <div className="seller-sidebar-bottom">
+            {!isEmployee && (
+              <NavLink
+                to="/seller/profile"
+                className={({ isActive }) => `seller-sidebar-link ${isActive ? 'active' : ''}`}
+              >
+                <span className="seller-sidebar-icon">
+                  <SettingsIcon />
                 </span>
+                <span className="seller-sidebar-label">Profile</span>
+              </NavLink>
+            )}
+
+            <button type="button" className="seller-sidebar-link seller-logout-btn" onClick={handleLogout}>
+              <span className="seller-sidebar-icon">
+                <LogoutIcon />
+              </span>
+              <span className="seller-sidebar-label">Logout</span>
+            </button>
+          </div>
+        </nav>
+      </aside>
+
+      {/* ── Main App Content Column ── */}
+      <div className="seller-main-wrapper">
+        {/* Top Header */}
+        <header className="seller-top-header">
+          <div className="seller-header-left">
+            <button
+              type="button"
+              className="seller-mobile-toggle"
+              onClick={() => setDrawer(true)}
+              aria-label="Open navigation menu"
+            >
+              <MenuIcon />
+            </button>
+
+            {/* Business Context Switcher */}
+            {!isEmployee && (
+              <div className="seller-context-item" ref={bizRef}>
+                <button
+                  type="button"
+                  className={`seller-context-btn ${activeBusiness ? 'has-biz' : 'no-biz'}`}
+                  onClick={() => setBizDropdown(!bizDropdown)}
+                  aria-expanded={bizDropdown}
+                >
+                  <BusinessIcon />
+                  <span className="context-label">
+                    {activeBusiness ? activeBusiness.name : 'No Business Selected'}
+                  </span>
+                  {bizList.length > 1 && <ChevronDownIcon />}
+                </button>
+
+                {bizDropdown && (
+                  <div className="seller-dropdown-menu">
+                    <div className="dropdown-header">Select Business</div>
+                    {bizList.length === 0 ? (
+                      <div className="dropdown-empty">
+                        <p className="small muted">No businesses found.</p>
+                        <Link to="/seller/onboarding" className="dropdown-action-link" onClick={() => setBizDropdown(false)}>
+                          + Create Business
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        {bizList.map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            className={`dropdown-item ${activeBusiness?.id === b.id ? 'active' : ''}`}
+                            onClick={() => {
+                              setActiveBusiness(b)
+                              setBizDropdown(false)
+                            }}
+                          >
+                            <span>{b.name}</span>
+                            {activeBusiness?.id === b.id && <CheckIcon />}
+                          </button>
+                        ))}
+                        <div className="dropdown-divider" />
+                        <Link to="/seller/onboarding" className="dropdown-action-item" onClick={() => setBizDropdown(false)}>
+                          + Add New Business
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {activeShop && shops.length > 1 && !isEmployee && (
-              <button className="shop-selector btn btn-secondary" onClick={() => setShopDrawer(true)} style={{ marginRight: 12 }}>
-                🏪 {shops.find((s) => s.id === activeShop)?.name || 'Select Shop'}
-              </button>
-            )}
+            {/* Shop Selector Dropdown */}
+            {!isEmployee && activeBusiness && shopList.length > 0 && (
+              <div className="seller-context-item" ref={shopRef}>
+                <button
+                  type="button"
+                  className="seller-context-btn"
+                  onClick={() => setShopDropdown(!shopDropdown)}
+                  aria-expanded={shopDropdown}
+                >
+                  <StoreIcon />
+                  <span className="context-label">
+                    {shopList.find((s) => s.id === activeShop)?.name || 'All Shops'}
+                  </span>
+                  {shopList.length > 1 && <ChevronDownIcon />}
+                </button>
 
-            <button className="btn btn-ghost" onClick={handleLogout} style={{ marginRight: 8 }}>
-              Logout
-            </button>
+                {shopDropdown && shopList.length > 1 && (
+                  <div className="seller-dropdown-menu">
+                    <div className="dropdown-header">Select Active Shop</div>
+                    {shopList.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className={`dropdown-item ${activeShop === s.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setActiveShop(s.id)
+                          setShopDropdown(false)
+                        }}
+                      >
+                        <span>{s.name}</span>
+                        {activeShop === s.id && <CheckIcon />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="seller-header-right">
+            <Link to="/" className="seller-marketplace-link">
+              Marketplace
+            </Link>
 
             {user && (
-              <Link to={isEmployee ? '/employee/dashboard' : '/seller/profile'} className="seller-user-link">
-                <span className="user-avatar">{user.first_name[0]}{user.last_name[0]}</span>
-                <span className="user-name">{user.first_name} {user.last_name}</span>
+              <Link to={isEmployee ? '/employee/dashboard' : '/seller/profile'} className="seller-user-badge">
+                <span className="user-initials">
+                  {(user.first_name?.[0] || 'S') + (user.last_name?.[0] || 'B')}
+                </span>
+                <span className="user-full-name">
+                  {user.first_name} {user.last_name}
+                </span>
               </Link>
             )}
-
-            <button className="burger" onClick={() => setDrawer(true)} aria-label="Open menu">
-              ☰
-            </button>
           </div>
-        </div>
-      </header>
+        </header>
 
+        {/* ── Main Scrollable Page Area ── */}
+        <main className="seller-content-area">
+          <div className="seller-content-container">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+
+      {/* ── Mobile Navigation Drawer ── */}
       {drawer && (
         <>
           <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
-          <div className="drawer seller-drawer" role="dialog" aria-label="Menu">
+          <div className="drawer seller-drawer" role="dialog" aria-label="Seller Menu">
             <div className="drawer-head">
               <span className="bold">{brandName}</span>
-              <button className="btn btn-ghost" style={{ color: '#fff' }} onClick={() => setDrawer(false)}>
-                ✕
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ color: '#fff' }}
+                onClick={() => setDrawer(false)}
+                aria-label="Close menu"
+              >
+                <CloseIcon />
               </button>
             </div>
-            <nav className="drawer-nav" onClick={() => setDrawer(false)}>
+            <nav className="drawer-nav">
               {navItems.map((item) => (
-                <NavLink key={item.to} to={item.to}>
-                  <span className="dnav-icon">{item.icon}</span> {item.label}
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === (isEmployee ? '/employee/dashboard' : '/seller/dashboard')}
+                  onClick={() => setDrawer(false)}
+                >
+                  <span className="dnav-icon"><item.Icon /></span>
+                  {item.label}
                 </NavLink>
               ))}
-              <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', color: '#fff', fontSize: 16, cursor: 'pointer' }}>
-                🚪 Logout
+
+              {!isEmployee && (
+                <NavLink to="/seller/profile" onClick={() => setDrawer(false)}>
+                  <span className="dnav-icon"><SettingsIcon /></span>
+                  Profile
+                </NavLink>
+              )}
+
+              <div style={{ height: 1, background: 'var(--color-border)', margin: '8px 0' }} />
+
+              <NavLink to="/" onClick={() => setDrawer(false)}>
+                Marketplace
+              </NavLink>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDrawer(false)
+                  handleLogout()
+                }}
+                className="drawer-logout-btn"
+              >
+                <span className="dnav-icon"><LogoutIcon /></span>
+                Logout
               </button>
             </nav>
           </div>
         </>
       )}
-
-      {shopDrawer && shops.length > 0 && (
-        <>
-          <div className="drawer-backdrop" onClick={() => setShopDrawer(false)} />
-          <div className="drawer shop-drawer" role="dialog" aria-label="Select Shop" style={{ maxWidth: 320 }}>
-            <div className="drawer-head">
-              <span className="bold">Select Shop</span>
-              <button className="btn btn-ghost" style={{ color: '#fff' }} onClick={() => setShopDrawer(false)}>
-                ✕
-              </button>
-            </div>
-            <div className="shop-list" style={{ padding: 16 }}>
-              {shops.map((shop) => (
-                <button
-                  key={shop.id}
-                  className={`shop-item ${shop.id === activeShop ? 'active' : ''}`}
-                  onClick={() => handleShopChange(shop.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: 'none',
-                    background: shop.id === activeShop ? 'var(--primary-bg)' : 'transparent',
-                    color: shop.id === activeShop ? 'var(--primary)' : 'var(--text)',
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    fontSize: 16,
-                    textAlign: 'left',
-                    marginBottom: 8,
-                  }}
-                >
-                  <span>🏪 {shop.name}</span>
-                  {shop.id === activeShop && <span className="badge badge-primary">Active</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      <main className="page fade-in">
-        <div className="container">
-          <Outlet />
-        </div>
-      </main>
-
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-inner">
-            <div>
-              <h4>BTMI Market</h4>
-              <p className="small">
-                Seller platform for managing your business across DRC. Cash on delivery. Earn trust with every verified sale.
-              </p>
-            </div>
-            <div>
-              <h4>Seller Tools</h4>
-              <p className="small stack" style={{ gap: 4 }}>
-                <Link to="/seller/dashboard">Dashboard</Link>
-                <Link to="/seller/products">Products</Link>
-                <Link to="/seller/orders">Orders</Link>
-                <Link to="/seller/growth">Growth</Link>
-              </p>
-            </div>
-            <div>
-              <h4>Support</h4>
-              <p className="small stack" style={{ gap: 4 }}>
-                <Link to="/seller/profile">Account Settings</Link>
-                <Link to="/">Marketplace</Link>
-              </p>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            © {new Date().getFullYear()} BTMI Market. Payments are cash-only (FC).
-          </div>
-        </div>
-      </footer>
-    </>
+    </div>
   )
 }

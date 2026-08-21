@@ -3,9 +3,9 @@ import type {
   BuyerPriceResponse,
   CategoryResponse,
   MarketplaceSearchResult,
+  PaginatedShops,
   PaginatedProducts,
   PublicProductDetail,
-  PublicShop,
   PublicShopDetail,
   RankedShop,
   ShopReviewsResponse,
@@ -40,7 +40,7 @@ export const marketplaceApi = {
   categoryTopShops: (slug: string) =>
     get<RankedShop[]>(`/marketplace/categories/${slug}/shops`),
 
-  shops: (q?: MarketplaceQuery) => get<PublicShop[]>('/marketplace/shops', q),
+  shops: (q?: MarketplaceQuery, signal?: AbortSignal) => get<PaginatedShops>('/marketplace/shops', q, { signal }),
 
   shopDetail: (id: string) => get<PublicShopDetail>(`/marketplace/shops/${id}/detail`),
 
@@ -56,7 +56,7 @@ export const marketplaceApi = {
   similarProducts: (id: string) =>
     get<SimilarProductsResponse>(`/marketplace/products/${id}/similar`),
 
-  search: (q: MarketplaceQuery) => get<MarketplaceSearchResult>('/marketplace/search', q),
+  search: (q: MarketplaceQuery, signal?: AbortSignal) => get<MarketplaceSearchResult>('/marketplace/search', q, { signal }),
 
   shopReviews: (id: string, q?: MarketplaceQuery) =>
     get<ShopReviewsResponse>(`/marketplace/shops/${id}/reviews`, q)

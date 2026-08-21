@@ -1,8 +1,9 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { useState, type FormEvent } from 'react'
+import { Link, NavLink } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuth } from '@/store/auth'
 import { useCart } from '@/store/cart'
 import { loginWithReturnTo } from '@/lib/returnTo'
+import { SearchAutocomplete } from '@/components/search/SearchAutocomplete'
 
 const PUBLIC_NAV_LINKS = [
   { to: '/', label: 'Marketplace', icon: '🏪' },
@@ -17,16 +18,9 @@ const PROTECTED_NAV_LINKS = [
 ]
 
 export function Header() {
-  const navigate = useNavigate()
   const { user, loading } = useAuth()
   const { totalQty } = useCart()
   const [drawer, setDrawer] = useState(false)
-  const [q, setQ] = useState('')
-
-  function onSearch(e: FormEvent) {
-    e.preventDefault()
-    navigate(q.trim() ? `/search?q=${encodeURIComponent(q.trim())}` : '/search')
-  }
 
   function getNavLink(path: string) {
     if (!user) {
@@ -43,15 +37,7 @@ export function Header() {
           <span>BTMI Market</span>
         </Link>
 
-        <form className="header-search" onSubmit={onSearch} role="search">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search products, shops…"
-            aria-label="Search"
-          />
-          <button type="submit">Search</button>
-        </form>
+        <SearchAutocomplete variant="header" />
 
         <nav className="header-nav" aria-label="Primary">
           {PUBLIC_NAV_LINKS.map((l) => (
@@ -99,9 +85,19 @@ export function Header() {
           </Link>
 
           {user ? (
-            <Link to="/account" className="header-link">
-              {user.first_name}
-            </Link>
+            user.account_type === 'SELLER' ? (
+              <Link to="/seller/dashboard" className="header-link">
+                Seller Hub ({user.first_name})
+              </Link>
+            ) : user.account_type === 'EMPLOYEE' ? (
+              <Link to="/employee/dashboard" className="header-link">
+                Workspace ({user.first_name})
+              </Link>
+            ) : (
+              <Link to="/account" className="header-link">
+                {user.first_name}
+              </Link>
+            )
           ) : (
             <Link to="/login" className="header-link">
               Sign in
@@ -159,9 +155,19 @@ export function Header() {
                 <span className="dnav-icon">🛒</span> Cart{totalQty > 0 ? ` (${totalQty})` : ''}
               </Link>
               {user ? (
-                <Link to="/account" className="dnav-link">
-                  <span className="dnav-icon">👤</span> Account
-                </Link>
+                user.account_type === 'SELLER' ? (
+                  <Link to="/seller/dashboard" className="dnav-link">
+                    <span className="dnav-icon">🏪</span> Seller Hub ({user.first_name})
+                  </Link>
+                ) : user.account_type === 'EMPLOYEE' ? (
+                  <Link to="/employee/dashboard" className="dnav-link">
+                    <span className="dnav-icon">💼</span> Workspace ({user.first_name})
+                  </Link>
+                ) : (
+                  <Link to="/account" className="dnav-link">
+                    <span className="dnav-icon">👤</span> Account
+                  </Link>
+                )
               ) : (
                 <Link to="/login" className="dnav-link">
                   <span className="dnav-icon">🔑</span> Sign in
@@ -182,10 +188,16 @@ export function MobileNav() {
     { to: '/', label: 'Home', icon: '🏠', end: true },
     { to: '/search', label: 'Search', icon: '🔍', end: false },
   ]
+  const accountTab = {
+    to: user?.account_type === 'SELLER' ? '/seller/dashboard' : user?.account_type === 'EMPLOYEE' ? '/employee/dashboard' : '/account',
+    label: user?.account_type === 'SELLER' ? 'Seller Hub' : user?.account_type === 'EMPLOYEE' ? 'Workspace' : 'Account',
+    icon: user?.account_type === 'SELLER' ? '🏪' : user?.account_type === 'EMPLOYEE' ? '💼' : '👤',
+    end: false
+  }
   const protectedTabs = [
     { to: '/favorites', label: 'Favorites', icon: '❤️', end: false },
     { to: '/orders', label: 'Orders', icon: '📦', end: false },
-    { to: '/account', label: 'Account', icon: '👤', end: false }
+    accountTab
   ]
 
   function getMobileLink(path: string) {

@@ -1,222 +1,373 @@
-import { useEffect, useState } from 'react'
-import { useAuth } from '@/store/auth'
-import { growthApi } from '@/api/seller'
-import { orderApi } from '@/api/seller'
-import { productApi } from '@/api/seller'
-import { inventoryApi } from '@/api/seller'
-import { customerApi } from '@/api/seller'
-import { cashApi } from '@/api/seller'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/store/auth'
+import {
+  shopApi,
+  productApi,
+  orderApi,
+  employeeApi,
+  cashApi,
+  growthApi,
+} from '@/api/seller'
+import type { SellerOrder, Shop, Product, Employee, CashSummary, SellerGrowth } from '@/api/types'
+import {
+  StoreIcon,
+  BoxIcon,
+  OrdersIcon,
+  UsersIcon,
+  CashIcon,
+  GrowthIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  RefreshCwIcon,
+  ArrowRightIcon,
+  BusinessIcon,
+  CheckCircleIcon,
+} from '@/components/ui/Icons'
+import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 
-interface DashboardStats {
-  totalRevenue: number
-  totalOrders: number
-  totalProducts: number
-  lowStockCount: number
-  totalCustomers: number
-  cashToday: number
-  sellerPoints: number
-  sellerLevel: string
-  sellerTrust: string
-  publishedProducts: number
-  hasStock: number
+interface DashboardData {
+  shops: Shop[]
+  products: Product[]
+  orders: SellerOrder[]
+  employees: Employee[]
+  cashSummary: CashSummary | null
+  growth: SellerGrowth | null
 }
 
 export default function SellerDashboardPage() {
-  const { activeBusiness, activeShop, loading: authLoading } = useAuth()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [recentOrders, setRecentOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { activeBusiness, sellerBusinesses, setActiveBusiness, loading: authLoading } = useAuth()
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!activeBusiness) {
-      setLoading(false)
-      return
-    }
-    loadDashboard()
-  }, [activeBusiness])
-
-  async function loadDashboard() {
+  const loadDashboard = useCallback(async () => {
     if (!activeBusiness) return
     setLoading(true)
     setError('')
     try {
       const [
-        growthData,
-        ordersData,
-        productsData,
-        inventoryData,
-        customersData,
-        cashData,
+        shopsRes,
+        productsRes,
+        ordersRes,
+        employeesRes,
+        cashRes,
+        growthRes,
       ] = await Promise.allSettled([
-        growthApi.getLevel(activeBusiness.id),
-        orderApi.listByBusiness(activeBusiness.id, { limit: 5 }),
+        shopApi.listByBusiness(activeBusiness.id),
         productApi.listByBusiness(activeBusiness.id),
-        inventoryApi.getShopInventory(activeShop || '', { limit: 100 }),
-        customerApi.listByBusiness(activeBusiness.id),
+        orderApi.listByBusiness(activeBusiness.id, { limit: 10 }),
+        employeeApi.listByBusiness(activeBusiness.id),
         cashApi.getBusinessCashSummary(activeBusiness.id),
+        growthApi.getLevel(activeBusiness.id),
       ])
 
-      let revenue = 0
-      let orders = 0
-      let products = 0
-      let publishedProducts = 0
-      let hasStock = 0
-      let lowStock = 0
-      let customers = 0
-      let cashToday = 0
-      let sellerPoints = 0
-      let sellerLevel = 'STARTER'
-      let sellerTrust = 'NORMAL'
-
-      if (growthData.status === 'fulfilled') {
-        sellerPoints = growthData.value.points?.current_points || 0
-        sellerLevel = growthData.value.level?.name || 'STARTER'
-        sellerTrust = growthData.value.trust?.trust_status || 'NORMAL'
-      }
-
-      if (ordersData.status === 'fulfilled') {
-        orders = ordersData.value.length
-        revenue = ordersData.value.reduce((sum, o) => sum + (o.final_total || 0), 0)
-      }
-
-      if (productsData.status === 'fulfilled') {
-        products = productsData.value.length
-        publishedProducts = productsData.value.filter((p) => p.publication_status === 'PUBLISHED').length
-      }
-
-      if (inventoryData.status === 'fulfilled') {
-        hasStock = inventoryData.value.filter((i) => i.available > 0).length
-        lowStock = inventoryData.value.filter((i) => i.available <= 5 && i.available > 0).length
-      }
-
-      if (customersData.status === 'fulfilled') {
-        customers = customersData.value.length
-      }
-
-      if (cashData.status === 'fulfilled') {
-        cashToday = cashData.value.total_cash_sales || 0
-      }
-
-      setStats({
-        totalRevenue: revenue,
-        totalOrders: orders,
-        totalProducts: products,
-        lowStockCount: lowStock,
-        totalCustomers: customers,
-        cashToday,
-        sellerPoints,
-        sellerLevel,
-        sellerTrust,
-        publishedProducts,
-        hasStock,
+      setData({
+        shops: shopsRes.status === 'fulfilled' && Array.isArray(shopsRes.value) ? shopsRes.value : [],
+        products: productsRes.status === 'fulfilled' && Array.isArray(productsRes.value) ? productsRes.value : [],
+        orders: ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value) ? ordersRes.value : [],
+        employees: employeesRes.status === 'fulfilled' && Array.isArray(employeesRes.value) ? employeesRes.value : [],
+        cashSummary: cashRes.status === 'fulfilled' ? cashRes.value : null,
+        growth: growthRes.status === 'fulfilled' ? growthRes.value : null,
       })
-
-      if (ordersData.status === 'fulfilled') {
-        setRecentOrders(ordersData.value)
-      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
+      setError(err instanceof Error ? err.message : 'Unable to load dashboard metrics.')
     } finally {
       setLoading(false)
     }
+  }, [activeBusiness?.id])
+
+  useEffect(() => {
+    if (activeBusiness) {
+      loadDashboard()
+    }
+  }, [activeBusiness?.id, loadDashboard])
+
+  if (authLoading) {
+    return <LoadingBlock label="Loading seller workspace…" />
   }
 
-  if (authLoading) return <LoadingBlock label="Loading dashboard…" />
-  if (!activeBusiness) {
+  const bizList = Array.isArray(sellerBusinesses) ? sellerBusinesses : []
+
+  // ── 1. No Business exists for this seller ──
+  if (bizList.length === 0) {
     return (
-      <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>🏢</div>
-        <h2>No Business Selected</h2>
-        <p className="muted">Create or select a business to access your seller dashboard.</p>
-        <Link to="/seller/onboarding">
-          <Button size="lg">Create Business</Button>
-        </Link>
+      <div className="seller-onboarding-empty-card">
+        <div className="empty-icon-wrap">
+          <BusinessIcon />
+        </div>
+        <h2>Welcome to BTMI Seller</h2>
+        <p className="lead muted">
+          Create your first business to start selling products, managing shops, inventory, and orders across DRC.
+        </p>
+        <div className="empty-actions">
+          <Link to="/seller/onboarding">
+            <Button size="lg">
+              <PlusIcon /> Create Business
+            </Button>
+          </Link>
+        </div>
+
+        <div className="onboarding-steps-preview">
+          <h3>How to get started:</h3>
+          <div className="onboarding-step-grid">
+            <div className="onboarding-step-item">
+              <span className="step-num">1</span>
+              <div>
+                <strong>Create Business</strong>
+                <p className="small muted">Register company name, category, and legal identity.</p>
+              </div>
+            </div>
+            <div className="onboarding-step-item">
+              <span className="step-num">2</span>
+              <div>
+                <strong>Create Shop</strong>
+                <p className="small muted">Set up physical points of sale or fulfillment shops.</p>
+              </div>
+            </div>
+            <div className="onboarding-step-item">
+              <span className="step-num">3</span>
+              <div>
+                <strong>Add Products</strong>
+                <p className="small muted">Define catalog items, variants, and prices in FC.</p>
+              </div>
+            </div>
+            <div className="onboarding-step-item">
+              <span className="step-num">4</span>
+              <div>
+                <strong>Add Stock</strong>
+                <p className="small muted">Assign available inventory quantities to your shops.</p>
+              </div>
+            </div>
+            <div className="onboarding-step-item">
+              <span className="step-num">5</span>
+              <div>
+                <strong>Receive Orders</strong>
+                <p className="small muted">Fulfill buyer orders with verified cash payments.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
-  if (loading) return <LoadingBlock label="Loading dashboard data…" />
-  if (error) return <ErrorBox error={error} />
+  // ── 2. Seller has businesses, but none currently active ──
+  if (!activeBusiness) {
+    return (
+      <div className="seller-onboarding-empty-card">
+        <div className="empty-icon-wrap">
+          <BusinessIcon />
+        </div>
+        <h2>Select a Business</h2>
+        <p className="lead muted">Choose a business to open its operational workspace:</p>
+        <div className="business-selection-grid">
+          {bizList.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className="business-choice-card"
+              onClick={() => setActiveBusiness(b)}
+            >
+              <div className="choice-brand">
+                <BusinessIcon />
+              </div>
+              <div className="choice-info">
+                <strong>{b.name}</strong>
+                <span className="small muted">{b.category || b.business_type || 'Registered Business'}</span>
+              </div>
+              <ArrowRightIcon />
+            </button>
+          ))}
+        </div>
+        <div style={{ marginTop: 24 }}>
+          <Link to="/seller/onboarding">
+            <Button variant="outline">
+              <PlusIcon /> Add Another Business
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
-  const statCards = [
-    { label: 'Revenue (FC)', value: stats?.totalRevenue.toLocaleString() || '0', icon: '💰', color: 'success' },
-    { label: 'Orders', value: String(stats?.totalOrders || 0), icon: '🧾', color: 'primary' },
-    { label: 'Products', value: String(stats?.totalProducts || 0), icon: '📦', color: 'info' },
-    { label: 'Low Stock', value: String(stats?.lowStockCount || 0), icon: '⚠️', color: stats && stats.lowStockCount > 0 ? 'danger' : 'success' },
-    { label: 'Customers', value: String(stats?.totalCustomers || 0), icon: '👤', color: 'purple' },
-    { label: 'Cash Today (FC)', value: stats?.cashToday.toLocaleString() || '0', icon: '💵', color: 'warning' },
-    { label: 'Seller Points', value: String(stats?.sellerPoints || 0), icon: '⭐', color: 'gold' },
-    { label: 'Trust Level', value: stats?.sellerTrust || 'NORMAL', icon: '🛡️', color: stats?.sellerTrust === 'HIGH' ? 'success' : stats?.sellerTrust === 'LOW' || stats?.sellerTrust === 'SUSPENDED' ? 'danger' : 'primary' },
-  ]
+  // ── 3. Active Business Dashboard ──
+  const shopsCount = Array.isArray(data?.shops) ? data.shops.length : 0
+  const productsCount = Array.isArray(data?.products) ? data.products.length : 0
+  const publishedProducts = Array.isArray(data?.products)
+    ? data.products.filter((p) => p.publication_status === 'PUBLISHED').length
+    : 0
+  const ordersCount = Array.isArray(data?.orders) ? data.orders.length : 0
+  const totalRevenue = Array.isArray(data?.orders)
+    ? data.orders.reduce((sum, o) => sum + (o.final_total || 0), 0)
+    : 0
+  const employeesCount = Array.isArray(data?.employees) ? data.employees.length : 0
+  const cashTotal = data?.cashSummary?.total_cash_sales || 0
+  const sellerLevel = data?.growth?.level?.name || 'STARTER'
+  const sellerPoints = data?.growth?.points?.current_points || 0
+  const trustStatus = data?.growth?.trust?.trust_status || 'NORMAL'
+  const recentOrders = Array.isArray(data?.orders) ? data.orders : []
 
   return (
-    <div className="seller-dashboard">
-      <div className="dashboard-header">
-        <div>
+    <div className="seller-dashboard-page">
+      {/* ── Page Top Header ── */}
+      <div className="dashboard-page-header">
+        <div className="header-titles">
           <h1>Dashboard</h1>
-          <p className="muted">Welcome back, {activeBusiness?.name}</p>
+          <p className="muted">
+            Overview and operational controls for <strong>{activeBusiness.name}</strong>
+          </p>
         </div>
-        <Link to="/seller/onboarding">
-          <Button variant="ghost">⚙️ Onboarding</Button>
-        </Link>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={loadDashboard}
+            disabled={loading}
+            title="Refresh dashboard data"
+          >
+            <RefreshCwIcon /> Refresh
+          </button>
+          <Link to="/seller/products/new">
+            <Button size="sm">
+              <PlusIcon /> Add Product
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      <div className="stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-        {statCards.map((stat) => (
-          <Card key={stat.label} className="stat-card">
-            <div className="stat-icon" style={{ backgroundColor: `var(--${stat.color}-bg)`, color: `var(--${stat.color})` }}>
-              {stat.icon}
-            </div>
-            <div className="stat-value" style={{ fontSize: 28, fontWeight: 700 }}>{stat.value}</div>
-            <div className="stat-label muted small">{stat.label}</div>
-          </Card>
-        ))}
+      {error && <ErrorBox error={error} onRetry={loadDashboard} />}
+
+      {loading && !data && <LoadingBlock label="Loading business metrics…" />}
+
+      {/* ── Metrics Grid (Row 1) ── */}
+      <div className="seller-metrics-grid">
+        {/* Shops */}
+        <div className="seller-stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Shops</span>
+            <span className="stat-icon stat-icon--shops">
+              <StoreIcon />
+            </span>
+          </div>
+          <div className="stat-value">{shopsCount}</div>
+          <div className="stat-footer">
+            <Link to="/seller/shops" className="stat-link">
+              Manage shops <ArrowRightIcon />
+            </Link>
+          </div>
+        </div>
+
+        {/* Products */}
+        <div className="seller-stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Products</span>
+            <span className="stat-icon stat-icon--products">
+              <BoxIcon />
+            </span>
+          </div>
+          <div className="stat-value">{productsCount}</div>
+          <div className="stat-footer">
+            <span className="muted small">{publishedProducts} published</span>
+            <Link to="/seller/products" className="stat-link">
+              View all <ArrowRightIcon />
+            </Link>
+          </div>
+        </div>
+
+        {/* Orders */}
+        <div className="seller-stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Orders</span>
+            <span className="stat-icon stat-icon--orders">
+              <OrdersIcon />
+            </span>
+          </div>
+          <div className="stat-value">{ordersCount}</div>
+          <div className="stat-footer">
+            <span className="muted small">{totalRevenue.toLocaleString()} FC</span>
+            <Link to="/seller/orders" className="stat-link">
+              View orders <ArrowRightIcon />
+            </Link>
+          </div>
+        </div>
+
+        {/* Team / Employees */}
+        <div className="seller-stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Employees</span>
+            <span className="stat-icon stat-icon--employees">
+              <UsersIcon />
+            </span>
+          </div>
+          <div className="stat-value">{employeesCount}</div>
+          <div className="stat-footer">
+            <Link to="/seller/employees" className="stat-link">
+              Manage team <ArrowRightIcon />
+            </Link>
+          </div>
+        </div>
+
+        {/* Cash Sales */}
+        <div className="seller-stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Cash Sales</span>
+            <span className="stat-icon stat-icon--cash">
+              <CashIcon />
+            </span>
+          </div>
+          <div className="stat-value">{cashTotal.toLocaleString()} <span className="currency-unit">FC</span></div>
+          <div className="stat-footer">
+            <Link to="/seller/cash" className="stat-link">
+              Cash sessions <ArrowRightIcon />
+            </Link>
+          </div>
+        </div>
+
+        {/* Seller Growth & Trust */}
+        <div className="seller-stat-card">
+          <div className="stat-header">
+            <span className="stat-label">Seller Level</span>
+            <span className="stat-icon stat-icon--growth">
+              <GrowthIcon />
+            </span>
+          </div>
+          <div className="stat-value stat-value--tier">{sellerLevel}</div>
+          <div className="stat-footer">
+            <span className="trust-pill">
+              <ShieldCheckIcon /> {trustStatus} ({sellerPoints} pts)
+            </span>
+            <Link to="/seller/growth" className="stat-link">
+              Growth <ArrowRightIcon />
+            </Link>
+          </div>
+        </div>
       </div>
 
-      <div className="dashboard-sections" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 24 }}>
-        <Card>
-          <div className="card-header">
-            <h3>Quick Actions</h3>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-            <Link to="/seller/products/new">
-              <Button variant="outline" block>➕ Add Product</Button>
-            </Link>
-            <Link to="/seller/orders">
-              <Button variant="outline" block>📋 View Orders</Button>
-            </Link>
-            <Link to="/seller/stock">
-              <Button variant="outline" block>📦 Manage Stock</Button>
-            </Link>
-            <Link to="/seller/cash">
-              <Button variant="outline" block>💵 Cash Session</Button>
-            </Link>
-            <Link to="/seller/employees">
-              <Button variant="outline" block>👥 Employees</Button>
-            </Link>
-            <Link to="/seller/shops">
-              <Button variant="outline" block>🏪 Shops</Button>
-            </Link>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="card-header">
+      {/* ── Main Dashboard Sections (2 Columns) ── */}
+      <div className="seller-dashboard-columns">
+        {/* Left Column: Recent Orders */}
+        <div className="seller-section-card">
+          <div className="section-card-header">
             <div>
               <h3>Recent Orders</h3>
+              <p className="small muted">Latest orders placed across your shops</p>
             </div>
-            <Link to="/seller/orders" className="section-link small">View all</Link>
+            <Link to="/seller/orders" className="section-header-link">
+              View all orders
+            </Link>
           </div>
+
           {recentOrders.length === 0 ? (
-            <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>No orders yet</p>
+            <div className="section-empty-block">
+              <OrdersIcon />
+              <p>No orders yet</p>
+              <span className="small muted">Customer orders will appear here once purchases are made.</span>
+            </div>
           ) : (
-            <div className="table-responsive">
-              <table className="data-table">
+            <div className="seller-table-wrap">
+              <table className="seller-data-table">
                 <thead>
                   <tr>
                     <th>Order #</th>
@@ -228,44 +379,158 @@ export default function SellerDashboardPage() {
                 <tbody>
                   {recentOrders.slice(0, 5).map((order) => (
                     <tr key={order.id}>
-                      <td>{order.order_number || order.id.slice(0, 8)}</td>
-                      <td><span className={`badge badge-${getStatusColor(order.status)}`}>{order.status}</span></td>
-                      <td>{order.final_total?.toLocaleString() || '0'} FC</td>
-                      <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                      <td>
+                        <Link to={`/seller/orders`} className="order-code-link">
+                          {order.order_number || `#${order.id.slice(0, 8)}`}
+                        </Link>
+                      </td>
+                      <td>
+                        <span className={`seller-status-badge status-${order.status?.toLowerCase()}`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{order.final_total?.toLocaleString() || '0'} FC</strong>
+                      </td>
+                      <td className="muted small">
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </Card>
+        </div>
+
+        {/* Right Column: Quick Operational Actions */}
+        <div className="seller-section-card">
+          <div className="section-card-header">
+            <div>
+              <h3>Quick Actions</h3>
+              <p className="small muted">Direct navigation to key operations</p>
+            </div>
+          </div>
+
+          <div className="seller-quick-actions-grid">
+            <Link to="/seller/products/new" className="quick-action-btn">
+              <span className="qa-icon"><PlusIcon /></span>
+              <div className="qa-copy">
+                <strong>Add Product</strong>
+                <span className="small muted">Create catalog item</span>
+              </div>
+            </Link>
+
+            <Link to="/seller/stock" className="quick-action-btn">
+              <span className="qa-icon"><BoxIcon /></span>
+              <div className="qa-copy">
+                <strong>Manage Stock</strong>
+                <span className="small muted">Update shop inventory</span>
+              </div>
+            </Link>
+
+            <Link to="/seller/orders" className="quick-action-btn">
+              <span className="qa-icon"><OrdersIcon /></span>
+              <div className="qa-copy">
+                <strong>Process Orders</strong>
+                <span className="small muted">Accept & fulfill</span>
+              </div>
+            </Link>
+
+            <Link to="/seller/shops" className="quick-action-btn">
+              <span className="qa-icon"><StoreIcon /></span>
+              <div className="qa-copy">
+                <strong>Manage Shops</strong>
+                <span className="small muted">Locations & hours</span>
+              </div>
+            </Link>
+
+            <Link to="/seller/employees" className="quick-action-btn">
+              <span className="qa-icon"><UsersIcon /></span>
+              <div className="qa-copy">
+                <strong>Team & Staff</strong>
+                <span className="small muted">Invite employees</span>
+              </div>
+            </Link>
+
+            <Link to="/seller/cash" className="quick-action-btn">
+              <span className="qa-icon"><CashIcon /></span>
+              <div className="qa-copy">
+                <strong>Cash Sessions</strong>
+                <span className="small muted">POS & reconciliation</span>
+              </div>
+            </Link>
+          </div>
+        </div>
       </div>
 
-      <Card className="getting-started" style={{ marginTop: 24 }}>
-        <h3>Getting Started</h3>
-        <ul className="checklist">
-          <li><strong>{activeBusiness ? '✓' : '○'} Business created</strong></li>
-          <li><strong>{stats && stats.totalProducts > 0 ? '✓' : '○'} Create your first product</strong> {!stats?.totalProducts && <Link to="/seller/products/new" className="small">Add product</Link>}</li>
-          <li><strong>{stats && stats.hasStock > 0 ? '✓' : '○'} Add initial stock</strong> {stats && stats.totalProducts > 0 && !stats.hasStock && <Link to="/seller/stock" className="small">Manage stock</Link>}</li>
-          <li><strong>{stats && stats.publishedProducts > 0 ? '✓' : '○'} Publish a product</strong> {stats && stats.hasStock > 0 && !stats.publishedProducts && <Link to="/seller/products" className="small">Publish</Link>}</li>
-          <li><strong>{stats && stats.totalOrders > 0 ? '✓' : '○'} Receive your first order</strong></li>
-        </ul>
-      </Card>
+      {/* ── Bottom Section: Store Setup Progress ── */}
+      <div className="seller-section-card seller-setup-card">
+        <div className="section-card-header">
+          <div>
+            <h3>Store Setup Checklist</h3>
+            <p className="small muted">Essential steps to prepare your business for high marketplace sales</p>
+          </div>
+        </div>
+
+        <div className="seller-checklist-grid">
+          <div className="checklist-item checklist-item--done">
+            <span className="check-icon"><CheckCircleIcon /></span>
+            <div>
+              <strong>Business Registered</strong>
+              <p className="small muted">{activeBusiness.name}</p>
+            </div>
+          </div>
+
+          <div className={`checklist-item ${shopsCount > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
+            <span className="check-icon"><CheckCircleIcon /></span>
+            <div>
+              <strong>Create at least one Shop</strong>
+              {shopsCount > 0 ? (
+                <p className="small muted">{shopsCount} shop(s) active</p>
+              ) : (
+                <Link to="/seller/shops" className="small checklist-link">Create Shop &rarr;</Link>
+              )}
+            </div>
+          </div>
+
+          <div className={`checklist-item ${productsCount > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
+            <span className="check-icon"><CheckCircleIcon /></span>
+            <div>
+              <strong>Add Products to Catalog</strong>
+              {productsCount > 0 ? (
+                <p className="small muted">{productsCount} product(s) in catalog</p>
+              ) : (
+                <Link to="/seller/products/new" className="small checklist-link">Add Product &rarr;</Link>
+              )}
+            </div>
+          </div>
+
+          <div className={`checklist-item ${publishedProducts > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
+            <span className="check-icon"><CheckCircleIcon /></span>
+            <div>
+              <strong>Publish Products</strong>
+              {publishedProducts > 0 ? (
+                <p className="small muted">{publishedProducts} published on marketplace</p>
+              ) : (
+                <Link to="/seller/products" className="small checklist-link">Publish &rarr;</Link>
+              )}
+            </div>
+          </div>
+
+          <div className={`checklist-item ${ordersCount > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
+            <span className="check-icon"><CheckCircleIcon /></span>
+            <div>
+              <strong>Receive First Order</strong>
+              {ordersCount > 0 ? (
+                <p className="small muted">{ordersCount} order(s) processed</p>
+              ) : (
+                <p className="small muted">Orders will appear here once buyers checkout</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
-}
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'COMPLETED': return 'success'
-    case 'PENDING': return 'warning'
-    case 'ACCEPTED':
-    case 'PREPARING':
-    case 'READY': return 'info'
-    case 'OUT_FOR_DELIVERY':
-    case 'DELIVERED': return 'primary'
-    case 'CANCELLED':
-    case 'REJECTED': return 'danger'
-    default: return 'muted'
-  }
 }

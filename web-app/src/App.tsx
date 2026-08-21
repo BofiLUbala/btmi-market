@@ -3,13 +3,15 @@ import { AuthProvider } from '@/store/auth'
 import { FavoritesProvider } from '@/store/favorites'
 import { CartProvider } from '@/store/cart'
 import { Layout } from '@/components/layout/Layout'
-import { PublicOnly, RequireAuth, RequireSeller, RequireEmployee, SellerIndexRedirect } from '@/components/auth/Guards'
+import { PublicOnly, RequireAuth, RequireBuyer, RequireSeller, RequireEmployee, SellerIndexRedirect } from '@/components/auth/Guards'
 import { Button } from '@/components/ui/Button'
 
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import ActivatePage from '@/pages/auth/ActivatePage'
 import ResendActivationPage from '@/pages/auth/ResendActivationPage'
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage'
 
 import HomePage from '@/pages/marketplace/HomePage'
 import CategoriesPage from '@/pages/marketplace/CategoriesPage'
@@ -98,7 +100,7 @@ export default function App() {
                   <Route path="/orders/:orderId/success" element={<OrderSuccessPage />} />
                 </Route>
 
-                <Route element={<RequireAuth />}>
+                <Route element={<RequireBuyer />}>
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/account/edit" element={<EditProfilePage />} />
                   <Route path="/account/purchases" element={<PendingPurchasesPage />} />
@@ -117,10 +119,11 @@ export default function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/resend-activation" element={<ResendActivationPage />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                 </Route>
 
                 <Route path="/activate" element={<ActivatePage />} />
-                <Route path="/activate-account" element={<ActivatePage />} />
                 <Route element={<RequireAuth />}>
                   <Route path="/favorites" element={<FavoritesPage />} />
                 </Route>

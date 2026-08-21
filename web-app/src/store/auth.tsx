@@ -1,4 +1,4 @@
-﻿import {
+import {
   createContext,
   useCallback,
   useContext,
@@ -66,8 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccountType(me.account_type)
 
       if (me.account_type === 'SELLER') {
+        setBuyerProfile(null)
         try {
-          const businesses = await sellerAuthApi.listSellerBusinesses()
+          const rawBiz = await sellerAuthApi.listSellerBusinesses()
+          const businesses = Array.isArray(rawBiz) ? rawBiz : []
           setSellerBusinesses(businesses)
           let selected: SellerBusiness | null = null
           const storedId = localStorage.getItem(ACTIVE_BUSINESS_KEY)
@@ -79,15 +81,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           setActiveBusiness(selected)
         } catch {
-          // ignore business load failure; user is still authenticated
+          setSellerBusinesses([])
+          setActiveBusiness(null)
         }
-      } else {
+      } else if (me.account_type === 'BUYER') {
+        setSellerBusinesses([])
+        setActiveBusiness(null)
         try {
           const profile = await buyerApi.getProfile()
           setBuyerProfile(profile)
         } catch {
           setBuyerProfile(null)
         }
+      } else {
+        // EMPLOYEE or other: clear seller/buyer specific caches
+        setSellerBusinesses([])
+        setActiveBusiness(null)
+        setBuyerProfile(null)
       }
       return { user: me, accountType: me.account_type }
     } catch {
@@ -110,6 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
+      // Reset current state prior to setting fresh credentials
+      resetState()
+
       const res = await authApi.login(email, password) as LoginResponseWithUser
       tokenStore.set(res.access_token, res.refresh_token)
 
@@ -120,16 +133,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (res.user.account_type === 'SELLER') {
           // Fetch seller businesses
           try {
-            const businesses = await sellerAuthApi.listSellerBusinesses()
+            const rawBiz = await sellerAuthApi.listSellerBusinesses()
+            const businesses = Array.isArray(rawBiz) ? rawBiz : []
             setSellerBusinesses(businesses)
             if (businesses.length > 0) {
               setActiveBusiness(businesses[0])
               localStorage.setItem(ACTIVE_BUSINESS_KEY, businesses[0].id)
+            } else {
+              setActiveBusiness(null)
             }
           } catch {
-            // ignore
+            setSellerBusinesses([])
+            setActiveBusiness(null)
           }
-        } else {
+        } else if (res.user.account_type === 'BUYER') {
           try {
             const profile = await buyerApi.getProfile()
             setBuyerProfile(profile)
@@ -145,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!session) throw new Error('Login succeeded but session could not be established')
       return { accountType: session.accountType, user: session.user }
     },
-    [loadSession]
+    [loadSession, resetState]
   )
 
   const logout = useCallback(async () => {

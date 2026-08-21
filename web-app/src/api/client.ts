@@ -1,4 +1,4 @@
-import { ApiError, type SuccessEnvelope } from './types'
+import { ApiError } from './types'
 
 export const API_BASE: string =
   (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:8080/api/v1'
@@ -33,8 +33,10 @@ async function refreshTokens(): Promise<boolean> {
     tokenStore.clear()
     return false
   }
-  const json = (await res.json()) as SuccessEnvelope<{ access_token: string; refresh_token: string }>
-  const d = json.data
+  const json = (await res.json()) as unknown
+  const d = (json && typeof json === 'object' && 'data' in json && (json as Record<string, unknown>).data)
+    ? (json as Record<string, unknown>).data as { access_token: string; refresh_token: string }
+    : (json as { access_token: string; refresh_token: string })
   if (!d?.access_token || !d?.refresh_token) {
     tokenStore.clear()
     return false
@@ -58,7 +60,8 @@ export async function api<T>(
   let res: Response
   try {
     res = await fetch(`${API_BASE}${path}`, { ...options, headers })
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error
     throw new ApiError(
       0,
       'NETWORK_ERROR',
@@ -108,17 +111,27 @@ export async function api<T>(
       message = 'Password must be at least 8 characters with uppercase, lowercase, number, and special character.'
     } else if (code === 'PASSWORD_CONFIRMATION_MISMATCH') {
       message = 'Passwords do not match.'
+    } else if (code === 'EMAIL_ALREADY_EXISTS') {
+      message = 'An account already exists with this email.'
+    } else if (code === 'PHONE_ALREADY_EXISTS') {
+      message = 'An account already exists with this phone number.'
+    } else if (code === 'INVALID_CREDENTIALS') {
+      message = 'The email or password is incorrect.'
     }
     throw new ApiError(res.status, code, message)
   }
 
-  const json = (await res.json()) as SuccessEnvelope<T>
-  return json.data
+  const json = (await res.json()) as unknown
+  if (json && typeof json === 'object' && 'data' in json && (json as Record<string, unknown>).data !== undefined) {
+    return (json as Record<string, unknown>).data as T
+  }
+  return json as T
 }
 
 export function get<T>(
   path: string,
-  params?: Record<string, unknown> | object
+  params?: Record<string, unknown> | object,
+  options: RequestInit = {}
 ) {
   const qs = new URLSearchParams()
   if (params) {
@@ -127,7 +140,7 @@ export function get<T>(
     }
   }
   const q = qs.toString()
-  return api<T>(q ? `${path}?${q}` : path)
+  return api<T>(q ? `${path}?${q}` : path, options)
 }
 
 export function post<T>(path: string, body?: unknown) {

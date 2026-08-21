@@ -7,7 +7,7 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
 
 export default function SellerLoginPage() {
-  const { login } = useAuth()
+  const { login, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/seller/dashboard'
@@ -27,11 +27,21 @@ export default function SellerLoginPage() {
       } else if (result.accountType === 'EMPLOYEE') {
         navigate('/employee/dashboard', { replace: true })
       } else {
+        await logout()
         setError('This account is not registered as a Seller. Please use a Seller account or register as a Seller.')
-        navigate('/seller/login', { replace: true })
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Sign in failed')
+      if (err instanceof ApiError) {
+        if (err.code === 'ACCOUNT_NOT_ACTIVATED') {
+          setError('Your account has not been activated yet. Please check your email for the activation link.')
+        } else if (err.code === 'INVALID_CREDENTIALS') {
+          setError('Invalid email or password. Please try again.')
+        } else {
+          setError(err.message)
+        }
+      } else {
+        setError(err instanceof Error ? err.message : 'Sign in failed')
+      }
     } finally {
       setBusy(false)
     }

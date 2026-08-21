@@ -27,7 +27,7 @@ export default function HomePage() {
       if (!mounted) return
       if (cats.status === 'fulfilled') setCategories(asArray(cats.value))
       if (prods.status === 'fulfilled') setProducts(asArray(prods.value.products))
-      if (shps.status === 'fulfilled') setShops(asArray(shps.value))
+      if (shps.status === 'fulfilled') setShops(asArray(shps.value.shops))
       if (cats.status === 'rejected' && prods.status === 'rejected' && shps.status === 'rejected') {
         setError('Could not load the marketplace. Is the API running?')
       }
