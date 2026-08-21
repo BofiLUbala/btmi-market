@@ -1,0 +1,9 @@
+{
+  "first_name": "Jean",
+  "middle_name": "Pierre",
+  "last_name": "Kabongo",
+  "phone": "+243999888777",
+  "email": "jean.kabongo@test.com",
+  "password": "password123",
+  "password_confirmation": "password123"
+}

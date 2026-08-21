@@ -1,0 +1,723 @@
+﻿[
+    {
+        "Test":  "Seller register",
+        "Expected":  "200/201 + user_id",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Seller account created. Please activate your account.\",\r\n    \"data\":  {\r\n                 \"user_id\":  \"b1e32c77-4972-4d14-8a08-486c71c43928\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Seller DB row",
+        "Expected":  "SELLER|PENDING_VERIFICATION|hash=True",
+        "Actual":  "SELLER|PENDING_VERIFICATION|true",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Activate invalid token",
+        "Expected":  "404 ACTIVATION_LINK_INVALID",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Activate valid token",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Activated DB state",
+        "Expected":  "ACTIVE|true",
+        "Actual":  "ACTIVE|true",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Reuse used token",
+        "Expected":  "409 ALREADY_USED",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Seller login response",
+        "Expected":  "200 + account_type=SELLER + expires_in",
+        "Actual":  "HTTP 200 type=SELLER exp=900",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Login wrong password",
+        "Expected":  "401 INVALID_CREDENTIALS",
+        "Actual":  "HTTP 401",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "GET /auth/me",
+        "Expected":  "200 account_type=SELLER",
+        "Actual":  "HTTP 200 type=SELLER",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Refresh token rotation",
+        "Expected":  "200 + new refresh != old",
+        "Actual":  "HTTP 200 rotated=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Old refresh revoked",
+        "Expected":  "401 REFRESH_TOKEN_REVOKED",
+        "Actual":  "HTTP 401",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "List businesses (empty)",
+        "Expected":  "200 []",
+        "Actual":  "HTTP 200 count=0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create business",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Business created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"c6d4b097-8eda-4cc7-b30c-86d3826af041\",\r\n                 \"name\":  \"Web Test Biz 004712\",\r\n                 \"business_type\":  \"RETAIL\",\r\n                 \"category\":  \"general\",\r\n                 \"phone\":  \"+243811000100\",\r\n                 \"whatsapp\":  \"\",\r\n                 \"email\":  \"seller_web_004712@test.com\",\r\n                 \"country\":  \"CD\",\r\n                 \"city\":  \"Kinshasa\",\r\n                 \"default_currency\":  \"USD\",\r\n                 \"status\":  \"ACTIVE\",\r\n                 \"created_at\":  \"2026-08-20T23:47:16.184646Z\",\r\n                 \"updated_at\":  \"2026-08-20T23:47:16.184646Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Business listed for owner",
+        "Expected":  "business visible",
+        "Actual":  "found=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "OWNER membership in DB",
+        "Expected":  "OWNER",
+        "Actual":  "OWNER",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create Shop A",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create Shop B",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shop A persisted (GET)",
+        "Expected":  "200 correct business_id",
+        "Actual":  "HTTP 200 biz=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Categories available",
+        "Expected":  "\u003e=1 category",
+        "Actual":  "cat=34ee875b-0c79-4eef-897d-dac1cd07cad1",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create product",
+        "Expected":  "200/201 DRAFT",
+        "Actual":  "HTTP 200 pub=DRAFT",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Publish product",
+        "Expected":  "200 PUBLISHED",
+        "Actual":  "HTTP 200 pub=PUBLISHED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create variant",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Add stock +10",
+        "Expected":  "200 available=10",
+        "Actual":  "HTTP 200 avail=10",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Inventory fields",
+        "Expected":  "on_hand/reserved/available present",
+        "Actual":  "rows=1 qty=10",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Record sale qty 2",
+        "Expected":  "200/201 success",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Sale recorded successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"a8fa5d5f-ec63-4a4e-9122-94a1c2641d53\",\r\n                 \"business_id\":  \"c6d4b097-8eda-4cc7-b30c-86d3826af041\",\r\n                 \"shop_id\":  \"685b2a6a-47aa-4781-ab50-8f4758a09490\",\r\n                 \"product_id\":  \"8c05bffe-6bd9-4ac7-af84-f0522957db44\",\r\n                 \"variant_id\":  \"c762cf75-86b3-46bd-8885-6542686483d3\",\r\n                 \"quantity\":  8,\r\n                 \"reserved_quantity\":  0,\r\n                 \"available\":  8,\r\n                 \"created_at\":  \"2026-08-20T23:47:16.706191Z\",\r\n                 \"updated_at\":  \"2026-08-20T23:47:16.750849Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Stock after sale = 8",
+        "Expected":  "available=8",
+        "Actual":  "avail=8",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "SALE movement created",
+        "Expected":  "SALE movement with delta=2",
+        "Actual":  "count= ",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Insufficient stock rejected",
+        "Expected":  "400/409 no negative stock",
+        "Actual":  "HTTP 409 code=",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Concurrent oversell blocked",
+        "Expected":  "exactly one sale wins, final stock \u003e= 0",
+        "Actual":  "j1=ERR:409 j2=ERR:409 avail=",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Create customer",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Update customer",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Customer update persisted",
+        "Expected":  "notes=VIP customer",
+        "Actual":  "notes=",
+        "Pass":  false,
+        "Notes":  "fields=customer,first_purchase,last_purchase,shops_used,total_orders,total_purchased"
+    },
+    {
+        "Test":  "Open cash session",
+        "Expected":  "201 OPEN",
+        "Actual":  "HTTP 200 status=OPEN",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Duplicate open session rejected",
+        "Expected":  "400/409",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Close cash session",
+        "Expected":  "200 CLOSED",
+        "Actual":  "HTTP 200 status=CLOSED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Reconcile session",
+        "Expected":  "200 RECONCILED",
+        "Actual":  "HTTP 200 status=RECONCILED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Business cash summary",
+        "Expected":  "200 total_cash_sales present",
+        "Actual":  "HTTP 200 sales=0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth points endpoint",
+        "Expected":  "200 or 404 pre-transaction (lazy account)",
+        "Actual":  "HTTP 404 code= pts=",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth level+trust",
+        "Expected":  "200 level/trust data",
+        "Actual":  "HTTP 200 level=STARTER trust=",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth benefits",
+        "Expected":  "200 benefits array",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Growth history",
+        "Expected":  "200 transactions",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller creates order",
+        "Expected":  "201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Order created successfully\",\r\n    \"data\":  {\r\n                 \"order\":  {\r\n                               \"id\":  \"5f155571-d857-41dd-acaf-24881e7828ce\",\r\n                               \"business_id\":  \"c6d4b097-8eda-4cc7-b30c-86d3826af041\",\r\n                               \"shop_id\":  \"685b2a6a-47aa-4781-ab50-8f4758a09490\",\r\n                               \"customer_id\":  \"86d68b91-1c33-464f-8556-ce3471c31732\",\r\n                               \"buyer_profile_id\":  null,\r\n                               \"status\":  \"PENDING\",\r\n                               \"total_items\":  1,\r\n                               \"notes\":  \"walk-in sale\",\r\n                               \"created_by\":  \"b1e32c77-4972-4d14-8a08-486c71c43928\",\r\n                               \"base_total\":  0,\r\n                               \"points_used\":  0,\r\n                               \"points_discount_amount\":  0,\r\n                               \"final_total\":  0,\r\n                               \"idempotency_key\":  null,\r\n                               \"order_number\":  \"BTMI-1104\",\r\n                               \"delivery_method\":  \"\",\r\n                               \"delivery_fee_base\":  0,\r\n                               \"delivery_points_used\":  0,\r\n                               \"delivery_points_discount\":  0,\r\n                               \"delivery_fee_final\":  0,\r\n                               \"delivery_contact_name\":  \"\",\r\n                               \"delivery_phone\":  \"\",\r\n                               \"delivery_address\":  \"\",\r\n                               \"delivery_notes\":  \"\",\r\n                               \"points_finalized\":  false,\r\n                               \"created_at\":  \"2026-08-20T23:47:25.511238Z\",\r\n                               \"updated_at\":  \"2026-08-20T23:47:25.511238Z\"\r\n                           },\r\n                 \"lines\":  [\r\n                               {\r\n                                   \"id\":  \"bbce0919-1c49-4a9f-8122-3233afc3a978\",\r\n                                   \"order_id\":  \"5f155571-d857-41dd-acaf-24881e7828ce\",\r\n                                   \"product_id\":  \"8c05bffe-6bd9-4ac7-af84-f0522957db44\",\r\n                                   \"variant_id\":  \"c762cf75-86b3-46bd-8885-6542686483d3\",\r\n                                   \"quantity\":  1,\r\n                                   \"unit_price\":  15000,\r\n                                   \"base_unit_price\":  0,\r\n                                   \"points_discount_per_unit\":  0,\r\n                                   \"final_unit_price\":  0,\r\n                                   \"created_at\":  \"2026-08-20T23:47:25.511238Z\"\r\n                               }\r\n                           ]\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Create employee",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Assign employee to Shop A",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Duplicate assignment rejected",
+        "Expected":  "409 ALREADY_ASSIGNED",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Assignment to unknown shop fails",
+        "Expected":  "404 SHOP_NOT_FOUND",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Send invitation",
+        "Expected":  "200/201 PENDING",
+        "Actual":  "HTTP 200 st=PENDING",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Invitation expiry ~7 days",
+        "Expected":  "between 167-169h",
+        "Actual":  "168h",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Invitation stores 64-char hash only",
+        "Expected":  "1 row, hash len 64",
+        "Actual":  "1",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Duplicate pending invite rejected",
+        "Expected":  "409 INVITATION_ALREADY_PENDING",
+        "Actual":  "HTTP 409",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Accept invitation",
+        "Expected":  "200 + user_id",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee user linked + EMPLOYEE type",
+        "Expected":  "EMPLOYEE",
+        "Actual":  "EMPLOYEE",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Invitation token single-use",
+        "Expected":  "400/404/409 rejected",
+        "Actual":  "HTTP 404",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee login",
+        "Expected":  "200 EMPLOYEE",
+        "Actual":  "HTTP 200 type=EMPLOYEE",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "GET /employees/me",
+        "Expected":  "200 employee + Shop A only",
+        "Actual":  "HTTP 200 shops=685b2a6a-47aa-4781-ab50-8f4758a09490",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee reads Shop A inventory",
+        "Expected":  "200",
+        "Actual":  "HTTP 403",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee reads Shop B inventory",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee adds stock to Shop B",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee lists Shop B orders",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee self-assign shop blocked",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee self-update blocked",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee self-invite blocked",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee adds stock Shop A",
+        "Expected":  "200",
+        "Actual":  "HTTP 403",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Employee records sale Shop A",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Sale movement keeps actor identity",
+        "Expected":  "performed_by NOT NULL",
+        "Actual":  null,
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Setup Business B + shop",
+        "Expected":  "created",
+        "Actual":  "biz=2e2c1b17-0674-4c83-b6fc-575dd1922313 shop=853b0049-1009-48de-baa6-8a3438ad92c4",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Owner A gets Business B detail",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B shops",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B employees",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B products",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B orders",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A lists Business B customers",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A gets Business B cash summary",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A creates shop in Business B",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Owner A creates employee in Business B",
+        "Expected":  "403/404 no leakage",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Employee A reads Business B shop inventory",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "Buyer register+activate+login",
+        "Expected":  "200 BUYER",
+        "Actual":  "type=BUYER",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "BUYER cannot create business",
+        "Expected":  "403",
+        "Actual":  "HTTP 403",
+        "Pass":  true,
+        "Notes":  null
+    },
+    {
+        "Test":  "BUYER sees no businesses",
+        "Expected":  "200 empty/null",
+        "Actual":  "HTTP 200 count=0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates profile",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Buyer profile created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"5f4e4847-e225-4a76-80cb-a3d5175ddd3d\",\r\n                 \"user_id\":  \"875e7263-e74f-4c49-93d2-160cc6833d89\",\r\n                 \"first_name\":  \"Buyer\",\r\n                 \"last_name\":  \"T\",\r\n                 \"phone\":  \"+243999000111\",\r\n                 \"email\":  \"buyer_web_004712@test.com\",\r\n                 \"city\":  \"Kinshasa\",\r\n                 \"commune\":  \"Gombe\",\r\n                 \"status\":  \"ACTIVE\",\r\n                 \"created_at\":  \"2026-08-20T23:47:29.606043Z\",\r\n                 \"updated_at\":  \"2026-08-20T23:47:29.606043Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "Product visible in marketplace",
+        "Expected":  "200 published",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer order preview",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates order",
+        "Expected":  "201 PENDING",
+        "Actual":  "HTTP 200 st=",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller sees buyer order in Shop A",
+        "Expected":  "order listed",
+        "Actual":  "found=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller accepts buyer order",
+        "Expected":  "200 ACCEPTED",
+        "Actual":  "HTTP 400",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer delivery options",
+        "Expected":  "200",
+        "Actual":  "HTTP 400 opts=0",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer selects delivery",
+        "Expected":  "200",
+        "Actual":  "HTTP 400",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates payment",
+        "Expected":  "201 PENDING",
+        "Actual":  "HTTP 400 st=",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer confirms paid -\u003e CONFIRMED (not VERIFIED)",
+        "Expected":  "CONFIRMED",
+        "Actual":  "HTTP 400 st=",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller confirms cash -\u003e VERIFIED",
+        "Expected":  "VERIFIED",
+        "Actual":  "HTTP 400 st=",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Worker processed jobs without errors",
+        "Expected":  "no errors in recent worker log",
+        "Actual":  "clean",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Verified transaction recorded",
+        "Expected":  "\u003e=1",
+        "Actual":  null,
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller growth points after verified sale",
+        "Expected":  "current_points \u003e 0",
+        "Actual":  "HTTP 200 pts=0",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Review eligibility",
+        "Expected":  "eligible=true",
+        "Actual":  "HTTP 400 eligible=",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer creates review",
+        "Expected":  "201",
+        "Actual":  "HTTP 400",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller reads shop reviews",
+        "Expected":  "200 with review",
+        "Actual":  "HTTP 200 total=0",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller cannot edit buyer review",
+        "Expected":  "401/403",
+        "Actual":  "HTTP 404",
+        "Pass":  false,
+        "Notes":  null
+    },
+    {
+        "Test":  "Seller cannot delete buyer review",
+        "Expected":  "401/403",
+        "Actual":  "HTTP 404",
+        "Pass":  false,
+        "Notes":  null
+    },
+    {
+        "Test":  "Marketplace products list",
+        "Expected":  "200",
+        "Actual":  "HTTP 200 count=5",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Marketplace search",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Marketplace categories",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer points endpoint",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer orders list",
+        "Expected":  "200 includes order",
+        "Actual":  "HTTP 200 count=0",
+        "Pass":  false,
+        "Notes":  ""
+    }
+]

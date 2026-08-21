@@ -1,0 +1,105 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - API_PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-btmi_market}
+      - DB_USER=${DB_USER:-btmi_user}
+      - DB_PASSWORD=${DB_PASSWORD:-btmi_secret_password}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - ACCESS_TOKEN_TTL=${ACCESS_TOKEN_TTL:-15}
+      - REFRESH_TOKEN_TTL=${REFRESH_TOKEN_TTL:-10080}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:?set SMTP_USER in .env}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:?set SMTP_PASSWORD in .env}
+      - SMTP_FROM=${SMTP_FROM:-${SMTP_USER}}
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=${REDIS_DB:-0}
+      - BACKGROUND_WORKER_ENABLED=false
+      - MIGRATIONS_DIR=/migrations
+      - E2E_TEST_MODE=true
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-btmi_market}
+      - POSTGRES_USER=${DB_USER:-btmi_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-btmi_secret_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-btmi_user} -d ${DB_NAME:-btmi_market}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["./worker"]
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-btmi_market}
+      - DB_USER=${DB_USER:-btmi_user}
+      - DB_PASSWORD=${DB_PASSWORD:-btmi_secret_password}
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=${REDIS_DB:-0}
+      - BACKGROUND_WORKER_ENABLED=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../web-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: /api/v1
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local

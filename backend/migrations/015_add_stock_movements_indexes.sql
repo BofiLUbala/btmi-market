@@ -1,0 +1,1 @@
+CREATE INDEX idx_stock_movements_variant_id_created_at ON stock_movements(variant_id, created_at);
