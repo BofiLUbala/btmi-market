@@ -1,10 +1,12 @@
-﻿import { useAuth } from '@/store/auth'
+import { useAuth } from '@/store/auth'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Link } from 'react-router-dom'
 
 export default function SellerBusinessPage() {
   const { activeBusiness, sellerBusinesses, setActiveBusiness } = useAuth()
+
+  const bizList = Array.isArray(sellerBusinesses) ? sellerBusinesses : []
 
   return (
     <div className="seller-business">
@@ -30,11 +32,11 @@ export default function SellerBusinessPage() {
             </div>
           </Card>
 
-          {sellerBusinesses.length > 1 && (
+          {bizList.length > 1 && (
             <Card style={{ marginTop: 16 }}>
               <h3>Your Businesses</h3>
               <div className="shop-list" style={{ padding: 0 }}>
-                {sellerBusinesses.map((b) => (
+                {bizList.map((b) => (
                   <button
                     key={b.id}
                     className={`shop-item ${b.id === activeBusiness.id ? 'active' : ''}`}
@@ -55,7 +57,7 @@ export default function SellerBusinessPage() {
                       marginBottom: 8,
                     }}
                   >
-                    <span>🏢 {b.name}</span>
+                    <span>{b.name}</span>
                     {b.id === activeBusiness.id && <span className="badge badge-primary">Active</span>}
                   </button>
                 ))}

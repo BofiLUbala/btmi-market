@@ -34,9 +34,10 @@ export default function SellerProductsPage() {
     setLoading(true)
     try {
       const data = await productApi.listByBusiness(activeBusiness.id)
-      setProducts(data)
+      setProducts(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load products')
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -52,12 +53,19 @@ export default function SellerProductsPage() {
     )
   }
 
+  const productList = Array.isArray(products) ? products : []
+
   return (
     <div className="seller-products">
       <div className="page-header">
-        <h1>Products</h1>
-        <Link to="/seller/products/new">
-          <Button>➕ Create Product</Button>
+        <div>
+          <h1>Products</h1>
+          <p className="muted" style={{ margin: 0 }}>
+            Products are created inside a Shop. Choose a Shop to add or manage its Products.
+          </p>
+        </div>
+        <Link to="/seller/products/select-shop">
+          <Button>+ Create Product</Button>
         </Link>
       </div>
 
@@ -65,13 +73,13 @@ export default function SellerProductsPage() {
         <LoadingBlock label="Loading products…" />
       ) : error ? (
         <ErrorBox error={error} />
-      ) : products.length === 0 ? (
+      ) : productList.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
             <div className="empty-icon" style={{ fontSize: 48 }}>📦</div>
             <h3>No Products Yet</h3>
-            <p className="muted">Create your first product to start selling.</p>
-            <Link to="/seller/products/new">
+            <p className="muted">Choose one of your Shops to create your first Product.</p>
+            <Link to="/seller/products/select-shop">
               <Button size="lg">Create Product</Button>
             </Link>
           </div>
@@ -83,30 +91,70 @@ export default function SellerProductsPage() {
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th>SKU</th>
+                  <th>Category</th>
+                  <th>Variants</th>
+                  <th>Stock</th>
+                  <th>Sale Price</th>
                   <th>Status</th>
                   <th>Created</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => (
-                  <tr key={product.id}>
-                    <td>
-                      <strong>{product.name}</strong>
-                      <br />
-                      <span className="muted small">{(product.description || '').slice(0, 60)}{product.description && product.description.length > 60 ? '...' : ''}</span>
-                    </td>
-                    <td className="mono">{product.sku}</td>
-                    <td><span className={`badge badge-${product.publication_status === 'PUBLISHED' ? 'success' : product.publication_status === 'DRAFT' ? 'warning' : 'muted'}`}>{product.publication_status}</span></td>
-                    <td className="small">{new Date(product.created_at).toLocaleDateString()}</td>
-                    <td>
-                      <Link to={`/seller/products/${product.id}`}>
-                        <Button variant="ghost" size="sm">View</Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {productList.map((product: any) => {
+                  const avail = product.available_quantity ?? (product.total_quantity ?? 0)
+                  const reserved = product.reserved_quantity ?? 0
+                  const total = product.total_quantity ?? avail
+                  return (
+                    <tr key={product.id}>
+                      <td>
+                        <strong>{product.name}</strong>
+                        {product.sku && (
+                          <span className="mono small muted" style={{ display: 'block' }}>
+                            SKU: {product.sku}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="badge badge-outline">
+                          {product.category_name || 'General'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <strong>{product.variant_count || 1}</strong>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <strong style={{ color: avail > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
+                            {avail} available
+                          </strong>
+                          {reserved > 0 && (
+                            <span className="small muted">
+                              ({total} total · {reserved} reserved)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <strong>{product.unit_price ? `${Number(product.unit_price).toLocaleString()} FC` : '—'}</strong>
+                        {product.unit && <span className="muted small"> / {product.unit}</span>}
+                      </td>
+                      <td>
+                        <span className={`badge badge-${product.publication_status === 'PUBLISHED' ? 'success' : product.publication_status === 'DRAFT' ? 'warning' : 'muted'}`}>
+                          {product.publication_status}
+                        </span>
+                      </td>
+                      <td className="small">{new Date(product.created_at).toLocaleDateString()}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <Link to={`/seller/products/${product.id}`}>
+                            <Button variant="ghost" size="sm">Details</Button>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

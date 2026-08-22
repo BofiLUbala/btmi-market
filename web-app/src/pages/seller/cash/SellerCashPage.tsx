@@ -33,9 +33,10 @@ export default function SellerCashPage() {
         cashApi.listBusinessSessions(activeBusiness.id, { limit: 10 }),
       ])
       setSummary(summaryData)
-      setSessions(sessionsData)
+      setSessions(Array.isArray(sessionsData) ? sessionsData : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load cash data')
+      setSessions([])
     } finally {
       setLoading(false)
     }

@@ -26,6 +26,7 @@ type Config struct {
 	SMTPUser          string
 	SMTPPassword      string
 	SMTPFrom          string
+	UploadDir         string
 }
 
 func Load() *Config {
@@ -49,7 +50,8 @@ func Load() *Config {
 		SMTPPort:       getEnv("SMTP_PORT", ""),
 		SMTPUser:       getEnv("SMTP_USER", ""),
 		SMTPPassword:   getEnv("SMTP_PASSWORD", ""),
-		SMTPFrom:       getEnv("SMTP_FROM", "noreply@btmi-market.com"),
+		SMTPFrom:        getEnv("SMTP_FROM", "noreply@btmi-market.com"),
+		UploadDir:       getEnv("UPLOAD_DIR", "./uploads"),
 	}
 }
 

@@ -10,11 +10,12 @@ import (
 )
 
 type Handler struct {
-	inventoryService *service.InventoryService
+	inventoryService    *service.InventoryService
+	productImageService *service.ProductImageService
 }
 
-func NewHandler(inventoryService *service.InventoryService) *Handler {
-	return &Handler{inventoryService: inventoryService}
+func NewHandler(inventoryService *service.InventoryService, productImageService *service.ProductImageService) *Handler {
+	return &Handler{inventoryService: inventoryService, productImageService: productImageService}
 }
 
 func (h *Handler) errResponse(c *gin.Context, statusCode int, errorCode, message string) {
@@ -531,29 +532,9 @@ func (h *Handler) ListProducts(c *gin.Context) {
 		return
 	}
 
-	var responses []models.ProductResponse
-	for _, p := range products {
-		responses = append(responses, models.ProductResponse{
-			ID:          p.ID,
-			BusinessID:  p.BusinessID,
-			Name:        p.Name,
-			SKU:         p.SKU,
-			Description: p.Description,
-			UnitPrice:   p.UnitPrice,
-			CostPrice:   p.CostPrice,
-			Unit:        p.Unit,
-			Status:      p.Status,
-			PublicationStatus: p.PublicationStatus,
-			CategoryID:  p.CategoryID,
-			SubcategoryID: p.SubcategoryID,
-			CreatedAt:   p.CreatedAt,
-			UpdatedAt:   p.UpdatedAt,
-		})
-	}
-
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Products retrieved successfully",
-		Data:    responses,
+		Data:    products,
 	})
 }
 
@@ -1010,5 +991,165 @@ func (h *Handler) GetBusinessStockHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Business stock history retrieved successfully",
 		Data:    result,
+	})
+}
+
+func (h *Handler) UploadProductImage(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	businessID, ok := h.parseUUIDParam(c, "business_id")
+	if !ok {
+		return
+	}
+	productID, ok := h.parseUUIDParam(c, "product_id")
+	if !ok {
+		return
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "An image file is required (field 'file').")
+		return
+	}
+
+	makePrimary := c.PostForm("is_primary") == "true"
+
+	image, err := h.productImageService.Upload(userID, businessID, productID, fileHeader, makePrimary)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		errorCode := "INTERNAL_ERROR"
+		switch err.Error() {
+		case "PRODUCT_NOT_FOUND":
+			statusCode = http.StatusNotFound
+			errorCode = err.Error()
+		case "FORBIDDEN":
+			statusCode = http.StatusForbidden
+			errorCode = err.Error()
+		case "IMAGE_TOO_LARGE":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+		case "INVALID_IMAGE_TYPE":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+		case "IMAGE_LIMIT_REACHED":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+		case "IMAGE_READ_FAILED", "IMAGE_STORAGE_FAILED", "IMAGE_SAVE_FAILED":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+		}
+		h.errResponse(c, statusCode, errorCode, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusCreated, models.SuccessResponse{
+		Message: "Image uploaded successfully",
+		Data:    image,
+	})
+}
+
+func (h *Handler) ListProductImages(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	businessID, ok := h.parseUUIDParam(c, "business_id")
+	if !ok {
+		return
+	}
+	productID, ok := h.parseUUIDParam(c, "product_id")
+	if !ok {
+		return
+	}
+
+	images, err := h.productImageService.List(userID, businessID, productID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		switch err.Error() {
+		case "PRODUCT_NOT_FOUND":
+			statusCode = http.StatusNotFound
+		case "FORBIDDEN":
+			statusCode = http.StatusForbidden
+		}
+		h.errResponse(c, statusCode, err.Error(), err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Product images",
+		Data:    images,
+	})
+}
+
+func (h *Handler) DeleteProductImage(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	businessID, ok := h.parseUUIDParam(c, "business_id")
+	if !ok {
+		return
+	}
+	productID, ok := h.parseUUIDParam(c, "product_id")
+	if !ok {
+		return
+	}
+	imageID, ok := h.parseUUIDParam(c, "image_id")
+	if !ok {
+		return
+	}
+
+	if err := h.productImageService.Delete(userID, businessID, productID, imageID); err != nil {
+		statusCode := http.StatusInternalServerError
+		switch err.Error() {
+		case "IMAGE_NOT_FOUND":
+			statusCode = http.StatusNotFound
+		case "FORBIDDEN":
+			statusCode = http.StatusForbidden
+		}
+		h.errResponse(c, statusCode, err.Error(), err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Image deleted successfully"})
+}
+
+// RemoveProductFromShop stops selling one Product at one Shop.
+func (h *Handler) RemoveProductFromShop(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	shopID, ok := h.parseUUIDParam(c, "shop_id")
+	if !ok {
+		return
+	}
+	productID, ok := h.parseUUIDParam(c, "product_id")
+	if !ok {
+		return
+	}
+
+	removed, err := h.inventoryService.RemoveProductFromShop(userID, shopID, productID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		switch err.Error() {
+		case "SHOP_NOT_FOUND", "PRODUCT_NOT_FOUND":
+			statusCode = http.StatusNotFound
+		case "FORBIDDEN":
+			statusCode = http.StatusForbidden
+		}
+		h.errResponse(c, statusCode, err.Error(), err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Product removed from Shop",
+		Data:    gin.H{"variants_removed": removed},
 	})
 }

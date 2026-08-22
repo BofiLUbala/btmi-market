@@ -6,6 +6,7 @@ import { shopApi } from '@/api/seller'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
+import type { SellerBusiness } from '@/api/types'
 
 interface OnboardingStep {
   id: 'business' | 'shop'
@@ -20,7 +21,7 @@ const steps: OnboardingStep[] = [
 ]
 
 export default function SellerOnboardingPage() {
-  const { user, activeBusiness } = useAuth()
+  const { user, activeBusiness, setActiveBusiness, setSellerBusinesses, setActiveShop } = useAuth()
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<'business' | 'shop'>('business')
   const [businessForm, setBusinessForm] = useState({
@@ -55,8 +56,12 @@ export default function SellerOnboardingPage() {
   const [businessCreated, setBusinessCreated] = useState(false)
 
   useEffect(() => {
-    if (user?.email) {
-      setBusinessForm((f) => (f.email ? f : { ...f, email: user.email }))
+    if (user?.email || user?.phone) {
+      setBusinessForm((f) => ({
+        ...f,
+        email: f.email || user.email || '',
+        phone: f.phone || user.phone || '',
+      }))
     }
   }, [user])
 
@@ -77,7 +82,23 @@ export default function SellerOnboardingPage() {
     setError('')
     setBusy(true)
     try {
-      await businessApi.create(businessForm)
+      const created = await businessApi.create({
+        name: businessForm.name,
+        business_type: businessForm.business_type,
+        category: businessForm.category,
+        phone: businessForm.phone,
+        whatsapp: businessForm.phone,
+        email: businessForm.email,
+        country: businessForm.country,
+        city: businessForm.city,
+        default_currency: businessForm.default_currency,
+      })
+      const sellerBiz: SellerBusiness = {
+        ...created,
+        status: created.status || 'ACTIVE',
+      }
+      setActiveBusiness(sellerBiz)
+      setSellerBusinesses([sellerBiz])
       setBusinessCreated(true)
       setCurrentStep('shop')
       steps[0].completed = true
@@ -99,7 +120,8 @@ export default function SellerOnboardingPage() {
     setError('')
     setBusy(true)
     try {
-      await shopApi.create(activeBusiness.id, shopForm)
+      const newShop = await shopApi.create(activeBusiness.id, shopForm)
+      setActiveShop(newShop.id)
       navigate('/seller/dashboard', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create shop')

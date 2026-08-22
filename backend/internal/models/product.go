@@ -69,6 +69,11 @@ type ProductResponse struct {
 	PublicationStatus PublicationStatus `json:"publication_status"`
 	CategoryID       *uuid.UUID         `json:"category_id,omitempty"`
 	SubcategoryID    *uuid.UUID         `json:"subcategory_id,omitempty"`
+	CategoryName      string             `json:"category_name,omitempty"`
+	VariantCount      int                `json:"variant_count,omitempty"`
+	TotalQuantity     int                `json:"total_quantity,omitempty"`
+	ReservedQuantity  int                `json:"reserved_quantity,omitempty"`
+	AvailableQuantity int                `json:"available_quantity,omitempty"`
 	CreatedAt        time.Time          `json:"created_at"`
 	UpdatedAt        time.Time          `json:"updated_at"`
 }

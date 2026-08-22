@@ -1,4 +1,4 @@
-﻿import { useAuth } from '@/store/auth'
+import { useAuth } from '@/store/auth'
 import { orderApi } from '@/api/seller'
 import type { OrderStatus } from '@/api/types'
 import { Card } from '@/components/ui/Card'
@@ -51,9 +51,10 @@ export default function SellerOrdersPage() {
     setLoading(true)
     try {
       const data = await orderApi.listByBusiness(activeBusiness.id, { limit: 20 })
-      setOrders(data)
+      setOrders(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load orders')
+      setOrders([])
     } finally {
       setLoading(false)
     }
@@ -82,6 +83,8 @@ export default function SellerOrdersPage() {
     )
   }
 
+  const orderList = Array.isArray(orders) ? orders : []
+
   return (
     <div className="seller-orders">
       <div className="page-header">
@@ -92,7 +95,7 @@ export default function SellerOrdersPage() {
         <LoadingBlock label="Loading orders…" />
       ) : error ? (
         <ErrorBox error={error} />
-      ) : orders.length === 0 ? (
+      ) : orderList.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
             <div className="empty-icon" style={{ fontSize: 48 }}>🧾</div>

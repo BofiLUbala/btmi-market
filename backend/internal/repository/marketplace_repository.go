@@ -113,6 +113,15 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 	args := []interface{}{}
 	argIdx := 1
 
+	// A featured card is a (Product, Shop) offer: only Shops where the
+	// Product actually has stock may list it — one card per offer, never
+	// one row per business shop.
+	where = append(where, `EXISTS (
+			SELECT 1 FROM product_variants v2
+			JOIN inventory i2 ON i2.variant_id = v2.id
+			WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND i2.shop_id = s.id
+		)`)
+
 	if shopID != uuid.Nil {
 		where = append(where, fmt.Sprintf("s.id = $%d", argIdx))
 		args = append(args, shopID)
@@ -247,14 +256,15 @@ func (r *MarketplaceRepository) GetVariantsForProduct(productID uuid.UUID) ([]mo
 		SELECT v.id, v.sku,
 		       COALESCE(v.sale_price, 0) as sale_price,
 		       CASE 
-		           WHEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) > 5 THEN 'AVAILABLE'
-		           WHEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) > 0 THEN 'LOW_STOCK'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 5 THEN 'AVAILABLE'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
 		           ELSE 'OUT_OF_STOCK'
 		       END as stock,
-		       COALESCE(i.quantity - i.reserved_quantity, 0) as stock_qty
+		       COALESCE(SUM(i.quantity) - SUM(i.reserved_quantity), 0) as stock_qty
 		FROM product_variants v
 		LEFT JOIN inventory i ON i.variant_id = v.id
 		WHERE v.product_id = $1
+		GROUP BY v.id, v.sku, v.sale_price
 		ORDER BY v.sku ASC
 	`
 	rows, err := r.db.Query(query, productID)
@@ -278,6 +288,14 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 	where := []string{"p.publication_status = 'PUBLISHED'", "s.status = 'ACTIVE'"}
 	args := []interface{}{}
 	argIdx := 1
+
+	// A search hit is a (Product, Shop) offer: only Shops where the Product
+	// actually has stock may attribute it.
+	where = append(where, `EXISTS (
+			SELECT 1 FROM product_variants v2
+			JOIN inventory i2 ON i2.variant_id = v2.id
+			WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND i2.shop_id = s.id
+		)`)
 
 	if search.Query != "" {
 		where = append(where, fmt.Sprintf("(p.name ILIKE $%d OR p.sku ILIKE $%d OR p.description ILIKE $%d)", argIdx, argIdx, argIdx))
@@ -418,6 +436,13 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 	where := []string{"p.publication_status = 'PUBLISHED'", "s.status = 'ACTIVE'"}
 	args := []interface{}{}
 	argIdx := 1
+
+	// A product belongs to a Shop only where it actually has stock.
+	where = append(where, `EXISTS (
+			SELECT 1 FROM product_variants v2
+			JOIN inventory i2 ON i2.variant_id = v2.id
+			WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND i2.shop_id = s.id
+		)`)
 
 	where = append(where, fmt.Sprintf("p.category_id = $%d", argIdx))
 	args = append(args, categoryID)
@@ -713,11 +738,16 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
 		       p.created_at,
-		       c.name as category_name, c.slug as category_slug,
-		       sc.name as subcategory_name, sc.slug as subcategory_slug
+		       COALESCE(c.name, '') as category_name, COALESCE(c.slug, '') as category_slug,
+		       COALESCE(sc.name, '') as subcategory_name, COALESCE(sc.slug, '') as subcategory_slug
 		FROM products p
 		JOIN businesses b ON b.id = p.business_id
 		JOIN shops s ON s.business_id = b.id AND s.status = 'ACTIVE'
+		AND EXISTS (
+			SELECT 1 FROM product_variants v2
+			JOIN inventory i2 ON i2.variant_id = v2.id
+			WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND i2.shop_id = s.id
+		)
 		LEFT JOIN point_accounts pa ON pa.owner_type = 'SELLER_BUSINESS' AND pa.owner_id = b.id
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = b.id
@@ -775,14 +805,15 @@ func (r *MarketplaceRepository) GetVariantsWithStockForProduct(productID uuid.UU
 		SELECT v.id, v.sku, v.name, v.attributes,
 		       COALESCE(v.sale_price, 0) as sale_price,
 		       CASE 
-		           WHEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) > 5 THEN 'AVAILABLE'
-		           WHEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) > 0 THEN 'LOW_STOCK'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 5 THEN 'AVAILABLE'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
 		           ELSE 'OUT_OF_STOCK'
 		       END as stock,
-		       COALESCE(i.quantity - i.reserved_quantity, 0) as stock_qty
+		       COALESCE(SUM(i.quantity) - SUM(i.reserved_quantity), 0) as stock_qty
 		FROM product_variants v
 		LEFT JOIN inventory i ON i.variant_id = v.id
 		WHERE v.product_id = $1 AND v.status = 'ACTIVE'
+		GROUP BY v.id, v.sku, v.name, v.attributes, v.sale_price
 		ORDER BY v.sku ASC
 	`
 	rows, err := r.db.Query(query, productID)
@@ -856,6 +887,13 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 	where := []string{"p.publication_status = 'PUBLISHED'", "p.status = 'ACTIVE'", "s.status = 'ACTIVE'"}
 	args := []interface{}{}
 	argIdx := 1
+
+	// A product is offered in a Shop only where it actually has stock.
+	where = append(where, `EXISTS (
+			SELECT 1 FROM product_variants v2
+			JOIN inventory i2 ON i2.variant_id = v2.id
+			WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND i2.shop_id = s.id
+		)`)
 
 	where = append(where, fmt.Sprintf("s.id = $%d", argIdx))
 	args = append(args, shopID)

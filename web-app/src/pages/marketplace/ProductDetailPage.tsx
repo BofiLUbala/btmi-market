@@ -173,7 +173,11 @@ export default function ProductDetailPage() {
       </Link>
 
       <div className="pd-grid" style={{ marginTop: 12 }}>
-        <Gallery name={p.name} badge={<StockChip stock={v.stock} />} />
+        <Gallery
+          name={p.name}
+          badge={<StockChip stock={v.stock} />}
+          images={(p.images ?? []).map((img) => ({ url: img.url, alt: img.file_name || p.name }))}
+        />
 
         <div className="stack">
           <div>

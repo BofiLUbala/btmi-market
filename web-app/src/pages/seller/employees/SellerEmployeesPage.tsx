@@ -1,4 +1,4 @@
-﻿import { useAuth } from '@/store/auth'
+import { useAuth } from '@/store/auth'
 import { employeeApi, shopApi } from '@/api/seller'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -56,9 +56,10 @@ export default function SellerEmployeesPage() {
     setLoading(true)
     try {
       const data = await employeeApi.listByBusiness(activeBusiness.id)
-      setEmployees(data)
+      setEmployees(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load employees')
+      setEmployees([])
     } finally {
       setLoading(false)
     }
@@ -68,9 +69,10 @@ export default function SellerEmployeesPage() {
     if (!activeBusiness) return
     try {
       const data = await shopApi.listByBusiness(activeBusiness.id)
-      setShops(data.map((s) => ({ id: s.id, name: s.name })))
+      const list = Array.isArray(data) ? data : []
+      setShops(list.map((s) => ({ id: s.id, name: s.name })))
     } catch {
-      // ignore
+      setShops([])
     }
   }
 
@@ -127,7 +129,7 @@ export default function SellerEmployeesPage() {
       await employeeApi.removeFromShop(empId, shopId)
       setAssignedShopIds((prev) => prev.filter((id) => id !== shopId))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to remove assignment')
+      setActionError(err instanceof Error ? err.message : 'Failed to remove shop assignment')
     } finally {
       setActing(false)
     }
@@ -138,11 +140,13 @@ export default function SellerEmployeesPage() {
     setActionError('')
     setInviteUrl(null)
     try {
-      const res = await employeeApi.createInvitation(emp.id, { employee_id: emp.id })
-      if (res.invitation_url) {
+      const res = await employeeApi.createInvitation(emp.id, {
+        employee_id: emp.id,
+      })
+      if (res && res.invitation_url) {
         setInviteUrl({ employeeId: emp.id, url: res.invitation_url })
       } else {
-        setActionError('Invitation created but no URL was returned')
+        setActionError('Invitation created, but no URL was returned.')
       }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to create invitation')
@@ -161,6 +165,9 @@ export default function SellerEmployeesPage() {
     )
   }
 
+  const empList = Array.isArray(employees) ? employees : []
+  const shopList = Array.isArray(shops) ? shops : []
+
   return (
     <div className="seller-employees">
       <div className="page-header">
@@ -170,17 +177,15 @@ export default function SellerEmployeesPage() {
 
       {showCreate && (
         <Card style={{ marginBottom: 24 }}>
-          <h2>Add Employee</h2>
+          <h2>Add New Employee</h2>
           {error && <ErrorBox error={error} />}
           <form onSubmit={createEmployee}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-              <Field label="First Name" name="first_name" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
-              <Field label="Middle Name" name="middle_name" value={form.middle_name} onChange={(e) => setForm({ ...form, middle_name: e.target.value })} />
-              <Field label="Last Name" name="last_name" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
-              <Field label="Phone" name="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+243 …" />
-              <Field label="Email" name="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <Field label="Job Title" name="job_title" required value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} />
-            </div>
+            <Field label="First Name" name="first_name" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+            <Field label="Middle Name (optional)" name="middle_name" value={form.middle_name} onChange={(e) => setForm({ ...form, middle_name: e.target.value })} />
+            <Field label="Last Name" name="last_name" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+            <Field label="Phone" name="phone" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+243 …" />
+            <Field label="Email" name="email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Field label="Job Title / Role" name="job_title" required value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} placeholder="e.g. Cashier, Store Manager" />
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <Button type="submit">Create Employee</Button>
               <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
@@ -193,7 +198,7 @@ export default function SellerEmployeesPage() {
         <LoadingBlock label="Loading employees…" />
       ) : error ? (
         <ErrorBox error={error} />
-      ) : employees.length === 0 ? (
+      ) : empList.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
             <div className="empty-icon" style={{ fontSize: 48 }}>👥</div>
@@ -219,7 +224,7 @@ export default function SellerEmployeesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp) => (
+                  {empList.map((emp) => (
                     <tr key={emp.id}>
                       <td>
                         <strong>{emp.first_name} {emp.last_name}</strong>
@@ -245,10 +250,10 @@ export default function SellerEmployeesPage() {
                         </div>
                         {assigningId === emp.id && (
                           <div style={{ marginTop: 8, textAlign: 'left' }}>
-                            {shops.length === 0 ? (
+                            {shopList.length === 0 ? (
                               <span className="muted small">No shops to assign. Create a shop first.</span>
                             ) : (
-                              shops.map((shop) => {
+                              shopList.map((shop) => {
                                 const isAssigned = assignedShopIds.includes(shop.id)
                                 return (
                                   <div key={shop.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '4px 0' }}>

@@ -157,7 +157,9 @@ var sellerAllowedFromPending = map[models.OrderStatus]bool{
 func canTransition(current, next models.OrderStatus, deliveryMethod string) bool {
 	methodTransitions, ok := allowedTransitions[deliveryMethod]
 	if !ok {
-		return false
+		if methodTransitions, ok = allowedTransitions["SHOP_DELIVERY"]; !ok {
+			return false
+		}
 	}
 	allowed, ok := methodTransitions[current]
 	if !ok {

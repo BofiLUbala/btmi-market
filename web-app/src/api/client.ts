@@ -51,7 +51,7 @@ export async function api<T>(
   allowRefresh = true
 ): Promise<T> {
   const headers = new Headers(options.headers)
-  if (options.body && !headers.has('Content-Type')) {
+  if (options.body && typeof options.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
   const access = tokenStore.getAccess()
@@ -148,6 +148,10 @@ export function post<T>(path: string, body?: unknown) {
     method: 'POST',
     body: body === undefined ? undefined : JSON.stringify(body)
   })
+}
+
+export function upload<T>(path: string, formData: FormData) {
+  return api<T>(path, { method: 'POST', body: formData })
 }
 
 export function patch<T>(path: string, body?: unknown) {

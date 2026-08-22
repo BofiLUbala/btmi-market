@@ -76,21 +76,26 @@ export default function EmployeeDashboardPage() {
           )}
         </Card>
 
-        <Card>
-          <h3>Assigned Shops ({workspace.shops.length})</h3>
-          {workspace.shops.length === 0 ? (
-            <p className="muted">No shops assigned yet.</p>
-          ) : (
-            <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-              {workspace.shops.map((shop) => (
-                <li key={shop.id}>
-                  🏪 {shop.name}
-                  {shop.city && <span className="muted small"> · {shop.city}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        {(() => {
+          const assignedShops = Array.isArray(workspace.shops) ? workspace.shops : []
+          return (
+            <Card>
+              <h3>Assigned Shops ({assignedShops.length})</h3>
+              {assignedShops.length === 0 ? (
+                <p className="muted">No shops assigned yet.</p>
+              ) : (
+                <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                  {assignedShops.map((shop) => (
+                    <li key={shop.id}>
+                      🏪 {shop.name}
+                      {shop.city && <span className="muted small"> · {shop.city}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )
+        })()}
       </CardGrid>
     </div>
   )

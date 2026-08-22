@@ -10,6 +10,7 @@ import (
 
 type MarketplaceService struct {
 	marketplaceRepo *repository.MarketplaceRepository
+	productImageRepo *repository.ProductImageRepository
 	pointService    *PointService
 }
 
@@ -20,6 +21,39 @@ func NewMarketplaceService(
 	return &MarketplaceService{
 		marketplaceRepo: marketplaceRepo,
 		pointService:    pointService,
+	}
+}
+
+func (s *MarketplaceService) SetProductImageRepo(repo *repository.ProductImageRepository) {
+	s.productImageRepo = repo
+}
+
+// attachImages fills the Images field of each product with its persisted
+// media, ordered primary-first. Failures are non-fatal.
+func (s *MarketplaceService) attachImages(products []*models.PublicProductResponse) {
+	if s.productImageRepo == nil || len(products) == 0 {
+		return
+	}
+	ids := make([]uuid.UUID, 0, len(products))
+	for _, p := range products {
+		ids = append(ids, p.ID)
+	}
+	imageMap, err := s.productImageRepo.ListByProductIDs(ids)
+	if err != nil {
+		return
+	}
+	for _, p := range products {
+		for _, img := range imageMap[p.ID] {
+			p.Images = append(p.Images, models.ProductImageResponse{
+				ID:        img.ID,
+				ProductID: img.ProductID,
+				URL:       img.URL,
+				FileName:  img.FileName,
+				SortOrder: img.SortOrder,
+				IsPrimary: img.IsPrimary,
+				CreatedAt: img.CreatedAt,
+			})
+		}
 	}
 }
 
@@ -44,7 +78,11 @@ func (s *MarketplaceService) ListProducts(shopID uuid.UUID, page, limit int) ([]
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	return s.marketplaceRepo.ListPublicProducts(shopID, page, limit)
+	products, total, err := s.marketplaceRepo.ListPublicProducts(shopID, page, limit)
+	if err == nil {
+		s.attachImages(products)
+	}
+	return products, total, err
 }
 
 func (s *MarketplaceService) GetProduct(productID uuid.UUID) (*models.PublicProductResponse, error) {
@@ -57,6 +95,7 @@ func (s *MarketplaceService) GetProduct(productID uuid.UUID) (*models.PublicProd
 	if err == nil {
 		p.Variants = variants
 	}
+	s.attachImages([]*models.PublicProductResponse{p})
 
 	return p, nil
 }
@@ -68,7 +107,11 @@ func (s *MarketplaceService) ListProductsByCategory(categoryID, subcategoryID uu
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	return s.marketplaceRepo.ListProductsByCategory(categoryID, subcategoryID, city, page, limit)
+	products, total, err := s.marketplaceRepo.ListProductsByCategory(categoryID, subcategoryID, city, page, limit)
+	if err == nil {
+		s.attachImages(products)
+	}
+	return products, total, err
 }
 
 func (s *MarketplaceService) ListMarketplaceCategories() ([]*models.CategoryResponse, error) {
@@ -119,7 +162,27 @@ func (s *MarketplaceService) GetShopDetail(shopID uuid.UUID) (*models.PublicShop
 }
 
 func (s *MarketplaceService) GetProductDetail(productID uuid.UUID, buyerProfileID *uuid.UUID) (*models.PublicProductDetailResponse, error) {
-	return s.marketplaceRepo.GetPublicProductDetailByID(productID, buyerProfileID)
+	detail, err := s.marketplaceRepo.GetPublicProductDetailByID(productID, buyerProfileID)
+	if err != nil {
+		return nil, err
+	}
+	if detail != nil && s.productImageRepo != nil {
+		imageMap, imgErr := s.productImageRepo.ListByProductIDs([]uuid.UUID{productID})
+		if imgErr == nil {
+			for _, img := range imageMap[productID] {
+				detail.Images = append(detail.Images, models.ProductImageResponse{
+					ID:        img.ID,
+					ProductID: img.ProductID,
+					URL:       img.URL,
+					FileName:  img.FileName,
+					SortOrder: img.SortOrder,
+					IsPrimary: img.IsPrimary,
+					CreatedAt: img.CreatedAt,
+				})
+			}
+		}
+	}
+	return detail, nil
 }
 
 func (s *MarketplaceService) ListShopProducts(shopID uuid.UUID, params *models.ShopProductsParams) ([]*models.PublicProductResponse, int, error) {
@@ -129,7 +192,11 @@ func (s *MarketplaceService) ListShopProducts(shopID uuid.UUID, params *models.S
 	if params.Limit <= 0 || params.Limit > 50 {
 		params.Limit = 20
 	}
-	return s.marketplaceRepo.ListShopProducts(shopID, params)
+	products, total, err := s.marketplaceRepo.ListShopProducts(shopID, params)
+	if err == nil {
+		s.attachImages(products)
+	}
+	return products, total, err
 }
 
 func (s *MarketplaceService) GetSimilarProducts(ctx context.Context, productID uuid.UUID, buyerProfileID *uuid.UUID, page, limit int) ([]*models.PublicProductDetailResponse, int, error) {

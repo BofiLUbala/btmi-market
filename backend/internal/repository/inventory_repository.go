@@ -276,3 +276,9 @@ func (r *InventoryRepository) ClaimReservedAtomic(shopID, variantID uuid.UUID, q
 
 	return inventory, nil
 }
+
+// Delete removes a single stock row for one variant at one Shop.
+func (r *InventoryRepository) Delete(shopID, variantID uuid.UUID) error {
+	_, err := r.db.Exec(`DELETE FROM inventory WHERE shop_id = $1 AND variant_id = $2`, shopID, variantID)
+	return err
+}

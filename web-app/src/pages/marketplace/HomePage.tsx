@@ -77,7 +77,9 @@ export default function HomePage() {
           <SectionHead title="Featured products" linkTo="/search" linkLabel="Search all" />
           <div className="product-grid">
             {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              // Key is (product, shop): the same Product offered by two Shops
+              // is two distinct offers, each attributed by shop name.
+              <ProductCard key={`${p.id}:${p.shop_id}`} product={p} />
             ))}
           </div>
         </>

@@ -101,7 +101,7 @@ func main() {
 	emailService := email.NewService(cfg)
 	authService := service.NewAuthService(userRepo, activationRepo, passwordResetRepo, refreshTokenRepo, emailService, cfg)
 	businessService := service.NewBusinessService(userRepo, businessRepo, membershipRepo, db)
-	shopService := service.NewShopService(shopRepo, membershipRepo, db)
+	shopService := service.NewShopService(shopRepo, membershipRepo, db, asynqClient)
 	employeeService := service.NewEmployeeService(
 		employeeRepo, assignmentRepo, shopRepo, membershipRepo,
 		employeeInvitationRepo, employeeActivationTokenRepo,
@@ -115,6 +115,9 @@ func main() {
 	purchaseConfirmationService := service.NewPurchaseConfirmationService(confirmRepo, verifiedTxnRepo, orderRepo, shopRepo, cashRepo, pointService, trustRepo, asynqClient)
 	paymentService := service.NewPaymentService(buyerPaymentRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
 	marketplaceService := service.NewMarketplaceService(marketplaceRepo, pointService)
+	productImageRepo := repository.NewProductImageRepository(db)
+	marketplaceService.SetProductImageRepo(productImageRepo)
+	productImageService := service.NewProductImageService(productImageRepo, productRepo, membershipRepo, cfg.UploadDir)
 	categoryService := service.NewCategoryService(categoryRepo)
 	sellerGrowthService := service.NewSellerGrowthService(pointAccountRepo, levelRepo, trustRepo)
 	reviewService := service.NewReviewService(reviewRepo, trustRepo, categoryRankingService, asynqClient)
@@ -133,7 +136,7 @@ func main() {
 	businessHandler := businesses.NewHandler(businessService)
 	shopHandler := shops.NewHandler(shopService)
 	employeeHandler := employees.NewHandler(employeeService)
-	inventoryHandler := inventory.NewHandler(inventoryService)
+	inventoryHandler := inventory.NewHandler(inventoryService, productImageService)
 	orderHandler := orders.NewHandler(orderService, pointRedemptionService, buyerProfileService, paymentService)
 	reviewHandler := orders.NewReviewHandler(reviewService, buyerProfileService)
 	customerHandler := customers.NewHandler(customerService)
@@ -145,6 +148,12 @@ func main() {
 	growthHandler := growth.NewHandler(sellerGrowthService, pointService, membershipRepo)
 
 	router := gin.Default()
+
+	// Serve persisted product media (public, read-only).
+	if err := os.MkdirAll(cfg.UploadDir, 0o755); err != nil {
+		log.Printf("Warning: could not create upload dir %s: %v", cfg.UploadDir, err)
+	}
+	router.Static("/uploads", cfg.UploadDir)
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -190,7 +199,6 @@ authGroup := api.Group("/auth")
 
 			businessesGroup.POST("/:business_id/shops", shopHandler.Create)
 			businessesGroup.GET("/:business_id/shops", shopHandler.List)
-
 			businessesGroup.POST("/:business_id/employees", employeeHandler.Create)
 			businessesGroup.GET("/:business_id/employees", employeeHandler.List)
 
@@ -201,6 +209,10 @@ authGroup := api.Group("/auth")
 
 			businessesGroup.POST("/:business_id/products/:product_id/variants", inventoryHandler.CreateVariant)
 			businessesGroup.GET("/:business_id/products/:product_id/variants", inventoryHandler.ListVariants)
+
+			businessesGroup.POST("/:business_id/products/:product_id/images", inventoryHandler.UploadProductImage)
+			businessesGroup.GET("/:business_id/products/:product_id/images", inventoryHandler.ListProductImages)
+			businessesGroup.DELETE("/:business_id/products/:product_id/images/:image_id", inventoryHandler.DeleteProductImage)
 
 			businessesGroup.POST("/:business_id/receipts", inventoryHandler.ReceiveStock)
 			businessesGroup.GET("/:business_id/receipts", inventoryHandler.ListReceipts)
@@ -234,9 +246,11 @@ authGroup := api.Group("/auth")
 		{
 			shopsGroup.GET("/:shop_id", shopHandler.Get)
 			shopsGroup.PATCH("/:shop_id", shopHandler.Update)
+			shopsGroup.DELETE("/:shop_id", shopHandler.DeleteShop)
 
 			shopsGroup.POST("/:shop_id/stock", inventoryHandler.AddStock)
 			shopsGroup.POST("/:shop_id/sales", inventoryHandler.RecordSale)
+			shopsGroup.DELETE("/:shop_id/products/:product_id", inventoryHandler.RemoveProductFromShop)
 			shopsGroup.GET("/:shop_id/inventory", inventoryHandler.GetShopInventory)
 			shopsGroup.GET("/:shop_id/movements", inventoryHandler.GetStockMovements)
 			shopsGroup.GET("/:shop_id/stock/history", inventoryHandler.GetShopStockHistory)

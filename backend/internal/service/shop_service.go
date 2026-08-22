@@ -4,26 +4,31 @@ import (
 	"errors"
 
 	"github.com/btmi-ai-market/backend/internal/database"
+	"github.com/btmi-ai-market/backend/internal/jobs"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 )
 
 type ShopService struct {
 	shopRepo       *repository.ShopRepository
 	membershipRepo *repository.MembershipRepository
 	db             *database.DB
+	asynqClient    *asynq.Client
 }
 
 func NewShopService(
 	shopRepo *repository.ShopRepository,
 	membershipRepo *repository.MembershipRepository,
 	db *database.DB,
+	asynqClient *asynq.Client,
 ) *ShopService {
 	return &ShopService{
 		shopRepo:       shopRepo,
 		membershipRepo: membershipRepo,
 		db:             db,
+		asynqClient:    asynqClient,
 	}
 }
 
@@ -139,5 +144,59 @@ func (s *ShopService) UpdateShop(userID, shopID uuid.UUID, req *models.UpdateSho
 		return nil, err
 	}
 
+	// Keep Marketplace ranking caches in sync when public visibility changes.
+	if req.Status != nil {
+		s.enqueueRankingRecalculation(shop)
+	}
+
 	return shop, nil
+}
+
+// DeleteShop safely removes a Shop. Shops holding commercial history
+// (orders, stock, movements) are archived (status=INACTIVE) instead of being
+// destroyed, so historical transactions keep their Shop reference while all
+// Marketplace visibility disappears immediately (all marketplace queries
+// filter status = 'ACTIVE'). Truly empty Shops are hard-deleted.
+func (s *ShopService) DeleteShop(userID, shopID uuid.UUID) (string, *models.Shop, error) {
+	shop, err := s.shopRepo.GetByID(shopID)
+	if err != nil {
+		return "", nil, errors.New("SHOP_NOT_FOUND")
+	}
+
+	membership, err := s.membershipRepo.GetActiveByUserAndBusiness(userID, shop.BusinessID)
+	if err != nil || membership == nil {
+		return "", nil, errors.New("FORBIDDEN")
+	}
+	if membership.Role != models.MembershipRoleOwner && membership.Role != models.MembershipRoleAdmin {
+		return "", nil, errors.New("FORBIDDEN")
+	}
+
+	orders, _ := s.shopRepo.CountOrders(shopID)
+	movements, _ := s.shopRepo.CountStockMovements(shopID)
+	inventoryRows, _ := s.shopRepo.CountInventory(shopID)
+
+	if orders > 0 || movements > 0 || inventoryRows > 0 {
+		inactive := string(models.ShopStatusInactive)
+		archiveReq := &models.UpdateShopRequest{Status: &inactive}
+		updated, err := s.UpdateShop(userID, shopID, archiveReq)
+		if err != nil {
+			return "", nil, err
+		}
+		return "archived", updated, nil
+	}
+
+	if err := s.shopRepo.Delete(shopID); err != nil {
+		return "", nil, err
+	}
+	s.enqueueRankingRecalculation(shop)
+	return "deleted", shop, nil
+}
+
+func (s *ShopService) enqueueRankingRecalculation(shop *models.Shop) {
+	if s.asynqClient == nil {
+		return
+	}
+	payload := jobs.MarshalShopCategoryRanking(shop.BusinessID, shop.ID, "shop_visibility_change")
+	task := asynq.NewTask(string(jobs.JobTypeRecalculateShopCategoryRanking), payload)
+	_, _ = s.asynqClient.Enqueue(task)
 }

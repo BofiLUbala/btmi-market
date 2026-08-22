@@ -61,13 +61,15 @@ export default function SellerStockPage() {
     try {
       if (tab === 'inventory') {
         const data = await inventoryApi.getShopInventory(activeShop)
-        setRows(data as unknown as InventoryRow[])
+        setRows(Array.isArray(data) ? data as unknown as InventoryRow[] : [])
       } else {
         const data = await inventoryApi.getStockMovements(activeShop, { limit: 50 })
-        setMovements(data)
+        setMovements(Array.isArray(data) ? data : [])
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load stock data')
+      setRows([])
+      setMovements([])
     } finally {
       setLoading(false)
     }

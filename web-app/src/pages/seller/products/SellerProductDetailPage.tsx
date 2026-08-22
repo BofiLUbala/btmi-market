@@ -1,10 +1,11 @@
 import { useAuth } from '@/store/auth'
-import { productApi, inventoryApi } from '@/api/seller'
-import type { Product, ProductVariant } from '@/api/types'
+import { productApi, inventoryApi, shopApi } from '@/api/seller'
+import type { Product, ProductVariant, Shop, InventoryItem } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { PlusIcon } from '@/components/ui/Icons'
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 
@@ -13,32 +14,70 @@ export default function SellerProductDetailPage() {
   const { productId } = useParams<{ productId: string }>()
   const [product, setProduct] = useState<Product | null>(null)
   const [variants, setVariants] = useState<ProductVariant[]>([])
+  const [shops, setShops] = useState<Shop[]>([])
+  const [variantInventories, setVariantInventories] = useState<Record<string, InventoryItem[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // Add Variant Modal/Form state
   const [showVariantForm, setShowVariantForm] = useState(false)
-  const [variantForm, setVariantForm] = useState({ name: '', sku: '', sale_price: '', purchase_price: '' })
+  const [variantForm, setVariantForm] = useState({
+    name: '',
+    sku: '',
+    sale_price: '',
+    purchase_price: '',
+    initial_stock: '0',
+    shop_id: '',
+  })
+
+  // Quick stock addition per variant
   const [stockByVariant, setStockByVariant] = useState<Record<string, string>>({})
+  const [targetShopByVariant, setTargetShopByVariant] = useState<Record<string, string>>({})
   const [stockMsg, setStockMsg] = useState('')
 
   useEffect(() => {
     if (activeBusiness && productId) {
       load()
     }
-  }, [activeBusiness, productId])
+  }, [activeBusiness?.id, productId])
 
   async function load() {
     if (!activeBusiness || !productId) return
     setLoading(true)
     setError('')
     try {
-      const p = await productApi.get(activeBusiness.id, productId)
+      const [p, vList, sList] = await Promise.all([
+        productApi.get(activeBusiness.id, productId),
+        productApi.listVariants(activeBusiness.id, productId),
+        shopApi.listByBusiness(activeBusiness.id),
+      ])
       setProduct(p)
-      const v = await productApi.listVariants(activeBusiness.id, productId)
-      setVariants(v)
+      const safeVariants = Array.isArray(vList) ? vList : []
+      const safeShops = Array.isArray(sList) ? sList : []
+      setVariants(safeVariants)
+      setShops(safeShops)
+
+      // Fetch inventories for each variant
+      const invMap: Record<string, InventoryItem[]> = {}
+      await Promise.all(
+        safeVariants.map(async (v) => {
+          try {
+            const inv = await productApi.getVariantInventory(v.id)
+            invMap[v.id] = Array.isArray(inv) ? inv : []
+          } catch {
+            invMap[v.id] = []
+          }
+        })
+      )
+      setVariantInventories(invMap)
+
+      // Set default target shops
+      const defaultShop = activeShop || (safeShops.length > 0 ? safeShops[0].id : '')
+      setVariantForm((prev) => ({ ...prev, shop_id: defaultShop }))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load product')
+      setError(err instanceof Error ? err.message : 'Failed to load product details.')
     } finally {
       setLoading(false)
     }
@@ -65,13 +104,31 @@ export default function SellerProductDetailPage() {
     setBusy(true)
     setActionError('')
     try {
-      await productApi.createVariant(activeBusiness.id, productId, {
-        name: variantForm.name || undefined,
-        sku: variantForm.sku || undefined,
+      const newVar = await productApi.createVariant(activeBusiness.id, productId, {
+        name: variantForm.name.trim() || undefined,
+        sku: variantForm.sku.trim() || undefined,
         sale_price: parseFloat(variantForm.sale_price),
         purchase_price: variantForm.purchase_price ? parseFloat(variantForm.purchase_price) : undefined,
       })
-      setVariantForm({ name: '', sku: '', sale_price: '', purchase_price: '' })
+
+      const initStock = parseInt(variantForm.initial_stock, 10)
+      const shopId = variantForm.shop_id || activeShop || (shops.length > 0 ? shops[0].id : '')
+      if (initStock > 0 && shopId) {
+        await inventoryApi.addStock(shopId, {
+          variant_id: newVar.id,
+          quantity: initStock,
+          notes: 'Initial variant stock',
+        })
+      }
+
+      setVariantForm({
+        name: '',
+        sku: '',
+        sale_price: '',
+        purchase_price: '',
+        initial_stock: '0',
+        shop_id: activeShop || (shops.length > 0 ? shops[0].id : ''),
+      })
       setShowVariantForm(false)
       await load()
     } catch (err) {
@@ -82,23 +139,26 @@ export default function SellerProductDetailPage() {
   }
 
   async function addStock(variantId: string) {
-    if (!activeShop) {
-      setActionError('Select a shop in the header first')
+    const shopId = targetShopByVariant[variantId] || activeShop || (shops.length > 0 ? shops[0].id : '')
+    if (!shopId) {
+      setActionError('Please select a shop location to add stock.')
       return
     }
     const qty = parseInt(stockByVariant[variantId], 10)
     if (isNaN(qty) || qty <= 0) {
-      setActionError('Enter a valid stock quantity')
+      setActionError('Enter a valid stock quantity (1 or greater).')
       return
     }
     setBusy(true)
     setActionError('')
     try {
-      await inventoryApi.addStock(activeShop, { variant_id: variantId, quantity: qty, notes: 'Initial stock' })
+      await inventoryApi.addStock(shopId, { variant_id: variantId, quantity: qty, notes: 'Restock from product detail' })
       setStockByVariant((prev) => ({ ...prev, [variantId]: '' }))
-      setStockMsg(`Added ${qty} units to ${activeShop.slice(0, 8)}…`)
+      const shopObj = shops.find((s) => s.id === shopId)
+      setStockMsg(`Added ${qty} units to ${shopObj ? shopObj.name : 'shop'} successfully.`)
+      await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to add stock')
+      setActionError(err instanceof Error ? err.message : 'Failed to add stock.')
     } finally {
       setBusy(false)
     }
@@ -113,93 +173,249 @@ export default function SellerProductDetailPage() {
     )
   }
 
-  if (loading) return <LoadingBlock label="Loading product…" />
+  if (loading) return <LoadingBlock label="Loading product details…" />
   if (error) return <ErrorBox error={error} />
   if (!product) return <ErrorBox error="Product not found" />
+
+  // Calculate physical total, reserved, and available stock across all variants and shops
+  let totalProductAvailable = 0
+  let totalProductQuantity = 0
+  let totalProductReserved = 0
+  Object.values(variantInventories).forEach((invList) => {
+    invList.forEach((inv) => {
+      const q = inv.quantity || 0
+      const r = inv.reserved_quantity || 0
+      totalProductQuantity += q
+      totalProductReserved += r
+      totalProductAvailable += Math.max(0, q - r)
+    })
+  })
 
   return (
     <div className="seller-product-detail">
       <div className="page-header">
-        <h1>{product.name}</h1>
+        <div>
+          <h1>{product.name}</h1>
+          <p className="muted">Catalog item & real-time variant inventory</p>
+        </div>
         <Link to="/seller/products">
           <Button variant="ghost">← Back to Products</Button>
         </Link>
       </div>
 
       {actionError && <ErrorBox error={actionError} />}
-      {stockMsg && <p className="success small">{stockMsg}</p>}
-
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <span className={`badge badge-${product.publication_status === 'PUBLISHED' ? 'success' : product.publication_status === 'DRAFT' ? 'warning' : 'muted'}`}>
-              {product.publication_status}
-            </span>
-            {product.sku && <span className="muted small" style={{ marginLeft: 8 }}>SKU: {product.sku}</span>}
-          </div>
-          <Button variant={product.publication_status === 'PUBLISHED' ? 'outline' : 'primary'} onClick={togglePublish} disabled={busy}>
-            {product.publication_status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
-          </Button>
+      {stockMsg && (
+        <div style={{ padding: '10px 16px', background: 'rgba(15,61,46,0.08)', borderRadius: 8, color: 'var(--color-primary)', fontWeight: 600, marginBottom: 16 }}>
+          ✓ {stockMsg}
         </div>
-        {product.description && <p className="muted" style={{ marginTop: 12 }}>{product.description}</p>}
+      )}
+
+      {/* ── Product Overview Card ── */}
+      <Card>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span className={`badge badge-${product.publication_status === 'PUBLISHED' ? 'success' : 'warning'}`}>
+                {product.publication_status}
+              </span>
+              {product.sku && <span className="mono small muted">SKU: {product.sku}</span>}
+              <span className="small muted">· Base Price: <strong>{Number(product.unit_price || 0).toLocaleString()} FC</strong></span>
+              <span className="small muted">· Unit: <strong>{product.unit || 'PCS'}</strong></span>
+            </div>
+            {product.description && <p className="muted" style={{ margin: '8px 0 0' }}>{product.description}</p>}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ textAlign: 'right' }}>
+              <span className="small muted" style={{ display: 'block' }}>Inventory Status</span>
+              <strong style={{ fontSize: '1.25rem', color: totalProductAvailable > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
+                {totalProductAvailable} units available
+              </strong>
+              {totalProductReserved > 0 && (
+                <span className="small muted" style={{ display: 'block' }}>
+                  ({totalProductQuantity} total · {totalProductReserved} reserved)
+                </span>
+              )}
+            </div>
+
+            <Button
+              variant={product.publication_status === 'PUBLISHED' ? 'outline' : 'primary'}
+              onClick={togglePublish}
+              disabled={busy}
+            >
+              {product.publication_status === 'PUBLISHED' ? 'Unpublish' : 'Publish to Marketplace'}
+            </Button>
+          </div>
+        </div>
       </Card>
 
-      <Card style={{ marginTop: 16 }}>
-        <div className="card-header">
-          <h3>Variants ({variants.length})</h3>
+      {/* ── Variants & Stock Card ── */}
+      <Card style={{ marginTop: 24 }}>
+        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Variants & Inventory ({variants.length})</h3>
+            <p className="muted small" style={{ margin: '2px 0 0' }}>Real inventory quantities per variant and shop.</p>
+          </div>
           <Button size="sm" onClick={() => setShowVariantForm(!showVariantForm)}>
-            {showVariantForm ? 'Cancel' : '➕ Add Variant'}
+            {showVariantForm ? 'Cancel' : <><PlusIcon /> Add Variant</>}
           </Button>
         </div>
 
         {showVariantForm && (
-          <form onSubmit={createVariant} style={{ margin: '16px 0' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-              <Field label="Variant Name" name="vname" value={variantForm.name} onChange={(e) => setVariantForm({ ...variantForm, name: e.target.value })} placeholder="e.g. Red / XL" />
-              <Field label="SKU" name="vsku" value={variantForm.sku} onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })} />
-              <Field label="Sale Price (FC)" name="vsale" required type="number" min="0" step="any" value={variantForm.sale_price} onChange={(e) => setVariantForm({ ...variantForm, sale_price: e.target.value })} />
-              <Field label="Purchase Price (FC)" name="vpurchase" type="number" min="0" step="any" value={variantForm.purchase_price} onChange={(e) => setVariantForm({ ...variantForm, purchase_price: e.target.value })} />
+          <form onSubmit={createVariant} style={{ margin: '16px 0', padding: 16, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
+            <h4 style={{ margin: '0 0 12px' }}>New Variant</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+              <Field
+                label="Variant Name *"
+                name="vname"
+                required
+                value={variantForm.name}
+                onChange={(e) => setVariantForm({ ...variantForm, name: e.target.value })}
+                placeholder="e.g. Red / XL"
+              />
+              <Field
+                label="SKU"
+                name="vsku"
+                value={variantForm.sku}
+                onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
+                placeholder="Optional SKU"
+              />
+              <Field
+                label="Sale Price (FC) *"
+                name="vsale"
+                required
+                type="number"
+                min="1"
+                step="any"
+                value={variantForm.sale_price}
+                onChange={(e) => setVariantForm({ ...variantForm, sale_price: e.target.value })}
+                placeholder={String(product.unit_price || '')}
+              />
+              <Field
+                label="Initial Stock Quantity"
+                name="vstock"
+                type="number"
+                min="0"
+                step="1"
+                value={variantForm.initial_stock}
+                onChange={(e) => setVariantForm({ ...variantForm, initial_stock: e.target.value })}
+                placeholder="0"
+              />
+              {shops.length > 1 && (
+                <Field
+                  label="Stock Location"
+                  name="vshop"
+                  as="select"
+                  value={variantForm.shop_id}
+                  onChange={(e) => setVariantForm({ ...variantForm, shop_id: e.target.value })}
+                  options={shops.map((s) => ({ value: s.id, label: `${s.name} (${s.city || ''})` }))}
+                />
+              )}
             </div>
-            <Button type="submit" style={{ marginTop: 12 }} loading={busy}>Create Variant</Button>
+            <div style={{ marginTop: 12 }}>
+              <Button type="submit" loading={busy}>Save Variant</Button>
+            </div>
           </form>
         )}
 
         {variants.length === 0 ? (
-          <p className="muted small" style={{ padding: 8 }}>No variants yet. Add at least one variant, then stock it.</p>
+          <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>No variants found.</p>
         ) : (
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ marginTop: 16 }}>
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Variant</th>
                   <th>SKU</th>
                   <th>Sale Price</th>
-                  <th>Status</th>
-                  <th>Add Stock{!activeShop && <span className="muted"> (select shop)</span>}</th>
+                  <th>Available Stock</th>
+                  <th>Stock By Shop</th>
+                  <th style={{ minWidth: 220 }}>Add Stock</th>
                 </tr>
               </thead>
               <tbody>
-                {variants.map((v) => (
-                  <tr key={v.id}>
-                    <td>{v.name || v.id.slice(0, 8)}</td>
-                    <td className="mono small">{v.sku || '—'}</td>
-                    <td>{Number(v.sale_price).toLocaleString()} FC</td>
-                    <td><span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`}>{v.status}</span></td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <input
-                          type="number"
-                          min="1"
-                          placeholder="Qty"
-                          value={stockByVariant[v.id] ?? ''}
-                          onChange={(e) => setStockByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                          style={{ width: 80 }}
-                        />
-                        <Button size="sm" disabled={busy} onClick={() => addStock(v.id)}>Add</Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {variants.map((v) => {
+                  const invList = variantInventories[v.id] || []
+                  const variantAvailable = invList.reduce((sum, i) => sum + Math.max(0, i.quantity - (i.reserved_quantity || 0)), 0)
+                  const variantTotal = invList.reduce((sum, i) => sum + (i.quantity || 0), 0)
+                  const variantReserved = invList.reduce((sum, i) => sum + (i.reserved_quantity || 0), 0)
+                  const targetShop = targetShopByVariant[v.id] || activeShop || (shops.length > 0 ? shops[0].id : '')
+
+                  return (
+                    <tr key={v.id}>
+                      <td>
+                        <strong>{v.name || 'Default Variant'}</strong>
+                        <br />
+                        <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
+                          {v.status}
+                        </span>
+                      </td>
+                      <td className="mono small">{v.sku || '—'}</td>
+                      <td><strong>{Number(v.sale_price || 0).toLocaleString()} FC</strong></td>
+                      <td>
+                        <div>
+                          <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
+                            {variantAvailable} available
+                          </span>
+                          {variantReserved > 0 && (
+                            <span className="small muted" style={{ display: 'block' }}>
+                              ({variantTotal} total · {variantReserved} reserved)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        {invList.length === 0 ? (
+                          <span className="small muted">0 in all shops</span>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {invList.map((inv) => {
+                              const sObj = shops.find((s) => s.id === inv.shop_id)
+                              const avail = Math.max(0, inv.quantity - (inv.reserved_quantity || 0))
+                              const res = inv.reserved_quantity || 0
+                              return (
+                                <span key={inv.id} className="small muted">
+                                  🏪 {sObj ? sObj.name : 'Shop'}: <strong>{avail} avail</strong>
+                                  {res > 0 && ` (${inv.quantity} total · ${res} res)`}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          {shops.length > 1 && (
+                            <select
+                              className="input input-sm"
+                              value={targetShop}
+                              onChange={(e) => setTargetShopByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                              style={{ width: 110, fontSize: '0.8rem' }}
+                            >
+                              {shops.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <input
+                            className="input input-sm"
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={stockByVariant[v.id] ?? ''}
+                            onChange={(e) => setStockByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                            style={{ width: 65 }}
+                          />
+                          <Button size="sm" disabled={busy} onClick={() => addStock(v.id)}>
+                            + Add
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -208,3 +424,4 @@ export default function SellerProductDetailPage() {
     </div>
   )
 }
+

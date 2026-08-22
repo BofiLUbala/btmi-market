@@ -55,6 +55,8 @@ import SellerBusinessPage from '@/pages/seller/business/SellerBusinessPage'
 import SellerShopsPage from '@/pages/seller/shops/SellerShopsPage'
 import SellerEmployeesPage from '@/pages/seller/employees/SellerEmployeesPage'
 import SellerProductsPage from '@/pages/seller/products/SellerProductsPage'
+import SelectShopPage from '@/pages/seller/products/SelectShopPage'
+import ShopProductsPage from '@/pages/seller/products/ShopProductsPage'
 import SellerProductCreatePage from '@/pages/seller/products/SellerProductCreatePage'
 import SellerProductDetailPage from '@/pages/seller/products/SellerProductDetailPage'
 import SellerStockPage from '@/pages/seller/stock/SellerStockPage'
@@ -151,7 +153,10 @@ export default function App() {
                   <Route path="/seller/shops" element={<SellerShopsPage />} />
                   <Route path="/seller/employees" element={<SellerEmployeesPage />} />
                   <Route path="/seller/products" element={<SellerProductsPage />} />
-                  <Route path="/seller/products/new" element={<SellerProductCreatePage />} />
+                  <Route path="/seller/products/select-shop" element={<SelectShopPage />} />
+                  <Route path="/seller/shops/:shopId/products" element={<ShopProductsPage />} />
+                  <Route path="/seller/shops/:shopId/products/new" element={<SellerProductCreatePage />} />
+                  <Route path="/seller/products/new" element={<SelectShopPage />} />
                   <Route path="/seller/products/:productId" element={<SellerProductDetailPage />} />
                   <Route path="/seller/stock" element={<SellerStockPage />} />
                   <Route path="/seller/orders" element={<SellerOrdersPage />} />

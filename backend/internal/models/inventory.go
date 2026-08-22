@@ -20,8 +20,10 @@ type Inventory struct {
 
 type AddStockRequest struct {
 	VariantID string `json:"variant_id" binding:"required"`
-	Quantity  int    `json:"quantity" binding:"required,gt=0"`
-	Notes     string `json:"notes"`
+	// Zero is allowed so a newly published Product can register its Shop
+	// offer (inventory row) before any units arrive.
+	Quantity int    `json:"quantity" binding:"min=0"`
+	Notes    string `json:"notes"`
 }
 
 type RecordSaleRequest struct {
@@ -63,7 +65,7 @@ type InventoryWithVariantResponse struct {
 type StockMovementType string
 
 const (
-	StockMovementTypeInitial      StockMovementType = "INITIAL_STOCK"
+	StockMovementTypeInitial      StockMovementType = "INITIAL"
 	StockMovementTypeStockIn      StockMovementType = "STOCK_IN"
 	StockMovementTypeSalePhysical StockMovementType = "SALE_PHYSICAL"
 	StockMovementTypeSaleOnline   StockMovementType = "SALE_ONLINE"
@@ -71,8 +73,6 @@ const (
 	StockMovementTypeReturn       StockMovementType = "RETURN"
 	StockMovementTypeTransferIn   StockMovementType = "TRANSFER_IN"
 	StockMovementTypeTransferOut  StockMovementType = "TRANSFER_OUT"
-	StockMovementTypeReserve      StockMovementType = "RESERVE"
-	StockMovementTypeRelease      StockMovementType = "RELEASE"
 )
 
 type StockMovement struct {

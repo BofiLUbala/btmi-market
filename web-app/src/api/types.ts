@@ -104,6 +104,7 @@ export interface PublicProduct {
   category_id?: string | null
   subcategory_id?: string | null
   variants: PublicVariant[] | null
+  images?: ProductImageResponse[]
   seller_level: string
   seller_trust: string
   created_at: string
@@ -135,6 +136,7 @@ export interface PublicProductDetail {
   category?: CategoryResponse
   subcategory?: CategoryResponse
   variants: PublicVariantDetail[]
+  images?: ProductImageResponse[]
   seller_level: string
   seller_trust: string
   availability: string
@@ -769,6 +771,11 @@ export interface Product {
   status?: string
   category_id?: string | null
   subcategory_id?: string | null
+  category_name?: string
+  variant_count?: number
+  total_quantity?: number
+  reserved_quantity?: number
+  available_quantity?: number
   publication_status: PublicationStatus
   created_at: string
   updated_at: string
@@ -812,6 +819,16 @@ export interface ProductVariant {
   status?: string
   created_at: string
   updated_at: string
+}
+
+export interface ProductImageResponse {
+  id: string
+  product_id: string
+  url: string
+  file_name: string
+  sort_order: number
+  is_primary: boolean
+  created_at: string
 }
 
 export interface CreateVariantRequest {

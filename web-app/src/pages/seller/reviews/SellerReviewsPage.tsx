@@ -87,7 +87,18 @@ export default function SellerReviewsPage() {
   if (error) return <ErrorBox error={error} />
   if (!reviewsData) return <ErrorBox error="No reviews data available" />
 
-  const { summary, reviews } = reviewsData
+  const summary = reviewsData.summary || {
+    shop_id: activeShop,
+    average_rating: 0,
+    total_reviews: 0,
+    rating_1_count: 0,
+    rating_2_count: 0,
+    rating_3_count: 0,
+    rating_4_count: 0,
+    rating_5_count: 0,
+    updated_at: new Date().toISOString(),
+  }
+  const reviewList = Array.isArray(reviewsData.reviews) ? reviewsData.reviews : []
 
   return (
     <div className="seller-reviews">
@@ -108,13 +119,14 @@ export default function SellerReviewsPage() {
           </div>
           <div style={{ textAlign: 'center' }}>
             <div className="stat-value" style={{ fontSize: 48 }}>{summary.rating_5_count}</div>
-            <div className="muted">5-Star</div>
+            <div className="muted">5-Star Reviews</div>
           </div>
         </div>
 
-        <div className="rating-bars" style={{ marginTop: 24 }}>
+        <div style={{ marginTop: 24 }}>
+          <h3>Rating Breakdown</h3>
           {[5, 4, 3, 2, 1].map((rating) => {
-            const count = summary[`rating_${rating}_count` as keyof typeof summary] as number
+            const count = (summary as any)[`rating_${rating}_count`] || 0
             const percent = summary.total_reviews > 0 ? (count / summary.total_reviews) * 100 : 0
             return (
               <div key={rating} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -131,11 +143,11 @@ export default function SellerReviewsPage() {
 
       <Card>
         <h2>Recent Reviews</h2>
-        {reviews.length === 0 ? (
+        {reviewList.length === 0 ? (
           <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>No reviews yet</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {reviews.map((review) => (
+            {reviewList.map((review) => (
               <div key={review.id} className="review-card" style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div>

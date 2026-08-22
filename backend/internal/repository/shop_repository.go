@@ -117,3 +117,44 @@ func (r *ShopRepository) Update(shop *models.Shop) error {
 		shop.PartnerDeliveryProvider, shop.DeliveryCity, shop.DeliveryAddress,
 	).Scan(&shop.UpdatedAt)
 }
+
+// CountOrders returns the number of historical orders referencing the Shop.
+func (r *ShopRepository) CountOrders(shopID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM orders WHERE shop_id = $1`, shopID).Scan(&count)
+	return count, err
+}
+
+// CountInventory returns the number of active stock rows at the Shop.
+func (r *ShopRepository) CountInventory(shopID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM inventory WHERE shop_id = $1`, shopID).Scan(&count)
+	return count, err
+}
+
+// SumInventoryQuantity returns total units currently stocked at the Shop.
+func (r *ShopRepository) SumInventoryQuantity(shopID uuid.UUID) (int, error) {
+	var total sql.NullInt64
+	err := r.db.QueryRow(`SELECT SUM(quantity) FROM inventory WHERE shop_id = $1`, shopID).Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+	if !total.Valid {
+		return 0, nil
+	}
+	return int(total.Int64), nil
+}
+
+// CountStockMovements returns the number of historical stock movements for the Shop.
+func (r *ShopRepository) CountStockMovements(shopID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM stock_movements WHERE shop_id = $1`, shopID).Scan(&count)
+	return count, err
+}
+
+// Delete permanently removes an empty Shop. Only safe when the Shop has no
+// commercial history; callers must verify that beforehand.
+func (r *ShopRepository) Delete(id uuid.UUID) error {
+	_, err := r.db.Exec(`DELETE FROM shops WHERE id = $1`, id)
+	return err
+}

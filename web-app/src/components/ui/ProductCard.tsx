@@ -46,14 +46,19 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const link = `/products/${product.id}`
   const hue =
     product.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
+  const cover = product.images?.[0]
   return (
     <Link to={link} className="product-card">
       <div
         className="product-thumb"
         style={{ background: `hsl(${hue}, 32%, 26%)` }}
-        aria-hidden
+        aria-hidden={cover ? undefined : true}
       >
-        {initials(product.name)}
+        {cover ? (
+          <img src={cover.url} alt={product.name} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          initials(product.name)
+        )}
         <span className="thumb-chip">
           <FavoriteButton product={product} />
         </span>

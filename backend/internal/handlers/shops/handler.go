@@ -335,3 +335,75 @@ func (h *Handler) Update(c *gin.Context) {
 		},
 	})
 }
+
+// DeleteShop archives the Shop when it holds commercial history, or deletes it
+// when it is empty. The response states which action was taken.
+func (h *Handler) DeleteShop(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "UNAUTHORIZED",
+				Message: "User not authenticated",
+			},
+		})
+		return
+	}
+
+	shopID, err := uuid.Parse(c.Param("shop_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_REQUEST",
+				Message: "Invalid shop ID",
+			},
+		})
+		return
+	}
+
+	action, shop, err := h.shopService.DeleteShop(userID.(uuid.UUID), shopID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		switch err.Error() {
+		case "SHOP_NOT_FOUND":
+			statusCode = http.StatusNotFound
+		case "FORBIDDEN":
+			statusCode = http.StatusForbidden
+		}
+		c.JSON(statusCode, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    err.Error(),
+				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	data := gin.H{"action": action}
+	if shop != nil {
+		data["shop"] = models.ShopResponse{
+			ID:      shop.ID,
+			BusinessID: shop.BusinessID,
+			Name:    shop.Name,
+			Type:    shop.Type,
+			City:    shop.City,
+			Address: shop.Address,
+			Phone:   shop.Phone,
+			Status:  shop.Status,
+		}
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Shop " + action + " successfully",
+		Data:    data,
+	})
+}

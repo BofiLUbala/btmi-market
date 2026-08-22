@@ -94,6 +94,55 @@ func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Pro
 	return products, rows.Err()
 }
 
+func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID) ([]*models.ProductResponse, error) {
+	query := `
+		SELECT p.id, p.business_id, p.name, p.sku, p.description, p.unit_price, p.cost_price, 
+		       p.unit, p.status, p.publication_status, p.category_id, p.subcategory_id, 
+		       p.created_at, p.updated_at,
+		       COALESCE(c.name, '') as category_name,
+		       COUNT(DISTINCT v.id) as variant_count,
+		       COALESCE(SUM(i.quantity), 0) as total_quantity,
+		       COALESCE(SUM(i.reserved_quantity), 0) as reserved_quantity,
+		       COALESCE(SUM(i.quantity - i.reserved_quantity), 0) as available_quantity
+		FROM products p
+		LEFT JOIN categories c ON c.id = p.category_id
+		LEFT JOIN product_variants v ON v.product_id = p.id AND v.status = 'ACTIVE'
+		LEFT JOIN inventory i ON i.variant_id = v.id
+		WHERE p.business_id = $1
+		GROUP BY p.id, c.name
+		ORDER BY p.created_at DESC
+	`
+
+	rows, err := r.db.Query(query, businessID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var responses []*models.ProductResponse
+	for rows.Next() {
+		p := &models.ProductResponse{}
+		err := rows.Scan(
+			&p.ID, &p.BusinessID, &p.Name, &p.SKU,
+			&p.Description, &p.UnitPrice, &p.CostPrice,
+			&p.Unit, &p.Status, &p.PublicationStatus,
+			&p.CategoryID, &p.SubcategoryID,
+			&p.CreatedAt, &p.UpdatedAt,
+			&p.CategoryName,
+			&p.VariantCount,
+			&p.TotalQuantity,
+			&p.ReservedQuantity,
+			&p.AvailableQuantity,
+		)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, p)
+	}
+
+	return responses, rows.Err()
+}
+
 func (r *ProductRepository) Update(product *models.Product) error {
 	query := `
 		UPDATE products 

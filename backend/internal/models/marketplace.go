@@ -20,9 +20,10 @@ type PublicProductResponse struct {
 	CategoryID      *uuid.UUID         `json:"category_id,omitempty"`
 	SubcategoryID   *uuid.UUID         `json:"subcategory_id,omitempty"`
 	Variants        []PublicVariantResponse `json:"variants"`
-	SellerLevel     string             `json:"seller_level"`
-	SellerTrust     string             `json:"seller_trust"`
-	CreatedAt       time.Time          `json:"created_at"`
+	Images          []ProductImageResponse  `json:"images,omitempty"`
+	SellerLevel     string                  `json:"seller_level"`
+	SellerTrust     string                  `json:"seller_trust"`
+	CreatedAt       time.Time               `json:"created_at"`
 }
 
 type PublicVariantResponse struct {
@@ -137,7 +138,8 @@ type PublicProductDetailResponse struct {
 	Category        *CategorySummary       `json:"category,omitempty"`
 	Subcategory     *CategorySummary       `json:"subcategory,omitempty"`
 	Variants        []PublicVariantDetailResponse `json:"variants"`
-	SellerLevel     string                 `json:"seller_level"`
+	Images          []ProductImageResponse        `json:"images,omitempty"`
+	SellerLevel     string                        `json:"seller_level"`
 	SellerTrust     string                 `json:"seller_trust"`
 	Availability    string                 `json:"availability"`
 	CreatedAt       time.Time              `json:"created_at"`

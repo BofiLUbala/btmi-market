@@ -203,12 +203,18 @@ func (s *InventoryService) AddStock(userID, shopID uuid.UUID, req *models.AddSto
 		return nil, err
 	}
 
-movement := models.StockMovement{
+	movementType := models.StockMovementTypeStockIn
+	existingMovements, _ := stockMovementRepo.GetByShopAndVariant(shopID, variantID)
+	if len(existingMovements) == 0 {
+		movementType = models.StockMovementTypeInitial
+	}
+
+	movement := models.StockMovement{
 		BusinessID:       businessID,
 		ShopID:           shopID,
 		ProductID:        variant.ProductID,
 		VariantID:        &variantID,
-		MovementType:     models.StockMovementTypeStockIn,
+		MovementType:     movementType,
 		Quantity:         req.Quantity,
 		PreviousQuantity: previousQuantity,
 		NewQuantity:      previousQuantity + req.Quantity,
@@ -398,7 +404,7 @@ func (s *InventoryService) ReserveStock(userID, shopID uuid.UUID, req *models.Re
 		ShopID:           shopID,
 		ProductID:        inventory.ProductID,
 		VariantID:        &variantID,
-		MovementType:     models.StockMovementTypeReserve,
+		MovementType:     models.StockMovementTypeAdjustment,
 		Quantity:         -req.Quantity,
 		PreviousQuantity: previousQuantity,
 		NewQuantity:      previousQuantity,
@@ -462,7 +468,7 @@ func (s *InventoryService) ReleaseStock(userID, shopID uuid.UUID, req *models.Re
 		ShopID:           shopID,
 		ProductID:        inventory.ProductID,
 		VariantID:        &variantID,
-		MovementType:     models.StockMovementTypeRelease,
+		MovementType:     models.StockMovementTypeAdjustment,
 		Quantity:         req.Quantity,
 		PreviousQuantity: previousQuantity,
 		NewQuantity:      previousQuantity,
@@ -886,11 +892,11 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 	return product, nil
 }
 
-func (s *InventoryService) ListProductsByBusiness(userID, businessID uuid.UUID) ([]*models.Product, error) {
+func (s *InventoryService) ListProductsByBusiness(userID, businessID uuid.UUID) ([]*models.ProductResponse, error) {
 	if err := s.requireMembership(userID, businessID); err != nil {
 		return nil, err
 	}
-	return s.productRepo.GetByBusinessID(businessID)
+	return s.productRepo.GetWithSummaryByBusinessID(businessID)
 }
 
 func (s *InventoryService) GetProductByID(userID, productID uuid.UUID) (*models.Product, error) {
@@ -921,7 +927,8 @@ func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID
 		return nil, err
 	}
 
-	if req.CategoryID != nil && *req.CategoryID != "" {
+	categoryProvided := req.CategoryID != nil && *req.CategoryID != ""
+	if categoryProvided {
 		catID, err := uuid.Parse(*req.CategoryID)
 		if err != nil {
 			return nil, errors.New("INVALID_CATEGORY_ID")
@@ -934,21 +941,31 @@ func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID
 			return nil, errors.New("CATEGORY_INACTIVE")
 		}
 		product.CategoryID = &catID
+	}
 
-		if req.SubcategoryID != nil && *req.SubcategoryID != "" {
-			subID, err := uuid.Parse(*req.SubcategoryID)
-			if err != nil {
-				return nil, errors.New("INVALID_SUBCATEGORY_ID")
-			}
-			sub, err := s.categoryRepo.GetSubcategoryByID(subID)
-			if err != nil {
-				return nil, errors.New("SUBCATEGORY_NOT_FOUND")
-			}
-			if sub.CategoryID != category.ID {
-				return nil, errors.New("INVALID_SUBCATEGORY")
-			}
-			product.SubcategoryID = &subID
+	if req.SubcategoryID != nil && *req.SubcategoryID != "" {
+		subID, err := uuid.Parse(*req.SubcategoryID)
+		if err != nil {
+			return nil, errors.New("INVALID_SUBCATEGORY_ID")
 		}
+		sub, err := s.categoryRepo.GetSubcategoryByID(subID)
+		if err != nil {
+			return nil, errors.New("SUBCATEGORY_NOT_FOUND")
+		}
+		// The subcategory must belong to the explicitly provided category or,
+		// when only a subcategory is updated, to the product's current category.
+		var targetCategoryID uuid.UUID
+		if categoryProvided {
+			targetCategoryID = *product.CategoryID
+		} else if product.CategoryID != nil {
+			targetCategoryID = *product.CategoryID
+		} else {
+			return nil, errors.New("INVALID_SUBCATEGORY")
+		}
+		if sub.CategoryID != targetCategoryID {
+			return nil, errors.New("INVALID_SUBCATEGORY")
+		}
+		product.SubcategoryID = &subID
 	}
 
 	if req.PublicationStatus != nil && *req.PublicationStatus != "" {
@@ -1422,4 +1439,75 @@ func (s *InventoryService) getActiveShopIDsForBusiness(businessID uuid.UUID) ([]
 		shopIDs = append(shopIDs, id)
 	}
 	return shopIDs, rows.Err()
+}
+
+// RemoveProductFromShop stops selling one Product at one Shop by removing its
+// stock rows there. Historical movements are preserved and an ADJUSTMENT
+// movement records the removal. Other Shops selling the same Product are not
+// affected, and Marketplace visibility for this Shop offer disappears
+// immediately because marketplace queries derive from live inventory.
+func (s *InventoryService) RemoveProductFromShop(userID, shopID, productID uuid.UUID) (int, error) {
+	shop, err := s.shopRepo.GetByID(shopID)
+	if err != nil {
+		return 0, errors.New("SHOP_NOT_FOUND")
+	}
+
+	if err := s.requireShopAccess(userID, shopID); err != nil {
+		return 0, err
+	}
+
+	product, err := s.productRepo.GetByID(productID)
+	if err != nil || product == nil {
+		return 0, errors.New("PRODUCT_NOT_FOUND")
+	}
+	if product.BusinessID != shop.BusinessID {
+		return 0, errors.New("FORBIDDEN")
+	}
+
+	variants, err := s.variantRepo.GetByProductID(productID)
+	if err != nil {
+		return 0, err
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	inventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
+	stockMovementRepo := repository.NewStockMovementRepository(&database.DB{Tx: tx})
+
+	removed := 0
+	for _, v := range variants {
+		inv, err := inventoryRepo.GetByShopAndVariant(shopID, v.ID)
+		if err != nil || inv == nil {
+			continue
+		}
+		movement := models.StockMovement{
+			BusinessID:       shop.BusinessID,
+			ShopID:           shopID,
+			ProductID:        productID,
+			VariantID:        &v.ID,
+			MovementType:     models.StockMovementTypeAdjustment,
+			Quantity:         -inv.Quantity,
+			PreviousQuantity: inv.Quantity,
+			NewQuantity:      0,
+			Notes:            "Product removed from Shop",
+			PerformedBy:      &userID,
+		}
+		if err := stockMovementRepo.Create(&movement); err != nil {
+			return 0, err
+		}
+		if err := inventoryRepo.Delete(shopID, v.ID); err != nil {
+			return 0, err
+		}
+		removed++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return removed, nil
 }

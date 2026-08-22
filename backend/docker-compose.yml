@@ -29,6 +29,7 @@ services:
       - MIGRATIONS_DIR=/migrations
     volumes:
       - ./migrations:/migrations:ro
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,4 +108,6 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  uploads_data:
     driver: local

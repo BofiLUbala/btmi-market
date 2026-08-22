@@ -93,12 +93,18 @@ export function SellerLayout() {
     if (!activeBusiness) return
     try {
       const data = await shopApi.listByBusiness(activeBusiness.id)
-      setShops(data.map((s) => ({ id: s.id, name: s.name })))
-      if (data.length > 0 && !activeShop) {
-        setActiveShop(data[0].id)
+      const list = Array.isArray(data) ? data : []
+      setShops(list.map((s) => ({ id: s.id, name: s.name })))
+      if (list.length > 0) {
+        if (!activeShop || !list.some((s) => s.id === activeShop)) {
+          setActiveShop(list[0].id)
+        }
+      } else {
+        setActiveShop(null)
       }
     } catch {
       setShops([])
+      setActiveShop(null)
     }
   }
 
