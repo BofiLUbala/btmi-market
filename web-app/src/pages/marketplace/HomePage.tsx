@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
-import type { CategoryResponse, PublicProduct, PublicShop } from '@/api/types'
+import type { CategoryResponse, PublicProduct } from '@/api/types'
 import { ProductCard } from '@/components/ui/ProductCard'
-import { ShopCard } from '@/components/ui/ShopCard'
 import { SectionHead } from '@/components/ui/ShopCard'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useAuth } from '@/store/auth'
@@ -13,7 +12,6 @@ export default function HomePage() {
   const { user } = useAuth()
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [products, setProducts] = useState<PublicProduct[]>([])
-  const [shops, setShops] = useState<PublicShop[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -21,14 +19,12 @@ export default function HomePage() {
     let mounted = true
     Promise.allSettled([
       marketplaceApi.categories(),
-      marketplaceApi.products({ page: 1, limit: 8, sort: 'relevance' }),
-      marketplaceApi.shops({ page: 1, limit: 6 })
-    ]).then(([cats, prods, shps]) => {
+      marketplaceApi.products({ page: 1, limit: 16, sort: 'relevance' })
+    ]).then(([cats, prods]) => {
       if (!mounted) return
       if (cats.status === 'fulfilled') setCategories(asArray(cats.value))
       if (prods.status === 'fulfilled') setProducts(asArray(prods.value.products))
-      if (shps.status === 'fulfilled') setShops(asArray(shps.value.shops))
-      if (cats.status === 'rejected' && prods.status === 'rejected' && shps.status === 'rejected') {
+      if (cats.status === 'rejected' && prods.status === 'rejected') {
         setError('Could not load the marketplace. Is the API running?')
       }
       setLoading(false)
@@ -77,20 +73,7 @@ export default function HomePage() {
           <SectionHead title="Featured products" linkTo="/search" linkLabel="Search all" />
           <div className="product-grid">
             {products.map((p) => (
-              // Key is (product, shop): the same Product offered by two Shops
-              // is two distinct offers, each attributed by shop name.
-              <ProductCard key={`${p.id}:${p.shop_id}`} product={p} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {shops.length > 0 && (
-        <>
-          <SectionHead title="Shops near you" linkTo="/shops" linkLabel="All shops" />
-          <div className="shop-grid">
-            {shops.map((s) => (
-              <ShopCard key={s.id} shop={s} />
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         </>

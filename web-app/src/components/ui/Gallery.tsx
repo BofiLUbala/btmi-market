@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState, type MouseEvent } from 'react'
 import { initials } from '@/lib/format'
 
 export interface ProductImage {
@@ -23,13 +23,35 @@ export function Gallery({
 }) {
   const [active, setActive] = useState(0)
   const [broken, setBroken] = useState<Record<number, boolean>>({})
+  const mainRef = useRef<HTMLDivElement>(null)
   const usable = images.filter((_, i) => !broken[i])
   const current = usable[active] ?? usable[0]
   const hue = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
 
+  function moveZoom(event: MouseEvent<HTMLDivElement>) {
+    const frame = mainRef.current
+    const image = frame?.querySelector('img')
+    if (!frame || !image) return
+    const rect = frame.getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width) * 100
+    const y = ((event.clientY - rect.top) / rect.height) * 100
+    image.style.transformOrigin = `${x}% ${y}%`
+  }
+
+  function setZoom(activeZoom: boolean) {
+    mainRef.current?.classList.toggle('is-zooming', activeZoom)
+  }
+
   return (
     <div className="pd-gallery">
-      <div className="pd-thumb pd-main" style={{ background: `hsl(${hue}, 32%, 26%)` }}>
+      <div
+        ref={mainRef}
+        className="pd-thumb pd-main"
+        style={{ background: `hsl(${hue}, 32%, 26%)` }}
+        onMouseEnter={() => setZoom(true)}
+        onMouseMove={moveZoom}
+        onMouseLeave={() => setZoom(false)}
+      >
         {current ? (
           <img
             src={current.url}

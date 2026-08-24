@@ -892,11 +892,11 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 	return product, nil
 }
 
-func (s *InventoryService) ListProductsByBusiness(userID, businessID uuid.UUID) ([]*models.ProductResponse, error) {
+func (s *InventoryService) ListProductsByBusiness(userID, businessID uuid.UUID, search, publicationStatus string) ([]*models.ProductResponse, error) {
 	if err := s.requireMembership(userID, businessID); err != nil {
 		return nil, err
 	}
-	return s.productRepo.GetWithSummaryByBusinessID(businessID)
+	return s.productRepo.GetWithSummaryByBusinessID(businessID, search, publicationStatus)
 }
 
 func (s *InventoryService) GetProductByID(userID, productID uuid.UUID) (*models.Product, error) {

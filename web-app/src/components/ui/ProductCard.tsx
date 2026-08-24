@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PublicProduct } from '@/api/types'
-import { initials, formatMoney } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
+import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { useFavorites } from '@/store/favorites'
 import { StockChip } from './Badges'
 
@@ -41,32 +43,45 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
 }
 
 export function ProductCard({ product }: { product: PublicProduct }) {
+  const [imageFailed, setImageFailed] = useState(false)
   const first = product.variants?.[0]
   const price = first?.unit_price ?? product.base_price
   const link = `/products/${product.id}`
-  const hue =
-    product.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
-  const cover = product.images?.[0]
+  const cover = product.images?.find((img) => img.is_primary) ?? product.images?.[0]
+  const fallback = getCategoryVisual(product.category_slug ?? '')
+  const availability = product.availability ?? first?.stock ?? 'AVAILABLE'
+
   return (
     <Link to={link} className="product-card">
       <div
         className="product-thumb"
-        style={{ background: `hsl(${hue}, 32%, 26%)` }}
-        aria-hidden={cover ? undefined : true}
+        style={{ background: fallback.background }}
       >
-        {cover ? (
-          <img src={cover.url} alt={product.name} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        {cover && !imageFailed ? (
+          <img
+            src={cover.url}
+            alt={product.name}
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
-          initials(product.name)
+          <img
+            className="product-fallback-image"
+            src={fallback.image}
+            alt=""
+            aria-hidden="true"
+          />
         )}
         <span className="thumb-chip">
           <FavoriteButton product={product} />
         </span>
       </div>
       <div className="product-body">
+        {product.category_name && (
+          <span className="product-category-chip">{product.category_name}</span>
+        )}
         <span className="product-name">{product.name}</span>
-        <span className="product-shop">{product.shop_name}</span>
-        <StockChip stock={first?.stock ?? 'AVAILABLE'} />
+        <StockChip stock={availability} />
         <div className="product-price">{formatMoney(price)}</div>
       </div>
     </Link>

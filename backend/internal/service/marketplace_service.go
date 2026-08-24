@@ -71,14 +71,14 @@ func (s *MarketplaceService) GetShop(shopID uuid.UUID) (*models.PublicShopRespon
 	return s.marketplaceRepo.GetPublicShopByID(shopID)
 }
 
-func (s *MarketplaceService) ListProducts(shopID uuid.UUID, page, limit int) ([]*models.PublicProductResponse, int, error) {
+func (s *MarketplaceService) ListProducts(shopID uuid.UUID, page, limit int, sort string) ([]*models.PublicProductResponse, int, error) {
 	if page <= 0 {
 		page = 1
 	}
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	products, total, err := s.marketplaceRepo.ListPublicProducts(shopID, page, limit)
+	products, total, err := s.marketplaceRepo.ListPublicProducts(shopID, page, limit, sort)
 	if err == nil {
 		s.attachImages(products)
 	}
@@ -125,7 +125,11 @@ func (s *MarketplaceService) SearchProducts(params *models.MarketplaceSearchPara
 	if params.Limit <= 0 || params.Limit > 50 {
 		params.Limit = 20
 	}
-	return s.marketplaceRepo.SearchProducts(params)
+	res, err := s.marketplaceRepo.SearchProducts(params)
+	if err == nil && res != nil {
+		s.attachImages(res.Products)
+	}
+	return res, err
 }
 
 func (s *MarketplaceService) GetProductPrice(productID uuid.UUID, buyerProfileID *uuid.UUID) (*models.BuyerPriceResponse, error) {

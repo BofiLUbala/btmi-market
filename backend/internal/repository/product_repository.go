@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -94,7 +95,7 @@ func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Pro
 	return products, rows.Err()
 }
 
-func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID) ([]*models.ProductResponse, error) {
+func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID, search, publicationStatus string) ([]*models.ProductResponse, error) {
 	query := `
 		SELECT p.id, p.business_id, p.name, p.sku, p.description, p.unit_price, p.cost_price, 
 		       p.unit, p.status, p.publication_status, p.category_id, p.subcategory_id, 
@@ -109,11 +110,14 @@ func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID) ([]
 		LEFT JOIN product_variants v ON v.product_id = p.id AND v.status = 'ACTIVE'
 		LEFT JOIN inventory i ON i.variant_id = v.id
 		WHERE p.business_id = $1
+		  AND p.status = 'ACTIVE'
+		  AND ($2 = '' OR p.name ILIKE '%' || $2 || '%' OR p.sku ILIKE '%' || $2 || '%' OR p.description ILIKE '%' || $2 || '%')
+		  AND ($3 = '' OR p.publication_status::text = UPPER($3))
 		GROUP BY p.id, c.name
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := r.db.Query(query, businessID)
+	rows, err := r.db.Query(query, businessID, strings.TrimSpace(search), strings.TrimSpace(publicationStatus))
 	if err != nil {
 		return nil, err
 	}

@@ -120,6 +120,12 @@ export default function ProductDetailPage() {
   const subtotal = unitPrice * qty
   const personalized = Boolean(user && p.final_price !== undefined && p.discount_percent)
   const isFav = favorites.has(p.id)
+  const descriptionParts = (p.description || '')
+    .split(/\r?\n|(?<=[.!?])\s+/)
+    .map((part) => part.replace(/^[-•]\s*/, '').trim())
+    .filter(Boolean)
+  const highlights = descriptionParts.slice(0, 5)
+  const shortDescription = descriptionParts[0] || `Discover ${p.name}, available from verified local sellers.`
 
   function selectValue(key: string, value: string) {
     setSelection((prev) => ({ ...prev, [key]: value }))
@@ -193,6 +199,7 @@ export default function ProductDetailPage() {
               </Link>{' '}
               · Level {p.seller_level} · Trust {p.seller_trust}
             </div>
+            <p className="pd-summary">{shortDescription}</p>
           </div>
 
           <div className="pd-price" aria-live="polite">
@@ -288,41 +295,42 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="dashboard-sections" style={{ marginTop: 24, gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-        {p.description && (
-          <div className="card">
-            <h3>Description</h3>
-            <p className="small muted" style={{ whiteSpace: 'pre-line' }}>{p.description}</p>
-          </div>
-        )}
+      <div className="pd-information">
+        <section className="pd-info-section" aria-labelledby="product-highlights">
+          <h2 id="product-highlights">Product highlights</h2>
+          <ul className="pd-highlights">
+            {(highlights.length > 0 ? highlights : [shortDescription]).map((highlight, index) => (
+              <li key={`${highlight}-${index}`}>{highlight}</li>
+            ))}
+            <li>{v.stock_quantity > 0 ? `${v.stock_quantity} units currently available` : 'Currently out of stock'}</li>
+          </ul>
+        </section>
 
-        {Object.keys(v.attributes ?? {}).length > 0 && (
-          <div className="card">
-            <h3>Specifications</h3>
-            <table className="data-table small">
-              <tbody>
-                {Object.entries(v.attributes).map(([k, val]) => (
-                  <tr key={k}>
-                    <td className="muted">{k.replace(/[_-]+/g, ' ')}</td>
-                    <td className="bold">{val}</td>
-                  </tr>
-                ))}
-                <tr>
-                  <td className="muted">SKU</td>
-                  <td className="mono">{v.sku}</td>
-                </tr>
-                <tr>
-                  <td className="muted">Sold by</td>
-                  <td>{p.shop_name}</td>
-                </tr>
-                <tr>
-                  <td className="muted">Listed</td>
-                  <td>{formatDate(p.created_at)}</td>
-                </tr>
-              </tbody>
-            </table>
+        <section className="pd-info-section" aria-labelledby="product-description">
+          <h2 id="product-description">Product description</h2>
+          <div className="pd-description-copy">
+            {descriptionParts.length > 0 ? descriptionParts.map((paragraph, index) => (
+              <p key={`${paragraph}-${index}`}>{paragraph}</p>
+            )) : <p>{shortDescription}</p>}
           </div>
-        )}
+        </section>
+
+        <section className="pd-info-section" aria-labelledby="product-specifications">
+          <h2 id="product-specifications">Specifications</h2>
+          <dl className="pd-specifications">
+            <div><dt>Product</dt><dd>{p.name}</dd></div>
+            <div><dt>Category</dt><dd>{p.category?.name ?? 'General'}</dd></div>
+            {p.subcategory && <div><dt>Subcategory</dt><dd>{p.subcategory.name}</dd></div>}
+            {Object.entries(v.attributes ?? {}).map(([key, value]) => (
+              <div key={key}><dt>{key.replace(/[_-]+/g, ' ')}</dt><dd>{value}</dd></div>
+            ))}
+            <div><dt>SKU</dt><dd className="mono">{v.sku || p.sku}</dd></div>
+            <div><dt>Unit</dt><dd>{p.unit}</dd></div>
+            <div><dt>Seller</dt><dd><Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link></dd></div>
+            <div><dt>Seller level</dt><dd>{p.seller_level}</dd></div>
+            <div><dt>Listed</dt><dd>{formatDate(p.created_at)}</dd></div>
+          </dl>
+        </section>
       </div>
 
       {similar.length > 0 && (

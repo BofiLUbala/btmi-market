@@ -99,6 +99,7 @@ func (h *Handler) GetShop(c *gin.Context) {
 // GET /api/v1/marketplace/products
 func (h *Handler) ListProducts(c *gin.Context) {
 	shopIDStr := c.Query("shop_id")
+	sort := c.DefaultQuery("sort", "relevance")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
@@ -107,7 +108,7 @@ func (h *Handler) ListProducts(c *gin.Context) {
 		shopID, _ = uuid.Parse(shopIDStr)
 	}
 
-	products, total, err := h.marketplaceService.ListProducts(shopID, page, limit)
+	products, total, err := h.marketplaceService.ListProducts(shopID, page, limit, sort)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return

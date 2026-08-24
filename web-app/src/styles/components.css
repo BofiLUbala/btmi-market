@@ -306,8 +306,7 @@ textarea.input:focus {
 }
 .product-thumb {
   aspect-ratio: 4 / 3;
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--color-surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -315,6 +314,17 @@ textarea.input:focus {
   font-weight: 800;
   letter-spacing: 0.04em;
   position: relative;
+}
+.product-thumb > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: var(--space-2);
+}
+.product-thumb > img.product-fallback-image {
+  opacity: 0.88;
 }
 .product-thumb .thumb-chip {
   position: absolute;
@@ -327,6 +337,18 @@ textarea.input:focus {
   flex-direction: column;
   gap: var(--space-1);
   flex: 1;
+}
+.product-category-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-accent-soft, rgba(23, 89, 74, 0.08));
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 4px);
+  width: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .product-name {
   font-weight: 600;
@@ -546,4 +568,3 @@ textarea.input:focus {
 .result-icon--warn {
   background: var(--color-warning, #f59e0b);
 }
-

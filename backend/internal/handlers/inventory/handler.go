@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -517,7 +518,9 @@ func (h *Handler) ListProducts(c *gin.Context) {
 		return
 	}
 
-	products, err := h.inventoryService.ListProductsByBusiness(userID, businessID)
+	search := strings.TrimSpace(c.Query("search"))
+	publicationStatus := strings.TrimSpace(c.Query("publication_status"))
+	products, err := h.inventoryService.ListProductsByBusiness(userID, businessID, search, publicationStatus)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"

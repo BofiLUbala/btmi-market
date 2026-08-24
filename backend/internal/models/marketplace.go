@@ -7,22 +7,27 @@ import (
 )
 
 type PublicProductResponse struct {
-	ID              uuid.UUID          `json:"id"`
-	ShopID          uuid.UUID          `json:"shop_id"`
-	ShopName        string             `json:"shop_name"`
-	BusinessID      uuid.UUID          `json:"business_id"`
-	BusinessName    string             `json:"business_name"`
-	Name            string             `json:"name"`
-	SKU             string             `json:"sku"`
-	Description     string             `json:"description"`
-	Unit            string             `json:"unit"`
-	BasePrice       float64            `json:"base_price"`
-	CategoryID      *uuid.UUID         `json:"category_id,omitempty"`
-	SubcategoryID   *uuid.UUID         `json:"subcategory_id,omitempty"`
+	ID              uuid.UUID               `json:"id"`
+	ShopID          uuid.UUID               `json:"shop_id"`
+	ShopName        string                  `json:"shop_name"`
+	BusinessID      uuid.UUID               `json:"business_id"`
+	BusinessName    string                  `json:"business_name"`
+	Name            string                  `json:"name"`
+	SKU             string                  `json:"sku"`
+	Description     string                  `json:"description"`
+	Unit            string                  `json:"unit"`
+	BasePrice       float64                 `json:"base_price"`
+	CategoryID      *uuid.UUID              `json:"category_id,omitempty"`
+	CategoryName    string                  `json:"category_name,omitempty"`
+	CategorySlug    string                  `json:"category_slug,omitempty"`
+	SubcategoryID   *uuid.UUID              `json:"subcategory_id,omitempty"`
+	SubcategoryName string                  `json:"subcategory_name,omitempty"`
+	SubcategorySlug string                  `json:"subcategory_slug,omitempty"`
 	Variants        []PublicVariantResponse `json:"variants"`
 	Images          []ProductImageResponse  `json:"images,omitempty"`
 	SellerLevel     string                  `json:"seller_level"`
 	SellerTrust     string                  `json:"seller_trust"`
+	Availability    string                  `json:"availability,omitempty"`
 	CreatedAt       time.Time               `json:"created_at"`
 }
 

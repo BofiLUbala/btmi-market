@@ -102,11 +102,16 @@ export interface PublicProduct {
   unit: string
   base_price: number
   category_id?: string | null
+  category_name?: string | null
+  category_slug?: string | null
   subcategory_id?: string | null
-  variants: PublicVariant[] | null
+  subcategory_name?: string | null
+  subcategory_slug?: string | null
+  variants?: PublicVariant[] | null
   images?: ProductImageResponse[]
   seller_level: string
   seller_trust: string
+  availability?: string
   created_at: string
 }
 
