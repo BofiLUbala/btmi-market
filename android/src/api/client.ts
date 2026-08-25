@@ -1,11 +1,27 @@
 import { Platform } from 'react-native'
+import Constants from 'expo-constants'
 import { tokenStore } from './tokenStore'
 
 const emulatorDefault = Platform.OS === 'android'
   ? 'http://10.0.2.2:8080/api/v1'
   : 'http://localhost:8080/api/v1'
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || emulatorDefault
+function developmentApiUrl() {
+  if (!__DEV__) return emulatorDefault
+  const hostUri = Constants.expoConfig?.hostUri
+  if (!hostUri) return emulatorDefault
+  try {
+    const hostname = new URL(`http://${hostUri}`).hostname
+    return `http://${hostname}:8080/api/v1`
+  } catch {
+    return emulatorDefault
+  }
+}
+
+// EXPO_PUBLIC_API_URL wins in production. During local development the phone
+// automatically reuses the Metro host, avoiding the invalid 10.0.2.2 address
+// on physical devices.
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || developmentApiUrl()
 export const MEDIA_URL = API_URL.replace(/\/api\/v1\/?$/, '')
 export const resolveMediaUrl = (value?: string) => !value ? undefined : value.startsWith('http') ? value : `${MEDIA_URL}${value.startsWith('/') ? '' : '/'}${value}`
 
@@ -24,7 +40,9 @@ async function refreshSession() {
   })
   if (!response.ok) { await tokenStore.clear(); return false }
   const envelope = await response.json()
-  const data = envelope.data
+  // Auth endpoints return the token object directly, while marketplace
+  // endpoints use the standard { data } envelope.
+  const data = envelope.data ?? envelope
   if (!data?.access_token || !data?.refresh_token) return false
   await tokenStore.set(data.access_token, data.refresh_token)
   return true
@@ -32,7 +50,7 @@ async function refreshSession() {
 
 export async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers)
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (init.body && !headers.has('Content-Type') && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const token = await tokenStore.getAccess()
   if (token) headers.set('Authorization', `Bearer ${token}`)
   let response: Response
@@ -48,9 +66,11 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
     throw new ApiError(response.status, code, message)
   }
   const body = await response.json()
-  return body.data as T
+  return (body.data ?? body) as T
 }
 
 export const get = <T>(path: string) => request<T>(path)
 export const post = <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
+export const postForm = <T>(path: string, body: FormData) => request<T>(path, { method: 'POST', body })
 export const patch = <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) })
+export const del = <T>(path: string) => request<T>(path, { method: 'DELETE' })

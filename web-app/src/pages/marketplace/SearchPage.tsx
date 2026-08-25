@@ -18,6 +18,7 @@ const SORTS = [
 export default function SearchPage() {
   const [params] = useSearchParams()
   const initialQ = params.get('q') ?? ''
+  const visualSearch = params.get('visual') === '1'
   const [q, setQ] = useState(initialQ)
   const [sort, setSort] = useState('relevance')
   const [products, setProducts] = useState<PublicProduct[]>([])
@@ -27,6 +28,7 @@ export default function SearchPage() {
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [visualFileName, setVisualFileName] = useState('')
 
   function runSearch(nextPage = 1, query = q, sortBy = sort) {
     setLoading(true)
@@ -50,9 +52,21 @@ export default function SearchPage() {
   }
 
   useEffect(() => {
-    if (initialQ) runSearch(1, initialQ, 'relevance')
+    if (visualSearch) {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('btmi.visual-search') || '{}') as { products?: PublicProduct[]; fileName?: string }
+        const list = asArray(saved.products)
+        setProducts(list)
+        setTotal(list.length)
+        setHasMore(false)
+        setSearched(true)
+        setVisualFileName(saved.fileName || 'selected image')
+      } catch {
+        setError('The image search results are no longer available. Import the image again.')
+      }
+    } else if (initialQ) runSearch(1, initialQ, 'relevance')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQ])
+  }, [initialQ, visualSearch])
 
   function changeSort(s: string) {
     setSort(s)
@@ -70,9 +84,11 @@ export default function SearchPage() {
         className="search-page-autocomplete"
       />
 
+      {visualSearch && visualFileName && <div className="visual-search-banner"><span aria-hidden>📷</span><div><strong>Products similar to your image</strong><small>{visualFileName}</small></div></div>}
+
       <div className="row-between" style={{ marginBottom: 12 }}>
         <span className="small muted">
-          {searched ? `${total} result${total === 1 ? '' : 's'}` : 'Type something to search'}
+          {searched ? `${total} result${total === 1 ? '' : 's'}${visualSearch ? ' found from the image' : ''}` : 'Type something to search'}
         </span>
         <select className="select" style={{ width: 'auto' }} value={sort} onChange={(e) => changeSort(e.target.value)}>
           {SORTS.map((s) => (
@@ -87,7 +103,7 @@ export default function SearchPage() {
 
       {searched && products.length === 0 && !loading ? (
         <p className="muted" style={{ padding: '32px 0' }}>
-          No products found for “{q}”.
+          {visualSearch ? 'No similar marketplace products were found for this image.' : `No products found for “${q}”.`}
         </p>
       ) : (
         <>

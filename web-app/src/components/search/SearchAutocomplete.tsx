@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
 import type { CategoryResponse, PublicProduct, PublicShop, SubcategoryResponse } from '@/api/types'
@@ -34,12 +34,14 @@ export function SearchAutocomplete({
   const navigate = useNavigate()
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const listId = useId()
   const [query, setQuery] = useState(initialQuery)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
+  const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'error'>('idle')
 
   useEffect(() => {
     setQuery(initialQuery)
@@ -144,13 +146,37 @@ export function SearchAutocomplete({
     }
   }
 
+  async function searchImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 6 * 1024 * 1024) {
+      setImageStatus('error')
+      return
+    }
+    setImageStatus('loading')
+    setOpen(false)
+    try {
+      const result = await marketplaceApi.searchByImage(file)
+      sessionStorage.setItem('btmi.visual-search', JSON.stringify({ products: result.products ?? [], fileName: file.name, createdAt: Date.now() }))
+      setImageStatus('idle')
+      navigate('/search?visual=1')
+    } catch {
+      setImageStatus('error')
+    }
+  }
+
   return (
     <div ref={rootRef} className={`search-autocomplete search-autocomplete--${variant} ${className}`.trim()}>
       <form className={variant === 'header' ? 'header-search' : 'search-autocomplete-form'} onSubmit={submit} role="search">
         <input ref={inputRef} className={variant === 'page' ? 'input' : undefined} value={query} onChange={(event) => setValue(event.target.value)} onFocus={() => query.trim().length >= 2 && setOpen(true)} onKeyDown={onKeyDown} placeholder="Search products, shops…" aria-label="Search products, shops and categories" role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} />
         {query && <button className="search-clear" type="button" aria-label="Clear search" onClick={() => { setValue(''); setSuggestions([]); setOpen(false); inputRef.current?.focus() }}>×</button>}
+        <input ref={imageInputRef} className="visual-search-input" type="file" accept="image/jpeg,image/png" onChange={searchImage} tabIndex={-1} />
+        <button className="visual-search-button" type="button" aria-label="Search using an image" title="Search using an image" disabled={imageStatus === 'loading'} onClick={() => imageInputRef.current?.click()}>{imageStatus === 'loading' ? '…' : '📷'}</button>
         <button className="search-submit" type="submit">Search</button>
       </form>
+
+      {imageStatus === 'error' && <div className="visual-search-error" role="alert">Choose a JPEG or PNG image smaller than 6 MB, then try again.</div>}
 
       {open && query.trim().length >= 2 && (
         <div id={listId} className="search-suggestions" role="listbox" aria-label="Search suggestions">

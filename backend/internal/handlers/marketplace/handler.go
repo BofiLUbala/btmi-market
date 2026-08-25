@@ -210,6 +210,30 @@ func (h *Handler) SearchProducts(c *gin.Context) {
 	})
 }
 
+// POST /api/v1/marketplace/search/image
+func (h *Handler) SearchProductsByImage(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 6<<20)
+	file, err := c.FormFile("image")
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "IMAGE_REQUIRED", "A JPEG or PNG image is required (field 'image').")
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	products, err := h.marketplaceService.SearchProductsByImage(file, limit)
+	if err != nil {
+		switch err.Error() {
+		case "IMAGE_REQUIRED", "INVALID_IMAGE":
+			h.errResponse(c, http.StatusBadRequest, err.Error(), "The selected file is not a valid JPEG or PNG image.")
+		case "IMAGE_TOO_LARGE":
+			h.errResponse(c, http.StatusRequestEntityTooLarge, err.Error(), "The image must not exceed 6 MB.")
+		default:
+			h.errResponse(c, http.StatusInternalServerError, "VISUAL_SEARCH_UNAVAILABLE", "Visual search is temporarily unavailable.")
+		}
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Visual search results", Data: map[string]interface{}{"products": products}})
+}
+
 // GET /api/v1/marketplace/categories
 func (h *Handler) ListCategories(c *gin.Context) {
 	categories, err := h.categoryService.ListCategories()

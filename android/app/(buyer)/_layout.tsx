@@ -1,11 +1,13 @@
 import { Tabs } from 'expo-router'
-import { Text, type ColorValue } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors } from '../../src/theme'
-const Icon = ({ value, color }: { value: string; color: ColorValue }) => <Text style={{ color, fontSize: 20 }}>{value}</Text>
-export default function BuyerTabs() { return <Tabs screenOptions={{ headerStyle: { backgroundColor: colors.green }, headerTintColor: colors.white, headerTitleStyle: { fontWeight: '900' }, tabBarActiveTintColor: colors.green, tabBarInactiveTintColor: colors.muted, tabBarStyle: { height: 68, paddingTop: 7, paddingBottom: 9 } }}>
-  <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({color}) => <Icon value="⌂" color={color}/> }}/>
-  <Tabs.Screen name="categories" options={{ title: 'Categories', tabBarIcon: ({color}) => <Icon value="▦" color={color}/> }}/>
-  <Tabs.Screen name="cart" options={{ title: 'Cart', tabBarIcon: ({color}) => <Icon value="🛒" color={color}/> }}/>
-  <Tabs.Screen name="favorites" options={{ title: 'Favorites', tabBarIcon: ({color}) => <Icon value="♡" color={color}/> }}/>
-  <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({color}) => <Icon value="●" color={color}/> }}/>
+export default function BuyerTabs() {
+  const insets = useSafeAreaInsets()
+  return <Tabs safeAreaInsets={{ bottom: insets.bottom }} screenOptions={{ headerStyle: { backgroundColor: colors.white }, headerTintColor: colors.ink, headerShadowVisible: false, headerTitleStyle: { fontWeight: '800' }, tabBarActiveTintColor: colors.green, tabBarInactiveTintColor: '#8A948F', tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 }, tabBarHideOnKeyboard: true, tabBarStyle: { height: 58 + insets.bottom, paddingTop: 7, paddingBottom: Math.max(insets.bottom, 8), borderTopColor: '#ECEAE4', backgroundColor: colors.white } }}>
+  <Tabs.Screen name="index" options={{ title: 'Accueil', headerShown: false, tabBarIcon: ({color,focused}) => <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color}/> }}/>
+  <Tabs.Screen name="categories" options={{ title: 'Catégories', headerTitle: 'Catégories', tabBarIcon: ({color,focused}) => <Ionicons name={focused ? 'grid' : 'grid-outline'} size={21} color={color}/> }}/>
+  <Tabs.Screen name="cart" options={{ title: 'Panier', headerTitle: 'Mon panier', tabBarIcon: ({color,focused}) => <Ionicons name={focused ? 'bag-handle' : 'bag-handle-outline'} size={22} color={color}/> }}/>
+  <Tabs.Screen name="favorites" options={{ title: 'Favoris', headerTitle: 'Mes favoris', tabBarIcon: ({color,focused}) => <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color}/> }}/>
+  <Tabs.Screen name="profile" options={{ title: 'Profil', headerTitle: 'Mon profil', tabBarIcon: ({color,focused}) => <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color}/> }}/>
 </Tabs> }

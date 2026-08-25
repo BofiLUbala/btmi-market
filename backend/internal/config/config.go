@@ -6,52 +6,54 @@ import (
 )
 
 type Config struct {
-	AppEnv            string
-	APIPort           string
-	WorkerEnabled     bool
-	DBHost            string
-	DBPort            string
-	DBName            string
-	DBUser            string
-	DBPassword        string
-	RedisAddr         string
-	RedisPassword     string
-	RedisDB           int
-	JWTSecret         string
-	AccessTokenTTL    int
-	RefreshTokenTTL   int
-	FrontendURL       string
-	SMTPHost          string
-	SMTPPort          string
-	SMTPUser          string
-	SMTPPassword      string
-	SMTPFrom          string
-	UploadDir         string
+	AppEnv          string
+	APIPort         string
+	WorkerEnabled   bool
+	DBHost          string
+	DBPort          string
+	DBName          string
+	DBUser          string
+	DBPassword      string
+	RedisAddr       string
+	RedisPassword   string
+	RedisDB         int
+	JWTSecret       string
+	AccessTokenTTL  int
+	RefreshTokenTTL int
+	FrontendURL     string
+	SMTPHost        string
+	SMTPPort        string
+	SMTPUser        string
+	SMTPPassword    string
+	SMTPFrom        string
+	UploadDir       string
+	VisualSearchURL string
 }
 
 func Load() *Config {
 	return &Config{
-		AppEnv:         getEnv("APP_ENV", "development"),
-		APIPort:        getEnv("API_PORT", "8080"),
-		WorkerEnabled:  getEnvBool("BACKGROUND_WORKER_ENABLED", false),
-		DBHost:         getEnv("DB_HOST", "localhost"),
-		DBPort:         getEnv("DB_PORT", "5432"),
-		DBName:         getEnv("DB_NAME", "btmi_market"),
-		DBUser:         getEnv("DB_USER", "btmi_user"),
-		DBPassword:     getEnv("DB_PASSWORD", "btmi_secret_password"),
-		RedisAddr:      getEnv("REDIS_ADDR", "redis:6379"),
-		RedisPassword:  getEnv("REDIS_PASSWORD", ""),
-		RedisDB:        getEnvInt("REDIS_DB", 0),
-		JWTSecret:      getEnv("JWT_SECRET", "dev-secret-key-change-in-production"),
-		AccessTokenTTL: getEnvInt("ACCESS_TOKEN_TTL", 15),
+		AppEnv:          getEnv("APP_ENV", "development"),
+		APIPort:         getEnv("API_PORT", "8080"),
+		WorkerEnabled:   getEnvBool("BACKGROUND_WORKER_ENABLED", false),
+		DBHost:          getEnv("DB_HOST", "localhost"),
+		DBPort:          getEnv("DB_PORT", "5432"),
+		DBName:          getEnv("DB_NAME", "btmi_market"),
+		DBUser:          getEnv("DB_USER", "btmi_user"),
+		DBPassword:      getEnv("DB_PASSWORD", "btmi_secret_password"),
+		RedisAddr:       getEnv("REDIS_ADDR", "redis:6379"),
+		RedisPassword:   getEnv("REDIS_PASSWORD", ""),
+		RedisDB:         getEnvInt("REDIS_DB", 0),
+		JWTSecret:       getEnv("JWT_SECRET", "dev-secret-key-change-in-production"),
+		AccessTokenTTL:  getEnvInt("ACCESS_TOKEN_TTL", 15),
 		RefreshTokenTTL: getEnvInt("REFRESH_TOKEN_TTL", 10080),
-		FrontendURL:    getEnv("FRONTEND_URL", "http://localhost:3000"),
-		SMTPHost:       getEnv("SMTP_HOST", ""),
-		SMTPPort:       getEnv("SMTP_PORT", ""),
-		SMTPUser:       getEnv("SMTP_USER", ""),
-		SMTPPassword:   getEnv("SMTP_PASSWORD", ""),
+		FrontendURL:     getEnv("FRONTEND_URL", "http://localhost:3000"),
+		SMTPHost:        getEnv("SMTP_HOST", ""),
+		SMTPPort:        getEnv("SMTP_PORT", ""),
+		SMTPUser:        getEnv("SMTP_USER", ""),
+		SMTPPassword:    getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:        getEnv("SMTP_FROM", "noreply@btmi-market.com"),
 		UploadDir:       getEnv("UPLOAD_DIR", "./uploads"),
+		VisualSearchURL: getEnv("VISUAL_SEARCH_URL", "http://visual-search:8090"),
 	}
 }
 

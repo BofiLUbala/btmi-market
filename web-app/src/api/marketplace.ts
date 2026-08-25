@@ -1,10 +1,11 @@
-import { del, get, post } from './client'
+import { del, get, post, upload } from './client'
 import type {
   BuyerPriceResponse,
   CategoryResponse,
   MarketplaceSearchResult,
   PaginatedShops,
   PaginatedProducts,
+  PublicProduct,
   PublicProductDetail,
   PublicShopDetail,
   ProductReviewsResponse,
@@ -59,6 +60,12 @@ export const marketplaceApi = {
     get<SimilarProductsResponse>(`/marketplace/products/${id}/similar`),
 
   search: (q: MarketplaceQuery, signal?: AbortSignal) => get<MarketplaceSearchResult>('/marketplace/search', q, { signal }),
+
+  searchByImage: (file: File) => {
+    const form = new FormData()
+    form.append('image', file)
+    return upload<{ products: PublicProduct[] }>('/marketplace/search/image?limit=20', form)
+  },
 
   shopReviews: (id: string, q?: MarketplaceQuery) =>
     get<ShopReviewsResponse>(`/marketplace/shops/${id}/reviews`, q),

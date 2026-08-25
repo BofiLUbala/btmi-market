@@ -1,10 +1,10 @@
 # BTMI Market Android
 
-Expo/React Native client for the existing BTMI backend. The Web application and Android application use the same API and business data.
+Expo SDK 54 / React Native client for the existing BTMI backend. The Web application and Android application use the same API and business data.
 
 ## Requirements
 
-- Node.js 22.13 or newer
+- Node.js 20.19 or newer (Node.js 22 LTS recommended)
 - Android Studio emulator or an Android phone with Expo Go
 - BTMI backend running on port 8080
 

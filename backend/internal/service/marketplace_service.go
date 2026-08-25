@@ -9,9 +9,10 @@ import (
 )
 
 type MarketplaceService struct {
-	marketplaceRepo *repository.MarketplaceRepository
+	marketplaceRepo  *repository.MarketplaceRepository
 	productImageRepo *repository.ProductImageRepository
-	pointService    *PointService
+	visualSearchURL  string
+	pointService     *PointService
 }
 
 func NewMarketplaceService(
@@ -27,6 +28,8 @@ func NewMarketplaceService(
 func (s *MarketplaceService) SetProductImageRepo(repo *repository.ProductImageRepository) {
 	s.productImageRepo = repo
 }
+
+func (s *MarketplaceService) SetVisualSearchURL(url string) { s.visualSearchURL = url }
 
 // attachImages fills the Images field of each product with its persisted
 // media, ordered primary-first. Failures are non-fatal.

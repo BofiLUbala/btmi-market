@@ -27,6 +27,7 @@ services:
       - REDIS_DB=${REDIS_DB:-0}
       - BACKGROUND_WORKER_ENABLED=false
       - MIGRATIONS_DIR=/migrations
+      - VISUAL_SEARCH_URL=http://visual-search:8090
     volumes:
       - ./migrations:/migrations:ro
       - uploads_data:/app/uploads
@@ -34,6 +35,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      visual-search:
         condition: service_healthy
     restart: unless-stopped
 
@@ -63,6 +66,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+
+  visual-search:
+    build:
+      context: ./visual-search
+      dockerfile: Dockerfile
+    environment:
+      - UPLOAD_DIR=/app/uploads
+      - MODEL_PATH=/app/model/mobilenetv2-12.onnx
+    volumes:
+      - uploads_data:/app/uploads:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     restart: unless-stopped
 
   worker:
