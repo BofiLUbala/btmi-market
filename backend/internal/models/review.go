@@ -20,6 +20,12 @@ type SellerReview struct {
 	BuyerProfileID   uuid.UUID  `json:"buyer_profile_id" db:"buyer_profile_id"`
 	BusinessID       uuid.UUID  `json:"business_id" db:"business_id"`
 	ShopID           uuid.UUID  `json:"shop_id" db:"shop_id"`
+	ProductID        *uuid.UUID `json:"product_id,omitempty" db:"product_id"`
+	OrderLineID      *uuid.UUID `json:"order_line_id,omitempty" db:"order_line_id"`
+	VariantID        *uuid.UUID `json:"variant_id,omitempty" db:"variant_id"`
+	DeliveryRating   *int       `json:"delivery_rating,omitempty" db:"delivery_rating"`
+	ServiceRating    *int       `json:"service_rating,omitempty" db:"service_rating"`
+	ExperienceRating *int       `json:"order_experience_rating,omitempty" db:"order_experience_rating"`
 	Rating           int        `json:"rating" db:"rating"`
 	Comment          string     `json:"comment" db:"comment"`
 	VerifiedPurchase bool       `json:"verified_purchase" db:"verified_purchase"`
@@ -29,14 +35,14 @@ type SellerReview struct {
 }
 
 type ReviewHistory struct {
-	ID         uuid.UUID  `json:"id" db:"id"`
-	ReviewID   uuid.UUID  `json:"review_id" db:"review_id"`
-	OldRating  int        `json:"old_rating" db:"old_rating"`
-	NewRating  int        `json:"new_rating" db:"new_rating"`
-	OldComment string     `json:"old_comment" db:"old_comment"`
-	NewComment string     `json:"new_comment" db:"new_comment"`
-	ChangedBy  uuid.UUID  `json:"changed_by" db:"changed_by"`
-	ChangedAt  time.Time  `json:"changed_at" db:"changed_at"`
+	ID         uuid.UUID `json:"id" db:"id"`
+	ReviewID   uuid.UUID `json:"review_id" db:"review_id"`
+	OldRating  int       `json:"old_rating" db:"old_rating"`
+	NewRating  int       `json:"new_rating" db:"new_rating"`
+	OldComment string    `json:"old_comment" db:"old_comment"`
+	NewComment string    `json:"new_comment" db:"new_comment"`
+	ChangedBy  uuid.UUID `json:"changed_by" db:"changed_by"`
+	ChangedAt  time.Time `json:"changed_at" db:"changed_at"`
 }
 
 type ShopReviewAggregate struct {
@@ -55,8 +61,9 @@ type ShopReviewAggregate struct {
 // Request/Response types
 
 type CreateReviewRequest struct {
-	Rating  int    `json:"rating" binding:"required"`
-	Comment string `json:"comment"`
+	OrderLineID string `json:"order_line_id" binding:"required"`
+	Rating      int    `json:"rating" binding:"required"`
+	Comment     string `json:"comment"`
 }
 
 type UpdateReviewRequest struct {
@@ -64,9 +71,16 @@ type UpdateReviewRequest struct {
 	Comment string `json:"comment"`
 }
 
+type CreateServiceReviewRequest struct {
+	DeliveryRating   int    `json:"delivery_rating" binding:"required"`
+	ServiceRating    int    `json:"service_rating" binding:"required"`
+	ExperienceRating int    `json:"order_experience_rating" binding:"required"`
+	Comment          string `json:"comment"`
+}
+
 type ReviewEligibilityResponse struct {
-	Eligible        bool   `json:"eligible"`
-	Reason          string `json:"reason"`
+	Eligible         bool       `json:"eligible"`
+	Reason           string     `json:"reason"`
 	ExistingReviewID *uuid.UUID `json:"existing_review_id,omitempty"`
 }
 
@@ -76,6 +90,12 @@ type ReviewResponse struct {
 	BuyerProfileID   uuid.UUID  `json:"buyer_profile_id"`
 	BusinessID       uuid.UUID  `json:"business_id"`
 	ShopID           uuid.UUID  `json:"shop_id"`
+	ProductID        *uuid.UUID `json:"product_id,omitempty"`
+	OrderLineID      *uuid.UUID `json:"order_line_id,omitempty"`
+	VariantID        *uuid.UUID `json:"variant_id,omitempty"`
+	DeliveryRating   *int       `json:"delivery_rating,omitempty"`
+	ServiceRating    *int       `json:"service_rating,omitempty"`
+	ExperienceRating *int       `json:"order_experience_rating,omitempty"`
 	Rating           int        `json:"rating"`
 	Comment          string     `json:"comment"`
 	VerifiedPurchase bool       `json:"verified_purchase"`
@@ -85,28 +105,63 @@ type ReviewResponse struct {
 }
 
 type PublicReviewResponse struct {
-	ID               uuid.UUID  `json:"id"`
-	Rating           int        `json:"rating"`
-	Comment          string     `json:"comment"`
-	VerifiedPurchase bool       `json:"verified_purchase"`
-	BuyerDisplayName string     `json:"buyer_display_name"`
-	CreatedAt        time.Time  `json:"created_at"`
+	ID               uuid.UUID             `json:"id"`
+	Rating           int                   `json:"rating"`
+	Comment          string                `json:"comment"`
+	VerifiedPurchase bool                  `json:"verified_purchase"`
+	BuyerDisplayName string                `json:"buyer_display_name"`
+	CreatedAt        time.Time             `json:"created_at"`
+	HelpfulCount     int                   `json:"helpful_count"`
+	HelpfulByMe      bool                  `json:"helpful_by_me"`
+	Replies          []ReviewReplyResponse `json:"replies"`
+	DeliveryRating   *int                  `json:"delivery_rating,omitempty"`
+	ServiceRating    *int                  `json:"service_rating,omitempty"`
+	ExperienceRating *int                  `json:"order_experience_rating,omitempty"`
+}
+
+type ReviewReplyResponse struct {
+	ID                uuid.UUID `json:"id"`
+	ReviewID          uuid.UUID `json:"review_id"`
+	AuthorDisplayName string    `json:"author_display_name"`
+	Body              string    `json:"body"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
+type CreateReviewReplyRequest struct {
+	Body string `json:"body" binding:"required"`
+}
+
+type ProductReviewSummary struct {
+	AverageRating float64 `json:"average_rating"`
+	TotalReviews  int     `json:"total_reviews"`
+	Rating1Count  int     `json:"rating_1_count"`
+	Rating2Count  int     `json:"rating_2_count"`
+	Rating3Count  int     `json:"rating_3_count"`
+	Rating4Count  int     `json:"rating_4_count"`
+	Rating5Count  int     `json:"rating_5_count"`
+}
+
+type ProductReviewsResponse struct {
+	ProductID  uuid.UUID              `json:"product_id"`
+	Summary    ProductReviewSummary   `json:"summary"`
+	Reviews    []PublicReviewResponse `json:"reviews"`
+	Pagination PaginationInfo         `json:"pagination"`
 }
 
 type ShopReviewsResponse struct {
-	ShopID   uuid.UUID                `json:"shop_id"`
-	Summary  ShopReviewAggregate      `json:"summary"`
-	Reviews  []PublicReviewResponse   `json:"reviews"`
+	ShopID     uuid.UUID              `json:"shop_id"`
+	Summary    ShopReviewAggregate    `json:"summary"`
+	Reviews    []PublicReviewResponse `json:"reviews"`
 	Pagination PaginationInfo         `json:"pagination"`
 }
 
 type BuyerReviewsResponse struct {
 	Reviews    []ReviewResponse `json:"reviews"`
-	Pagination PaginationInfo  `json:"pagination"`
+	Pagination PaginationInfo   `json:"pagination"`
 }
 
 type ReviewEligibilityInOrder struct {
-	ReviewEligible bool    `json:"review_eligible"`
-	Reviewed       bool    `json:"reviewed"`
+	ReviewEligible bool       `json:"review_eligible"`
+	Reviewed       bool       `json:"reviewed"`
 	ReviewID       *uuid.UUID `json:"review_id,omitempty"`
 }

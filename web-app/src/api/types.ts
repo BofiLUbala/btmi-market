@@ -46,6 +46,8 @@ export interface BuyerProfile {
   first_name: string
   last_name: string
   phone: string
+  backup_phone: string
+  address: string
   email: string
   city?: string
   commune?: string
@@ -61,7 +63,15 @@ export interface CreateBuyerProfileRequest {
   email: string
 }
 
-export type UpdateBuyerProfileRequest = Partial<CreateBuyerProfileRequest>
+export interface UpdateBuyerProfileRequest {
+  first_name?: string
+  last_name?: string
+  phone?: string
+  backup_phone?: string
+  address?: string
+  city?: string
+  commune?: string
+}
 
 /* ---------- Categories ---------- */
 
@@ -254,6 +264,27 @@ export interface PublicReview {
   verified_purchase: boolean
   buyer_display_name: string
   created_at: string
+  helpful_count: number
+  helpful_by_me: boolean
+  replies: ReviewReply[]
+  delivery_rating?: number
+  service_rating?: number
+  order_experience_rating?: number
+}
+
+export interface ReviewReply {
+  id: string
+  review_id: string
+  author_display_name: string
+  body: string
+  created_at: string
+}
+
+export interface ProductReviewsResponse {
+  product_id: string
+  summary: Omit<ShopReviewAggregate, 'shop_id' | 'last_review_at' | 'updated_at'>
+  reviews: PublicReview[]
+  pagination: Pagination
 }
 
 export interface ShopReviewsResponse {
@@ -274,7 +305,13 @@ export interface ReviewResponse {
   buyer_profile_id: string
   business_id: string
   shop_id: string
+  product_id?: string
+  order_line_id?: string
+  variant_id?: string
   rating: number
+  delivery_rating?: number
+  service_rating?: number
+  order_experience_rating?: number
   comment: string
   verified_purchase: boolean
   status: string
@@ -305,6 +342,13 @@ export interface PointAccount {
   level_id?: string | null
   status: string
   updated_at: string
+}
+
+export interface BuyerPointsSummary {
+  available_points: number
+  reserved_points: number
+  lifetime_points: number
+  level: string
 }
 
 export interface PointTransaction {
@@ -421,6 +465,12 @@ export interface OrderLine {
   points_discount_per_unit: number
   final_unit_price: number
   created_at: string
+  product_name: string
+  product_sku: string
+  variant_name: string
+  variant_sku: string
+  variant_attributes: Record<string, string>
+  image_url: string
 }
 
 export interface OrderStatusHistory {
@@ -437,6 +487,7 @@ export interface OrderWithLines {
   order: BuyerOrder
   lines: OrderLine[]
   history?: OrderStatusHistory[]
+  shop_name: string
 }
 
 export interface BuyerCreateOrderRequest {
@@ -610,6 +661,22 @@ export interface SellerBusiness {
   status: string
   created_at: string
   updated_at: string
+}
+
+export interface BusinessLifecycleSummary {
+  shops: number
+  products: number
+  employees: number
+  inventory_units: number
+  active_orders: number
+  historical_orders: number
+  unresolved_payments: number
+  shop_summaries: Array<{ id: string; name: string; status: string; product_count: number }>
+}
+
+export interface ArchiveBusinessResponse {
+  action: 'archived'
+  summary: BusinessLifecycleSummary
 }
 
 export interface Shop {

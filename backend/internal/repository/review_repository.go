@@ -53,14 +53,14 @@ func (r *ReviewRepository) GetPaymentStatus(orderID uuid.UUID) (string, error) {
 // GetReviewByOrderID checks if a review already exists for an order.
 func (r *ReviewRepository) GetReviewByOrderID(orderID uuid.UUID) (*models.SellerReview, error) {
 	query := `
-		SELECT id, order_id, buyer_profile_id, business_id, shop_id, rating, comment,
+		SELECT id, order_id, buyer_profile_id, business_id, shop_id, product_id, order_line_id, variant_id, rating, comment,
 		       verified_purchase, status, created_at, updated_at
-		FROM seller_reviews WHERE order_id = $1
+		FROM seller_reviews WHERE order_id = $1 AND order_line_id IS NULL
 	`
 	review := &models.SellerReview{}
 	err := r.db.QueryRow(query, orderID).Scan(
 		&review.ID, &review.OrderID, &review.BuyerProfileID, &review.BusinessID,
-		&review.ShopID, &review.Rating, &review.Comment,
+		&review.ShopID, &review.ProductID, &review.OrderLineID, &review.VariantID, &review.Rating, &review.Comment,
 		&review.VerifiedPurchase, &review.Status, &review.CreatedAt, &review.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -75,14 +75,14 @@ func (r *ReviewRepository) GetReviewByOrderID(orderID uuid.UUID) (*models.Seller
 // GetReviewByID gets a review by its ID.
 func (r *ReviewRepository) GetReviewByID(reviewID uuid.UUID) (*models.SellerReview, error) {
 	query := `
-		SELECT id, order_id, buyer_profile_id, business_id, shop_id, rating, comment,
+		SELECT id, order_id, buyer_profile_id, business_id, shop_id, product_id, order_line_id, variant_id, rating, comment,
 		       verified_purchase, status, created_at, updated_at
 		FROM seller_reviews WHERE id = $1
 	`
 	review := &models.SellerReview{}
 	err := r.db.QueryRow(query, reviewID).Scan(
 		&review.ID, &review.OrderID, &review.BuyerProfileID, &review.BusinessID,
-		&review.ShopID, &review.Rating, &review.Comment,
+		&review.ShopID, &review.ProductID, &review.OrderLineID, &review.VariantID, &review.Rating, &review.Comment,
 		&review.VerifiedPurchase, &review.Status, &review.CreatedAt, &review.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -97,8 +97,8 @@ func (r *ReviewRepository) GetReviewByID(reviewID uuid.UUID) (*models.SellerRevi
 // CreateReview creates a new verified purchase review.
 func (r *ReviewRepository) CreateReview(review *models.SellerReview) error {
 	query := `
-		INSERT INTO seller_reviews (id, order_id, buyer_profile_id, business_id, shop_id, rating, comment, verified_purchase, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO seller_reviews (id, order_id, buyer_profile_id, business_id, shop_id, product_id, order_line_id, variant_id, rating, comment, verified_purchase, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING created_at, updated_at
 	`
 	if review.ID == uuid.Nil {
@@ -109,8 +109,26 @@ func (r *ReviewRepository) CreateReview(review *models.SellerReview) error {
 
 	return r.db.QueryRow(query,
 		review.ID, review.OrderID, review.BuyerProfileID, review.BusinessID,
-		review.ShopID, review.Rating, review.Comment, review.VerifiedPurchase, review.Status,
+		review.ShopID, review.ProductID, review.OrderLineID, review.VariantID, review.Rating, review.Comment, review.VerifiedPurchase, review.Status,
 	).Scan(&review.CreatedAt, &review.UpdatedAt)
+}
+
+func (r *ReviewRepository) CreateServiceReview(review *models.SellerReview) error {
+	query := `
+		INSERT INTO seller_reviews (id, order_id, buyer_profile_id, business_id, shop_id,
+			rating, comment, verified_purchase, status, delivery_rating, service_rating, order_experience_rating)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		RETURNING created_at, updated_at
+	`
+	if review.ID == uuid.Nil {
+		review.ID = uuid.New()
+	}
+	review.VerifiedPurchase = true
+	review.Status = string(models.ReviewStatusActive)
+	return r.db.QueryRow(query, review.ID, review.OrderID, review.BuyerProfileID,
+		review.BusinessID, review.ShopID, review.Rating, review.Comment,
+		review.VerifiedPurchase, review.Status, review.DeliveryRating,
+		review.ServiceRating, review.ExperienceRating).Scan(&review.CreatedAt, &review.UpdatedAt)
 }
 
 // UpdateReview updates rating and comment, returns old values for history.
@@ -180,7 +198,7 @@ func (r *ReviewRepository) WithdrawReview(reviewID uuid.UUID) error {
 
 // GetReviewsByShopID gets public reviews for a shop.
 func (r *ReviewRepository) GetReviewsByShopID(shopID uuid.UUID, sortBy string, ratingFilter *int, offset, limit int) ([]models.PublicReviewResponse, int, error) {
-	whereClause := "WHERE sr.shop_id = $1 AND sr.status = 'ACTIVE'"
+	whereClause := "WHERE sr.shop_id = $1 AND sr.status = 'ACTIVE' AND sr.order_line_id IS NULL"
 	args := []interface{}{shopID}
 	argIdx := 2
 
@@ -209,7 +227,7 @@ func (r *ReviewRepository) GetReviewsByShopID(shopID uuid.UUID, sortBy string, r
 	query := fmt.Sprintf(`
 		SELECT sr.id, sr.rating, sr.comment, sr.verified_purchase,
 		       COALESCE(bp.first_name, '') || ' ' || COALESCE(bp.last_name, '') as buyer_name,
-		       sr.created_at
+		       sr.created_at, sr.delivery_rating, sr.service_rating, sr.order_experience_rating
 		FROM seller_reviews sr
 		JOIN buyer_profiles bp ON sr.buyer_profile_id = bp.id
 		%s
@@ -227,7 +245,8 @@ func (r *ReviewRepository) GetReviewsByShopID(shopID uuid.UUID, sortBy string, r
 	var reviews []models.PublicReviewResponse
 	for rows.Next() {
 		var rev models.PublicReviewResponse
-		if err := rows.Scan(&rev.ID, &rev.Rating, &rev.Comment, &rev.VerifiedPurchase, &rev.BuyerDisplayName, &rev.CreatedAt); err != nil {
+		if err := rows.Scan(&rev.ID, &rev.Rating, &rev.Comment, &rev.VerifiedPurchase, &rev.BuyerDisplayName, &rev.CreatedAt,
+			&rev.DeliveryRating, &rev.ServiceRating, &rev.ExperienceRating); err != nil {
 			return nil, 0, err
 		}
 		// Trim display name.
@@ -252,7 +271,8 @@ func (r *ReviewRepository) GetReviewsByBuyerProfileID(buyerProfileID uuid.UUID, 
 
 	query := `
 		SELECT sr.id, sr.order_id, sr.buyer_profile_id, sr.business_id, sr.shop_id,
-		       sr.rating, sr.comment, sr.verified_purchase, sr.status, sr.created_at, sr.updated_at
+		       sr.product_id, sr.order_line_id, sr.variant_id, sr.delivery_rating, sr.service_rating,
+		       sr.order_experience_rating, sr.rating, sr.comment, sr.verified_purchase, sr.status, sr.created_at, sr.updated_at
 		FROM seller_reviews sr
 		WHERE sr.buyer_profile_id = $1
 		ORDER BY sr.created_at DESC
@@ -269,6 +289,7 @@ func (r *ReviewRepository) GetReviewsByBuyerProfileID(buyerProfileID uuid.UUID, 
 		var rev models.ReviewResponse
 		if err := rows.Scan(
 			&rev.ID, &rev.OrderID, &rev.BuyerProfileID, &rev.BusinessID, &rev.ShopID,
+			&rev.ProductID, &rev.OrderLineID, &rev.VariantID, &rev.DeliveryRating, &rev.ServiceRating, &rev.ExperienceRating,
 			&rev.Rating, &rev.Comment, &rev.VerifiedPurchase, &rev.Status,
 			&rev.CreatedAt, &rev.UpdatedAt,
 		); err != nil {
@@ -320,7 +341,7 @@ func (r *ReviewRepository) RecalculateShopAggregate(shopID uuid.UUID) (*models.S
 		       COUNT(*) FILTER (WHERE rating = 5),
 		       MAX(created_at)
 		FROM seller_reviews
-		WHERE shop_id = $1 AND status = 'ACTIVE'
+		WHERE shop_id = $1 AND status = 'ACTIVE' AND order_line_id IS NULL
 	`
 	agg := &models.ShopReviewAggregate{ShopID: shopID}
 	err = tx.QueryRow(query, shopID).Scan(

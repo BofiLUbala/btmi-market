@@ -205,7 +205,7 @@ export function SellerLayout() {
 
                 {bizDropdown && (
                   <div className="seller-dropdown-menu">
-                    <div className="dropdown-header">Select Business</div>
+                    <div className="dropdown-header">Current Business</div>
                     {bizList.length === 0 ? (
                       <div className="dropdown-empty">
                         <p className="small muted">No businesses found.</p>
@@ -232,6 +232,9 @@ export function SellerLayout() {
                         <div className="dropdown-divider" />
                         <Link to="/seller/onboarding" className="dropdown-action-item" onClick={() => setBizDropdown(false)}>
                           + Add New Business
+                        </Link>
+                        <Link to="/seller/business" className="dropdown-action-item" onClick={() => setBizDropdown(false)}>
+                          Manage Current Business →
                         </Link>
                       </>
                     )}

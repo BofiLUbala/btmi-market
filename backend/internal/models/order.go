@@ -9,17 +9,17 @@ import (
 type OrderStatus string
 
 const (
-	OrderStatusPending        OrderStatus = "PENDING"
-	OrderStatusAccepted       OrderStatus = "ACCEPTED"
-	OrderStatusRejected       OrderStatus = "REJECTED"
-	OrderStatusPreparing      OrderStatus = "PREPARING"
-	OrderStatusReady          OrderStatus = "READY"
-	OrderStatusOutForDelivery OrderStatus = "OUT_FOR_DELIVERY"
-	OrderStatusDelivered      OrderStatus = "DELIVERED"
-	OrderStatusReceived       OrderStatus = "RECEIVED"
-	OrderStatusReadyForPickup OrderStatus = "READY_FOR_PICKUP"
-	OrderStatusCompleted      OrderStatus = "COMPLETED"
-	OrderStatusCancelled      OrderStatus = "CANCELLED"
+	OrderStatusPending         OrderStatus = "PENDING"
+	OrderStatusAccepted        OrderStatus = "ACCEPTED"
+	OrderStatusRejected        OrderStatus = "REJECTED"
+	OrderStatusPreparing       OrderStatus = "PREPARING"
+	OrderStatusReady           OrderStatus = "READY"
+	OrderStatusOutForDelivery  OrderStatus = "OUT_FOR_DELIVERY"
+	OrderStatusDelivered       OrderStatus = "DELIVERED"
+	OrderStatusReceived        OrderStatus = "RECEIVED"
+	OrderStatusReadyForPickup  OrderStatus = "READY_FOR_PICKUP"
+	OrderStatusCompleted       OrderStatus = "COMPLETED"
+	OrderStatusCancelled       OrderStatus = "CANCELLED"
 	OrderStatusHandedToPartner OrderStatus = "HANDED_TO_PARTNER"
 )
 
@@ -61,16 +61,22 @@ type Order struct {
 }
 
 type OrderLine struct {
-	ID                uuid.UUID `json:"id" db:"id"`
-	OrderID           uuid.UUID `json:"order_id" db:"order_id"`
-	ProductID         uuid.UUID `json:"product_id" db:"product_id"`
-	VariantID         uuid.UUID `json:"variant_id" db:"variant_id"`
-	Quantity          int       `json:"quantity" db:"quantity"`
-	UnitPrice         float64   `json:"unit_price" db:"unit_price"`
-	BaseUnitPrice     float64   `json:"base_unit_price" db:"base_unit_price"`
-	PointsDiscountPerUnit float64 `json:"points_discount_per_unit" db:"points_discount_per_unit"`
-	FinalUnitPrice    float64   `json:"final_unit_price" db:"final_unit_price"`
-	CreatedAt         time.Time `json:"created_at" db:"created_at"`
+	ID                    uuid.UUID `json:"id" db:"id"`
+	OrderID               uuid.UUID `json:"order_id" db:"order_id"`
+	ProductID             uuid.UUID `json:"product_id" db:"product_id"`
+	VariantID             uuid.UUID `json:"variant_id" db:"variant_id"`
+	Quantity              int       `json:"quantity" db:"quantity"`
+	UnitPrice             float64   `json:"unit_price" db:"unit_price"`
+	BaseUnitPrice         float64   `json:"base_unit_price" db:"base_unit_price"`
+	PointsDiscountPerUnit float64   `json:"points_discount_per_unit" db:"points_discount_per_unit"`
+	FinalUnitPrice        float64   `json:"final_unit_price" db:"final_unit_price"`
+	CreatedAt             time.Time `json:"created_at" db:"created_at"`
+	ProductName           string    `json:"product_name" db:"product_name"`
+	ProductSKU            string    `json:"product_sku" db:"product_sku"`
+	VariantName           string    `json:"variant_name" db:"variant_name"`
+	VariantSKU            string    `json:"variant_sku" db:"variant_sku"`
+	VariantAttributes     JSONMap   `json:"variant_attributes" db:"variant_attributes"`
+	ImageURL              string    `json:"image_url" db:"image_url"`
 }
 
 type OrderStatusHistory struct {
@@ -83,13 +89,13 @@ type OrderStatusHistory struct {
 }
 
 type CreateOrderRequest struct {
-	ShopID       string           `json:"shop_id" binding:"required"`
-	CustomerID   *string          `json:"customer_id"`
-	CustomerName string           `json:"customer_name"`
-	CustomerPhone string          `json:"customer_phone"`
-	CustomerEmail string          `json:"customer_email"`
-	Notes        string           `json:"notes"`
-	Lines        []OrderLineInput `json:"lines" binding:"required,min=1"`
+	ShopID        string           `json:"shop_id" binding:"required"`
+	CustomerID    *string          `json:"customer_id"`
+	CustomerName  string           `json:"customer_name"`
+	CustomerPhone string           `json:"customer_phone"`
+	CustomerEmail string           `json:"customer_email"`
+	Notes         string           `json:"notes"`
+	Lines         []OrderLineInput `json:"lines" binding:"required,min=1"`
 }
 
 type OrderLineInput struct {
@@ -99,10 +105,10 @@ type OrderLineInput struct {
 }
 
 type BuyerCreateOrderRequest struct {
-	ShopID         string            `json:"shop_id" binding:"required"`
-	Items          []OrderLineInput  `json:"items" binding:"required,min=1"`
-	UsePoints      bool              `json:"use_points"`
-	IdempotencyKey *string           `json:"idempotency_key"`
+	ShopID         string           `json:"shop_id" binding:"required"`
+	Items          []OrderLineInput `json:"items" binding:"required,min=1"`
+	UsePoints      bool             `json:"use_points"`
+	IdempotencyKey *string          `json:"idempotency_key"`
 }
 
 type OrderResponse struct {
@@ -154,22 +160,29 @@ type OrderLineResponse struct {
 	PointsDiscountPerUnit float64   `json:"points_discount_per_unit"`
 	FinalUnitPrice        float64   `json:"final_unit_price"`
 	CreatedAt             time.Time `json:"created_at"`
+	ProductName           string    `json:"product_name"`
+	ProductSKU            string    `json:"product_sku"`
+	VariantName           string    `json:"variant_name"`
+	VariantSKU            string    `json:"variant_sku"`
+	VariantAttributes     JSONMap   `json:"variant_attributes"`
+	ImageURL              string    `json:"image_url"`
 }
 
 type OrderStatusHistoryResponse struct {
-	ID        uuid.UUID `json:"id"`
-	OrderID   uuid.UUID `json:"order_id"`
-	Status    string    `json:"status"`
+	ID        uuid.UUID  `json:"id"`
+	OrderID   uuid.UUID  `json:"order_id"`
+	Status    string     `json:"status"`
 	ChangedBy *uuid.UUID `json:"changed_by"`
-	ActorType string    `json:"actor_type"`
-	Notes     string    `json:"notes"`
-	CreatedAt time.Time `json:"created_at"`
+	ActorType string     `json:"actor_type"`
+	Notes     string     `json:"notes"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 type OrderWithLinesResponse struct {
-	Order   OrderResponse              `json:"order"`
-	Lines   []OrderLineResponse        `json:"lines"`
-	History []OrderStatusHistoryResponse `json:"history,omitempty"`
+	Order    OrderResponse                `json:"order"`
+	Lines    []OrderLineResponse          `json:"lines"`
+	History  []OrderStatusHistoryResponse `json:"history,omitempty"`
+	ShopName string                       `json:"shop_name"`
 }
 
 type OrderEvent struct {
@@ -181,9 +194,9 @@ type OrderEvent struct {
 }
 
 const (
-	DeliveryMethodPickup        = "PICKUP"
-	DeliveryMethodShopDelivery  = "SHOP_DELIVERY"
-	DeliveryMethodPartner       = "PARTNER"
+	DeliveryMethodPickup       = "PICKUP"
+	DeliveryMethodShopDelivery = "SHOP_DELIVERY"
+	DeliveryMethodPartner      = "PARTNER"
 )
 
 type DeliveryOption struct {
@@ -195,10 +208,10 @@ type DeliveryOption struct {
 }
 
 type DeliveryOptionsResponse struct {
-	OrderID   uuid.UUID         `json:"order_id"`
-	ShopID    uuid.UUID         `json:"shop_id"`
-	Options   []DeliveryOption  `json:"options"`
-	Current   string            `json:"current_method"`
+	OrderID uuid.UUID        `json:"order_id"`
+	ShopID  uuid.UUID        `json:"shop_id"`
+	Options []DeliveryOption `json:"options"`
+	Current string           `json:"current_method"`
 }
 
 type SelectDeliveryRequest struct {
@@ -211,22 +224,22 @@ type SelectDeliveryRequest struct {
 }
 
 type DeliverySummary struct {
-	Method                 string  `json:"method"`
-	FeeBase                float64 `json:"fee_base"`
-	PointsUsed             int     `json:"points_used"`
-	PointsDiscount         float64 `json:"points_discount"`
-	FeeFinal               float64 `json:"fee_final"`
-	ContactName            string  `json:"contact_name"`
-	Phone                  string  `json:"phone"`
-	Address                string  `json:"address"`
-	Notes                  string  `json:"notes"`
+	Method         string  `json:"method"`
+	FeeBase        float64 `json:"fee_base"`
+	PointsUsed     int     `json:"points_used"`
+	PointsDiscount float64 `json:"points_discount"`
+	FeeFinal       float64 `json:"fee_final"`
+	ContactName    string  `json:"contact_name"`
+	Phone          string  `json:"phone"`
+	Address        string  `json:"address"`
+	Notes          string  `json:"notes"`
 }
 
 type DeliverySelectResponse struct {
-	OrderID         uuid.UUID       `json:"order_id"`
-	ProductsTotal   float64         `json:"products_final_total"`
-	Delivery        DeliverySummary `json:"delivery"`
-	TotalDue        float64         `json:"total_due"`
+	OrderID       uuid.UUID       `json:"order_id"`
+	ProductsTotal float64         `json:"products_final_total"`
+	Delivery      DeliverySummary `json:"delivery"`
+	TotalDue      float64         `json:"total_due"`
 }
 
 type DeliveryPointsPreviewRequest struct {
@@ -234,16 +247,16 @@ type DeliveryPointsPreviewRequest struct {
 }
 
 type DeliveryPointsPreviewResponse struct {
-	Method                string  `json:"method"`
-	FeeBase               float64 `json:"fee_base"`
-	PointsUsed            int     `json:"points_used"`
-	PointsDiscountAmount  float64 `json:"points_discount_amount"`
-	FeeFinal              float64 `json:"fee_final"`
-	Currency              string  `json:"currency"`
-	AvailablePoints       int     `json:"available_points"`
-	MaximumUsablePoints   int     `json:"maximum_usable_points"`
-	RedeemRate            float64 `json:"redeem_rate"`
-	MaxDeliveryCoverage   float64 `json:"max_delivery_point_coverage"`
+	Method               string  `json:"method"`
+	FeeBase              float64 `json:"fee_base"`
+	PointsUsed           int     `json:"points_used"`
+	PointsDiscountAmount float64 `json:"points_discount_amount"`
+	FeeFinal             float64 `json:"fee_final"`
+	Currency             string  `json:"currency"`
+	AvailablePoints      int     `json:"available_points"`
+	MaximumUsablePoints  int     `json:"maximum_usable_points"`
+	RedeemRate           float64 `json:"redeem_rate"`
+	MaxDeliveryCoverage  float64 `json:"max_delivery_point_coverage"`
 }
 
 type OrderPointsPreviewRequest struct {
@@ -257,14 +270,14 @@ type TrackingStatusRequest struct {
 
 // Tracking response for buyer order tracking view.
 type TrackingResponse struct {
-	OrderID         uuid.UUID                    `json:"order_id"`
-	OrderNumber     string                       `json:"order_number"`
-	CurrentStatus   string                       `json:"current_status"`
-	DeliveryMethod  string                       `json:"delivery_method"`
-	PaymentStatus   string                       `json:"payment_status"`
-	LatestUpdate    string                       `json:"latest_update"`
-	LatestUpdateAt  *time.Time                   `json:"latest_update_at"`
-	History         []OrderStatusHistoryResponse `json:"history"`
+	OrderID        uuid.UUID                    `json:"order_id"`
+	OrderNumber    string                       `json:"order_number"`
+	CurrentStatus  string                       `json:"current_status"`
+	DeliveryMethod string                       `json:"delivery_method"`
+	PaymentStatus  string                       `json:"payment_status"`
+	LatestUpdate   string                       `json:"latest_update"`
+	LatestUpdateAt *time.Time                   `json:"latest_update_at"`
+	History        []OrderStatusHistoryResponse `json:"history"`
 }
 
 // Tracking summary embedded in list/get responses.
@@ -274,4 +287,3 @@ type TrackingSummary struct {
 	PaymentStatus  string `json:"payment_status"`
 	OrderNumber    string `json:"order_number"`
 }
-

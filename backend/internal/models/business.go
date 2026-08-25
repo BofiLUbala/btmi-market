@@ -25,19 +25,19 @@ const (
 )
 
 type Business struct {
-	ID               uuid.UUID      `json:"id" db:"id"`
-	Name             string         `json:"name" db:"name"`
-	BusinessType     BusinessType   `json:"business_type" db:"business_type"`
-	Category         string         `json:"category" db:"category"`
-	Phone            string         `json:"phone" db:"phone"`
-	Whatsapp         string         `json:"whatsapp" db:"whatsapp"`
-	Email            string         `json:"email" db:"email"`
-	Country          string         `json:"country" db:"country"`
-	City             string         `json:"city" db:"city"`
-	DefaultCurrency  string         `json:"default_currency" db:"default_currency"`
-	Status           BusinessStatus `json:"status" db:"status"`
-	CreatedAt        time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at" db:"updated_at"`
+	ID              uuid.UUID      `json:"id" db:"id"`
+	Name            string         `json:"name" db:"name"`
+	BusinessType    BusinessType   `json:"business_type" db:"business_type"`
+	Category        string         `json:"category" db:"category"`
+	Phone           string         `json:"phone" db:"phone"`
+	Whatsapp        string         `json:"whatsapp" db:"whatsapp"`
+	Email           string         `json:"email" db:"email"`
+	Country         string         `json:"country" db:"country"`
+	City            string         `json:"city" db:"city"`
+	DefaultCurrency string         `json:"default_currency" db:"default_currency"`
+	Status          BusinessStatus `json:"status" db:"status"`
+	CreatedAt       time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 type CreateBusinessRequest struct {
@@ -52,18 +52,57 @@ type CreateBusinessRequest struct {
 	DefaultCurrency string `json:"default_currency" binding:"required"`
 }
 
+type UpdateBusinessRequest struct {
+	Name            *string `json:"name"`
+	BusinessType    *string `json:"business_type"`
+	Category        *string `json:"category"`
+	Phone           *string `json:"phone"`
+	Whatsapp        *string `json:"whatsapp"`
+	Email           *string `json:"email"`
+	Country         *string `json:"country"`
+	City            *string `json:"city"`
+	DefaultCurrency *string `json:"default_currency"`
+}
+
+type ArchiveBusinessRequest struct {
+	ConfirmName string `json:"confirm_name" binding:"required"`
+}
+
+type BusinessShopSummary struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Status       string    `json:"status"`
+	ProductCount int       `json:"product_count"`
+}
+
+type BusinessLifecycleSummary struct {
+	Shops              int                   `json:"shops"`
+	Products           int                   `json:"products"`
+	Employees          int                   `json:"employees"`
+	InventoryUnits     int                   `json:"inventory_units"`
+	ActiveOrders       int                   `json:"active_orders"`
+	HistoricalOrders   int                   `json:"historical_orders"`
+	UnresolvedPayments int                   `json:"unresolved_payments"`
+	ShopSummaries      []BusinessShopSummary `json:"shop_summaries"`
+}
+
+type ArchiveBusinessResponse struct {
+	Action  string                   `json:"action"`
+	Summary BusinessLifecycleSummary `json:"summary"`
+}
+
 type BusinessResponse struct {
-	ID               uuid.UUID      `json:"id"`
-	Name             string         `json:"name"`
-	BusinessType     BusinessType   `json:"business_type"`
-	Category         string         `json:"category"`
-	Phone            string         `json:"phone"`
-	Whatsapp         string         `json:"whatsapp"`
-	Email            string         `json:"email"`
-	Country          string         `json:"country"`
-	City             string         `json:"city"`
-	DefaultCurrency  string         `json:"default_currency"`
-	Status           BusinessStatus `json:"status"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
+	ID              uuid.UUID      `json:"id"`
+	Name            string         `json:"name"`
+	BusinessType    BusinessType   `json:"business_type"`
+	Category        string         `json:"category"`
+	Phone           string         `json:"phone"`
+	Whatsapp        string         `json:"whatsapp"`
+	Email           string         `json:"email"`
+	Country         string         `json:"country"`
+	City            string         `json:"city"`
+	DefaultCurrency string         `json:"default_currency"`
+	Status          BusinessStatus `json:"status"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }

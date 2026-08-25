@@ -3,6 +3,7 @@ import type {
   BuyerOrder,
   BuyerPayment,
   BuyerProfile,
+  BuyerPointsSummary,
   BuyerReviewsResponse,
   CreateBuyerProfileRequest,
   DeliveryOptionsResponse,
@@ -11,7 +12,6 @@ import type {
   OrderWithLines,
   OrderLineInput,
   PendingPurchase,
-  PointAccount,
   PointHistoryResponse,
   PointRedemptionPreviewResponse,
   ReviewEligibilityResponse,
@@ -23,12 +23,12 @@ import type {
 
 export const buyerApi = {
   /* profile */
-  getProfile: () => get<BuyerProfile>('/buyer/profile'),
+  getProfile: () => get<{ profile: BuyerProfile }>('/buyer/profile').then((view) => view.profile),
   createProfile: (body: CreateBuyerProfileRequest) => post<BuyerProfile>('/buyer/profile', body),
   updateProfile: (body: UpdateBuyerProfileRequest) => patch<BuyerProfile>('/buyer/profile', body),
 
   /* points */
-  getPoints: () => get<PointAccount>('/buyer/points'),
+  getPoints: () => get<BuyerPointsSummary>('/buyer/points'),
   getPointsHistory: () => get<PointHistoryResponse>('/buyer/points/history'),
 
   /* purchases (in-store confirmation) */
@@ -88,11 +88,19 @@ export const buyerApi = {
   tracking: (orderId: string) => get<TrackingResponse>(`/buyer/orders/${orderId}/tracking`),
 
   /* reviews */
-  reviewEligibility: (orderId: string) =>
-    get<ReviewEligibilityResponse>(`/buyer/orders/${orderId}/review-eligibility`),
+  reviewEligibility: (orderId: string, orderLineId?: string) =>
+    get<ReviewEligibilityResponse>(`/buyer/orders/${orderId}/review-eligibility`, orderLineId ? { order_line_id: orderLineId } : undefined),
 
-  createReview: (orderId: string, rating: number, comment: string) =>
-    post<ReviewResponse>(`/buyer/orders/${orderId}/review`, { rating, comment }),
+  createReview: (orderId: string, orderLineId: string, rating: number, comment: string) =>
+    post<ReviewResponse>(`/buyer/orders/${orderId}/review`, { order_line_id: orderLineId, rating, comment }),
+
+  createServiceReview: (orderId: string, deliveryRating: number, serviceRating: number, experienceRating: number, comment: string) =>
+    post<ReviewResponse>(`/buyer/orders/${orderId}/service-review`, {
+      delivery_rating: deliveryRating,
+      service_rating: serviceRating,
+      order_experience_rating: experienceRating,
+      comment
+    }),
 
   updateReview: (reviewId: string, rating: number, comment: string) =>
     patch<ReviewResponse>(`/buyer/reviews/${reviewId}`, { rating, comment }),

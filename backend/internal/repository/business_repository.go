@@ -66,7 +66,7 @@ func (r *BusinessRepository) GetByUserID(userID uuid.UUID) ([]*models.Business, 
 		SELECT b.id, b.name, b.business_type, b.category, b.phone, b.whatsapp, b.email, b.country, b.city, b.default_currency, b.status, b.created_at, b.updated_at
 		FROM businesses b
 		INNER JOIN business_memberships bm ON b.id = bm.business_id
-		WHERE bm.user_id = $1 AND bm.status = 'ACTIVE'
+		WHERE bm.user_id = $1 AND bm.status = 'ACTIVE' AND b.status = 'ACTIVE'
 		ORDER BY b.created_at DESC
 	`
 

@@ -165,9 +165,21 @@ func (r *OrderRepository) SetPointsFinalized(id uuid.UUID) error {
 
 func (r *OrderRepository) GetLinesByOrderID(orderID uuid.UUID) ([]*models.OrderLine, error) {
 	query := `
-		SELECT id, order_id, product_id, variant_id, quantity, unit_price, base_unit_price, points_discount_per_unit, final_unit_price, created_at
-		FROM order_lines WHERE order_id = $1
-		ORDER BY created_at ASC
+		SELECT ol.id, ol.order_id, ol.product_id, ol.variant_id, ol.quantity, ol.unit_price,
+		       ol.base_unit_price, ol.points_discount_per_unit, ol.final_unit_price, ol.created_at,
+		       COALESCE(p.name, ''), COALESCE(p.sku, ''), COALESCE(v.name, ''), COALESCE(v.sku, ''),
+		       COALESCE(v.attributes, '{}'::jsonb), COALESCE(img.url, '')
+		FROM order_lines ol
+		LEFT JOIN products p ON p.id = ol.product_id
+		LEFT JOIN product_variants v ON v.id = ol.variant_id
+		LEFT JOIN LATERAL (
+			SELECT pi.url FROM product_images pi
+			WHERE pi.product_id = ol.product_id
+			ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.created_at ASC
+			LIMIT 1
+		) img ON TRUE
+		WHERE ol.order_id = $1
+		ORDER BY ol.created_at ASC
 	`
 
 	rows, err := r.db.Query(query, orderID)
@@ -179,14 +191,19 @@ func (r *OrderRepository) GetLinesByOrderID(orderID uuid.UUID) ([]*models.OrderL
 	var lines []*models.OrderLine
 	for rows.Next() {
 		line := &models.OrderLine{}
+		var attrs []byte
 		err := rows.Scan(
 			&line.ID, &line.OrderID, &line.ProductID, &line.VariantID,
 			&line.Quantity, &line.UnitPrice, &line.BaseUnitPrice,
 			&line.PointsDiscountPerUnit, &line.FinalUnitPrice, &line.CreatedAt,
+			&line.ProductName, &line.ProductSKU, &line.VariantName, &line.VariantSKU,
+			&attrs, &line.ImageURL,
 		)
 		if err != nil {
 			return nil, err
 		}
+		line.VariantAttributes = make(models.JSONMap)
+		_ = line.VariantAttributes.Scan(attrs)
 		lines = append(lines, line)
 	}
 
@@ -224,7 +241,8 @@ func (r *OrderRepository) GetHistoryByOrderID(orderID uuid.UUID) ([]*models.Orde
 
 func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error) {
 	query := `
-		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by, created_at, updated_at
+		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
+		       base_total, final_total, order_number, delivery_method, created_at, updated_at
 		FROM orders WHERE shop_id = $1
 		ORDER BY created_at DESC
 	`
@@ -240,7 +258,8 @@ func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error)
 		order := &models.Order{}
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
-			&order.TotalItems, &order.Notes, &order.CreatedBy,
+			&order.TotalItems, &order.Notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
+			&order.OrderNumber, &order.DeliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
@@ -254,7 +273,8 @@ func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error)
 
 func (r *OrderRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Order, error) {
 	query := `
-		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by, created_at, updated_at
+		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
+		       base_total, final_total, order_number, delivery_method, created_at, updated_at
 		FROM orders WHERE business_id = $1
 		ORDER BY created_at DESC
 	`
@@ -270,7 +290,8 @@ func (r *OrderRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Order
 		order := &models.Order{}
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
-			&order.TotalItems, &order.Notes, &order.CreatedBy,
+			&order.TotalItems, &order.Notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
+			&order.OrderNumber, &order.DeliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
@@ -476,11 +497,13 @@ func (r *OrderRepository) GetHistoryWithActor(orderID uuid.UUID) ([]map[string]i
 		       CASE
 		           WHEN osh.changed_by IS NULL THEN 'SYSTEM'
 		           WHEN m.id IS NOT NULL THEN 'SELLER'
+		           WHEN e.id IS NOT NULL THEN 'SELLER'
 		           WHEN bp.id IS NOT NULL THEN 'BUYER'
 		           ELSE 'UNKNOWN'
 		       END as actor_type
 		FROM order_status_history osh
 		LEFT JOIN business_memberships m ON osh.changed_by = m.user_id
+		LEFT JOIN employees e ON osh.changed_by = e.id
 		LEFT JOIN buyer_profiles bp ON osh.changed_by = bp.user_id
 		WHERE osh.order_id = $1
 		ORDER BY osh.created_at ASC

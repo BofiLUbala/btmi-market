@@ -9,13 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
-	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/config"
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/email"
 	"github.com/btmi-ai-market/backend/internal/handlers/auth"
-	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
 	"github.com/btmi-ai-market/backend/internal/handlers/businesses"
+	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
 	"github.com/btmi-ai-market/backend/internal/handlers/cash"
 	"github.com/btmi-ai-market/backend/internal/handlers/categories"
 	"github.com/btmi-ai-market/backend/internal/handlers/customers"
@@ -26,10 +25,11 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
 	"github.com/btmi-ai-market/backend/internal/middleware"
+	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
-	"github.com/hibiken/asynq"
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 )
 
 func main() {
@@ -175,20 +175,20 @@ func main() {
 
 	api := router.Group("/api/v1")
 	{
-authGroup := api.Group("/auth")
-	{
-		authGroup.POST("/register", authHandler.Register)
-		authGroup.POST("/register/seller", authHandler.RegisterSeller)
-		authGroup.GET("/activate", authHandler.Activate)
-		authGroup.POST("/resend-activation", authHandler.ResendActivation)
-		authGroup.POST("/login", authHandler.Login)
-		authGroup.POST("/refresh", authHandler.Refresh)
-		authGroup.POST("/logout", authHandler.Logout)
-		authGroup.POST("/forgot-password", authHandler.ForgotPassword)
-		authGroup.POST("/reset-password", authHandler.ResetPassword)
-		authGroup.POST("/employee/invite/accept", authHandler.AcceptEmployeeInvitation)
-		authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
-	}
+		authGroup := api.Group("/auth")
+		{
+			authGroup.POST("/register", authHandler.Register)
+			authGroup.POST("/register/seller", authHandler.RegisterSeller)
+			authGroup.GET("/activate", authHandler.Activate)
+			authGroup.POST("/resend-activation", authHandler.ResendActivation)
+			authGroup.POST("/login", authHandler.Login)
+			authGroup.POST("/refresh", authHandler.Refresh)
+			authGroup.POST("/logout", authHandler.Logout)
+			authGroup.POST("/forgot-password", authHandler.ForgotPassword)
+			authGroup.POST("/reset-password", authHandler.ResetPassword)
+			authGroup.POST("/employee/invite/accept", authHandler.AcceptEmployeeInvitation)
+			authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
+		}
 
 		businessesGroup := api.Group("/businesses")
 		businessesGroup.Use(middleware.AuthMiddleware(authService))
@@ -196,6 +196,9 @@ authGroup := api.Group("/auth")
 			businessesGroup.POST("", businessHandler.Create)
 			businessesGroup.GET("", businessHandler.List)
 			businessesGroup.GET("/:business_id", businessHandler.Get)
+			businessesGroup.PATCH("/:business_id", businessHandler.Update)
+			businessesGroup.GET("/:business_id/lifecycle-summary", businessHandler.Summary)
+			businessesGroup.POST("/:business_id/archive", businessHandler.Archive)
 
 			businessesGroup.POST("/:business_id/shops", shopHandler.Create)
 			businessesGroup.GET("/:business_id/shops", shopHandler.List)
@@ -273,10 +276,10 @@ authGroup := api.Group("/auth")
 		ordersGroup.Use(middleware.AuthMiddleware(authService))
 		{
 			ordersGroup.GET("/:order_id", orderHandler.GetOrder)
+			ordersGroup.GET("/:order_id/payment", orderHandler.GetSellerOrderPayment)
 			ordersGroup.POST("/:order_id/accept", orderHandler.AcceptOrder)
 			ordersGroup.POST("/:order_id/reject", orderHandler.RejectOrder)
 			ordersGroup.POST("/:order_id/prepare", orderHandler.PrepareOrder)
-			ordersGroup.POST("/:order_id/complete", orderHandler.CompleteOrder)
 			ordersGroup.POST("/:order_id/cancel", orderHandler.CancelOrder)
 			ordersGroup.POST("/:order_id/tracking/status", orderHandler.SellerTransitionOrder)
 		}
@@ -330,38 +333,39 @@ authGroup := api.Group("/auth")
 			paymentsGroup.POST("/:payment_id/seller-confirm", orderHandler.SellerConfirmPayment)
 		}
 
-buyerGroup := api.Group("/buyer")
-buyerGroup.Use(middleware.AuthMiddleware(authService))
-{
-	buyerGroup.POST("/profile", buyerHandler.CreateProfile)
-	buyerGroup.GET("/profile", buyerHandler.GetProfile)
-	buyerGroup.PATCH("/profile", buyerHandler.UpdateProfile)
-	buyerGroup.GET("/points", buyerHandler.GetPoints)
-	buyerGroup.GET("/points/history", buyerHandler.GetPointsHistory)
-	buyerGroup.GET("/purchases/pending", buyerHandler.GetPendingPurchases)
-	buyerGroup.POST("/purchases/:purchase_id/confirm", buyerHandler.ConfirmPurchase)
+		buyerGroup := api.Group("/buyer")
+		buyerGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			buyerGroup.POST("/profile", buyerHandler.CreateProfile)
+			buyerGroup.GET("/profile", buyerHandler.GetProfile)
+			buyerGroup.PATCH("/profile", buyerHandler.UpdateProfile)
+			buyerGroup.GET("/points", buyerHandler.GetPoints)
+			buyerGroup.GET("/points/history", buyerHandler.GetPointsHistory)
+			buyerGroup.GET("/purchases/pending", buyerHandler.GetPendingPurchases)
+			buyerGroup.POST("/purchases/:purchase_id/confirm", buyerHandler.ConfirmPurchase)
 
-	// Buyer order endpoints
-	buyerGroup.POST("/orders/preview", orderHandler.PreviewOrder)
-	buyerGroup.POST("/orders", orderHandler.CreateBuyerOrder)
-	buyerGroup.GET("/orders", orderHandler.ListBuyerOrders)
-	buyerGroup.GET("/orders/:order_id", orderHandler.GetBuyerOrder)
-	buyerGroup.GET("/orders/:order_id/delivery-options", orderHandler.GetDeliveryOptions)
-	buyerGroup.POST("/orders/:order_id/delivery", orderHandler.SelectDelivery)
-	buyerGroup.POST("/orders/:order_id/delivery-points-preview", orderHandler.DeliveryPointsPreview)
-	buyerGroup.POST("/orders/:order_id/points-preview", orderHandler.OrderPointsPreview)
-	buyerGroup.POST("/orders/:order_id/payment", orderHandler.CreateBuyerPayment)
-	buyerGroup.GET("/orders/:order_id/payment", orderHandler.GetBuyerPayment)
-	buyerGroup.POST("/payments/:payment_id/buyer-confirm", orderHandler.BuyerConfirmPayment)
-	buyerGroup.POST("/orders/:order_id/cancel", orderHandler.CancelBuyerOrder)
-	buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
-	buyerGroup.GET("/orders/:order_id/tracking", orderHandler.GetOrderTracking)
-	buyerGroup.GET("/orders/:order_id/review-eligibility", reviewHandler.GetReviewEligibility)
-	buyerGroup.POST("/orders/:order_id/review", reviewHandler.CreateReview)
-	buyerGroup.PATCH("/reviews/:review_id", reviewHandler.UpdateReview)
-	buyerGroup.DELETE("/reviews/:review_id", reviewHandler.WithdrawReview)
-	buyerGroup.GET("/reviews", reviewHandler.ListBuyerReviews)
-}
+			// Buyer order endpoints
+			buyerGroup.POST("/orders/preview", orderHandler.PreviewOrder)
+			buyerGroup.POST("/orders", orderHandler.CreateBuyerOrder)
+			buyerGroup.GET("/orders", orderHandler.ListBuyerOrders)
+			buyerGroup.GET("/orders/:order_id", orderHandler.GetBuyerOrder)
+			buyerGroup.GET("/orders/:order_id/delivery-options", orderHandler.GetDeliveryOptions)
+			buyerGroup.POST("/orders/:order_id/delivery", orderHandler.SelectDelivery)
+			buyerGroup.POST("/orders/:order_id/delivery-points-preview", orderHandler.DeliveryPointsPreview)
+			buyerGroup.POST("/orders/:order_id/points-preview", orderHandler.OrderPointsPreview)
+			buyerGroup.POST("/orders/:order_id/payment", orderHandler.CreateBuyerPayment)
+			buyerGroup.GET("/orders/:order_id/payment", orderHandler.GetBuyerPayment)
+			buyerGroup.POST("/payments/:payment_id/buyer-confirm", orderHandler.BuyerConfirmPayment)
+			buyerGroup.POST("/orders/:order_id/cancel", orderHandler.CancelBuyerOrder)
+			buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
+			buyerGroup.GET("/orders/:order_id/tracking", orderHandler.GetOrderTracking)
+			buyerGroup.GET("/orders/:order_id/review-eligibility", reviewHandler.GetReviewEligibility)
+			buyerGroup.POST("/orders/:order_id/review", reviewHandler.CreateReview)
+			buyerGroup.POST("/orders/:order_id/service-review", reviewHandler.CreateServiceReview)
+			buyerGroup.PATCH("/reviews/:review_id", reviewHandler.UpdateReview)
+			buyerGroup.DELETE("/reviews/:review_id", reviewHandler.WithdrawReview)
+			buyerGroup.GET("/reviews", reviewHandler.ListBuyerReviews)
+		}
 
 		marketplaceGroup := api.Group("/marketplace")
 		marketplaceGroup.Use(middleware.OptionalAuthMiddleware(authService))
@@ -379,9 +383,18 @@ buyerGroup.Use(middleware.AuthMiddleware(authService))
 			marketplaceGroup.GET("/categories", marketplaceHandler.ListCategories)
 			marketplaceGroup.GET("/categories/:category_slug/subcategories", marketplaceHandler.ListSubcategories)
 			marketplaceGroup.GET("/categories/:category_slug/products", marketplaceHandler.ListProductsByCategory)
-		marketplaceGroup.GET("/categories/:category_slug/shops", marketplaceHandler.ListCategoryTopShops)
-		marketplaceGroup.GET("/shops/:shop_id/reviews", marketplaceReviewHandler.GetShopReviews)
-	}
+			marketplaceGroup.GET("/categories/:category_slug/shops", marketplaceHandler.ListCategoryTopShops)
+			marketplaceGroup.GET("/shops/:shop_id/reviews", marketplaceReviewHandler.GetShopReviews)
+			marketplaceGroup.GET("/products/:product_id/reviews", marketplaceReviewHandler.GetProductReviews)
+		}
+
+		reviewSocialGroup := api.Group("/reviews")
+		reviewSocialGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			reviewSocialGroup.POST("/:review_id/helpful", marketplaceReviewHandler.MarkHelpful)
+			reviewSocialGroup.DELETE("/:review_id/helpful", marketplaceReviewHandler.UnmarkHelpful)
+			reviewSocialGroup.POST("/:review_id/replies", marketplaceReviewHandler.Reply)
+		}
 
 		// Category endpoints for sellers (public read for dropdowns)
 		categoriesGroup := api.Group("/categories")

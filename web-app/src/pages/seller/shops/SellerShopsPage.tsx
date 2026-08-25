@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
+import { drcCityOptions } from '@/lib/drcLocations'
 
 interface ShopStats {
   productCount: number
@@ -198,7 +199,7 @@ export default function SellerShopsPage() {
               { value: 'PHYSICAL', label: 'Retail Store' },
               { value: 'ONLINE', label: 'Online Only' },
             ]} />
-            <Field label="City" name="city" required value={createForm.city} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })} />
+            <Field label="City" name="city" as="select" required value={createForm.city} options={drcCityOptions()} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })} />
             <Field label="Address" name="address" required value={createForm.address} onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })} />
             <Field label="Phone" name="phone" required value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="+243 …" />
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>

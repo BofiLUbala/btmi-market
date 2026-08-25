@@ -13,23 +13,23 @@ import (
 )
 
 type PaymentService struct {
-	paymentRepo       *repository.BuyerPaymentRepository
-	orderRepo         *repository.OrderRepository
-	shopRepo          *repository.ShopRepository
-	pointRepo         *repository.PointAccountRepository
-	txnRepo           *repository.PointTransactionRepository
-	levelRepo         *repository.LevelRepository
-	buyerRepo         *repository.BuyerProfileRepository
-	configRepo        *repository.PointConfigRepository
+	paymentRepo        *repository.BuyerPaymentRepository
+	orderRepo          *repository.OrderRepository
+	shopRepo           *repository.ShopRepository
+	pointRepo          *repository.PointAccountRepository
+	txnRepo            *repository.PointTransactionRepository
+	levelRepo          *repository.LevelRepository
+	buyerRepo          *repository.BuyerProfileRepository
+	configRepo         *repository.PointConfigRepository
 	pointRedemptionSvc *PointRedemptionService
-	pointService      *PointService
-	vtRepo            *repository.VerifiedTransactionRepository
-	trustRepo         *repository.SellerTrustRepository
-	membershipRepo    *repository.MembershipRepository
-	employeeRepo      *repository.EmployeeRepository
-	assignmentRepo    *repository.AssignmentRepository
-	asynqClient       *asynq.Client
-	db                *database.DB
+	pointService       *PointService
+	vtRepo             *repository.VerifiedTransactionRepository
+	trustRepo          *repository.SellerTrustRepository
+	membershipRepo     *repository.MembershipRepository
+	employeeRepo       *repository.EmployeeRepository
+	assignmentRepo     *repository.AssignmentRepository
+	asynqClient        *asynq.Client
+	db                 *database.DB
 }
 
 func NewPaymentService(
@@ -175,6 +175,22 @@ func (s *PaymentService) GetPaymentByOrder(buyerProfileID, orderID uuid.UUID) (*
 	return s.toResponse(payment), nil
 }
 
+// GetPaymentByOrderForSeller returns the same authoritative payment snapshot
+// after verifying that the authenticated seller/employee belongs to its Shop.
+func (s *PaymentService) GetPaymentByOrderForSeller(userID, orderID uuid.UUID) (*models.BuyerPaymentResponse, error) {
+	payment, err := s.paymentRepo.GetByOrderID(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if payment == nil {
+		return nil, errors.New("PAYMENT_NOT_FOUND")
+	}
+	if err := s.requireShopAccess(userID, payment.ShopID); err != nil {
+		return nil, err
+	}
+	return s.toResponse(payment), nil
+}
+
 func (s *PaymentService) BuyerConfirm(buyerProfileID, paymentID uuid.UUID) (*models.BuyerPaymentResponse, error) {
 	payment, err := s.paymentRepo.GetByID(paymentID)
 	if err != nil {
@@ -198,13 +214,15 @@ func (s *PaymentService) BuyerConfirm(buyerProfileID, paymentID uuid.UUID) (*mod
 	if payment.SellerConfirmed {
 		payment.Status = models.BuyerPaymentStatusVerified
 		payment.VerifiedAt = &now
-		s.enqueueVerified(payment)
 	} else {
 		payment.Status = models.BuyerPaymentStatusConfirmed
 	}
 
 	if err := s.paymentRepo.Update(payment); err != nil {
 		return nil, err
+	}
+	if payment.Status == models.BuyerPaymentStatusVerified {
+		s.enqueueVerified(payment)
 	}
 	return s.toResponse(payment), nil
 }
@@ -240,13 +258,15 @@ func (s *PaymentService) SellerConfirm(userID, paymentID uuid.UUID) (*models.Buy
 	if payment.BuyerConfirmed {
 		payment.Status = models.BuyerPaymentStatusVerified
 		payment.VerifiedAt = &now
-		s.enqueueVerified(payment)
 	} else {
 		payment.Status = models.BuyerPaymentStatusConfirmed
 	}
 
 	if err := s.paymentRepo.Update(payment); err != nil {
 		return nil, err
+	}
+	if payment.Status == models.BuyerPaymentStatusVerified {
+		s.enqueueVerified(payment)
 	}
 	return s.toResponse(payment), nil
 }

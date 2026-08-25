@@ -224,3 +224,92 @@ func (h *Handler) Get(c *gin.Context) {
 		},
 	})
 }
+
+func (h *Handler) Update(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{})
+		return
+	}
+	businessID, err := uuid.Parse(c.Param("business_id"))
+	if err != nil {
+		businessError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid business ID")
+		return
+	}
+	var req models.UpdateBusinessRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		businessError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+		return
+	}
+	business, err := h.businessService.UpdateBusiness(userID.(uuid.UUID), businessID, &req)
+	if err != nil {
+		businessServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Business updated successfully", Data: business})
+}
+
+func (h *Handler) Summary(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		businessError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		return
+	}
+	businessID, err := uuid.Parse(c.Param("business_id"))
+	if err != nil {
+		businessError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid business ID")
+		return
+	}
+	summary, err := h.businessService.GetLifecycleSummary(userID.(uuid.UUID), businessID)
+	if err != nil {
+		businessServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Business lifecycle summary retrieved", Data: summary})
+}
+
+func (h *Handler) Archive(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		businessError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		return
+	}
+	businessID, err := uuid.Parse(c.Param("business_id"))
+	if err != nil {
+		businessError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid business ID")
+		return
+	}
+	var req models.ArchiveBusinessRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		businessError(c, http.StatusBadRequest, "INVALID_REQUEST", "Type the exact Business name to confirm")
+		return
+	}
+	result, err := h.businessService.ArchiveBusiness(userID.(uuid.UUID), businessID, req.ConfirmName)
+	if err != nil {
+		businessServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Business archived safely", Data: result})
+}
+
+func businessServiceError(c *gin.Context, err error) {
+	status, code := http.StatusInternalServerError, "INTERNAL_ERROR"
+	switch err.Error() {
+	case "BUSINESS_NOT_FOUND":
+		status, code = http.StatusNotFound, "BUSINESS_NOT_FOUND"
+	case "FORBIDDEN":
+		status, code = http.StatusForbidden, "FORBIDDEN"
+	case "BUSINESS_NOT_ACTIVE", "INVALID_BUSINESS_NAME", "BUSINESS_NAME_MISMATCH":
+		status, code = http.StatusBadRequest, err.Error()
+	case "ACTIVE_ORDERS_BLOCK_ARCHIVE", "UNRESOLVED_PAYMENTS_BLOCK_ARCHIVE":
+		status, code = http.StatusConflict, err.Error()
+	}
+	businessError(c, status, code, err.Error())
+}
+
+func businessError(c *gin.Context, status int, code, message string) {
+	var response models.ErrorResponse
+	response.Error.Code = code
+	response.Error.Message = message
+	c.JSON(status, response)
+}

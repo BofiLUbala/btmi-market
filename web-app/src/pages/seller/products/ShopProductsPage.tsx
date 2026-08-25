@@ -1,319 +1,100 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
-import { inventoryApi, productApi, shopApi } from '@/api/seller'
-import { marketplaceApi } from '@/api/marketplace'
-import type { CategorySummary, Product, Shop } from '@/api/types'
+import { inventoryApi, productImageApi, shopApi } from '@/api/seller'
+import type { InventoryItem, Product, ProductImageResponse, ProductVariant, Shop } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 
-interface ShopProductRow {
-  productId: string
-  name: string
-  sku: string
-  unitPrice: number
-  unit: string
-  available: number
-  variantCount: number
-  categoryId: string | null
-  publicationStatus?: string
+type Availability = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
+type ShopInventoryRow = { inventory: InventoryItem; variant: ProductVariant; product: Product }
+interface ShopProductRow { product: Product; variants: ShopInventoryRow[]; image?: ProductImageResponse; total: number; reserved: number; available: number }
+
+const availableOf = (i: InventoryItem) => Number(i.available)
+const stockStatus = (available: number) => available <= 0 ? 'OUT OF STOCK' : available <= 5 ? 'LOW STOCK' : 'IN STOCK'
+const variantLabel = (variant: ProductVariant) => {
+  const attrs = Object.entries(variant.attributes ?? {}).map(([key, value]) => `${key}: ${value}`)
+  return attrs.length ? attrs.join(' / ') : variant.name || variant.sku || 'Default variant'
 }
 
 export default function ShopProductsPage() {
   const { shopId = '' } = useParams()
   const navigate = useNavigate()
   const { activeBusiness } = useAuth()
-
   const [shop, setShop] = useState<Shop | null>(null)
   const [rows, setRows] = useState<ShopProductRow[]>([])
-  const [chips, setChips] = useState<CategorySummary[]>([])
-  const [activeChip, setActiveChip] = useState<string>('all')
+  const [category, setCategory] = useState('all')
+  const [availability, setAvailability] = useState<Availability>('all')
   const [search, setSearch] = useState('')
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [removing, setRemoving] = useState<string | null>(null)
-  const [confirmRemove, setConfirmRemove] = useState<ShopProductRow | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [restock, setRestock] = useState<Record<string, string>>({})
+  const [busyVariant, setBusyVariant] = useState<string | null>(null)
 
-  useEffect(() => {
+  async function load() {
     if (!activeBusiness || !shopId) return
-    let mounted = true
-    setLoading(true)
-    setError('')
-    async function load() {
-      if (!activeBusiness) return
-      const results = await Promise.allSettled([
-        shopApi.get(shopId),
-        inventoryApi.getShopInventory(shopId, { limit: 200 }),
-        productApi.listByBusiness(activeBusiness.id),
-        marketplaceApi.shopDetail(shopId),
-      ])
-
-      if (!mounted) return
-
-      const shopRes = results[0]
-      if (shopRes.status !== 'fulfilled') {
-        setError(shopRes.reason instanceof Error ? shopRes.reason.message : 'Failed to load this Shop.')
-        setLoading(false)
-        return
-      }
-      setShop(shopRes.value)
-
-      // Product metadata (category, publication status) keyed by id.
-      const productMeta = new Map<string, Product>()
-      if (results[2].status === 'fulfilled') {
-        for (const p of results[2].value) productMeta.set(p.id, p)
-      }
-
-      // Group this Shop's inventory rows per Product.
-      // NOTE: API returns {inventory:{...}, variant:{...}, product:{...}} per row.
-      const grouped = new Map<string, ShopProductRow>()
-      const inventory = results[1].status === 'fulfilled' ? results[1].value : []
-      for (const raw of inventory as unknown[]) {
-        const item = (raw && typeof raw === 'object' ? (raw as Record<string, any>) : {}) as Record<string, any>
-        const inv = (item.inventory ?? item) as Record<string, any>
-        const pid: string = inv.product_id
-        if (!pid) continue
-        const available = Number(inv.available ?? 0)
-        const hasVariant = Boolean(item.variant_id ?? inv.variant_id)
-        const existing = grouped.get(pid)
-        if (existing) {
-          existing.available += available
-          existing.variantCount += hasVariant ? 1 : 0
-        } else {
-          const nestedProduct = (item.product ?? {}) as Partial<Product>
-          const meta = productMeta.get(pid)
-          grouped.set(pid, {
-            productId: pid,
-            name: meta?.name || nestedProduct.name || 'Unknown product',
-            sku: meta?.sku || nestedProduct.sku || '',
-            unitPrice: Number(meta?.unit_price ?? nestedProduct.unit_price ?? 0),
-            unit: meta?.unit ?? nestedProduct.unit ?? 'PCS',
-            available,
-            variantCount: hasVariant ? 1 : 0,
-            categoryId: meta?.category_id ?? null,
-            publicationStatus: meta?.publication_status,
-          })
-        }
-      }
-
-      setRows(Array.from(grouped.values()))
-
-      // Real category chips derived from what is published in this Shop.
-      if (results[3].status === 'fulfilled') {
-        setChips(results[3].value.categories ?? [])
-      }
-
-      setLoading(false)
-    }
-
-    load()
-    return () => {
-      mounted = false
-    }
-  }, [activeBusiness?.id, shopId, refreshKey])
-
-  const visibleRows = useMemo(() => {
-    let list = rows
-    if (activeChip !== 'all') {
-      list = list.filter((r) => r.categoryId === activeChip)
-    }
-    const q = search.trim().toLowerCase()
-    if (q) {
-      list = list.filter(
-        (r) => r.name.toLowerCase().includes(q) || r.sku.toLowerCase().includes(q)
-      )
-    }
-    return list
-  }, [rows, activeChip, search])
-
-  async function removeFromShop(row: ShopProductRow) {
-    setRemoving(row.productId)
+    setLoading(true); setError('')
     try {
-      await inventoryApi.removeProduct(shopId, row.productId)
-      setConfirmRemove(null)
-      setRefreshKey((k) => k + 1)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove the Product from this Shop.')
-      setConfirmRemove(null)
-    } finally {
-      setRemoving(null)
-    }
+      const [shopData, inventoryData] = await Promise.all([shopApi.get(shopId), inventoryApi.getShopInventory(shopId, { limit: 500 })])
+      setShop(shopData)
+      const grouped = new Map<string, ShopProductRow>()
+      for (const raw of inventoryData as unknown as ShopInventoryRow[]) {
+        if (!raw?.inventory?.product_id || !raw.product || !raw.variant) continue
+        const current = grouped.get(raw.inventory.product_id) ?? { product: raw.product, variants: [], total: 0, reserved: 0, available: 0 }
+        current.variants.push(raw)
+        current.total += Number(raw.inventory.quantity || 0)
+        current.reserved += Number(raw.inventory.reserved_quantity || 0)
+        current.available += availableOf(raw.inventory)
+        grouped.set(raw.inventory.product_id, current)
+      }
+      const list = Array.from(grouped.values())
+      await Promise.all(list.map(async row => {
+        const images = await productImageApi.list(activeBusiness.id, row.product.id)
+        row.image = images.find(img => img.is_primary) ?? images[0]
+      }))
+      setRows(list)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to load Shop inventory.') }
+    finally { setLoading(false) }
   }
 
-  if (!activeBusiness) {
-    return (
-      <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <h2>No Business Selected</h2>
-        <p className="muted">Select a business to manage Products.</p>
-      </div>
-    )
+  useEffect(() => { void load() }, [activeBusiness?.id, shopId])
+
+  const categories = useMemo(() => {
+    const entries = rows.filter(row => row.product.category_id).map(row => [row.product.category_id!, row.product.category_name || 'Category'] as const)
+    return Array.from(new Map(entries).entries())
+  }, [rows])
+  const visibleRows = useMemo(() => rows.filter(row => {
+    if (category !== 'all' && row.product.category_id !== category) return false
+    if (availability === 'in_stock' && row.available <= 5) return false
+    if (availability === 'low_stock' && (row.available <= 0 || row.available > 5)) return false
+    if (availability === 'out_of_stock' && row.available > 0) return false
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    return [row.product.name, row.product.sku, ...row.variants.flatMap(v => [v.variant.sku, v.variant.name, ...Object.values(v.variant.attributes ?? {})])].some(value => String(value ?? '').toLowerCase().includes(q))
+  }), [rows, category, availability, search])
+
+  async function addStock(row: ShopInventoryRow) {
+    const quantity = Number(restock[row.variant.id])
+    if (!Number.isInteger(quantity) || quantity <= 0) { setError('Enter a valid stock quantity.'); return }
+    setBusyVariant(row.variant.id); setError('')
+    try {
+      await inventoryApi.addStock(shopId, { variant_id: row.variant.id, quantity, notes: 'Restock from Shop Products' })
+      setRestock(prev => ({ ...prev, [row.variant.id]: '' })); await load()
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to add stock.') }
+    finally { setBusyVariant(null) }
   }
 
-  return (
-    <div className="shop-products-page">
-      <div className="page-header">
-        <div>
-          <p className="small muted" style={{ margin: 0 }}>
-            <Link to="/seller/products" className="section-link">Products</Link>
-            {' / '}
-            <Link to="/seller/products/select-shop" className="section-link">Choose Shop</Link>
-          </p>
-          <h1>{shop ? shop.name : 'Shop'}</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Products sold in this Shop{shop?.city ? ` · ${shop.city}` : ''}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link to={`/shops/${shopId}`}>
-            <Button variant="outline">View on Marketplace</Button>
-          </Link>
-          <Button onClick={() => navigate(`/seller/shops/${shopId}/products/new`)}>
-            + Create Product
-          </Button>
-        </div>
-      </div>
-
-      {confirmRemove && (
-        <div className="card" style={{ marginBottom: 24, borderColor: 'var(--color-danger)' }}>
-          <h3>Remove {confirmRemove.name} from {shop?.name}?</h3>
-          <p className="small muted">
-            This Shop's stock for this Product ({confirmRemove.available} units) will be removed and the offer
-            will disappear from Marketplace pages where this Shop sells it. The Product itself, other Shops'
-            offers and all history remain untouched.
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button
-              variant="danger"
-              onClick={() => removeFromShop(confirmRemove)}
-              disabled={removing === confirmRemove.productId}
-            >
-              {removing === confirmRemove.productId ? 'Removing…' : 'Remove from Shop'}
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirmRemove(null)}>Cancel</Button>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <LoadingBlock label="Loading Shop Products…" />
-      ) : error ? (
-        <ErrorBox error={error} />
-      ) : (
-        <>
-          {(chips.length > 0 || rows.length > 0) && (
-            <div className="chip-row" role="tablist" aria-label="Filter by category">
-              <button
-                type="button"
-                className={`chip ${activeChip === 'all' ? 'chip-active' : ''}`}
-                onClick={() => setActiveChip('all')}
-              >
-                All
-              </button>
-              {chips.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`chip ${activeChip === c.id ? 'chip-active' : ''}`}
-                  onClick={() => setActiveChip(c.id)}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {rows.length > 3 && (
-            <input
-              className="input"
-              placeholder="Search in this Shop…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ maxWidth: 320, marginBottom: 16 }}
-            />
-          )}
-
-          {visibleRows.length === 0 ? (
-            <div className="card" style={{ padding: '48px 24px', textAlign: 'center' }}>
-              <h3>No Products here yet</h3>
-              <p className="muted" style={{ margin: '8px 0 20px' }}>
-                Products appear in this Shop once they have stock assigned to it.
-              </p>
-              <Button size="lg" onClick={() => navigate(`/seller/shops/${shopId}/products/new`)}>
-                + Create Product
-              </Button>
-            </div>
-          ) : (
-            <div className="card">
-              <div className="table-responsive">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Stock in this Shop</th>
-                      <th>Variants</th>
-                      <th>Price</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleRows.map((row) => (
-                      <tr key={row.productId}>
-                        <td>
-                          <strong>{row.name}</strong>
-                          {row.sku && (
-                            <span className="mono small muted" style={{ display: 'block' }}>
-                              SKU: {row.sku}
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          <strong style={{ color: row.available > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
-                            {row.available} available
-                          </strong>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>{row.variantCount || 1}</td>
-                        <td>
-                          <strong>{row.unitPrice ? `${row.unitPrice.toLocaleString()} FC` : '—'}</strong>
-                        </td>
-                        <td>
-                          <span
-                            className={`badge badge-${
-                              row.publicationStatus === 'PUBLISHED'
-                                ? 'success'
-                                : row.publicationStatus === 'DRAFT'
-                                  ? 'warning'
-                                  : 'muted'
-                            }`}
-                          >
-                            {row.publicationStatus ?? 'IN_STOCK'}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <Link to={`/seller/products/${row.productId}`}>
-                              <Button variant="ghost" size="sm">Details</Button>
-                            </Link>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              style={{ color: 'var(--color-danger)' }}
-                              onClick={() => setConfirmRemove(row)}
-                            >
-                              Remove from Shop
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
+  if (!activeBusiness) return <div className="empty-state"><h2>No Business Selected</h2></div>
+  return <div className="shop-products-page">
+    <div className="page-header"><div><Link className="small section-link" to="/seller/shops">← Shops</Link><h1>{shop?.name ?? 'Shop'} inventory</h1><p className="muted">Products and exact Variant stock in this Shop only{shop?.city ? ` · ${shop.city}` : ''}</p></div><Button onClick={() => navigate(`/seller/shops/${shopId}/products/new`)}>+ Create Product</Button></div>
+    {error && <ErrorBox error={error} />}
+    <div className="shop-inventory-filters card"><input className="input" placeholder="Search product, SKU or Variant attribute…" value={search} onChange={e => setSearch(e.target.value)} /><select className="input" value={category} onChange={e => setCategory(e.target.value)}><option value="all">All categories</option>{categories.map(([id,name]) => <option key={id} value={id}>{name}</option>)}</select><select className="input" value={availability} onChange={e => setAvailability(e.target.value as Availability)}><option value="all">All availability</option><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option></select><Button variant="outline" onClick={() => void load()}>Refresh</Button></div>
+    {loading ? <LoadingBlock label="Loading real-time Shop inventory…" /> : visibleRows.length === 0 ? <div className="card empty-state"><h3>No matching Products</h3><p className="muted">Stock assigned to this Shop will appear here.</p></div> : <div className="shop-inventory-grid">{visibleRows.map(row => {
+      const open = expanded.has(row.product.id); const status = stockStatus(row.available)
+      return <article className="card shop-inventory-card" key={row.product.id}><div className="shop-product-main"><div className="shop-product-thumb">{row.image ? <img src={row.image.url} alt="" /> : <span>{row.product.name.slice(0,2).toUpperCase()}</span>}</div><div><div className="row-between"><div><h2>{row.product.name}</h2><p className="small muted">{row.product.category_name || 'Uncategorized'} · SKU {row.product.sku || '—'}</p></div><span className={`badge badge-${row.product.publication_status === 'PUBLISHED' ? 'success' : 'warning'}`}>{row.product.publication_status}</span></div><div className="stock-metrics"><span><small>Total</small><strong>{row.total}</strong></span><span><small>Reserved</small><strong>{row.reserved}</strong></span><span><small>Available</small><strong>{row.available}</strong></span><span className={`stock-state ${status.replace(/ /g,'-').toLowerCase()}`}>{status}</span></div><div className="row-between"><span className="small muted">{row.variants.length} Variant{row.variants.length === 1 ? '' : 's'}</span><div className="row"><Button size="sm" variant="outline" onClick={() => setExpanded(prev => { const next=new Set(prev); next.has(row.product.id)?next.delete(row.product.id):next.add(row.product.id); return next })}>{open ? 'Hide Variants' : 'View Variants'}</Button><Link to={`/seller/products/${row.product.id}?shop=${shopId}`}><Button size="sm" variant="ghost">Product detail</Button></Link></div></div></div></div>
+        {open && <div className="table-responsive variant-stock-table"><table className="data-table"><thead><tr><th>Variant</th><th>SKU</th><th>Total</th><th>Reserved</th><th>Available</th><th>Status</th><th>Add stock</th></tr></thead><tbody>{row.variants.map(item => { const av=availableOf(item.inventory); const state=stockStatus(av); return <tr key={item.variant.id}><td><strong>{variantLabel(item.variant)}</strong></td><td className="mono small">{item.variant.sku}</td><td>{item.inventory.quantity}</td><td>{item.inventory.reserved_quantity}</td><td><strong>{av}</strong></td><td><span className={`stock-state ${state.replace(/ /g,'-').toLowerCase()}`}>{state}</span></td><td><div className="row"><input className="input input-sm" type="number" min="1" placeholder="Qty" value={restock[item.variant.id] ?? ''} onChange={e => setRestock(prev => ({...prev,[item.variant.id]:e.target.value}))}/><Button size="sm" disabled={busyVariant===item.variant.id} onClick={() => void addStock(item)}>Add</Button></div></td></tr>})}</tbody></table></div>}
+      </article>
+    })}</div>}
+  </div>
 }

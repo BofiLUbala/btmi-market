@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
 import type { SellerBusiness } from '@/api/types'
+import { drcCityOptions } from '@/lib/drcLocations'
 
 interface OnboardingStep {
   id: 'business' | 'shop'
@@ -214,7 +215,7 @@ export default function SellerOnboardingPage() {
             <Field label="Business Phone" name="phone" required value={businessForm.phone} onChange={(e) => updateBusiness('phone', e.target.value)} placeholder="+243 …" />
             <Field label="Business Email" name="email" type="email" required value={businessForm.email} onChange={(e) => updateBusiness('email', e.target.value)} />
             <Field label="Country" name="country" required value={businessForm.country} onChange={(e) => updateBusiness('country', e.target.value)} placeholder="CD" />
-            <Field label="City" name="city" required value={businessForm.city} onChange={(e) => updateBusiness('city', e.target.value)} placeholder="Kinshasa" />
+            <Field label="City" name="city" as="select" required value={businessForm.city} options={drcCityOptions()} onChange={(e) => updateBusiness('city', e.target.value)} />
             <Field label="Default Currency" name="default_currency" required value={businessForm.default_currency} onChange={(e) => updateBusiness('default_currency', e.target.value)} as="select" options={[
               { value: 'USD', label: 'USD' },
               { value: 'CDF', label: 'CDF' },
@@ -256,7 +257,7 @@ export default function SellerOnboardingPage() {
                 { value: 'ONLINE', label: 'Online Only' },
               ]}
             />
-            <Field label="City" name="city" required value={shopForm.city} onChange={(e) => updateShop('city', e.target.value)} />
+            <Field label="City" name="city" as="select" required value={shopForm.city} options={drcCityOptions()} onChange={(e) => updateShop('city', e.target.value)} />
             <Field label="Address" name="address" required value={shopForm.address} onChange={(e) => updateShop('address', e.target.value)} rows={2} />
             <Field label="Phone" name="phone" required value={shopForm.phone} onChange={(e) => updateShop('phone', e.target.value)} placeholder="+243 …" />
             
@@ -306,7 +307,9 @@ export default function SellerOnboardingPage() {
                     <Field
                       label="Delivery City"
                       name="delivery_city"
+                      as="select"
                       value={shopForm.delivery_city}
+                      options={drcCityOptions()}
                       onChange={(e) => updateShop('delivery_city', e.target.value)}
                     />
                     <Field

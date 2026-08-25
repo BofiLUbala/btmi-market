@@ -1,6 +1,6 @@
 import { useAuth } from '@/store/auth'
 import { orderApi } from '@/api/seller'
-import type { OrderStatus } from '@/api/types'
+import type { BuyerPayment, OrderStatus } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -18,17 +18,20 @@ interface Order {
   notes?: string
 }
 
-const NEXT_ACTIONS: Record<string, Array<{ label: string; status?: string; action?: 'accept' | 'reject' | 'prepare' }>> = {
-  PENDING: [
-    { label: 'Accept', action: 'accept' },
-    { label: 'Reject', action: 'reject' },
-  ],
-  ACCEPTED: [{ label: 'Prepare', action: 'prepare' }],
-  PREPARING: [
-    { label: 'Ready for Pickup', status: 'READY_FOR_PICKUP' },
-    { label: 'Mark Ready', status: 'READY' },
-  ],
-  READY: [{ label: 'Out for Delivery', status: 'OUT_FOR_DELIVERY' }],
+type SellerAction = { label: string; status?: OrderStatus; action?: 'accept' | 'reject' | 'prepare' }
+
+function nextActions(order: Order): SellerAction[] {
+  if (order.status === 'PENDING') return [{ label: 'Accept Order', action: 'accept' }, { label: 'Reject', action: 'reject' }]
+  if (order.status === 'ACCEPTED') return [{ label: 'Start Preparing', action: 'prepare' }]
+  if (order.status === 'PREPARING') {
+    return order.delivery_method === 'PICKUP'
+      ? [{ label: 'Ready for Pickup', status: 'READY_FOR_PICKUP' }]
+      : [{ label: 'Mark Ready', status: 'READY' }]
+  }
+  if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: 'Dispatch Order', status: 'OUT_FOR_DELIVERY' }]
+  if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: 'Hand to Delivery Partner', status: 'HANDED_TO_PARTNER' }]
+  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: 'Mark Delivered', status: 'DELIVERED' }]
+  return []
 }
 
 export default function SellerOrdersPage() {
@@ -39,6 +42,7 @@ export default function SellerOrdersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
   const [actingId, setActingId] = useState<string | null>(null)
+  const [payments, setPayments] = useState<Record<string, BuyerPayment | null>>({})
 
   useEffect(() => {
     if (activeBusiness) {
@@ -71,6 +75,26 @@ export default function SellerOrdersPage() {
     } finally {
       setActingId(null)
     }
+  }
+
+  async function toggleDetails(order: Order) {
+    if (expandedId === order.id) { setExpandedId(null); return }
+    setExpandedId(order.id); setActionError('')
+    try {
+      const payment = await orderApi.getOrderPayment(order.id)
+      setPayments(prev => ({ ...prev, [order.id]: payment }))
+    }
+    catch (err) {
+      if (!(err instanceof Error && /PAYMENT_NOT_FOUND/i.test(err.message))) setActionError(err instanceof Error ? err.message : 'Could not load payment')
+      setPayments(prev => ({ ...prev, [order.id]: null }))
+    }
+  }
+
+  async function confirmCash(order: Order, payment: BuyerPayment) {
+    await runAction(order, async () => {
+      const updated = await orderApi.sellerConfirmPayment(payment.id) as BuyerPayment
+      setPayments(prev => ({ ...prev, [order.id]: updated }))
+    })
   }
 
   if (!activeBusiness) {
@@ -120,8 +144,9 @@ export default function SellerOrdersPage() {
                 </thead>
                 <tbody>
                   {orders.map((order) => {
-                    const actions = NEXT_ACTIONS[order.status] || []
+                    const actions = nextActions(order)
                     const isExpanded = expandedId === order.id
+                    const payment = payments[order.id]
                     return (
                       <tr key={order.id}>
                         <td>{order.order_number || order.id.slice(0, 8)}</td>
@@ -141,14 +166,14 @@ export default function SellerOrdersPage() {
                                     if (a.action === 'accept') return orderApi.accept(order.id)
                                     if (a.action === 'reject') return orderApi.reject(order.id)
                                     if (a.action === 'prepare') return orderApi.prepare(order.id)
-                                    return orderApi.sellerTransition(order.id, { status: a.status! as OrderStatus })
+                                    return orderApi.sellerTransition(order.id, { status: a.status! })
                                   })
                                 }
                               >
                                 {a.label}
                               </Button>
                             ))}
-                            <Button variant="ghost" size="sm" onClick={() => setExpandedId(isExpanded ? null : order.id)}>
+                            <Button variant="ghost" size="sm" onClick={() => void toggleDetails(order)}>
                               {isExpanded ? 'Hide' : 'View'}
                             </Button>
                           </div>
@@ -158,6 +183,16 @@ export default function SellerOrdersPage() {
                               <div><strong>Base total:</strong> {(order.base_total ?? order.final_total).toLocaleString()} FC</div>
                               {order.notes && <div><strong>Notes:</strong> {order.notes}</div>}
                               <div><strong>Shop ID:</strong> {order.shop_id}</div>
+                              <div className="seller-payment-box">
+                                <strong>Cash payment</strong>
+                                {payment ? <>
+                                  <div>Amount due: <strong>{payment.cash_due.toLocaleString()} FC</strong></div>
+                                  <div>Buyer: {payment.buyer_confirmed ? '✓ Payment declared' : 'Not confirmed'}</div>
+                                  <div>Seller: {payment.seller_confirmed ? '✓ Cash received' : 'Not confirmed'}</div>
+                                  <div>Status: <strong>{payment.status}</strong></div>
+                                  {!payment.seller_confirmed && <Button size="sm" disabled={actingId === order.id} onClick={() => void confirmCash(order, payment)}>Confirm Cash Received</Button>}
+                                </> : <div>No cash payment created yet.</div>}
+                              </div>
                             </div>
                           )}
                         </td>

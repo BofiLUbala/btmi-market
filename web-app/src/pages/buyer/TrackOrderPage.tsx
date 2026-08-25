@@ -7,7 +7,18 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
 
-const STATUS_STEPS = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+const FLOW_STEPS: Record<string, string[]> = {
+  PICKUP: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'RECEIVED', 'COMPLETED'],
+  SHOP_DELIVERY: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
+  PARTNER: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'HANDED_TO_PARTNER', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
+}
+
+function actorLabel(actor?: string) {
+  if (actor === 'SELLER') return 'by Shop'
+  if (actor === 'BUYER') return 'by Buyer'
+  if (actor === 'SYSTEM') return 'by System'
+  return ''
+}
 
 function TrackInner() {
   const { orderId = '' } = useParams()
@@ -37,7 +48,9 @@ function TrackInner() {
   if (loading) return <LoadingBlock label="Loading tracking…" />
   if (error || !data) return <ErrorBox error={error || 'No tracking data'} onRetry={() => window.location.reload()} />
 
-  const currentIdx = STATUS_STEPS.indexOf(data.current_status)
+  const baseSteps = FLOW_STEPS[data.delivery_method] ?? [data.current_status]
+  const statusSteps = baseSteps.includes(data.current_status) ? baseSteps : [...baseSteps, data.current_status]
+  const currentIdx = statusSteps.indexOf(data.current_status)
 
   return (
     <div className="fade-in">
@@ -63,20 +76,17 @@ function TrackInner() {
       <div className="card" style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>Progress</h2>
         <ul className="timeline">
-          {STATUS_STEPS.map((s, i) => {
+          {statusSteps.map((s, i) => {
             const reached = i <= currentIdx
             const isCurrent = i === currentIdx
+            const event = [...data.history].reverse().find((h) => h.status === s)
             return (
               <li key={s} className={`${reached ? 'done' : ''} ${isCurrent ? 'current' : ''}`}>
                 <div className="t-status small">
                   {s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                   {isCurrent && ' — current'}
                 </div>
-                {data.history.filter((h) => h.status === s).length > 0 && (
-                  <div className="t-time">
-                    {formatDateTime([...data.history].reverse().find((h) => h.status === s)?.created_at)}
-                  </div>
-                )}
+                {event && <><div className="small muted">{actorLabel(event.actor_type)}{event.notes ? `${actorLabel(event.actor_type) ? ' · ' : ''}${event.notes}` : ''}</div><div className="t-time">{formatDateTime(event.created_at)}</div></>}
               </li>
             )
           })}

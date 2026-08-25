@@ -11,22 +11,22 @@ import (
 )
 
 const (
-	DefaultEarnRate              = 1000.0
-	DefaultRedeemRate            = 1000.0
-	DefaultMaxPointCoverage      = 20.0
-	DefaultMaxDeliveryCoverage   = 100.0
+	DefaultEarnRate            = 1000.0
+	DefaultRedeemRate          = 1000.0
+	DefaultMaxPointCoverage    = 20.0
+	DefaultMaxDeliveryCoverage = 100.0
 )
 
 type PointRedemptionService struct {
-	pointRepo       *repository.PointAccountRepository
-	txRepo          *repository.PointTransactionRepository
-	levelRepo       *repository.LevelRepository
-	productRepo     *repository.ProductRepository
-	variantRepo     *repository.VariantRepository
-	inventoryRepo   *repository.InventoryRepository
-	shopRepo        *repository.ShopRepository
-	buyerRepo       *repository.BuyerProfileRepository
-	configRepo      *repository.PointConfigRepository
+	pointRepo     *repository.PointAccountRepository
+	txRepo        *repository.PointTransactionRepository
+	levelRepo     *repository.LevelRepository
+	productRepo   *repository.ProductRepository
+	variantRepo   *repository.VariantRepository
+	inventoryRepo *repository.InventoryRepository
+	shopRepo      *repository.ShopRepository
+	buyerRepo     *repository.BuyerProfileRepository
+	configRepo    *repository.PointConfigRepository
 }
 
 func NewPointRedemptionService(
@@ -91,11 +91,12 @@ func (s *PointRedemptionService) GetRedemptionPreview(
 	if err != nil {
 		return nil, err
 	}
-	if account == nil {
-		return nil, errors.New("NO_POINT_ACCOUNT")
+	// A buyer without a point account is a valid zero-points state. Pricing and
+	// stock preview must still work so checkout remains available.
+	trulyAvailable := 0
+	if account != nil {
+		trulyAvailable = account.CurrentPoints - account.ReservedPoints
 	}
-
-	trulyAvailable := account.CurrentPoints - account.ReservedPoints
 	if trulyAvailable < 0 {
 		trulyAvailable = 0
 	}
@@ -132,15 +133,15 @@ func (s *PointRedemptionService) GetRedemptionPreview(
 
 	if !usePoints {
 		return &models.PointRedemptionPreviewResponse{
-			BaseTotal:           baseTotal,
-			PointsUsed:          0,
+			BaseTotal:            baseTotal,
+			PointsUsed:           0,
 			PointsDiscountAmount: 0,
-			FinalTotal:          baseTotal,
-			Currency:            "CDF",
-			AvailablePoints:     trulyAvailable,
-			MaximumUsablePoints: 0,
-			RedeemRate:          s.GetRedeemRate(),
-			MaxPointCoverage:    s.GetMaxPointCoveragePercent(),
+			FinalTotal:           baseTotal,
+			Currency:             "CDF",
+			AvailablePoints:      trulyAvailable,
+			MaximumUsablePoints:  0,
+			RedeemRate:           s.GetRedeemRate(),
+			MaxPointCoverage:     s.GetMaxPointCoveragePercent(),
 		}, nil
 	}
 
@@ -343,15 +344,15 @@ func (s *PointRedemptionService) GetDeliveryPointsPreview(
 	used, discount, feeFinal := s.calculateDeliveryPoints(trulyAvailable, feeBase, usePoints)
 
 	return &models.DeliveryPointsPreviewResponse{
-		FeeBase:               feeBase,
-		PointsUsed:            used,
-		PointsDiscountAmount:  discount,
-		FeeFinal:              feeFinal,
-		Currency:              "CDF",
-		AvailablePoints:       trulyAvailable,
-		MaximumUsablePoints:   used,
-		RedeemRate:            s.GetRedeemRate(),
-		MaxDeliveryCoverage:   s.GetMaxDeliveryPointCoveragePercent(),
+		FeeBase:              feeBase,
+		PointsUsed:           used,
+		PointsDiscountAmount: discount,
+		FeeFinal:             feeFinal,
+		Currency:             "CDF",
+		AvailablePoints:      trulyAvailable,
+		MaximumUsablePoints:  used,
+		RedeemRate:           s.GetRedeemRate(),
+		MaxDeliveryCoverage:  s.GetMaxDeliveryPointCoveragePercent(),
 	}, nil
 }
 

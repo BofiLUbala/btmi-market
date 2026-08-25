@@ -838,6 +838,13 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 		LEFT JOIN categories c ON c.id = p.category_id
 		LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
 		WHERE p.id = $1 AND p.publication_status = 'PUBLISHED' AND p.status = 'ACTIVE'
+		ORDER BY (
+			SELECT COALESCE(SUM(GREATEST(i3.quantity - i3.reserved_quantity, 0)), 0)
+			FROM product_variants v3
+			JOIN inventory i3 ON i3.variant_id = v3.id AND i3.shop_id = s.id
+			WHERE v3.product_id = p.id AND v3.status = 'ACTIVE'
+		) DESC, s.created_at ASC
+		LIMIT 1
 	`
 	product := &models.PublicProductDetailResponse{}
 	product.Category = &models.CategorySummary{}
@@ -863,7 +870,7 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 	}
 
 	// Get variants with stock
-	variants, err := r.GetVariantsWithStockForProduct(productID)
+	variants, err := r.GetVariantsWithStockForProductAtShop(productID, product.ShopID)
 	if err != nil {
 		return nil, err
 	}
@@ -901,6 +908,47 @@ func (r *MarketplaceRepository) GetVariantsWithStockForProduct(productID uuid.UU
 		ORDER BY v.sku ASC
 	`
 	rows, err := r.db.Query(query, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var variants []models.PublicVariantDetailResponse
+	for rows.Next() {
+		v := models.PublicVariantDetailResponse{}
+		var attrsJSON []byte
+		if err := rows.Scan(&v.ID, &v.SKU, &v.Name, &attrsJSON, &v.UnitPrice, &v.Stock, &v.StockQty); err != nil {
+			return nil, err
+		}
+		if attrsJSON != nil {
+			v.Attributes = make(map[string]string)
+			_ = json.Unmarshal(attrsJSON, &v.Attributes)
+		}
+		variants = append(variants, v)
+	}
+	return variants, rows.Err()
+}
+
+// GetVariantsWithStockForProductAtShop returns the sellable stock for one
+// concrete marketplace offer. A product can exist in several shops, so the
+// unscoped aggregate must never be used on a shop-specific product detail.
+func (r *MarketplaceRepository) GetVariantsWithStockForProductAtShop(productID, shopID uuid.UUID) ([]models.PublicVariantDetailResponse, error) {
+	query := `
+		SELECT v.id, v.sku, v.name, v.attributes,
+		       COALESCE(v.sale_price, 0) as sale_price,
+		       CASE
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 5 THEN 'AVAILABLE'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
+		           ELSE 'OUT_OF_STOCK'
+		       END as stock,
+		       COALESCE(SUM(i.quantity) - SUM(i.reserved_quantity), 0) as stock_qty
+		FROM product_variants v
+		LEFT JOIN inventory i ON i.variant_id = v.id AND i.shop_id = $2
+		WHERE v.product_id = $1 AND v.status = 'ACTIVE'
+		GROUP BY v.id, v.sku, v.name, v.attributes, v.sale_price
+		ORDER BY v.sku ASC
+	`
+	rows, err := r.db.Query(query, productID, shopID)
 	if err != nil {
 		return nil, err
 	}

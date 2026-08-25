@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
+import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 
 function SuccessInner() {
   const { orderId = '' } = useParams()
@@ -31,9 +32,10 @@ function SuccessInner() {
   const amount = payment?.cash_due ?? order.order.final_total + order.order.delivery_fee_final
 
   return (
-    <div className="fade-in">
+    <div className="checkout-page fade-in">
+      <CheckoutProgress current="Order" />
       <div className="card stack" style={{ textAlign: 'center', alignItems: 'center', padding: '40px 24px' }}>
-        <div style={{ fontSize: 56 }}>✅</div>
+        <div className="checkout-success-mark" aria-hidden>✓</div>
         <h1>Order confirmed!</h1>
         <p className="muted">
           Order <strong>{order.order.order_number || order.order.id.slice(0, 8)}</strong> has been placed.

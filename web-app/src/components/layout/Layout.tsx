@@ -24,8 +24,6 @@ function Footer() {
           <div>
             <h4>Your account</h4>
             <p className="small stack" style={{ gap: 4 }}>
-              <Link to="/orders">Orders</Link>
-              <Link to="/points">Points</Link>
               <Link to="/account">Profile</Link>
             </p>
           </div>

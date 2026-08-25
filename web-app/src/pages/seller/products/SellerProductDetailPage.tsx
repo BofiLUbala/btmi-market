@@ -7,11 +7,13 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { PlusIcon } from '@/components/ui/Icons'
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 
 export default function SellerProductDetailPage() {
   const { activeBusiness, activeShop } = useAuth()
   const { productId } = useParams<{ productId: string }>()
+  const [searchParams] = useSearchParams()
+  const scopedShopId = searchParams.get('shop') || ''
   const [product, setProduct] = useState<Product | null>(null)
   const [variants, setVariants] = useState<ProductVariant[]>([])
   const [shops, setShops] = useState<Shop[]>([])
@@ -41,7 +43,7 @@ export default function SellerProductDetailPage() {
     if (activeBusiness && productId) {
       load()
     }
-  }, [activeBusiness?.id, productId])
+  }, [activeBusiness?.id, productId, scopedShopId])
 
   async function load() {
     if (!activeBusiness || !productId) return
@@ -65,7 +67,7 @@ export default function SellerProductDetailPage() {
         safeVariants.map(async (v) => {
           try {
             const inv = await productApi.getVariantInventory(v.id)
-            invMap[v.id] = Array.isArray(inv) ? inv : []
+            invMap[v.id] = (Array.isArray(inv) ? inv : []).filter(item => !scopedShopId || item.shop_id === scopedShopId)
           } catch {
             invMap[v.id] = []
           }
@@ -74,7 +76,7 @@ export default function SellerProductDetailPage() {
       setVariantInventories(invMap)
 
       // Set default target shops
-      const defaultShop = activeShop || (safeShops.length > 0 ? safeShops[0].id : '')
+      const defaultShop = scopedShopId || activeShop || (safeShops.length > 0 ? safeShops[0].id : '')
       setVariantForm((prev) => ({ ...prev, shop_id: defaultShop }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load product details.')
@@ -112,7 +114,7 @@ export default function SellerProductDetailPage() {
       })
 
       const initStock = parseInt(variantForm.initial_stock, 10)
-      const shopId = variantForm.shop_id || activeShop || (shops.length > 0 ? shops[0].id : '')
+      const shopId = scopedShopId || variantForm.shop_id || activeShop || (shops.length > 0 ? shops[0].id : '')
       if (initStock > 0 && shopId) {
         await inventoryApi.addStock(shopId, {
           variant_id: newVar.id,
@@ -139,7 +141,7 @@ export default function SellerProductDetailPage() {
   }
 
   async function addStock(variantId: string) {
-    const shopId = targetShopByVariant[variantId] || activeShop || (shops.length > 0 ? shops[0].id : '')
+    const shopId = scopedShopId || targetShopByVariant[variantId] || activeShop || (shops.length > 0 ? shops[0].id : '')
     if (!shopId) {
       setActionError('Please select a shop location to add stock.')
       return
@@ -196,9 +198,9 @@ export default function SellerProductDetailPage() {
       <div className="page-header">
         <div>
           <h1>{product.name}</h1>
-          <p className="muted">Catalog item & real-time variant inventory</p>
+          <p className="muted">Catalog item & real-time variant inventory{scopedShopId ? ` · ${shops.find(s => s.id === scopedShopId)?.name ?? 'Selected Shop'} only` : ''}</p>
         </div>
-        <Link to="/seller/products">
+        <Link to={scopedShopId ? `/seller/shops/${scopedShopId}/products` : '/seller/products'}>
           <Button variant="ghost">← Back to Products</Button>
         </Link>
       </div>
@@ -301,7 +303,7 @@ export default function SellerProductDetailPage() {
                 onChange={(e) => setVariantForm({ ...variantForm, initial_stock: e.target.value })}
                 placeholder="0"
               />
-              {shops.length > 1 && (
+              {!scopedShopId && shops.length > 1 && (
                 <Field
                   label="Stock Location"
                   name="vshop"
@@ -339,7 +341,7 @@ export default function SellerProductDetailPage() {
                   const variantAvailable = invList.reduce((sum, i) => sum + Math.max(0, i.quantity - (i.reserved_quantity || 0)), 0)
                   const variantTotal = invList.reduce((sum, i) => sum + (i.quantity || 0), 0)
                   const variantReserved = invList.reduce((sum, i) => sum + (i.reserved_quantity || 0), 0)
-                  const targetShop = targetShopByVariant[v.id] || activeShop || (shops.length > 0 ? shops[0].id : '')
+                  const targetShop = scopedShopId || targetShopByVariant[v.id] || activeShop || (shops.length > 0 ? shops[0].id : '')
 
                   return (
                     <tr key={v.id}>
@@ -385,7 +387,7 @@ export default function SellerProductDetailPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          {shops.length > 1 && (
+                          {!scopedShopId && shops.length > 1 && (
                             <select
                               className="input input-sm"
                               value={targetShop}
@@ -424,4 +426,3 @@ export default function SellerProductDetailPage() {
     </div>
   )
 }
-

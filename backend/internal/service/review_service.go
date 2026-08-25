@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hibiken/asynq"
 	"github.com/btmi-ai-market/backend/internal/jobs"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 )
 
 type ReviewService struct {
-	reviewRepo    *repository.ReviewRepository
-	trustRepo     *repository.SellerTrustRepository
-	rankingSvc    *CategoryRankingService
-	asynqClient   *asynq.Client
+	reviewRepo  *repository.ReviewRepository
+	trustRepo   *repository.SellerTrustRepository
+	rankingSvc  *CategoryRankingService
+	asynqClient *asynq.Client
 }
 
 func NewReviewService(
@@ -79,14 +79,14 @@ func (s *ReviewService) CanBuyerReviewOrder(buyerProfileID, orderID uuid.UUID) (
 	if existingReview != nil {
 		if existingReview.Status == string(models.ReviewStatusWithdrawn) {
 			return &models.ReviewEligibilityResponse{
-				Eligible:        false,
-				Reason:          "REVIEW_WITHDRAWN",
+				Eligible:         false,
+				Reason:           "REVIEW_WITHDRAWN",
 				ExistingReviewID: &existingReview.ID,
 			}, nil
 		}
 		return &models.ReviewEligibilityResponse{
-			Eligible:        false,
-			Reason:          "REVIEW_ALREADY_EXISTS",
+			Eligible:         false,
+			Reason:           "REVIEW_ALREADY_EXISTS",
 			ExistingReviewID: &existingReview.ID,
 		}, nil
 	}
@@ -95,6 +95,27 @@ func (s *ReviewService) CanBuyerReviewOrder(buyerProfileID, orderID uuid.UUID) (
 		Eligible: true,
 		Reason:   "VERIFIED_COMPLETED_PURCHASE",
 	}, nil
+}
+
+func (s *ReviewService) CanBuyerReviewLine(buyerProfileID, orderID, lineID uuid.UUID) (*models.ReviewEligibilityResponse, error) {
+	base, err := s.CanBuyerReviewOrder(buyerProfileID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if !base.Eligible && base.Reason != "REVIEW_ALREADY_EXISTS" {
+		return base, nil
+	}
+	if _, err = s.reviewRepo.GetOrderLineForReview(orderID, lineID); err != nil {
+		return &models.ReviewEligibilityResponse{Eligible: false, Reason: "ORDER_LINE_NOT_FOUND"}, nil
+	}
+	existing, err := s.reviewRepo.GetReviewByOrderLineID(lineID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return &models.ReviewEligibilityResponse{Eligible: false, Reason: "REVIEW_ALREADY_EXISTS", ExistingReviewID: &existing.ID}, nil
+	}
+	return &models.ReviewEligibilityResponse{Eligible: true, Reason: "VERIFIED_COMPLETED_PURCHASE"}, nil
 }
 
 // CreateReview creates a verified purchase review.
@@ -110,13 +131,29 @@ func (s *ReviewService) CreateReview(buyerProfileID, orderID uuid.UUID, req *mod
 		return nil, fmt.Errorf("COMMENT_TOO_LONG: maximum 1000 characters")
 	}
 
-	// Check eligibility.
+	lineID, err := uuid.Parse(req.OrderLineID)
+	if err != nil {
+		return nil, fmt.Errorf("INVALID_ORDER_LINE")
+	}
+	line, err := s.reviewRepo.GetOrderLineForReview(orderID, lineID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check order/payment eligibility.
 	eligibility, err := s.CanBuyerReviewOrder(buyerProfileID, orderID)
 	if err != nil {
 		return nil, err
 	}
-	if !eligibility.Eligible {
+	if !eligibility.Eligible && eligibility.Reason != "REVIEW_ALREADY_EXISTS" {
 		return nil, fmt.Errorf("REVIEW_NOT_ELIGIBLE: %s", eligibility.Reason)
+	}
+	existing, err := s.reviewRepo.GetReviewByOrderLineID(lineID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, fmt.Errorf("REVIEW_NOT_ELIGIBLE: REVIEW_ALREADY_EXISTS")
 	}
 
 	// Get order info to derive shop/business.
@@ -131,6 +168,9 @@ func (s *ReviewService) CreateReview(buyerProfileID, orderID uuid.UUID, req *mod
 		BuyerProfileID:   buyerProfileID,
 		BusinessID:       order.BusinessID,
 		ShopID:           order.ShopID,
+		ProductID:        &line.ProductID,
+		OrderLineID:      &line.ID,
+		VariantID:        &line.VariantID,
 		Rating:           req.Rating,
 		Comment:          comment,
 		VerifiedPurchase: true,
@@ -143,6 +183,43 @@ func (s *ReviewService) CreateReview(buyerProfileID, orderID uuid.UUID, req *mod
 	// Enqueue background processing.
 	s.enqueueReviewProcessing(order.ShopID, order.BusinessID, "review_created")
 
+	return s.toReviewResponse(review), nil
+}
+
+// CreateServiceReview records delivery and shop/order experience once per
+// completed, payment-verified order. It is intentionally not product-scoped.
+func (s *ReviewService) CreateServiceReview(buyerProfileID, orderID uuid.UUID, req *models.CreateServiceReviewRequest) (*models.ReviewResponse, error) {
+	for _, rating := range []int{req.DeliveryRating, req.ServiceRating, req.ExperienceRating} {
+		if rating < 1 || rating > 5 {
+			return nil, fmt.Errorf("INVALID_RATING: must be between 1 and 5")
+		}
+	}
+	comment := strings.TrimSpace(req.Comment)
+	if len(comment) > 1000 {
+		return nil, fmt.Errorf("COMMENT_TOO_LONG: maximum 1000 characters")
+	}
+	eligibility, err := s.CanBuyerReviewOrder(buyerProfileID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if !eligibility.Eligible {
+		return nil, fmt.Errorf("REVIEW_NOT_ELIGIBLE: %s", eligibility.Reason)
+	}
+	order, err := s.reviewRepo.GetOrderByIDForReview(orderID)
+	if err != nil {
+		return nil, err
+	}
+	overall := (req.DeliveryRating + req.ServiceRating + req.ExperienceRating + 1) / 3
+	review := &models.SellerReview{
+		OrderID: orderID, BuyerProfileID: buyerProfileID, BusinessID: order.BusinessID,
+		ShopID: order.ShopID, Rating: overall, Comment: comment, VerifiedPurchase: true,
+		DeliveryRating: &req.DeliveryRating, ServiceRating: &req.ServiceRating,
+		ExperienceRating: &req.ExperienceRating,
+	}
+	if err := s.reviewRepo.CreateServiceReview(review); err != nil {
+		return nil, err
+	}
+	s.enqueueReviewProcessing(order.ShopID, order.BusinessID, "service_review_created")
 	return s.toReviewResponse(review), nil
 }
 
@@ -315,6 +392,12 @@ func (s *ReviewService) toReviewResponse(review *models.SellerReview) *models.Re
 		BuyerProfileID:   review.BuyerProfileID,
 		BusinessID:       review.BusinessID,
 		ShopID:           review.ShopID,
+		ProductID:        review.ProductID,
+		OrderLineID:      review.OrderLineID,
+		VariantID:        review.VariantID,
+		DeliveryRating:   review.DeliveryRating,
+		ServiceRating:    review.ServiceRating,
+		ExperienceRating: review.ExperienceRating,
 		Rating:           review.Rating,
 		Comment:          review.Comment,
 		VerifiedPurchase: review.VerifiedPurchase,
@@ -322,6 +405,39 @@ func (s *ReviewService) toReviewResponse(review *models.SellerReview) *models.Re
 		CreatedAt:        review.CreatedAt,
 		UpdatedAt:        review.UpdatedAt,
 	}
+}
+
+func (s *ReviewService) GetProductReviews(productID uuid.UUID, viewerID *uuid.UUID, sortBy string, rating *int, page, perPage int) (*models.ProductReviewsResponse, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+	offset := (page - 1) * perPage
+	reviews, summary, total, err := s.reviewRepo.GetProductReviews(productID, viewerID, sortBy, rating, offset, perPage)
+	if err != nil {
+		return nil, err
+	}
+	return &models.ProductReviewsResponse{ProductID: productID, Summary: summary, Reviews: reviews, Pagination: models.PaginationInfo{Page: page, Limit: perPage, Total: total, HasMore: offset+perPage < total}}, nil
+}
+
+func (s *ReviewService) SetHelpful(reviewID, userID uuid.UUID, helpful bool) (int, error) {
+	return s.reviewRepo.SetHelpful(reviewID, userID, helpful)
+}
+
+func (s *ReviewService) Reply(reviewID, userID uuid.UUID, body string) (*models.ReviewReplyResponse, error) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return nil, fmt.Errorf("REPLY_REQUIRED")
+	}
+	if len(body) > 1000 {
+		return nil, fmt.Errorf("REPLY_TOO_LONG")
+	}
+	return s.reviewRepo.CreateReply(reviewID, userID, body)
 }
 
 // ProcessReviewAggregate handles the background job to recalculate shop aggregates.

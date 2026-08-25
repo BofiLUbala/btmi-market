@@ -14,23 +14,23 @@ import (
 )
 
 type OrderService struct {
-	orderRepo           *repository.OrderRepository
-	inventoryRepo       *repository.InventoryRepository
-	stockMovementRepo   *repository.StockMovementRepository
-	shopRepo            *repository.ShopRepository
-	productRepo         *repository.ProductRepository
-	variantRepo         *repository.VariantRepository
-	assignmentRepo      *repository.AssignmentRepository
-	membershipRepo      *repository.MembershipRepository
-	employeeRepo        *repository.EmployeeRepository
-	customerRepo        *repository.CustomerRepository
-	cashRepo            *repository.CashRepository
-	buyerRepo           *repository.BuyerProfileRepository
-	paymentRepo         *repository.BuyerPaymentRepository
-	pointRedemptionSvc  *PointRedemptionService
-	db                  *database.DB
-	orderEvents         []models.OrderEvent
-	eventsMutex         sync.RWMutex
+	orderRepo          *repository.OrderRepository
+	inventoryRepo      *repository.InventoryRepository
+	stockMovementRepo  *repository.StockMovementRepository
+	shopRepo           *repository.ShopRepository
+	productRepo        *repository.ProductRepository
+	variantRepo        *repository.VariantRepository
+	assignmentRepo     *repository.AssignmentRepository
+	membershipRepo     *repository.MembershipRepository
+	employeeRepo       *repository.EmployeeRepository
+	customerRepo       *repository.CustomerRepository
+	cashRepo           *repository.CashRepository
+	buyerRepo          *repository.BuyerProfileRepository
+	paymentRepo        *repository.BuyerPaymentRepository
+	pointRedemptionSvc *PointRedemptionService
+	db                 *database.DB
+	orderEvents        []models.OrderEvent
+	eventsMutex        sync.RWMutex
 }
 
 func NewOrderService(
@@ -122,23 +122,23 @@ func (s *OrderService) RequireShopAccess(userID, shopID uuid.UUID) error {
 // allowedTransitions defines valid status transitions per delivery method.
 var allowedTransitions = map[string]map[models.OrderStatus][]models.OrderStatus{
 	"SHOP_DELIVERY": {
-		models.OrderStatusPending:         {models.OrderStatusCancelled, models.OrderStatusAccepted},
-		models.OrderStatusAccepted:        {models.OrderStatusCancelled, models.OrderStatusPreparing},
-		models.OrderStatusPreparing:       {models.OrderStatusCancelled, models.OrderStatusReady},
-		models.OrderStatusReady:           {models.OrderStatusCancelled, models.OrderStatusOutForDelivery},
-		models.OrderStatusOutForDelivery:  {models.OrderStatusDelivered},
-		models.OrderStatusDelivered:       {models.OrderStatusReceived},
-		models.OrderStatusReceived:        {models.OrderStatusCompleted},
+		models.OrderStatusPending:        {models.OrderStatusCancelled, models.OrderStatusRejected, models.OrderStatusAccepted},
+		models.OrderStatusAccepted:       {models.OrderStatusCancelled, models.OrderStatusPreparing},
+		models.OrderStatusPreparing:      {models.OrderStatusCancelled, models.OrderStatusReady},
+		models.OrderStatusReady:          {models.OrderStatusCancelled, models.OrderStatusOutForDelivery},
+		models.OrderStatusOutForDelivery: {models.OrderStatusDelivered},
+		models.OrderStatusDelivered:      {models.OrderStatusReceived},
+		models.OrderStatusReceived:       {models.OrderStatusCompleted},
 	},
 	"PICKUP": {
-		models.OrderStatusPending:    {models.OrderStatusCancelled, models.OrderStatusAccepted},
-		models.OrderStatusAccepted:   {models.OrderStatusCancelled, models.OrderStatusPreparing},
-		models.OrderStatusPreparing:  {models.OrderStatusCancelled, models.OrderStatusReadyForPickup},
+		models.OrderStatusPending:        {models.OrderStatusCancelled, models.OrderStatusRejected, models.OrderStatusAccepted},
+		models.OrderStatusAccepted:       {models.OrderStatusCancelled, models.OrderStatusPreparing},
+		models.OrderStatusPreparing:      {models.OrderStatusCancelled, models.OrderStatusReadyForPickup},
 		models.OrderStatusReadyForPickup: {models.OrderStatusReceived},
-		models.OrderStatusReceived:   {models.OrderStatusCompleted},
+		models.OrderStatusReceived:       {models.OrderStatusCompleted},
 	},
 	"PARTNER": {
-		models.OrderStatusPending:         {models.OrderStatusCancelled, models.OrderStatusAccepted},
+		models.OrderStatusPending:         {models.OrderStatusCancelled, models.OrderStatusRejected, models.OrderStatusAccepted},
 		models.OrderStatusAccepted:        {models.OrderStatusCancelled, models.OrderStatusPreparing},
 		models.OrderStatusPreparing:       {models.OrderStatusCancelled, models.OrderStatusReady},
 		models.OrderStatusReady:           {models.OrderStatusHandedToPartner},
@@ -173,6 +173,19 @@ func canTransition(current, next models.OrderStatus, deliveryMethod string) bool
 	return false
 }
 
+func canActorSetStatus(actorType string, status models.OrderStatus) bool {
+	switch actorType {
+	case "SELLER":
+		return status != models.OrderStatusReceived && status != models.OrderStatusCompleted
+	case "BUYER":
+		return status == models.OrderStatusReceived
+	case "SYSTEM":
+		return status == models.OrderStatusCompleted
+	default:
+		return false
+	}
+}
+
 // TransitionOrder validates and applies a status transition atomically.
 func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus models.OrderStatus, notes string, actorType string) (*models.Order, error) {
 	tx, err := s.db.Begin()
@@ -193,8 +206,8 @@ func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus mode
 		return nil, fmt.Errorf("INVALID_TRANSITION: %s → %s not allowed for %s", currentStatus, newStatus, deliveryMethod)
 	}
 
-	if actorType == "SELLER" && newStatus == models.OrderStatusReceived {
-		return nil, errors.New("SELLER_CANNOT_CONFIRM_RECEIVED")
+	if !canActorSetStatus(actorType, newStatus) {
+		return nil, errors.New("ACTOR_NOT_ALLOWED")
 	}
 
 	// Update status + timestamp.
@@ -263,6 +276,9 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 		DeliveryMethod: order.DeliveryMethod,
 		PaymentStatus:  "PENDING",
 	}
+	if payment, paymentErr := s.paymentRepo.GetByOrderID(orderID); paymentErr == nil && payment != nil {
+		tracking.PaymentStatus = string(payment.Status)
+	}
 
 	// Determine latest update from timestamps.
 	type tsPair struct {
@@ -273,6 +289,7 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 		{"ACCEPTED", order.AcceptedAt},
 		{"PREPARING", order.PreparingAt},
 		{"READY", order.ReadyAt},
+		{"READY_FOR_PICKUP", order.ReadyAt},
 		{"OUT_FOR_DELIVERY", order.OutForDeliveryAt},
 		{"DELIVERED", order.DeliveredAt},
 		{"RECEIVED", order.ReceivedAt},
@@ -305,6 +322,26 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 	}
 
 	return tracking, nil
+}
+
+// CompleteIfReceivedAndPaid is the only completion gate for Buyer Orders.
+// Both physical receipt and the independently verified cash payment are required.
+func (s *OrderService) CompleteIfReceivedAndPaid(orderID uuid.UUID) (*models.Order, error) {
+	order, err := s.orderRepo.GetByID(orderID)
+	if err != nil {
+		return nil, errors.New("ORDER_NOT_FOUND")
+	}
+	if order.Status == models.OrderStatusCompleted {
+		return order, nil
+	}
+	if order.Status != models.OrderStatusReceived {
+		return order, nil
+	}
+	payment, err := s.paymentRepo.GetByOrderID(orderID)
+	if err != nil || payment == nil || payment.Status != models.BuyerPaymentStatusVerified {
+		return order, nil
+	}
+	return s.TransitionOrderNoAuth(orderID, models.OrderStatusCompleted, "Auto-completed after receipt and payment verification", "SYSTEM")
 }
 
 func (s *OrderService) getBusinessIDFromShop(shopID uuid.UUID) (uuid.UUID, error) {
@@ -663,34 +700,7 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 	}
 
 	order.TotalItems = totalItems
-
-	lineResponses := make([]models.OrderLineResponse, len(lines))
-	for i, l := range lines {
-		lineResponses[i] = models.OrderLineResponse{
-			ID:                    l.ID,
-			OrderID:               l.OrderID,
-			ProductID:             l.ProductID,
-			VariantID:             l.VariantID,
-			Quantity:              l.Quantity,
-			UnitPrice:             l.UnitPrice,
-			BaseUnitPrice:         l.BaseUnitPrice,
-			PointsDiscountPerUnit: l.PointsDiscountPerUnit,
-			FinalUnitPrice:        l.FinalUnitPrice,
-			CreatedAt:             l.CreatedAt,
-		}
-	}
-
-	orderResp := s.toOrderResponse(order)
-	orderResp.BaseTotal = baseTotal
-	orderResp.PointsUsed = pointsToUse
-	orderResp.PointsDiscountAmount = pointsDiscountAmount
-	orderResp.FinalTotal = finalTotal
-
-	return &models.OrderWithLinesResponse{
-		Order:   orderResp,
-		Lines:   lineResponses,
-		History: nil,
-	}, nil
+	return s.GetBuyerOrderByID(buyerProfileID, order.ID)
 }
 
 func (s *OrderService) getBuyerOrder(buyerProfileID, orderID uuid.UUID) (*models.Order, error) {
@@ -844,15 +854,15 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		OrderID:       order.ID,
 		ProductsTotal: order.FinalTotal,
 		Delivery: models.DeliverySummary{
-			Method:      method,
-			FeeBase:     feeBase,
-			PointsUsed:  used,
+			Method:         method,
+			FeeBase:        feeBase,
+			PointsUsed:     used,
 			PointsDiscount: discount,
-			FeeFinal:    feeFinal,
-			ContactName: req.ContactName,
-			Phone:       req.Phone,
-			Address:     req.Address,
-			Notes:       req.Notes,
+			FeeFinal:       feeFinal,
+			ContactName:    req.ContactName,
+			Phone:          req.Phone,
+			Address:        req.Address,
+			Notes:          req.Notes,
 		},
 		TotalDue: order.FinalTotal + feeFinal,
 	}, nil
@@ -1011,6 +1021,12 @@ func (s *OrderService) GetBuyerOrderByID(buyerProfileID, orderID uuid.UUID) (*mo
 			PointsDiscountPerUnit: l.PointsDiscountPerUnit,
 			FinalUnitPrice:        l.FinalUnitPrice,
 			CreatedAt:             l.CreatedAt,
+			ProductName:           l.ProductName,
+			ProductSKU:            l.ProductSKU,
+			VariantName:           l.VariantName,
+			VariantSKU:            l.VariantSKU,
+			VariantAttributes:     l.VariantAttributes,
+			ImageURL:              l.ImageURL,
 		}
 	}
 
@@ -1032,10 +1048,16 @@ func (s *OrderService) GetBuyerOrderByID(buyerProfileID, orderID uuid.UUID) (*mo
 	orderResp.PointsDiscountAmount = order.PointsDiscountAmount
 	orderResp.FinalTotal = order.FinalTotal
 
+	shopName := ""
+	if shop, shopErr := s.shopRepo.GetByID(order.ShopID); shopErr == nil && shop != nil {
+		shopName = shop.Name
+	}
+
 	return &models.OrderWithLinesResponse{
-		Order:   orderResp,
-		Lines:   lineResponses,
-		History: historyResponses,
+		Order:    orderResp,
+		Lines:    lineResponses,
+		History:  historyResponses,
+		ShopName: shopName,
 	}, nil
 }
 
@@ -1478,40 +1500,40 @@ func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*mod
 
 func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse {
 	return models.OrderResponse{
-		ID:                    order.ID,
-		BusinessID:            order.BusinessID,
-		ShopID:                order.ShopID,
-		CustomerID:            order.CustomerID,
-		BuyerProfileID:        order.BuyerProfileID,
-		Status:                string(order.Status),
-		TotalItems:            order.TotalItems,
-		Notes:                 order.Notes,
-		CreatedBy:             order.CreatedBy,
-		BaseTotal:             order.BaseTotal,
-		PointsUsed:            order.PointsUsed,
-		PointsDiscountAmount:  order.PointsDiscountAmount,
-		FinalTotal:            order.FinalTotal,
-		IdempotencyKey:        order.IdempotencyKey,
-		OrderNumber:           order.OrderNumber,
-		DeliveryMethod:        order.DeliveryMethod,
-		DeliveryFeeBase:       order.DeliveryFeeBase,
-		DeliveryPointsUsed:    order.DeliveryPointsUsed,
+		ID:                     order.ID,
+		BusinessID:             order.BusinessID,
+		ShopID:                 order.ShopID,
+		CustomerID:             order.CustomerID,
+		BuyerProfileID:         order.BuyerProfileID,
+		Status:                 string(order.Status),
+		TotalItems:             order.TotalItems,
+		Notes:                  order.Notes,
+		CreatedBy:              order.CreatedBy,
+		BaseTotal:              order.BaseTotal,
+		PointsUsed:             order.PointsUsed,
+		PointsDiscountAmount:   order.PointsDiscountAmount,
+		FinalTotal:             order.FinalTotal,
+		IdempotencyKey:         order.IdempotencyKey,
+		OrderNumber:            order.OrderNumber,
+		DeliveryMethod:         order.DeliveryMethod,
+		DeliveryFeeBase:        order.DeliveryFeeBase,
+		DeliveryPointsUsed:     order.DeliveryPointsUsed,
 		DeliveryPointsDiscount: order.DeliveryPointsDiscount,
-		DeliveryFeeFinal:      order.DeliveryFeeFinal,
-		DeliveryContactName:   order.DeliveryContactName,
-		DeliveryPhone:         order.DeliveryPhone,
-		DeliveryAddress:       order.DeliveryAddress,
-		DeliveryNotes:         order.DeliveryNotes,
-		PointsFinalized:       order.PointsFinalized,
-		AcceptedAt:            order.AcceptedAt,
-		PreparingAt:           order.PreparingAt,
-		ReadyAt:               order.ReadyAt,
-		OutForDeliveryAt:      order.OutForDeliveryAt,
-		DeliveredAt:           order.DeliveredAt,
-		ReceivedAt:            order.ReceivedAt,
-		CompletedAt:           order.CompletedAt,
-		CreatedAt:             order.CreatedAt,
-		UpdatedAt:             order.UpdatedAt,
+		DeliveryFeeFinal:       order.DeliveryFeeFinal,
+		DeliveryContactName:    order.DeliveryContactName,
+		DeliveryPhone:          order.DeliveryPhone,
+		DeliveryAddress:        order.DeliveryAddress,
+		DeliveryNotes:          order.DeliveryNotes,
+		PointsFinalized:        order.PointsFinalized,
+		AcceptedAt:             order.AcceptedAt,
+		PreparingAt:            order.PreparingAt,
+		ReadyAt:                order.ReadyAt,
+		OutForDeliveryAt:       order.OutForDeliveryAt,
+		DeliveredAt:            order.DeliveredAt,
+		ReceivedAt:             order.ReceivedAt,
+		CompletedAt:            order.CompletedAt,
+		CreatedAt:              order.CreatedAt,
+		UpdatedAt:              order.UpdatedAt,
 	}
 }
 

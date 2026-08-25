@@ -1,4 +1,4 @@
-import { get } from './client'
+import { del, get, post } from './client'
 import type {
   BuyerPriceResponse,
   CategoryResponse,
@@ -7,6 +7,8 @@ import type {
   PaginatedProducts,
   PublicProductDetail,
   PublicShopDetail,
+  ProductReviewsResponse,
+  ReviewReply,
   RankedShop,
   ShopReviewsResponse,
   SimilarProductsResponse,
@@ -59,5 +61,12 @@ export const marketplaceApi = {
   search: (q: MarketplaceQuery, signal?: AbortSignal) => get<MarketplaceSearchResult>('/marketplace/search', q, { signal }),
 
   shopReviews: (id: string, q?: MarketplaceQuery) =>
-    get<ShopReviewsResponse>(`/marketplace/shops/${id}/reviews`, q)
+    get<ShopReviewsResponse>(`/marketplace/shops/${id}/reviews`, q),
+
+  productReviews: (id: string, q?: MarketplaceQuery) =>
+    get<ProductReviewsResponse>(`/marketplace/products/${id}/reviews`, q),
+
+  markReviewHelpful: (id: string) => post<{ helpful_count: number; helpful_by_me: boolean }>(`/reviews/${id}/helpful`, {}),
+  unmarkReviewHelpful: (id: string) => del<{ helpful_count: number; helpful_by_me: boolean }>(`/reviews/${id}/helpful`),
+  replyToReview: (id: string, body: string) => post<ReviewReply>(`/reviews/${id}/replies`, { body })
 }

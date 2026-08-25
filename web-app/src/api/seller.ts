@@ -8,6 +8,8 @@ import {
 import type {
   RegisterResponse,
   SellerBusiness,
+  BusinessLifecycleSummary,
+  ArchiveBusinessResponse,
   Shop,
   CategoryResponse,
   CreateBusinessRequest,
@@ -47,6 +49,7 @@ import type {
   SellerReviewsResponse,
   PublicationStatus,
   OrderStatus,
+  BuyerPayment,
 } from './types'
 
 async function safeList<T>(p: Promise<T[]>): Promise<T[]> {
@@ -76,6 +79,9 @@ export const businessApi = {
   create: (body: CreateBusinessRequest) => post<SellerBusiness>('/businesses', body),
   list: () => safeList(get<SellerBusiness[]>('/businesses')),
   get: (id: string) => get<SellerBusiness>(`/businesses/${id}`),
+  update: (id: string, body: Partial<SellerBusiness>) => patch<SellerBusiness>(`/businesses/${id}`, body),
+  lifecycleSummary: (id: string) => get<BusinessLifecycleSummary>(`/businesses/${id}/lifecycle-summary`),
+  archive: (id: string, confirmName: string) => post<ArchiveBusinessResponse>(`/businesses/${id}/archive`, { confirm_name: confirmName }),
 }
 
 export const shopApi = {
@@ -163,10 +169,10 @@ export const orderApi = {
   accept: (id: string) => post<SellerOrder>(`/orders/${id}/accept`, {}),
   reject: (id: string) => post<SellerOrder>(`/orders/${id}/reject`, {}),
   prepare: (id: string) => post<SellerOrder>(`/orders/${id}/prepare`, {}),
-  complete: (id: string) => post<SellerOrder>(`/orders/${id}/complete`, {}),
   cancel: (id: string) => post<SellerOrder>(`/orders/${id}/cancel`, {}),
   sellerTransition: (id: string, body: { status: OrderStatus }) => post<SellerOrder>(`/orders/${id}/tracking/status`, body),
   sellerConfirmPayment: (paymentId: string) => post<any>(`/payments/${paymentId}/seller-confirm`, {}),
+  getOrderPayment: (orderId: string) => get<BuyerPayment>(`/orders/${orderId}/payment`),
 }
 
 export const customerApi = {

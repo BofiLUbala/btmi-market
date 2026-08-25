@@ -40,6 +40,23 @@ func (h *Handler) errResponse(c *gin.Context, statusCode int, errorCode, message
 	})
 }
 
+func profileValidationMessage(code string) string {
+	switch code {
+	case "INVALID_PHONE", "INVALID_BACKUP_PHONE":
+		return "Enter a valid phone number."
+	case "BACKUP_PHONE_SAME_AS_PRIMARY":
+		return "Backup number must be different from your primary number."
+	case "ADDRESS_TOO_LONG":
+		return "Address is too long."
+	case "INVALID_CITY":
+		return "Select a valid city."
+	case "INVALID_COMMUNE":
+		return "Select a valid commune for Kinshasa."
+	default:
+		return code
+	}
+}
+
 func (h *Handler) extractUserID(c *gin.Context) (uuid.UUID, bool) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -118,7 +135,16 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	profile, err := h.buyerService.UpdateProfile(userID, &req)
 	if err != nil {
-		h.errResponse(c, http.StatusNotFound, "BUYER_PROFILE_NOT_FOUND", err.Error())
+		code := err.Error()
+		if code == "BUYER_PROFILE_NOT_FOUND" {
+			h.errResponse(c, http.StatusNotFound, code, code)
+			return
+		}
+		if code == "INVALID_PHONE" || code == "INVALID_BACKUP_PHONE" || code == "BACKUP_PHONE_SAME_AS_PRIMARY" || code == "ADDRESS_TOO_LONG" || code == "INVALID_CITY" || code == "INVALID_COMMUNE" {
+			h.errResponse(c, http.StatusBadRequest, code, profileValidationMessage(code))
+			return
+		}
+		h.errResponse(c, http.StatusInternalServerError, "PROFILE_UPDATE_FAILED", "Could not update profile.")
 		return
 	}
 
@@ -142,13 +168,22 @@ func (h *Handler) GetPoints(c *gin.Context) {
 	}
 
 	account, err := h.pointService.GetAccount(models.PointOwnerTypeBuyer, profile.Profile.ID)
-	if err != nil || account == nil {
-		h.errResponse(c, http.StatusNotFound, "NO_POINT_ACCOUNT", "No point account found")
+	if err != nil {
+		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 
 	levelName := "BRONZE"
-	if account.LevelID != nil {
+	availablePoints, reservedPoints, lifetimePoints := 0, 0, 0
+	if account != nil {
+		availablePoints = account.CurrentPoints - account.ReservedPoints
+		if availablePoints < 0 {
+			availablePoints = 0
+		}
+		reservedPoints = account.ReservedPoints
+		lifetimePoints = account.LifetimePoints
+	}
+	if account != nil && account.LevelID != nil {
 		level, _ := h.pointService.GetLevelByID(*account.LevelID)
 		if level != nil {
 			levelName = level.Name
@@ -156,10 +191,10 @@ func (h *Handler) GetPoints(c *gin.Context) {
 	}
 
 	response := map[string]interface{}{
-		"lifetime_points": account.LifetimePoints,
-		"available_points": account.CurrentPoints - account.ReservedPoints,
-		"reserved_points": account.ReservedPoints,
-		"level": levelName,
+		"lifetime_points":  lifetimePoints,
+		"available_points": availablePoints,
+		"reserved_points":  reservedPoints,
+		"level":            levelName,
 	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{

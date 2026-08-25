@@ -25,7 +25,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<{ accountType: AccountType; user: User }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
-  setActiveBusiness: (business: SellerBusiness) => void
+  setActiveBusiness: (business: SellerBusiness | null) => void
   setSellerBusinesses: (businesses: SellerBusiness[]) => void
 }
 
@@ -175,9 +175,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetState()
   }, [resetState])
 
-  const setActiveBusinessImpl = useCallback((business: SellerBusiness) => {
+  const setActiveBusinessImpl = useCallback((business: SellerBusiness | null) => {
     setActiveBusiness(business)
-    localStorage.setItem(ACTIVE_BUSINESS_KEY, business.id)
+    if (business) localStorage.setItem(ACTIVE_BUSINESS_KEY, business.id)
+    else localStorage.removeItem(ACTIVE_BUSINESS_KEY)
   }, [])
 
   const setSellerBusinessesImpl = useCallback((businesses: SellerBusiness[]) => {

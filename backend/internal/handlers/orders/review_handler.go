@@ -11,7 +11,7 @@ import (
 )
 
 type ReviewHandler struct {
-	reviewService      *service.ReviewService
+	reviewService       *service.ReviewService
 	buyerProfileService *service.BuyerProfileService
 }
 
@@ -57,7 +57,17 @@ func (h *ReviewHandler) GetReviewEligibility(c *gin.Context) {
 		return
 	}
 
-	eligibility, err := h.reviewService.CanBuyerReviewOrder(buyerProfileID, orderID)
+	var eligibility *models.ReviewEligibilityResponse
+	if raw := c.Query("order_line_id"); raw != "" {
+		lineID, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid order_line_id")
+			return
+		}
+		eligibility, err = h.reviewService.CanBuyerReviewLine(buyerProfileID, orderID, lineID)
+	} else {
+		eligibility, err = h.reviewService.CanBuyerReviewOrder(buyerProfileID, orderID)
+	}
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
@@ -114,6 +124,30 @@ func (h *ReviewHandler) CreateReview(c *gin.Context) {
 		Message: "Review created successfully",
 		Data:    review,
 	})
+}
+
+// POST /api/v1/buyer/orders/:order_id/service-review
+func (h *ReviewHandler) CreateServiceReview(c *gin.Context) {
+	buyerProfileID, ok := h.extractBuyerProfileID(c)
+	if !ok {
+		return
+	}
+	orderID, err := uuid.Parse(c.Param("order_id"))
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid order_id")
+		return
+	}
+	var req models.CreateServiceReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body: "+err.Error())
+		return
+	}
+	review, err := h.reviewService.CreateServiceReview(buyerProfileID, orderID, &req)
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "REVIEW_NOT_ELIGIBLE", err.Error())
+		return
+	}
+	c.JSON(http.StatusCreated, models.SuccessResponse{Message: "Service experience review created successfully", Data: review})
 }
 
 // PATCH /api/v1/buyer/reviews/:review_id

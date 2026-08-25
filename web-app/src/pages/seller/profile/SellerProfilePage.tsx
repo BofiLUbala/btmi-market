@@ -43,6 +43,16 @@ export default function SellerProfilePage() {
             <div>{user?.phone || '—'}</div>
           </div>
           <div>
+            <div className="muted small">City</div>
+            <div>{user?.city || activeBusiness?.city || '—'}</div>
+          </div>
+          {user?.commune && (
+            <div>
+              <div className="muted small">Commune</div>
+              <div>{user.commune}</div>
+            </div>
+          )}
+          <div>
             <div className="muted small">Status</div>
             <div><span className={`badge badge-${user?.status === 'ACTIVE' ? 'success' : 'warning'}`}>{user?.status || '—'}</span></div>
           </div>

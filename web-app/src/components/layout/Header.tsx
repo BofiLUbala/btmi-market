@@ -13,8 +13,6 @@ const PUBLIC_NAV_LINKS = [
 
 const PROTECTED_NAV_LINKS = [
   { to: '/favorites', label: 'Favorites', icon: '❤️' },
-  { to: '/orders', label: 'Orders', icon: '📦' },
-  { to: '/points', label: 'Points', icon: '⭐' },
 ]
 
 export function Header() {
@@ -196,7 +194,6 @@ export function MobileNav() {
   }
   const protectedTabs = [
     { to: '/favorites', label: 'Favorites', icon: '❤️', end: false },
-    { to: '/orders', label: 'Orders', icon: '📦', end: false },
     accountTab
   ]
 

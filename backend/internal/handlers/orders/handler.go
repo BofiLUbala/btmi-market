@@ -11,10 +11,10 @@ import (
 )
 
 type Handler struct {
-	orderService         *service.OrderService
-	pointRedemptionSvc   *service.PointRedemptionService
-	buyerProfileService  *service.BuyerProfileService
-	paymentService       *service.PaymentService
+	orderService        *service.OrderService
+	pointRedemptionSvc  *service.PointRedemptionService
+	buyerProfileService *service.BuyerProfileService
+	paymentService      *service.PaymentService
 }
 
 func NewHandler(orderService *service.OrderService, pointRedemptionSvc *service.PointRedemptionService, buyerProfileService *service.BuyerProfileService, paymentService *service.PaymentService) *Handler {
@@ -327,7 +327,7 @@ func (h *Handler) ConfirmBuyerReceived(c *gin.Context) {
 		return
 	}
 
-	// Transition to RECEIVED, then auto-complete.
+	// Receipt and payment are independent. Completion only happens when both exist.
 	updated, err := h.orderService.TransitionOrder(order.ID, userID.(uuid.UUID), models.OrderStatusReceived, "Buyer confirmed received", "BUYER")
 	if err != nil {
 		statusCode := http.StatusBadRequest
@@ -340,12 +340,8 @@ func (h *Handler) ConfirmBuyerReceived(c *gin.Context) {
 		return
 	}
 
-	// Auto-transition to COMPLETED (system).
-	if updated.Status == models.OrderStatusReceived {
-		completed, err := h.orderService.TransitionOrderNoAuth(order.ID, models.OrderStatusCompleted, "Auto-completed after buyer received", "SYSTEM")
-		if err == nil {
-			updated = completed
-		}
+	if completed, completeErr := h.orderService.CompleteIfReceivedAndPaid(order.ID); completeErr == nil {
+		updated = completed
 	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
@@ -541,40 +537,40 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 
 func toOrderResponse(order *models.Order) models.OrderResponse {
 	return models.OrderResponse{
-		ID:                    order.ID,
-		BusinessID:            order.BusinessID,
-		ShopID:                order.ShopID,
-		CustomerID:            order.CustomerID,
-		BuyerProfileID:        order.BuyerProfileID,
-		Status:                string(order.Status),
-		TotalItems:            order.TotalItems,
-		Notes:                 order.Notes,
-		CreatedBy:             order.CreatedBy,
-		BaseTotal:             order.BaseTotal,
-		PointsUsed:            order.PointsUsed,
-		PointsDiscountAmount:  order.PointsDiscountAmount,
-		FinalTotal:            order.FinalTotal,
-		IdempotencyKey:        order.IdempotencyKey,
-		OrderNumber:           order.OrderNumber,
-		DeliveryMethod:        order.DeliveryMethod,
-		DeliveryFeeBase:       order.DeliveryFeeBase,
-		DeliveryPointsUsed:    order.DeliveryPointsUsed,
+		ID:                     order.ID,
+		BusinessID:             order.BusinessID,
+		ShopID:                 order.ShopID,
+		CustomerID:             order.CustomerID,
+		BuyerProfileID:         order.BuyerProfileID,
+		Status:                 string(order.Status),
+		TotalItems:             order.TotalItems,
+		Notes:                  order.Notes,
+		CreatedBy:              order.CreatedBy,
+		BaseTotal:              order.BaseTotal,
+		PointsUsed:             order.PointsUsed,
+		PointsDiscountAmount:   order.PointsDiscountAmount,
+		FinalTotal:             order.FinalTotal,
+		IdempotencyKey:         order.IdempotencyKey,
+		OrderNumber:            order.OrderNumber,
+		DeliveryMethod:         order.DeliveryMethod,
+		DeliveryFeeBase:        order.DeliveryFeeBase,
+		DeliveryPointsUsed:     order.DeliveryPointsUsed,
 		DeliveryPointsDiscount: order.DeliveryPointsDiscount,
-		DeliveryFeeFinal:      order.DeliveryFeeFinal,
-		DeliveryContactName:   order.DeliveryContactName,
-		DeliveryPhone:         order.DeliveryPhone,
-		DeliveryAddress:       order.DeliveryAddress,
-		DeliveryNotes:         order.DeliveryNotes,
-		PointsFinalized:       order.PointsFinalized,
-		AcceptedAt:            order.AcceptedAt,
-		PreparingAt:           order.PreparingAt,
-		ReadyAt:               order.ReadyAt,
-		OutForDeliveryAt:      order.OutForDeliveryAt,
-		DeliveredAt:           order.DeliveredAt,
-		ReceivedAt:            order.ReceivedAt,
-		CompletedAt:           order.CompletedAt,
-		CreatedAt:             order.CreatedAt,
-		UpdatedAt:             order.UpdatedAt,
+		DeliveryFeeFinal:       order.DeliveryFeeFinal,
+		DeliveryContactName:    order.DeliveryContactName,
+		DeliveryPhone:          order.DeliveryPhone,
+		DeliveryAddress:        order.DeliveryAddress,
+		DeliveryNotes:          order.DeliveryNotes,
+		PointsFinalized:        order.PointsFinalized,
+		AcceptedAt:             order.AcceptedAt,
+		PreparingAt:            order.PreparingAt,
+		ReadyAt:                order.ReadyAt,
+		OutForDeliveryAt:       order.OutForDeliveryAt,
+		DeliveredAt:            order.DeliveredAt,
+		ReceivedAt:             order.ReceivedAt,
+		CompletedAt:            order.CompletedAt,
+		CreatedAt:              order.CreatedAt,
+		UpdatedAt:              order.UpdatedAt,
 	}
 }
 
@@ -1006,6 +1002,9 @@ func (h *Handler) BuyerConfirmPayment(c *gin.Context) {
 		h.errResponse(c, statusCode, errorCode, err.Error())
 		return
 	}
+	if result.Status == string(models.BuyerPaymentStatusVerified) {
+		_, _ = h.orderService.CompleteIfReceivedAndPaid(result.OrderID)
+	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Payment confirmed by buyer",
@@ -1042,11 +1041,41 @@ func (h *Handler) SellerConfirmPayment(c *gin.Context) {
 		h.errResponse(c, statusCode, errorCode, err.Error())
 		return
 	}
+	if result.Status == string(models.BuyerPaymentStatusVerified) {
+		_, _ = h.orderService.CompleteIfReceivedAndPaid(result.OrderID)
+	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Payment confirmed by seller",
 		Data:    result,
 	})
+}
+
+// GET /api/v1/orders/:order_id/payment (seller/authorized employee)
+func (h *Handler) GetSellerOrderPayment(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "order_id")
+	if !ok {
+		return
+	}
+	result, err := h.paymentService.GetPaymentByOrderForSeller(userID, orderID)
+	if err != nil {
+		status, code := http.StatusInternalServerError, "INTERNAL_ERROR"
+		switch err.Error() {
+		case "PAYMENT_NOT_FOUND":
+			status, code = http.StatusNotFound, "PAYMENT_NOT_FOUND"
+		case "FORBIDDEN":
+			status, code = http.StatusForbidden, "FORBIDDEN"
+		case "SHOP_NOT_FOUND":
+			status, code = http.StatusNotFound, "SHOP_NOT_FOUND"
+		}
+		h.errResponse(c, status, code, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Payment retrieved successfully", Data: result})
 }
 
 // POST /api/v1/buyer/orders/:order_id/cancel

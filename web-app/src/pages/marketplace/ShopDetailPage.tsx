@@ -115,6 +115,7 @@ export default function ShopDetailPage() {
                   <span className="small muted">{formatDate(r.created_at)}</span>
                 </div>
                 <Rating value={r.rating} />
+                {r.delivery_rating && <div className="small muted">Delivery {r.delivery_rating}★ · Shop service {r.service_rating}★ · Order experience {r.order_experience_rating}★</div>}
                 <p className="small" style={{ margin: '6px 0 0' }}>{r.comment}</p>
               </div>
             ))

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import type { PointAccount } from '@/api/types'
+import type { BuyerPointsSummary } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { RequireAuth } from '@/components/auth/Guards'
 
 function PointsInner() {
-  const [account, setAccount] = useState<PointAccount | null>(null)
+  const [account, setAccount] = useState<BuyerPointsSummary | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -25,17 +25,19 @@ function PointsInner() {
   }, [])
 
   if (loading) return <LoadingBlock label="Loading points…" />
-  if (error || !account) return <ErrorBox error={error || 'No points account'} onRetry={() => window.location.reload()} />
+  if (error) return <ErrorBox error={error} onRetry={() => window.location.reload()} />
+  const points = account ?? { available_points: 0, reserved_points: 0, lifetime_points: 0, level: 'BRONZE' }
 
   return (
     <div className="fade-in">
       <h1 style={{ marginBottom: 12 }}>My points</h1>
       <div className="pay-big" style={{ marginBottom: 16 }}>
         <div className="small muted">Current balance</div>
-        <div className="amount">{account.current_points.toLocaleString()} pts</div>
+        <div className="amount">{points.available_points.toLocaleString()} pts</div>
         <div className="pay-note">
-          Lifetime: {account.lifetime_points.toLocaleString()} · Reserved: {account.reserved_points.toLocaleString()}
+          Lifetime: {points.lifetime_points.toLocaleString()} · Reserved: {points.reserved_points.toLocaleString()} · Level: {points.level}
         </div>
+        {points.available_points === 0 && <p className="small muted">Complete verified purchases to earn points.</p>}
       </div>
 
       <div className="order-summary-grid">
@@ -51,8 +53,8 @@ function PointsInner() {
         <div className="card">
           <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>Redeem</h2>
           <p className="small muted" style={{ margin: 0 }}>
-            Redemption happens automatically when you enable “Redeem my points” in your cart — the
-            backend computes the exact discount.
+            Points are used only when you choose “Use points” in your cart. The backend computes the
+            exact discount before checkout.
           </p>
           <Link to="/search">
             <Button block style={{ marginTop: 12 }}>Start shopping</Button>

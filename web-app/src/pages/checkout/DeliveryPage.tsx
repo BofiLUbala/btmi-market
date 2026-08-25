@@ -8,6 +8,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney, asArray } from '@/lib/format'
 import { useAuth } from '@/store/auth'
 import { RequireAuth } from '@/components/auth/Guards'
+import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 
 const METHOD_LABEL: Record<string, string> = {
   PICKUP: 'Pick up at the shop',
@@ -108,53 +109,50 @@ function DeliveryInner() {
   if (loading) return <LoadingBlock label="Loading delivery options…" />
 
   return (
-    <div className="fade-in">
-      <h1 style={{ marginBottom: 12 }}>Delivery</h1>
+    <div className="checkout-page fade-in">
+      <CheckoutProgress current="Delivery" />
+      <header className="checkout-heading"><div><h1>Choose delivery</h1><p>Select how you want to receive this order.</p></div></header>
       {error && <ErrorBox error={error} />}
 
       {data && (
-        <div className="order-summary-grid">
-          <div className="stack">
+        <div className="checkout-layout">
+          <div className="checkout-content stack">
+            <section className="checkout-card delivery-options-card"><div className="checkout-card-head"><h2>Delivery method</h2><span>{data.options.length} options</span></div>
             {data.options.map((o) => (
-              <div
+              <button type="button"
                 key={o.method}
                 className={`delivery-option ${method === o.method ? 'selected' : ''} ${o.available ? '' : 'unavailable'}`}
                 onClick={() => o.available && setMethod(o.method as DeliveryMethod)}
+                disabled={!o.available}
+                aria-pressed={method === o.method}
               >
+                <span className="delivery-radio" aria-hidden />
                 <div className="row-between">
                   <h3>{METHOD_LABEL[o.method] ?? o.label}</h3>
                   <div className="bold">{o.available ? formatMoney(o.fee) : 'Unavailable'}</div>
                 </div>
-                {o.provider && <div className="small muted">{o.provider}</div>}
-              </div>
+                {o.provider && <div className="small muted">Provided by {o.provider}</div>}
+                <div className="small muted">{o.method === 'PICKUP' ? 'Collect your order directly from the shop.' : 'Receive your order at the address provided.'}</div>
+              </button>
             ))}
+            </section>
 
-            <div className="card">
-              <div className="row-between" style={{ marginBottom: 8 }}>
-                <label className="small bold" htmlFor="use-points-delivery">
-                  Pay delivery with points
-                </label>
-                <input
-                  id="use-points-delivery"
-                  type="checkbox"
-                  checked={usePointsForDelivery}
-                  onChange={(e) => togglePoints(e.target.checked)}
-                />
-              </div>
+            <section className={`checkout-card rewards-card ${usePointsForDelivery ? 'active' : ''}`}>
+              <div><span className="eyebrow">DELIVERY REWARDS</span><h2>Use points for delivery</h2><p>Apply available points to reduce the delivery fee.</p></div>
+              <button type="button" role="switch" aria-label="Use points for delivery" aria-checked={usePointsForDelivery} className={`toggle-switch ${usePointsForDelivery ? 'on' : ''}`} onClick={() => togglePoints(!usePointsForDelivery)}><span /></button>
               {usePointsForDelivery && previewFee !== null && selected && (
-                <div className="total-row">
-                  <span>Delivery fee</span>
-                  <span>
+                <div className="rewards-result"><strong>✓ Points applied</strong><span>Delivery fee:{' '}
                     <s className="muted">{formatMoney(selected.fee)}</s>{' '}
                     <span className="pd-discount">{formatMoney(previewFee)}</span>
-                  </span>
+                  </span><button onClick={() => togglePoints(false)}>Remove points</button>
                 </div>
               )}
-            </div>
+            </section>
           </div>
 
-          <div className="card stack">
-            <h2 style={{ fontSize: '1.15rem' }}>Delivery details</h2>
+          <aside className="checkout-card checkout-summary stack">
+            <span className="eyebrow">DELIVERY DETAILS</span>
+            <h2>{selected ? METHOD_LABEL[selected.method] : 'Choose a method'}</h2>
             {method === 'PICKUP' ? (
               <p className="small muted">
                 You will pick up this order at the shop. No address needed.
@@ -198,9 +196,9 @@ function DeliveryInner() {
               disabled={method !== 'PICKUP' && (!contact.contact_name || !contact.phone || !contact.address)}
               onClick={continueToPayment}
             >
-              Continue to payment
+              Continue to review
             </Button>
-          </div>
+          </aside>
         </div>
       )}
     </div>

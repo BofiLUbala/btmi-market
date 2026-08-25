@@ -49,7 +49,7 @@ function MyReviewsInner() {
       <EmptyState
         icon="⭐"
         title="No reviews yet"
-        description="After an order is completed you can review the shop."
+        description="After a completed order, review each product and your delivery/shop experience separately."
         action={
           <Link to="/orders" className="btn btn-primary">
             My orders
@@ -67,6 +67,7 @@ function MyReviewsInner() {
           <div key={r.id} className="review-item">
             <div className="review-head">
               <div>
+                <strong className="small">{r.product_id ? 'Product review' : 'Delivery & shop service'}</strong>
                 <Rating value={r.rating} />
                 <span className="badge" style={{ marginLeft: 8 }}>
                   {r.verified_purchase ? 'Verified purchase' : 'Pending'}
@@ -74,10 +75,11 @@ function MyReviewsInner() {
               </div>
               <span className="small muted">{formatDate(r.created_at)}</span>
             </div>
+            {!r.product_id && r.delivery_rating && <div className="small muted">Delivery {r.delivery_rating}★ · Shop service {r.service_rating}★ · Order experience {r.order_experience_rating}★</div>}
             {r.comment && <p className="small mt-0" style={{ marginTop: 6 }}>{r.comment}</p>}
             <div className="row-between" style={{ marginTop: 8 }}>
-              <Link to={`/shops/${r.shop_id}`} className="small section-link">
-                Shop page →
+              <Link to={r.product_id ? `/products/${r.product_id}` : `/shops/${r.shop_id}`} className="small section-link">
+                {r.product_id ? 'Product page →' : 'Shop page →'}
               </Link>
               <Button
                 variant="ghost"

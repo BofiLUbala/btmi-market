@@ -61,3 +61,69 @@ func (h *ReviewHandler) GetShopReviews(c *gin.Context) {
 		Data:    reviews,
 	})
 }
+
+func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
+	productID, err := uuid.Parse(c.Param("product_id"))
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid product_id")
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
+	sortBy := c.DefaultQuery("sort", "newest")
+	var rating *int
+	if raw := c.Query("rating"); raw != "" {
+		v, e := strconv.Atoi(raw)
+		if e == nil && v >= 1 && v <= 5 {
+			rating = &v
+		}
+	}
+	var viewer *uuid.UUID
+	if raw, ok := c.Get("user_id"); ok {
+		v := raw.(uuid.UUID)
+		viewer = &v
+	}
+	data, err := h.reviewService.GetProductReviews(productID, viewer, sortBy, rating, page, perPage)
+	if err != nil {
+		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Product reviews retrieved", Data: data})
+}
+
+func (h *ReviewHandler) MarkHelpful(c *gin.Context)   { h.setHelpful(c, true) }
+func (h *ReviewHandler) UnmarkHelpful(c *gin.Context) { h.setHelpful(c, false) }
+func (h *ReviewHandler) setHelpful(c *gin.Context, helpful bool) {
+	reviewID, err := uuid.Parse(c.Param("review_id"))
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid review_id")
+		return
+	}
+	raw, _ := c.Get("user_id")
+	count, err := h.reviewService.SetHelpful(reviewID, raw.(uuid.UUID), helpful)
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "REVIEW_ACTION_FAILED", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Helpful vote updated", Data: gin.H{"helpful_count": count, "helpful_by_me": helpful}})
+}
+
+func (h *ReviewHandler) Reply(c *gin.Context) {
+	reviewID, err := uuid.Parse(c.Param("review_id"))
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid review_id")
+		return
+	}
+	var req models.CreateReviewReplyRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Reply is required")
+		return
+	}
+	raw, _ := c.Get("user_id")
+	reply, err := h.reviewService.Reply(reviewID, raw.(uuid.UUID), req.Body)
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "REPLY_FAILED", err.Error())
+		return
+	}
+	c.JSON(http.StatusCreated, models.SuccessResponse{Message: "Reply posted", Data: reply})
+}

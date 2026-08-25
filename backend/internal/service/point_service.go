@@ -11,10 +11,10 @@ import (
 )
 
 type PointService struct {
-	pointRepo    *repository.PointAccountRepository
-	txRepo       *repository.PointTransactionRepository
-	levelRepo    *repository.LevelRepository
-	buyerRepo    *repository.BuyerProfileRepository
+	pointRepo *repository.PointAccountRepository
+	txRepo    *repository.PointTransactionRepository
+	levelRepo *repository.LevelRepository
+	buyerRepo *repository.BuyerProfileRepository
 }
 
 func NewPointService(
@@ -178,7 +178,17 @@ func (s *PointService) GetAccount(ownerType models.PointOwnerType, ownerID uuid.
 
 func (s *PointService) GetHistory(ownerType models.PointOwnerType, ownerID uuid.UUID, page, limit int) (*models.PointHistoryResponse, error) {
 	account, err := s.pointRepo.GetByOwner(ownerType, ownerID)
-	if err != nil || account == nil {
+	if err != nil {
+		return nil, err
+	}
+	if account == nil && ownerType == models.PointOwnerTypeBuyer {
+		return &models.PointHistoryResponse{
+			Account:      models.PointAccountResponse{OwnerType: string(ownerType), OwnerID: ownerID, Status: "ACTIVE"},
+			Transactions: []models.PointTransactionResponse{},
+			LevelName:    "BRONZE",
+		}, nil
+	}
+	if account == nil {
 		return nil, errors.New("NO_POINT_ACCOUNT")
 	}
 
@@ -202,12 +212,12 @@ func (s *PointService) GetHistory(ownerType models.PointOwnerType, ownerID uuid.
 				progress = float64(account.LifetimePoints-nl.MinPoints) / float64(nl.MaxPoints-nl.MinPoints) * 100
 			}
 			nextLevel = &models.BuyerLevelInfo{
-				Name:           nl.Name,
-				MinPoints:      nl.MinPoints,
-				MaxPoints:      nl.MaxPoints,
+				Name:            nl.Name,
+				MinPoints:       nl.MinPoints,
+				MaxPoints:       nl.MaxPoints,
 				DiscountPercent: nl.DiscountPercent,
-				FreeDelivery:   nl.FreeDelivery,
-				ProgressToNext: progress,
+				FreeDelivery:    nl.FreeDelivery,
+				ProgressToNext:  progress,
 			}
 		}
 	} else {
