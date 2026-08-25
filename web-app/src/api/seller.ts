@@ -50,6 +50,7 @@ import type {
   PublicationStatus,
   OrderStatus,
   BuyerPayment,
+  OrderWithLines,
 } from './types'
 
 async function safeList<T>(p: Promise<T[]>): Promise<T[]> {
@@ -161,11 +162,11 @@ export const inventoryApi = {
 
 export const orderApi = {
   listByBusiness: (businessId: string, params?: { shop_id?: string; status?: OrderStatus; page?: number; limit?: number }) =>
-    safeList(get<SellerOrder[]>(`/businesses/${businessId}/orders`, params)),
+    get<SellerOrder[]>(`/businesses/${businessId}/orders`, params),
   listByShop: (shopId: string, params?: { status?: OrderStatus; page?: number; limit?: number }) =>
     safeList(get<SellerOrder[]>(`/shops/${shopId}/orders`, params)),
   create: (shopId: string, body: SellerCreateOrderRequest) => post<SellerOrder>(`/shops/${shopId}/orders`, body),
-  get: (id: string) => get<SellerOrder>(`/orders/${id}`),
+  get: (id: string) => get<OrderWithLines>(`/orders/${id}`),
   accept: (id: string) => post<SellerOrder>(`/orders/${id}/accept`, {}),
   reject: (id: string) => post<SellerOrder>(`/orders/${id}/reject`, {}),
   prepare: (id: string) => post<SellerOrder>(`/orders/${id}/prepare`, {}),

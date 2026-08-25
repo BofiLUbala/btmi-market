@@ -5,11 +5,9 @@ import type { CategoryResponse, PublicProduct } from '@/api/types'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { SectionHead } from '@/components/ui/ShopCard'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { useAuth } from '@/store/auth'
 import { asArray } from '@/lib/format'
 
 export default function HomePage() {
-  const { user } = useAuth()
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [products, setProducts] = useState<PublicProduct[]>([])
   const [error, setError] = useState('')
@@ -39,20 +37,8 @@ export default function HomePage() {
 
   return (
     <div className="fade-in">
-      <section className="hero">
-        <h1>Welcome{user ? ` back, ${user.first_name}` : ''} 👋</h1>
-        <p>
-          Buy from trusted local shops, pay cash on delivery, and earn points on every verified
-          purchase.
-        </p>
-        <div className="hero-actions">
-          <Link to="/search" className="btn btn-accent">
-            Browse products
-          </Link>
-          <Link to="/shops" className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#fff' }}>
-            Explore shops
-          </Link>
-        </div>
+      <section className="home-trust" aria-label="Marketplace assurance">
+        Achetez en toute confiance
       </section>
 
       {categories.length > 0 && (

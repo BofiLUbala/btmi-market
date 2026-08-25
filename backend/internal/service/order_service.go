@@ -502,13 +502,22 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 	lineResponses := make([]models.OrderLineResponse, len(lines))
 	for i, l := range lines {
 		lineResponses[i] = models.OrderLineResponse{
-			ID:        l.ID,
-			OrderID:   l.OrderID,
-			ProductID: l.ProductID,
-			VariantID: l.VariantID,
-			Quantity:  l.Quantity,
-			UnitPrice: l.UnitPrice,
-			CreatedAt: l.CreatedAt,
+			ID:                    l.ID,
+			OrderID:               l.OrderID,
+			ProductID:             l.ProductID,
+			VariantID:             l.VariantID,
+			Quantity:              l.Quantity,
+			UnitPrice:             l.UnitPrice,
+			BaseUnitPrice:         l.BaseUnitPrice,
+			PointsDiscountPerUnit: l.PointsDiscountPerUnit,
+			FinalUnitPrice:        l.FinalUnitPrice,
+			CreatedAt:             l.CreatedAt,
+			ProductName:           l.ProductName,
+			ProductSKU:            l.ProductSKU,
+			VariantName:           l.VariantName,
+			VariantSKU:            l.VariantSKU,
+			VariantAttributes:     l.VariantAttributes,
+			ImageURL:              l.ImageURL,
 		}
 	}
 
@@ -939,13 +948,22 @@ func (s *OrderService) GetOrderByID(userID, orderID uuid.UUID) (*models.OrderWit
 	lineResponses := make([]models.OrderLineResponse, len(lines))
 	for i, l := range lines {
 		lineResponses[i] = models.OrderLineResponse{
-			ID:        l.ID,
-			OrderID:   l.OrderID,
-			ProductID: l.ProductID,
-			VariantID: l.VariantID,
-			Quantity:  l.Quantity,
-			UnitPrice: l.UnitPrice,
-			CreatedAt: l.CreatedAt,
+			ID:                    l.ID,
+			OrderID:               l.OrderID,
+			ProductID:             l.ProductID,
+			VariantID:             l.VariantID,
+			Quantity:              l.Quantity,
+			UnitPrice:             l.UnitPrice,
+			BaseUnitPrice:         l.BaseUnitPrice,
+			PointsDiscountPerUnit: l.PointsDiscountPerUnit,
+			FinalUnitPrice:        l.FinalUnitPrice,
+			CreatedAt:             l.CreatedAt,
+			ProductName:           l.ProductName,
+			ProductSKU:            l.ProductSKU,
+			VariantName:           l.VariantName,
+			VariantSKU:            l.VariantSKU,
+			VariantAttributes:     l.VariantAttributes,
+			ImageURL:              l.ImageURL,
 		}
 	}
 
@@ -961,10 +979,16 @@ func (s *OrderService) GetOrderByID(userID, orderID uuid.UUID) (*models.OrderWit
 		}
 	}
 
+	shopName := ""
+	if shop, shopErr := s.shopRepo.GetByID(order.ShopID); shopErr == nil && shop != nil {
+		shopName = shop.Name
+	}
+
 	return &models.OrderWithLinesResponse{
 		Order:   s.toOrderResponse(order),
 		Lines:   lineResponses,
 		History: historyResponses,
+		ShopName: shopName,
 	}, nil
 }
 

@@ -1,6 +1,6 @@
 import { useAuth } from '@/store/auth'
-import { orderApi } from '@/api/seller'
-import type { BuyerPayment, OrderStatus } from '@/api/types'
+import { orderApi, shopApi } from '@/api/seller'
+import type { BuyerPayment, OrderStatus, OrderWithLines, Shop } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -43,16 +43,22 @@ export default function SellerOrdersPage() {
   const [actionError, setActionError] = useState('')
   const [actingId, setActingId] = useState<string | null>(null)
   const [payments, setPayments] = useState<Record<string, BuyerPayment | null>>({})
+  const [details, setDetails] = useState<Record<string, OrderWithLines>>({})
+  const [shops, setShops] = useState<Shop[]>([])
+  const [shopFilter, setShopFilter] = useState('ALL')
 
   useEffect(() => {
     if (activeBusiness) {
-      loadOrders()
+      setShopFilter('ALL')
+      void loadOrders()
+      void shopApi.listByBusiness(activeBusiness.id).then(setShops).catch(() => setShops([]))
     }
   }, [activeBusiness])
 
   async function loadOrders() {
     if (!activeBusiness) return
     setLoading(true)
+    setError('')
     try {
       const data = await orderApi.listByBusiness(activeBusiness.id, { limit: 20 })
       setOrders(Array.isArray(data) ? data : [])
@@ -81,7 +87,14 @@ export default function SellerOrdersPage() {
     if (expandedId === order.id) { setExpandedId(null); return }
     setExpandedId(order.id); setActionError('')
     try {
-      const payment = await orderApi.getOrderPayment(order.id)
+      const [detail, payment] = await Promise.all([
+        orderApi.get(order.id),
+        orderApi.getOrderPayment(order.id).catch((err) => {
+          if (err instanceof Error && /PAYMENT_NOT_FOUND/i.test(err.message)) return null
+          throw err
+        })
+      ])
+      setDetails(prev => ({ ...prev, [order.id]: detail }))
       setPayments(prev => ({ ...prev, [order.id]: payment }))
     }
     catch (err) {
@@ -108,6 +121,8 @@ export default function SellerOrdersPage() {
   }
 
   const orderList = Array.isArray(orders) ? orders : []
+  const visibleOrders = shopFilter === 'ALL' ? orderList : orderList.filter((order) => order.shop_id === shopFilter)
+  const shopNames = new Map(shops.map((shop) => [shop.id, shop.name]))
 
   return (
     <div className="seller-orders">
@@ -115,16 +130,21 @@ export default function SellerOrdersPage() {
         <h1>Orders</h1>
       </div>
 
+      <div className="row-between seller-order-filters">
+        <div><strong>{visibleOrders.length} order{visibleOrders.length === 1 ? '' : 's'}</strong><div className="small muted">Across the selected Business</div></div>
+        <label className="small"><span className="muted">Shop </span><select className="select" value={shopFilter} onChange={(event) => setShopFilter(event.target.value)}><option value="ALL">All Shops</option>{shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select></label>
+      </div>
+
       {loading ? (
         <LoadingBlock label="Loading orders…" />
       ) : error ? (
-        <ErrorBox error={error} />
-      ) : orderList.length === 0 ? (
+        <ErrorBox error={`Unable to load orders: ${error}`} onRetry={() => void loadOrders()} />
+      ) : visibleOrders.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
             <div className="empty-icon" style={{ fontSize: 48 }}>🧾</div>
-            <h3>No Orders Yet</h3>
-            <p className="muted">Orders will appear here when customers place them.</p>
+            <h3>{shopFilter === 'ALL' ? 'No Orders Yet' : 'No orders for this Shop'}</h3>
+            <p className="muted">{shopFilter === 'ALL' ? 'Orders will appear here when customers place them.' : 'Choose All Shops to see every Order in this Business.'}</p>
           </div>
         </Card>
       ) : (
@@ -143,14 +163,15 @@ export default function SellerOrdersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => {
+                  {visibleOrders.map((order) => {
                     const actions = nextActions(order)
                     const isExpanded = expandedId === order.id
                     const payment = payments[order.id]
+                    const detail = details[order.id]
                     return (
                       <tr key={order.id}>
                         <td>{order.order_number || order.id.slice(0, 8)}</td>
-                        <td><span className={`badge badge-${getStatusColor(order.status)}`}>{order.status}</span></td>
+                        <td><div><strong>{shopNames.get(order.shop_id) || detail?.shop_name || 'Unknown Shop'}</strong></div><span className={`badge badge-${getStatusColor(order.status)}`}>{order.status}</span></td>
                         <td>{order.final_total?.toLocaleString() || '0'}</td>
                         <td>{new Date(order.created_at).toLocaleDateString()}</td>
                         <td>
@@ -183,6 +204,7 @@ export default function SellerOrdersPage() {
                               <div><strong>Base total:</strong> {(order.base_total ?? order.final_total).toLocaleString()} FC</div>
                               {order.notes && <div><strong>Notes:</strong> {order.notes}</div>}
                               <div><strong>Shop ID:</strong> {order.shop_id}</div>
+                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>Products</strong>{detail.lines.map((line) => <div key={line.id}>{line.product_name || line.product_id}{line.variant_name ? ` · ${line.variant_name}` : ''} · Qty {line.quantity} · {(line.final_unit_price || line.unit_price).toLocaleString()} FC</div>)}</div> : <div>Loading product details…</div>}
                               <div className="seller-payment-box">
                                 <strong>Cash payment</strong>
                                 {payment ? <>
