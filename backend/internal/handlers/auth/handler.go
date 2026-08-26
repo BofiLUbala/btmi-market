@@ -238,9 +238,20 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 		})
 		return
 	}
+	identifier := req.Identifier
+	if identifier == "" {
+		identifier = req.Email // backward compatibility with older clients
+	}
+	if identifier == "" {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}{Code: "INVALID_REQUEST", Message: "Email or phone is required"}})
+		return
+	}
 
 	// Always return success to prevent email enumeration
-	err := h.authService.RequestPasswordReset(req.Email)
+	err := h.authService.RequestPasswordReset(identifier)
 	if err != nil {
 		// Keep the public response generic to prevent account enumeration, but
 		// retain the delivery failure in server logs for operations/support.

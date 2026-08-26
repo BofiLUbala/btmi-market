@@ -49,6 +49,7 @@ type Order struct {
 	DeliveryAddress        string      `json:"delivery_address" db:"delivery_address"`
 	DeliveryNotes          string      `json:"delivery_notes" db:"delivery_notes"`
 	PointsFinalized        bool        `json:"points_finalized" db:"points_finalized"`
+	InventoryClaimed       bool        `json:"inventory_claimed" db:"inventory_claimed"`
 	AcceptedAt             *time.Time  `json:"accepted_at" db:"accepted_at"`
 	PreparingAt            *time.Time  `json:"preparing_at" db:"preparing_at"`
 	ReadyAt                *time.Time  `json:"ready_at" db:"ready_at"`

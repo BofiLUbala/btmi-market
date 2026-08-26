@@ -1,0 +1,198 @@
+﻿[
+    {
+        "Test":  "Seller registered+active+login",
+        "Expected":  "200 token",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer registered+active+login",
+        "Expected":  "200 token",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Catalog ready (business/shop/product/variant/stock)",
+        "Expected":  "ids set",
+        "Actual":  "shop=c6a75c4e-e64a-4e92-a20e-1ad897d25fbd prod=3633db86-a845-4652-a3a2-479204e9df3d var=2edd16d1-d166-4042-869c-dc69c5ab0fee",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer profile created",
+        "Expected":  "200/201",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "ONE order id: seller sees buyer order (PENDING)",
+        "Expected":  "PENDING/PENDING",
+        "Actual":  "seller=PENDING buyer=PENDING",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer cannot Accept Order",
+        "Expected":  "403",
+        "Actual":  "HTTP 403 ",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller Accept -\u003e Buyer Tracking : seller+buyer same backend status + history",
+        "Expected":  "ACCEPTED on both + history entry",
+        "Actual":  "seller=ACCEPTED buyer=ACCEPTED histN=2 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Buyer prepares cash payment",
+        "Expected":  "201 created",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  "{\r\n    \"message\":  \"Cash payment created successfully\",\r\n    \"data\":  {\r\n                 \"id\":  \"f75aa49c-54fc-4ffc-af05-b9cd830fb17f\",\r\n                 \"order_id\":  \"ba31f915-0007-4151-9b8b-685c5f7d345f\",\r\n                 \"shop_id\":  \"c6a75c4e-e64a-4e92-a20e-1ad897d25fbd\",\r\n                 \"shop_name\":  \"Gombe Shop\",\r\n                 \"buyer_profile_id\":  \"fef7e933-b5da-4e4e-bd37-32157e61a0a0\",\r\n                 \"payment_method\":  \"CASH\",\r\n                 \"currency\":  \"CDF\",\r\n                 \"products_base_total\":  50000,\r\n                 \"products_points_used\":  0,\r\n                 \"products_points_discount\":  0,\r\n                 \"products_final_total\":  50000,\r\n                 \"delivery_fee_base\":  0,\r\n                 \"delivery_points_used\":  0,\r\n                 \"delivery_points_discount\":  0,\r\n                 \"delivery_fee_final\":  0,\r\n                 \"cash_due\":  50000,\r\n                 \"buyer_confirmed\":  false,\r\n                 \"buyer_confirmed_at\":  null,\r\n                 \"seller_confirmed\":  false,\r\n                 \"seller_confirmed_by\":  null,\r\n                 \"seller_confirmed_at\":  null,\r\n                 \"status\":  \"PENDING\",\r\n                 \"verified_at\":  null,\r\n                 \"created_at\":  \"2026-08-26T13:26:41.493442Z\",\r\n                 \"updated_at\":  \"2026-08-26T13:26:41.493442Z\"\r\n             }\r\n}"
+    },
+    {
+        "Test":  "BUYER I Have Paid -\u003e CONFIRMED",
+        "Expected":  "CONFIRMED",
+        "Actual":  "HTTP 200 st=CONFIRMED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller Start Preparing -\u003e Buyer Tracking : seller+buyer same backend status + history",
+        "Expected":  "PREPARING on both + history entry",
+        "Actual":  "seller=PREPARING buyer=PREPARING histN=3 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller Ready For Pickup -\u003e Buyer Tracking : seller+buyer same backend status + history",
+        "Expected":  "READY_FOR_PICKUP on both + history entry",
+        "Actual":  "seller=READY_FOR_PICKUP buyer=READY_FOR_PICKUP histN=4 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller cannot mark RECEIVED for buyer",
+        "Expected":  "403",
+        "Actual":  "HTTP 400 ",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Stock reserved while order active",
+        "Expected":  "reserved\u003e=1",
+        "Actual":  "reserved=1",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "BUYER Confirm Received : seller+buyer same backend status + history",
+        "Expected":  "RECEIVED on both + history entry",
+        "Actual":  "seller=RECEIVED buyer=RECEIVED histN=5 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "SELLER Confirm Cash Received -\u003e VERIFIED",
+        "Expected":  "VERIFIED",
+        "Actual":  "HTTP 200 st=VERIFIED",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Auto-COMPLETED (receipt + payment verified) : seller+buyer same backend status + history",
+        "Expected":  "COMPLETED on both + history entry",
+        "Actual":  "seller=COMPLETED buyer=COMPLETED histN=6 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Review eligible after COMPLETED",
+        "Expected":  "eligible=true",
+        "Actual":  "HTTP 200 eligible=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Real status history complete (no fake entries)",
+        "Expected":  "all stages recorded",
+        "Actual":  "missing=PENDING,ACCEPTED,PREPARING,READY_FOR_PICKUP,RECEIVED,COMPLETED",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Delivery order created (PENDING both)",
+        "Expected":  "PENDING/PENDING",
+        "Actual":  "seller=PENDING buyer=PENDING",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller -\u003e ACCEPTED : seller+buyer same backend status + history",
+        "Expected":  "ACCEPTED on both + history entry",
+        "Actual":  "seller=ACCEPTED buyer=ACCEPTED histN=2 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller -\u003e PREPARING : seller+buyer same backend status + history",
+        "Expected":  "PREPARING on both + history entry",
+        "Actual":  "seller=PREPARING buyer=PREPARING histN=3 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller Mark Ready : seller+buyer same backend status + history",
+        "Expected":  "READY on both + history entry",
+        "Actual":  "seller=READY buyer=READY histN=4 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller Dispatch (OUT_FOR_DELIVERY) : seller+buyer same backend status + history",
+        "Expected":  "OUT_FOR_DELIVERY on both + history entry",
+        "Actual":  "seller=OUT_FOR_DELIVERY buyer=OUT_FOR_DELIVERY histN=5 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Seller Mark Delivered : seller+buyer same backend status + history",
+        "Expected":  "DELIVERED on both + history entry",
+        "Actual":  "seller=DELIVERED buyer=DELIVERED histN=6 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "BUYER Confirm Received (payment already verified) : seller+buyer same backend status + history",
+        "Expected":  "COMPLETED on both + history entry",
+        "Actual":  "seller=COMPLETED buyer=COMPLETED histN=8 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Auto-COMPLETED delivery order : seller+buyer same backend status + history",
+        "Expected":  "COMPLETED on both + history entry",
+        "Actual":  "seller=COMPLETED buyer=COMPLETED histN=8 hist=True shop/product=True",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Inventory synced: reservations consumed on final sale",
+        "Expected":  "quantity=8|reserved=0",
+        "Actual":  "inventory=8|0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Refresh persistence: statuses still correct from backend",
+        "Expected":  "COMPLETED both",
+        "Actual":  "seller=COMPLETED buyer=COMPLETED",
+        "Pass":  true,
+        "Notes":  ""
+    }
+]

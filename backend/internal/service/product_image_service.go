@@ -25,6 +25,7 @@ var allowedImageTypes = map[string]string{
 type ProductImageService struct {
 	imageRepo      *repository.ProductImageRepository
 	productRepo    *repository.ProductRepository
+	variantRepo    *repository.VariantRepository
 	membershipRepo *repository.MembershipRepository
 	uploadDir      string
 }
@@ -32,12 +33,14 @@ type ProductImageService struct {
 func NewProductImageService(
 	imageRepo *repository.ProductImageRepository,
 	productRepo *repository.ProductRepository,
+	variantRepo *repository.VariantRepository,
 	membershipRepo *repository.MembershipRepository,
 	uploadDir string,
 ) *ProductImageService {
 	return &ProductImageService{
 		imageRepo:      imageRepo,
 		productRepo:    productRepo,
+		variantRepo:    variantRepo,
 		membershipRepo: membershipRepo,
 		uploadDir:      uploadDir,
 	}
@@ -47,6 +50,7 @@ func (s *ProductImageService) toResponse(img *models.ProductImage) models.Produc
 	return models.ProductImageResponse{
 		ID:        img.ID,
 		ProductID: img.ProductID,
+		VariantID: img.VariantID,
 		URL:       img.URL,
 		FileName:  img.FileName,
 		SortOrder: img.SortOrder,
@@ -168,6 +172,39 @@ func (s *ProductImageService) List(userID, businessID, productID uuid.UUID) ([]m
 		responses = append(responses, s.toResponse(img))
 	}
 	return responses, nil
+}
+
+// AssignVariant links a Product image to one of that Product's Variants so
+// Buyers see the exact colour/model they selected. Passing a nil variantID
+// makes the image Product-wide again.
+func (s *ProductImageService) AssignVariant(userID, businessID, productID, imageID uuid.UUID, variantID *uuid.UUID) (*models.ProductImageResponse, error) {
+	if err := s.requireMembership(userID, businessID); err != nil {
+		return nil, err
+	}
+
+	img, err := s.imageRepo.GetByID(imageID)
+	if err != nil || img == nil || img.BusinessID != businessID || img.ProductID != productID {
+		return nil, errors.New("IMAGE_NOT_FOUND")
+	}
+
+	// A Variant may only be attached to an image of its own Product.
+	if variantID != nil {
+		variant, err := s.variantRepo.GetByID(*variantID)
+		if err != nil || variant == nil || variant.ProductID != productID {
+			return nil, errors.New("VARIANT_NOT_FOUND")
+		}
+	}
+
+	if err := s.imageRepo.SetVariant(imageID, variantID); err != nil {
+		return nil, errors.New("IMAGE_SAVE_FAILED")
+	}
+
+	updated, err := s.imageRepo.GetByID(imageID)
+	if err != nil || updated == nil {
+		return nil, errors.New("IMAGE_NOT_FOUND")
+	}
+	resp := s.toResponse(updated)
+	return &resp, nil
 }
 
 func (s *ProductImageService) Delete(userID, businessID, productID, imageID uuid.UUID) error {

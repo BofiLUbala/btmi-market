@@ -95,7 +95,7 @@ export interface BuyerProfile {
   backup_phone?: string; address?: string; city?: string; commune?: string
 }
 export interface Business { id: string; name: string; status: string }
-export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; created_at: string }
+export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; created_at: string; delivery_method?: string; notes?: string }
 export interface SellerOrder extends BuyerOrder {
   business_id: string
   base_total?: number
@@ -103,7 +103,71 @@ export interface SellerOrder extends BuyerOrder {
   notes?: string
 }
 export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; final_unit_price: number; product_name: string; variant_name?: string; image_url?: string }
-export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; shop_name: string }
+export interface OrderStatusHistory { id: string; order_id: string; status: string; changed_by?: string | null; actor_type?: string; notes: string; created_at: string }
+export interface TrackingResponse { order_id: string; order_number: string; current_status: string; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
+export interface BuyerPayment {
+  id: string; order_id: string; shop_id: string; shop_name?: string
+  payment_method: string; currency: string
+  products_base_total: number; products_points_used: number
+  products_points_discount: number; products_final_total: number
+  delivery_fee_base: number; delivery_points_used: number
+  delivery_points_discount: number; delivery_fee_final: number
+  cash_due: number
+  buyer_confirmed: boolean; buyer_confirmed_at?: string | null
+  seller_confirmed: boolean; seller_confirmed_at?: string | null
+  status: string; verified_at?: string | null; created_at: string
+}
+export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: OrderStatusHistory[]; shop_name: string }
+
+/* ---------- Checkout pipeline ----------
+   These mirror the web contract exactly (web-app/src/api/types.ts). The
+   backend is the single source of truth for pricing, so nothing here is
+   ever computed on the device. */
+
+export type DeliveryMethod = 'PICKUP' | 'SHOP_DELIVERY' | 'PARTNER'
+
+export interface OrderLineInput { product_id: string; variant_id: string; quantity: number }
+
+export interface OrderWithLines { order: BuyerOrder; lines: OrderLine[] }
+
+export interface PointRedemptionPreview {
+  base_total: number; points_used: number; points_discount_amount: number
+  final_total: number; currency: string; available_points: number
+  maximum_usable_points: number; redeem_rate: number; max_point_coverage: number
+}
+
+export interface DeliveryOption {
+  method: DeliveryMethod; label: string; fee: number
+  provider?: string; available: boolean
+}
+
+export interface DeliveryOptionsResponse {
+  order_id: string; shop_id: string
+  options: DeliveryOption[]; current_method: string
+}
+
+export interface DeliverySummary {
+  method: string; fee_base: number; points_used: number
+  points_discount: number; fee_final: number
+  contact_name: string; phone: string; address: string; notes: string
+}
+
+export interface DeliverySelectResponse {
+  order_id: string; products_final_total: number
+  delivery: DeliverySummary; total_due: number
+}
+
+export interface SelectDeliveryRequest {
+  method: DeliveryMethod; use_points_for_delivery: boolean
+  contact_name?: string; phone?: string; address?: string; notes?: string
+}
+
+export interface DeliveryPointsPreview {
+  method: string; fee_base: number; points_used: number
+  points_discount_amount: number; fee_final: number; currency: string
+  available_points: number; maximum_usable_points: number
+  redeem_rate: number; max_delivery_point_coverage: number
+}
 export interface ReviewEligibility { eligible: boolean; reason: string; existing_review_id?: string }
 export interface BuyerReview { id: string; order_id: string; product_id?: string; order_line_id?: string; rating: number; comment: string; verified_purchase: boolean; status: string; delivery_rating?: number; service_rating?: number; order_experience_rating?: number; created_at: string }
 export interface BuyerReviewsResponse { reviews: BuyerReview[]; pagination: { page: number; limit: number; total: number; has_more?: boolean } }

@@ -297,7 +297,7 @@ func (s *ReviewService) WithdrawReview(buyerProfileID, reviewID uuid.UUID) error
 }
 
 // GetShopReviews gets public reviews for a shop.
-func (s *ReviewService) GetShopReviews(shopID uuid.UUID, sortBy string, ratingFilter *int, page, perPage int) (*models.ShopReviewsResponse, error) {
+func (s *ReviewService) GetShopReviews(shopID uuid.UUID, reviewType, sortBy string, ratingFilter *int, page, perPage int) (*models.ShopReviewsResponse, error) {
 	if perPage <= 0 {
 		perPage = 20
 	}
@@ -309,7 +309,7 @@ func (s *ReviewService) GetShopReviews(shopID uuid.UUID, sortBy string, ratingFi
 	}
 	offset := (page - 1) * perPage
 
-	reviews, total, err := s.reviewRepo.GetReviewsByShopID(shopID, sortBy, ratingFilter, offset, perPage)
+	reviews, total, err := s.reviewRepo.GetReviewsByShopID(shopID, reviewType, sortBy, ratingFilter, offset, perPage)
 	if err != nil {
 		return nil, err
 	}

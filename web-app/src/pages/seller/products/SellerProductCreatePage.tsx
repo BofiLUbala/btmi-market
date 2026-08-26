@@ -8,17 +8,27 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 
+import {
+  getCategorySuggestions,
+  POPULAR_CUSTOM_CHARACTERISTICS,
+  type AttributeClassification,
+  type AttributeSuggestion,
+} from '@/lib/categorySuggestions'
+
 /* ── Types ── */
 
 interface CharacteristicRow {
   id: string
   name: string
-  values: string // comma-separated; >1 value generates variant combinations
+  type: AttributeClassification
+  values: string
+  placeholder?: string
 }
 
 interface ComboRow {
   key: string
   label: string
+  sku?: string
   attributes: Record<string, string>
   price: string
   stock: string
@@ -32,12 +42,6 @@ interface PipelineProgress {
   published: boolean
 }
 
-const CHARACTERISTIC_SUGGESTIONS = [
-  'Color', 'Size', 'Material', 'Weight', 'Volume', 'Brand', 'Model',
-  'Storage', 'RAM', 'Dimensions', 'Flavor', 'Packaging', 'Capacity',
-  'Compatibility', 'Expiration Date',
-]
-
 /* ── Helpers ── */
 
 function cartesian(attrs: Array<{ name: string; values: string[] }>): Array<Record<string, string>> {
@@ -47,6 +51,7 @@ function cartesian(attrs: Array<{ name: string; values: string[] }>): Array<Reco
     [{}]
   )
 }
+
 
 export default function SellerProductCreatePage() {
   const { shopId = '' } = useParams()
@@ -70,11 +75,19 @@ export default function SellerProductCreatePage() {
     unit_price: '',
     cost_price: '',
     description: '',
+    discount_active: false,
+    discount_type: 'PERCENTAGE',
+    discount_value: '',
+    discount_start: '',
+    discount_end: '',
   })
 
   /* Images */
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+
+  /* Category change notification */
+  const [categoryNotice, setCategoryNotice] = useState('')
 
   /* Optional characteristics */
   const [characteristics, setCharacteristics] = useState<CharacteristicRow[]>([])
@@ -146,34 +159,86 @@ export default function SellerProductCreatePage() {
     [categories, categoryId]
   )
   const subcategories: SubcategoryResponse[] = selectedCategory?.subcategories ?? []
+  const selectedSubcategory = useMemo(
+    () => subcategories.find((s) => s.id === subcategoryId),
+    [subcategories, subcategoryId]
+  )
 
-  /* Derived variant combos (only when a characteristic has multiple values) */
+  const categorySuggestions = useMemo(() => {
+    if (!selectedCategory) return []
+    // A subcategory can be more specific than its parent (e.g. Fashion › Shoes
+    // should suggest shoe attributes, not generic fashion ones). Prefer the
+    // subcategory's own suggestions when they resolve to something; otherwise
+    // fall back to the parent category.
+    if (selectedSubcategory) {
+      const subSuggestions = getCategorySuggestions(selectedSubcategory.slug || selectedSubcategory.name)
+      if (subSuggestions.length > 0) return subSuggestions
+    }
+    return getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
+  }, [selectedCategory, selectedSubcategory])
+
+  function handleCategoryChange(newCatId: string) {
+    if (categoryId && newCatId !== categoryId && characteristics.length > 0) {
+      const hasValues = characteristics.some((c) => c.name.trim() || c.values.trim())
+      if (hasValues) {
+        const confirmed = window.confirm(
+          'Changing category may make some characteristics inappropriate for the new category.\n\nYour current characteristics will be preserved — you can keep, edit or remove them.\n\nContinue with category change?'
+        )
+        if (!confirmed) return
+      }
+      const oldName = categories.find((c) => c.id === categoryId)?.name || 'previous category'
+      const newName = categories.find((c) => c.id === newCatId)?.name || 'new category'
+      const charList = characteristics.map((c) => c.name.trim()).filter(Boolean).join(', ')
+      if (charList) {
+        setCategoryNotice(
+          `Category changed from ${oldName} to ${newName}. Your existing variant settings and attributes (${charList}) have been preserved. Review suggestions for ${newName} below or adjust your configuration.`
+        )
+      }
+    } else {
+      setCategoryNotice('')
+    }
+    setCategoryId(newCatId)
+    setSubcategoryId('')
+  }
+
+  /* Derived variant combos (generated only from VARIANT characteristics) */
   const combos: ComboRow[] = useMemo(() => {
-    const parsed = characteristics
+    const variantAttrs = characteristics
+      .filter((c) => c.type === 'VARIANT')
       .map((c) => ({
         name: c.name.trim(),
         values: c.values.split(',').map((v) => v.trim()).filter(Boolean),
       }))
       .filter((c) => c.name && c.values.length > 0)
 
-    const multi = parsed.filter((p) => p.values.length > 1)
-    if (multi.length === 0) return []
+    const infoAttrs: Record<string, string> = {}
+    characteristics
+      .filter((c) => c.type === 'INFO')
+      .forEach((c) => {
+        const n = c.name.trim()
+        const v = c.values.trim()
+        if (n && v) infoAttrs[n] = v
+      })
 
-    const attributeSets = cartesian(parsed)
-    return attributeSets.map((attributes) => {
-      const label = Object.values(attributes).join(' / ')
+    if (variantAttrs.length === 0) return []
+
+    const attributeSets = cartesian(variantAttrs)
+    return attributeSets.map((attrSet, idx) => {
+      const label = Object.values(attrSet).join(' / ')
+      const skuVal = form.sku.trim() ? `${form.sku.trim()}-${idx + 1}` : ''
       return {
         key: label,
         label,
-        attributes,
+        sku: skuVal,
+        attributes: { ...infoAttrs, ...attrSet },
         price: form.unit_price,
         stock: '0',
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characteristics])
+  }, [characteristics, form.sku, form.unit_price])
 
-  function updateCombo(key: string, field: 'price' | 'stock', value: string) {
+  function updateCombo(key: string, field: 'price' | 'stock' | 'sku', value: string) {
     setCombosState((prev) => prev.map((c) => (c.key === key ? { ...c, [field]: value } : c)))
   }
 
@@ -219,11 +284,41 @@ export default function SellerProductCreatePage() {
   }
 
   /* ── Characteristics handlers ── */
-  function addCharacteristic() {
-    setCharacteristics((prev) => [...prev, { id: `ch-${Date.now()}`, name: '', values: '' }])
+  function addSuggestion(s: AttributeSuggestion) {
+    const exists = characteristics.some(
+      (c) => c.name.trim().toLowerCase() === s.name.toLowerCase()
+    )
+    if (exists) return
+    setCharacteristics((prev) => [
+      ...prev,
+      {
+        id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: s.name,
+        type: s.recommendedType,
+        values: '',
+        placeholder: s.placeholder,
+      },
+    ])
   }
 
-  function updateCharacteristic(id: string, field: 'name' | 'values', value: string) {
+  function addCustomCharacteristic() {
+    setCharacteristics((prev) => [
+      ...prev,
+      {
+        id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: '',
+        type: 'VARIANT',
+        values: '',
+        placeholder: 'e.g. Value 1, Value 2',
+      },
+    ])
+  }
+
+  function updateCharacteristic<K extends keyof CharacteristicRow>(
+    id: string,
+    field: K,
+    value: CharacteristicRow[K]
+  ) {
     setCharacteristics((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)))
   }
 
@@ -231,12 +326,26 @@ export default function SellerProductCreatePage() {
     setCharacteristics((prev) => prev.filter((c) => c.id !== id))
   }
 
+
   /* ── Validation ── */
   function validate(): string {
     if (!categoryId) return 'Please select a Category.'
     if (!form.name.trim()) return 'Product Name is required.'
     const price = parseFloat(form.unit_price)
     if (isNaN(price) || price <= 0) return 'A valid Sale Price (> 0 FC) is required.'
+    
+    if (form.discount_active) {
+      const discVal = parseFloat(form.discount_value)
+      if (isNaN(discVal) || discVal <= 0) return 'Please enter a valid promotion discount value.'
+      if (form.discount_type === 'PERCENTAGE' && discVal > 100) return 'Percentage discount cannot exceed 100%.'
+      if (form.discount_type === 'FIXED' && discVal >= price) return 'Fixed discount cannot exceed or equal the base price.'
+      if (form.discount_start && form.discount_end) {
+        if (new Date(form.discount_end) <= new Date(form.discount_start)) {
+          return 'Promotion end date must be after the start date.'
+        }
+      }
+    }
+
     if (isVariantMode) {
       for (const combo of activeCombos) {
         const p = parseFloat(combo.price || form.unit_price)
@@ -274,6 +383,11 @@ export default function SellerProductCreatePage() {
           category_id: categoryId,
           subcategory_id: subcategoryId || undefined,
           publication_status: 'DRAFT',
+          discount_active: form.discount_active,
+          discount_type: form.discount_type,
+          discount_value: form.discount_active ? parseFloat(form.discount_value) : 0,
+          discount_start: form.discount_active && form.discount_start ? new Date(form.discount_start).toISOString() : undefined,
+          discount_end: form.discount_active && form.discount_end ? new Date(form.discount_end).toISOString() : undefined,
         })
         productId = created.id
         createdProduct = created
@@ -415,7 +529,19 @@ export default function SellerProductCreatePage() {
     setSummary(null)
     setCategoryId('')
     setSubcategoryId('')
-    setForm({ name: '', sku: '', unit: 'PCS', unit_price: '', cost_price: '', description: '' })
+    setForm({
+      name: '',
+      sku: '',
+      unit: 'PCS',
+      unit_price: '',
+      cost_price: '',
+      description: '',
+      discount_active: false,
+      discount_type: 'PERCENTAGE',
+      discount_value: '',
+      discount_start: '',
+      discount_end: '',
+    })
     setImageFiles([])
     setImagePreviews([])
     setCharacteristics([])
@@ -554,23 +680,20 @@ export default function SellerProductCreatePage() {
 
       {error && <ErrorBox error={error} />}
 
-      <form onSubmit={(e) => handleSubmit(e, publishIntentRef.current)}>
+      <form className="card-stack" onSubmit={(e) => handleSubmit(e, publishIntentRef.current)}>
         {/* STEP 1 — Category */}
-        <Card style={{ marginBottom: 24 }}>
+        <Card>
           <h3>What kind of Product is this?</h3>
-          <p className="muted small" style={{ margin: '4px 0 12px' }}>
-            The Category places your Product correctly in the Marketplace.
+          <p className="muted small mt-1 mb-3">
+            The Category places your Product correctly in the Marketplace and provides relevant attribute suggestions.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+          <div className="field-grid">
             <Field
               label="Category *"
               name="category_id"
               as="select"
               value={categoryId}
-              onChange={(e) => {
-                setCategoryId(e.target.value)
-                setSubcategoryId('')
-              }}
+              onChange={(e) => handleCategoryChange(e.target.value)}
               options={[
                 { value: '', label: 'Select Category…' },
                 ...categories.map((c) => ({ value: c.id, label: c.name })),
@@ -589,14 +712,18 @@ export default function SellerProductCreatePage() {
               ]}
             />
           </div>
+
+          {categoryNotice && (
+            <div className="notice notice-warning mt-4">ℹ️ {categoryNotice}</div>
+          )}
         </Card>
 
         {/* STEP 2+ — Details appear only after Category selection */}
         {detailsVisible && (
           <>
-            <Card style={{ marginBottom: 24 }} className="reveal-section">
+            <Card className="reveal-section">
               <h3>Product Information</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 12 }}>
+              <div className="field-grid mt-3">
                 <Field
                   label="Product Name *"
                   name="name"
@@ -652,8 +779,97 @@ export default function SellerProductCreatePage() {
               </div>
             </Card>
 
+            {/* Promotion & Sale Price Card */}
+            <Card className="reveal-section">
+              <h3>Promotion & Special Offer</h3>
+              <p className="muted small" style={{ margin: '4px 0 12px' }}>
+                Set a discount price or percentage off. Discounted prices apply automatically during checkout.
+              </p>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <input
+                  type="checkbox"
+                  id="discount_active"
+                  checked={form.discount_active}
+                  onChange={(e) => setForm({ ...form, discount_active: e.target.checked })}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+                <label htmlFor="discount_active" style={{ fontWeight: 600, cursor: 'pointer' }}>
+                  Enable Special Promotion / Sale Price
+                </label>
+              </div>
+
+              {form.discount_active && (
+                <div className="reveal-section field-grid">
+                  <Field
+                    label="Discount Type"
+                    name="discount_type"
+                    as="select"
+                    value={form.discount_type}
+                    onChange={(e) => setForm({ ...form, discount_type: e.target.value })}
+                    options={[
+                      { value: 'PERCENTAGE', label: 'Percentage Off (%)' },
+                      { value: 'FIXED', label: 'Fixed Price Discount (FC)' }
+                    ]}
+                  />
+                  <Field
+                    label={form.discount_type === 'PERCENTAGE' ? 'Discount Percentage (%)' : 'Discount Amount (FC)'}
+                    name="discount_value"
+                    type="number"
+                    min="1"
+                    step="any"
+                    placeholder={form.discount_type === 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 15000'}
+                    value={form.discount_value}
+                    onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
+                  />
+                  <Field
+                    label="Start Date & Time (Optional)"
+                    name="discount_start"
+                    type="datetime-local"
+                    value={form.discount_start}
+                    onChange={(e) => setForm({ ...form, discount_start: e.target.value })}
+                  />
+                  <Field
+                    label="End Date & Time (Optional)"
+                    name="discount_end"
+                    type="datetime-local"
+                    value={form.discount_end}
+                    onChange={(e) => setForm({ ...form, discount_end: e.target.value })}
+                  />
+                </div>
+              )}
+
+              {form.discount_active && form.unit_price && form.discount_value && (
+                <div style={{ marginTop: 16, padding: 12, background: 'rgba(230, 242, 237, 0.5)', borderRadius: 8, border: '1px solid rgba(15, 61, 46, 0.15)' }}>
+                  <span className="small muted" style={{ display: 'block', marginBottom: 4 }}>Promotion Live Preview</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+                      {(() => {
+                        const base = parseFloat(form.unit_price)
+                        const val = parseFloat(form.discount_value)
+                        if (isNaN(base) || isNaN(val)) return '—'
+                        if (form.discount_type === 'PERCENTAGE') {
+                          return (base * (1 - val / 100)).toLocaleString()
+                        } else {
+                          return Math.max(0, base - val).toLocaleString()
+                        }
+                      })()} FC
+                    </span>
+                    <span style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                      {parseFloat(form.unit_price).toLocaleString()} FC
+                    </span>
+                    <span className="badge badge-success" style={{ fontSize: '0.8rem', padding: '2px 6px' }}>
+                      {form.discount_type === 'PERCENTAGE' 
+                        ? `${form.discount_value}% OFF` 
+                        : `${parseFloat(form.discount_value).toLocaleString()} FC OFF`}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </Card>
+
             {/* Images */}
-            <Card style={{ marginBottom: 24 }} className="reveal-section">
+            <Card className="reveal-section">
               <h3>Product Photos</h3>
               <p className="muted small" style={{ margin: '4px 0 12px' }}>
                 Add photos from different angles so Buyers can better understand your Product. The first photo is the primary one shown in the Marketplace.
@@ -692,74 +908,197 @@ export default function SellerProductCreatePage() {
               )}
             </Card>
 
-            {/* Optional characteristics */}
-            <Card style={{ marginBottom: 24 }} className="reveal-section">
-              <h3>Additional Product Details</h3>
-              <p className="muted small" style={{ margin: '4px 0 12px' }}>
-                Optional. Add only what matters for this Product. To create purchasable Variants, separate multiple values with commas (e.g. Color: Black, White).
-              </p>
+            {/* Variant Attributes & Product Specifications */}
+            <Card className="reveal-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>Product Characteristics & Variant Settings</h3>
+                  <p className="muted small" style={{ margin: '4px 0 0' }}>
+                    Select which attributes apply to this Product. You decide whether an attribute creates purchasable Variants (e.g. Color, Size, Flavor) or acts as Product Information (e.g. Material, Expiration Date).
+                  </p>
+                </div>
+              </div>
 
+              {/* Category-relevant suggestion chips */}
+              {categorySuggestions.length > 0 && (
+                <div style={{ margin: '16px 0 20px', padding: 14, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
+                  <div className="small bold" style={{ marginBottom: 8, color: 'var(--color-text)' }}>
+                    💡 Suggested for {selectedSubcategory?.name || selectedCategory?.name || 'this category'} (click to add):
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {categorySuggestions.map((sug) => {
+                      const alreadyAdded = characteristics.some(
+                        (c) => c.name.trim().toLowerCase() === sug.name.toLowerCase()
+                      )
+                      return (
+                        <button
+                          key={sug.name}
+                          type="button"
+                          disabled={alreadyAdded}
+                          onClick={() => addSuggestion(sug)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '6px 12px',
+                            borderRadius: 20,
+                            border: '1px solid var(--color-border)',
+                            background: alreadyAdded ? 'rgba(0,0,0,0.04)' : 'var(--color-surface)',
+                            cursor: alreadyAdded ? 'default' : 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            opacity: alreadyAdded ? 0.6 : 1,
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <span>{alreadyAdded ? '✓' : '+'}</span>
+                          <span>{sug.name}</span>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '1px 6px',
+                              borderRadius: 10,
+                              background: sug.recommendedType === 'VARIANT' ? 'rgba(30, 64, 175, 0.1)' : 'rgba(100, 116, 139, 0.15)',
+                              color: sug.recommendedType === 'VARIANT' ? '#1e40af' : '#475569',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {sug.recommendedType === 'VARIANT' ? 'Variant' : 'Info'}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Characteristics Configuration List */}
               {characteristics.length > 0 && (
-                <div style={{ display: 'grid', gap: 12, marginBottom: 12 }}>
+                <div style={{ display: 'grid', gap: 14, marginBottom: 16 }}>
                   {characteristics.map((ch) => (
-                    <div key={ch.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 200px) 1fr auto', gap: 12, alignItems: 'end' }}>
+                    <div
+                      key={ch.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(140px, 180px) minmax(180px, 220px) 1fr auto',
+                        gap: 12,
+                        alignItems: 'end',
+                        padding: 12,
+                        background: ch.type === 'VARIANT' ? 'rgba(30, 64, 175, 0.03)' : 'rgba(0,0,0,0.02)',
+                        border: `1px solid ${ch.type === 'VARIANT' ? 'rgba(30, 64, 175, 0.2)' : 'var(--color-border)'}`,
+                        borderRadius: 'var(--radius)',
+                      }}
+                    >
                       <div>
-                        <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-name`}>Characteristic</label>
+                        <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-name`}>
+                          Attribute Name
+                        </label>
                         <input
                           id={`${ch.id}-name`}
                           className="input"
                           list="characteristic-suggestions"
-                          placeholder="e.g. Color"
+                          placeholder="e.g. Color, Heel Height"
                           value={ch.name}
                           onChange={(e) => updateCharacteristic(ch.id, 'name', e.target.value)}
                         />
                       </div>
                       <div>
-                        <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-values`}>Value(s), comma separated</label>
+                        <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-type`}>
+                          Classification
+                        </label>
+                        <select
+                          id={`${ch.id}-type`}
+                          className="input"
+                          value={ch.type}
+                          onChange={(e) => updateCharacteristic(ch.id, 'type', e.target.value as AttributeClassification)}
+                        >
+                          <option value="VARIANT">Variant Attribute (Combinations)</option>
+                          <option value="INFO">Product Information (Specification)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-values`}>
+                          {ch.type === 'VARIANT' ? 'Values (comma separated)' : 'Specification Value'}
+                        </label>
                         <input
                           id={`${ch.id}-values`}
                           className="input"
-                          placeholder="e.g. Black, White — or 400 ml"
+                          placeholder={ch.type === 'VARIANT' ? (ch.placeholder || 'e.g. Black, White, Red') : (ch.placeholder || 'e.g. Genuine Leather, 2026-12-31')}
                           value={ch.values}
                           onChange={(e) => updateCharacteristic(ch.id, 'values', e.target.value)}
                         />
                       </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeCharacteristic(ch.id)}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        title="Remove characteristic"
+                        onClick={() => removeCharacteristic(ch.id)}
+                        style={{ alignSelf: 'center', marginTop: 18 }}
+                      >
                         ✕
                       </Button>
                     </div>
                   ))}
                   <datalist id="characteristic-suggestions">
-                    {CHARACTERISTIC_SUGGESTIONS.map((s) => (
+                    {POPULAR_CUSTOM_CHARACTERISTICS.map((s) => (
                       <option key={s} value={s} />
                     ))}
                   </datalist>
                 </div>
               )}
 
-              <Button type="button" variant="outline" size="sm" onClick={addCharacteristic}>
-                + Add Characteristic
-              </Button>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Button type="button" variant="outline" size="sm" onClick={addCustomCharacteristic}>
+                  + Add Custom Characteristic
+                </Button>
+                {characteristics.length === 0 && (
+                  <span className="small muted">
+                    No custom characteristics added yet. Product will be published as a simple single-variant item.
+                  </span>
+                )}
+              </div>
 
+              {/* Generated Variants Table */}
               {isVariantMode && activeCombos.length > 0 && (
-                <div style={{ marginTop: 20 }}>
-                  <h3>Variants & Stock per Variant</h3>
-                  <p className="muted small" style={{ margin: '4px 0 12px' }}>
-                    Stock belongs to <strong>{shop.name}</strong>. Total: <strong>{totalUnits} units</strong>.
-                  </p>
+                <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                    <div>
+                      <h4 style={{ margin: 0 }}>Generated Variants ({activeCombos.length} Combinations)</h4>
+                      <p className="muted small" style={{ margin: '2px 0 0' }}>
+                        Review individual price, SKU, and initial stock at <strong>{shop.name}</strong> before publishing.
+                      </p>
+                    </div>
+                    <div className="badge badge-primary" style={{ padding: '6px 12px' }}>
+                      Total Stock: <strong>{totalUnits} units</strong>
+                    </div>
+                  </div>
+
                   <div className="table-responsive">
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>Variant</th>
-                          <th style={{ minWidth: 130 }}>Price (FC)</th>
-                          <th style={{ minWidth: 110 }}>Stock</th>
+                          <th>Combination</th>
+                          <th style={{ minWidth: 140 }}>SKU</th>
+                          <th style={{ minWidth: 130 }}>Sale Price (FC)</th>
+                          <th style={{ minWidth: 110 }}>Initial Stock</th>
                         </tr>
                       </thead>
                       <tbody>
                         {activeCombos.map((combo) => (
                           <tr key={combo.key}>
-                            <td><strong>{combo.label}</strong></td>
+                            <td>
+                              <strong>{combo.label}</strong>
+                            </td>
+                            <td>
+                              <input
+                                className="input input-sm"
+                                type="text"
+                                placeholder="SKU"
+                                value={combo.sku || ''}
+                                onChange={(e) => updateCombo(combo.key, 'sku', e.target.value)}
+                              />
+                            </td>
                             <td>
                               <input
                                 className="input input-sm"
@@ -788,15 +1127,23 @@ export default function SellerProductCreatePage() {
                 </div>
               )}
 
-              {!isVariantMode && characteristics.some((c) => c.name.trim() && c.values.trim()) && (
-                <p className="small muted" style={{ marginTop: 12 }}>
-                  These details will be listed as Specifications for this Product.
-                </p>
+              {!isVariantMode && characteristics.some((c) => c.type === 'INFO' && c.name.trim() && c.values.trim()) && (
+                <div style={{ marginTop: 16, padding: 12, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
+                  <span className="small bold" style={{ display: 'block', marginBottom: 6 }}>Informational Product Specifications:</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                    {characteristics.filter((c) => c.type === 'INFO' && c.name.trim() && c.values.trim()).map((c) => (
+                      <span key={c.id} className="small" style={{ background: 'var(--color-surface)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--color-border)' }}>
+                        <strong>{c.name.trim()}:</strong> {c.values.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
             </Card>
 
+
             {/* Stock + Publication */}
-            <Card style={{ marginBottom: 32 }} className="reveal-section">
+            <Card className="reveal-section">
               {!isVariantMode && (
                 <div style={{ marginBottom: 24 }}>
                   <h3>Stock at: {shop.name}</h3>

@@ -246,7 +246,7 @@ func (h *Handler) AcceptOrder(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
-		Message: "Order cancelled successfully",
+		Message: "Order accepted successfully",
 		Data:    toOrderResponse(order),
 	})
 }

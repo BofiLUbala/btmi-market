@@ -16,8 +16,8 @@ export const authApi = {
   login: (email: string, password: string) =>
     post<LoginResponse>('/auth/login', { email, password }),
 
-  forgotPassword: (email: string) =>
-    post<null>('/auth/forgot-password', { email }),
+  forgotPassword: (identifier: string) =>
+    post<null>('/auth/forgot-password', { identifier }),
 
   resetPassword: (body: {
     token: string

@@ -290,6 +290,16 @@
   border-bottom: 1px solid var(--color-border);
 }
 .pd-specifications > div:nth-child(odd) { border-right: 1px solid var(--color-border); }
+/* An odd number of rows leaves the final cell alone on its line: it must span
+   the full width, otherwise its right border frames an empty half-row. */
+.pd-specifications > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  border-right: 0;
+  grid-template-columns: minmax(110px, 0.4fr) 3fr;
+}
+/* The outer container already draws the bottom edge. */
+.pd-specifications > div:last-child,
+.pd-specifications > div:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
 .pd-specifications dt,
 .pd-specifications dd { margin: 0; padding: 12px 14px; }
 .pd-specifications dt {
@@ -734,9 +744,13 @@
 .review-summary { position: sticky; top: 96px; }
 .review-score { font-size: 2rem; font-weight: 800; color: var(--color-text); }
 .review-score span, .review-stars { color: #d49b16; }
-.rating-row { width: 100%; display: grid; grid-template-columns: 42px 1fr 28px; gap: 8px; align-items: center; border: 0; background: none; padding: 5px 0; cursor: pointer; text-align: left; }
+.rating-row { width: 100%; display: grid; grid-template-columns: 42px 1fr 28px; gap: 8px; align-items: center; border: 0; background: none; padding: 5px 0; cursor: pointer; text-align: left; border-radius: 6px; }
+.rating-row:hover:not(.is-empty) { background: var(--color-surface-2); }
+.rating-row[aria-pressed='true'] { background: var(--color-surface-2); font-weight: 700; }
+.rating-row.is-empty { cursor: default; color: var(--color-text-muted); }
 .rating-row i { height: 7px; background: var(--color-surface-2); border-radius: 9px; overflow: hidden; }
 .rating-row b { display: block; height: 100%; background: #d49b16; }
+.review-clear-filter { margin-top: 10px; width: 100%; border: 1px solid var(--color-border); background: none; border-radius: var(--radius); padding: 6px 10px; cursor: pointer; font-size: var(--text-sm); font-weight: 700; color: var(--color-primary); }
 .review-feed { display: grid; gap: 12px; }
 .review-sort { width: auto; min-width: 150px; }
 .review-card { padding: 18px 0; border-top: 1px solid var(--color-border); }
@@ -1571,6 +1585,43 @@
 .table-responsive .data-table {
   min-width: 560px;
 }
+
+/* Shared seller table styling. `.data-table` is used by 9 seller pages and
+   previously had no rules at all, which left cells unpadded and let long
+   product names collide with the next column. */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  text-align: left;
+}
+.data-table th {
+  padding: 10px 12px;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border);
+}
+.data-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover td { background: var(--color-surface-2); }
+/* Numeric columns read better right-aligned and must never wrap. */
+.data-table td.num,
+.data-table th.num { text-align: right; white-space: nowrap; }
+/* Long free-text cells wrap instead of pushing the table wider. */
+.data-table td.wrap { overflow-wrap: anywhere; min-width: 160px; }
+.data-table .danger { color: var(--color-danger, #b42318); font-weight: 700; }
+.data-table .success { color: var(--color-success, #167647); font-weight: 700; }
+.data-table input[type='number'],
+.data-table input[type='text'] { max-width: 100%; }
 
 .seller-shop-card {
   display: flex;

@@ -41,6 +41,7 @@ func (h *ReviewHandler) GetShopReviews(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
 	sortBy := c.DefaultQuery("sort", "newest")
+	reviewType := c.DefaultQuery("type", "shop")
 
 	var ratingFilter *int
 	if r := c.Query("rating"); r != "" {
@@ -50,7 +51,7 @@ func (h *ReviewHandler) GetShopReviews(c *gin.Context) {
 		}
 	}
 
-	reviews, err := h.reviewService.GetShopReviews(shopID, sortBy, ratingFilter, page, perPage)
+	reviews, err := h.reviewService.GetShopReviews(shopID, reviewType, sortBy, ratingFilter, page, perPage)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return

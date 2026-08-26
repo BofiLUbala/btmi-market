@@ -94,10 +94,19 @@ function ReviewFormInner() {
   return (
     <div className="card stack" style={{ maxWidth: 520, margin: '0 auto' }}>
       <h1 style={{ fontSize: '1.4rem' }}>{serviceMode ? 'Review delivery & shop service' : eligibility.existing_review_id ? 'Edit your product review' : 'Review this product'}</h1>
-      <div className="card" style={{ background: 'var(--color-surface-2)', border: 0 }}>
-        <strong>{serviceMode ? shopName || 'Purchase shop' : product?.name ?? `Product ${line?.product_id.slice(0, 8) ?? ''}`}</strong>
-        {!serviceMode && <div className="small muted">Variant: {product?.variants?.find(v => v.id === line?.variant_id)?.name || line?.variant_id.slice(0, 8) || '—'}</div>}
-        <div className="small muted">Shop: {shopName || 'Purchase Shop'}</div>
+      <div className="card" style={{ background: 'var(--color-surface-2)', border: 0, display: 'flex', gap: 12, alignItems: 'center' }}>
+        {!serviceMode && (line?.image_url || product?.images?.[0]?.url) && (
+          <img 
+            src={line?.image_url || product?.images?.[0]?.url} 
+            alt="" 
+            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 'var(--radius)' }} 
+          />
+        )}
+        <div className="stack" style={{ gap: 2 }}>
+          <strong>{serviceMode ? shopName || 'Purchase shop' : product?.name ?? `Product ${line?.product_id.slice(0, 8) ?? ''}`}</strong>
+          {!serviceMode && <div className="small muted">Variant: {product?.variants?.find(v => v.id === line?.variant_id)?.name || line?.variant_id.slice(0, 8) || '—'}</div>}
+          <div className="small muted">Shop: {shopName || 'Purchase Shop'}</div>
+        </div>
       </div>
       {error && <ErrorBox error={error} />}
       {serviceMode ? <>

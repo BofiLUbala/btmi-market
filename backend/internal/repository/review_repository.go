@@ -197,8 +197,15 @@ func (r *ReviewRepository) WithdrawReview(reviewID uuid.UUID) error {
 }
 
 // GetReviewsByShopID gets public reviews for a shop.
-func (r *ReviewRepository) GetReviewsByShopID(shopID uuid.UUID, sortBy string, ratingFilter *int, offset, limit int) ([]models.PublicReviewResponse, int, error) {
-	whereClause := "WHERE sr.shop_id = $1 AND sr.status = 'ACTIVE' AND sr.order_line_id IS NULL"
+func (r *ReviewRepository) GetReviewsByShopID(shopID uuid.UUID, reviewType, sortBy string, ratingFilter *int, offset, limit int) ([]models.PublicReviewResponse, int, error) {
+	var whereClause string
+	if reviewType == "product" {
+		whereClause = "WHERE sr.shop_id = $1 AND sr.status = 'ACTIVE' AND sr.order_line_id IS NOT NULL"
+	} else if reviewType == "all" {
+		whereClause = "WHERE sr.shop_id = $1 AND sr.status = 'ACTIVE'"
+	} else {
+		whereClause = "WHERE sr.shop_id = $1 AND sr.status = 'ACTIVE' AND sr.order_line_id IS NULL"
+	}
 	args := []interface{}{shopID}
 	argIdx := 2
 
@@ -227,9 +234,19 @@ func (r *ReviewRepository) GetReviewsByShopID(shopID uuid.UUID, sortBy string, r
 	query := fmt.Sprintf(`
 		SELECT sr.id, sr.rating, sr.comment, sr.verified_purchase,
 		       COALESCE(bp.first_name, '') || ' ' || COALESCE(bp.last_name, '') as buyer_name,
-		       sr.created_at, sr.delivery_rating, sr.service_rating, sr.order_experience_rating
+		       sr.created_at, sr.delivery_rating, sr.service_rating, sr.order_experience_rating,
+		       sr.product_id, COALESCE(p.name, ''), COALESCE(pv.name, ''), COALESCE(pi.url, '')
 		FROM seller_reviews sr
 		JOIN buyer_profiles bp ON sr.buyer_profile_id = bp.id
+		LEFT JOIN order_lines ol ON sr.order_line_id = ol.id
+		LEFT JOIN products p ON ol.product_id = p.id
+		LEFT JOIN product_variants pv ON ol.variant_id = pv.id
+		LEFT JOIN LATERAL (
+			SELECT url FROM product_images
+			WHERE product_id = ol.product_id
+			ORDER BY is_primary DESC, sort_order ASC
+			LIMIT 1
+		) pi ON true
 		%s
 		%s
 		LIMIT $%d OFFSET $%d
@@ -246,7 +263,8 @@ func (r *ReviewRepository) GetReviewsByShopID(shopID uuid.UUID, sortBy string, r
 	for rows.Next() {
 		var rev models.PublicReviewResponse
 		if err := rows.Scan(&rev.ID, &rev.Rating, &rev.Comment, &rev.VerifiedPurchase, &rev.BuyerDisplayName, &rev.CreatedAt,
-			&rev.DeliveryRating, &rev.ServiceRating, &rev.ExperienceRating); err != nil {
+			&rev.DeliveryRating, &rev.ServiceRating, &rev.ExperienceRating,
+			&rev.ProductID, &rev.ProductName, &rev.VariantName, &rev.ImageURL); err != nil {
 			return nil, 0, err
 		}
 		// Trim display name.

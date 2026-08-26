@@ -1122,6 +1122,62 @@ func (h *Handler) DeleteProductImage(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Image deleted successfully"})
 }
 
+// AssignProductImageVariant links a Product image to one of that Product's
+// Variants (or clears the link when variant_id is omitted/null), so Buyers see
+// the exact colour/model they select.
+func (h *Handler) AssignProductImageVariant(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	businessID, ok := h.parseUUIDParam(c, "business_id")
+	if !ok {
+		return
+	}
+	productID, ok := h.parseUUIDParam(c, "product_id")
+	if !ok {
+		return
+	}
+	imageID, ok := h.parseUUIDParam(c, "image_id")
+	if !ok {
+		return
+	}
+
+	var req struct {
+		VariantID *string `json:"variant_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	var variantID *uuid.UUID
+	if req.VariantID != nil && *req.VariantID != "" {
+		parsed, err := uuid.Parse(*req.VariantID)
+		if err != nil {
+			h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid variant_id")
+			return
+		}
+		variantID = &parsed
+	}
+
+	image, err := h.productImageService.AssignVariant(userID, businessID, productID, imageID, variantID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		switch err.Error() {
+		case "IMAGE_NOT_FOUND", "VARIANT_NOT_FOUND":
+			statusCode = http.StatusNotFound
+		case "FORBIDDEN":
+			statusCode = http.StatusForbidden
+		}
+		h.errResponse(c, statusCode, err.Error(), err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Image variant updated", Data: image})
+}
+
 // RemoveProductFromShop stops selling one Product at one Shop.
 func (h *Handler) RemoveProductFromShop(c *gin.Context) {
 	userID, ok := h.extractUserID(c)

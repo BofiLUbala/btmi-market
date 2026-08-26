@@ -12,7 +12,9 @@ import { formatMoney, formatDate } from '@/lib/format'
 import {
   buildAttributeGroups,
   describeAttributes,
+  extractSpecifications,
   hasRealVariants,
+  isValueAvailable,
   resolveVariant,
   type VariantSelection
 } from '@/lib/variants'
@@ -99,6 +101,7 @@ export default function ProductDetailPage() {
   const variants = useMemo(() => product?.variants ?? [], [product])
   const multiVariant = useMemo(() => hasRealVariants(variants), [variants])
   const groups = useMemo(() => buildAttributeGroups(variants), [variants])
+  const specifications = useMemo(() => extractSpecifications(variants), [variants])
 
   const variant: PublicVariantDetail | null = useMemo(() => {
     if (variants.length === 0) return null
@@ -127,10 +130,15 @@ export default function ProductDetailPage() {
   const outOfStock = v.stock === 'OUT_OF_STOCK'
   const lowStock = v.stock === 'LOW_STOCK'
   const maxQty = v.stock_quantity > 0 ? v.stock_quantity : 1
-  const unitPrice = v.unit_price
-  const personalized = Boolean(user && p.final_price !== undefined && p.discount_percent)
-  const exactDiscount = personalized && Math.abs(p.base_price - unitPrice) < 0.01 && (p.final_price ?? unitPrice) < unitPrice
-  const displayPrice = exactDiscount ? p.final_price! : unitPrice
+  const regularPrice = v.base_price
+  const sellerSalePrice = v.unit_price
+  const hasSellerDiscount = regularPrice > sellerSalePrice
+
+  const buyerDiscountPercent = p.discount_percent ?? 0
+  const finalPrice = p.final_price ?? sellerSalePrice
+  const hasBuyerDiscount = Boolean(user && buyerDiscountPercent > 0 && finalPrice < sellerSalePrice)
+
+  const displayPrice = finalPrice
   const isFav = favorites.has(p.id)
   const descriptionParts = (p.description || '')
     .split(/\r?\n|(?<=[.!?])\s+/)
@@ -168,7 +176,7 @@ export default function ProductDetailPage() {
       variantName: describeAttributes(v),
       attributes: v.attributes,
       unit: p.unit,
-      unitPrice,
+      unitPrice: sellerSalePrice,
       currency: 'FC',
       shopId: p.shop_id,
       shopName: p.shop_name,
@@ -193,7 +201,7 @@ export default function ProductDetailPage() {
       name: p.name,
       shopId: p.shop_id,
       shopName: p.shop_name,
-      price: unitPrice,
+      price: sellerSalePrice,
       currency: 'FC',
       unit: p.unit,
       addedAt: new Date().toISOString()
@@ -212,7 +220,12 @@ export default function ProductDetailPage() {
         <Gallery
           name={p.name}
           badge={<StockChip stock={v.stock} />}
-          images={(p.images ?? []).map((img) => ({ url: img.url, alt: img.file_name || p.name }))}
+          images={(p.images ?? []).map((img) => ({
+            url: img.url,
+            alt: img.file_name || p.name,
+            variantId: img.variant_id
+          }))}
+          focusUrl={(p.images ?? []).find((img) => img.variant_id === v.id)?.url}
         />
 
         <div className="pd-details">
@@ -225,11 +238,43 @@ export default function ProductDetailPage() {
             </a>
           </header>
 
-          <section className="pd-price-block" aria-label="Price" aria-live="polite">
-            {exactDiscount && <span className="pd-discount-badge">{Math.round(p.discount_percent ?? 0)}% OFF</span>}
-            <div><strong>{formatMoney(displayPrice)}</strong><span>per {p.unit}</span></div>
-            {exactDiscount && <del>{formatMoney(unitPrice)}</del>}
-            {personalized && !exactDiscount && <p>Your buyer-level discount is calculated at checkout.</p>}
+          <section className="pd-price-block" aria-label="Price" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <strong style={{ fontSize: '2rem', color: 'var(--color-primary)' }}>{formatMoney(displayPrice)}</strong>
+              <span className="muted" style={{ fontSize: '1.1rem' }}>per {p.unit}</span>
+              
+              {hasSellerDiscount && (
+                <span className="badge badge-success" style={{ fontWeight: 'bold' }}>
+                  {Math.round(((regularPrice - sellerSalePrice) / regularPrice) * 100)}% OFF
+                </span>
+              )}
+
+              {hasBuyerDiscount && (
+                <span className="badge badge-primary" style={{ fontWeight: 'bold' }}>
+                  Loyalty -{buyerDiscountPercent}%
+                </span>
+              )}
+            </div>
+
+            {(hasSellerDiscount || hasBuyerDiscount) && (
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }} className="small muted">
+                {hasSellerDiscount && (
+                  <span>
+                    Regular: <del>{formatMoney(regularPrice)}</del>
+                  </span>
+                )}
+                {hasSellerDiscount && hasBuyerDiscount && (
+                  <span>
+                    Promo: <strong>{formatMoney(sellerSalePrice)}</strong>
+                  </span>
+                )}
+                {hasBuyerDiscount && (
+                  <span>
+                    Your Level Discount: <strong>{formatMoney(sellerSalePrice - finalPrice)} saved</strong>
+                  </span>
+                )}
+              </div>
+            )}
           </section>
 
           <p className="pd-summary">{shortDescription}</p>
@@ -241,17 +286,17 @@ export default function ProductDetailPage() {
                 <div className="attr-options" role="group" aria-label={g.label}>
                   {g.values.map((val) => {
                     const selectedVal = selection[g.key] === val
-                    const usable = variants.some(
-                      (candidate) => candidate.stock !== 'OUT_OF_STOCK' && candidate.attributes?.[g.key] === val
-                    )
+                    const exists = isValueAvailable(variants, selection, g.key, val, false)
+                    const inStock = isValueAvailable(variants, selection, g.key, val, true)
+                    const disabled = !exists
                     return (
                       <button
                         key={val}
                         type="button"
                         aria-pressed={selectedVal}
-                        disabled={!usable && !selectedVal}
-                        title={!usable ? `${val} — out of stock` : val}
-                        className={`attr-option ${selectedVal ? 'selected' : ''} ${!usable ? 'unavailable' : ''}`}
+                        disabled={disabled}
+                        title={disabled ? `${val} — not available in this combination` : !inStock ? `${val} — out of stock` : val}
+                        className={`attr-option ${selectedVal ? 'selected' : ''} ${disabled ? 'unavailable' : !inStock ? 'low-stock' : ''}`}
                         onClick={() => selectValue(g.key, val)}
                       >
                         {val}
@@ -363,10 +408,10 @@ export default function ProductDetailPage() {
             <div><dt>Product</dt><dd>{p.name}</dd></div>
             <div><dt>Category</dt><dd>{p.category?.name ?? 'General'}</dd></div>
             {p.subcategory && <div><dt>Subcategory</dt><dd>{p.subcategory.name}</dd></div>}
-            {Object.entries(v.attributes ?? {}).map(([key, value]) => (
-              <div key={key}><dt>{key.replace(/[_-]+/g, ' ')}</dt><dd>{value}</dd></div>
+            {specifications.map((spec) => (
+              <div key={spec.key}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>
             ))}
-            <div><dt>SKU</dt><dd className="mono">{v.sku || p.sku}</dd></div>
+            {(v.sku || p.sku) && <div><dt>SKU</dt><dd className="mono">{v.sku || p.sku}</dd></div>}
             <div><dt>Unit</dt><dd>{p.unit}</dd></div>
             <div><dt>Seller</dt><dd><Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link></dd></div>
             <div><dt>Seller level</dt><dd>{p.seller_level}</dd></div>
@@ -428,14 +473,33 @@ function ProductReviews({ productId, signedIn, onRequireLogin }: { productId: st
           {[5,4,3,2,1].map((n) => {
             const count = summary?.[`rating_${n}_count` as keyof typeof summary] as number ?? 0
             const pct = summary?.total_reviews ? count / summary.total_reviews * 100 : 0
-            return <button className="rating-row" key={n} onClick={() => setRating(rating === n ? undefined : n)} aria-pressed={rating === n}><span>{n} ★</span><i><b style={{ width: `${pct}%` }} /></i><span>{count}</span></button>
+            // Filtering to a rating nobody gave would only ever show an empty
+            // list, so those rows stay inert rather than looking clickable.
+            const selectable = count > 0
+            return (
+              <button
+                className={`rating-row${selectable ? '' : ' is-empty'}`}
+                key={n}
+                disabled={!selectable}
+                onClick={() => selectable && setRating(rating === n ? undefined : n)}
+                aria-pressed={rating === n}
+                title={selectable ? `Show only ${n}-star reviews` : `No ${n}-star reviews yet`}
+              >
+                <span>{n} ★</span><i><b style={{ width: `${pct}%` }} /></i><span>{count}</span>
+              </button>
+            )
           })}
+          {rating !== undefined && (
+            <button type="button" className="review-clear-filter" onClick={() => setRating(undefined)}>
+              Clear {rating}★ filter
+            </button>
+          )}
         </aside>
         <div className="review-feed">
           <div className="row-between"><strong>Ratings & reviews</strong><select className="input review-sort" value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">Most recent</option><option value="helpful">Most helpful</option><option value="highest_rating">Highest rated</option><option value="lowest_rating">Lowest rated</option></select></div>
           {data?.reviews.length ? data.reviews.map((review) => (
             <article className="review-card" key={review.id}>
-              <div className="review-meta"><span className="review-stars">{'★'.repeat(review.rating)}{'☆'.repeat(5-review.rating)}</span><strong>{review.buyer_display_name || 'Verified buyer'}</strong><span className="verified-badge">✓ Verified purchase</span><span className="muted">{formatDate(review.created_at)}</span></div>
+              <div className="review-meta"><span className="review-stars">{'★'.repeat(review.rating)}{'☆'.repeat(5-review.rating)}</span><strong>{review.buyer_display_name || 'Buyer'}</strong>{review.verified_purchase && <span className="verified-badge">✓ Verified purchase</span>}<span className="muted">{formatDate(review.created_at)}</span></div>
               {review.comment && <p>{review.comment}</p>}
               <div className="review-actions"><button onClick={() => helpful(review.id, review.helpful_by_me)} aria-pressed={review.helpful_by_me}>{review.helpful_by_me ? 'Helpful ✓' : 'Helpful'} ({review.helpful_count})</button><button onClick={() => signedIn ? setReplying(replying === review.id ? null : review.id) : onRequireLogin()}>Reply</button></div>
               {review.replies?.map((r) => <div className="review-reply" key={r.id}><strong>{r.author_display_name}</strong><span className="muted"> · {formatDate(r.created_at)}</span><p>{r.body}</p></div>)}

@@ -117,6 +117,10 @@ type PublicReviewResponse struct {
 	DeliveryRating   *int                  `json:"delivery_rating,omitempty"`
 	ServiceRating    *int                  `json:"service_rating,omitempty"`
 	ExperienceRating *int                  `json:"order_experience_rating,omitempty"`
+	ProductID        *uuid.UUID            `json:"product_id,omitempty"`
+	ProductName      string                `json:"product_name,omitempty"`
+	VariantName      string                `json:"variant_name,omitempty"`
+	ImageURL         string                `json:"image_url,omitempty"`
 }
 
 type ReviewReplyResponse struct {

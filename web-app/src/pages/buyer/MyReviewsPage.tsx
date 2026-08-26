@@ -13,6 +13,7 @@ function MyReviewsInner() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [withdrawing, setWithdrawing] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'product' | 'shop'>('product')
 
   const load = () => {
     setLoading(true)
@@ -44,55 +45,93 @@ function MyReviewsInner() {
   if (loading) return <LoadingBlock label="Loading your reviews…" />
   if (error) return <ErrorBox error={error} onRetry={load} />
 
-  if (reviews.length === 0) {
-    return (
-      <EmptyState
-        icon="⭐"
-        title="No reviews yet"
-        description="After a completed order, review each product and your delivery/shop experience separately."
-        action={
-          <Link to="/orders" className="btn btn-primary">
-            My orders
-          </Link>
-        }
-      />
-    )
-  }
+  const productReviews = reviews.filter(r => r.product_id)
+  const shopReviews = reviews.filter(r => !r.product_id)
+  const activeReviews = activeTab === 'product' ? productReviews : shopReviews
 
   return (
     <div className="fade-in">
-      <h1 style={{ marginBottom: 12 }}>My reviews</h1>
-      <div className="card">
-        {reviews.map((r) => (
-          <div key={r.id} className="review-item">
-            <div className="review-head">
-              <div>
-                <strong className="small">{r.product_id ? 'Product review' : 'Delivery & shop service'}</strong>
-                <Rating value={r.rating} />
-                <span className="badge" style={{ marginLeft: 8 }}>
-                  {r.verified_purchase ? 'Verified purchase' : 'Pending'}
-                </span>
-              </div>
-              <span className="small muted">{formatDate(r.created_at)}</span>
-            </div>
-            {!r.product_id && r.delivery_rating && <div className="small muted">Delivery {r.delivery_rating}★ · Shop service {r.service_rating}★ · Order experience {r.order_experience_rating}★</div>}
-            {r.comment && <p className="small mt-0" style={{ marginTop: 6 }}>{r.comment}</p>}
-            <div className="row-between" style={{ marginTop: 8 }}>
-              <Link to={r.product_id ? `/products/${r.product_id}` : `/shops/${r.shop_id}`} className="small section-link">
-                {r.product_id ? 'Product page →' : 'Shop page →'}
-              </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                loading={withdrawing === r.id}
-                onClick={() => withdraw(r.id)}
-              >
-                Withdraw
-              </Button>
-            </div>
-          </div>
-        ))}
+      <div className="page-header" style={{ marginBottom: 16 }}>
+        <div>
+          <div className="eyebrow">YOUR ACCOUNT</div>
+          <h1>My Reviews</h1>
+          <p className="muted">Manage reviews you've written for products and shop services.</p>
+        </div>
       </div>
+
+      <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button
+          className={`tab ${activeTab === 'product' ? 'active' : ''}`}
+          onClick={() => setActiveTab('product')}
+        >
+          Product Reviews ({productReviews.length})
+        </button>
+        <button
+          className={`tab ${activeTab === 'shop' ? 'active' : ''}`}
+          onClick={() => setActiveTab('shop')}
+        >
+          Shop & Service Reviews ({shopReviews.length})
+        </button>
+      </div>
+
+      {activeReviews.length === 0 ? (
+        <EmptyState
+          icon="⭐"
+          title={activeTab === 'product' ? 'No product reviews' : 'No shop reviews'}
+          description={
+            activeTab === 'product'
+              ? "You haven't reviewed any products yet. Review products from your completed orders."
+              : "You haven't evaluated any shop services yet. Review shop services from your completed orders."
+          }
+          action={
+            <Link to="/orders" className="btn btn-primary">
+              My orders
+            </Link>
+          }
+        />
+      ) : (
+        <div className="card stack" style={{ gap: 16 }}>
+          {activeReviews.map((r) => (
+            <div key={r.id} className="review-item" style={{ paddingBottom: 16, borderBottom: '1px solid var(--color-border)' }}>
+              <div className="review-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <strong className="small" style={{ display: 'block', marginBottom: 4 }}>
+                    {r.product_id ? 'Product Review' : 'Shop & Service Evaluation'}
+                  </strong>
+                  <Rating value={r.rating} />
+                  <span className="badge" style={{ marginLeft: 8 }}>
+                    {r.verified_purchase ? 'Verified purchase' : 'Pending'}
+                  </span>
+                </div>
+                <span className="small muted">{formatDate(r.created_at)}</span>
+              </div>
+              {!r.product_id && r.delivery_rating && (
+                <div className="small muted" style={{ marginTop: 6 }}>
+                  Delivery: <strong>{r.delivery_rating}★</strong> · Shop service: <strong>{r.service_rating}★</strong> · Overall: <strong>{r.order_experience_rating}★</strong>
+                </div>
+              )}
+              {r.comment && (
+                <p className="small" style={{ marginTop: 8, marginBottom: 8, whiteSpace: 'pre-wrap' }}>
+                  {r.comment}
+                </p>
+              )}
+              <div className="row-between" style={{ marginTop: 8 }}>
+                <Link to={r.product_id ? `/products/${r.product_id}` : `/shops/${r.shop_id}`} className="small section-link">
+                  {r.product_id ? 'View Product Page →' : 'View Shop Page →'}
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={withdrawing === r.id}
+                  onClick={() => withdraw(r.id)}
+                >
+                  Withdraw
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

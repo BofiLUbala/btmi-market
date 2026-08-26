@@ -87,6 +87,14 @@ function AccountInner() {
             <span className="section-link">View →</span>
           </Link>
 
+          <Link to="/reviews" className="card card-hover row-between">
+            <div>
+              <div className="muted small">My Reviews</div>
+              <div className="bold">Product & service evaluations</div>
+            </div>
+            <span className="section-link">View →</span>
+          </Link>
+
           {pending.length > 0 && (
             <Link to="/account/purchases" className="card card-hover row-between">
               <div>

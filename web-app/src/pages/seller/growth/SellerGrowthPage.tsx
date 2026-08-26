@@ -76,8 +76,15 @@ export default function SellerGrowthPage() {
       <div style={{ marginBottom: 24 }}>
         <Card>
           <h3>Progress to Next Level</h3>
-          <div className="progress-bar" style={{ height: 12, background: 'var(--border)', borderRadius: 6, overflow: 'hidden', marginTop: 8 }}>
-            <div className="progress-fill" style={{ height: '100%', width: `${progressPercent}%`, background: 'var(--primary)', borderRadius: 6, transition: 'width 0.3s' }} />
+          <div
+            className="progress-bar mt-2"
+            role="progressbar"
+            aria-valuenow={Math.round(progressPercent)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Progress to next seller level"
+          >
+            <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
           </div>
           <p className="muted small" style={{ marginTop: 8 }}>
             {growth.points.current_points.toLocaleString()} / {growth.level.max_points.toLocaleString()} points · {growth.level.description}

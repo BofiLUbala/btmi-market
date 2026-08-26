@@ -221,7 +221,28 @@ export default function SellerProductsPage() {
                   <span className="mono small muted">{product.sku ? `SKU: ${product.sku}` : 'No SKU'}</span>
                 </div>
                 <div className="seller-product-card-stats">
-                  <div><span>Price</span><strong>{product.unit_price ? `${Number(product.unit_price).toLocaleString()} FC` : '—'}</strong></div>
+                  <div>
+                    <span>Price</span>
+                    <strong>
+                      {product.discount_active ? (
+                        <span style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ color: 'var(--color-primary)' }}>
+                            {(() => {
+                              const base = product.unit_price || 0
+                              const val = product.discount_value || 0
+                              if (product.discount_type === 'PERCENTAGE') return (base * (1 - val / 100)).toLocaleString()
+                              return Math.max(0, base - val).toLocaleString()
+                            })()} FC
+                          </span>
+                          <span style={{ textDecoration: 'line-through', fontSize: '0.85em', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>
+                            {Number(product.unit_price).toLocaleString()} FC
+                          </span>
+                        </span>
+                      ) : (
+                        product.unit_price ? `${Number(product.unit_price).toLocaleString()} FC` : '—'
+                      )}
+                    </strong>
+                  </div>
                   <div><span>Available</span><strong className={available > 0 ? 'success' : 'muted'}>{available}</strong></div>
                   <div><span>Variants</span><strong>{product.variant_count || 1}</strong></div>
                 </div>

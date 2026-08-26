@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { inventoryApi, productApi, shopApi } from '@/api/seller'
-import type { Product, Shop } from '@/api/types'
+import type { Product, Shop, UpdateShopRequest } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -32,13 +32,18 @@ export default function SellerShopsPage() {
 
   // Create shop form
   const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState({ name: '', type: 'PHYSICAL', city: '', address: '', phone: '' })
+  const [createForm, setCreateForm] = useState({
+    name: '', type: 'PHYSICAL', city: '', address: '', phone: '',
+    supports_shop_delivery: false, shop_delivery_fee: 0,
+    supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
+    delivery_city: '', delivery_address: '',
+  })
   const [creating, setCreating] = useState(false)
 
-  // Rename dialog
-  const [renaming, setRenaming] = useState<Shop | null>(null)
-  const [renameValue, setRenameValue] = useState('')
-  const [renameBusy, setRenameBusy] = useState(false)
+  // Settings dialog (rename + delivery configuration)
+  const [editing, setEditing] = useState<Shop | null>(null)
+  const [editForm, setEditForm] = useState<UpdateShopRequest>({})
+  const [editBusy, setEditBusy] = useState(false)
 
   // Delete dialog
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
@@ -107,7 +112,12 @@ export default function SellerShopsPage() {
     try {
       await shopApi.create(activeBusiness.id, createForm)
       setShowCreate(false)
-      setCreateForm({ name: '', type: 'PHYSICAL', city: '', address: '', phone: '' })
+      setCreateForm({
+        name: '', type: 'PHYSICAL', city: '', address: '', phone: '',
+        supports_shop_delivery: false, shop_delivery_fee: 0,
+        supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
+        delivery_city: '', delivery_address: '',
+      })
       await loadShops()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to create the Shop.')
@@ -116,20 +126,20 @@ export default function SellerShopsPage() {
     }
   }
 
-  async function saveRename(e: React.FormEvent) {
+  async function saveSettings(e: React.FormEvent) {
     e.preventDefault()
-    if (!renaming || renameBusy) return
-    if (!renameValue.trim()) return
-    setRenameBusy(true)
+    if (!editing || editBusy) return
+    if (!editForm.name?.trim()) return
+    setEditBusy(true)
     setActionError('')
     try {
-      await shopApi.update(renaming.id, { name: renameValue.trim() })
-      setRenaming(null)
+      await shopApi.update(editing.id, { ...editForm, name: editForm.name.trim() })
+      setEditing(null)
       await loadShops()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to rename the Shop.')
+      setActionError(err instanceof Error ? err.message : 'Failed to update the Shop.')
     } finally {
-      setRenameBusy(false)
+      setEditBusy(false)
     }
   }
 
@@ -202,6 +212,35 @@ export default function SellerShopsPage() {
             <Field label="City" name="city" as="select" required value={createForm.city} options={drcCityOptions()} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })} />
             <Field label="Address" name="address" required value={createForm.address} onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })} />
             <Field label="Phone" name="phone" required value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="+243 …" />
+
+            <h4 style={{ marginTop: 16, marginBottom: 4 }}>Delivery options</h4>
+            <p className="small muted" style={{ marginTop: 0 }}>Configure how orders from this Shop get delivered. You can also change this later from Settings.</p>
+
+            <label className="checkbox-row">
+              <input type="checkbox" checked={createForm.supports_shop_delivery} onChange={(e) => setCreateForm({ ...createForm, supports_shop_delivery: e.target.checked })} />
+              Shop delivers orders itself
+            </label>
+            {createForm.supports_shop_delivery && (
+              <Field label="Shop delivery fee" name="shop_delivery_fee" type="number" value={createForm.shop_delivery_fee} onChange={(e) => setCreateForm({ ...createForm, shop_delivery_fee: Number(e.target.value) })} />
+            )}
+
+            <label className="checkbox-row">
+              <input type="checkbox" checked={createForm.supports_partner_delivery} onChange={(e) => setCreateForm({ ...createForm, supports_partner_delivery: e.target.checked })} />
+              Uses a delivery partner
+            </label>
+            {createForm.supports_partner_delivery && (
+              <>
+                <Field label="Partner delivery fee" name="partner_delivery_fee" type="number" value={createForm.partner_delivery_fee} onChange={(e) => setCreateForm({ ...createForm, partner_delivery_fee: Number(e.target.value) })} />
+                <Field label="Partner name" name="partner_delivery_provider" value={createForm.partner_delivery_provider} onChange={(e) => setCreateForm({ ...createForm, partner_delivery_provider: e.target.value })} />
+              </>
+            )}
+            {(createForm.supports_shop_delivery || createForm.supports_partner_delivery) && (
+              <>
+                <Field label="Delivery city" name="delivery_city" as="select" value={createForm.delivery_city} options={drcCityOptions()} onChange={(e) => setCreateForm({ ...createForm, delivery_city: e.target.value })} />
+                <Field label="Delivery address" name="delivery_address" value={createForm.delivery_address} onChange={(e) => setCreateForm({ ...createForm, delivery_address: e.target.value })} />
+              </>
+            )}
+
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <Button type="submit" disabled={creating}>{creating ? 'Creating…' : 'Create Shop'}</Button>
               <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
@@ -210,23 +249,51 @@ export default function SellerShopsPage() {
         </Card>
       )}
 
-      {/* Rename dialog */}
-      {renaming && (
+      {/* Settings dialog: rename + delivery configuration */}
+      {editing && (
         <Card style={{ marginBottom: 24 }}>
-          <h3>Rename Shop</h3>
-          <form onSubmit={saveRename}>
+          <h3>Shop Settings — {editing.name}</h3>
+          <form onSubmit={saveSettings}>
             <Field
               label="Shop Name"
-              name="rename"
+              name="edit_name"
               required
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
+              value={editForm.name ?? ''}
+              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
             />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button type="submit" disabled={renameBusy || !renameValue.trim()}>
-                {renameBusy ? 'Saving…' : 'Save'}
+
+            <h4 style={{ marginTop: 16, marginBottom: 4 }}>Delivery options</h4>
+
+            <label className="checkbox-row">
+              <input type="checkbox" checked={!!editForm.supports_shop_delivery} onChange={(e) => setEditForm({ ...editForm, supports_shop_delivery: e.target.checked })} />
+              Shop delivers orders itself
+            </label>
+            {editForm.supports_shop_delivery && (
+              <Field label="Shop delivery fee" name="edit_shop_delivery_fee" type="number" value={editForm.shop_delivery_fee ?? 0} onChange={(e) => setEditForm({ ...editForm, shop_delivery_fee: Number(e.target.value) })} />
+            )}
+
+            <label className="checkbox-row">
+              <input type="checkbox" checked={!!editForm.supports_partner_delivery} onChange={(e) => setEditForm({ ...editForm, supports_partner_delivery: e.target.checked })} />
+              Uses a delivery partner
+            </label>
+            {editForm.supports_partner_delivery && (
+              <>
+                <Field label="Partner delivery fee" name="edit_partner_delivery_fee" type="number" value={editForm.partner_delivery_fee ?? 0} onChange={(e) => setEditForm({ ...editForm, partner_delivery_fee: Number(e.target.value) })} />
+                <Field label="Partner name" name="edit_partner_delivery_provider" value={editForm.partner_delivery_provider ?? ''} onChange={(e) => setEditForm({ ...editForm, partner_delivery_provider: e.target.value })} />
+              </>
+            )}
+            {(editForm.supports_shop_delivery || editForm.supports_partner_delivery) && (
+              <>
+                <Field label="Delivery city" name="edit_delivery_city" as="select" value={editForm.delivery_city ?? ''} options={drcCityOptions()} onChange={(e) => setEditForm({ ...editForm, delivery_city: e.target.value })} />
+                <Field label="Delivery address" name="edit_delivery_address" value={editForm.delivery_address ?? ''} onChange={(e) => setEditForm({ ...editForm, delivery_address: e.target.value })} />
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <Button type="submit" disabled={editBusy || !editForm.name?.trim()}>
+                {editBusy ? 'Saving…' : 'Save'}
               </Button>
-              <Button type="button" variant="ghost" onClick={() => setRenaming(null)}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
             </div>
           </form>
         </Card>
@@ -273,16 +340,34 @@ export default function SellerShopsPage() {
             return (
               <Card key={shop.id} className="seller-shop-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <h3 style={{ margin: 0 }}>{shop.name}</h3>
+                  {archived ? (
+                    <h3 style={{ margin: 0 }}>{shop.name}</h3>
+                  ) : (
+                    <h3 style={{ margin: 0 }}>
+                      <Link
+                        to={`/seller/shops/${shop.id}/products`}
+                        style={{ color: 'inherit' }}
+                        title={`Open ${shop.name} and see its products`}
+                      >
+                        {shop.name}
+                      </Link>
+                    </h3>
+                  )}
                   <span className={`badge ${archived ? 'badge-muted' : 'badge-success'}`}>{shop.status}</span>
                 </div>
                 <span className="small muted">
                   {[shop.city, shop.address].filter(Boolean).join(' — ') || shop.type}
                 </span>
 
-                <div className="seller-shop-stats small">
-                  <strong>{s.productCount}</strong> Products · <strong>{s.unitCount}</strong> units in stock
-                </div>
+                {archived ? (
+                  <div className="seller-shop-stats small">
+                    <strong>{s.productCount}</strong> Products · <strong>{s.unitCount}</strong> units in stock
+                  </div>
+                ) : (
+                  <Link to={`/seller/shops/${shop.id}/products`} className="seller-shop-stats small" style={{ color: 'inherit' }}>
+                    <strong>{s.productCount}</strong> Products · <strong>{s.unitCount}</strong> units in stock
+                  </Link>
+                )}
                 {s.categories.length > 0 && (
                   <div className="small muted">{s.categories.join(' • ')}</div>
                 )}
@@ -305,11 +390,20 @@ export default function SellerShopsPage() {
                         type="button"
                         className="btn btn-ghost btn-sm"
                         onClick={() => {
-                          setRenaming(shop)
-                          setRenameValue(shop.name)
+                          setEditing(shop)
+                          setEditForm({
+                            name: shop.name,
+                            supports_shop_delivery: shop.supports_shop_delivery,
+                            shop_delivery_fee: shop.shop_delivery_fee,
+                            supports_partner_delivery: shop.supports_partner_delivery,
+                            partner_delivery_fee: shop.partner_delivery_fee,
+                            partner_delivery_provider: shop.partner_delivery_provider ?? '',
+                            delivery_city: shop.delivery_city ?? '',
+                            delivery_address: shop.delivery_address ?? '',
+                          })
                         }}
                       >
-                        Rename
+                        Settings
                       </button>
                       <button
                         type="button"

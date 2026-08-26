@@ -66,7 +66,7 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	query := `
 		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, created_at, updated_at
-		FROM users WHERE email = $1
+		FROM users WHERE LOWER(email) = LOWER($1)
 	`
 
 	user := &models.User{}
@@ -89,7 +89,12 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	query := `
 		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, created_at, updated_at
-		FROM users WHERE phone = $1
+		FROM users
+		WHERE phone = $1
+		   OR RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 9) =
+		      RIGHT(regexp_replace($1, '[^0-9]', '', 'g'), 9)
+		ORDER BY CASE WHEN phone = $1 THEN 0 ELSE 1 END
+		LIMIT 1
 	`
 
 	user := &models.User{}

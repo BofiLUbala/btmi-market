@@ -41,6 +41,19 @@ function DeliveryInner() {
     [data, method]
   )
 
+  const defaultAddress = useMemo(() => (user?.city ? `City: ${user.city}` : ''), [user?.city])
+
+  const isAddressIncomplete = useMemo(() => {
+    if (method === 'PICKUP') return false
+    const addr = contact.address.trim()
+    return !addr || (!!defaultAddress && addr.toLowerCase() === defaultAddress.toLowerCase())
+  }, [method, contact.address, defaultAddress])
+
+  const isFormInvalid = useMemo(() => {
+    if (method === 'PICKUP') return false
+    return !contact.contact_name.trim() || !contact.phone.trim() || isAddressIncomplete
+  }, [method, contact.contact_name, contact.phone, isAddressIncomplete])
+
   useEffect(() => {
     if (!orderId) {
       navigate('/cart', { replace: true })
@@ -84,16 +97,20 @@ function DeliveryInner() {
 
   async function continueToPayment() {
     if (!orderId || !selected) return
+    if (isFormInvalid) {
+      setError('Please fill in all delivery details completely.')
+      return
+    }
     setSubmitting(true)
     setError('')
     try {
       const res = await buyerApi.selectDelivery(orderId, {
         method,
         use_points_for_delivery: usePointsForDelivery,
-        contact_name: contact.contact_name,
-        phone: contact.phone,
-        address: contact.address,
-        notes: contact.notes
+        contact_name: contact.contact_name.trim(),
+        phone: contact.phone.trim(),
+        address: contact.address.trim(),
+        notes: contact.notes.trim()
       })
       navigate('/checkout/payment', {
         state: { orderId, summary: res },
@@ -181,6 +198,11 @@ function DeliveryInner() {
                   onChange={(e) => setContact({ ...contact, address: e.target.value })}
                   placeholder="City, commune, avenue, number…"
                 />
+                {isAddressIncomplete && contact.address.trim().length > 0 && (
+                  <p className="small" style={{ color: 'var(--color-danger, #ef4444)', marginTop: -8, marginBottom: 12 }}>
+                    Please add specific details (commune, avenue, house number, etc.).
+                  </p>
+                )}
                 <Field
                   label="Notes"
                   name="notes"
@@ -193,7 +215,7 @@ function DeliveryInner() {
               size="lg"
               block
               loading={submitting}
-              disabled={method !== 'PICKUP' && (!contact.contact_name || !contact.phone || !contact.address)}
+              disabled={isFormInvalid}
               onClick={continueToPayment}
             >
               Continue to review

@@ -801,8 +801,19 @@ func (s *InventoryService) toProductResponse(p *models.Product) models.ProductRe
 		CostPrice:   p.CostPrice,
 		Unit:        p.Unit,
 		Status:      p.Status,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+		// The Seller Products page reads publication and discount state from
+		// this response; omitting them made every product look unpublished
+		// and broke the Published/Drafts filter.
+		PublicationStatus: p.PublicationStatus,
+		CategoryID:        p.CategoryID,
+		SubcategoryID:     p.SubcategoryID,
+		DiscountActive:    p.DiscountActive,
+		DiscountType:      p.DiscountType,
+		DiscountValue:     p.DiscountValue,
+		DiscountStart:     p.DiscountStart,
+		DiscountEnd:       p.DiscountEnd,
+		CreatedAt:         p.CreatedAt,
+		UpdatedAt:         p.UpdatedAt,
 	}
 }
 

@@ -45,7 +45,14 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
 export function ProductCard({ product }: { product: PublicProduct }) {
   const [imageFailed, setImageFailed] = useState(false)
   const first = product.variants?.[0]
-  const price = first?.unit_price ?? product.base_price
+  
+  const originalPrice = first?.base_price ?? product.base_price
+  const salePrice = first?.unit_price ?? product.seller_sale_price ?? product.base_price
+  const hasDiscount = Boolean(product.discount_active && salePrice < originalPrice)
+  const discountPercent = hasDiscount 
+    ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
+    : 0
+
   const link = `/products/${product.id}`
   const cover = product.images?.find((img) => img.is_primary) ?? product.images?.[0]
   const fallback = getCategoryVisual(product.category_slug ?? '')
@@ -75,6 +82,11 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         <span className="thumb-chip">
           <FavoriteButton product={product} />
         </span>
+        {hasDiscount && (
+          <span className="badge badge-success" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontWeight: 'bold' }}>
+            {discountPercent}% OFF
+          </span>
+        )}
       </div>
       <div className="product-body">
         {product.category_name && (
@@ -82,7 +94,20 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         )}
         <span className="product-name">{product.name}</span>
         <StockChip stock={availability} />
-        <div className="product-price">{formatMoney(price)}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+          {hasDiscount ? (
+            <>
+              <span className="product-price" style={{ color: 'var(--color-primary)' }}>
+                {formatMoney(salePrice)}
+              </span>
+              <span style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)', fontSize: '0.85em' }}>
+                {formatMoney(originalPrice)}
+              </span>
+            </>
+          ) : (
+            <div className="product-price">{formatMoney(salePrice)}</div>
+          )}
+        </div>
       </div>
     </Link>
   )

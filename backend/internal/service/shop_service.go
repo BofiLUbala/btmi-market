@@ -60,6 +60,8 @@ func (s *ShopService) CreateShop(userID, businessID uuid.UUID, req *models.Creat
 	}
 	shop.PartnerDeliveryFee = req.PartnerDeliveryFee
 	shop.PartnerDeliveryProvider = req.PartnerDeliveryProvider
+	shop.DeliveryCity = req.DeliveryCity
+	shop.DeliveryAddress = req.DeliveryAddress
 
 	if err := s.shopRepo.Create(shop); err != nil {
 		return nil, err
@@ -138,6 +140,12 @@ func (s *ShopService) UpdateShop(userID, shopID uuid.UUID, req *models.UpdateSho
 	}
 	if req.PartnerDeliveryProvider != nil {
 		shop.PartnerDeliveryProvider = *req.PartnerDeliveryProvider
+	}
+	if req.DeliveryCity != nil {
+		shop.DeliveryCity = *req.DeliveryCity
+	}
+	if req.DeliveryAddress != nil {
+		shop.DeliveryAddress = *req.DeliveryAddress
 	}
 
 	if err := s.shopRepo.Update(shop); err != nil {

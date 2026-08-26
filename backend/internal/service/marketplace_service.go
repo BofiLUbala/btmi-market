@@ -50,6 +50,7 @@ func (s *MarketplaceService) attachImages(products []*models.PublicProductRespon
 			p.Images = append(p.Images, models.ProductImageResponse{
 				ID:        img.ID,
 				ProductID: img.ProductID,
+				VariantID: img.VariantID,
 				URL:       img.URL,
 				FileName:  img.FileName,
 				SortOrder: img.SortOrder,
@@ -180,6 +181,7 @@ func (s *MarketplaceService) GetProductDetail(productID uuid.UUID, buyerProfileI
 				detail.Images = append(detail.Images, models.ProductImageResponse{
 					ID:        img.ID,
 					ProductID: img.ProductID,
+					VariantID: img.VariantID,
 					URL:       img.URL,
 					FileName:  img.FileName,
 					SortOrder: img.SortOrder,

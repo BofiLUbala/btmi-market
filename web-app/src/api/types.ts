@@ -96,6 +96,7 @@ export interface PublicVariant {
   id: string
   sku: string
   unit_price: number
+  base_price: number
   stock: string
   stock_quantity: number
 }
@@ -122,6 +123,12 @@ export interface PublicProduct {
   seller_level: string
   seller_trust: string
   availability?: string
+  discount_active?: boolean
+  discount_type?: string
+  discount_value?: number
+  discount_start?: string | null
+  discount_end?: string | null
+  seller_sale_price?: number
   created_at: string
 }
 
@@ -131,6 +138,7 @@ export interface PublicVariantDetail {
   name: string
   attributes: Record<string, string>
   unit_price: number
+  base_price: number
   stock: string
   stock_quantity: number
 }
@@ -155,6 +163,12 @@ export interface PublicProductDetail {
   seller_level: string
   seller_trust: string
   availability: string
+  discount_active?: boolean
+  discount_type?: string
+  discount_value?: number
+  discount_start?: string | null
+  discount_end?: string | null
+  seller_sale_price?: number
   created_at: string
   buyer_level?: string
   discount_percent?: number
@@ -270,6 +284,10 @@ export interface PublicReview {
   delivery_rating?: number
   service_rating?: number
   order_experience_rating?: number
+  product_id?: string
+  product_name?: string
+  variant_name?: string
+  image_url?: string
 }
 
 export interface ReviewReply {
@@ -849,6 +867,11 @@ export interface Product {
   reserved_quantity?: number
   available_quantity?: number
   publication_status: PublicationStatus
+  discount_active?: boolean
+  discount_type?: string
+  discount_value?: number
+  discount_start?: string | null
+  discount_end?: string | null
   created_at: string
   updated_at: string
 }
@@ -863,6 +886,11 @@ export interface CreateProductRequest {
   publication_status?: PublicationStatus
   category_id?: string
   subcategory_id?: string
+  discount_active?: boolean
+  discount_type?: string
+  discount_value?: number
+  discount_start?: string | null
+  discount_end?: string | null
 }
 
 export interface UpdateProductRequest {
@@ -876,6 +904,11 @@ export interface UpdateProductRequest {
   publication_status?: PublicationStatus
   category_id?: string
   subcategory_id?: string
+  discount_active?: boolean
+  discount_type?: string
+  discount_value?: number
+  discount_start?: string | null
+  discount_end?: string | null
 }
 
 export interface ProductVariant {
@@ -896,6 +929,8 @@ export interface ProductVariant {
 export interface ProductImageResponse {
   id: string
   product_id: string
+  /** Set when the image shows one specific Variant (a colour/model). */
+  variant_id?: string
   url: string
   file_name: string
   sort_order: number
@@ -1188,24 +1223,3 @@ export interface SellerPointsHistory {
 }
 
 /* ---------- Reviews ---------- */
-
-export interface SellerReview {
-  id: string
-  order_id: string
-  shop_id: string
-  business_id: string
-  buyer_profile_id: string
-  buyer_display_name: string
-  rating: number
-  comment: string
-  verified_purchase: boolean
-  status: string
-  created_at: string
-  updated_at: string
-}
-
-export interface SellerReviewsResponse {
-  summary: ShopReviewAggregate
-  reviews: SellerReview[]
-  pagination: Pagination
-}

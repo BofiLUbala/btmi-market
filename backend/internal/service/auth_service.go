@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -20,12 +22,12 @@ import (
 )
 
 type AuthService struct {
-	userRepo              *repository.UserRepository
-	activationRepo        *repository.ActivationTokenRepository
-	passwordResetRepo     *repository.PasswordResetTokenRepository
-	refreshTokenRepo      *repository.RefreshTokenRepository
-	emailService          *email.Service
-	config                *config.Config
+	userRepo          *repository.UserRepository
+	activationRepo    *repository.ActivationTokenRepository
+	passwordResetRepo *repository.PasswordResetTokenRepository
+	refreshTokenRepo  *repository.RefreshTokenRepository
+	emailService      *email.Service
+	config            *config.Config
 }
 
 func NewAuthService(
@@ -188,9 +190,17 @@ func (s *AuthService) ResendActivation(emailAddr string) error {
 	return nil
 }
 
-func (s *AuthService) RequestPasswordReset(emailAddr string) error {
-	user, err := s.userRepo.GetByEmail(emailAddr)
+func (s *AuthService) RequestPasswordReset(identifier string) error {
+	identifier = strings.TrimSpace(identifier)
+	var user *models.User
+	var err error
+	if strings.Contains(identifier, "@") {
+		user, err = s.userRepo.GetByEmail(identifier)
+	} else {
+		user, err = s.userRepo.GetByPhone(identifier)
+	}
 	if err != nil {
+		log.Printf("[forgot-password] lookup failed for identifier: %v", err)
 		// Don't reveal if user exists or not for security
 		return nil
 	}

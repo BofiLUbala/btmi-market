@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { ApiError, type BuyerPayment, type OrderLine, type OrderWithLines } from '@/api/types'
@@ -6,7 +6,18 @@ import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
+import { isTerminalOrderStatus } from '@/lib/orderStatus'
 import { RequireAuth } from '@/components/auth/Guards'
+
+const POLL_INTERVAL = 30_000 // 30 seconds
+
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 5) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}m ago`
+}
 
 function OrderInner() {
   const { orderId = '' } = useParams()
@@ -17,35 +28,75 @@ function OrderInner() {
   const [busy, setBusy] = useState(false)
   const [payment, setPayment] = useState<BuyerPayment | null>(null)
   const [paymentError, setPaymentError] = useState('')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [statusFlash, setStatusFlash] = useState(false)
+  const prevStatusRef = useRef<string | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [, setTick] = useState(0)
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    buyerApi
-      .orderDetail(orderId)
-      .then(
-        (d) => {
-          setData(
-            d
-              ? { ...d, lines: asArray(d.lines), history: asArray(d.history) }
-              : d
-          )
-          setLoading(false)
-        },
-        (e: unknown) => {
-          setError(e instanceof ApiError ? e.message : 'Could not load order')
-          setLoading(false)
-        }
-      )
-  }
+  const load = useCallback(async (silent = false) => {
+    if (!silent) { setLoading(true); setError('') }
+    if (silent) setRefreshing(true)
+    try {
+      const [d, p] = await Promise.all([
+        buyerApi.orderDetail(orderId),
+        buyerApi.getPayment(orderId).catch(() => null),
+      ])
+      const normalized = d ? { ...d, lines: asArray(d.lines), history: asArray(d.history) } : d
+      if (normalized && prevStatusRef.current && prevStatusRef.current !== normalized.order.status) {
+        setStatusFlash(true)
+        setTimeout(() => setStatusFlash(false), 1500)
+      }
+      if (normalized) prevStatusRef.current = normalized.order.status
+      setData(normalized)
+      setPayment(p)
+      setLastUpdated(new Date())
+      if (!silent) setLoading(false)
+    } catch (e) {
+      if (!silent) {
+        setError(e instanceof ApiError ? e.message : 'Could not load order')
+        setLoading(false)
+      }
+    } finally {
+      setRefreshing(false)
+    }
+  }, [orderId])
 
-  useEffect(load, [orderId])
+  // Initial load
+  useEffect(() => { void load() }, [load])
 
-  const loadPayment = async () => {
-    try { setPayment(await buyerApi.getPayment(orderId)); setPaymentError('') }
-    catch (e) { if (!(e instanceof ApiError && e.status === 404)) setPaymentError(e instanceof Error ? e.message : 'Payment confirmation failed.') }
-  }
-  useEffect(() => { void loadPayment() }, [orderId])
+  // Auto-polling with tab visibility — stops once the Order reaches a final state
+  const terminal = isTerminalOrderStatus(data?.order.status)
+  useEffect(() => {
+    function startPolling() {
+      stopPolling()
+      intervalRef.current = setInterval(() => void load(true), POLL_INTERVAL)
+    }
+    function stopPolling() {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    }
+    function onVisibility() {
+      if (document.visibilityState === 'visible') {
+        void load(true)
+        if (!isTerminalOrderStatus(data?.order.status)) startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+    if (!terminal) startPolling()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [load, terminal])
+
+  // Tick for timeAgo
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 10_000)
+    return () => clearInterval(id)
+  }, [])
 
   async function ensurePayment() {
     setBusy(true); setPaymentError('')
@@ -68,7 +119,7 @@ function OrderInner() {
     setError('')
     try {
       await buyerApi.cancelOrder(orderId)
-      load()
+      void load()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not cancel order')
     } finally {
@@ -77,7 +128,7 @@ function OrderInner() {
   }
 
   if (loading) return <LoadingBlock label="Loading order…" />
-  if (error || !data) return <ErrorBox error={error || 'Order not found'} onRetry={load} />
+  if (error || !data) return <ErrorBox error={error || 'Order not found'} onRetry={() => void load()} />
 
   const o = data.order
   const productsTotal = o.final_total + o.points_discount_amount
@@ -88,7 +139,16 @@ function OrderInner() {
     <div className="fade-in">
       <Link to="/orders" className="small section-link">← My orders</Link>
 
-      <div className="row-between" style={{ marginTop: 8 }}>
+      {/* Live sync bar */}
+      <div className="live-bar">
+        <span className="live-label"><span className="live-dot" /> Live</span>
+        <span>{lastUpdated ? `Updated ${timeAgo(lastUpdated)}` : 'Loading…'}</span>
+        <button className="refresh-btn" onClick={() => void load()} disabled={refreshing}>
+          {refreshing ? '⟳' : 'Refresh'}
+        </button>
+      </div>
+
+      <div className={`row-between${statusFlash ? ' status-updated' : ''}`} style={{ marginTop: 8 }}>
         <h1 style={{ fontSize: '1.5rem' }}>
           Order {o.order_number || o.id.slice(0, 8).toUpperCase()}
         </h1>
@@ -197,7 +257,7 @@ function OrderInner() {
               <Button
                 onClick={async () => {
                   await buyerApi.confirmReceived(orderId)
-                  load()
+                  void load()
                 }}
               >
                 I received my order

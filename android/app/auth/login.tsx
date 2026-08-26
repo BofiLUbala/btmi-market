@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { useAuth } from '../../src/store/auth'
 import { ApiError } from '../../src/api/client'
@@ -24,6 +24,6 @@ export default function LoginScreen() {
       } else setError('Connexion impossible. Réessayez.')
     } finally { setBusy(false) }
   }
-  return <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.form}><Text style={styles.title}>Bon retour parmi nous</Text><Text style={styles.subtitle}>Connectez-vous avec votre compte BTMI.</Text>{error ? <Text style={styles.error}>{error}</Text> : null}<Field label="Adresse email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email"/><Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password"/><Button title="Se connecter" loading={busy} disabled={!email || !password} onPress={submit}/></View></KeyboardAvoidingView>
+  return <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.form}><Text style={styles.title}>Bon retour parmi nous</Text><Text style={styles.subtitle}>Connectez-vous avec votre compte BTMI.</Text>{error ? <Text style={styles.error}>{error}</Text> : null}<Field label="Adresse email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email"/><Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password"/><Pressable accessibilityRole="link" onPress={()=>router.push('/auth/forgot-password')}><Text style={styles.link}>Mot de passe oublié ?</Text></Pressable><Button title="Se connecter" loading={busy} disabled={!email || !password} onPress={submit}/></View></KeyboardAvoidingView>
 }
-const styles = StyleSheet.create({ page: { flex: 1, justifyContent: 'center', backgroundColor: colors.cream, padding: spacing.lg }, form: { gap: spacing.md }, title: { color: colors.ink, fontSize: 30, fontWeight: '900' }, subtitle: { color: colors.muted }, error: { color: colors.danger, backgroundColor: '#FEECEB', padding: 12, borderRadius: 10 } })
+const styles = StyleSheet.create({ page: { flex: 1, justifyContent: 'center', backgroundColor: colors.cream, padding: spacing.lg }, form: { gap: spacing.md }, title: { color: colors.ink, fontSize: 30, fontWeight: '900' }, subtitle: { color: colors.muted }, error: { color: colors.danger, backgroundColor: '#FEECEB', padding: 12, borderRadius: 10 }, link:{color:colors.green,fontWeight:'800',textAlign:'right'} })

@@ -1,0 +1,149 @@
+﻿[
+    {
+        "Test":  "Seller ready",
+        "Expected":  "200",
+        "Actual":  "HTTP 200",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Biz+Shop ready",
+        "Expected":  "ids",
+        "Actual":  "biz=65a47cfd-4a86-4a1c-beab-63c72c97747c shop=2a57279c-cc2f-4656-9de5-6ff936e27640",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Real taxonomy loaded",
+        "Expected":  "4 cats with subs",
+        "Actual":  "shoes=55555555-5555-5555-5555-555555555555 food=1b94f540-a42b-4833-be2e-33ff44454be0 elec=342aa21d-5919-4139-a189-3461ccc96c48 beauty=2452f078-5c79-4dde-a7d4-1e9afab17bc9",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shoes: 4 variants persisted",
+        "Expected":  "\u003e=4",
+        "Actual":  "5",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shoes: marketplace groups = Color + Shoe Size",
+        "Expected":  "2 groups",
+        "Actual":  "Color,Shoe Size",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shoes: specs = Material Mesh (single value)",
+        "Expected":  "Material=Mesh",
+        "Actual":  "Material=Mesh",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shoes: no Color hardcoded leak",
+        "Expected":  "no extra groups",
+        "Actual":  "2 groups",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shoes: White/41 missing =\u003e invalid combo not selectable",
+        "Expected":  "0 variants with White+41",
+        "Actual":  "0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Shoes: White/40 stock exact 8",
+        "Expected":  "8",
+        "Actual":  "8",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Food: 4 variants",
+        "Expected":  "\u003e=4",
+        "Actual":  "5",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Food: groups = Flavor + Volume (no Color/Size)",
+        "Expected":  "Flavor,Volume",
+        "Actual":  "Flavor,Volume",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Food: specs = Expiration Date",
+        "Expected":  "Expiration Date",
+        "Actual":  "Expiration Date",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Elec: 4 variants",
+        "Expected":  "\u003e=4",
+        "Actual":  "5",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Elec: groups = Storage + RAM",
+        "Expected":  "Storage,RAM",
+        "Actual":  "RAM,Storage",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Elec: specs = Model Pro Max",
+        "Expected":  "Model",
+        "Actual":  "Model",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Simple: 1 variant",
+        "Expected":  "\u003e=1",
+        "Actual":  "2",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Simple: no selectable groups (INFO only)",
+        "Expected":  "0 groups",
+        "Actual":  "0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Simple: specs = Skin Type",
+        "Expected":  "Skin Type",
+        "Actual":  "Skin Type",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Simple: stock exact 12 somewhere",
+        "Expected":  "12",
+        "Actual":  "0",
+        "Pass":  true,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Discount: product discount_active preserved",
+        "Expected":  "true",
+        "Actual":  "False",
+        "Pass":  false,
+        "Notes":  ""
+    },
+    {
+        "Test":  "Category not duplicated: buyer detail uses persisted category name",
+        "Expected":  "Beauty",
+        "Actual":  "Beauty",
+        "Pass":  true,
+        "Notes":  ""
+    }
+]

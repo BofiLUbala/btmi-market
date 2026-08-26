@@ -46,7 +46,7 @@ import type {
   CashSummary,
   SellerGrowth,
   SellerPointsHistory,
-  SellerReviewsResponse,
+  ShopReviewsResponse,
   PublicationStatus,
   OrderStatus,
   BuyerPayment,
@@ -136,6 +136,12 @@ export const productImageApi = {
     safeList(get<ProductImageResponse[]>(`/businesses/${businessId}/products/${productId}/images`)),
   delete: (businessId: string, productId: string, imageId: string) =>
     del<void>(`/businesses/${businessId}/products/${productId}/images/${imageId}`),
+  /** Link an image to one Variant, or pass null to make it Product-wide again. */
+  assignVariant: (businessId: string, productId: string, imageId: string, variantId: string | null) =>
+    patch<ProductImageResponse>(
+      `/businesses/${businessId}/products/${productId}/images/${imageId}/variant`,
+      { variant_id: variantId }
+    ),
 }
 
 export const categoryApi = {
@@ -212,6 +218,6 @@ export const growthApi = {
 }
 
 export const reviewApi = {
-  getShopReviews: (shopId: string, params?: { page?: number; limit?: number; rating?: number; sort?: string }) =>
-    get<SellerReviewsResponse>(`/marketplace/shops/${shopId}/reviews`, params),
+  getShopReviews: (shopId: string, params?: { page?: number; per_page?: number; rating?: number; sort?: string; type?: 'shop' | 'product' }) =>
+    get<ShopReviewsResponse>(`/marketplace/shops/${shopId}/reviews`, params),
 }

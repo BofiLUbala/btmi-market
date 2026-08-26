@@ -1,30 +1,43 @@
-import { useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { initials } from '@/lib/format'
 
 export interface ProductImage {
   url: string
   alt?: string
+  /** Set when this image shows one specific variant (a colour/model). */
+  variantId?: string
 }
 
 /**
- * Product gallery. The backend currently exposes no product/variant image
- * fields (see docs/BUYER_PRODUCT_MEDIA_GAP.md), so `images` is normally
- * empty and a deterministic initials placeholder is shown instead.
- * When the API gains media support, pass real URLs — no other change needed.
+ * Product gallery. Falls back to a deterministic initials placeholder when a
+ * product has no images. Pass `focusUrl` to jump to the image that matches the
+ * variant the buyer just selected.
  */
 export function Gallery({
   name,
   images = [],
-  badge
+  badge,
+  focusUrl
 }: {
   name: string
   images?: ProductImage[]
   badge?: React.ReactNode
+  focusUrl?: string
 }) {
   const [active, setActive] = useState(0)
   const [broken, setBroken] = useState<Record<number, boolean>>({})
   const mainRef = useRef<HTMLDivElement>(null)
   const usable = images.filter((_, i) => !broken[i])
+
+  // Follow the selected variant's image without trapping the buyer: they can
+  // still click any thumbnail afterwards.
+  useEffect(() => {
+    if (!focusUrl) return
+    const index = usable.findIndex((img) => img.url === focusUrl)
+    if (index >= 0) setActive(index)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusUrl, images.length])
+
   const current = usable[active] ?? usable[0]
   const hue = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360
 

@@ -119,7 +119,7 @@ export default function SellerStockPage() {
         <h1>Inventory & Stock</h1>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="row-sm mb-4">
         <Button variant={tab === 'inventory' ? 'primary' : 'outline'} onClick={() => setTab('inventory')}>
           Inventory
         </Button>
@@ -151,37 +151,39 @@ export default function SellerStockPage() {
                     <tr>
                       <th>Product</th>
                       <th>Variant</th>
-                      <th>On Hand</th>
-                      <th>Reserved</th>
-                      <th>Available</th>
+                      <th className="num">On Hand</th>
+                      <th className="num">Reserved</th>
+                      <th className="num">Available</th>
                       <th>Restock</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row) => (
                       <tr key={row.inventory.id}>
-                        <td>{row.product?.name || row.inventory.variant_id.slice(0, 8)}</td>
-                        <td className="small">
+                        <td className="wrap"><strong>{row.product?.name || row.inventory.variant_id.slice(0, 8)}</strong></td>
+                        <td className="wrap small">
                           {row.variant?.sku || row.variant?.name || row.inventory.variant_id.slice(0, 8)}
                           {row.variant?.sale_price != null && (
                             <span className="muted"> · {Number(row.variant.sale_price).toLocaleString()} FC</span>
                           )}
                         </td>
-                        <td>{row.inventory.quantity}</td>
-                        <td>{row.inventory.reserved_quantity}</td>
-                        <td className={row.inventory.available <= 5 ? 'danger' : 'success'}>{row.inventory.available}</td>
+                        <td className="num">{row.inventory.quantity}</td>
+                        <td className="num">{row.inventory.reserved_quantity}</td>
+                        <td className={`num ${row.inventory.available <= 5 ? 'danger' : 'success'}`}>{row.inventory.available}</td>
                         <td>
-                          <div style={{ display: 'flex', gap: 4 }}>
+                          <div className="row-sm" style={{ flexWrap: 'nowrap' }}>
                             <input
+                              className="input input-sm"
                               type="number"
                               min="1"
                               placeholder="Qty"
+                              aria-label={`Restock quantity for ${row.product?.name ?? 'variant'}`}
                               value={restock[row.inventory.id] ?? ''}
                               onChange={(e) => setRestock((prev) => ({ ...prev, [row.inventory.id]: e.target.value }))}
-                              style={{ width: 80 }}
+                              style={{ width: 72 }}
                             />
                             <Button size="sm" disabled={actingId === row.inventory.id} onClick={() => addStock(row)}>
-                              Add
+                              {actingId === row.inventory.id ? '…' : 'Add'}
                             </Button>
                           </div>
                         </td>
@@ -203,9 +205,9 @@ export default function SellerStockPage() {
                 <thead>
                   <tr>
                     <th>Type</th>
-                    <th>Change</th>
-                    <th>Previous</th>
-                    <th>New</th>
+                    <th className="num">Change</th>
+                    <th className="num">Previous</th>
+                    <th className="num">New</th>
                     <th>Notes</th>
                     <th>Date</th>
                   </tr>
@@ -214,11 +216,11 @@ export default function SellerStockPage() {
                   {movements.map((m) => (
                     <tr key={m.id}>
                       <td><span className="badge badge-primary">{m.movement_type}</span></td>
-                      <td>{m.quantity > 0 ? `+${m.quantity}` : m.quantity}</td>
-                      <td>{m.previous_quantity}</td>
-                      <td>{m.new_quantity}</td>
-                      <td className="small muted">{m.notes || '—'}</td>
-                      <td className="small">{new Date(m.created_at).toLocaleString()}</td>
+                      <td className={`num ${m.quantity > 0 ? 'success' : 'danger'}`}>{m.quantity > 0 ? `+${m.quantity}` : m.quantity}</td>
+                      <td className="num">{m.previous_quantity}</td>
+                      <td className="num">{m.new_quantity}</td>
+                      <td className="wrap small muted">{m.notes || '—'}</td>
+                      <td className="small" style={{ whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

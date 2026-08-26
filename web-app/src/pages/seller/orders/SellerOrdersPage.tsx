@@ -2,9 +2,20 @@ import { useAuth } from '@/store/auth'
 import { orderApi, shopApi } from '@/api/seller'
 import type { BuyerPayment, OrderStatus, OrderWithLines, Shop } from '@/api/types'
 import { Card } from '@/components/ui/Card'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
+
+const POLL_INTERVAL = 30_000 // 30 seconds
+
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 5) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}m ago`
+}
 
 interface Order {
   id: string
@@ -46,6 +57,10 @@ export default function SellerOrdersPage() {
   const [details, setDetails] = useState<Record<string, OrderWithLines>>({})
   const [shops, setShops] = useState<Shop[]>([])
   const [shopFilter, setShopFilter] = useState('ALL')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [, setTick] = useState(0)
 
   useEffect(() => {
     setShopFilter('ALL')
@@ -56,26 +71,63 @@ export default function SellerOrdersPage() {
     }
   }, [activeBusiness?.id])
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (silent = false) => {
     if (!activeBusiness) return
-    setLoading(true)
-    setError('')
+    if (!silent) { setLoading(true); setError('') }
+    if (silent) setRefreshing(true)
     try {
       const data = shopFilter === 'ALL'
         ? await orderApi.listByBusiness(activeBusiness.id)
         : await orderApi.listByShop(shopFilter)
       setOrders(Array.isArray(data) ? data : [])
+      setLastUpdated(new Date())
+      if (!silent) setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load orders')
-      setOrders([])
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Failed to load orders')
+        setOrders([])
+      }
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [activeBusiness?.id, shopFilter])
 
   useEffect(() => {
     void loadOrders()
   }, [loadOrders])
+
+  // Auto-polling with tab visibility — pauses when every Order is in a final state
+  const hasActive = useMemo(() => hasActiveOrderStatus(orders.map((o) => o.status)), [orders])
+  useEffect(() => {
+    function startPolling() {
+      stopPolling()
+      intervalRef.current = setInterval(() => void loadOrders(true), POLL_INTERVAL)
+    }
+    function stopPolling() {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    }
+    function onVisibility() {
+      if (document.visibilityState === 'visible') {
+        void loadOrders(true)
+        if (hasActiveOrderStatus(orders.map((o) => o.status))) startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+    if (hasActive) startPolling()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [loadOrders, hasActive])
+
+  // Tick for timeAgo
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 10_000)
+    return () => clearInterval(id)
+  }, [])
 
   async function runAction(order: Order, fn: () => Promise<unknown>) {
     setActingId(order.id)
@@ -151,6 +203,15 @@ export default function SellerOrdersPage() {
     <div className="seller-orders">
       <div className="page-header">
         <h1>Orders</h1>
+      </div>
+
+      {/* Live sync bar */}
+      <div className="live-bar">
+        <span className="live-label"><span className="live-dot" /> Live</span>
+        <span>{lastUpdated ? `Updated ${timeAgo(lastUpdated)}` : 'Loading…'}</span>
+        <button className="refresh-btn" onClick={() => void loadOrders()} disabled={refreshing}>
+          {refreshing ? '⟳' : 'Refresh'}
+        </button>
       </div>
 
       <div className="row-between seller-order-filters">

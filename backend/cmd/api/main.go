@@ -118,7 +118,7 @@ func main() {
 	productImageRepo := repository.NewProductImageRepository(db)
 	marketplaceService.SetProductImageRepo(productImageRepo)
 	marketplaceService.SetVisualSearchURL(cfg.VisualSearchURL)
-	productImageService := service.NewProductImageService(productImageRepo, productRepo, membershipRepo, cfg.UploadDir)
+	productImageService := service.NewProductImageService(productImageRepo, productRepo, variantRepo, membershipRepo, cfg.UploadDir)
 	categoryService := service.NewCategoryService(categoryRepo)
 	sellerGrowthService := service.NewSellerGrowthService(pointAccountRepo, levelRepo, trustRepo)
 	reviewService := service.NewReviewService(reviewRepo, trustRepo, categoryRankingService, asynqClient)
@@ -217,6 +217,7 @@ func main() {
 			businessesGroup.POST("/:business_id/products/:product_id/images", inventoryHandler.UploadProductImage)
 			businessesGroup.GET("/:business_id/products/:product_id/images", inventoryHandler.ListProductImages)
 			businessesGroup.DELETE("/:business_id/products/:product_id/images/:image_id", inventoryHandler.DeleteProductImage)
+			businessesGroup.PATCH("/:business_id/products/:product_id/images/:image_id/variant", inventoryHandler.AssignProductImageVariant)
 
 			businessesGroup.POST("/:business_id/receipts", inventoryHandler.ReceiveStock)
 			businessesGroup.GET("/:business_id/receipts", inventoryHandler.ListReceipts)

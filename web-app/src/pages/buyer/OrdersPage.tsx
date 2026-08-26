@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import type { BuyerPayment, OrderLine, OrderWithLines } from '@/api/types'
 import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
+import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { RequireAuth } from '@/components/auth/Guards'
+
+const POLL_INTERVAL = 60_000 // 60 seconds
 
 interface OrderHistoryItem { detail: OrderWithLines; payment: BuyerPayment | null }
 
@@ -14,40 +17,129 @@ function variantLabel(line: OrderLine) {
   return attributes.join(' / ') || line.variant_name || line.variant_sku || 'Standard variant'
 }
 
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 5) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}m ago`
+}
+
+function ReviewAction({ orderId, lineId, completed }: { orderId: string; lineId: string; completed: boolean }) {
+  const [eligibility, setEligibility] = useState<{ eligible: boolean; reason?: string; existing_review_id?: string } | null>(null)
+  
+  useEffect(() => {
+    if (completed) {
+      buyerApi.reviewEligibility(orderId, lineId)
+        .then(setEligibility)
+        .catch(() => setEligibility(null))
+    }
+  }, [orderId, lineId, completed])
+
+  if (!completed) return null
+  if (eligibility?.existing_review_id) {
+    return (
+      <div style={{ marginTop: 4 }}>
+        <Link className="section-link small" to={`/orders/${orderId}/review?line=${lineId}`}>
+          ✓ Reviewed (Edit)
+        </Link>
+      </div>
+    )
+  }
+  if (eligibility?.eligible) {
+    return (
+      <div style={{ marginTop: 4 }}>
+        <Link className="section-link small bold" style={{ color: 'var(--color-accent, #ff7a00)' }} to={`/orders/${orderId}/review?line=${lineId}`}>
+          ★ Review Product
+        </Link>
+      </div>
+    )
+  }
+  return null
+}
+
 function OrdersInner() {
   const [items, setItems] = useState<OrderHistoryItem[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [, setTick] = useState(0)
 
+  const load = useCallback(async (silent = false) => {
+    if (silent) setRefreshing(true)
+    try {
+      const orders = asArray(await buyerApi.orders())
+      const details = await Promise.all(orders.map(async (order) => {
+        const [detail, payment] = await Promise.all([
+          buyerApi.orderDetail(order.id),
+          buyerApi.getPayment(order.id).catch(() => null),
+        ])
+        return { detail, payment }
+      }))
+      setItems(details)
+      setLastUpdated(new Date())
+      setError('')
+    } catch (e) {
+      if (!silent) setError(e instanceof Error ? e.message : 'Could not load orders')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
+
+  // Initial load
+  useEffect(() => { void load() }, [load])
+
+  // Auto-polling with tab visibility — pauses when every Order is in a final state
+  const hasActive = hasActiveOrderStatus(items.map((item) => item.detail?.order?.status))
   useEffect(() => {
-    let active = true
-    async function load() {
-      try {
-        const orders = asArray(await buyerApi.orders())
-        const details = await Promise.all(orders.map(async (order) => {
-          const [detail, payment] = await Promise.all([
-            buyerApi.orderDetail(order.id),
-            buyerApi.getPayment(order.id).catch(() => null),
-          ])
-          return { detail, payment }
-        }))
-        if (active) setItems(details)
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : 'Could not load orders')
-      } finally {
-        if (active) setLoading(false)
+    function startPolling() {
+      stopPolling()
+      intervalRef.current = setInterval(() => void load(true), POLL_INTERVAL)
+    }
+    function stopPolling() {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    }
+    function onVisibility() {
+      if (document.visibilityState === 'visible') {
+        void load(true)
+        if (hasActiveOrderStatus(items.map((item) => item.detail?.order?.status))) startPolling()
+      } else {
+        stopPolling()
       }
     }
-    void load()
-    return () => { active = false }
+    if (hasActive) startPolling()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [load, hasActive])
+
+  // Tick for timeAgo
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 10_000)
+    return () => clearInterval(id)
   }, [])
 
   if (loading) return <LoadingBlock label="Loading your orders…" />
-  if (error) return <ErrorBox error={error} onRetry={() => window.location.reload()} />
+  if (error) return <ErrorBox error={error} onRetry={() => void load()} />
   if (items.length === 0) return <EmptyState icon="📦" title="You have no orders yet" description="Your purchases will appear here after checkout." action={<Link to="/" className="btn btn-primary">Browse Marketplace</Link>} />
 
   return <div className="fade-in">
     <div className="page-header"><div><div className="eyebrow">YOUR ACCOUNT</div><h1>My Orders</h1><p className="muted">Products, payment and live fulfillment status for every Shop.</p></div></div>
+
+    {/* Live sync bar */}
+    <div className="live-bar">
+      <span className="live-label"><span className="live-dot" /> Live</span>
+      <span>{lastUpdated ? `Updated ${timeAgo(lastUpdated)}` : 'Loading…'}</span>
+      <button className="refresh-btn" onClick={() => void load()} disabled={refreshing}>
+        {refreshing ? '⟳' : 'Refresh'}
+      </button>
+    </div>
+
     <div className="stack buyer-order-list">
       {items.map(({ detail, payment }) => {
         const order = detail.order
@@ -60,7 +152,12 @@ function OrdersInner() {
               const price = line.final_unit_price
               return <div className="cart-line" key={line.id}>
                 <div className="cart-line-thumb">{line.image_url ? <img src={line.image_url} alt="" /> : initials(line.product_name || 'Product')}</div>
-                <div className="stack" style={{ gap: 2, flex: 1 }}><strong>{line.product_name || `Product ${line.product_id.slice(0, 8)}`}</strong><span className="small muted">Variant: {variantLabel(line)}</span><span className="small muted">Quantity: {line.quantity} · Unit price: {formatMoney(price)}</span></div>
+                <div className="stack" style={{ gap: 2, flex: 1 }}>
+                  <strong>{line.product_name || `Product ${line.product_id.slice(0, 8)}`}</strong>
+                  <span className="small muted">Variant: {variantLabel(line)}</span>
+                  <span className="small muted">Quantity: {line.quantity} · Unit price: {formatMoney(price)}</span>
+                  <ReviewAction orderId={order.id} lineId={line.id} completed={order.status === 'COMPLETED'} />
+                </div>
                 <strong>{formatMoney(line.quantity * price)}</strong>
               </div>
             })}

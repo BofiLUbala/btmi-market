@@ -77,7 +77,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE id = $1
@@ -91,7 +91,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		&order.IdempotencyKey,
 		&order.OrderNumber,
 		&order.DeliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized,
+		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
@@ -110,7 +110,7 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE id = $1
@@ -125,7 +125,7 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 		&order.IdempotencyKey,
 		&order.OrderNumber,
 		&order.DeliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized,
+		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
@@ -536,4 +536,10 @@ func (r *OrderRepository) GetHistoryWithActor(orderID uuid.UUID) ([]map[string]i
 		history = append(history, entry)
 	}
 	return history, rows.Err()
+}
+
+func (r *OrderRepository) SetInventoryClaimed(id uuid.UUID) error {
+	query := `UPDATE orders SET inventory_claimed = TRUE, updated_at = NOW() WHERE id = $1`
+	_, err := r.db.Exec(query, id)
+	return err
 }

@@ -11,7 +11,7 @@ export default function ForgotPasswordPage() {
   const [params] = useSearchParams()
   const isSeller = params.get('account') === 'seller'
   const loginPath = isSeller ? '/seller/login' : '/login'
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [error, setError] = useState('')
   const [done, setDone] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -21,11 +21,16 @@ export default function ForgotPasswordPage() {
     setError('')
     setDone(null)
     setBusy(true)
+    const startedAt = Date.now()
     try {
-      await authApi.forgotPassword(email.trim())
-      setDone('If an account with that email exists, a password reset link has been sent.')
+      await authApi.forgotPassword(identifier.trim())
+      const remaining = 1200 - (Date.now() - startedAt)
+      if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
+      setDone('If a matching account exists, a password reset link has been sent to its registered email address.')
       setTimeout(() => navigate(loginPath), 4000)
     } catch (err) {
+      const remaining = 1200 - (Date.now() - startedAt)
+      if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
       setError(err instanceof ApiError ? err.message : 'Request failed')
     } finally {
       setBusy(false)
@@ -36,18 +41,18 @@ export default function ForgotPasswordPage() {
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
         <h1>Forgot password?</h1>
-        <p className="muted small">Enter your email and we'll send you a link to reset your password.</p>
+        <p className="muted small">Enter the email or phone number registered on your account. The reset link will be sent to the registered email address.</p>
         {done && <SuccessBox message={done} />}
         {error && <ErrorBox error={error} />}
         <Field
-          label="Email"
-          name="email"
-          type="email"
+          label="Email or phone number"
+          name="identifier"
+          type="text"
           required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          autoComplete="username"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="you@example.com or +243…"
         />
         <Button type="submit" block size="lg" loading={busy}>
           Send reset link

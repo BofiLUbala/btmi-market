@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -81,6 +82,21 @@ func (s *PointRedemptionService) CalculatePointsDiscount(points int) float64 {
 	return float64(points) * s.GetRedeemRate()
 }
 
+func (s *PointRedemptionService) getEffectiveVariantPrice(variant *models.ProductVariant, product *models.Product) float64 {
+	if product.DiscountActive && (product.DiscountStart == nil || time.Now().After(*product.DiscountStart)) && (product.DiscountEnd == nil || time.Now().Before(*product.DiscountEnd)) {
+		if product.DiscountType == "PERCENTAGE" {
+			return variant.SalePrice * (1.0 - product.DiscountValue/100.0)
+		} else if product.DiscountType == "FIXED" {
+			val := variant.SalePrice - product.DiscountValue
+			if val < 0 {
+				return 0
+			}
+			return val
+		}
+	}
+	return variant.SalePrice
+}
+
 func (s *PointRedemptionService) GetRedemptionPreview(
 	buyerProfileID uuid.UUID,
 	shopID uuid.UUID,
@@ -113,7 +129,7 @@ func (s *PointRedemptionService) GetRedemptionPreview(
 			return nil, errors.New("VARIANT_NOT_FOUND")
 		}
 
-		_, err = s.productRepo.GetByID(variant.ProductID)
+		product, err := s.productRepo.GetByID(variant.ProductID)
 		if err != nil {
 			return nil, errors.New("PRODUCT_NOT_FOUND")
 		}
@@ -128,7 +144,7 @@ func (s *PointRedemptionService) GetRedemptionPreview(
 			return nil, errors.New("INSUFFICIENT_STOCK")
 		}
 
-		baseTotal += variant.SalePrice * float64(item.Quantity)
+		baseTotal += s.getEffectiveVariantPrice(variant, product) * float64(item.Quantity)
 	}
 
 	if !usePoints {
@@ -397,6 +413,11 @@ func (s *PointRedemptionService) CalculateOrderTotals(
 			return 0, errors.New("VARIANT_NOT_FOUND")
 		}
 
+		product, err := s.productRepo.GetByID(variant.ProductID)
+		if err != nil {
+			return 0, errors.New("PRODUCT_NOT_FOUND")
+		}
+
 		inv, err := s.inventoryRepo.GetByShopAndVariant(shopID, variantID)
 		if err != nil {
 			return 0, errors.New("INVENTORY_NOT_FOUND")
@@ -407,7 +428,7 @@ func (s *PointRedemptionService) CalculateOrderTotals(
 			return 0, errors.New("INSUFFICIENT_STOCK")
 		}
 
-		total += variant.SalePrice * float64(item.Quantity)
+		total += s.getEffectiveVariantPrice(variant, product) * float64(item.Quantity)
 	}
 	return total, nil
 }

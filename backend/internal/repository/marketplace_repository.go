@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -108,6 +110,34 @@ func (r *MarketplaceRepository) GetPublicShopByID(shopID uuid.UUID) (*models.Pub
 	return s, nil
 }
 
+type productDiscount struct {
+	Active bool
+	Type   string
+	Value  float64
+	Start  *time.Time
+	End    *time.Time
+}
+
+func (r *MarketplaceRepository) getProductDiscount(productID uuid.UUID) (*productDiscount, error) {
+	var disc productDiscount
+	var start, end sql.NullTime
+	err := r.db.QueryRow(`
+		SELECT discount_active, discount_type, discount_value, discount_start, discount_end 
+		FROM products WHERE id = $1`, productID).Scan(
+		&disc.Active, &disc.Type, &disc.Value, &start, &end,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if start.Valid {
+		disc.Start = &start.Time
+	}
+	if end.Valid {
+		disc.End = &end.Time
+	}
+	return &disc, nil
+}
+
 func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit int, sort string) ([]*models.PublicProductResponse, int, error) {
 	where := []string{"p.publication_status = 'PUBLISHED'", "p.status = 'ACTIVE'", "s.status = 'ACTIVE'"}
 	args := []interface{}{}
@@ -175,6 +205,7 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
 		           ELSE 'OUT_OF_STOCK'
 		       END as availability,
+		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		       p.created_at
 		FROM products p
 		JOIN businesses b ON b.id = p.business_id
@@ -189,6 +220,7 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		WHERE %s
 		GROUP BY p.id, s.id, s.name, p.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price,
 		         p.category_id, c.name, c.slug, p.subcategory_id, sc.name, sc.slug, sl.name, st.trust_status,
+		         p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		         p.created_at, sl.search_boost
 		), selected AS (
 			SELECT DISTINCT ON (id) *
@@ -199,7 +231,9 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		       name, sku, description, unit, unit_price,
 		       category_id, category_name, category_slug,
 		       subcategory_id, subcategory_name, subcategory_slug,
-		       seller_level, seller_trust, availability, created_at
+		       seller_level, seller_trust, availability,
+		       discount_active, discount_type, discount_value, discount_start, discount_end,
+		       created_at
 		FROM selected
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
@@ -215,14 +249,35 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 	var products []*models.PublicProductResponse
 	for rows.Next() {
 		p := &models.PublicProductResponse{}
+		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
 			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
 			&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 			&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
-			&p.SellerLevel, &p.SellerTrust, &p.Availability, &p.CreatedAt,
+			&p.SellerLevel, &p.SellerTrust, &p.Availability,
+			&p.DiscountActive, &p.DiscountType, &p.DiscountValue, &discountStart, &discountEnd,
+			&p.CreatedAt,
 		); err != nil {
 			return nil, 0, err
+		}
+		var dStart, dEnd *time.Time
+		if discountStart.Valid {
+			dStart = &discountStart.Time
+		}
+		if discountEnd.Valid {
+			dEnd = &discountEnd.Time
+		}
+		p.SellerSalePrice = p.BasePrice
+		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
+			if p.DiscountType == "PERCENTAGE" {
+				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
+			} else if p.DiscountType == "FIXED" {
+				p.SellerSalePrice = p.BasePrice - p.DiscountValue
+				if p.SellerSalePrice < 0 {
+					p.SellerSalePrice = 0
+				}
+			}
 		}
 		products = append(products, p)
 	}
@@ -284,6 +339,7 @@ func (r *MarketplaceRepository) GetPublicProductByID(productID uuid.UUID) (*mode
 		       COALESCE(sc.slug, '') as subcategory_slug,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
+		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		       p.created_at
 		FROM products p
 		JOIN businesses b ON b.id = p.business_id
@@ -296,20 +352,46 @@ func (r *MarketplaceRepository) GetPublicProductByID(productID uuid.UUID) (*mode
 		WHERE p.id = $1 AND p.publication_status = 'PUBLISHED' AND p.status = 'ACTIVE'
 	`
 	p := &models.PublicProductResponse{}
+	var discountStart, discountEnd sql.NullTime
 	err := r.db.QueryRow(query, productID).Scan(
 		&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
 		&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
 		&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 		&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
-		&p.SellerLevel, &p.SellerTrust, &p.CreatedAt,
+		&p.SellerLevel, &p.SellerTrust,
+		&p.DiscountActive, &p.DiscountType, &p.DiscountValue, &discountStart, &discountEnd,
+		&p.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	var dStart, dEnd *time.Time
+	if discountStart.Valid {
+		dStart = &discountStart.Time
+	}
+	if discountEnd.Valid {
+		dEnd = &discountEnd.Time
+	}
+	p.SellerSalePrice = p.BasePrice
+	if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
+		if p.DiscountType == "PERCENTAGE" {
+			p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
+		} else if p.DiscountType == "FIXED" {
+			p.SellerSalePrice = p.BasePrice - p.DiscountValue
+			if p.SellerSalePrice < 0 {
+				p.SellerSalePrice = 0
+			}
+		}
 	}
 	return p, nil
 }
 
 func (r *MarketplaceRepository) GetVariantsForProduct(productID uuid.UUID) ([]models.PublicVariantResponse, error) {
+	disc, err := r.getProductDiscount(productID)
+	if err != nil {
+		return nil, err
+	}
+
 	query := `
 		SELECT v.id, v.sku,
 		       COALESCE(v.sale_price, 0) as sale_price,
@@ -334,8 +416,19 @@ func (r *MarketplaceRepository) GetVariantsForProduct(productID uuid.UUID) ([]mo
 	var variants []models.PublicVariantResponse
 	for rows.Next() {
 		v := models.PublicVariantResponse{}
-		if err := rows.Scan(&v.ID, &v.SKU, &v.UnitPrice, &v.Stock, &v.StockQty); err != nil {
+		if err := rows.Scan(&v.ID, &v.SKU, &v.BasePrice, &v.Stock, &v.StockQty); err != nil {
 			return nil, err
+		}
+		v.UnitPrice = v.BasePrice
+		if disc.Active && (disc.Start == nil || time.Now().After(*disc.Start)) && (disc.End == nil || time.Now().Before(*disc.End)) {
+			if disc.Type == "PERCENTAGE" {
+				v.UnitPrice = v.BasePrice * (1.0 - disc.Value/100.0)
+			} else if disc.Type == "FIXED" {
+				v.UnitPrice = v.BasePrice - disc.Value
+				if v.UnitPrice < 0 {
+					v.UnitPrice = 0
+				}
+			}
 		}
 		variants = append(variants, v)
 	}
@@ -445,6 +538,7 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 		       COALESCE(sc.slug, '') as subcategory_slug,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
+		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		       p.created_at,
 		       COALESCE(sl.search_boost, 0) as search_boost
 		FROM products p
@@ -459,6 +553,7 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 		WHERE %s
 		GROUP BY p.id, s.id, s.name, s.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price,
 		         p.category_id, c.name, c.slug, p.subcategory_id, sc.name, sc.slug, sl.name, st.trust_status,
+		         p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		         p.created_at, sl.search_boost
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
@@ -475,14 +570,35 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 	for rows.Next() {
 		p := &models.PublicProductResponse{}
 		var _searchBoost float64
+		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
 			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
 			&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 			&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
-			&p.SellerLevel, &p.SellerTrust, &p.CreatedAt, &_searchBoost,
+			&p.SellerLevel, &p.SellerTrust,
+			&p.DiscountActive, &p.DiscountType, &p.DiscountValue, &discountStart, &discountEnd,
+			&p.CreatedAt, &_searchBoost,
 		); err != nil {
 			return nil, err
+		}
+		var dStart, dEnd *time.Time
+		if discountStart.Valid {
+			dStart = &discountStart.Time
+		}
+		if discountEnd.Valid {
+			dEnd = &discountEnd.Time
+		}
+		p.SellerSalePrice = p.BasePrice
+		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
+			if p.DiscountType == "PERCENTAGE" {
+				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
+			} else if p.DiscountType == "FIXED" {
+				p.SellerSalePrice = p.BasePrice - p.DiscountValue
+				if p.SellerSalePrice < 0 {
+					p.SellerSalePrice = 0
+				}
+			}
 		}
 		products = append(products, p)
 	}
@@ -821,6 +937,7 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 		       p.name, p.sku, p.description, p.unit, p.unit_price as unit_price, p.category_id, p.subcategory_id,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
+		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		       p.created_at,
 		       COALESCE(c.name, '') as category_name, COALESCE(c.slug, '') as category_slug,
 		       COALESCE(sc.name, '') as subcategory_name, COALESCE(sc.slug, '') as subcategory_slug
@@ -848,16 +965,38 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 	product := &models.PublicProductDetailResponse{}
 	product.Category = &models.CategorySummary{}
 	product.Subcategory = &models.CategorySummary{}
+	var discountStart, discountEnd sql.NullTime
 	err := r.db.QueryRow(query, productID).Scan(
 		&product.ID, &product.ShopID, &product.ShopName, &product.BusinessID, &product.BusinessName,
 		&product.Name, &product.SKU, &product.Description, &product.Unit, &product.BasePrice,
 		&product.CategoryID, &product.SubcategoryID,
-		&product.SellerLevel, &product.SellerTrust, &product.CreatedAt,
+		&product.SellerLevel, &product.SellerTrust,
+		&product.DiscountActive, &product.DiscountType, &product.DiscountValue, &discountStart, &discountEnd,
+		&product.CreatedAt,
 		&product.Category.Name, &product.Category.Slug,
 		&product.Subcategory.Name, &product.Subcategory.Slug,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	var dStart, dEnd *time.Time
+	if discountStart.Valid {
+		dStart = &discountStart.Time
+	}
+	if discountEnd.Valid {
+		dEnd = &discountEnd.Time
+	}
+	product.SellerSalePrice = product.BasePrice
+	if product.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
+		if product.DiscountType == "PERCENTAGE" {
+			product.SellerSalePrice = product.BasePrice * (1.0 - product.DiscountValue/100.0)
+		} else if product.DiscountType == "FIXED" {
+			product.SellerSalePrice = product.BasePrice - product.DiscountValue
+			if product.SellerSalePrice < 0 {
+				product.SellerSalePrice = 0
+			}
+		}
 	}
 
 	// Set category IDs
@@ -891,6 +1030,11 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 }
 
 func (r *MarketplaceRepository) GetVariantsWithStockForProduct(productID uuid.UUID) ([]models.PublicVariantDetailResponse, error) {
+	disc, err := r.getProductDiscount(productID)
+	if err != nil {
+		return nil, err
+	}
+
 	query := `
 		SELECT v.id, v.sku, v.name, v.attributes,
 		       COALESCE(v.sale_price, 0) as sale_price,
@@ -916,12 +1060,23 @@ func (r *MarketplaceRepository) GetVariantsWithStockForProduct(productID uuid.UU
 	for rows.Next() {
 		v := models.PublicVariantDetailResponse{}
 		var attrsJSON []byte
-		if err := rows.Scan(&v.ID, &v.SKU, &v.Name, &attrsJSON, &v.UnitPrice, &v.Stock, &v.StockQty); err != nil {
+		if err := rows.Scan(&v.ID, &v.SKU, &v.Name, &attrsJSON, &v.BasePrice, &v.Stock, &v.StockQty); err != nil {
 			return nil, err
 		}
 		if attrsJSON != nil {
 			v.Attributes = make(map[string]string)
 			_ = json.Unmarshal(attrsJSON, &v.Attributes)
+		}
+		v.UnitPrice = v.BasePrice
+		if disc.Active && (disc.Start == nil || time.Now().After(*disc.Start)) && (disc.End == nil || time.Now().Before(*disc.End)) {
+			if disc.Type == "PERCENTAGE" {
+				v.UnitPrice = v.BasePrice * (1.0 - disc.Value/100.0)
+			} else if disc.Type == "FIXED" {
+				v.UnitPrice = v.BasePrice - disc.Value
+				if v.UnitPrice < 0 {
+					v.UnitPrice = 0
+				}
+			}
 		}
 		variants = append(variants, v)
 	}
@@ -932,6 +1087,11 @@ func (r *MarketplaceRepository) GetVariantsWithStockForProduct(productID uuid.UU
 // concrete marketplace offer. A product can exist in several shops, so the
 // unscoped aggregate must never be used on a shop-specific product detail.
 func (r *MarketplaceRepository) GetVariantsWithStockForProductAtShop(productID, shopID uuid.UUID) ([]models.PublicVariantDetailResponse, error) {
+	disc, err := r.getProductDiscount(productID)
+	if err != nil {
+		return nil, err
+	}
+
 	query := `
 		SELECT v.id, v.sku, v.name, v.attributes,
 		       COALESCE(v.sale_price, 0) as sale_price,
@@ -957,12 +1117,23 @@ func (r *MarketplaceRepository) GetVariantsWithStockForProductAtShop(productID, 
 	for rows.Next() {
 		v := models.PublicVariantDetailResponse{}
 		var attrsJSON []byte
-		if err := rows.Scan(&v.ID, &v.SKU, &v.Name, &attrsJSON, &v.UnitPrice, &v.Stock, &v.StockQty); err != nil {
+		if err := rows.Scan(&v.ID, &v.SKU, &v.Name, &attrsJSON, &v.BasePrice, &v.Stock, &v.StockQty); err != nil {
 			return nil, err
 		}
 		if attrsJSON != nil {
 			v.Attributes = make(map[string]string)
 			_ = json.Unmarshal(attrsJSON, &v.Attributes)
+		}
+		v.UnitPrice = v.BasePrice
+		if disc.Active && (disc.Start == nil || time.Now().After(*disc.Start)) && (disc.End == nil || time.Now().Before(*disc.End)) {
+			if disc.Type == "PERCENTAGE" {
+				v.UnitPrice = v.BasePrice * (1.0 - disc.Value/100.0)
+			} else if disc.Type == "FIXED" {
+				v.UnitPrice = v.BasePrice - disc.Value
+				if v.UnitPrice < 0 {
+					v.UnitPrice = 0
+				}
+			}
 		}
 		variants = append(variants, v)
 	}
@@ -1118,6 +1289,7 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 		       p.name, p.sku, p.description, p.unit, COALESCE(MIN(v.sale_price), 0) as unit_price,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
+		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		       p.created_at,
 		       COALESCE(sl.search_boost, 0) as search_boost
 		FROM products p
@@ -1130,7 +1302,9 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = b.id
 		WHERE %s
-		GROUP BY p.id, s.id, s.name, s.business_id, b.name, p.name, p.sku, p.description, p.unit, sl.name, st.trust_status, p.created_at, sl.search_boost
+		GROUP BY p.id, s.id, s.name, s.business_id, b.name, p.name, p.sku, p.description, p.unit, sl.name, st.trust_status,
+		         p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
+		         p.created_at, sl.search_boost
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIdx, argIdx+1)
@@ -1146,12 +1320,33 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 	for rows.Next() {
 		p := &models.PublicProductResponse{}
 		var _searchBoost float64
+		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
 			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
-			&p.SellerLevel, &p.SellerTrust, &p.CreatedAt, &_searchBoost,
+			&p.SellerLevel, &p.SellerTrust,
+			&p.DiscountActive, &p.DiscountType, &p.DiscountValue, &discountStart, &discountEnd,
+			&p.CreatedAt, &_searchBoost,
 		); err != nil {
 			return nil, 0, err
+		}
+		var dStart, dEnd *time.Time
+		if discountStart.Valid {
+			dStart = &discountStart.Time
+		}
+		if discountEnd.Valid {
+			dEnd = &discountEnd.Time
+		}
+		p.SellerSalePrice = p.BasePrice
+		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
+			if p.DiscountType == "PERCENTAGE" {
+				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
+			} else if p.DiscountType == "FIXED" {
+				p.SellerSalePrice = p.BasePrice - p.DiscountValue
+				if p.SellerSalePrice < 0 {
+					p.SellerSalePrice = 0
+				}
+			}
 		}
 		products = append(products, p)
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -115,6 +116,11 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*mode
 	}
 	if order.DeliveryMethod == "" {
 		return nil, errors.New("DELIVERY_NOT_SELECTED")
+	}
+	if order.DeliveryMethod != models.DeliveryMethodPickup {
+		if strings.TrimSpace(order.DeliveryAddress) == "" || strings.TrimSpace(order.DeliveryContactName) == "" || strings.TrimSpace(order.DeliveryPhone) == "" {
+			return nil, errors.New("DELIVERY_DETAILS_INCOMPLETE")
+		}
 	}
 
 	existing, err := s.paymentRepo.GetByOrderID(orderID)
@@ -398,14 +404,19 @@ func (s *PaymentService) ProcessVerifiedPayment(paymentID uuid.UUID) error {
 		}
 	}
 
-	// Consume reserved inventory (convert reserved_quantity → sold).
-	lines, err := s.orderRepo.GetLinesByOrderID(payment.OrderID)
-	if err != nil {
-		return err
-	}
-	txInventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
-	for _, line := range lines {
-		if _, err := txInventoryRepo.ClaimReservedAtomic(order.ShopID, line.VariantID, line.Quantity); err != nil {
+	// Consume reserved inventory (convert reserved_quantity → sold) if not already claimed.
+	if !locked.InventoryClaimed {
+		lines, err := s.orderRepo.GetLinesByOrderID(payment.OrderID)
+		if err != nil {
+			return err
+		}
+		txInventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
+		for _, line := range lines {
+			if _, err := txInventoryRepo.ClaimReservedAtomic(order.ShopID, line.VariantID, line.Quantity); err != nil {
+				return err
+			}
+		}
+		if err := txOrderRepo.SetInventoryClaimed(payment.OrderID); err != nil {
 			return err
 		}
 	}

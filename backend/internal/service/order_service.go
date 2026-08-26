@@ -634,16 +634,33 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 			return nil, errors.New("VARIANT_NOT_PRODUCT")
 		}
 
+		product, err := s.productRepo.GetByID(productID)
+		if err != nil {
+			return nil, errors.New("PRODUCT_NOT_FOUND")
+		}
+
+		effectivePrice := variant.SalePrice
+		if product.DiscountActive && (product.DiscountStart == nil || time.Now().After(*product.DiscountStart)) && (product.DiscountEnd == nil || time.Now().Before(*product.DiscountEnd)) {
+			if product.DiscountType == "PERCENTAGE" {
+				effectivePrice = variant.SalePrice * (1.0 - product.DiscountValue/100.0)
+			} else if product.DiscountType == "FIXED" {
+				effectivePrice = variant.SalePrice - product.DiscountValue
+				if effectivePrice < 0 {
+					effectivePrice = 0
+				}
+			}
+		}
+
 		var pointsDiscountPerUnit float64
 		var finalUnitPrice float64
 		if req.UsePoints && pointsToUse > 0 {
-			pointsDiscountPerUnit = (pointsDiscountAmount / baseTotal) * variant.SalePrice
-			finalUnitPrice = variant.SalePrice - pointsDiscountPerUnit
+			pointsDiscountPerUnit = (pointsDiscountAmount / baseTotal) * effectivePrice
+			finalUnitPrice = effectivePrice - pointsDiscountPerUnit
 			if finalUnitPrice < 0 {
 				finalUnitPrice = 0
 			}
 		} else {
-			finalUnitPrice = variant.SalePrice
+			finalUnitPrice = effectivePrice
 		}
 
 		line := &models.OrderLine{
@@ -651,7 +668,7 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 			ProductID:             productID,
 			VariantID:             variantID,
 			Quantity:              lineInput.Quantity,
-			UnitPrice:             variant.SalePrice,
+			UnitPrice:             effectivePrice,
 			BaseUnitPrice:         variant.SalePrice,
 			PointsDiscountPerUnit: pointsDiscountPerUnit,
 			FinalUnitPrice:        finalUnitPrice,
@@ -810,8 +827,16 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		return nil, err
 	}
 
-	if method != models.DeliveryMethodPickup && strings.TrimSpace(req.Address) == "" {
-		return nil, errors.New("DELIVERY_ADDRESS_REQUIRED")
+	if method != models.DeliveryMethodPickup {
+		if strings.TrimSpace(req.Address) == "" {
+			return nil, errors.New("DELIVERY_ADDRESS_REQUIRED")
+		}
+		if strings.TrimSpace(req.ContactName) == "" {
+			return nil, errors.New("DELIVERY_CONTACT_NAME_REQUIRED")
+		}
+		if strings.TrimSpace(req.Phone) == "" {
+			return nil, errors.New("DELIVERY_PHONE_REQUIRED")
+		}
 	}
 
 	tx, err := s.db.Begin()
@@ -1279,26 +1304,32 @@ func (s *OrderService) CompleteOrder(userID, orderID uuid.UUID) (*models.Order, 
 
 	inventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
 	stockMovementRepo := repository.NewStockMovementRepository(&database.DB{Tx: tx})
+	txOrderRepo := repository.NewOrderRepository(&database.DB{Tx: tx})
 
-	for _, line := range lines {
-		inv, err := inventoryRepo.ClaimReservedAtomic(order.ShopID, line.VariantID, line.Quantity)
-		if err != nil {
-			return nil, err
-		}
+	if !order.InventoryClaimed {
+		for _, line := range lines {
+			inv, err := inventoryRepo.ClaimReservedAtomic(order.ShopID, line.VariantID, line.Quantity)
+			if err != nil {
+				return nil, err
+			}
 
-		stockMovement := models.StockMovement{
-			BusinessID:       order.BusinessID,
-			ShopID:           order.ShopID,
-			ProductID:        line.ProductID,
-			VariantID:        &line.VariantID,
-			MovementType:     models.StockMovementTypeSaleOnline,
-			Quantity:         -line.Quantity,
-			PreviousQuantity: inv.Quantity + line.Quantity,
-			NewQuantity:      inv.Quantity,
-			Notes:            fmt.Sprintf("Order %s completed", order.ID.String()),
-			PerformedBy:      &userID,
+			stockMovement := models.StockMovement{
+				BusinessID:       order.BusinessID,
+				ShopID:           order.ShopID,
+				ProductID:        line.ProductID,
+				VariantID:        &line.VariantID,
+				MovementType:     models.StockMovementTypeSaleOnline,
+				Quantity:         -line.Quantity,
+				PreviousQuantity: inv.Quantity + line.Quantity,
+				NewQuantity:      inv.Quantity,
+				Notes:            fmt.Sprintf("Order %s completed", order.ID.String()),
+				PerformedBy:      &userID,
+			}
+			if err := stockMovementRepo.Create(&stockMovement); err != nil {
+				return nil, err
+			}
 		}
-		if err := stockMovementRepo.Create(&stockMovement); err != nil {
+		if err := txOrderRepo.SetInventoryClaimed(orderID); err != nil {
 			return nil, err
 		}
 	}

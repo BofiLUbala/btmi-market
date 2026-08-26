@@ -34,11 +34,15 @@ export function buildAttributeGroups(variants: PublicVariantDetail[]): Attribute
       values.get(key)!.add(attrs[key])
     }
   }
-  return order.map((key) => ({
-    key,
-    label: titleCase(key),
-    values: values.get(key)!.toArray()
-  }))
+  // Only selectable dimensions have >1 distinct value.
+  // Single-value attributes are product specifications, not variant selectors.
+  return order
+    .filter((key) => (values.get(key)?.toArray().length ?? 0) > 1)
+    .map((key) => ({
+      key,
+      label: titleCase(key),
+      values: values.get(key)!.toArray()
+    }))
 }
 
 /** Preserves first-seen order without duplicates. */
@@ -104,3 +108,39 @@ export function describeAttributes(variant: PublicVariantDetail): string {
   if (vals.length === 0) return variant.name || variant.sku
   return vals.join(' / ')
 }
+
+export interface ProductSpecification {
+  key: string
+  label: string
+  value: string
+}
+
+/**
+ * Extract fixed specifications (attributes that have a single constant value across variants,
+ * or specifications configured for the product).
+ */
+export function extractSpecifications(variants: PublicVariantDetail[]): ProductSpecification[] {
+  if (!variants || variants.length === 0) return []
+  const allKeys = new Set<string>()
+  variants.forEach((v) => {
+    Object.keys(v.attributes ?? {}).forEach((k) => allKeys.add(k))
+  })
+
+  const specs: ProductSpecification[] = []
+  for (const key of allKeys) {
+    const uniqueValues = Array.from(
+      new Set(variants.map((v) => (v.attributes ?? {})[key]).filter(Boolean))
+    )
+    if (uniqueValues.length === 1) {
+      specs.push({
+        key,
+        label: titleCase(key),
+        value: uniqueValues[0],
+      })
+    }
+  }
+  return specs
+}
+
+export { titleCase }
+

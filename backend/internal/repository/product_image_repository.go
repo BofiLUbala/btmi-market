@@ -21,12 +21,17 @@ func NewProductImageRepository(db *database.DB) *ProductImageRepository {
 func (r *ProductImageRepository) scanImage(row interface{ Scan(...interface{}) error }) (*models.ProductImage, error) {
 	img := &models.ProductImage{}
 	var createdAt time.Time
+	var variantID uuid.NullUUID
 	err := row.Scan(
-		&img.ID, &img.BusinessID, &img.ProductID,
+		&img.ID, &img.BusinessID, &img.ProductID, &variantID,
 		&img.URL, &img.FileName, &img.SortOrder, &img.IsPrimary, &createdAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if variantID.Valid {
+		v := variantID.UUID
+		img.VariantID = &v
 	}
 	img.CreatedAt = createdAt
 	return img, nil
@@ -34,19 +39,26 @@ func (r *ProductImageRepository) scanImage(row interface{ Scan(...interface{}) e
 
 func (r *ProductImageRepository) Create(img *models.ProductImage) (*models.ProductImage, error) {
 	query := `
-		INSERT INTO product_images (business_id, product_id, url, file_name, sort_order, is_primary)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, business_id, product_id, url, file_name, sort_order, is_primary, created_at`
+		INSERT INTO product_images (business_id, product_id, variant_id, url, file_name, sort_order, is_primary)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, business_id, product_id, variant_id, url, file_name, sort_order, is_primary, created_at`
 
 	row := r.db.QueryRow(query,
-		img.BusinessID, img.ProductID, img.URL, img.FileName, img.SortOrder, img.IsPrimary,
+		img.BusinessID, img.ProductID, img.VariantID, img.URL, img.FileName, img.SortOrder, img.IsPrimary,
 	)
 	return r.scanImage(row)
 }
 
+// SetVariant links an image to one Variant, or clears the link when
+// variantID is nil so the image applies to the whole Product again.
+func (r *ProductImageRepository) SetVariant(id uuid.UUID, variantID *uuid.UUID) error {
+	_, err := r.db.Exec(`UPDATE product_images SET variant_id = $2 WHERE id = $1`, id, variantID)
+	return err
+}
+
 func (r *ProductImageRepository) GetByID(id uuid.UUID) (*models.ProductImage, error) {
 	query := `
-		SELECT id, business_id, product_id, url, file_name, sort_order, is_primary, created_at
+		SELECT id, business_id, product_id, variant_id, url, file_name, sort_order, is_primary, created_at
 		FROM product_images WHERE id = $1`
 	row := r.db.QueryRow(query, id)
 	img, err := r.scanImage(row)
@@ -58,7 +70,7 @@ func (r *ProductImageRepository) GetByID(id uuid.UUID) (*models.ProductImage, er
 
 func (r *ProductImageRepository) ListByProduct(productID uuid.UUID) ([]*models.ProductImage, error) {
 	query := `
-		SELECT id, business_id, product_id, url, file_name, sort_order, is_primary, created_at
+		SELECT id, business_id, product_id, variant_id, url, file_name, sort_order, is_primary, created_at
 		FROM product_images
 		WHERE product_id = $1
 		ORDER BY is_primary DESC, sort_order ASC, created_at ASC`
@@ -89,7 +101,7 @@ func (r *ProductImageRepository) ListByProductIDs(productIDs []uuid.UUID) (map[u
 	}
 
 	query := `
-		SELECT id, business_id, product_id, url, file_name, sort_order, is_primary, created_at
+		SELECT id, business_id, product_id, variant_id, url, file_name, sort_order, is_primary, created_at
 		FROM product_images
 		WHERE product_id = ANY($1)
 		ORDER BY is_primary DESC, sort_order ASC, created_at ASC`

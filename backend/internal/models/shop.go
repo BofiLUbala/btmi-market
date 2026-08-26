@@ -52,6 +52,8 @@ type CreateShopRequest struct {
 	SupportsPartnerDelivery *bool   `json:"supports_partner_delivery"`
 	PartnerDeliveryFee      float64 `json:"partner_delivery_fee"`
 	PartnerDeliveryProvider string  `json:"partner_delivery_provider"`
+	DeliveryCity            string  `json:"delivery_city"`
+	DeliveryAddress         string  `json:"delivery_address"`
 }
 
 type UpdateShopRequest struct {
@@ -66,6 +68,8 @@ type UpdateShopRequest struct {
 	SupportsPartnerDelivery *bool   `json:"supports_partner_delivery"`
 	PartnerDeliveryFee      *float64 `json:"partner_delivery_fee"`
 	PartnerDeliveryProvider *string `json:"partner_delivery_provider"`
+	DeliveryCity            *string `json:"delivery_city"`
+	DeliveryAddress         *string `json:"delivery_address"`
 }
 
 type ShopResponse struct {
@@ -82,6 +86,8 @@ type ShopResponse struct {
 	SupportsPartnerDelivery bool       `json:"supports_partner_delivery"`
 	PartnerDeliveryFee      float64    `json:"partner_delivery_fee"`
 	PartnerDeliveryProvider string     `json:"partner_delivery_provider"`
+	DeliveryCity            string     `json:"delivery_city"`
+	DeliveryAddress         string     `json:"delivery_address"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 }

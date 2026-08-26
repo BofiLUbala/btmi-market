@@ -171,32 +171,20 @@ export default function SellerOnboardingPage() {
   return (
     <div className="auth-wrap">
       <div className="card auth-card" style={{ maxWidth: '600px' }}>
-        <div className="onboarding-progress" style={{ marginBottom: 24 }}>
+        <ol className="onboarding-progress mb-5">
           {steps.map((step, i) => (
-            <div key={step.id} className="step" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div
-                className={`step-circle ${step.completed ? 'completed' : step.current ? 'current' : ''}`}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  border: '2px solid',
-                  borderColor: step.completed || step.current ? 'var(--primary)' : 'var(--border)',
-                  backgroundColor: step.completed ? 'var(--primary)' : step.current ? 'var(--primary-bg)' : 'transparent',
-                  color: step.completed ? 'white' : step.current ? 'var(--primary)' : 'var(--muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 600,
-                  fontSize: 14,
-                }}
-              >
+            <li
+              key={step.id}
+              className="onboarding-step"
+              aria-current={step.current ? 'step' : undefined}
+            >
+              <span className={`step-circle ${step.completed ? 'completed' : step.current ? 'current' : ''}`}>
                 {step.completed ? '✓' : i + 1}
-              </div>
+              </span>
               <span className={step.current ? 'bold' : ''}>{step.label}</span>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
 
         {currentStep === 'business' && (
           <form onSubmit={createBusiness}>
@@ -264,7 +252,7 @@ export default function SellerOnboardingPage() {
             <details style={{ marginTop: 16 }}>
               <summary className="small muted">Delivery Configuration (optional)</summary>
               <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
-                <label className="flex items-center gap-2">
+                <label className="checkbox-row">
                   <input
                     type="checkbox"
                     checked={shopForm.supports_shop_delivery}
@@ -281,7 +269,7 @@ export default function SellerOnboardingPage() {
                     onChange={(e) => updateShop('shop_delivery_fee', Number(e.target.value))}
                   />
                 )}
-                <label className="flex items-center gap-2">
+                <label className="checkbox-row">
                   <input
                     type="checkbox"
                     checked={shopForm.supports_partner_delivery}

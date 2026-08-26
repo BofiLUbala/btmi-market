@@ -1,5 +1,5 @@
 import { del, get, patch, post, postForm } from './client'
-import type { Business, BuyerProfile, BuyerOrder, BuyerReviewsResponse, Category, LoginResponse, OrderDetail, ProductDetail, ProductReviewsResponse, PublicProduct, ReviewEligibility, SellerOrder, Shop, ShopReviewsResponse, User } from '../types'
+import type { Business, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse, Category, DeliveryOptionsResponse, DeliveryPointsPreview, DeliverySelectResponse, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines, PointRedemptionPreview, ProductDetail, ProductReviewsResponse, PublicProduct, ReviewEligibility, SelectDeliveryRequest, SellerOrder, Shop, ShopReviewsResponse, TrackingResponse, User } from '../types'
 
 const list = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[]
@@ -10,6 +10,8 @@ const list = <T>(value: unknown): T[] => {
 
 export const authApi = {
   login: (email: string, password: string) => post<LoginResponse>('/auth/login', { email, password }),
+  forgotPassword: (identifier: string) => post('/auth/forgot-password', { identifier }),
+  resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),
   logout: () => post('/auth/logout'),
 }
@@ -33,8 +35,27 @@ export const marketplaceApi = {
 export const buyerApi = {
   profile: async () => (await get<{ profile: BuyerProfile }>('/buyer/profile')).profile,
   points: () => get<unknown>('/buyer/points'),
+
+  /* order pipeline — identical contract to the web app; the backend owns pricing */
+  previewOrder: (shopId: string, items: OrderLineInput[], usePoints: boolean) =>
+    post<PointRedemptionPreview>('/buyer/orders/preview', { shop_id: shopId, items, use_points: usePoints }),
+  createOrder: (shopId: string, items: OrderLineInput[], usePoints: boolean, idempotencyKey: string) =>
+    post<OrderWithLines>('/buyer/orders', { shop_id: shopId, items, use_points: usePoints, idempotency_key: idempotencyKey }),
+  deliveryOptions: (orderId: string) =>
+    get<DeliveryOptionsResponse>(`/buyer/orders/${orderId}/delivery-options`),
+  deliveryPointsPreview: (orderId: string, usePointsForDelivery: boolean) =>
+    post<DeliveryPointsPreview>(`/buyer/orders/${orderId}/delivery-points-preview`, { use_points_for_delivery: usePointsForDelivery }),
+  selectDelivery: (orderId: string, body: SelectDeliveryRequest) =>
+    post<DeliverySelectResponse>(`/buyer/orders/${orderId}/delivery`, body),
+
   orders: () => get<BuyerOrder[]>('/buyer/orders'),
   order: (id: string) => get<OrderDetail>(`/buyer/orders/${id}`),
+  tracking: (id: string) => get<TrackingResponse>(`/buyer/orders/${id}/tracking`),
+  confirmReceived: (id: string) => post(`/buyer/orders/${id}/received`),
+  cancelOrder: (id: string) => post(`/buyer/orders/${id}/cancel`),
+  createPayment: (id: string) => post<BuyerPayment>(`/buyer/orders/${id}/payment`),
+  getPayment: (id: string) => get<BuyerPayment>(`/buyer/orders/${id}/payment`),
+  buyerConfirmPayment: (paymentId: string) => post<BuyerPayment>(`/buyer/payments/${paymentId}/buyer-confirm`),
   reviewEligibility: (orderId: string, lineId?: string) => get<ReviewEligibility>(`/buyer/orders/${orderId}/review-eligibility${lineId ? `?order_line_id=${encodeURIComponent(lineId)}` : ''}`),
   createReview: (orderId: string, lineId: string, rating: number, comment: string) => post(`/buyer/orders/${orderId}/review`, { order_line_id: lineId, rating, comment }),
   createServiceReview: (orderId: string, deliveryRating: number, serviceRating: number, experienceRating: number, comment: string) => post(`/buyer/orders/${orderId}/service-review`, { delivery_rating: deliveryRating, service_rating: serviceRating, order_experience_rating: experienceRating, comment }),
@@ -47,5 +68,9 @@ export const sellerApi = {
   shops: async (businessId: string) => list<Shop>(await get<unknown>(`/businesses/${businessId}/shops`)),
   businessOrders: async (businessId: string) => list<SellerOrder>(await get<unknown>(`/businesses/${businessId}/orders`)),
   shopOrders: async (shopId: string) => list<SellerOrder>(await get<unknown>(`/shops/${shopId}/orders`)),
+  order: (id: string) => get<OrderDetail>(`/orders/${id}`),
+  sellerTransition: (id: string, status: string, notes?: string) => post(`/orders/${id}/tracking/status`, { status, notes }),
+  getOrderPayment: (id: string) => get<BuyerPayment>(`/orders/${id}/payment`),
+  sellerConfirmPayment: (paymentId: string) => post<BuyerPayment>(`/payments/${paymentId}/seller-confirm`),
   reviews: (shopId: string) => get<ShopReviewsResponse>(`/marketplace/shops/${shopId}/reviews?page=1&per_page=50&sort=newest`),
 }
