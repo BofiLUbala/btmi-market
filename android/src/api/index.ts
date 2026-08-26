@@ -1,5 +1,5 @@
 import { del, get, patch, post, postForm } from './client'
-import type { Business, BuyerProfile, BuyerOrder, BuyerReviewsResponse, Category, LoginResponse, OrderDetail, ProductDetail, ProductReviewsResponse, PublicProduct, ReviewEligibility, Shop, ShopReviewsResponse, User } from '../types'
+import type { Business, BuyerProfile, BuyerOrder, BuyerReviewsResponse, Category, LoginResponse, OrderDetail, ProductDetail, ProductReviewsResponse, PublicProduct, ReviewEligibility, SellerOrder, Shop, ShopReviewsResponse, User } from '../types'
 
 const list = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[]
@@ -45,5 +45,7 @@ export const buyerApi = {
 export const sellerApi = {
   businesses: async () => list<Business>(await get<unknown>('/businesses')),
   shops: async (businessId: string) => list<Shop>(await get<unknown>(`/businesses/${businessId}/shops`)),
+  businessOrders: async (businessId: string) => list<SellerOrder>(await get<unknown>(`/businesses/${businessId}/orders`)),
+  shopOrders: async (shopId: string) => list<SellerOrder>(await get<unknown>(`/shops/${shopId}/orders`)),
   reviews: (shopId: string) => get<ShopReviewsResponse>(`/marketplace/shops/${shopId}/reviews?page=1&per_page=50&sort=newest`),
 }

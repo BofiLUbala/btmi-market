@@ -36,6 +36,7 @@ export default function SellerRegisterPage() {
   const passwordsMatch = confirmStarted && form.password === form.password_confirmation
   const requiredComplete = Boolean(form.first_name && form.last_name && form.phone && form.email)
   const canSubmit = requiredComplete && passwordValid && passwordsMatch && !busy
+  const existingAccountError = /already exists|already registered/i.test(error)
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -55,10 +56,12 @@ export default function SellerRegisterPage() {
     setBusy(true)
     setPhase('creating')
     const start = Date.now()
+    let sendingTimer: ReturnType<typeof setTimeout> | undefined
     try {
-      const sendingTimer = setTimeout(() => setPhase('sending'), 600)
+      sendingTimer = setTimeout(() => setPhase('sending'), 600)
       await sellerAuthApi.registerSeller(form)
       clearTimeout(sendingTimer)
+      sendingTimer = undefined
       const elapsed = Date.now() - start
       if (elapsed < MIN_LOADING_MS) {
         setPhase('sending')
@@ -75,6 +78,7 @@ export default function SellerRegisterPage() {
         setError(msg)
       }
     } finally {
+      if (sendingTimer) clearTimeout(sendingTimer)
       setBusy(false)
     }
   }
@@ -155,6 +159,15 @@ export default function SellerRegisterPage() {
         <h2>Commencez à vendre sur BTMI</h2>
         <p className="muted">Renseignez vos informations de responsable vendeur.</p>
         {error && <ErrorBox error={error} />}
+        {existingAccountError && phase === 'form' && (
+          <div className="seller-registration-recovery">
+            <p className="small muted">Already registered? Use your existing account instead.</p>
+            <div className="seller-registration-recovery-actions">
+              <Link to="/seller/login"><Button variant="outline">Sign In</Button></Link>
+              <Link to="/forgot-password?account=seller" className="section-link">Forgot password?</Link>
+            </div>
+          </div>
+        )}
 
         {isLoading && (
           <div className="registration-steps" aria-busy="true" aria-live="polite">

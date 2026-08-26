@@ -2,7 +2,7 @@ import { useAuth } from '@/store/auth'
 import { orderApi, shopApi } from '@/api/seller'
 import type { BuyerPayment, OrderStatus, OrderWithLines, Shop } from '@/api/types'
 import { Card } from '@/components/ui/Card'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 
@@ -48,19 +48,22 @@ export default function SellerOrdersPage() {
   const [shopFilter, setShopFilter] = useState('ALL')
 
   useEffect(() => {
+    setShopFilter('ALL')
     if (activeBusiness) {
-      setShopFilter('ALL')
-      void loadOrders()
       void shopApi.listByBusiness(activeBusiness.id).then(setShops).catch(() => setShops([]))
+    } else {
+      setShops([])
     }
-  }, [activeBusiness])
+  }, [activeBusiness?.id])
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     if (!activeBusiness) return
     setLoading(true)
     setError('')
     try {
-      const data = await orderApi.listByBusiness(activeBusiness.id, { limit: 20 })
+      const data = shopFilter === 'ALL'
+        ? await orderApi.listByBusiness(activeBusiness.id)
+        : await orderApi.listByShop(shopFilter)
       setOrders(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load orders')
@@ -68,7 +71,11 @@ export default function SellerOrdersPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeBusiness?.id, shopFilter])
+
+  useEffect(() => {
+    void loadOrders()
+  }, [loadOrders])
 
   async function runAction(order: Order, fn: () => Promise<unknown>) {
     setActingId(order.id)
@@ -110,6 +117,26 @@ export default function SellerOrdersPage() {
     })
   }
 
+  const visibleOrders = Array.isArray(orders) ? orders : []
+  const shopNames = new Map(shops.map((shop) => [shop.id, shop.name]))
+  const orderGroups = useMemo(() => {
+    const grouped = new Map<string, Order[]>()
+    for (const order of visibleOrders) {
+      const group = grouped.get(order.shop_id) ?? []
+      group.push(order)
+      grouped.set(order.shop_id, group)
+    }
+
+    return [...grouped.entries()]
+      .map(([shopId, shopOrders]) => ({
+        shopId,
+        shopName: shopNames.get(shopId) ?? 'Unknown Shop',
+        orders: shopOrders,
+        total: shopOrders.reduce((sum, order) => sum + (order.final_total || 0), 0),
+      }))
+      .sort((a, b) => a.shopName.localeCompare(b.shopName))
+  }, [visibleOrders, shops])
+
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
@@ -120,10 +147,6 @@ export default function SellerOrdersPage() {
     )
   }
 
-  const orderList = Array.isArray(orders) ? orders : []
-  const visibleOrders = shopFilter === 'ALL' ? orderList : orderList.filter((order) => order.shop_id === shopFilter)
-  const shopNames = new Map(shops.map((shop) => [shop.id, shop.name]))
-
   return (
     <div className="seller-orders">
       <div className="page-header">
@@ -131,7 +154,7 @@ export default function SellerOrdersPage() {
       </div>
 
       <div className="row-between seller-order-filters">
-        <div><strong>{visibleOrders.length} order{visibleOrders.length === 1 ? '' : 's'}</strong><div className="small muted">Across the selected Business</div></div>
+        <div><strong>{visibleOrders.length} order{visibleOrders.length === 1 ? '' : 's'}</strong><div className="small muted">{shopFilter === 'ALL' ? `Classified across ${orderGroups.length} shop${orderGroups.length === 1 ? '' : 's'}` : `Orders for ${shopNames.get(shopFilter) ?? 'selected shop'}`}</div></div>
         <label className="small"><span className="muted">Shop </span><select className="select" value={shopFilter} onChange={(event) => setShopFilter(event.target.value)}><option value="ALL">All Shops</option>{shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select></label>
       </div>
 
@@ -163,7 +186,16 @@ export default function SellerOrdersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleOrders.map((order) => {
+                  {orderGroups.flatMap((group) => [
+                    <tr className="seller-order-shop-heading" key={`shop-${group.shopId}`}>
+                      <td colSpan={5}>
+                        <div className="seller-order-shop-summary">
+                          <span><strong>{group.shopName}</strong> <span className="muted">· {group.orders.length} order{group.orders.length === 1 ? '' : 's'}</span></span>
+                          <strong>{group.total.toLocaleString()} FC</strong>
+                        </div>
+                      </td>
+                    </tr>,
+                    ...group.orders.map((order) => {
                     const actions = nextActions(order)
                     const isExpanded = expandedId === order.id
                     const payment = payments[order.id]
@@ -171,7 +203,7 @@ export default function SellerOrdersPage() {
                     return (
                       <tr key={order.id}>
                         <td>{order.order_number || order.id.slice(0, 8)}</td>
-                        <td><div><strong>{shopNames.get(order.shop_id) || detail?.shop_name || 'Unknown Shop'}</strong></div><span className={`badge badge-${getStatusColor(order.status)}`}>{order.status}</span></td>
+                        <td><span className={`badge badge-${getStatusColor(order.status)}`}>{order.status}</span></td>
                         <td>{order.final_total?.toLocaleString() || '0'}</td>
                         <td>{new Date(order.created_at).toLocaleDateString()}</td>
                         <td>
@@ -220,7 +252,8 @@ export default function SellerOrdersPage() {
                         </td>
                       </tr>
                     )
-                  })}
+                    }),
+                  ])}
                 </tbody>
               </table>
             </div>

@@ -195,8 +195,10 @@ func (s *AuthService) RequestPasswordReset(emailAddr string) error {
 		return nil
 	}
 
-	// Only allow password reset for active, verified users
-	if user.Status != models.UserStatusActive || !user.EmailVerified {
+	// A reset link sent to the registered email proves mailbox access. Allow
+	// pending accounts to recover their password, while suspended/deactivated
+	// accounts remain blocked.
+	if user.Status != models.UserStatusActive && user.Status != models.UserStatusPendingVerification {
 		return nil
 	}
 
@@ -235,10 +237,6 @@ func (s *AuthService) ConfirmPasswordReset(token, newPassword, newPasswordConfir
 		return errors.New("RESET_LINK_EXPIRED")
 	}
 
-	if err := s.passwordResetRepo.MarkAsUsed(resetToken.ID); err != nil {
-		return fmt.Errorf("failed to mark token as used: %w", err)
-	}
-
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
@@ -246,6 +244,11 @@ func (s *AuthService) ConfirmPasswordReset(token, newPassword, newPasswordConfir
 
 	if err := s.userRepo.UpdatePassword(resetToken.UserID, string(hashedPassword)); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	// Consume the link only after the password has actually been stored.
+	if err := s.passwordResetRepo.MarkAsUsed(resetToken.ID); err != nil {
+		return fmt.Errorf("failed to mark token as used: %w", err)
 	}
 
 	// Revoke all refresh tokens for security

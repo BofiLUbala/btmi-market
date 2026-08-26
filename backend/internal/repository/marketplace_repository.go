@@ -827,18 +827,17 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 		FROM products p
 		JOIN businesses b ON b.id = p.business_id
 		JOIN shops s ON s.business_id = b.id AND s.status = 'ACTIVE'
-		AND EXISTS (
-			SELECT 1 FROM product_variants v2
-			JOIN inventory i2 ON i2.variant_id = v2.id
-			WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND i2.shop_id = s.id
-		)
 		LEFT JOIN point_accounts pa ON pa.owner_type = 'SELLER_BUSINESS' AND pa.owner_id = b.id
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = b.id
 		LEFT JOIN categories c ON c.id = p.category_id
 		LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
 		WHERE p.id = $1 AND p.publication_status = 'PUBLISHED' AND p.status = 'ACTIVE'
-		ORDER BY (
+		ORDER BY EXISTS (
+			SELECT 1 FROM product_variants v2
+			JOIN inventory i2 ON i2.variant_id = v2.id
+			WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND i2.shop_id = s.id
+		) DESC, (
 			SELECT COALESCE(SUM(GREATEST(i3.quantity - i3.reserved_quantity, 0)), 0)
 			FROM product_variants v3
 			JOIN inventory i3 ON i3.variant_id = v3.id AND i3.shop_id = s.id

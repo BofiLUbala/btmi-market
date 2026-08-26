@@ -75,6 +75,9 @@ export default function SellerLoginPage() {
           placeholder="••••••••"
           showPasswordToggle
         />
+        <div className="seller-forgot-password-link">
+          <Link to="/forgot-password?account=seller" className="section-link">Forgot password?</Link>
+        </div>
         <Button type="submit" block size="lg" loading={busy}>
           Se connecter
         </Button>

@@ -96,6 +96,12 @@ export interface BuyerProfile {
 }
 export interface Business { id: string; name: string; status: string }
 export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; created_at: string }
+export interface SellerOrder extends BuyerOrder {
+  business_id: string
+  base_total?: number
+  delivery_method?: string
+  notes?: string
+}
 export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; final_unit_price: number; product_name: string; variant_name?: string; image_url?: string }
 export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; shop_name: string }
 export interface ReviewEligibility { eligible: boolean; reason: string; existing_review_id?: string }

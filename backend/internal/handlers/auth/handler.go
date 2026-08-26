@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -241,8 +242,9 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 	// Always return success to prevent email enumeration
 	err := h.authService.RequestPasswordReset(req.Email)
 	if err != nil {
-		// Log the error but still return success for security
-		// The error is already handled in the service (returns nil for non-existent users)
+		// Keep the public response generic to prevent account enumeration, but
+		// retain the delivery failure in server logs for operations/support.
+		log.Printf("password reset request failed: %v", err)
 	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{

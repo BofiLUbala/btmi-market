@@ -1,5 +1,5 @@
 import { inventoryApi, productApi } from '@/api/seller'
-import type { Product, PublicationStatus } from '@/api/types'
+import type { InventoryItem, Product, ProductVariant, PublicationStatus } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -13,9 +13,16 @@ const FILTERS: Array<{ label: string; value: '' | PublicationStatus }> = [
   { label: 'Drafts', value: 'DRAFT' },
 ]
 
+type ShopInventoryRow = {
+  inventory: InventoryItem
+  variant: ProductVariant
+  product: Product
+}
+
 export default function SellerProductsPage() {
   const { activeBusiness, activeShop } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
+  const [availableByProduct, setAvailableByProduct] = useState<Record<string, number>>({})
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [status, setStatus] = useState<'' | PublicationStatus>('')
@@ -29,22 +36,43 @@ export default function SellerProductsPage() {
   }, [search])
 
   useEffect(() => {
-    if (activeBusiness) void loadProducts()
-  }, [activeBusiness?.id, debouncedSearch, status])
+    if (activeBusiness && activeShop) void loadProducts()
+    else {
+      setProducts([])
+      setAvailableByProduct({})
+      setLoading(false)
+    }
+  }, [activeBusiness?.id, activeShop, debouncedSearch, status])
 
   async function loadProducts() {
-    if (!activeBusiness) return
+    if (!activeBusiness || !activeShop) return
     setLoading(true)
     setError('')
     try {
-      const data = await productApi.listByBusiness(activeBusiness.id, {
-        search: debouncedSearch || undefined,
-        publication_status: status || undefined,
+      const inventory = await inventoryApi.getShopInventory(activeShop, { limit: 500 })
+      const productsById = new Map<string, Product>()
+      const stockByProduct: Record<string, number> = {}
+
+      for (const row of inventory as unknown as ShopInventoryRow[]) {
+        if (!row.product?.id || !row.inventory) continue
+        productsById.set(row.product.id, row.product)
+        stockByProduct[row.product.id] = (stockByProduct[row.product.id] || 0) + Math.max(0, row.inventory.available || 0)
+      }
+
+      const query = debouncedSearch.toLocaleLowerCase()
+      const scopedProducts = Array.from(productsById.values()).filter((product) => {
+        if (status && product.publication_status !== status) return false
+        if (!query) return true
+        return [product.name, product.sku, product.description]
+          .some((value) => String(value || '').toLocaleLowerCase().includes(query))
       })
-      setProducts(Array.isArray(data) ? data : [])
+
+      setProducts(scopedProducts)
+      setAvailableByProduct(stockByProduct)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load products')
       setProducts([])
+      setAvailableByProduct({})
     } finally {
       setLoading(false)
     }
@@ -127,11 +155,20 @@ export default function SellerProductsPage() {
       <div className="seller-products-head">
         <div>
           <h1>Products</h1>
-          <p className="muted">Search, publish, edit or remove products from your catalog.</p>
+          <p className="muted">Products available in the selected shop only.</p>
         </div>
         <Link to="/seller/products/select-shop" className="btn btn-primary">+ Create Product</Link>
       </div>
 
+      {!activeShop ? (
+        <Card>
+          <div className="empty-state seller-products-empty">
+            <div className="empty-icon">🏪</div>
+            <h3>Select a shop</h3>
+            <p className="muted">Choose a shop in the top bar to view only its products and stock.</p>
+          </div>
+        </Card>
+      ) : <>
       <div className="seller-product-toolbar" role="search">
         <input
           className="input seller-product-search"
@@ -169,7 +206,7 @@ export default function SellerProductsPage() {
       ) : (
         <div className="seller-product-grid">
           {products.map((product) => {
-            const available = product.available_quantity ?? product.total_quantity ?? 0
+            const available = availableByProduct[product.id] ?? 0
             const busy = busyId === product.id
             return (
               <article className="seller-product-card" key={product.id}>
@@ -205,6 +242,7 @@ export default function SellerProductsPage() {
           })}
         </div>
       )}
+      </>}
     </div>
   )
 }
