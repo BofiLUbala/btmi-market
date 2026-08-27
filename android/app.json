@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "BTMI Market",
-    "slug": "btmi-market",
-    "scheme": "btmimarket",
+    "name": "TBK",
+    "slug": "tbk",
+    "scheme": "tbk",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,11 +11,10 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.btmi.market",
+      "package": "com.tbk.market",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -27,12 +26,23 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#000000",
+          "imageWidth": 200
+        }
+      ],
+      [
         "expo-image-picker",
         {
-          "cameraPermission": "Autorisez BTMI Market à photographier un objet pour rechercher des produits similaires.",
-          "photosPermission": "Autorisez BTMI Market à choisir une photo pour rechercher des produits similaires."
+          "cameraPermission": "Autorisez TBK à photographier un objet pour rechercher des produits similaires.",
+          "photosPermission": "Autorisez TBK à choisir une photo pour rechercher des produits similaires."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar",
+      "expo-font"
     ]
   }
 }

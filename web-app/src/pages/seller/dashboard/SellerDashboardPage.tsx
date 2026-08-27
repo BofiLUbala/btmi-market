@@ -97,7 +97,7 @@ export default function SellerDashboardPage() {
         <div className="empty-icon-wrap">
           <BusinessIcon />
         </div>
-        <h2>Welcome to BTMI Seller</h2>
+        <h2>Welcome to TBK Seller</h2>
         <p className="lead muted">
           Create your first business to start selling products, managing shops, inventory, and orders across DRC.
         </p>

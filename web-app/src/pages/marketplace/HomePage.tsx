@@ -5,6 +5,7 @@ import type { CategoryResponse, PublicProduct } from '@/api/types'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { SectionHead } from '@/components/ui/ShopCard'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { asArray } from '@/lib/format'
 
 export default function HomePage() {
@@ -37,26 +38,35 @@ export default function HomePage() {
 
   return (
     <div className="fade-in">
-      <section className="home-trust" aria-label="Marketplace assurance">
-        Achetez en toute confiance
-      </section>
+      <p className="home-kicker">Achetez en toute confiance</p>
 
       {categories.length > 0 && (
         <>
-          <SectionHead title="Categories" linkTo="/categories" linkLabel="All categories" />
+          <SectionHead title="Catégories" linkTo="/categories" linkLabel="Tout voir" />
           <div className="category-rail">
-            {categories.map((c) => (
-              <Link key={c.id} to={`/categories/${c.slug}`} className="category-chip">
-                {c.name}
-              </Link>
-            ))}
+            {categories.map((c) => {
+              const visual = getCategoryVisual(c.slug)
+              return (
+                <Link key={c.id} to={`/categories/${c.slug}`} className="category-tile">
+                  <span className="category-tile-media" style={{ background: visual.background }}>
+                    <img src={visual.image} alt="" aria-hidden="true" loading="lazy" />
+                  </span>
+                  <span className="category-tile-name">{c.name}</span>
+                </Link>
+              )
+            })}
           </div>
         </>
       )}
 
       {products.length > 0 && (
         <>
-          <SectionHead title="Featured products" linkTo="/search" linkLabel="Search all" />
+          <SectionHead
+            title="Sélection pour vous"
+            subtitle="Des produits proposés par nos boutiques"
+            linkTo="/search"
+            linkLabel="Tout voir"
+          />
           <div className="product-grid">
             {products.map((p) => (
               <ProductCard key={p.id} product={p} />

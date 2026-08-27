@@ -31,8 +31,8 @@ export function Header() {
     <header className="header">
       <div className="container header-inner">
         <Link to="/" className="brand">
-          <span className="brand-mark">B</span>
-          <span>BTMI Market</span>
+          <span className="brand-mark">TBK</span>
+          <span className="brand-tagline">Simple et rapide</span>
         </Link>
 
         <SearchAutocomplete variant="header" />
@@ -117,7 +117,7 @@ export function Header() {
           <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
           <div className="drawer" role="dialog" aria-label="Menu">
             <div className="drawer-head">
-              <span className="bold">BTMI Market</span>
+              <span className="bold">TBK</span>
               <button className="btn btn-ghost" style={{ color: '#fff' }} onClick={() => setDrawer(false)}>
                 ✕
               </button>

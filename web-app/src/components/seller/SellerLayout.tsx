@@ -115,7 +115,7 @@ export function SellerLayout() {
 
   const isEmployee = accountType === 'EMPLOYEE'
   const navItems = isEmployee ? EMPLOYEE_NAV : SELLER_NAV
-  const brandName = isEmployee ? 'BTMI Employee' : 'BTMI Seller'
+  const brandName = isEmployee ? 'TBK Employee' : 'TBK Seller'
   const bizList = Array.isArray(sellerBusinesses) ? sellerBusinesses : []
   const shopList = Array.isArray(shops) ? shops : []
 
@@ -125,7 +125,7 @@ export function SellerLayout() {
       <aside className="seller-sidebar">
         <div className="seller-sidebar-brand">
           <Link to={isEmployee ? '/employee/dashboard' : '/seller/dashboard'} className="seller-brand-link">
-            <span className="brand-mark">B</span>
+            <span className="brand-mark">TBK</span>
             <div className="brand-copy">
               <span className="brand-title">{brandName}</span>
               <span className="brand-sub">Workspace</span>

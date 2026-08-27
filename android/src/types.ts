@@ -42,6 +42,9 @@ export interface PublicProduct {
   base_price?: number
   currency?: string
   unit?: string
+  /** Rating aggregate, maintained on review write. 0 reviews = never rated. */
+  average_rating?: number
+  total_reviews?: number
   available_stock?: number
   availability?: string
   image_url?: string

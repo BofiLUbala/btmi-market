@@ -32,7 +32,10 @@ type PublicProductResponse struct {
 	DiscountType    string                  `json:"discount_type"`
 	DiscountValue   float64                 `json:"discount_value"`
 	SellerSalePrice float64                 `json:"seller_sale_price"` // Calculated sale price
-	CreatedAt       time.Time               `json:"created_at"`
+	// Rating aggregate, so listings can show stars without a per-row AVG().
+	AverageRating float64   `json:"average_rating"`
+	TotalReviews  int       `json:"total_reviews"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type PublicVariantResponse struct {
@@ -63,6 +66,10 @@ type MarketplaceSearchParams struct {
 	SubcategorySlug string  `form:"subcategory"`
 	MinPrice        float64 `form:"min_price"`
 	MaxPrice        float64 `form:"max_price"`
+	// MinRating filters to products whose average rating is at least this
+	// value, e.g. 4 for "4 stars and above". Products with no reviews are
+	// excluded, since an unrated product cannot be said to meet the bar.
+	MinRating       float64 `form:"min_rating"`
 	Sort            string  `form:"sort"` // "relevance", "price_asc", "price_desc", "seller_level"
 	Page            int     `form:"page"`
 	Limit           int     `form:"limit"`

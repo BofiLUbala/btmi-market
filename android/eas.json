@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "//": "Set the real HTTPS beta URL at build time, do not commit it here. The tunnel URL changes on every restart, so pass it on the command line instead: eas build -p android --profile preview --clear-cache with EXPO_PUBLIC_API_URL exported, or store it as an EAS environment variable. Must end with /api/v1.",
+        "EXPO_PUBLIC_API_URL": ""
+      }
+    },
+
+    "production": {
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "//": "Production API. Set as an EAS environment variable, never committed.",
+        "EXPO_PUBLIC_API_URL": ""
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

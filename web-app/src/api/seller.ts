@@ -145,7 +145,7 @@ export const productImageApi = {
 }
 
 export const categoryApi = {
-  // Global BTMI taxonomy with embedded subcategories (used by the create form).
+  // Global TBK taxonomy with embedded subcategories (used by the create form).
   list: () => safeList(get<CategoryResponse[]>('/categories', { with_subcategories: true })),
 }
 

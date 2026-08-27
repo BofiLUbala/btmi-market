@@ -82,7 +82,7 @@ export default function CartPage() {
   if (cart.lines.length === 0) {
     return (
       <div className="checkout-empty">
-        <div className="checkout-empty-mark" aria-hidden>BTMI</div>
+        <div className="checkout-empty-mark" aria-hidden>TBK</div>
         <h1>Your cart is empty</h1>
         <p>Browse products and add items you want to buy.</p>
         <Link to="/search">
@@ -148,7 +148,7 @@ export default function CartPage() {
           ))}
           {user && (
             <section className={`rewards-card ${cart.usePoints ? 'active' : ''}`}>
-              <div><span className="eyebrow">BTMI POINTS</span><h2>{busy && !preview ? 'Loading your points…' : `${(preview?.available_points ?? 0).toLocaleString()} points available`}</h2><p>{(preview?.available_points ?? 0) > 0 ? 'Reduce your product total using your available rewards.' : 'Complete verified purchases to earn points.'}</p></div>
+              <div><span className="eyebrow">TBK POINTS</span><h2>{busy && !preview ? 'Loading your points…' : `${(preview?.available_points ?? 0).toLocaleString()} points available`}</h2><p>{(preview?.available_points ?? 0) > 0 ? 'Reduce your product total using your available rewards.' : 'Complete verified purchases to earn points.'}</p></div>
               <button type="button" role="switch" aria-label="Use points on this purchase" aria-checked={cart.usePoints} disabled={busy || !preview || preview.available_points <= 0} className={`toggle-switch ${cart.usePoints ? 'on' : ''}`} onClick={() => cart.setUsePoints(!cart.usePoints)}><span /></button>
               {cart.usePoints && preview && <div className="rewards-result"><strong>✓ Points applied</strong><span>You save {formatMoney(preview.points_discount_amount, preview.currency)}</span><span>New product total: {formatMoney(preview.final_total, preview.currency)}</span><button onClick={() => cart.setUsePoints(false)}>Remove points</button></div>}
             </section>

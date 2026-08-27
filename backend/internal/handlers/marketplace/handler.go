@@ -197,6 +197,11 @@ func (h *Handler) SearchProducts(c *gin.Context) {
 	if maxStr := c.Query("max_price"); maxStr != "" {
 		params.MaxPrice, _ = strconv.ParseFloat(maxStr, 64)
 	}
+	if ratingStr := c.Query("min_rating"); ratingStr != "" {
+		if v, err := strconv.ParseFloat(ratingStr, 64); err == nil && v >= 1 && v <= 5 {
+			params.MinRating = v
+		}
+	}
 
 	results, err := h.marketplaceService.SearchProducts(params)
 	if err != nil {

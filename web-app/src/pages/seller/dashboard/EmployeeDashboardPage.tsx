@@ -70,7 +70,7 @@ export default function EmployeeDashboardPage() {
         <Card>
           <h3>System Access</h3>
           {emp.linked_user_id ? (
-            <p><span className="badge badge-success">✓ Enabled</span> <span className="muted small">You can sign in to BTMI.</span></p>
+            <p><span className="badge badge-success">✓ Enabled</span> <span className="muted small">You can sign in to TBK.</span></p>
           ) : (
             <p><span className="badge badge-warning">○ Disabled</span> <span className="muted small">Ask your manager for an invitation.</span></p>
           )}

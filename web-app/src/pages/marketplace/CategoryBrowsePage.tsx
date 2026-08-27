@@ -75,7 +75,7 @@ export default function CategoryBrowsePage() {
                 {categoryName}
               </h1>
               <p className="muted small">
-                Browse {categoryName} products from BTMI sellers.
+                Browse {categoryName} products from TBK sellers.
               </p>
             </div>
           </div>

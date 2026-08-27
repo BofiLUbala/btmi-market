@@ -14,10 +14,10 @@ export default function SellerEntryPage() {
   return (
     <div className="fade-in seller-entry">
       <div className="seller-entry-card card">
-        <h1>Développez votre commerce avec BTMI</h1>
+        <h1>Développez votre commerce avec TBK</h1>
 
         <p className="seller-entry-tagline">
-          Vendez et gérez votre commerce sur BTMI
+          Vendez et gérez votre commerce sur TBK
         </p>
 
         <ul className="seller-entry-features">

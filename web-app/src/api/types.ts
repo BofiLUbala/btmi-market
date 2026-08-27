@@ -129,6 +129,9 @@ export interface PublicProduct {
   discount_start?: string | null
   discount_end?: string | null
   seller_sale_price?: number
+  /** Rating aggregate, maintained on review write. 0 reviews = never rated. */
+  average_rating?: number
+  total_reviews?: number
   created_at: string
 }
 

@@ -50,7 +50,7 @@ export default function SellerLoginPage() {
   return (
     <div className="seller-login-wrap">
       <form className="card seller-login-card" onSubmit={onSubmit}>
-        <span className="seller-eyebrow">BTMI Seller</span>
+        <span className="seller-eyebrow">TBK Seller</span>
         <h1>Bienvenue</h1>
         <p className="muted">Connectez-vous pour gérer votre commerce.</p>
         {error && <ErrorBox error={error} />}

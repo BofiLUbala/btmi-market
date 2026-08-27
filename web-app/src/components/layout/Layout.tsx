@@ -8,7 +8,7 @@ function Footer() {
       <div className="container">
         <div className="footer-inner">
           <div>
-            <h4>BTMI Market</h4>
+            <h4>TBK</h4>
             <p className="small">
               Buy from trusted shops across the DRC. Cash on delivery. Earn points on every verified purchase.
             </p>
@@ -35,7 +35,7 @@ function Footer() {
           </div>
         </div>
         <div className="footer-bottom">
-          © {new Date().getFullYear()} BTMI Market. Payments are cash-only (FC). Prices shown are set by sellers.
+          © {new Date().getFullYear()} TBK. Payments are cash-only (FC). Prices shown are set by sellers.
         </div>
       </div>
     </footer>

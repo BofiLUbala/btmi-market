@@ -26,7 +26,7 @@ import { useFavorites } from '@/store/favorites'
 function productErrorMessage(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.status === 404) return 'This product does not exist or is no longer available.'
-    if (e.status === 0) return 'Cannot reach BTMI Market right now. Check your connection and retry.'
+    if (e.status === 0) return 'Cannot reach TBK right now. Check your connection and retry.'
     return e.message
   }
   return 'Could not load this product.'
@@ -219,7 +219,7 @@ export default function ProductDetailPage() {
       <div className="pd-grid" style={{ marginTop: 12 }}>
         <Gallery
           name={p.name}
-          badge={<StockChip stock={v.stock} />}
+          badge={<StockChip stock={v.stock} quantity={v.stock_quantity} />}
           images={(p.images ?? []).map((img) => ({
             url: img.url,
             alt: img.file_name || p.name,

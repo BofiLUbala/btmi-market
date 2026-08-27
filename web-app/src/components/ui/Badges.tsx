@@ -6,11 +6,20 @@ export function StatusBadge({ status }: { status: string }) {
   return <span className={`badge badge-status badge-${status}`}>{label}</span>
 }
 
-export function StockChip({ stock }: { stock: string }) {
+export function StockChip({ stock, quantity }: { stock: string; quantity?: number }) {
   const cls =
     stock === 'OUT_OF_STOCK' ? 'out' : stock === 'LOW_STOCK' ? 'low' : 'ok'
+  // Naming the remaining count is a stronger signal than "Low stock" alone,
+  // but only when we actually know it.
+  const scarce = stock === 'LOW_STOCK' && typeof quantity === 'number' && quantity > 0
   const label =
-    stock === 'OUT_OF_STOCK' ? 'Out of stock' : stock === 'LOW_STOCK' ? 'Low stock' : 'In stock'
+    stock === 'OUT_OF_STOCK'
+      ? 'Out of stock'
+      : scarce
+        ? `Only ${quantity} left`
+        : stock === 'LOW_STOCK'
+          ? 'Low stock'
+          : 'In stock'
   return <span className={`stock-chip ${cls}`}>{label}</span>
 }
 

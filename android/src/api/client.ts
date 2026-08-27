@@ -18,10 +18,28 @@ function developmentApiUrl() {
   }
 }
 
-// EXPO_PUBLIC_API_URL wins in production. During local development the phone
-// automatically reuses the Metro host, avoiding the invalid 10.0.2.2 address
-// on physical devices.
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || developmentApiUrl()
+function resolveApiUrl() {
+  // An explicit build-time URL always wins. Preview and production APKs are
+  // built with EXPO_PUBLIC_API_URL pointing at the public HTTPS API; Metro
+  // host discovery is a development-only convenience.
+  const explicit = process.env.EXPO_PUBLIC_API_URL?.trim()
+  if (explicit) return explicit.replace(/\/+$/, '')
+
+  // A release build with no explicit URL would silently fall back to the
+  // emulator loopback alias, which no real device can reach. Say so loudly
+  // rather than shipping a beta that fails every request.
+  if (!__DEV__) {
+    console.error(
+      '[TBK] EXPO_PUBLIC_API_URL is not set in this release build. ' +
+      'Requests will target ' + emulatorDefault + ', which is unreachable ' +
+      'from a physical device. Rebuild with EXPO_PUBLIC_API_URL set to the ' +
+      'public HTTPS API URL.'
+    )
+  }
+  return developmentApiUrl()
+}
+
+export const API_URL = resolveApiUrl()
 export const MEDIA_URL = API_URL.replace(/\/api\/v1\/?$/, '')
 export const resolveMediaUrl = (value?: string) => !value ? undefined : value.startsWith('http') ? value : `${MEDIA_URL}${value.startsWith('/') ? '' : '/'}${value}`
 

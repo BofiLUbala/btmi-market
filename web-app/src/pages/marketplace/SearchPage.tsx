@@ -15,12 +15,15 @@ const SORTS = [
   { value: 'seller_level', label: 'Top sellers' }
 ]
 
+const RATING_FILTERS = [4, 3]
+
 export default function SearchPage() {
   const [params] = useSearchParams()
   const initialQ = params.get('q') ?? ''
   const visualSearch = params.get('visual') === '1'
   const [q, setQ] = useState(initialQ)
   const [sort, setSort] = useState('relevance')
+  const [minRating, setMinRating] = useState<number | undefined>()
   const [products, setProducts] = useState<PublicProduct[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
@@ -30,11 +33,11 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false)
   const [visualFileName, setVisualFileName] = useState('')
 
-  function runSearch(nextPage = 1, query = q, sortBy = sort) {
+  function runSearch(nextPage = 1, query = q, sortBy = sort, rating = minRating) {
     setLoading(true)
     setError('')
     marketplaceApi
-      .search({ q: query, sort: sortBy, page: nextPage, limit: 20 })
+      .search({ q: query, sort: sortBy, page: nextPage, limit: 20, min_rating: rating })
       .then(
         (res) => {
           const list = asArray(res.products)
@@ -74,6 +77,13 @@ export default function SearchPage() {
     runSearch(1, q, s)
   }
 
+  function changeRating(value?: number) {
+    const next = minRating === value ? undefined : value
+    setMinRating(next)
+    setPage(1)
+    runSearch(1, q, sort, next)
+  }
+
   return (
     <div className="fade-in">
       <h1 style={{ marginBottom: 12 }}>Search</h1>
@@ -85,6 +95,28 @@ export default function SearchPage() {
       />
 
       {visualSearch && visualFileName && <div className="visual-search-banner"><span aria-hidden>📷</span><div><strong>Products similar to your image</strong><small>{visualFileName}</small></div></div>}
+
+      {!visualSearch && (
+        <div className="search-facets" role="group" aria-label="Filter results">
+          <span className="small muted">Customer rating</span>
+          {RATING_FILTERS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`facet-chip ${minRating === r ? 'selected' : ''}`}
+              aria-pressed={minRating === r}
+              onClick={() => changeRating(r)}
+            >
+              {r}★ &amp; up
+            </button>
+          ))}
+          {minRating !== undefined && (
+            <button type="button" className="facet-chip facet-clear" onClick={() => changeRating(undefined)}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="row-between" style={{ marginBottom: 12 }}>
         <span className="small muted">

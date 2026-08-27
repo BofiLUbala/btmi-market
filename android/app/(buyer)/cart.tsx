@@ -125,7 +125,7 @@ export default function CartScreen() {
 
       <Card>
         <View style={styles.rowBetween}>
-          <Text style={styles.name}>Utiliser mes points BTMI</Text>
+          <Text style={styles.name}>Utiliser mes points TBK</Text>
           <Button
             variant={usePoints ? 'primary' : 'outline'}
             title={usePoints ? 'Activé' : 'Activer'}

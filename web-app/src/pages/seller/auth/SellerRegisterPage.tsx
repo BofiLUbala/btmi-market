@@ -88,7 +88,7 @@ export default function SellerRegisterPage() {
     return (
       <div className="seller-register-layout">
         <aside className="seller-register-benefits">
-          <span className="seller-eyebrow">BTMI Seller</span>
+          <span className="seller-eyebrow">TBK Seller</span>
           <h1>Transformez votre activité en commerce organisé.</h1>
           <p>Créez votre compte vendeur, puis gérez vos boutiques, produits, stocks et commandes depuis un seul espace.</p>
         </aside>
@@ -119,7 +119,7 @@ export default function SellerRegisterPage() {
     return (
       <div className="seller-register-layout">
         <aside className="seller-register-benefits">
-          <span className="seller-eyebrow">BTMI Seller</span>
+          <span className="seller-eyebrow">TBK Seller</span>
           <h1>Transformez votre activité en commerce organisé.</h1>
         </aside>
         <div className="card seller-register-card">
@@ -145,7 +145,7 @@ export default function SellerRegisterPage() {
   return (
     <div className="seller-register-layout">
       <aside className="seller-register-benefits">
-        <span className="seller-eyebrow">BTMI Seller</span>
+        <span className="seller-eyebrow">TBK Seller</span>
         <h1>Transformez votre activité en commerce organisé.</h1>
         <p>Créez votre compte vendeur, puis gérez vos boutiques, produits, stocks et commandes depuis un seul espace.</p>
         <ul>
@@ -156,7 +156,7 @@ export default function SellerRegisterPage() {
       </aside>
       <form className="card seller-register-card" onSubmit={onSubmit}>
         <span className="seller-eyebrow">Créer un compte</span>
-        <h2>Commencez à vendre sur BTMI</h2>
+        <h2>Commencez à vendre sur TBK</h2>
         <p className="muted">Renseignez vos informations de responsable vendeur.</p>
         {error && <ErrorBox error={error} />}
         {existingAccountError && phase === 'form' && (

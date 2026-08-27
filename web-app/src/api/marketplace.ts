@@ -26,6 +26,8 @@ export interface MarketplaceQuery {
   subcategory?: string
   min_price?: number
   max_price?: number
+  /** "4 stars and above" — products with no reviews are excluded. */
+  min_rating?: number
   sort?: string
   availability?: string
   rating?: number

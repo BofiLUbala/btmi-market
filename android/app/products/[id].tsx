@@ -164,12 +164,12 @@ export default function ProductScreen() {
           <Image source={image} contentFit="contain" style={[styles.image, { height: Math.min(width, 470) }]} />
         ) : (
           <View style={styles.noImage}>
-            <Text style={styles.noImageText}>BTMI</Text>
+            <Text style={styles.noImageText}>TBK</Text>
           </View>
         )}
 
         <View style={styles.content}>
-          <Text style={styles.shop}>Vendu par {product.shop_name || 'un vendeur BTMI'}</Text>
+          <Text style={styles.shop}>Vendu par {product.shop_name || 'un vendeur TBK'}</Text>
           <Text style={styles.title}>{product.name}</Text>
           <Text style={styles.rating}>
             {reviewData?.summary.total_reviews
@@ -329,7 +329,7 @@ export default function ProductScreen() {
                     <View style={styles.reviewTop}>
                       <View>
                         <Text style={styles.reviewStars}>{stars(review.rating)}</Text>
-                        <Text style={styles.reviewer}>{review.buyer_display_name || 'Acheteur BTMI'}</Text>
+                        <Text style={styles.reviewer}>{review.buyer_display_name || 'Acheteur TBK'}</Text>
                       </View>
                       <Text style={styles.reviewDate}>{reviewDate(review.created_at)}</Text>
                     </View>

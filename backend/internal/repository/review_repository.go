@@ -342,6 +342,75 @@ func (r *ReviewRepository) GetShopReviewAggregate(shopID uuid.UUID) (*models.Sho
 	return agg, nil
 }
 
+// RecalculateShopProductAggregates refreshes the product-level rating aggregate
+// for every product of a shop that carries at least one product review.
+//
+// The aggregate is maintained on write so that marketplace listings can LEFT
+// JOIN it instead of running a correlated AVG() per row. Recalculating the
+// whole shop (rather than one product) keeps the background job payload
+// unchanged and lets the aggregate self-heal if an event was ever missed.
+func (r *ReviewRepository) RecalculateShopProductAggregates(shopID uuid.UUID) error {
+	_, err := r.db.Exec(`
+		INSERT INTO product_review_aggregates (
+			product_id, average_rating, total_reviews,
+			rating_1_count, rating_2_count, rating_3_count, rating_4_count, rating_5_count,
+			last_review_at, updated_at
+		)
+		SELECT sr.product_id,
+		       COALESCE(ROUND(AVG(sr.rating)::numeric, 2), 0.00),
+		       COUNT(*),
+		       COUNT(*) FILTER (WHERE sr.rating = 1),
+		       COUNT(*) FILTER (WHERE sr.rating = 2),
+		       COUNT(*) FILTER (WHERE sr.rating = 3),
+		       COUNT(*) FILTER (WHERE sr.rating = 4),
+		       COUNT(*) FILTER (WHERE sr.rating = 5),
+		       MAX(sr.created_at),
+		       NOW()
+		FROM seller_reviews sr
+		WHERE sr.shop_id = $1
+		  AND sr.product_id IS NOT NULL
+		  AND sr.order_line_id IS NOT NULL
+		  AND sr.status = 'ACTIVE'
+		GROUP BY sr.product_id
+		ON CONFLICT (product_id) DO UPDATE SET
+			average_rating = EXCLUDED.average_rating,
+			total_reviews  = EXCLUDED.total_reviews,
+			rating_1_count = EXCLUDED.rating_1_count,
+			rating_2_count = EXCLUDED.rating_2_count,
+			rating_3_count = EXCLUDED.rating_3_count,
+			rating_4_count = EXCLUDED.rating_4_count,
+			rating_5_count = EXCLUDED.rating_5_count,
+			last_review_at = EXCLUDED.last_review_at,
+			updated_at     = NOW()
+	`, shopID)
+	if err != nil {
+		return err
+	}
+
+	// Withdrawing the last review of a product leaves a stale row behind, so
+	// zero out products of this shop that no longer have any active review.
+	_, err = r.db.Exec(`
+		UPDATE product_review_aggregates pra
+		SET average_rating = 0.00, total_reviews = 0,
+		    rating_1_count = 0, rating_2_count = 0, rating_3_count = 0,
+		    rating_4_count = 0, rating_5_count = 0,
+		    last_review_at = NULL, updated_at = NOW()
+		WHERE pra.total_reviews > 0
+		  AND EXISTS (
+			SELECT 1 FROM products p
+			JOIN inventory i ON i.product_id = p.id
+			WHERE p.id = pra.product_id AND i.shop_id = $1
+		  )
+		  AND NOT EXISTS (
+			SELECT 1 FROM seller_reviews sr
+			WHERE sr.product_id = pra.product_id
+			  AND sr.order_line_id IS NOT NULL
+			  AND sr.status = 'ACTIVE'
+		  )
+	`, shopID)
+	return err
+}
+
 // RecalculateShopAggregate recalculates aggregates from PostgreSQL source of truth.
 func (r *ReviewRepository) RecalculateShopAggregate(shopID uuid.UUID) (*models.ShopReviewAggregate, error) {
 	tx, err := r.db.Begin()

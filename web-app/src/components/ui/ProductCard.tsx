@@ -5,6 +5,7 @@ import { formatMoney } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { useFavorites } from '@/store/favorites'
 import { StockChip } from './Badges'
+import { Rating } from './Rating'
 
 function FavoriteButton({ product }: { product: PublicProduct }) {
   const { has, toggle } = useFavorites()
@@ -46,8 +47,12 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const [imageFailed, setImageFailed] = useState(false)
   const first = product.variants?.[0]
   
-  const originalPrice = first?.base_price ?? product.base_price
-  const salePrice = first?.unit_price ?? product.seller_sale_price ?? product.base_price
+  // `??` alone is not enough here: a listing that omits the computed effective
+  // price sends 0, which is a valid number and would render as "0 FC".
+  const firstPositive = (...values: Array<number | undefined | null>) =>
+    values.find((v): v is number => typeof v === 'number' && v > 0) ?? 0
+  const originalPrice = firstPositive(first?.base_price, product.base_price)
+  const salePrice = firstPositive(first?.unit_price, product.seller_sale_price, product.base_price)
   const hasDiscount = Boolean(product.discount_active && salePrice < originalPrice)
   const discountPercent = hasDiscount 
     ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
@@ -57,6 +62,12 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const cover = product.images?.find((img) => img.is_primary) ?? product.images?.[0]
   const fallback = getCategoryVisual(product.category_slug ?? '')
   const availability = product.availability ?? first?.stock ?? 'AVAILABLE'
+
+  const reviewCount = product.total_reviews ?? 0
+  const rating = product.average_rating ?? 0
+  // A product nobody has reviewed shows nothing rather than an empty 0-star row,
+  // which would read as a bad score instead of "not rated yet".
+  const hasRating = reviewCount > 0
 
   return (
     <Link to={link} className="product-card">
@@ -93,6 +104,10 @@ export function ProductCard({ product }: { product: PublicProduct }) {
           <span className="product-category-chip">{product.category_name}</span>
         )}
         <span className="product-name">{product.name}</span>
+        {product.shop_name && <span className="product-shop">{product.shop_name}</span>}
+        {hasRating && (
+          <Rating value={rating} count={reviewCount} size="sm" />
+        )}
         <StockChip stock={availability} />
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
           {hasDiscount ? (

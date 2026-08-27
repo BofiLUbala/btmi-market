@@ -12,6 +12,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/models"
 	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type MarketplaceRepository struct {
@@ -281,7 +282,68 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		}
 		products = append(products, p)
 	}
-	return products, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	if err := r.attachProductRatings(products); err != nil {
+		return nil, 0, err
+	}
+	return products, total, nil
+}
+
+// attachProductRatings fills the rating aggregate on a page of products with a
+// single batched lookup.
+//
+// Deliberately done after the fact rather than joined into each listing query:
+// the marketplace has five separate product-list queries, all built on grouped
+// CTEs, and adding the columns to every GROUP BY is easy to get subtly wrong.
+// One indexed lookup per page (never per row) keeps this out of N+1 territory.
+func (r *MarketplaceRepository) attachProductRatings(products []*models.PublicProductResponse) error {
+	if len(products) == 0 {
+		return nil
+	}
+
+	ids := make([]uuid.UUID, 0, len(products))
+	for _, p := range products {
+		ids = append(ids, p.ID)
+	}
+
+	rows, err := r.db.Query(`
+		SELECT product_id, average_rating::float8, total_reviews
+		FROM product_review_aggregates
+		WHERE product_id = ANY($1)
+	`, pq.Array(ids))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type rating struct {
+		avg   float64
+		total int
+	}
+	byProduct := make(map[uuid.UUID]rating, len(products))
+	for rows.Next() {
+		var id uuid.UUID
+		var rt rating
+		if err := rows.Scan(&id, &rt.avg, &rt.total); err != nil {
+			continue
+		}
+		byProduct[id] = rt
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	// Products with no aggregate row keep the zero value, which the UI renders
+	// as "no reviews yet" rather than a zero-star score.
+	for _, p := range products {
+		if rt, ok := byProduct[p.ID]; ok {
+			p.AverageRating = rt.avg
+			p.TotalReviews = rt.total
+		}
+	}
+	return nil
 }
 
 func (r *MarketplaceRepository) ListCategoriesWithSubs() ([]*models.CategoryResponse, error) {
@@ -463,6 +525,17 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 		args = append(args, search.SubcategorySlug)
 		argIdx++
 	}
+	if search.MinRating > 0 {
+		// EXISTS rather than a join so the filter cannot duplicate offer rows.
+		where = append(where, fmt.Sprintf(`EXISTS (
+			SELECT 1 FROM product_review_aggregates pra2
+			WHERE pra2.product_id = p.id
+			  AND pra2.total_reviews > 0
+			  AND pra2.average_rating >= $%d
+		)`, argIdx))
+		args = append(args, search.MinRating)
+		argIdx++
+	}
 	if search.ShopID != "" {
 		where = append(where, fmt.Sprintf("s.id = $%d", argIdx))
 		args = append(args, search.ShopID)
@@ -605,6 +678,9 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if err := r.attachProductRatings(products); err != nil {
+		return nil, err
+	}
 
 	return &models.MarketplaceSearchResult{
 		Products: products,
@@ -672,6 +748,7 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 		       COALESCE(sc.slug, '') as subcategory_slug,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
+		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		       p.created_at
 		FROM products p
 		JOIN businesses b ON b.id = p.business_id
@@ -685,6 +762,7 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 		WHERE %s
 		GROUP BY p.id, s.id, s.name, p.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price,
 		         p.category_id, c.name, c.slug, p.subcategory_id, sc.name, sc.slug, sl.name, st.trust_status,
+		         p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		         p.created_at
 		ORDER BY p.name ASC
 		LIMIT $%d OFFSET $%d
@@ -700,18 +778,47 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 	var products []*models.PublicProductResponse
 	for rows.Next() {
 		p := &models.PublicProductResponse{}
+		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
 			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
 			&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 			&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
-			&p.SellerLevel, &p.SellerTrust, &p.CreatedAt,
+			&p.SellerLevel, &p.SellerTrust,
+			&p.DiscountActive, &p.DiscountType, &p.DiscountValue, &discountStart, &discountEnd,
+			&p.CreatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
+		// Without this the effective price stayed at Go's zero value and the
+		// marketplace rendered every category product as "0 FC".
+		var dStart, dEnd *time.Time
+		if discountStart.Valid {
+			dStart = &discountStart.Time
+		}
+		if discountEnd.Valid {
+			dEnd = &discountEnd.Time
+		}
+		p.SellerSalePrice = p.BasePrice
+		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
+			if p.DiscountType == "PERCENTAGE" {
+				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
+			} else if p.DiscountType == "FIXED" {
+				p.SellerSalePrice = p.BasePrice - p.DiscountValue
+				if p.SellerSalePrice < 0 {
+					p.SellerSalePrice = 0
+				}
+			}
+		}
 		products = append(products, p)
 	}
-	return products, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	if err := r.attachProductRatings(products); err != nil {
+		return nil, 0, err
+	}
+	return products, total, nil
 }
 
 func (r *MarketplaceRepository) GetCategoryRankingFromPostgres(categoryID uuid.UUID, page, limit int) ([]*redislib.RankedShop, int, error) {
@@ -1354,6 +1461,9 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 		return nil, 0, err
 	}
 
+	if err := r.attachProductRatings(products); err != nil {
+		return nil, 0, err
+	}
 	return products, total, nil
 }
 

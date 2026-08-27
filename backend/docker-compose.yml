@@ -43,7 +43,12 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      # Loopback only. Containers reach Postgres over the internal Docker
+      # network, so publishing on 0.0.0.0 exposed the database to every device
+      # on the LAN.
+      # Host port 5433 because a native Windows PostgreSQL service already
+      # owns 5432 on this machine; connect host tools to localhost:5433.
+      - "127.0.0.1:5433:5432"
     environment:
       - POSTGRES_DB=${DB_NAME:-btmi_market}
       - POSTGRES_USER=${DB_USER:-btmi_user}
@@ -60,7 +65,10 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      # Loopback only. Redis runs without a password, so publishing it on
+      # 0.0.0.0 gave unauthenticated access to anyone on the LAN. The api and
+      # worker containers reach it over the internal Docker network instead.
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

@@ -189,7 +189,7 @@ export default function SellerOnboardingPage() {
         {currentStep === 'business' && (
           <form onSubmit={createBusiness}>
             <h1>Create your Business</h1>
-            <p className="muted small">This will be your legal business entity on BTMI Market.</p>
+            <p className="muted small">This will be your legal business entity on TBK.</p>
             {error && <ErrorBox error={error} />}
             <Field label="Business Name" name="name" required value={businessForm.name} onChange={(e) => updateBusiness('name', e.target.value)} />
             <Field label="Business Type" name="business_type" required value={businessForm.business_type} onChange={(e) => updateBusiness('business_type', e.target.value)} as="select" options={[

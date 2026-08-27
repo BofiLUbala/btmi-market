@@ -24,16 +24,21 @@ export function ShopCard({ shop, rating }: { shop: PublicShop; rating?: number }
 
 export function SectionHead({
   title,
+  subtitle,
   linkTo,
   linkLabel
 }: {
   title: string
+  subtitle?: string
   linkTo?: string
   linkLabel?: string
 }) {
   return (
     <div className="section-head">
-      <h2>{title}</h2>
+      <div className="section-head-copy">
+        <h2>{title}</h2>
+        {subtitle && <p className="section-subtitle">{subtitle}</p>}
+      </div>
       {linkTo && linkLabel && (
         <Link className="section-link" to={linkTo}>
           {linkLabel} →

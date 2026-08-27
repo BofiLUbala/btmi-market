@@ -28,7 +28,7 @@ export default function SellerProfilePage() {
 
       <Card style={{ marginTop: 24 }}>
         <h2>Account Information</h2>
-        <p className="muted small">Profile details are managed by your BTMI account and cannot be edited here yet.</p>
+        <p className="muted small">Profile details are managed by your TBK account and cannot be edited here yet.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 16 }}>
           <div>
             <div className="muted small">Name</div>

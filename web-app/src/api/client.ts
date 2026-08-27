@@ -65,7 +65,7 @@ export async function api<T>(
     throw new ApiError(
       0,
       'NETWORK_ERROR',
-      'Cannot reach BTMI Market right now. Check your connection and try again.'
+      'Cannot reach TBK right now. Check your connection and try again.'
     )
   }
 

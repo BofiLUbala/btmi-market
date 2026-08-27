@@ -447,6 +447,11 @@ func (s *ReviewService) ProcessReviewAggregate(shopID, businessID uuid.UUID) err
 		return fmt.Errorf("failed to recalculate aggregate: %w", err)
 	}
 
+	// Product ratings power the stars shown on every marketplace listing.
+	if err := s.reviewRepo.RecalculateShopProductAggregates(shopID); err != nil {
+		return fmt.Errorf("failed to recalculate product aggregates: %w", err)
+	}
+
 	// Recalculate trust
 	if _, err := s.trustRepo.RecalculateTrust(businessID); err != nil {
 		return fmt.Errorf("failed to recalculate trust: %w", err)
