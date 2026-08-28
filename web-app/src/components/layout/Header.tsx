@@ -30,9 +30,8 @@ export function Header() {
   return (
     <header className="header">
       <div className="container header-inner">
-        <Link to="/" className="brand">
-          <span className="brand-mark">TBK</span>
-          <span className="brand-tagline">Simple et rapide</span>
+        <Link to="/" className="brand" aria-label="TBK — accueil">
+          <span className="brand-mark" aria-hidden="true">TBK</span>
         </Link>
 
         <SearchAutocomplete variant="header" />

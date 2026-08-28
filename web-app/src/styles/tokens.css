@@ -1,11 +1,26 @@
 :root {
-  /* Brand */
-  --color-primary: #0f3d2e;
-  --color-primary-dark: #0a2c21;
-  --color-primary-light: #1a5c45;
-  --color-accent: #c8a24a;
-  --color-accent-dark: #a8862f;
-  --color-accent-soft: #f4ecd9;
+  /* Brand — taken from the TBK logo, which is a black-and-white monogram.
+     The previous dark green was inherited from the BTMI identity and had no
+     source in the current brand. */
+  --color-primary: #1c1c1a;
+  --color-primary-dark: #000000;
+  --color-primary-light: #3a3a36;
+  /* Action accent. Burnt amber is the one tested hue that stays legible with
+     white text (5.01), on cream (4.60) AND separates from the near-black
+     primary (3.41) — so a "Buy" button never reads as just another dark
+     button. The old gold (#c8a24a) sat at 2.21 and could not carry text. */
+  --color-accent: #b4531b;
+  --color-accent-dark: #8f3f13;
+  --color-accent-soft: #fbeee5;
+  /* Channels of --color-primary, so focus rings and tints can use rgba()
+     without hardcoding the brand colour in fifteen places. */
+  --color-primary-rgb: 28, 28, 26;
+  /* Review stars stay gold: that is a universal convention, not brand colour,
+     so it must not follow the action accent. Deepened from #d49b16, which sat
+     at 2.27 on cream and failed even the 3:1 non-text threshold — ratings are
+     a trust signal and have to be legible. This reads 5.03 and passes AA. */
+  --color-star: #8a6207;
+  --color-star-empty: #d8d3c7;
 
   /* Neutrals */
   --color-bg: #f7f5f0;
@@ -16,11 +31,20 @@
   --color-text-muted: #6b6a63;
   --color-text-faint: #9a978d;
 
-  /* Feedback */
+  /* Feedback. Each has a soft fill and a border so status chips, alert boxes
+     and stock states stop inventing their own tints in every file. */
   --color-success: #1e7e4f;
+  --color-success-soft: #e7f7ee;
+  --color-success-border: #bfe3cf;
   --color-danger: #c0392b;
+  --color-danger-soft: #fdf0ee;
+  --color-danger-border: #f2c9c4;
   --color-warning: #b7791f;
+  --color-warning-soft: #fff7df;
+  --color-warning-border: #ebd391;
   --color-info: #2f6f9f;
+  --color-info-soft: #e0f2fe;
+  --color-info-border: #bcdff5;
 
   /* Status map (order lifecycle) */
   --status-pending: #b7791f;

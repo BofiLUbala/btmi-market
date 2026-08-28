@@ -40,13 +40,6 @@
   font-size: 0.8rem;
   letter-spacing: 0.08em;
 }
-.brand-tagline {
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
 .header-search {
   flex: 1;
   max-width: 460px;
@@ -72,7 +65,7 @@
 }
 .header-search button {
   background: var(--color-accent);
-  color: var(--color-primary-dark);
+  color: #fff;
   border: none;
   border-radius: 999px;
   padding: 6px 12px;
@@ -151,8 +144,8 @@
   color: var(--color-primary);
 }
 .visual-search-button:disabled { cursor: wait; opacity: .65; }
-.visual-search-error { margin-top: 7px; color: var(--color-danger, #b42318); font-size: var(--text-xs); }
-.search-autocomplete--header .visual-search-error { position: absolute; top: calc(100% + 8px); left: 0; padding: 8px 12px; border-radius: var(--radius); background: #fff; color: #b42318; box-shadow: var(--shadow-md); }
+.visual-search-error { margin-top: 7px; color: var(--color-danger); font-size: var(--text-xs); }
+.search-autocomplete--header .visual-search-error { position: absolute; top: calc(100% + 8px); left: 0; padding: 8px 12px; border-radius: var(--radius); background: #fff; color: var(--color-danger); box-shadow: var(--shadow-md); }
 .visual-search-banner { display: flex; align-items: center; gap: 12px; margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
 .visual-search-banner > span { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--color-surface-2); font-size: 20px; }
 .visual-search-banner div { display: grid; gap: 2px; }
@@ -211,7 +204,7 @@
 }
 .search-suggestion-initials--shop {
   background: var(--color-accent);
-  color: var(--color-primary-dark);
+  color: #fff;
 }
 .search-suggestion-copy {
   display: flex;
@@ -245,7 +238,6 @@
 }
 @media (max-width: 599px) {
   .header-inner { gap: var(--space-2); }
-  .brand > span:last-child { display: none; }
   .search-suggestions {
     position: fixed;
     top: var(--header-h);
@@ -736,7 +728,7 @@
 }
 
 .dropdown-item.active {
-  background: rgba(15, 61, 46, 0.08);
+  background: rgba(var(--color-primary-rgb), 0.08);
   color: var(--color-primary);
   font-weight: 700;
 }

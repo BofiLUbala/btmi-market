@@ -199,7 +199,7 @@ function DeliveryInner() {
                   placeholder="City, commune, avenue, number…"
                 />
                 {isAddressIncomplete && contact.address.trim().length > 0 && (
-                  <p className="small" style={{ color: 'var(--color-danger, #ef4444)', marginTop: -8, marginBottom: 12 }}>
+                  <p className="small" style={{ color: 'var(--color-danger)', marginTop: -8, marginBottom: 12 }}>
                     Please add specific details (commune, avenue, house number, etc.).
                   </p>
                 )}

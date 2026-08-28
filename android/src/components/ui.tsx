@@ -10,7 +10,7 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading,
   return <Pressable onPress={onPress} disabled={disabled || loading} style={({ pressed }) => [styles.button, variant === 'outline' && styles.outline, variant === 'gold' && styles.gold, (disabled || loading) && styles.disabled, pressed && !disabled && styles.pressed, style]}><Text style={[styles.buttonText, variant === 'outline' && styles.outlineText]}>{loading ? 'Un instant…' : title}</Text></Pressable>
 }
 export function Field(props: TextInputProps & { label: string; error?: string }) {
-  return <View style={styles.field}><Text style={styles.label}>{props.label}</Text><TextInput placeholderTextColor="#929A96" {...props} style={[styles.input, props.multiline && styles.multiline]} />{props.error ? <Text style={styles.error}>{props.error}</Text> : null}</View>
+  return <View style={styles.field}><Text style={styles.label}>{props.label}</Text><TextInput placeholderTextColor={colors.mutedLight} {...props} style={[styles.input, props.multiline && styles.multiline]} />{props.error ? <Text style={styles.error}>{props.error}</Text> : null}</View>
 }
 export function SectionTitle({ title, action }: { title: string; action?: ReactNode }) { return <View style={styles.sectionHead}><Text style={styles.sectionTitle}>{title}</Text>{action}</View> }
 export function Loading({ label = 'Chargement…' }: { label?: string }) { return <View style={styles.center}><ActivityIndicator color={colors.green} size="large"/><Text style={styles.muted}>{label}</Text></View> }

@@ -840,7 +840,7 @@ export default function SellerProductCreatePage() {
               )}
 
               {form.discount_active && form.unit_price && form.discount_value && (
-                <div style={{ marginTop: 16, padding: 12, background: 'rgba(230, 242, 237, 0.5)', borderRadius: 8, border: '1px solid rgba(15, 61, 46, 0.15)' }}>
+                <div style={{ marginTop: 16, padding: 12, background: 'var(--color-accent-soft)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                   <span className="small muted" style={{ display: 'block', marginBottom: 4 }}>Promotion Live Preview</span>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>
@@ -958,8 +958,8 @@ export default function SellerProductCreatePage() {
                               fontSize: '0.72rem',
                               padding: '1px 6px',
                               borderRadius: 10,
-                              background: sug.recommendedType === 'VARIANT' ? 'rgba(30, 64, 175, 0.1)' : 'rgba(100, 116, 139, 0.15)',
-                              color: sug.recommendedType === 'VARIANT' ? '#1e40af' : '#475569',
+                              background: sug.recommendedType === 'VARIANT' ? 'var(--color-info-soft)' : 'var(--color-surface-2)',
+                              color: sug.recommendedType === 'VARIANT' ? 'var(--color-info)' : 'var(--color-text-muted)',
                               fontWeight: 700,
                             }}
                           >

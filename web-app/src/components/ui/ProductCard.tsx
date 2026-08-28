@@ -17,7 +17,7 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
       className="btn btn-sm"
       style={{
         background: 'rgba(0,0,0,0.35)',
-        color: active ? '#ffd166' : '#fff',
+        color: active ? 'var(--color-star)' : '#fff',
         border: 'none',
         borderRadius: 999,
         minWidth: 30

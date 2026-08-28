@@ -106,7 +106,7 @@ export default function SellerReviewsPage() {
                 <div key={rating} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                   <span className="small" style={{ width: 40 }}>{rating} ★</span>
                   <div style={{ flex: 1, height: 8, background: 'var(--color-surface-2)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${percent}%`, background: 'var(--color-warning, #ffb300)', borderRadius: 4 }} />
+                    <div style={{ height: '100%', width: `${percent}%`, background: 'var(--color-star)', borderRadius: 4 }} />
                   </div>
                   <span className="small muted" style={{ width: 40, textAlign: 'right' }}>{count}</span>
                 </div>
@@ -139,7 +139,7 @@ export default function SellerReviewsPage() {
                       {review.verified_purchase && <span className="badge" style={{ marginLeft: 8 }}>Verified Purchase</span>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ color: 'var(--color-warning, #ffb300)', fontWeight: 'bold' }}>{review.rating} ★</span>
+                      <span style={{ color: 'var(--color-star)', fontWeight: 'bold' }}>{review.rating} ★</span>
                       <span className="muted small">{new Date(review.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>

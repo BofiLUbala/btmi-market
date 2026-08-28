@@ -49,7 +49,7 @@ function ReviewAction({ orderId, lineId, completed }: { orderId: string; lineId:
   if (eligibility?.eligible) {
     return (
       <div style={{ marginTop: 4 }}>
-        <Link className="section-link small bold" style={{ color: 'var(--color-accent, #ff7a00)' }} to={`/orders/${orderId}/review?line=${lineId}`}>
+        <Link className="section-link small bold" style={{ color: 'var(--color-accent)' }} to={`/orders/${orderId}/review?line=${lineId}`}>
           ★ Review Product
         </Link>
       </div>

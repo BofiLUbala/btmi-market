@@ -749,7 +749,7 @@ export default function SellerProductDetailPage() {
             )}
 
             {promoForm.discount_active && product.unit_price && promoForm.discount_value && (
-              <div style={{ marginTop: 12, marginBottom: 16, padding: 12, background: 'rgba(230, 242, 237, 0.5)', borderRadius: 8, border: '1px solid rgba(15, 61, 46, 0.15)' }}>
+              <div style={{ marginTop: 12, marginBottom: 16, padding: 12, background: 'var(--color-accent-soft)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                 <span className="small muted" style={{ display: 'block', marginBottom: 4 }}>Promotion Live Preview</span>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>
@@ -782,7 +782,7 @@ export default function SellerProductDetailPage() {
           <div style={{ padding: '8px 0' }}>
             {product.discount_active ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                <div style={{ padding: '8px 16px', background: 'rgba(230, 242, 237, 0.5)', borderRadius: 8, border: '1px solid rgba(15, 61, 46, 0.15)' }}>
+                <div style={{ padding: '8px 16px', background: 'var(--color-accent-soft)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                   <span className="small muted" style={{ display: 'block', marginBottom: 2 }}>Current Active Promotion</span>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <strong style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>
@@ -1088,7 +1088,7 @@ export default function SellerProductDetailPage() {
                             </span>
                           ))}
                           {attrEntries.length === 0 && (
-                            <span className="small" style={{ color: 'var(--color-warning, #b45309)', fontSize: '0.75rem' }}>
+                            <span className="small" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }}>
                               No attributes — not selectable by buyers
                             </span>
                           )}
