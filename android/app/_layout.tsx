@@ -5,12 +5,62 @@ import NetInfo from '@react-native-community/netinfo'
 import { onlineManager } from '@tanstack/react-query'
 import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '../src/store/auth'
-import { colors } from '../src/theme'
+import { ThemeProvider, useTheme } from '../src/store/theme'
+import { I18nProvider, useI18n } from '../src/store/i18n'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 2, refetchOnReconnect: true }, mutations: { retry: 0 } } })
 
+/** Split out of RootLayout so it can read the theme and language contexts —
+ *  screen titles and header colours both have to follow them. */
+function RootNavigator() {
+  const { colors, theme } = useTheme()
+  const { t } = useI18n()
+
+  return (
+    <>
+      {/* On a dark header the status bar icons must be light, and vice versa. */}
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.white },
+          headerTintColor: colors.ink,
+          headerTitleStyle: { fontWeight: '800' },
+          contentStyle: { backgroundColor: colors.cream },
+        }}
+      >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/login" options={{ title: t('common.signIn') }} />
+        <Stack.Screen name="auth/forgot-password" options={{ title: 'Mot de passe oublié' }} />
+        <Stack.Screen name="auth/reset-password" options={{ title: 'Nouveau mot de passe' }} />
+        <Stack.Screen name="profile-edit" options={{ title: t('editProfile.title') }} />
+        <Stack.Screen name="products/[id]" options={{ title: 'Produit' }} />
+        <Stack.Screen name="checkout/delivery" options={{ title: 'Livraison' }} />
+        <Stack.Screen name="checkout/payment" options={{ title: 'Paiement' }} />
+        <Stack.Screen name="orders/index" options={{ title: t('profile.myOrders') }} />
+        <Stack.Screen name="orders/[id]" options={{ title: 'Commande' }} />
+        <Stack.Screen name="reviews/index" options={{ title: t('profile.myReviews') }} />
+        <Stack.Screen name="reviews/write" options={{ title: t('review.publish') }} />
+        <Stack.Screen name="seller" options={{ headerShown: false }} />
+      </Stack>
+    </>
+  )
+}
+
 export default function RootLayout() {
   const bootstrap = useAuth((state) => state.bootstrap)
-  useEffect(() => { bootstrap(); return NetInfo.addEventListener((state) => onlineManager.setOnline(Boolean(state.isConnected))) }, [bootstrap])
-  return <QueryClientProvider client={queryClient}><StatusBar style="light"/><Stack screenOptions={{ headerStyle: { backgroundColor: colors.green }, headerTintColor: colors.white, headerTitleStyle: { fontWeight: '800' }, contentStyle: { backgroundColor: colors.cream } }}><Stack.Screen name="index" options={{ headerShown: false }}/><Stack.Screen name="(buyer)" options={{ headerShown: false }}/><Stack.Screen name="auth/login" options={{ title: 'Connexion' }}/><Stack.Screen name="auth/forgot-password" options={{ title: 'Mot de passe oublié' }}/><Stack.Screen name="auth/reset-password" options={{ title: 'Nouveau mot de passe' }}/><Stack.Screen name="products/[id]" options={{ title: 'Produit' }}/><Stack.Screen name="checkout/delivery" options={{ title: 'Livraison' }}/><Stack.Screen name="checkout/payment" options={{ title: 'Paiement' }}/><Stack.Screen name="orders/index" options={{ title: 'Mes commandes' }}/><Stack.Screen name="orders/[id]" options={{ title: 'Commande' }}/><Stack.Screen name="reviews/index" options={{ title: 'Mes avis' }}/><Stack.Screen name="reviews/write" options={{ title: 'Publier un avis' }}/><Stack.Screen name="seller" options={{ headerShown: false }}/></Stack></QueryClientProvider>
+  useEffect(() => {
+    bootstrap()
+    return NetInfo.addEventListener((state) => onlineManager.setOnline(Boolean(state.isConnected)))
+  }, [bootstrap])
+
+  return (
+    <ThemeProvider>
+      <I18nProvider>
+        <QueryClientProvider client={queryClient}>
+          <RootNavigator />
+        </QueryClientProvider>
+      </I18nProvider>
+    </ThemeProvider>
+  )
 }

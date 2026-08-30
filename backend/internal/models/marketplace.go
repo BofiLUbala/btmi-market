@@ -31,6 +31,8 @@ type PublicProductResponse struct {
 	DiscountActive  bool                    `json:"discount_active"`
 	DiscountType    string                  `json:"discount_type"`
 	DiscountValue   float64                 `json:"discount_value"`
+	DiscountStart   *time.Time              `json:"discount_start,omitempty"`
+	DiscountEnd     *time.Time              `json:"discount_end,omitempty"`
 	SellerSalePrice float64                 `json:"seller_sale_price"` // Calculated sale price
 	// Rating aggregate, so listings can show stars without a per-row AVG().
 	AverageRating float64   `json:"average_rating"`
@@ -69,10 +71,10 @@ type MarketplaceSearchParams struct {
 	// MinRating filters to products whose average rating is at least this
 	// value, e.g. 4 for "4 stars and above". Products with no reviews are
 	// excluded, since an unrated product cannot be said to meet the bar.
-	MinRating       float64 `form:"min_rating"`
-	Sort            string  `form:"sort"` // "relevance", "price_asc", "price_desc", "seller_level"
-	Page            int     `form:"page"`
-	Limit           int     `form:"limit"`
+	MinRating float64 `form:"min_rating"`
+	Sort      string  `form:"sort"` // "relevance", "price_asc", "price_desc", "seller_level"
+	Page      int     `form:"page"`
+	Limit     int     `form:"limit"`
 }
 
 type MarketplaceSearchResult struct {
@@ -81,19 +83,19 @@ type MarketplaceSearchResult struct {
 }
 
 type PublicShopResponse struct {
-	ID              uuid.UUID `json:"id"`
-	BusinessID      uuid.UUID `json:"business_id"`
-	BusinessName    string    `json:"business_name"`
-	Name            string    `json:"name"`
-	Type            string    `json:"type"`
-	City            string    `json:"city"`
-	Address         string    `json:"address"`
-	Phone           string    `json:"phone"`
-	Status          string    `json:"status"`
-	SellerLevel     string    `json:"seller_level"`
-	SellerTrust     string    `json:"seller_trust"`
-	ProductCount    int       `json:"product_count"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id"`
+	BusinessID   uuid.UUID `json:"business_id"`
+	BusinessName string    `json:"business_name"`
+	Name         string    `json:"name"`
+	Type         string    `json:"type"`
+	City         string    `json:"city"`
+	Address      string    `json:"address"`
+	Phone        string    `json:"phone"`
+	Status       string    `json:"status"`
+	SellerLevel  string    `json:"seller_level"`
+	SellerTrust  string    `json:"seller_trust"`
+	ProductCount int       `json:"product_count"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type RankedShopResponse struct {
@@ -162,6 +164,8 @@ type PublicProductDetailResponse struct {
 	DiscountActive   bool                          `json:"discount_active"`
 	DiscountType     string                        `json:"discount_type"`
 	DiscountValue    float64                       `json:"discount_value"`
+	DiscountStart    *time.Time                    `json:"discount_start,omitempty"`
+	DiscountEnd      *time.Time                    `json:"discount_end,omitempty"`
 	SellerSalePrice  float64                       `json:"seller_sale_price"` // Calculated sale price
 	CreatedAt        time.Time                     `json:"created_at"`
 	BuyerLevel       string                        `json:"buyer_level,omitempty"`

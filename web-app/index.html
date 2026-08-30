@@ -19,6 +19,24 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="/site.webmanifest" />
     <title>TBK — Buyer</title>
+    <script>
+      // Applies the saved theme and language before the first paint. Without
+      // this the page renders light, then React swaps to dark a frame later —
+      // a visible white flash on every load for dark-mode users.
+      (function () {
+        try {
+          var t = localStorage.getItem('btmi.theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+          var l = localStorage.getItem('btmi.lang');
+          document.documentElement.lang = l === 'en' || l === 'fr' ? l : 'fr';
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

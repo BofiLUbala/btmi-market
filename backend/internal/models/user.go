@@ -34,6 +34,7 @@ type User struct {
 	Status        UserStatus  `json:"status" db:"status"`
 	EmailVerified bool        `json:"email_verified" db:"email_verified"`
 	AccountType   AccountType `json:"account_type" db:"account_type"`
+	AvatarURL     *string     `json:"avatar_url" db:"avatar_url"`
 	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
 }

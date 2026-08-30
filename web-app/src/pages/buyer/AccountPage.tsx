@@ -4,12 +4,13 @@ import { buyerApi } from '@/api/buyer'
 import type { BuyerOrder, BuyerPointsSummary, PendingPurchase } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { LoadingBlock } from '@/components/ui/Feedback'
-import { formatDate, initials, asArray } from '@/lib/format'
+import { AvatarUpload } from '@/components/ui/AvatarUpload'
+import { formatDate, asArray } from '@/lib/format'
 import { useAuth } from '@/store/auth'
 import { RequireAuth } from '@/components/auth/Guards'
 
 function AccountInner() {
-  const { user, buyerProfile, logout } = useAuth()
+  const { user, buyerProfile, logout, refreshUser } = useAuth()
   const navigate = useNavigate()
   const [points, setPoints] = useState<BuyerPointsSummary | null>(null)
   const [pending, setPending] = useState<PendingPurchase[]>([])
@@ -42,9 +43,12 @@ function AccountInner() {
       <div className="order-summary-grid">
         <div className="card stack">
           <div className="row-between">
-            <div className="shop-logo" style={{ width: 56, height: 56 }}>
-              {user ? initials(`${user.first_name} ${user.last_name}`) : '?'}
-            </div>
+            <AvatarUpload
+              url={user?.avatar_url}
+              name={user ? `${user.first_name} ${user.last_name}` : ''}
+              size={56}
+              onUploaded={refreshUser}
+            />
             <Link to="/account/edit">
               <Button variant="outline" size="sm">Edit</Button>
             </Link>

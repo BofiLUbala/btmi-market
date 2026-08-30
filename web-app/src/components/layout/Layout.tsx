@@ -1,41 +1,41 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Header, MobileNav } from './Header'
+import { useI18n } from '@/store/i18n'
 
 function Footer() {
+  const { t } = useI18n()
   return (
     <footer className="footer">
       <div className="container">
         <div className="footer-inner">
           <div>
             <h4>TBK</h4>
-            <p className="small">
-              Buy from trusted shops across the DRC. Cash on delivery. Earn points on every verified purchase.
+            <p className="small">{t('footer.tagline')}</p>
+          </div>
+          <div>
+            <h4>{t('nav.marketplace')}</h4>
+            <p className="small stack" style={{ gap: 4 }}>
+              <Link to="/categories">{t('nav.categories')}</Link>
+              <Link to="/shops">{t('nav.shops')}</Link>
+              <Link to="/search">{t('nav.search')}</Link>
             </p>
           </div>
           <div>
-            <h4>Marketplace</h4>
+            <h4>{t('footer.yourAccount')}</h4>
             <p className="small stack" style={{ gap: 4 }}>
-              <Link to="/categories">Categories</Link>
-              <Link to="/shops">Shops</Link>
-              <Link to="/search">Search</Link>
+              <Link to="/account">{t('nav.profile')}</Link>
             </p>
           </div>
           <div>
-            <h4>Your account</h4>
+            <h4>{t('footer.sellWithUs')}</h4>
             <p className="small stack" style={{ gap: 4 }}>
-              <Link to="/account">Profile</Link>
-            </p>
-          </div>
-          <div>
-            <h4>Vends tes produits avec nous</h4>
-            <p className="small stack" style={{ gap: 4 }}>
-              <Link to="/seller">Espace vendeur</Link>
+              <Link to="/seller">{t('footer.sellerSpace')}</Link>
             </p>
           </div>
         </div>
         <div className="footer-bottom">
-          © {new Date().getFullYear()} TBK. Payments are cash-only (FC). Prices shown are set by sellers.
+          {t('footer.legal', { year: new Date().getFullYear() })}
         </div>
       </div>
     </footer>

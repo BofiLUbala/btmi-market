@@ -7,6 +7,7 @@ export interface User {
   email: string
   phone: string
   account_type: AccountType
+  avatar_url?: string | null
 }
 
 export interface LoginResponse {
@@ -23,6 +24,8 @@ export interface PublicVariant {
   name?: string
   attributes?: Record<string, string>
   price?: number
+  /** Regular price before any promotion, as sent by the marketplace API. */
+  base_price?: number
   sale_price?: number
   unit_price?: number
   available_stock?: number
@@ -42,6 +45,13 @@ export interface PublicProduct {
   base_price?: number
   currency?: string
   unit?: string
+  /* Promotion window, mirrored from PublicProductResponse on the backend. */
+  discount_active?: boolean
+  discount_type?: string
+  discount_value?: number
+  discount_start?: string | null
+  discount_end?: string | null
+  seller_sale_price?: number
   /** Rating aggregate, maintained on review write. 0 reviews = never rated. */
   average_rating?: number
   total_reviews?: number

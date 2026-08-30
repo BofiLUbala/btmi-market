@@ -10,6 +10,8 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 
 import {
   getCategorySuggestions,
+  getCategoryRequirements,
+  missingRequiredAttributes,
   POPULAR_CUSTOM_CHARACTERISTICS,
   type AttributeClassification,
   type AttributeSuggestion,
@@ -177,6 +179,20 @@ export default function SellerProductCreatePage() {
     return getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
   }, [selectedCategory, selectedSubcategory])
 
+  const categoryRequirements = useMemo(
+    () =>
+      getCategoryRequirements(
+        selectedCategory?.slug || selectedCategory?.name,
+        selectedSubcategory?.slug || selectedSubcategory?.name
+      ),
+    [selectedCategory, selectedSubcategory]
+  )
+
+  const requiredAttributeNames = useMemo(() => new Set([
+    ...(categoryRequirements.allOf ?? []),
+    ...(categoryRequirements.anyOf ?? []).flat(),
+  ].map((name) => name.toLowerCase())), [categoryRequirements])
+
   function handleCategoryChange(newCatId: string) {
     if (categoryId && newCatId !== categoryId && characteristics.length > 0) {
       const hasValues = characteristics.some((c) => c.name.trim() || c.values.trim())
@@ -328,7 +344,7 @@ export default function SellerProductCreatePage() {
 
 
   /* ── Validation ── */
-  function validate(): string {
+  function validate(intent: 'DRAFT' | 'PUBLISHED'): string {
     if (!categoryId) return 'Please select a Category.'
     if (!form.name.trim()) return 'Product Name is required.'
     const price = parseFloat(form.unit_price)
@@ -343,6 +359,19 @@ export default function SellerProductCreatePage() {
         if (new Date(form.discount_end) <= new Date(form.discount_start)) {
           return 'Promotion end date must be after the start date.'
         }
+      }
+    }
+
+    // A draft is a work in progress, so category rules only gate publication.
+    if (intent === 'PUBLISHED') {
+      const completed = characteristics
+        .filter((c) => c.name.trim() && c.values.trim())
+        .map((c) => c.name)
+      const missing = missingRequiredAttributes(categoryRequirements, completed)
+      if (missing.length > 0) {
+        return `This category requires ${missing.join(', ')}. Complete ${
+          missing.length > 1 ? 'them' : 'it'
+        } before publishing, or save as a draft.`
       }
     }
 
@@ -507,7 +536,7 @@ export default function SellerProductCreatePage() {
     e.preventDefault()
     if (busy) return
     publishIntentRef.current = intent
-    const validationError = validate()
+    const validationError = validate(intent)
     if (validationError) {
       setError(validationError)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -930,6 +959,7 @@ export default function SellerProductCreatePage() {
                       const alreadyAdded = characteristics.some(
                         (c) => c.name.trim().toLowerCase() === sug.name.toLowerCase()
                       )
+                      const isRequired = requiredAttributeNames.has(sug.name.toLowerCase())
                       return (
                         <button
                           key={sug.name}
@@ -953,6 +983,7 @@ export default function SellerProductCreatePage() {
                         >
                           <span>{alreadyAdded ? '✓' : '+'}</span>
                           <span>{sug.name}</span>
+                          {isRequired && <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>Required</span>}
                           <span
                             style={{
                               fontSize: '0.72rem',
@@ -1054,7 +1085,9 @@ export default function SellerProductCreatePage() {
                 </Button>
                 {characteristics.length === 0 && (
                   <span className="small muted">
-                    No custom characteristics added yet. Product will be published as a simple single-variant item.
+                    {requiredAttributeNames.size > 0
+                      ? 'Add and complete the required category characteristics before publishing.'
+                      : 'No custom characteristics added yet. Product will be published as a simple single-variant item.'}
                   </span>
                 )}
               </div>

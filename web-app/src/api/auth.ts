@@ -1,4 +1,4 @@
-import { get, post } from './client'
+import { get, post, upload } from './client'
 import type { LoginResponse, RegisterResponse, User } from './types'
 
 export const authApi = {
@@ -26,6 +26,12 @@ export const authApi = {
   }) => post<null>('/auth/reset-password', body),
 
   me: () => get<User>('/auth/me'),
+
+  uploadAvatar: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return upload<{ avatar_url: string }>('/auth/me/avatar', formData)
+  },
 
   refresh: (refresh_token: string) =>
     post<LoginResponse>('/auth/refresh', { refresh_token }),

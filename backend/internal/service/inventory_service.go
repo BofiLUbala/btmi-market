@@ -2,12 +2,13 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/btmi-ai-market/backend/internal/jobs"
 	"github.com/btmi-ai-market/backend/internal/database"
+	"github.com/btmi-ai-market/backend/internal/jobs"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
@@ -287,7 +288,7 @@ func (s *InventoryService) RecordSale(userID, shopID uuid.UUID, req *models.Reco
 	}
 
 	available := req.Quantity
- movementType := models.StockMovementTypeSalePhysical
+	movementType := models.StockMovementTypeSalePhysical
 	if req.SaleType == "ONLINE" {
 		movementType = models.StockMovementTypeSaleOnline
 	} else if req.SaleType != "PHYSICAL" {
@@ -537,7 +538,7 @@ func (s *InventoryService) ReceiveStock(userID uuid.UUID, req *models.CreateRece
 	}
 
 	lines := make([]models.StockReceiptLine, 0, len(req.Lines))
-movements := make([]models.StockMovement, 0, len(req.Lines))
+	movements := make([]models.StockMovement, 0, len(req.Lines))
 
 	for _, lineInput := range req.Lines {
 		variantID, _ := uuid.Parse(lineInput.VariantID)
@@ -576,7 +577,7 @@ movements := make([]models.StockMovement, 0, len(req.Lines))
 			return nil, err
 		}
 
-movement := models.StockMovement{
+		movement := models.StockMovement{
 			BusinessID:       businessID,
 			ShopID:           shopID,
 			ProductID:        variant.ProductID,
@@ -921,6 +922,63 @@ func (s *InventoryService) GetProductByID(userID, productID uuid.UUID) (*models.
 	return product, nil
 }
 
+// requireCategoryAttributes rejects publication when the product's category
+// demands characteristics the product does not carry.
+//
+// Characteristics live on the variants' Attributes map, so the check looks at
+// the union of attribute names across every variant that actually assigns a
+// value — a key present with an empty string is treated as not filled in.
+// Categories with no rules pass unconditionally, so this never blocks a
+// product whose category is simply not covered.
+func (s *InventoryService) requireCategoryAttributes(product *models.Product) error {
+	if product.CategoryID == nil {
+		return nil
+	}
+
+	category, err := s.categoryRepo.GetByID(*product.CategoryID)
+	if err != nil {
+		// A product whose category vanished should not be blocked from
+		// publishing by a rule we cannot even resolve.
+		return nil
+	}
+	categoryKey := category.Slug
+	if categoryKey == "" {
+		categoryKey = category.Name
+	}
+
+	subKey := ""
+	if product.SubcategoryID != nil {
+		if sub, err := s.categoryRepo.GetSubcategoryByID(*product.SubcategoryID); err == nil {
+			if subKey = sub.Slug; subKey == "" {
+				subKey = sub.Name
+			}
+		}
+	}
+
+	requirements := models.GetCategoryRequirements(categoryKey, subKey)
+	if requirements.IsEmpty() {
+		return nil
+	}
+
+	variants, err := s.variantRepo.GetByProductID(product.ID)
+	if err != nil {
+		return err
+	}
+	var present []string
+	for _, v := range variants {
+		for name, value := range v.Attributes {
+			if strings.TrimSpace(value) != "" {
+				present = append(present, name)
+			}
+		}
+	}
+
+	if missing := models.MissingRequiredAttributes(requirements, present); len(missing) > 0 {
+		return fmt.Errorf("MISSING_REQUIRED_ATTRIBUTES: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID, req *models.UpdateProductRequest) (*models.Product, error) {
 	if err := s.requireOwnerOrAdmin(userID, businessID); err != nil {
 		return nil, err
@@ -983,6 +1041,16 @@ func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID
 		pubStatus := models.PublicationStatus(strings.ToUpper(*req.PublicationStatus))
 		switch pubStatus {
 		case models.PublicationStatusDraft, models.PublicationStatusPublished, models.PublicationStatusArchived:
+			// Products are always created as DRAFT and promoted here, so this is
+			// the single choke point for publication — both the create wizard's
+			// final step and "Publish to Marketplace" on the detail page go
+			// through it. Enforcing the category rule here makes it impossible
+			// to bypass by calling the API directly.
+			if pubStatus == models.PublicationStatusPublished {
+				if err := s.requireCategoryAttributes(product); err != nil {
+					return nil, err
+				}
+			}
 			product.PublicationStatus = pubStatus
 		}
 	}

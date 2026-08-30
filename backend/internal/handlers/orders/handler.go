@@ -648,6 +648,9 @@ func (h *Handler) CreateBuyerOrder(c *gin.Context) {
 		case "BUYER_PROFILE_NOT_FOUND":
 			statusCode = http.StatusNotFound
 			errorCode = "BUYER_PROFILE_NOT_FOUND"
+		case "BUYER_PROFILE_INCOMPLETE":
+			statusCode = http.StatusForbidden
+			errorCode = "BUYER_PROFILE_INCOMPLETE"
 		case "INSUFFICIENT_STOCK":
 			statusCode = http.StatusConflict
 			errorCode = "INSUFFICIENT_STOCK"

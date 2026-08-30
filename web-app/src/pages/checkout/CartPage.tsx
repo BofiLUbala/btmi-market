@@ -18,6 +18,9 @@ function previewErrorMessage(e: unknown): string {
   if (e.code === 'BUYER_PROFILE_NOT_FOUND') {
     return 'Finish setting up your buyer profile before placing an order.'
   }
+  if (e.code === 'BUYER_PROFILE_INCOMPLETE') {
+    return 'Add a phone number to your profile before placing an order.'
+  }
   if (/NO_POINT_ACCOUNT/i.test(`${e.code} ${e.message}`)) return ''
   return e.message
 }
@@ -25,11 +28,16 @@ function previewErrorMessage(e: unknown): string {
 export default function CartPage() {
   const cart = useCart()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, buyerProfile } = useAuth()
   const [preview, setPreview] = useState<PointRedemptionPreviewResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [placing, setPlacing] = useState(false)
   const [error, setError] = useState('')
+
+  // Amazon-style guard: browsing and the cart itself stay open to everyone,
+  // but checkout is blocked until the buyer has a phone number on file so
+  // sellers/delivery can actually reach them about the order.
+  const profileIncomplete = Boolean(user && (!buyerProfile || !buyerProfile.phone.trim()))
 
   // Authoritative totals come from the backend preview (logged-in only).
   useEffect(() => {
@@ -60,6 +68,10 @@ export default function CartPage() {
   async function continueToCheckout() {
     if (!user) {
       navigate(loginWithReturnTo('/cart'))
+      return
+    }
+    if (profileIncomplete) {
+      navigate('/account/edit')
       return
     }
     if (!cart.shopId) return
@@ -190,8 +202,20 @@ export default function CartPage() {
                 <small>Delivery is calculated in the next step.</small>
               </div>
               {busy && <p className="checkout-inline-status">Updating price and checking stock…</p>}
-              <Button variant="accent" size="lg" block loading={placing} onClick={continueToCheckout}>
-                Continue to checkout
+              {profileIncomplete && (
+                <div className="checkout-inline-error" style={{ marginBottom: 12 }}>
+                  <strong>Add a phone number to continue</strong>
+                  <span>Sellers and delivery need a way to reach you before you can place an order.</span>
+                </div>
+              )}
+              <Button
+                variant="accent"
+                size="lg"
+                block
+                loading={placing}
+                onClick={continueToCheckout}
+              >
+                {profileIncomplete ? 'Complete your profile' : 'Continue to checkout'}
               </Button>
             </>
           ) : null}

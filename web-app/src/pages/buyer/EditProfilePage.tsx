@@ -4,6 +4,7 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock, SuccessBox } from '@/components/ui/Feedback'
+import { AvatarUpload } from '@/components/ui/AvatarUpload'
 import { useAuth } from '@/store/auth'
 import { RequireAuth } from '@/components/auth/Guards'
 import { drcCityOptions, isKinshasa, kinshasaCommuneOptions } from '@/lib/drcLocations'
@@ -14,7 +15,7 @@ const canonicalPhone = (value: string) => {
 }
 
 function EditInner() {
-  const { buyerProfile, refreshUser } = useAuth()
+  const { user, buyerProfile, refreshUser } = useAuth()
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', backup_phone: '', address: '', city: '', commune: '' })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -57,6 +58,15 @@ function EditInner() {
       <div className="account-settings-heading"><div className="eyebrow">ACCOUNT SETTINGS</div><h1>Edit profile</h1><p>Keep your private contact and delivery details up to date.</p></div>
       <form className="card account-settings-card" onSubmit={onSubmit}>
         {error && <ErrorBox error={error} />}{success && <SuccessBox message={success} />}
+        <section className="profile-form-section" aria-labelledby="photo-title">
+          <div><div className="eyebrow">PROFILE PICTURE</div><h2 id="photo-title">Your photo</h2></div>
+          <AvatarUpload
+            url={user?.avatar_url}
+            name={`${buyerProfile.first_name ?? ''} ${buyerProfile.last_name ?? ''}`}
+            size={88}
+            onUploaded={refreshUser}
+          />
+        </section>
         <section className="profile-form-section" aria-labelledby="personal-title">
           <div><div className="eyebrow">PERSONAL INFORMATION</div><h2 id="personal-title">About you</h2></div>
           <div className="profile-form-grid">

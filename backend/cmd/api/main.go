@@ -189,6 +189,7 @@ func main() {
 			authGroup.POST("/reset-password", authHandler.ResetPassword)
 			authGroup.POST("/employee/invite/accept", authHandler.AcceptEmployeeInvitation)
 			authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
+			authGroup.POST("/me/avatar", middleware.AuthMiddleware(authService), authHandler.UploadAvatar)
 		}
 
 		businessesGroup := api.Group("/businesses")

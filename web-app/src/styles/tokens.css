@@ -90,4 +90,107 @@
   --breakpoint-sm: 640px;
   --breakpoint-md: 900px;
   --breakpoint-lg: 1200px;
+
+  /* Foreground colours for text/icons sitting ON a filled brand or feedback
+     background. These must flip with the theme: in dark mode the fills become
+     light, so white text on them would be unreadable. Never hardcode #fff on
+     a themed background — use these instead. */
+  --color-on-primary: #ffffff;
+  --color-on-accent: #ffffff;
+  --color-on-feedback: #ffffff;
+
+  /* Permanently dark bands (footer, seller sidebar, mobile drawer head). These
+     stay dark in BOTH themes — inverting them would turn the footer white in
+     dark mode. `--color-primary-dark` used to serve this role, but it also has
+     to invert for fills, so the two uses are split apart here. */
+  --color-band: #000000;
+  --color-band-2: #14140f;
+  --color-on-band: rgba(255, 255, 255, 0.75);
+  --color-on-band-strong: #ffffff;
+
+  /* Aliases for names a few stylesheets already used without them ever being
+     defined — an undefined var makes the whole declaration invalid, which
+     silently dropped those backgrounds/borders. Defined as var() references so
+     they follow the active theme automatically. */
+  --border: var(--color-border);
+  --muted: var(--color-text-muted);
+  --primary: var(--color-primary);
+  --color-surface-muted: var(--color-surface-2);
+  --shadow-md: var(--shadow);
+  --space-8: 64px;
+
+  color-scheme: light;
+}
+
+/* ===== Dark theme =====
+   Only the *roles* change (surfaces, text, borders, tints). Brand hue,
+   spacing, type scale and radii are shared, so a component never needs to
+   know which theme is active — it keeps reading the same variable names.
+
+   Accent and feedback colours are lightened here: the light-theme values are
+   tuned for contrast on cream, and on a near-black surface they drop below
+   the 4.5:1 AA threshold. */
+:root[data-theme='dark'] {
+  --color-primary: #f2f0ea;
+  --color-primary-dark: #ffffff;
+  --color-primary-light: #c9c6bd;
+  --color-primary-rgb: 242, 240, 234;
+
+  --color-accent: #e2793d;
+  --color-accent-dark: #c25f27;
+  --color-accent-soft: #3a2417;
+
+  --color-star: #e0b93f;
+  --color-star-empty: #4a463d;
+
+  /* Neutrals: a warm near-black, so the cream-based brand still feels related
+     rather than switching to a cold blue-grey. */
+  --color-bg: #16161a;
+  --color-surface: #1e1e23;
+  --color-surface-2: #26262c;
+  --color-border: #35353d;
+  --color-text: #f2f0ea;
+  --color-text-muted: #a6a49c;
+  --color-text-faint: #7a786f;
+
+  --color-success: #4ade80;
+  --color-success-soft: #14301f;
+  --color-success-border: #1f5236;
+  --color-danger: #f87171;
+  --color-danger-soft: #33191a;
+  --color-danger-border: #5c2a2a;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #332612;
+  --color-warning-border: #5c451c;
+  --color-info: #60a5fa;
+  --color-info-soft: #16283d;
+  --color-info-border: #244565;
+
+  --status-pending: #fbbf24;
+  --status-accepted: #60a5fa;
+  --status-preparing: #a78bfa;
+  --status-ready: #fbbf24;
+  --status-out: #fb923c;
+  --status-delivered: #4ade80;
+  --status-received: #4ade80;
+  --status-completed: #4ade80;
+  --status-cancelled: #f87171;
+  --status-rejected: #f87171;
+
+  /* Shadows need more opacity to read at all against a dark background. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
+
+  /* Fills are light in this theme, so their foreground flips to near-black. */
+  --color-on-primary: #16161a;
+  --color-on-accent: #16161a;
+  --color-on-feedback: #16161a;
+
+  /* Bands stay dark, but lift slightly off the page background so the footer
+     and sidebar still read as distinct surfaces instead of merging into it. */
+  --color-band: #101014;
+  --color-band-2: #191920;
+
+  color-scheme: dark;
 }

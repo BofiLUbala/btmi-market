@@ -422,20 +422,20 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	c.JSON(http.StatusCreated, models.SuccessResponse{
 		Message: "Product created successfully",
 		Data: models.ProductResponse{
-			ID:          product.ID,
-			BusinessID:  product.BusinessID,
-			Name:        product.Name,
-			SKU:         product.SKU,
-			Description: product.Description,
-			UnitPrice:   product.UnitPrice,
-			CostPrice:   product.CostPrice,
-			Unit:        product.Unit,
-			Status:      product.Status,
+			ID:                product.ID,
+			BusinessID:        product.BusinessID,
+			Name:              product.Name,
+			SKU:               product.SKU,
+			Description:       product.Description,
+			UnitPrice:         product.UnitPrice,
+			CostPrice:         product.CostPrice,
+			Unit:              product.Unit,
+			Status:            product.Status,
 			PublicationStatus: product.PublicationStatus,
-			CategoryID:  product.CategoryID,
-			SubcategoryID: product.SubcategoryID,
-			CreatedAt:   product.CreatedAt,
-			UpdatedAt:   product.UpdatedAt,
+			CategoryID:        product.CategoryID,
+			SubcategoryID:     product.SubcategoryID,
+			CreatedAt:         product.CreatedAt,
+			UpdatedAt:         product.UpdatedAt,
 		},
 	})
 }
@@ -482,6 +482,13 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 			errorCode = err.Error()
 		}
 
+		// This one carries the missing field names after the code, so it is
+		// matched by prefix rather than by equality.
+		if strings.HasPrefix(err.Error(), "MISSING_REQUIRED_ATTRIBUTES") {
+			statusCode = http.StatusBadRequest
+			errorCode = "MISSING_REQUIRED_ATTRIBUTES"
+		}
+
 		h.errResponse(c, statusCode, errorCode, err.Error())
 		return
 	}
@@ -489,20 +496,20 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Product updated successfully",
 		Data: models.ProductResponse{
-			ID:          product.ID,
-			BusinessID:  product.BusinessID,
-			Name:        product.Name,
-			SKU:         product.SKU,
-			Description: product.Description,
-			UnitPrice:   product.UnitPrice,
-			CostPrice:   product.CostPrice,
-			Unit:        product.Unit,
-			Status:      product.Status,
+			ID:                product.ID,
+			BusinessID:        product.BusinessID,
+			Name:              product.Name,
+			SKU:               product.SKU,
+			Description:       product.Description,
+			UnitPrice:         product.UnitPrice,
+			CostPrice:         product.CostPrice,
+			Unit:              product.Unit,
+			Status:            product.Status,
 			PublicationStatus: product.PublicationStatus,
-			CategoryID:  product.CategoryID,
-			SubcategoryID: product.SubcategoryID,
-			CreatedAt:   product.CreatedAt,
-			UpdatedAt:   product.UpdatedAt,
+			CategoryID:        product.CategoryID,
+			SubcategoryID:     product.SubcategoryID,
+			CreatedAt:         product.CreatedAt,
+			UpdatedAt:         product.UpdatedAt,
 		},
 	})
 }
@@ -566,20 +573,20 @@ func (h *Handler) GetProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Product retrieved successfully",
 		Data: models.ProductResponse{
-			ID:          product.ID,
-			BusinessID:  product.BusinessID,
-			Name:        product.Name,
-			SKU:         product.SKU,
-			Description: product.Description,
-			UnitPrice:   product.UnitPrice,
-			CostPrice:   product.CostPrice,
-			Unit:        product.Unit,
-			Status:      product.Status,
+			ID:                product.ID,
+			BusinessID:        product.BusinessID,
+			Name:              product.Name,
+			SKU:               product.SKU,
+			Description:       product.Description,
+			UnitPrice:         product.UnitPrice,
+			CostPrice:         product.CostPrice,
+			Unit:              product.Unit,
+			Status:            product.Status,
 			PublicationStatus: product.PublicationStatus,
-			CategoryID:  product.CategoryID,
-			SubcategoryID: product.SubcategoryID,
-			CreatedAt:   product.CreatedAt,
-			UpdatedAt:   product.UpdatedAt,
+			CategoryID:        product.CategoryID,
+			SubcategoryID:     product.SubcategoryID,
+			CreatedAt:         product.CreatedAt,
+			UpdatedAt:         product.UpdatedAt,
 		},
 	})
 }

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { AuthProvider } from '@/store/auth'
 import { FavoritesProvider } from '@/store/favorites'
 import { CartProvider } from '@/store/cart'
+import { ThemeProvider } from '@/store/theme'
+import { I18nProvider } from '@/store/i18n'
 import { Layout } from '@/components/layout/Layout'
 import { PublicOnly, RequireAuth, RequireBuyer, RequireSeller, RequireEmployee, SellerIndexRedirect } from '@/components/auth/Guards'
 import { Button } from '@/components/ui/Button'
@@ -82,6 +84,8 @@ function NotFound() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeProvider>
+        <I18nProvider>
       <AuthProvider>
         <FavoritesProvider>
           <CartProvider>
@@ -178,6 +182,8 @@ export default function App() {
           </CartProvider>
         </FavoritesProvider>
       </AuthProvider>
+        </I18nProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }

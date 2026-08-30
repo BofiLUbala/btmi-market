@@ -479,6 +479,72 @@ func (h *Handler) Me(c *gin.Context) {
 	})
 }
 
+func (h *Handler) UploadAvatar(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "UNAUTHORIZED",
+				Message: "User not authenticated",
+			},
+		})
+		return
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_REQUEST",
+				Message: "An image file is required (field 'file').",
+			},
+		})
+		return
+	}
+
+	url, err := h.authService.UploadAvatar(userID.(uuid.UUID), fileHeader)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		errorCode := "INTERNAL_ERROR"
+
+		switch err.Error() {
+		case "IMAGE_TOO_LARGE":
+			statusCode = http.StatusBadRequest
+			errorCode = "IMAGE_TOO_LARGE"
+		case "INVALID_IMAGE_TYPE":
+			statusCode = http.StatusBadRequest
+			errorCode = "INVALID_IMAGE_TYPE"
+		case "IMAGE_READ_FAILED", "IMAGE_STORAGE_FAILED", "IMAGE_SAVE_FAILED":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+		}
+
+		c.JSON(statusCode, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    errorCode,
+				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Profile picture updated successfully.",
+		Data: map[string]interface{}{
+			"avatar_url": url,
+		},
+	})
+}
+
 func (h *Handler) AcceptEmployeeInvitation(c *gin.Context) {
 	var req models.AcceptEmployeeInvitationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

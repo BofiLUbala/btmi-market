@@ -18,6 +18,7 @@ import {
   resolveVariant,
   type VariantSelection
 } from '@/lib/variants'
+import { resolvePromotion } from '@/lib/promotion'
 import { loginWithReturnTo } from '@/lib/returnTo'
 import { useCart } from '@/store/cart'
 import { useAuth } from '@/store/auth'
@@ -130,12 +131,19 @@ export default function ProductDetailPage() {
   const outOfStock = v.stock === 'OUT_OF_STOCK'
   const lowStock = v.stock === 'LOW_STOCK'
   const maxQty = v.stock_quantity > 0 ? v.stock_quantity : 1
-  const regularPrice = v.base_price
-  const sellerSalePrice = v.unit_price
-  const hasSellerDiscount = regularPrice > sellerSalePrice
+  // Same resolver as the product card and the cart, so the listing, this page
+  // and checkout always quote the same effective price.
+  const promotion = resolvePromotion({ ...p, seller_sale_price: v.unit_price }, v.base_price)
+  const regularPrice = promotion.originalPrice
+  const sellerSalePrice = promotion.effectivePrice
+  const promotionUpcoming = promotion.phase === 'upcoming'
+  const promotionActive = promotion.phase === 'active'
+  const hasSellerDiscount = promotionActive && promotion.discountPercent > 0
 
+  // The buyer-level discount stacks on top of the promotion and is computed
+  // server-side, so it is only trusted when the server actually sent a price.
   const buyerDiscountPercent = p.discount_percent ?? 0
-  const finalPrice = p.final_price ?? sellerSalePrice
+  const finalPrice = typeof p.final_price === 'number' && p.final_price > 0 ? p.final_price : sellerSalePrice
   const hasBuyerDiscount = Boolean(user && buyerDiscountPercent > 0 && finalPrice < sellerSalePrice)
 
   const displayPrice = finalPrice
@@ -231,11 +239,17 @@ export default function ProductDetailPage() {
         <div className="pd-details">
           <header className="pd-header">
             <h1>{p.name}</h1>
+            {reviewSummary && reviewSummary.total_reviews > 0 ? (
+              <a className="pd-rating-link" href="#customer-reviews">
+                <strong>{reviewSummary.average_rating.toFixed(1)} ★</strong>
+                <span>{reviewSummary.total_reviews} {reviewSummary.total_reviews === 1 ? 'rating' : 'ratings'}</span>
+              </a>
+            ) : (
+              <a className="pd-rating-link pd-rating-link--empty" href="#customer-reviews">
+                <span>No ratings yet — be the first to review</span>
+              </a>
+            )}
             <div className="pd-seller-line">Sold by <Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link> · {p.seller_level} seller</div>
-            <a className="pd-rating-link" href="#customer-reviews">
-              <strong>{(reviewSummary?.average_rating ?? 0).toFixed(1)} ★</strong>
-              <span>{reviewSummary?.total_reviews ?? 0} reviews</span>
-            </a>
           </header>
 
           <section className="pd-price-block" aria-label="Price" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -245,7 +259,7 @@ export default function ProductDetailPage() {
               
               {hasSellerDiscount && (
                 <span className="badge badge-success" style={{ fontWeight: 'bold' }}>
-                  {Math.round(((regularPrice - sellerSalePrice) / regularPrice) * 100)}% OFF
+                  {promotion.discountPercent}% OFF
                 </span>
               )}
 
@@ -273,6 +287,18 @@ export default function ProductDetailPage() {
                     Your Level Discount: <strong>{formatMoney(sellerSalePrice - finalPrice)} saved</strong>
                   </span>
                 )}
+              </div>
+            )}
+            {promotionUpcoming && (
+              <div className="notice notice-info small" role="status">
+                Promotion starts {formatDate(p.discount_start)}
+                {p.discount_end ? ` and ends ${formatDate(p.discount_end)}` : ''}.
+              </div>
+            )}
+            {hasSellerDiscount && (p.discount_start || p.discount_end) && (
+              <div className="small muted">
+                Offer period: {p.discount_start ? formatDate(p.discount_start) : 'now'}
+                {' → '}{p.discount_end ? formatDate(p.discount_end) : 'until further notice'}
               </div>
             )}
           </section>
@@ -383,23 +409,21 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="pd-information">
-        <section className="pd-info-section" aria-labelledby="product-highlights">
-          <h2 id="product-highlights">Product highlights</h2>
+        <section className="pd-info-section" aria-labelledby="product-description">
+          <h2 id="product-description">Product description</h2>
           <ul className="pd-highlights">
             {(highlights.length > 0 ? highlights : [shortDescription]).map((highlight, index) => (
               <li key={`${highlight}-${index}`}>{highlight}</li>
             ))}
             <li>{v.stock_quantity > 0 ? `${v.stock_quantity} units currently available` : 'Currently out of stock'}</li>
           </ul>
-        </section>
-
-        <section className="pd-info-section" aria-labelledby="product-description">
-          <h2 id="product-description">Product description</h2>
-          <div className="pd-description-copy">
-            {descriptionParts.length > 0 ? descriptionParts.map((paragraph, index) => (
-              <p key={`${paragraph}-${index}`}>{paragraph}</p>
-            )) : <p>{shortDescription}</p>}
-          </div>
+          {descriptionParts.length > highlights.length && (
+            <div className="pd-description-copy">
+              {descriptionParts.slice(highlights.length).map((paragraph, index) => (
+                <p key={`${paragraph}-${index}`}>{paragraph}</p>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="pd-info-section" aria-labelledby="product-specifications">

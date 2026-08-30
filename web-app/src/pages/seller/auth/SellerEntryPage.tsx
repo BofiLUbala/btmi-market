@@ -1,41 +1,48 @@
 import { Link } from 'react-router-dom'
 import { BoxIcon, CustomerIcon, OrdersIcon, StockIcon, StoreIcon, UsersIcon } from '@/components/ui/Icons'
+import { useI18n } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 
-const features = [
-  { label: 'Gérez vos boutiques', Icon: StoreIcon },
-  { label: 'Gérez vos produits', Icon: BoxIcon },
-  { label: 'Suivez votre stock', Icon: StockIcon },
-  { label: 'Traitez vos commandes', Icon: OrdersIcon },
-  { label: 'Gérez vos employés', Icon: UsersIcon },
-  { label: 'Suivez vos clients', Icon: CustomerIcon },
+const features: { key: TranslationKey; Icon: typeof StoreIcon }[] = [
+  { key: 'seller.entry.manageShops', Icon: StoreIcon },
+  { key: 'seller.entry.manageProducts', Icon: BoxIcon },
+  { key: 'seller.entry.trackStock', Icon: StockIcon },
+  { key: 'seller.entry.processOrders', Icon: OrdersIcon },
+  { key: 'seller.entry.manageEmployees', Icon: UsersIcon },
+  { key: 'seller.entry.trackCustomers', Icon: CustomerIcon },
 ]
 
 export default function SellerEntryPage() {
+  const { t } = useI18n()
+
   return (
     <div className="fade-in seller-entry">
       <div className="seller-entry-card card">
-        <h1>Développez votre commerce avec TBK</h1>
+        <h1>{t('seller.entry.title')}</h1>
 
-        <p className="seller-entry-tagline">
-          Vendez et gérez votre commerce sur TBK
-        </p>
+        <p className="seller-entry-tagline">{t('seller.entry.tagline')}</p>
 
         <ul className="seller-entry-features">
-          {features.map(({ label, Icon }) => <li key={label}><Icon /><span>{label}</span></li>)}
+          {features.map(({ key, Icon }) => (
+            <li key={key}>
+              <Icon />
+              <span>{t(key)}</span>
+            </li>
+          ))}
         </ul>
 
         <div className="seller-entry-actions">
           <Link to="/seller/login" className="btn btn-primary btn-lg btn-block">
-            Se connecter
+            {t('common.signIn')}
           </Link>
 
           <Link to="/seller/register" className="btn btn-outline btn-lg btn-block">
-            Créer un compte vendeur
+            {t('seller.entry.createAccount')}
           </Link>
         </div>
 
         <Link to="/" className="seller-entry-back section-link">
-          ← Retour au Marketplace
+          {t('seller.entry.backToMarketplace')}
         </Link>
       </div>
     </div>

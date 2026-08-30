@@ -1,0 +1,165 @@
+import type { fr } from './fr'
+
+/**
+ * English dictionary.
+ *
+ * Typed as a partial of the French one so a missing key falls back to the
+ * French string rather than failing the build — that keeps a half-finished
+ * translation shippable. A *wrong* key name still fails to compile, which is
+ * the mistake worth catching.
+ */
+export const en: Partial<Record<keyof typeof fr, string>> = {
+  /* ── Common ─────────────────────────────────────────────── */
+  'common.loading': 'Loading…',
+  'common.oneMoment': 'One moment…',
+  'common.retry': 'Retry',
+  'common.cancel': 'Cancel',
+  'common.save': 'Save',
+  'common.close': 'Close',
+  'common.signIn': 'Sign in',
+  'common.signOut': 'Sign out',
+  'common.quantity': 'Quantity',
+  'common.remove': 'Remove',
+  'common.optional': 'Optional',
+  'common.cannotLoad': 'Could not load',
+
+  /* ── Tabs ───────────────────────────────────────────────── */
+  'tabs.home': 'Home',
+  'tabs.categories': 'Categories',
+  'tabs.cart': 'Cart',
+  'tabs.favorites': 'Favorites',
+  'tabs.profile': 'Profile',
+  'tabs.myCart': 'My cart',
+  'tabs.myFavorites': 'My favorites',
+  'tabs.myProfile': 'My profile',
+
+  /* ── Preferences ────────────────────────────────────────── */
+  'prefs.title': 'Preferences',
+  'prefs.language': 'Language',
+  'prefs.theme': 'Appearance',
+  'prefs.themeLight': 'Light',
+  'prefs.themeDark': 'Dark',
+  'prefs.switchToDark': 'Switch to dark mode',
+  'prefs.switchToLight': 'Switch to light mode',
+  'prefs.switchToEnglish': 'Switch to English',
+  'prefs.switchToFrench': 'Passer en français',
+
+  /* ── Profile ────────────────────────────────────────────── */
+  'profile.yourAccount': 'Your TBK account',
+  'profile.signInPrompt': 'Sign in to find your orders, points and details.',
+  'profile.loading': 'Loading profile…',
+  'profile.contact': 'CONTACT',
+  'profile.noPhone': 'No phone number provided',
+  'profile.noBackupPhone': 'No backup number',
+  'profile.address': 'ADDRESS',
+  'profile.noAddress': 'No address saved',
+  'profile.noLocation': 'No location provided',
+  'profile.myOrders': 'My orders',
+  'profile.myPoints': 'My TBK points',
+  'profile.myReviews': 'My reviews',
+  'profile.openSellerSpace': 'Open seller space',
+  'profile.editProfile': 'Edit my profile',
+  'profile.photoTitle': 'Profile picture',
+  'profile.takePhoto': 'Take a photo',
+  'profile.chooseFromGallery': 'Choose from gallery',
+  'profile.changePhoto': 'Change profile picture',
+  'profile.uploadFailed': 'Upload failed',
+  'profile.uploadFailedBody': 'Your profile picture could not be saved. Please try again.',
+  'profile.cameraNeeded': 'Camera required',
+  'profile.cameraNeededBody': 'Allow camera access to change your profile picture.',
+  'profile.photosNeeded': 'Photos required',
+  'profile.photosNeededBody': 'Allow photo access to change your profile picture.',
+
+  /* ── Edit profile ───────────────────────────────────────── */
+  'editProfile.title': 'Edit my profile',
+  'editProfile.firstName': 'First name',
+  'editProfile.lastName': 'Last name',
+  'editProfile.phone': 'Phone',
+  'editProfile.backupPhone': 'Backup phone',
+  'editProfile.address': 'Address',
+  'editProfile.addressPlaceholder': 'Avenue, number…',
+  'editProfile.city': 'City',
+  'editProfile.commune': 'Commune',
+  'editProfile.save': 'Save',
+  'editProfile.saveFailed': 'Your profile could not be saved.',
+
+  /* ── Cart ───────────────────────────────────────────────── */
+  'cart.title': 'Cart · {count}',
+  'cart.empty': 'Your cart is empty',
+  'cart.emptyHint': 'Add a product to start shopping.',
+  'cart.discover': 'Browse products',
+  'cart.orderFrom': 'Order from {shop}',
+  'cart.perUnit': '{amount} each',
+  'cart.usePoints': 'Use my TBK points',
+  'cart.pointsEnabled': 'On',
+  'cart.pointsEnable': 'Enable',
+  'cart.pointsApplied': '{points} points applied · −{amount}',
+  'cart.reduceCash': 'Reduce the amount you pay in cash.',
+  'cart.verifiedTotal': 'Verified total',
+  'cart.estimatedSubtotal': 'Estimated subtotal',
+  'cart.priceConfirmed': 'Price and availability confirmed by the shop.',
+  'cart.priceNextStep': 'Final price and delivery are confirmed in the next step.',
+  'cart.placeOrder': 'Place order',
+  'cart.signInToContinue': 'Sign in to continue',
+  'cart.completeProfile': 'Complete my profile',
+  'cart.addPhoneTitle': 'Add a phone number',
+  'cart.addPhoneBody':
+    'Sellers and delivery need a way to reach you before you can place an order.',
+  'cart.invalidCart': 'Invalid cart',
+  'cart.invalidCartBody': 'Your cart does not reference any shop.',
+  'cart.verifyFailed': 'Could not verify the cart. Check availability and try again.',
+  'cart.orderFailed':
+    'The order could not be created. Stock may have changed — check your cart.',
+  'cart.profileIncomplete': 'Add a phone number to your profile before ordering.',
+  'cart.differentShop': 'Different shop',
+  'cart.differentShopBody':
+    'Your cart already contains products from another shop. Finish or empty it before continuing.',
+
+  /* ── Product ────────────────────────────────────────────── */
+  'product.promotionUpcoming': 'Sale soon',
+  'product.promotionFrom': 'From {start}',
+  'product.promotionTo': 'to {end}',
+  'product.regularPrice': 'Regular price',
+  'product.save': 'You save {amount}',
+  'product.loading': 'Loading product…',
+  'product.unavailable': 'This product is not available right now.',
+  'product.soldBy': 'Sold by {shop}',
+  'product.aSeller': 'a TBK seller',
+  'product.reviewsCount': '{count} reviews',
+  'product.noReviews': 'No reviews yet',
+  'product.loadingReviews': 'Loading reviews…',
+  'product.availableOptions': 'Available options',
+  'product.chooseOption': 'Choose an option',
+  'product.inStockCount': 'In stock — {count} available',
+  'product.onlyLeft': 'Only {count} left',
+  'product.outOfStock': 'Out of stock',
+  'product.specifications': 'Specifications',
+  'product.description': 'Description',
+  'product.addToCart': 'Add to cart',
+  'product.buyNow': 'Buy now',
+  'product.customerReviews': 'Customer reviews',
+  'product.reviewsUnavailable': 'Reviews unavailable',
+  'product.reviewsUnavailableBody': 'Reviews could not be loaded. Try again in a moment.',
+  'product.noReviewsYet': 'No reviews yet',
+  'product.noReviewsYetBody':
+    'Buyers who complete their order will be able to share their experience with this product here.',
+  'product.verifiedReviews': '{count} verified reviews',
+  'product.verifiedPurchase': 'Verified purchase',
+  'product.helpfulFor': 'Helpful for {count} people',
+  'product.tbkBuyer': 'TBK buyer',
+
+  /* ── Reviews ────────────────────────────────────────────── */
+  'review.orderExperience': 'Your order experience',
+  'review.productReview': 'Your product review',
+  'review.delivery': 'Delivery',
+  'review.shopService': 'Shop service',
+  'review.overall': 'Overall experience',
+  'review.productQuality': 'Product quality',
+  'review.comment': 'Comment',
+  'review.commentPlaceholder': 'Share a specific and useful experience…',
+  'review.publish': 'Publish my review',
+  'review.saveChanges': 'Save changes',
+  'review.failed':
+    'The review could not be saved. Check that the order is completed and paid.',
+  'review.starsLabel': '{count} stars',
+}

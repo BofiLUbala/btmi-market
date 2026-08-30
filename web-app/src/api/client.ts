@@ -117,6 +117,15 @@ export async function api<T>(
       message = 'An account already exists with this phone number.'
     } else if (code === 'INVALID_CREDENTIALS') {
       message = 'The email or password is incorrect.'
+    } else if (code === 'BUYER_PROFILE_INCOMPLETE') {
+      message = 'Add a phone number to your profile before placing an order.'
+    } else if (code === 'MISSING_REQUIRED_ATTRIBUTES') {
+      // The backend appends the missing names after the code; surface those
+      // rather than the raw error string.
+      const names = message.replace(/^MISSING_REQUIRED_ATTRIBUTES:\s*/, '')
+      message = names
+        ? `This category requires ${names}. Complete the missing characteristics before publishing, or keep the product as a draft.`
+        : 'Some characteristics required by this category are missing. Complete them before publishing.'
     }
     throw new ApiError(res.status, code, message)
   }

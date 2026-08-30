@@ -1,23 +1,30 @@
+import { useI18n } from '@/store/i18n'
+
 export function Spinner({ size = 'md' }: { size?: 'md' | 'lg' }) {
-  return <span className={`spinner ${size === 'lg' ? 'spinner-lg' : ''}`} aria-label="Loading" />
+  const { t } = useI18n()
+  return <span className={`spinner ${size === 'lg' ? 'spinner-lg' : ''}`} aria-label={t('common.loading')} />
 }
 
-export function LoadingBlock({ label = 'Loading…' }: { label?: string }) {
+/** `label` stays overridable so callers can name what is loading; when omitted
+ *  it falls back to the translated generic message. */
+export function LoadingBlock({ label }: { label?: string }) {
+  const { t } = useI18n()
   return (
     <div className="loading-block">
       <Spinner size="lg" />
-      <span>{label}</span>
+      <span>{label ?? t('common.loading')}</span>
     </div>
   )
 }
 
 export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  const { t } = useI18n()
   return (
     <div className="error-box" role="alert">
       <span>{error}</span>
       {onRetry && (
         <button type="button" className="btn btn-ghost btn-sm" onClick={onRetry}>
-          Retry
+          {t('common.retry')}
         </button>
       )}
     </div>

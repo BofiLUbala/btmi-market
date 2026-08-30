@@ -1,6 +1,9 @@
 import { Outlet, useLocation, NavLink, useNavigate, Link } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/store/auth'
+import { useI18n } from '@/store/i18n'
+import { PreferenceToggles } from '@/components/ui/PreferenceToggles'
+import type { TranslationKey } from '@/locales/fr'
 import { shopApi } from '@/api/seller'
 import {
   BoxIcon,
@@ -22,22 +25,22 @@ import {
   CheckIcon,
 } from '@/components/ui/Icons'
 
-const SELLER_NAV = [
-  { to: '/seller/dashboard', label: 'Dashboard', Icon: DashboardIcon },
-  { to: '/seller/business', label: 'Business', Icon: BusinessIcon },
-  { to: '/seller/shops', label: 'Shops', Icon: StoreIcon },
-  { to: '/seller/employees', label: 'Employees', Icon: UsersIcon },
-  { to: '/seller/products', label: 'Products', Icon: BoxIcon },
-  { to: '/seller/stock', label: 'Stock', Icon: StockIcon },
-  { to: '/seller/orders', label: 'Orders', Icon: OrdersIcon },
-  { to: '/seller/customers', label: 'Customers', Icon: CustomerIcon },
-  { to: '/seller/cash', label: 'Cash', Icon: CashIcon },
-  { to: '/seller/growth', label: 'Growth', Icon: GrowthIcon },
-  { to: '/seller/reviews', label: 'Reviews', Icon: ReviewIcon },
+const SELLER_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon }[] = [
+  { to: '/seller/dashboard', key: 'seller.dashboard', Icon: DashboardIcon },
+  { to: '/seller/business', key: 'seller.business', Icon: BusinessIcon },
+  { to: '/seller/shops', key: 'seller.shops', Icon: StoreIcon },
+  { to: '/seller/employees', key: 'seller.employees', Icon: UsersIcon },
+  { to: '/seller/products', key: 'seller.products', Icon: BoxIcon },
+  { to: '/seller/stock', key: 'seller.stock', Icon: StockIcon },
+  { to: '/seller/orders', key: 'seller.orders', Icon: OrdersIcon },
+  { to: '/seller/customers', key: 'seller.customers', Icon: CustomerIcon },
+  { to: '/seller/cash', key: 'seller.cash', Icon: CashIcon },
+  { to: '/seller/growth', key: 'seller.growth', Icon: GrowthIcon },
+  { to: '/seller/reviews', key: 'seller.reviews', Icon: ReviewIcon },
 ]
 
-const EMPLOYEE_NAV = [
-  { to: '/employee/dashboard', label: 'Dashboard', Icon: DashboardIcon },
+const EMPLOYEE_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon }[] = [
+  { to: '/employee/dashboard', key: 'seller.dashboard', Icon: DashboardIcon },
 ]
 
 export function SellerLayout() {
@@ -53,6 +56,7 @@ export function SellerLayout() {
     setActiveShop,
   } = useAuth()
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [drawer, setDrawer] = useState(false)
   const [bizDropdown, setBizDropdown] = useState(false)
   const [shopDropdown, setShopDropdown] = useState(false)
@@ -128,12 +132,12 @@ export function SellerLayout() {
             <span className="brand-mark">TBK</span>
             <div className="brand-copy">
               <span className="brand-title">{brandName}</span>
-              <span className="brand-sub">Workspace</span>
+              <span className="brand-sub">{t('seller.workspace')}</span>
             </div>
           </Link>
         </div>
 
-        <nav className="seller-sidebar-nav" aria-label="Seller Navigation">
+        <nav className="seller-sidebar-nav" aria-label={t('seller.navigation')}>
           <div className="seller-nav-group">
             {navItems.map((item) => (
               <NavLink
@@ -145,7 +149,7 @@ export function SellerLayout() {
                 <span className="seller-sidebar-icon">
                   <item.Icon />
                 </span>
-                <span className="seller-sidebar-label">{item.label}</span>
+                <span className="seller-sidebar-label">{t(item.key)}</span>
               </NavLink>
             ))}
           </div>
@@ -159,7 +163,7 @@ export function SellerLayout() {
                 <span className="seller-sidebar-icon">
                   <SettingsIcon />
                 </span>
-                <span className="seller-sidebar-label">Profile</span>
+                <span className="seller-sidebar-label">{t('seller.profile')}</span>
               </NavLink>
             )}
 
@@ -167,7 +171,7 @@ export function SellerLayout() {
               <span className="seller-sidebar-icon">
                 <LogoutIcon />
               </span>
-              <span className="seller-sidebar-label">Logout</span>
+              <span className="seller-sidebar-label">{t('common.signOut')}</span>
             </button>
           </div>
         </nav>
@@ -182,7 +186,7 @@ export function SellerLayout() {
               type="button"
               className="seller-mobile-toggle"
               onClick={() => setDrawer(true)}
-              aria-label="Open navigation menu"
+              aria-label={t('nav.openMenu')}
             >
               <MenuIcon />
             </button>
@@ -198,19 +202,19 @@ export function SellerLayout() {
                 >
                   <BusinessIcon />
                   <span className="context-label">
-                    {activeBusiness ? activeBusiness.name : 'No Business Selected'}
+                    {activeBusiness ? activeBusiness.name : t('seller.noBusinessSelected')}
                   </span>
                   {bizList.length > 1 && <ChevronDownIcon />}
                 </button>
 
                 {bizDropdown && (
                   <div className="seller-dropdown-menu">
-                    <div className="dropdown-header">Current Business</div>
+                    <div className="dropdown-header">{t('seller.currentBusiness')}</div>
                     {bizList.length === 0 ? (
                       <div className="dropdown-empty">
-                        <p className="small muted">No businesses found.</p>
+                        <p className="small muted">{t('seller.noBusinessesFound')}</p>
                         <Link to="/seller/onboarding" className="dropdown-action-link" onClick={() => setBizDropdown(false)}>
-                          + Create Business
+                          {t('seller.createBusiness')}
                         </Link>
                       </div>
                     ) : (
@@ -231,10 +235,10 @@ export function SellerLayout() {
                         ))}
                         <div className="dropdown-divider" />
                         <Link to="/seller/onboarding" className="dropdown-action-item" onClick={() => setBizDropdown(false)}>
-                          + Add New Business
+                          {t('seller.addNewBusiness')}
                         </Link>
                         <Link to="/seller/business" className="dropdown-action-item" onClick={() => setBizDropdown(false)}>
-                          Manage Current Business →
+                          {t('seller.manageBusiness')}
                         </Link>
                       </>
                     )}
@@ -254,14 +258,14 @@ export function SellerLayout() {
                 >
                   <StoreIcon />
                   <span className="context-label">
-                    {shopList.find((s) => s.id === activeShop)?.name || 'All Shops'}
+                    {shopList.find((s) => s.id === activeShop)?.name || t('seller.allShops')}
                   </span>
                   {shopList.length > 1 && <ChevronDownIcon />}
                 </button>
 
                 {shopDropdown && shopList.length > 1 && (
                   <div className="seller-dropdown-menu">
-                    <div className="dropdown-header">Select Active Shop</div>
+                    <div className="dropdown-header">{t('seller.selectActiveShop')}</div>
                     {shopList.map((s) => (
                       <button
                         key={s.id}
@@ -284,17 +288,20 @@ export function SellerLayout() {
 
           <div className="seller-header-right">
             <Link to="/" className="seller-marketplace-link">
-              Marketplace
+              {t('nav.marketplace')}
             </Link>
+
+            <PreferenceToggles />
 
             {user && (
               <Link to={isEmployee ? '/employee/dashboard' : '/seller/profile'} className="seller-user-badge">
-                <span className="user-initials">
-                  {(user.first_name?.[0] || 'S') + (user.last_name?.[0] || 'B')}
-                </span>
-                <span className="user-full-name">
-                  {user.first_name} {user.last_name}
-                </span>
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="" className="user-initials user-avatar-img" />
+                ) : (
+                  <span className="user-full-name">
+                    {user.first_name} {user.last_name}
+                  </span>
+                )}
               </Link>
             )}
           </div>
@@ -312,7 +319,7 @@ export function SellerLayout() {
       {drawer && (
         <>
           <div className="drawer-backdrop" onClick={() => setDrawer(false)} />
-          <div className="drawer seller-drawer" role="dialog" aria-label="Seller Menu">
+          <div className="drawer seller-drawer" role="dialog" aria-label={t('seller.menu')}>
             <div className="drawer-head">
               <span className="bold">{brandName}</span>
               <button
@@ -320,7 +327,7 @@ export function SellerLayout() {
                 className="btn btn-ghost"
                 style={{ color: '#fff' }}
                 onClick={() => setDrawer(false)}
-                aria-label="Close menu"
+                aria-label={t('nav.closeMenu')}
               >
                 <CloseIcon />
               </button>
@@ -334,21 +341,21 @@ export function SellerLayout() {
                   onClick={() => setDrawer(false)}
                 >
                   <span className="dnav-icon"><item.Icon /></span>
-                  {item.label}
+                  {t(item.key)}
                 </NavLink>
               ))}
 
               {!isEmployee && (
                 <NavLink to="/seller/profile" onClick={() => setDrawer(false)}>
                   <span className="dnav-icon"><SettingsIcon /></span>
-                  Profile
+                  {t('seller.profile')}
                 </NavLink>
               )}
 
               <div style={{ height: 1, background: 'var(--color-border)', margin: '8px 0' }} />
 
               <NavLink to="/" onClick={() => setDrawer(false)}>
-                Marketplace
+                {t('nav.marketplace')}
               </NavLink>
 
               <button
@@ -360,7 +367,7 @@ export function SellerLayout() {
                 className="drawer-logout-btn"
               >
                 <span className="dnav-icon"><LogoutIcon /></span>
-                Logout
+                {t('common.signOut')}
               </button>
             </nav>
           </div>

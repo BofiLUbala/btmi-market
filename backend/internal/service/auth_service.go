@@ -6,7 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
@@ -20,6 +24,14 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const maxAvatarBytes = 3 << 20 // 3 MB
+
+var allowedAvatarTypes = map[string]string{
+	"image/jpeg": "jpg",
+	"image/png":  "png",
+	"image/webp": "webp",
+}
 
 type AuthService struct {
 	userRepo          *repository.UserRepository
@@ -55,6 +67,60 @@ func (s *AuthService) Register(req *models.RegisterRequest) (*models.User, error
 // GetUserByID returns the current user for authenticated session restore.
 func (s *AuthService) GetUserByID(userID uuid.UUID) (*models.User, error) {
 	return s.userRepo.GetByID(userID)
+}
+
+// UploadAvatar stores a new profile picture for the user and replaces any
+// previous one. Works for every account type (buyer, seller, employee)
+// since the avatar lives on the shared users table.
+func (s *AuthService) UploadAvatar(userID uuid.UUID, header *multipart.FileHeader) (string, error) {
+	if header.Size > maxAvatarBytes {
+		return "", errors.New("IMAGE_TOO_LARGE")
+	}
+
+	ext, ok := allowedAvatarTypes[header.Header.Get("Content-Type")]
+	if !ok {
+		return "", errors.New("INVALID_IMAGE_TYPE")
+	}
+
+	src, err := header.Open()
+	if err != nil {
+		return "", errors.New("IMAGE_READ_FAILED")
+	}
+	defer src.Close()
+
+	dir := filepath.Join(s.config.UploadDir, "avatars", userID.String())
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", errors.New("IMAGE_STORAGE_FAILED")
+	}
+
+	fileName := fmt.Sprintf("%s.%s", uuid.NewString(), ext)
+	fullPath := filepath.Join(dir, fileName)
+	dst, err := os.Create(fullPath)
+	if err != nil {
+		return "", errors.New("IMAGE_STORAGE_FAILED")
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, io.LimitReader(src, maxAvatarBytes+1)); err != nil {
+		os.Remove(fullPath)
+		return "", errors.New("IMAGE_STORAGE_FAILED")
+	}
+
+	url := "/uploads/avatars/" + userID.String() + "/" + fileName
+
+	existing, getErr := s.userRepo.GetByID(userID)
+	if err := s.userRepo.UpdateAvatar(userID, url); err != nil {
+		os.Remove(fullPath)
+		return "", errors.New("IMAGE_SAVE_FAILED")
+	}
+
+	// Best-effort cleanup of the previous file now that the new one is saved.
+	if getErr == nil && existing.AvatarURL != nil && *existing.AvatarURL != "" {
+		old := strings.TrimPrefix(*existing.AvatarURL, "/uploads/")
+		os.Remove(filepath.Join(s.config.UploadDir, filepath.FromSlash(old)))
+	}
+
+	return url, nil
 }
 
 func (s *AuthService) RegisterSeller(req *models.RegisterRequest) (*models.User, error) {

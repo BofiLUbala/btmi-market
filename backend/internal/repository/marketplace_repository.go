@@ -269,17 +269,11 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		if discountEnd.Valid {
 			dEnd = &discountEnd.Time
 		}
-		p.SellerSalePrice = p.BasePrice
-		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
-			if p.DiscountType == "PERCENTAGE" {
-				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
-			} else if p.DiscountType == "FIXED" {
-				p.SellerSalePrice = p.BasePrice - p.DiscountValue
-				if p.SellerSalePrice < 0 {
-					p.SellerSalePrice = 0
-				}
-			}
-		}
+		p.DiscountStart, p.DiscountEnd = dStart, dEnd
+		p.SellerSalePrice = models.Promotion{
+			Active: p.DiscountActive, Type: p.DiscountType, Value: p.DiscountValue,
+			Start: dStart, End: dEnd,
+		}.EffectivePrice(p.BasePrice, time.Now())
 		products = append(products, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -434,17 +428,11 @@ func (r *MarketplaceRepository) GetPublicProductByID(productID uuid.UUID) (*mode
 	if discountEnd.Valid {
 		dEnd = &discountEnd.Time
 	}
-	p.SellerSalePrice = p.BasePrice
-	if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
-		if p.DiscountType == "PERCENTAGE" {
-			p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
-		} else if p.DiscountType == "FIXED" {
-			p.SellerSalePrice = p.BasePrice - p.DiscountValue
-			if p.SellerSalePrice < 0 {
-				p.SellerSalePrice = 0
-			}
-		}
-	}
+	p.DiscountStart, p.DiscountEnd = dStart, dEnd
+	p.SellerSalePrice = models.Promotion{
+		Active: p.DiscountActive, Type: p.DiscountType, Value: p.DiscountValue,
+		Start: dStart, End: dEnd,
+	}.EffectivePrice(p.BasePrice, time.Now())
 	return p, nil
 }
 
@@ -662,17 +650,11 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 		if discountEnd.Valid {
 			dEnd = &discountEnd.Time
 		}
-		p.SellerSalePrice = p.BasePrice
-		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
-			if p.DiscountType == "PERCENTAGE" {
-				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
-			} else if p.DiscountType == "FIXED" {
-				p.SellerSalePrice = p.BasePrice - p.DiscountValue
-				if p.SellerSalePrice < 0 {
-					p.SellerSalePrice = 0
-				}
-			}
-		}
+		p.DiscountStart, p.DiscountEnd = dStart, dEnd
+		p.SellerSalePrice = models.Promotion{
+			Active: p.DiscountActive, Type: p.DiscountType, Value: p.DiscountValue,
+			Start: dStart, End: dEnd,
+		}.EffectivePrice(p.BasePrice, time.Now())
 		products = append(products, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -799,17 +781,11 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 		if discountEnd.Valid {
 			dEnd = &discountEnd.Time
 		}
-		p.SellerSalePrice = p.BasePrice
-		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
-			if p.DiscountType == "PERCENTAGE" {
-				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
-			} else if p.DiscountType == "FIXED" {
-				p.SellerSalePrice = p.BasePrice - p.DiscountValue
-				if p.SellerSalePrice < 0 {
-					p.SellerSalePrice = 0
-				}
-			}
-		}
+		p.DiscountStart, p.DiscountEnd = dStart, dEnd
+		p.SellerSalePrice = models.Promotion{
+			Active: p.DiscountActive, Type: p.DiscountType, Value: p.DiscountValue,
+			Start: dStart, End: dEnd,
+		}.EffectivePrice(p.BasePrice, time.Now())
 		products = append(products, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -1094,17 +1070,11 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 	if discountEnd.Valid {
 		dEnd = &discountEnd.Time
 	}
-	product.SellerSalePrice = product.BasePrice
-	if product.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
-		if product.DiscountType == "PERCENTAGE" {
-			product.SellerSalePrice = product.BasePrice * (1.0 - product.DiscountValue/100.0)
-		} else if product.DiscountType == "FIXED" {
-			product.SellerSalePrice = product.BasePrice - product.DiscountValue
-			if product.SellerSalePrice < 0 {
-				product.SellerSalePrice = 0
-			}
-		}
-	}
+	product.DiscountStart, product.DiscountEnd = dStart, dEnd
+	product.SellerSalePrice = models.Promotion{
+		Active: product.DiscountActive, Type: product.DiscountType, Value: product.DiscountValue,
+		Start: dStart, End: dEnd,
+	}.EffectivePrice(product.BasePrice, time.Now())
 
 	// Set category IDs
 	if product.CategoryID != nil {
@@ -1444,17 +1414,11 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 		if discountEnd.Valid {
 			dEnd = &discountEnd.Time
 		}
-		p.SellerSalePrice = p.BasePrice
-		if p.DiscountActive && (dStart == nil || time.Now().After(*dStart)) && (dEnd == nil || time.Now().Before(*dEnd)) {
-			if p.DiscountType == "PERCENTAGE" {
-				p.SellerSalePrice = p.BasePrice * (1.0 - p.DiscountValue/100.0)
-			} else if p.DiscountType == "FIXED" {
-				p.SellerSalePrice = p.BasePrice - p.DiscountValue
-				if p.SellerSalePrice < 0 {
-					p.SellerSalePrice = 0
-				}
-			}
-		}
+		p.DiscountStart, p.DiscountEnd = dStart, dEnd
+		p.SellerSalePrice = models.Promotion{
+			Active: p.DiscountActive, Type: p.DiscountType, Value: p.DiscountValue,
+			Start: dStart, End: dEnd,
+		}.EffectivePrice(p.BasePrice, time.Now())
 		products = append(products, p)
 	}
 	if err := rows.Err(); err != nil {

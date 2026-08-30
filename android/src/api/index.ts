@@ -14,6 +14,11 @@ export const authApi = {
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),
   logout: () => post('/auth/logout'),
+  uploadAvatar: (asset: { uri: string; fileName?: string | null; mimeType?: string | null }) => {
+    const form = new FormData()
+    form.append('file', { uri: asset.uri, name: asset.fileName || `avatar-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' } as unknown as Blob)
+    return postForm<{ avatar_url: string }>('/auth/me/avatar', form)
+  },
 }
 export const marketplaceApi = {
   products: async () => list<PublicProduct>(await get<unknown>('/marketplace/products?page=1&limit=20')),
@@ -34,6 +39,8 @@ export const marketplaceApi = {
 }
 export const buyerApi = {
   profile: async () => (await get<{ profile: BuyerProfile }>('/buyer/profile')).profile,
+  updateProfile: (body: { first_name?: string; last_name?: string; phone?: string; backup_phone?: string; address?: string; city?: string; commune?: string }) =>
+    patch<BuyerProfile>('/buyer/profile', body),
   points: () => get<unknown>('/buyer/points'),
 
   /* order pipeline — identical contract to the web app; the backend owns pricing */

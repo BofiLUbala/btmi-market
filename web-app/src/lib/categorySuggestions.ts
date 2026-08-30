@@ -6,6 +6,25 @@ export interface AttributeSuggestion {
   placeholder?: string
 }
 
+export interface CategoryAttributeRequirements {
+  /** Every named attribute must be present and have a value. */
+  allOf?: string[]
+  /** At least one named attribute in each group must be present and have a value. */
+  anyOf?: string[][]
+}
+
+export const CATEGORY_ATTRIBUTE_REQUIREMENTS: Record<string, CategoryAttributeRequirements> = {
+  shoes: { allOf: ['Color', 'Shoe Size'] },
+  fashion: { allOf: ['Color', 'Size'] },
+  food: { allOf: ['Expiration Date'], anyOf: [['Weight', 'Volume', 'Pack Size']] },
+  beauty: { anyOf: [['Shade', 'Volume', 'Scent']] },
+  electronics: { allOf: ['Model'], anyOf: [['Storage', 'RAM', 'Capacity']] },
+  children: { allOf: ['Age Range'], anyOf: [['Size', 'Color']] },
+  home: { allOf: ['Dimensions', 'Material'] },
+  sport: { anyOf: [['Size', 'Weight']] },
+  automotive: { anyOf: [['Model', 'Compatibility']] },
+}
+
 export const CATEGORY_ATTRIBUTE_SUGGESTIONS: Record<string, AttributeSuggestion[]> = {
   shoes: [
     { name: 'Color', recommendedType: 'VARIANT', placeholder: 'e.g. Black, White, Red' },
@@ -78,36 +97,81 @@ export const POPULAR_CUSTOM_CHARACTERISTICS = [
 
 /** Resolve category slug/name to suggestions */
 export function getCategorySuggestions(categorySlugOrName?: string): AttributeSuggestion[] {
-  if (!categorySlugOrName) return []
-  const normalized = categorySlugOrName.toLowerCase().trim()
-  
-  if (normalized.includes('shoe') || normalized.includes('chaussure') || normalized.includes('footwear')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.shoes
-  }
-  if (normalized.includes('fashion') || normalized.includes('mode') || normalized.includes('clothing') || normalized.includes('vetement')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.fashion
-  }
-  if (normalized.includes('food') || normalized.includes('aliment') || normalized.includes('grocery') || normalized.includes('epicerie') || normalized.includes('boisson')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.food
-  }
-  if (normalized.includes('beauty') || normalized.includes('beaute') || normalized.includes('cosmetic') || normalized.includes('soin')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.beauty
-  }
-  if (normalized.includes('electron') || normalized.includes('tech') || normalized.includes('phone') || normalized.includes('ordinateur')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.electronics
-  }
-  if (normalized.includes('child') || normalized.includes('enfant') || normalized.includes('baby') || normalized.includes('bebe') || normalized.includes('kid')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.children
-  }
-  if (normalized.includes('home') || normalized.includes('maison') || normalized.includes('furnitur') || normalized.includes('meuble') || normalized.includes('decor')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.home
-  }
-  if (normalized.includes('sport') || normalized.includes('fitness')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.sport
-  }
-  if (normalized.includes('auto') || normalized.includes('vehic') || normalized.includes('car') || normalized.includes('voiture')) {
-    return CATEGORY_ATTRIBUTE_SUGGESTIONS.automotive
-  }
+  return CATEGORY_ATTRIBUTE_SUGGESTIONS[resolveCategoryKey(categorySlugOrName)] || []
+}
 
-  return CATEGORY_ATTRIBUTE_SUGGESTIONS[normalized] || []
+/**
+ * Maps a slug or display name — in English or French — onto one of the keys
+ * used by CATEGORY_ATTRIBUTE_SUGGESTIONS and CATEGORY_ATTRIBUTE_REQUIREMENTS.
+ *
+ * Mirrored by resolveCategoryKey in backend/internal/models/category_requirements.go;
+ * keep the two in sync when categories change.
+ */
+export function resolveCategoryKey(categorySlugOrName?: string): string {
+  if (!categorySlugOrName) return ''
+  const n = categorySlugOrName.toLowerCase().trim()
+  const words = n.split(/[^a-z0-9]+/).filter(Boolean)
+
+  /** Distinctive stems: safe to match anywhere in the string. */
+  const has = (...subs: string[]) => subs.some((s) => n.includes(s))
+  /**
+   * Short, ambiguous tokens: "car" is a substring of "scarves", "carpet" and
+   * "cardigan", so it must only match as a whole word.
+   */
+  const hasWord = (...candidates: string[]) => words.some((w) => candidates.includes(w))
+
+  if (has('shoe', 'chaussure', 'footwear')) return 'shoes'
+  if (has('fashion', 'mode', 'clothing', 'vetement')) return 'fashion'
+  if (has('food', 'aliment', 'grocery', 'epicerie', 'boisson')) return 'food'
+  if (has('beauty', 'beaute', 'cosmetic', 'soin')) return 'beauty'
+  if (has('electron', 'phone', 'ordinateur') || hasWord('tech')) return 'electronics'
+  if (has('enfant', 'baby', 'bebe') || hasWord('child', 'children', 'kid', 'kids')) return 'children'
+  if (has('maison', 'furnitur', 'meuble', 'decor') || hasWord('home')) return 'home'
+  if (has('sport', 'fitness')) return 'sport'
+  if (has('vehic', 'voiture', 'automo') || hasWord('auto', 'car', 'cars')) return 'automotive'
+  return n
+}
+
+/**
+ * Rules for a category, or an empty set when it has none.
+ *
+ * A subcategory rule wins over its parent's, so a narrower category can demand
+ * more; when the subcategory has no rule of its own the parent's applies.
+ */
+export function getCategoryRequirements(
+  categorySlugOrName?: string,
+  subcategorySlugOrName?: string
+): CategoryAttributeRequirements {
+  if (subcategorySlugOrName) {
+    const sub = CATEGORY_ATTRIBUTE_REQUIREMENTS[resolveCategoryKey(subcategorySlugOrName)]
+    if (sub && ((sub.allOf?.length ?? 0) > 0 || (sub.anyOf?.length ?? 0) > 0)) return sub
+  }
+  return CATEGORY_ATTRIBUTE_REQUIREMENTS[resolveCategoryKey(categorySlugOrName)] ?? {}
+}
+
+/**
+ * Names the characteristics that block publication, given those already filled
+ * in. An empty result means the product satisfies its category.
+ *
+ * Mirrored by MissingRequiredAttributes in the backend, which is the rule of
+ * record — this copy only exists to warn the seller before they submit.
+ */
+export function missingRequiredAttributes(
+  requirements: CategoryAttributeRequirements,
+  presentAttributes: string[]
+): string[] {
+  const present = new Set(
+    presentAttributes.map((name) => name.trim().toLowerCase()).filter(Boolean)
+  )
+  const missing: string[] = []
+
+  for (const name of requirements.allOf ?? []) {
+    if (!present.has(name.toLowerCase())) missing.push(name)
+  }
+  for (const group of requirements.anyOf ?? []) {
+    if (!group.some((name) => present.has(name.toLowerCase()))) {
+      missing.push(`one of: ${group.join(', ')}`)
+    }
+  }
+  return missing
 }

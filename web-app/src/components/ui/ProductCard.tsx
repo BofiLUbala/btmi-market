@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PublicProduct } from '@/api/types'
-import { formatMoney } from '@/lib/format'
+import { formatDate, formatMoney } from '@/lib/format'
+import { resolvePromotion } from '@/lib/promotion'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { useFavorites } from '@/store/favorites'
 import { StockChip } from './Badges'
@@ -47,16 +48,15 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const [imageFailed, setImageFailed] = useState(false)
   const first = product.variants?.[0]
   
-  // `??` alone is not enough here: a listing that omits the computed effective
-  // price sends 0, which is a valid number and would render as "0 FC".
-  const firstPositive = (...values: Array<number | undefined | null>) =>
-    values.find((v): v is number => typeof v === 'number' && v > 0) ?? 0
-  const originalPrice = firstPositive(first?.base_price, product.base_price)
-  const salePrice = firstPositive(first?.unit_price, product.seller_sale_price, product.base_price)
-  const hasDiscount = Boolean(product.discount_active && salePrice < originalPrice)
-  const discountPercent = hasDiscount 
-    ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
-    : 0
+  // Same resolver as the product page and the cart, so a buyer never sees one
+  // price on the listing and another after clicking through.
+  const promotion = resolvePromotion(
+    product,
+    first?.base_price || product.base_price || 0
+  )
+  const { originalPrice, effectivePrice: salePrice, discountPercent } = promotion
+  const hasDiscount = promotion.phase === 'active' && discountPercent > 0
+  const promotionUpcoming = promotion.phase === 'upcoming'
 
   const link = `/products/${product.id}`
   const cover = product.images?.find((img) => img.is_primary) ?? product.images?.[0]
@@ -98,6 +98,11 @@ export function ProductCard({ product }: { product: PublicProduct }) {
             {discountPercent}% OFF
           </span>
         )}
+        {promotionUpcoming && (
+          <span className="badge badge-warning" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2 }}>
+            Sale starts {formatDate(product.discount_start)}
+          </span>
+        )}
       </div>
       <div className="product-body">
         {product.category_name && (
@@ -123,6 +128,12 @@ export function ProductCard({ product }: { product: PublicProduct }) {
             <div className="product-price">{formatMoney(salePrice)}</div>
           )}
         </div>
+        {hasDiscount && (product.discount_start || product.discount_end) && (
+          <span className="small muted">
+            {product.discount_start ? `From ${formatDate(product.discount_start)}` : 'Active now'}
+            {product.discount_end ? ` to ${formatDate(product.discount_end)}` : ''}
+          </span>
+        )}
       </div>
     </Link>
   )

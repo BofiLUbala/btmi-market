@@ -646,6 +646,7 @@ export interface User {
   status: string
   email_verified: boolean
   account_type: AccountType
+  avatar_url?: string | null
   created_at: string
   updated_at: string
   city?: string

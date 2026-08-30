@@ -82,19 +82,14 @@ func (s *PointRedemptionService) CalculatePointsDiscount(points int) float64 {
 	return float64(points) * s.GetRedeemRate()
 }
 
+// getEffectiveVariantPrice applies the same promotion rule as the marketplace
+// listing and the order service, so a points preview quotes the price the
+// buyer actually pays.
 func (s *PointRedemptionService) getEffectiveVariantPrice(variant *models.ProductVariant, product *models.Product) float64 {
-	if product.DiscountActive && (product.DiscountStart == nil || time.Now().After(*product.DiscountStart)) && (product.DiscountEnd == nil || time.Now().Before(*product.DiscountEnd)) {
-		if product.DiscountType == "PERCENTAGE" {
-			return variant.SalePrice * (1.0 - product.DiscountValue/100.0)
-		} else if product.DiscountType == "FIXED" {
-			val := variant.SalePrice - product.DiscountValue
-			if val < 0 {
-				return 0
-			}
-			return val
-		}
-	}
-	return variant.SalePrice
+	return models.Promotion{
+		Active: product.DiscountActive, Type: product.DiscountType, Value: product.DiscountValue,
+		Start: product.DiscountStart, End: product.DiscountEnd,
+	}.EffectivePrice(variant.SalePrice, time.Now())
 }
 
 func (s *PointRedemptionService) GetRedemptionPreview(

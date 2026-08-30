@@ -551,6 +551,11 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 	if buyerProfile == nil {
 		return nil, errors.New("BUYER_PROFILE_NOT_FOUND")
 	}
+	// Sellers need a working contact number to reach the buyer about this
+	// order, so orders cannot be placed until that much of the profile is set.
+	if strings.TrimSpace(buyerProfile.Phone) == "" {
+		return nil, errors.New("BUYER_PROFILE_INCOMPLETE")
+	}
 
 	// Idempotency check
 	if req.IdempotencyKey != nil && *req.IdempotencyKey != "" {
@@ -639,17 +644,12 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 			return nil, errors.New("PRODUCT_NOT_FOUND")
 		}
 
-		effectivePrice := variant.SalePrice
-		if product.DiscountActive && (product.DiscountStart == nil || time.Now().After(*product.DiscountStart)) && (product.DiscountEnd == nil || time.Now().Before(*product.DiscountEnd)) {
-			if product.DiscountType == "PERCENTAGE" {
-				effectivePrice = variant.SalePrice * (1.0 - product.DiscountValue/100.0)
-			} else if product.DiscountType == "FIXED" {
-				effectivePrice = variant.SalePrice - product.DiscountValue
-				if effectivePrice < 0 {
-					effectivePrice = 0
-				}
-			}
-		}
+		// Same rule as the marketplace listing, so the price the buyer saw is
+		// the price they are charged.
+		effectivePrice := models.Promotion{
+			Active: product.DiscountActive, Type: product.DiscountType, Value: product.DiscountValue,
+			Start: product.DiscountStart, End: product.DiscountEnd,
+		}.EffectivePrice(variant.SalePrice, time.Now())
 
 		var pointsDiscountPerUnit float64
 		var finalUnitPrice float64
@@ -1010,9 +1010,9 @@ func (s *OrderService) GetOrderByID(userID, orderID uuid.UUID) (*models.OrderWit
 	}
 
 	return &models.OrderWithLinesResponse{
-		Order:   s.toOrderResponse(order),
-		Lines:   lineResponses,
-		History: historyResponses,
+		Order:    s.toOrderResponse(order),
+		Lines:    lineResponses,
+		History:  historyResponses,
 		ShopName: shopName,
 	}, nil
 }

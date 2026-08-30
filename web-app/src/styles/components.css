@@ -22,18 +22,18 @@
 }
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--color-primary-light);
 }
 .btn-accent {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .btn-accent:hover:not(:disabled) {
   background: var(--color-accent-dark);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .btn-outline {
   background: transparent;
@@ -50,7 +50,7 @@
 }
 .btn-danger {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-on-feedback);
 }
 .btn-block {
   width: 100%;
@@ -233,7 +233,7 @@ textarea.input:focus {
   background: var(--color-surface-2);
 }
 .badge-status {
-  color: #fff;
+  color: var(--color-on-feedback);
 }
 /* Semantic badge variants. These were referenced by 13 JSX call sites with no
    rule behind them, so PUBLISHED and DRAFT rendered identically. */
@@ -242,15 +242,15 @@ textarea.input:focus {
   background: var(--color-success);
 }
 .badge-primary {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--color-primary);
 }
 .badge-warning {
-  color: #fff;
+  color: var(--color-on-feedback);
   background: var(--color-warning);
 }
 .badge-danger {
-  color: #fff;
+  color: var(--color-on-feedback);
   background: var(--color-danger);
 }
 .badge-outline {
@@ -470,6 +470,117 @@ textarea.input:focus {
   font-size: 18px;
   flex-shrink: 0;
 }
+/* ===== Preference toggles (theme + language) ===== */
+.pref-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pref-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.pref-toggle:hover {
+  background: var(--color-surface-2);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.pref-toggle svg {
+  width: 17px;
+  height: 17px;
+}
+.pref-toggle-lang {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.seller-public-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+/* Inside the mobile drawer the toggles sit on the dark drawer surface, so they
+   borrow that foreground instead of the page text colour. */
+.drawer-prefs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+.drawer-prefs .pref-toggle {
+  color: inherit;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.drawer-prefs .pref-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.avatar-upload {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.avatar-upload-circle {
+  position: relative;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  border: none;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.avatar-upload-circle:disabled {
+  cursor: default;
+}
+.avatar-upload-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+}
+.avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.avatar-upload-circle:hover .avatar-upload-overlay,
+.avatar-upload-circle:disabled .avatar-upload-overlay {
+  opacity: 1;
+}
+.avatar-upload-error {
+  color: var(--color-danger);
+  max-width: 180px;
+  text-align: center;
+}
 .shop-meta {
   font-size: var(--text-xs);
   color: var(--color-text-muted);
@@ -679,7 +790,7 @@ textarea.input:focus {
 .facet-chip.selected {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 .facet-clear { color: var(--color-text-muted); font-weight: 500; }
 
@@ -721,7 +832,7 @@ textarea.input:focus {
 .step-circle.completed {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 /* Progress bar (seller growth). Previously styled with var(--border) and
@@ -812,7 +923,7 @@ textarea.input:focus {
   height: 56px;
   border-radius: 50%;
   background: var(--color-success);
-  color: #fff;
+  color: var(--color-on-feedback);
   font-size: 28px;
   font-weight: 700;
 }

@@ -10,6 +10,8 @@ import { resolveMediaUrl } from '../../src/api/client'
 import { useCart } from '../../src/store/cart'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { colors, radius, spacing } from '../../src/theme'
+import { resolvePromotion } from '../../src/lib/promotion'
+import { useI18n } from '../../src/store/i18n'
 import type { ProductReviewSummary } from '../../src/types'
 import {
   buildAttributeGroups,
@@ -62,6 +64,7 @@ function RatingBreakdown({ summary }: { summary: ProductReviewSummary }) {
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const { t } = useI18n()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
 
@@ -127,7 +130,20 @@ export default function ProductScreen() {
     product.available_stock ??
     0
 
+  // Same resolver as the product card and the web app, so the price shown here
+  // is the price the backend will charge at checkout.
+  const regularPrice =
+    selected?.base_price ||
+    selected?.price ||
+    product.base_price ||
+    product.price ||
+    0
+  const promotion = resolvePromotion(
+    { ...product, seller_sale_price: selected?.sale_price ?? selected?.unit_price },
+    regularPrice
+  )
   const price =
+    promotion.effectivePrice ||
     selected?.sale_price ||
     selected?.unit_price ||
     selected?.price ||
@@ -135,6 +151,7 @@ export default function ProductScreen() {
     product.price ||
     product.base_price ||
     0
+  const onSale = promotion.phase === 'active' && promotion.discountPercent > 0
 
   const addLine = () => {
     const accepted = add({
@@ -171,16 +188,42 @@ export default function ProductScreen() {
         <View style={styles.content}>
           <Text style={styles.shop}>Vendu par {product.shop_name || 'un vendeur TBK'}</Text>
           <Text style={styles.title}>{product.name}</Text>
-          <Text style={styles.rating}>
-            {reviewData?.summary.total_reviews
-              ? `${reviewData.summary.average_rating.toFixed(1)} ★  ·  ${reviewData.summary.total_reviews} avis`
-              : reviewQuery.isLoading
-              ? 'Chargement des avis…'
-              : 'Aucun avis pour le moment'}
-          </Text>
-          <Text style={styles.price}>
-            {price.toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
-          </Text>
+          {reviewData?.summary.total_reviews ? (
+            <View style={styles.ratingBadgeRow}>
+              <View style={styles.ratingPill}>
+                <Text style={styles.ratingPillText}>{reviewData.summary.average_rating.toFixed(1)} ★</Text>
+              </View>
+              <Text style={styles.ratingCountText}>{reviewData.summary.total_reviews} avis</Text>
+            </View>
+          ) : (
+            <Text style={styles.ratingEmpty}>
+              {reviewQuery.isLoading ? 'Chargement des avis…' : 'Aucun avis pour le moment'}
+            </Text>
+          )}
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>
+              {price.toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
+            </Text>
+            {onSale && (
+              <>
+                <Text style={styles.strikePrice}>
+                  {promotion.originalPrice.toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
+                </Text>
+                <View style={styles.discountPill}>
+                  <Text style={styles.discountPillText}>-{promotion.discountPercent}%</Text>
+                </View>
+              </>
+            )}
+          </View>
+          {promotion.phase === 'upcoming' && (
+            <Text style={styles.promoWindow}>{t('product.promotionUpcoming')}</Text>
+          )}
+          {(onSale || promotion.phase === 'upcoming') && (promotion.startsAt || promotion.endsAt) && (
+            <Text style={styles.promoWindow}>
+              {promotion.startsAt ? t('product.promotionFrom', { start: promotion.startsAt.toLocaleDateString('fr-FR') }) : ''}
+              {promotion.endsAt ? ' ' + t('product.promotionTo', { end: promotion.endsAt.toLocaleDateString('fr-FR') }) : ''}
+            </Text>
+          )}
 
           {/* Dynamic Variant Selectors (derives from actual saved attributes) */}
           {hasAttributeGroups ? (
@@ -390,8 +433,17 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, gap: spacing.md },
   shop: { color: colors.green, fontWeight: '800' },
   title: { fontSize: 27, lineHeight: 33, fontWeight: '900', color: colors.ink },
-  rating: { color: colors.muted },
+  ratingBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ratingPill: { backgroundColor: colors.success, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  ratingPillText: { color: colors.white, fontWeight: '900', fontSize: 13 },
+  ratingCountText: { color: colors.muted, fontSize: 13 },
+  ratingEmpty: { color: colors.muted, fontStyle: 'italic' },
   price: { fontSize: 30, fontWeight: '900', color: colors.green },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' },
+  strikePrice: { fontSize: 16, color: colors.muted, textDecorationLine: 'line-through' },
+  discountPill: { backgroundColor: colors.success, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  discountPillText: { color: colors.white, fontWeight: '900', fontSize: 12 },
+  promoWindow: { color: colors.muted, fontSize: 12 },
   optionSection: { gap: spacing.sm },
   attrGroup: { gap: 6, marginBottom: 8 },
   attrLabel: { fontSize: 13, color: colors.muted, fontWeight: '600' },

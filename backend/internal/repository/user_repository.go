@@ -42,7 +42,7 @@ func (r *UserRepository) Create(user *models.User) error {
 
 func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, avatar_url, created_at, updated_at
 		FROM users WHERE id = $1
 	`
 
@@ -50,7 +50,7 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	err := r.db.QueryRow(query, id).Scan(
 		&user.ID, &user.FirstName, &user.MiddleName, &user.LastName,
 		&user.Phone, &user.Email, &user.PasswordHash,
-		&user.Status, &user.EmailVerified, &user.AccountType, &user.CreatedAt, &user.UpdatedAt,
+		&user.Status, &user.EmailVerified, &user.AccountType, &user.AvatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -65,7 +65,7 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, avatar_url, created_at, updated_at
 		FROM users WHERE LOWER(email) = LOWER($1)
 	`
 
@@ -73,7 +73,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	err := r.db.QueryRow(query, email).Scan(
 		&user.ID, &user.FirstName, &user.MiddleName, &user.LastName,
 		&user.Phone, &user.Email, &user.PasswordHash,
-		&user.Status, &user.EmailVerified, &user.AccountType, &user.CreatedAt, &user.UpdatedAt,
+		&user.Status, &user.EmailVerified, &user.AccountType, &user.AvatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -88,7 +88,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 
 func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type, avatar_url, created_at, updated_at
 		FROM users
 		WHERE phone = $1
 		   OR RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 9) =
@@ -101,7 +101,7 @@ func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	err := r.db.QueryRow(query, phone).Scan(
 		&user.ID, &user.FirstName, &user.MiddleName, &user.LastName,
 		&user.Phone, &user.Email, &user.PasswordHash,
-		&user.Status, &user.EmailVerified, &user.AccountType, &user.CreatedAt, &user.UpdatedAt,
+		&user.Status, &user.EmailVerified, &user.AccountType, &user.AvatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -112,6 +112,12 @@ func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	}
 
 	return user, nil
+}
+
+func (r *UserRepository) UpdateAvatar(id uuid.UUID, avatarURL string) error {
+	query := `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`
+	_, err := r.db.Exec(query, avatarURL, id)
+	return err
 }
 
 func (r *UserRepository) UpdateStatus(id uuid.UUID, status models.UserStatus) error {

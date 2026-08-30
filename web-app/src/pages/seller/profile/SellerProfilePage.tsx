@@ -1,9 +1,10 @@
 ﻿import { useAuth } from '@/store/auth'
 import { Card, CardGrid } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { AvatarUpload } from '@/components/ui/AvatarUpload'
 
 export default function SellerProfilePage() {
-  const { user, activeBusiness, logout } = useAuth()
+  const { user, activeBusiness, logout, refreshUser } = useAuth()
 
   return (
     <div className="seller-profile">
@@ -29,6 +30,14 @@ export default function SellerProfilePage() {
       <Card style={{ marginTop: 24 }}>
         <h2>Account Information</h2>
         <p className="muted small">Profile details are managed by your TBK account and cannot be edited here yet.</p>
+        <div style={{ marginTop: 16 }}>
+          <AvatarUpload
+            url={user?.avatar_url}
+            name={user ? `${user.first_name} ${user.last_name}` : ''}
+            size={72}
+            onUploaded={refreshUser}
+          />
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginTop: 16 }}>
           <div>
             <div className="muted small">Name</div>
