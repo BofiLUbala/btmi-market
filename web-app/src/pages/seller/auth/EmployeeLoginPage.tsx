@@ -5,8 +5,10 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 export default function EmployeeLoginPage() {
+  const t = useT()
   const { login, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -28,19 +30,19 @@ export default function EmployeeLoginPage() {
         navigate('/seller/dashboard', { replace: true })
       } else {
         await logout()
-        setError('This account is not registered as an Employee.')
+        setError(t('seller.auth.employeeLogin.notEmployee'))
       }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 'ACCOUNT_NOT_ACTIVATED') {
-          setError('Your account has not been activated yet. Please check your email for the invitation/activation link.')
+          setError(t('seller.auth.employeeLogin.notActivated'))
         } else if (err.code === 'INVALID_CREDENTIALS') {
-          setError('Invalid email or password. Please try again.')
+          setError(t('auth.login.invalidCredentials'))
         } else {
           setError(err.message)
         }
       } else {
-        setError(err instanceof Error ? err.message : 'Sign in failed')
+        setError(err instanceof Error ? err.message : t('auth.login.failed'))
       }
     } finally {
       setBusy(false)
@@ -50,21 +52,21 @@ export default function EmployeeLoginPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Employee Sign In</h1>
-        <p className="muted small">Access your assigned shop workspace.</p>
+        <h1>{t('seller.auth.employeeLogin.title')}</h1>
+        <p className="muted small">{t('seller.auth.employeeLogin.subtitle')}</p>
         {error && <ErrorBox error={error} />}
         <Field
-          label="Email"
+          label={t('common.email')}
           name="email"
           type="email"
           required
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder={t('auth.emailPlaceholder')}
         />
         <Field
-          label="Password"
+          label={t('auth.password')}
           name="password"
           type="password"
           required
@@ -74,10 +76,10 @@ export default function EmployeeLoginPage() {
           placeholder="••••••••"
         />
         <Button type="submit" block size="lg" loading={busy}>
-          Sign in
+          {t('auth.login.submit')}
         </Button>
         <p className="small muted">
-          Seller? <Link to="/seller/login" className="section-link">Sign in as Seller</Link>
+          {t('seller.auth.employeeLogin.seller')} <Link to="/seller/login" className="section-link">{t('auth.signInAsSeller')}</Link>
         </p>
       </form>
     </div>

@@ -1,3 +1,8 @@
+import type { Dictionary } from '@/store/i18n'
+
+/** Signature-compatible with the store's `t`, so the hook can be passed in. */
+export type Translator = (key: keyof Dictionary, vars?: Record<string, string | number>) => string
+
 export type AttributeClassification = 'VARIANT' | 'INFO'
 
 export interface AttributeSuggestion {
@@ -158,7 +163,8 @@ export function getCategoryRequirements(
  */
 export function missingRequiredAttributes(
   requirements: CategoryAttributeRequirements,
-  presentAttributes: string[]
+  presentAttributes: string[],
+  t?: Translator
 ): string[] {
   const present = new Set(
     presentAttributes.map((name) => name.trim().toLowerCase()).filter(Boolean)
@@ -170,7 +176,9 @@ export function missingRequiredAttributes(
   }
   for (const group of requirements.anyOf ?? []) {
     if (!group.some((name) => present.has(name.toLowerCase()))) {
-      missing.push(`one of: ${group.join(', ')}`)
+      missing.push(
+        t ? t('category.anyOfMissing', { names: group.join(', ') }) : `one of: ${group.join(', ')}`
+      )
     }
   }
   return missing

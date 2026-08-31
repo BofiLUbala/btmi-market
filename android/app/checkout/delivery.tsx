@@ -6,25 +6,27 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi } from '../../src/api'
 import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
+import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { colors, radius, spacing } from '../../src/theme'
 import type { DeliveryMethod } from '../../src/types'
 
 const money = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} FC`
 
-const METHOD_LABEL: Record<string, string> = {
-  PICKUP: 'Retrait en boutique',
-  SHOP_DELIVERY: 'Livraison par la boutique',
-  PARTNER: 'Livraison par un partenaire',
+const METHOD_LABEL: Record<string, TranslationKey> = {
+  PICKUP: 'checkout.methodPickup',
+  SHOP_DELIVERY: 'checkout.methodShopDelivery',
+  PARTNER: 'checkout.methodPartner',
 }
-const METHOD_HINT: Record<string, string> = {
-  PICKUP: 'Vous récupérez la commande directement à la boutique.',
-  SHOP_DELIVERY: 'La boutique vous livre à l’adresse indiquée.',
-  PARTNER: 'Un partenaire de livraison vous apporte la commande.',
+const METHOD_HINT: Record<string, TranslationKey> = {
+  PICKUP: 'checkout.methodPickupHint',
+  SHOP_DELIVERY: 'checkout.methodShopDeliveryHint',
+  PARTNER: 'checkout.methodPartnerHint',
 }
 
 export default function DeliveryScreen() {
   const { orderId } = useLocalSearchParams<{ orderId?: string }>()
   const user = useAuth((state) => state.user)
+  const { t } = useI18n()
 
   const [method, setMethod] = useState<DeliveryMethod>('PICKUP')
   const [usePoints, setUsePoints] = useState(false)
@@ -76,7 +78,7 @@ export default function DeliveryScreen() {
         notes: contact.notes.trim(),
       }),
     onSuccess: () => router.push({ pathname: '/checkout/payment', params: { orderId } }),
-    onError: () => setError('Le mode de livraison n’a pas pu être enregistré. Réessayez.'),
+    onError: () => setError(t('checkout.deliverySaveFailed')),
   })
 
   function togglePoints() {
@@ -87,29 +89,29 @@ export default function DeliveryScreen() {
 
   function submit() {
     if (formInvalid) {
-      setError('Renseignez le nom, le téléphone et l’adresse de livraison.')
+      setError(t('checkout.fillDetails'))
       return
     }
     setError('')
     selectMutation.mutate()
   }
 
-  if (!orderId) return <ErrorState message="Commande introuvable." retry={() => router.replace('/(buyer)/cart')} />
-  if (options.isLoading) return <Loading label="Chargement des options de livraison…" />
+  if (!orderId) return <ErrorState message={t('checkout.orderNotFound')} retry={() => router.replace('/(buyer)/cart')} />
+  if (options.isLoading) return <Loading label={t('checkout.loadingOptions')} />
   if (options.isError || !options.data) {
-    return <ErrorState message="Impossible de charger les options de livraison." retry={() => options.refetch()} />
+    return <ErrorState message={t('checkout.optionsFailed')} retry={() => options.refetch()} />
   }
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
         <View style={styles.steps}>
-          <Text style={styles.stepDone}>1 Panier</Text>
-          <Text style={styles.stepActive}>2 Livraison</Text>
-          <Text style={styles.stepNext}>3 Paiement</Text>
+          <Text style={styles.stepDone}>1 {t('tabs.cart')}</Text>
+          <Text style={styles.stepActive}>2 {t('checkout.delivery')}</Text>
+          <Text style={styles.stepNext}>3 {t('checkout.payment')}</Text>
         </View>
 
-        <SectionTitle title="Mode de livraison" />
+        <SectionTitle title={t('checkout.deliveryMethod')} />
 
         {options.data.options.map((option) => {
           const active = method === option.method
@@ -122,12 +124,12 @@ export default function DeliveryScreen() {
                   color={option.available ? colors.green : colors.muted}
                 />
                 <View style={styles.optionBody}>
-                  <Text style={styles.optionTitle}>{METHOD_LABEL[option.method] ?? option.label}</Text>
-                  <Text style={styles.muted}>{METHOD_HINT[option.method] ?? ''}</Text>
-                  {option.provider ? <Text style={styles.muted}>Assurée par {option.provider}</Text> : null}
+                  <Text style={styles.optionTitle}>{METHOD_LABEL[option.method] ? t(METHOD_LABEL[option.method]) : option.label}</Text>
+                  <Text style={styles.muted}>{METHOD_HINT[option.method] ? t(METHOD_HINT[option.method]) : ''}</Text>
+                  {option.provider ? <Text style={styles.muted}>{t('checkout.providedBy', { provider: option.provider })}</Text> : null}
                 </View>
                 <Text style={option.available ? styles.fee : styles.muted}>
-                  {option.available ? money(option.fee) : 'Indisponible'}
+                  {option.available ? money(option.fee) : t('checkout.unavailable')}
                 </Text>
               </View>
             </Card>
@@ -137,45 +139,45 @@ export default function DeliveryScreen() {
         {selected && selected.fee > 0 ? (
           <Card>
             <View style={styles.rowBetween}>
-              <Text style={styles.optionTitle}>Payer la livraison en points</Text>
+              <Text style={styles.optionTitle}>{t('checkout.payDeliveryWithPoints')}</Text>
               <Button
                 variant={usePoints ? 'primary' : 'outline'}
-                title={usePoints ? 'Activé' : 'Activer'}
+                title={usePoints ? t('cart.pointsEnabled') : t('cart.pointsEnable')}
                 onPress={togglePoints}
               />
             </View>
             {usePoints && previewFee !== null ? (
               <Text style={styles.pointsNote}>
-                Frais de livraison : {money(selected.fee)} → {money(previewFee)}
+                {t('checkout.deliveryFee', { from: money(selected.fee), to: money(previewFee) })}
               </Text>
             ) : (
-              <Text style={styles.muted}>Utilisez vos points pour réduire les frais.</Text>
+              <Text style={styles.muted}>{t('checkout.usePointsHint')}</Text>
             )}
           </Card>
         ) : null}
 
         {needsAddress ? (
           <Card>
-            <Text style={styles.optionTitle}>Coordonnées de livraison</Text>
+            <Text style={styles.optionTitle}>{t('checkout.contactDetails')}</Text>
             <Field
-              label="Nom du contact"
+              label={t('checkout.contactName')}
               value={contact.contact_name}
               onChangeText={(v) => setContact({ ...contact, contact_name: v })}
             />
             <Field
-              label="Téléphone"
+              label={t('editProfile.phone')}
               value={contact.phone}
               keyboardType="phone-pad"
               onChangeText={(v) => setContact({ ...contact, phone: v })}
             />
             <Field
-              label="Adresse de livraison"
+              label={t('checkout.address')}
               value={contact.address}
-              placeholder="Commune, avenue, numéro…"
+              placeholder={t('checkout.addressPlaceholder')}
               onChangeText={(v) => setContact({ ...contact, address: v })}
             />
             <Field
-              label="Instructions (facultatif)"
+              label={t('checkout.instructions')}
               value={contact.notes}
               multiline
               onChangeText={(v) => setContact({ ...contact, notes: v })}
@@ -184,7 +186,7 @@ export default function DeliveryScreen() {
         ) : (
           <Card>
             <Text style={styles.muted}>
-              Vous récupérerez cette commande à la boutique. Aucune adresse n’est nécessaire.
+              {t('checkout.pickupNote')}
             </Text>
           </Card>
         )}
@@ -192,7 +194,7 @@ export default function DeliveryScreen() {
         {error ? <ErrorState message={error} /> : null}
 
         <Button
-          title="Continuer vers le paiement"
+          title={t('checkout.continueToPayment')}
           loading={selectMutation.isPending}
           disabled={formInvalid}
           onPress={submit}

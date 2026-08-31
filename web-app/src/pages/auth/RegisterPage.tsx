@@ -5,12 +5,14 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 type RegPhase = 'form' | 'creating' | 'sending' | 'success' | 'email-failed'
 
 const MIN_LOADING_MS = 1500
 
 export default function RegisterPage() {
+  const t = useT()
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -31,7 +33,7 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     if (form.password !== form.password_confirmation) {
-      setError('Passwords do not match')
+      setError(t('auth.register.passwordsMismatch'))
       return
     }
     setBusy(true)
@@ -50,7 +52,7 @@ export default function RegisterPage() {
       }
       setPhase('success')
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Registration failed'
+      const msg = err instanceof ApiError ? err.message : t('auth.register.failed')
       // If account was created but email failed, backend returns error
       if (msg.toLowerCase().includes('email') || msg.toLowerCase().includes('activation')) {
         setPhase('email-failed')
@@ -71,18 +73,15 @@ export default function RegisterPage() {
         <div className="card auth-card">
           <div className="registration-result">
             <span className="result-icon" aria-hidden>✓</span>
-            <h1>Account created</h1>
-            <p className="muted">Check your email</p>
-            <p>
-              We sent an activation link to:<br />
-              <strong>{form.email}</strong>
-            </p>
-            <p className="small muted">The link is valid for 24 hours and can only be used once.</p>
+            <h1>{t('auth.register.created')}</h1>
+            <p className="muted">{t('auth.register.checkEmail')}</p>
+            <p>{t('auth.register.sentLinkToEmail', { email: form.email })}</p>
+            <p className="small muted">{t('auth.register.linkValidity')}</p>
             <Link to="/resend-activation">
-              <Button variant="outline" block>Resend activation email</Button>
+              <Button variant="outline" block>{t('auth.register.resendActivation')}</Button>
             </Link>
             <Link to="/login">
-              <Button block>Go to sign in</Button>
+              <Button block>{t('auth.register.goToSignIn')}</Button>
             </Link>
           </div>
         </div>
@@ -97,14 +96,14 @@ export default function RegisterPage() {
         <div className="card auth-card">
           <div className="registration-result">
             <span className="result-icon result-icon--warn" aria-hidden>!</span>
-            <h1>Account created</h1>
-            <p className="muted">We couldn't send your activation email.</p>
+            <h1>{t('auth.register.created')}</h1>
+            <p className="muted">{t('auth.register.emailFailed')}</p>
             {error && <ErrorBox error={error} />}
             <Link to="/resend-activation">
-              <Button block>Try sending again</Button>
+              <Button block>{t('auth.register.trySendingAgain')}</Button>
             </Link>
             <Link to="/login">
-              <Button variant="outline" block>Go to sign in</Button>
+              <Button variant="outline" block>{t('auth.register.goToSignIn')}</Button>
             </Link>
           </div>
         </div>
@@ -118,30 +117,30 @@ export default function RegisterPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Create your buyer account</h1>
-        <p className="muted small">Free to join. Earn points on every verified purchase.</p>
+        <h1>{t('auth.register.title')}</h1>
+        <p className="muted small">{t('auth.register.subtitle')}</p>
         {error && <ErrorBox error={error} />}
 
         {isLoading && (
           <div className="registration-steps" aria-busy="true" aria-live="polite">
-            <Step label="Creating your account" done={phase === 'sending'} active={phase === 'creating'} />
-            <Step label="Sending activation email" done={false} active={phase === 'sending'} />
+            <Step label={t('auth.register.creating')} done={phase === 'sending'} active={phase === 'creating'} />
+            <Step label={t('auth.register.sendingEmail')} done={false} active={phase === 'sending'} />
           </div>
         )}
 
         {!isLoading && (
           <>
-            <Field label="First name" name="first_name" required value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
-            <Field label="Last name" name="last_name" required value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
-            <Field label="Phone" name="phone" required value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+243 …" />
-            <Field label="Email" name="email" type="email" required value={form.email} onChange={(e) => set('email', e.target.value)} />
-            <Field label="Password" name="password" type="password" required minLength={8} value={form.password} onChange={(e) => set('password', e.target.value)} hint="At least 8 characters (uppercase, lowercase, number, special char)" showPasswordToggle />
-            <Field label="Confirm password" name="password_confirmation" type="password" required value={form.password_confirmation} onChange={(e) => set('password_confirmation', e.target.value)} showPasswordToggle />
+            <Field label={t('auth.firstName')} name="first_name" required value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
+            <Field label={t('auth.lastName')} name="last_name" required value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
+            <Field label={t('common.phone')} name="phone" required value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
+            <Field label={t('common.email')} name="email" type="email" required value={form.email} onChange={(e) => set('email', e.target.value)} />
+            <Field label={t('auth.password')} name="password" type="password" required minLength={8} value={form.password} onChange={(e) => set('password', e.target.value)} hint={t('auth.register.passwordHint')} showPasswordToggle />
+            <Field label={t('auth.passwordConfirm')} name="password_confirmation" type="password" required value={form.password_confirmation} onChange={(e) => set('password_confirmation', e.target.value)} showPasswordToggle />
             <Button type="submit" block size="lg" loading={busy} disabled={busy}>
-              Create account
+              {t('auth.register.submit')}
             </Button>
             <p className="small muted">
-              Already registered? <Link to="/login" className="section-link">Sign in</Link>
+              {t('auth.register.alreadyRegistered')} <Link to="/login" className="section-link">{t('common.signIn')}</Link>
             </p>
           </>
         )}

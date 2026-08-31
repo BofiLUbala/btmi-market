@@ -23,14 +23,15 @@ import { loginWithReturnTo } from '@/lib/returnTo'
 import { useCart } from '@/store/cart'
 import { useAuth } from '@/store/auth'
 import { useFavorites } from '@/store/favorites'
+import { useI18n } from '@/store/i18n'
 
-function productErrorMessage(e: unknown): string {
+function productErrorMessage(e: unknown, t: ReturnType<typeof useI18n>['t']): string {
   if (e instanceof ApiError) {
-    if (e.status === 404) return 'This product does not exist or is no longer available.'
-    if (e.status === 0) return 'Cannot reach TBK right now. Check your connection and retry.'
+    if (e.status === 404) return t('product.errorNotFound')
+    if (e.status === 0) return t('feedback.networkError')
     return e.message
   }
-  return 'Could not load this product.'
+  return t('product.errorLoad')
 }
 
 export default function ProductDetailPage() {
@@ -39,6 +40,7 @@ export default function ProductDetailPage() {
   const { user } = useAuth()
   const cart = useCart()
   const favorites = useFavorites()
+  const { t } = useI18n()
 
   const [product, setProduct] = useState<PublicProductDetail | null>(null)
   const [similar, setSimilar] = useState<PublicProduct[]>([])
@@ -69,7 +71,7 @@ export default function ProductDetailPage() {
       } else {
         setProduct(null)
         setNotFound(d.reason instanceof ApiError && d.reason.status === 404)
-        setError(productErrorMessage(d.reason))
+        setError(productErrorMessage(d.reason, t))
       }
       setSimilar(s.status === 'fulfilled' ? s.value.products ?? [] : [])
       setReviewSummary(r.status === 'fulfilled' ? r.value.summary : null)
@@ -78,7 +80,7 @@ export default function ProductDetailPage() {
     return () => {
       mounted = false
     }
-  }, [id])
+  }, [id, t])
 
   // Keep selection valid whenever product changes.
   function initialSelection(variants: PublicVariantDetail[]): VariantSelection {
@@ -115,18 +117,18 @@ export default function ProductDetailPage() {
     return resolveVariant(variants, selection)
   }, [variants, groups, multiVariant, selection])
 
-  if (loading) return <LoadingBlock label="Loading product…" />
+  if (loading) return <LoadingBlock label={t('product.loading')} />
   if (!product)
     return (
       <ErrorBox
-        error={error || 'Product not found'}
+        error={error || t('product.notFound')}
         onRetry={notFound ? undefined : () => window.location.reload()}
       />
     )
 
   const p = product
   const v = variant
-  if (!v) return <ErrorBox error="This product has no purchasable configuration." />
+  if (!v) return <ErrorBox error={t('product.noPurchasable')} />
 
   const outOfStock = v.stock === 'OUT_OF_STOCK'
   const lowStock = v.stock === 'LOW_STOCK'
@@ -153,7 +155,7 @@ export default function ProductDetailPage() {
     .map((part) => part.replace(/^[-•]\s*/, '').trim())
     .filter(Boolean)
   const highlights = descriptionParts.slice(0, 5)
-  const shortDescription = descriptionParts[0] || `Discover ${p.name}, available from verified local sellers.`
+  const shortDescription = descriptionParts[0] || t('product.discoverFrom', { name: p.name })
 
   function selectValue(key: string, value: string) {
     const matching = variants.find(
@@ -218,8 +220,8 @@ export default function ProductDetailPage() {
 
   return (
     <div className="fade-in">
-      <nav className="pd-breadcrumb" aria-label="Breadcrumb">
-        <Link to="/">Marketplace</Link><span>›</span>
+      <nav className="pd-breadcrumb" aria-label={t('product.breadcrumb')}>
+        <Link to="/">{t('nav.marketplace')}</Link><span>›</span>
         {p.category && <><Link to={`/categories/${p.category.slug}`}>{p.category.name}</Link><span>›</span></>}
         <span aria-current="page">{p.name}</span>
       </nav>
@@ -242,30 +244,30 @@ export default function ProductDetailPage() {
             {reviewSummary && reviewSummary.total_reviews > 0 ? (
               <a className="pd-rating-link" href="#customer-reviews">
                 <strong>{reviewSummary.average_rating.toFixed(1)} ★</strong>
-                <span>{reviewSummary.total_reviews} {reviewSummary.total_reviews === 1 ? 'rating' : 'ratings'}</span>
+                <span>{reviewSummary.total_reviews} {reviewSummary.total_reviews === 1 ? t('reviews.rating') : t('reviews.ratingsPlural')}</span>
               </a>
             ) : (
               <a className="pd-rating-link pd-rating-link--empty" href="#customer-reviews">
-                <span>No ratings yet — be the first to review</span>
+                <span>{t('reviews.noneYet')}</span>
               </a>
             )}
-            <div className="pd-seller-line">Sold by <Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link> · {p.seller_level} seller</div>
+            <div className="pd-seller-line">{t('product.soldBy')} <Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link> · {p.seller_level} {t('product.sellerLevelSuffix')}</div>
           </header>
 
-          <section className="pd-price-block" aria-label="Price" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <section className="pd-price-block" aria-label={t('common.price')} aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <strong style={{ fontSize: '2rem', color: 'var(--color-primary)' }}>{formatMoney(displayPrice)}</strong>
-              <span className="muted" style={{ fontSize: '1.1rem' }}>per {p.unit}</span>
+              <span className="muted" style={{ fontSize: '1.1rem' }}>{t('product.perUnit', { unit: p.unit })}</span>
               
               {hasSellerDiscount && (
                 <span className="badge badge-success" style={{ fontWeight: 'bold' }}>
-                  {promotion.discountPercent}% OFF
+                  {t('product.discountOff', { percent: promotion.discountPercent })}
                 </span>
               )}
 
               {hasBuyerDiscount && (
                 <span className="badge badge-primary" style={{ fontWeight: 'bold' }}>
-                  Loyalty -{buyerDiscountPercent}%
+                  {t('product.loyaltyDiscount', { percent: buyerDiscountPercent })}
                 </span>
               )}
             </div>
@@ -274,31 +276,32 @@ export default function ProductDetailPage() {
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }} className="small muted">
                 {hasSellerDiscount && (
                   <span>
-                    Regular: <del>{formatMoney(regularPrice)}</del>
+                    {t('product.regular')}: <del>{formatMoney(regularPrice)}</del>
                   </span>
                 )}
                 {hasSellerDiscount && hasBuyerDiscount && (
                   <span>
-                    Promo: <strong>{formatMoney(sellerSalePrice)}</strong>
+                    {t('product.promo')}: <strong>{formatMoney(sellerSalePrice)}</strong>
                   </span>
                 )}
                 {hasBuyerDiscount && (
                   <span>
-                    Your Level Discount: <strong>{formatMoney(sellerSalePrice - finalPrice)} saved</strong>
+                    {t('product.levelDiscount')}: <strong>{formatMoney(sellerSalePrice - finalPrice)} {t('product.saved')}</strong>
                   </span>
                 )}
               </div>
             )}
             {promotionUpcoming && (
               <div className="notice notice-info small" role="status">
-                Promotion starts {formatDate(p.discount_start)}
-                {p.discount_end ? ` and ends ${formatDate(p.discount_end)}` : ''}.
+                {p.discount_end
+                  ? t('product.promotionStartsEnds', { start: formatDate(p.discount_start), end: formatDate(p.discount_end) })
+                  : t('product.promotionStarts', { start: formatDate(p.discount_start) })}
               </div>
             )}
             {hasSellerDiscount && (p.discount_start || p.discount_end) && (
               <div className="small muted">
-                Offer period: {p.discount_start ? formatDate(p.discount_start) : 'now'}
-                {' → '}{p.discount_end ? formatDate(p.discount_end) : 'until further notice'}
+                {t('product.offerPeriod')}: {p.discount_start ? formatDate(p.discount_start) : t('product.activeNow')}
+                {' → '}{p.discount_end ? formatDate(p.discount_end) : t('product.untilFurtherNotice')}
               </div>
             )}
           </section>
@@ -321,7 +324,7 @@ export default function ProductDetailPage() {
                         type="button"
                         aria-pressed={selectedVal}
                         disabled={disabled}
-                        title={disabled ? `${val} — not available in this combination` : !inStock ? `${val} — out of stock` : val}
+                        title={disabled ? t('product.combinationUnavailable', { name: val }) : !inStock ? t('product.combinationOutOfStock', { name: val }) : val}
                         className={`attr-option ${selectedVal ? 'selected' : ''} ${disabled ? 'unavailable' : !inStock ? 'low-stock' : ''}`}
                         onClick={() => selectValue(g.key, val)}
                       >
@@ -335,8 +338,8 @@ export default function ProductDetailPage() {
 
           {!multiVariant && variants.length > 1 && (
             <section className="pd-option-group" aria-labelledby="option-variant">
-              <div id="option-variant" className="pd-option-label">Variant: <strong>{v.name || v.sku}</strong></div>
-              <div className="attr-options" role="group" aria-label="Variant">
+              <div id="option-variant" className="pd-option-label">{t('product.variant')}: <strong>{v.name || v.sku}</strong></div>
+              <div className="attr-options" role="group" aria-label={t('product.variant')}>
                 {variants.map((item) => (
                   <button
                     key={item.id}
@@ -346,7 +349,7 @@ export default function ProductDetailPage() {
                     className={`attr-option ${item.id === v.id ? 'selected' : ''} ${item.stock === 'OUT_OF_STOCK' ? 'unavailable' : ''}`}
                     onClick={() => selectVariantId(item.id)}
                   >
-                    {item.name || item.sku || `Variant ${variants.indexOf(item) + 1}`}
+                    {item.name || item.sku || `${t('product.variant')} ${variants.indexOf(item) + 1}`}
                   </button>
                 ))}
               </div>
@@ -354,68 +357,68 @@ export default function ProductDetailPage() {
           )}
 
           <section className={`pd-stock ${outOfStock ? 'out' : lowStock ? 'low' : 'in'}`} aria-live="polite">
-            <strong>{outOfStock ? 'Out of stock' : lowStock ? `Only ${v.stock_quantity} left` : `In stock — ${v.stock_quantity} available`}</strong>
-            <span>Selected SKU: {v.sku || p.sku}</span>
+            <strong>{outOfStock ? t('stock.outOfStock') : lowStock ? t('stock.onlyLeft', { count: v.stock_quantity }) : t('stock.available', { count: v.stock_quantity })}</strong>
+            <span>{t('product.selectedSku')} {v.sku || p.sku}</span>
           </section>
 
           <div className="pd-quantity-row">
-            <strong>Quantity</strong>
-            <div className="stepper" role="group" aria-label="Quantity">
-              <button onClick={() => changeQty(qty - 1)} disabled={qty <= 1} aria-label="Decrease quantity">
+            <strong>{t('common.quantity')}</strong>
+            <div className="stepper" role="group" aria-label={t('common.quantity')}>
+              <button onClick={() => changeQty(qty - 1)} disabled={qty <= 1} aria-label={t('product.decreaseQuantity')}>
                 −
               </button>
               <span className="stepper-qty" aria-live="polite">{qty}</span>
-              <button onClick={() => changeQty(qty + 1)} disabled={qty >= maxQty} aria-label="Increase quantity">
+              <button onClick={() => changeQty(qty + 1)} disabled={qty >= maxQty} aria-label={t('product.increaseQuantity')}>
                 +
               </button>
             </div>
           </div>
 
           <section className="pd-delivery">
-            <strong>Delivery</strong>
-            <span>{p.free_delivery ? 'Free delivery included for your buyer level.' : 'Location, fee and delivery date are confirmed at checkout.'}</span>
-            {Boolean(p.delivery_discount_percent) && <small>{p.delivery_discount_percent}% delivery discount applies.</small>}
+            <strong>{t('product.delivery')}</strong>
+            <span>{p.free_delivery ? t('product.freeDelivery') : t('product.deliveryNote')}</span>
+            {Boolean(p.delivery_discount_percent) && <small>{t('product.deliveryDiscount', { percent: p.delivery_discount_percent as number })}</small>}
           </section>
 
-          <div className="pd-subtotal"><span>Subtotal ({qty} {qty === 1 ? p.unit : `${p.unit}s`})</span><strong aria-live="polite">{formatMoney(displayPrice * qty)}</strong></div>
+          <div className="pd-subtotal"><span>{t('product.subtotalWithQty', { qty, unit: qty === 1 ? p.unit : `${p.unit}s` })}</span><strong aria-live="polite">{formatMoney(displayPrice * qty)}</strong></div>
 
-          {added && <SuccessBox message="Added to cart ✓" />}
+          {added && <SuccessBox message={t('product.addedToCart')} />}
 
           <div className="pd-actions">
-            <Button variant="outline" size="lg" block disabled={outOfStock} onClick={addToCart}>Add to Cart</Button>
-            <Button variant="accent" size="lg" block disabled={outOfStock} onClick={buyNow}>{outOfStock ? 'Unavailable' : 'Buy Now'}</Button>
+            <Button variant="outline" size="lg" block disabled={outOfStock} onClick={addToCart}>{t('product.addToCart')}</Button>
+            <Button variant="accent" size="lg" block disabled={outOfStock} onClick={buyNow}>{outOfStock ? t('product.unavailable') : t('product.buyNow')}</Button>
           </div>
           <div className="pd-favorite">
             <Button variant="outline" block onClick={toggleFavorite} aria-pressed={isFav}>
-              {isFav ? '♥ In favorites' : '♡ Add to favorites'}
+              {isFav ? t('product.inFavorites') : t('product.addToFavorites')}
             </Button>
           </div>
 
           {!user && (
             <p className="small muted">
               <Link to={loginWithReturnTo(`/products/${p.id}`)} className="section-link">
-                Sign in
+                {t('common.signIn')}
               </Link>{' '}
-              to see your buyer-level price and earn points.
+              {t('product.signInForPrice')}
             </p>
           )}
         </div>
       </div>
 
-      <div className="pd-mobile-purchase" aria-label="Purchase actions">
-        <div><small>{outOfStock ? 'Unavailable' : `${qty} × ${formatMoney(displayPrice)}`}</small><strong>{formatMoney(displayPrice * qty)}</strong></div>
-        <Button variant="outline" disabled={outOfStock} onClick={addToCart}>Add to Cart</Button>
-        <Button variant="accent" disabled={outOfStock} onClick={buyNow}>Buy Now</Button>
+      <div className="pd-mobile-purchase" aria-label={t('product.purchaseActions')}>
+        <div><small>{outOfStock ? t('product.unavailable') : `${qty} × ${formatMoney(displayPrice)}`}</small><strong>{formatMoney(displayPrice * qty)}</strong></div>
+        <Button variant="outline" disabled={outOfStock} onClick={addToCart}>{t('product.addToCart')}</Button>
+        <Button variant="accent" disabled={outOfStock} onClick={buyNow}>{t('product.buyNow')}</Button>
       </div>
 
       <div className="pd-information">
         <section className="pd-info-section" aria-labelledby="product-description">
-          <h2 id="product-description">Product description</h2>
+          <h2 id="product-description">{t('product.description')}</h2>
           <ul className="pd-highlights">
             {(highlights.length > 0 ? highlights : [shortDescription]).map((highlight, index) => (
               <li key={`${highlight}-${index}`}>{highlight}</li>
             ))}
-            <li>{v.stock_quantity > 0 ? `${v.stock_quantity} units currently available` : 'Currently out of stock'}</li>
+            <li>{v.stock_quantity > 0 ? t('product.unitsAvailable', { count: v.stock_quantity }) : t('product.currentlyOutOfStock')}</li>
           </ul>
           {descriptionParts.length > highlights.length && (
             <div className="pd-description-copy">
@@ -427,19 +430,19 @@ export default function ProductDetailPage() {
         </section>
 
         <section className="pd-info-section" aria-labelledby="product-specifications">
-          <h2 id="product-specifications">Specifications</h2>
+          <h2 id="product-specifications">{t('product.specifications')}</h2>
           <dl className="pd-specifications">
-            <div><dt>Product</dt><dd>{p.name}</dd></div>
-            <div><dt>Category</dt><dd>{p.category?.name ?? 'General'}</dd></div>
-            {p.subcategory && <div><dt>Subcategory</dt><dd>{p.subcategory.name}</dd></div>}
+            <div><dt>{t('product.product')}</dt><dd>{p.name}</dd></div>
+            <div><dt>{t('product.category')}</dt><dd>{p.category?.name ?? t('product.general')}</dd></div>
+            {p.subcategory && <div><dt>{t('product.subcategory')}</dt><dd>{p.subcategory.name}</dd></div>}
             {specifications.map((spec) => (
               <div key={spec.key}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>
             ))}
             {(v.sku || p.sku) && <div><dt>SKU</dt><dd className="mono">{v.sku || p.sku}</dd></div>}
-            <div><dt>Unit</dt><dd>{p.unit}</dd></div>
-            <div><dt>Seller</dt><dd><Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link></dd></div>
-            <div><dt>Seller level</dt><dd>{p.seller_level}</dd></div>
-            <div><dt>Listed</dt><dd>{formatDate(p.created_at)}</dd></div>
+            <div><dt>{t('product.unit')}</dt><dd>{p.unit}</dd></div>
+            <div><dt>{t('product.seller')}</dt><dd><Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link></dd></div>
+            <div><dt>{t('product.sellerLevel')}</dt><dd>{p.seller_level}</dd></div>
+            <div><dt>{t('product.listed')}</dt><dd>{formatDate(p.created_at)}</dd></div>
           </dl>
         </section>
       </div>
@@ -449,7 +452,7 @@ export default function ProductDetailPage() {
       {similar.length > 0 && (
         <>
           <div className="section-head">
-            <h2>Similar products</h2>
+            <h2>{t('product.similarProducts')}</h2>
           </div>
           <div className="product-grid">
             {similar.map((sp) => (
@@ -463,6 +466,7 @@ export default function ProductDetailPage() {
 }
 
 function ProductReviews({ productId, signedIn, onRequireLogin }: { productId: string; signedIn: boolean; onRequireLogin: () => void }) {
+  const { t } = useI18n()
   const [data, setData] = useState<ProductReviewsResponse | null>(null)
   const [sort, setSort] = useState('newest')
   const [rating, setRating] = useState<number | undefined>()
@@ -489,11 +493,11 @@ function ProductReviews({ productId, signedIn, onRequireLogin }: { productId: st
   const summary = data?.summary
   return (
     <section className="product-reviews" aria-labelledby="customer-reviews">
-      <div className="section-head"><h2 id="customer-reviews">Customer reviews</h2></div>
+      <div className="section-head"><h2 id="customer-reviews">{t('reviews.title')}</h2></div>
       <div className="review-layout">
         <aside className="review-summary card">
           <div className="review-score">{(summary?.average_rating ?? 0).toFixed(1)} <span>★</span></div>
-          <div className="muted">{summary?.total_reviews ?? 0} verified product reviews</div>
+          <div className="muted">{t('reviews.verifiedReviews', { count: summary?.total_reviews ?? 0 })}</div>
           {[5,4,3,2,1].map((n) => {
             const count = summary?.[`rating_${n}_count` as keyof typeof summary] as number ?? 0
             const pct = summary?.total_reviews ? count / summary.total_reviews * 100 : 0
@@ -507,7 +511,7 @@ function ProductReviews({ productId, signedIn, onRequireLogin }: { productId: st
                 disabled={!selectable}
                 onClick={() => selectable && setRating(rating === n ? undefined : n)}
                 aria-pressed={rating === n}
-                title={selectable ? `Show only ${n}-star reviews` : `No ${n}-star reviews yet`}
+                title={selectable ? t('reviews.showOnlyStars', { stars: n }) : t('reviews.noStarReviews', { stars: n })}
               >
                 <span>{n} ★</span><i><b style={{ width: `${pct}%` }} /></i><span>{count}</span>
               </button>
@@ -515,21 +519,21 @@ function ProductReviews({ productId, signedIn, onRequireLogin }: { productId: st
           })}
           {rating !== undefined && (
             <button type="button" className="review-clear-filter" onClick={() => setRating(undefined)}>
-              Clear {rating}★ filter
+              {t('reviews.clearStarsFilter', { stars: rating })}
             </button>
           )}
         </aside>
         <div className="review-feed">
-          <div className="row-between"><strong>Ratings & reviews</strong><select className="input review-sort" value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">Most recent</option><option value="helpful">Most helpful</option><option value="highest_rating">Highest rated</option><option value="lowest_rating">Lowest rated</option></select></div>
+          <div className="row-between"><strong>{t('reviews.ratings')}</strong><select className="input review-sort" value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">{t('reviews.sortNewest')}</option><option value="helpful">{t('reviews.sortHelpful')}</option><option value="highest_rating">{t('reviews.sortHighest')}</option><option value="lowest_rating">{t('reviews.sortLowest')}</option></select></div>
           {data?.reviews.length ? data.reviews.map((review) => (
             <article className="review-card" key={review.id}>
-              <div className="review-meta"><span className="review-stars">{'★'.repeat(review.rating)}{'☆'.repeat(5-review.rating)}</span><strong>{review.buyer_display_name || 'Buyer'}</strong>{review.verified_purchase && <span className="verified-badge">✓ Verified purchase</span>}<span className="muted">{formatDate(review.created_at)}</span></div>
+              <div className="review-meta"><span className="review-stars">{'★'.repeat(review.rating)}{'☆'.repeat(5-review.rating)}</span><strong>{review.buyer_display_name || t('reviews.buyer')}</strong>{review.verified_purchase && <span className="verified-badge">✓ {t('reviews.verifiedPurchase')}</span>}<span className="muted">{formatDate(review.created_at)}</span></div>
               {review.comment && <p>{review.comment}</p>}
-              <div className="review-actions"><button onClick={() => helpful(review.id, review.helpful_by_me)} aria-pressed={review.helpful_by_me}>{review.helpful_by_me ? 'Helpful ✓' : 'Helpful'} ({review.helpful_count})</button><button onClick={() => signedIn ? setReplying(replying === review.id ? null : review.id) : onRequireLogin()}>Reply</button></div>
+              <div className="review-actions"><button onClick={() => helpful(review.id, review.helpful_by_me)} aria-pressed={review.helpful_by_me}>{review.helpful_by_me ? `${t('reviews.helpfulActive')} ✓` : t('reviews.helpful')} ({review.helpful_count})</button><button onClick={() => signedIn ? setReplying(replying === review.id ? null : review.id) : onRequireLogin()}>{t('reviews.reply')}</button></div>
               {review.replies?.map((r) => <div className="review-reply" key={r.id}><strong>{r.author_display_name}</strong><span className="muted"> · {formatDate(r.created_at)}</span><p>{r.body}</p></div>)}
-              {replying === review.id && <div className="review-reply-form"><textarea className="input" rows={2} maxLength={1000} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write a respectful reply…" /><Button size="sm" onClick={() => sendReply(review.id)}>Post reply</Button></div>}
+              {replying === review.id && <div className="review-reply-form"><textarea className="input" rows={2} maxLength={1000} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={t('reviews.replyPlaceholder')} /><Button size="sm" onClick={() => sendReply(review.id)}>{t('reviews.postReply')}</Button></div>}
             </article>
-          )) : <div className="card muted">No product reviews yet. Reviews appear here after a verified purchase.</div>}
+          )) : <div className="card muted">{t('reviews.noneYetLong')}</div>}
         </div>
       </div>
     </section>

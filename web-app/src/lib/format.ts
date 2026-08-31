@@ -1,3 +1,8 @@
+import type { Dictionary } from '@/store/i18n'
+
+/** Signature-compatible with the store's `t`, so the hook can be passed in. */
+export type Translator = (key: keyof Dictionary, vars?: Record<string, string | number>) => string
+
 export function formatMoney(amount: number, currency = 'FC'): string {
   if (amount === null || amount === undefined || isNaN(amount)) return `0 ${currency}`
   const rounded = Math.round(amount * 100) / 100
@@ -8,18 +13,18 @@ export function formatMoney(amount: number, currency = 'FC'): string {
   return frac ? `${grouped}.${frac}\u00A0${currency}` : `${grouped}\u00A0${currency}`
 }
 
-export function formatDate(iso?: string | null): string {
+export function formatDate(iso?: string | null, locale = 'en-GB'): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function formatDateTime(iso?: string | null): string {
+export function formatDateTime(iso?: string | null, locale = 'en-GB'): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'
-  return d.toLocaleString('en-GB', {
+  return d.toLocaleString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -28,17 +33,17 @@ export function formatDateTime(iso?: string | null): string {
   })
 }
 
-export function timeAgo(iso?: string | null): string {
+export function timeAgo(iso?: string | null, t?: Translator): string {
   if (!iso) return '—'
   const d = new Date(iso)
   const diff = Date.now() - d.getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return t ? t('time.justNow') : 'just now'
+  if (mins < 60) return t ? t('time.minutesAgo', { count: mins }) : `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
+  if (hrs < 24) return t ? t('time.hoursAgo', { count: hrs }) : `${hrs}h ago`
   const days = Math.floor(hrs / 24)
-  if (days < 7) return `${days}d ago`
+  if (days < 7) return t ? t('time.daysAgo', { count: days }) : `${days}d ago`
   return formatDate(iso)
 }
 

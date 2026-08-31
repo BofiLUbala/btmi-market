@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 interface InventoryRow {
   inventory: {
@@ -38,6 +39,7 @@ interface MovementRow {
 }
 
 export default function SellerStockPage() {
+  const t = useT()
   const { activeShop } = useAuth()
   const [tab, setTab] = useState<'inventory' | 'movements'>('inventory')
   const [rows, setRows] = useState<InventoryRow[]>([])
@@ -67,7 +69,7 @@ export default function SellerStockPage() {
         setMovements(Array.isArray(data) ? data : [])
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load stock data')
+      setError(err instanceof Error ? err.message : t('seller.stockPage.loadFailed'))
       setRows([])
       setMovements([])
     } finally {
@@ -79,7 +81,7 @@ export default function SellerStockPage() {
     if (!activeShop) return
     const qty = parseInt(restock[row.inventory.id], 10)
     if (isNaN(qty) || qty <= 0) {
-      setActionError('Enter a valid quantity')
+      setActionError(t('seller.stockPage.validQty'))
       return
     }
     setActingId(row.inventory.id)
@@ -88,12 +90,12 @@ export default function SellerStockPage() {
       await inventoryApi.addStock(activeShop, {
         variant_id: row.inventory.variant_id,
         quantity: qty,
-        notes: 'Web restock',
+        notes: t('seller.stockPage.noteWebRestock'),
       })
       setRestock((prev) => ({ ...prev, [row.inventory.id]: '' }))
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to add stock')
+      setActionError(err instanceof Error ? err.message : t('seller.stockPage.addFailed'))
     } finally {
       setActingId(null)
     }
@@ -103,11 +105,11 @@ export default function SellerStockPage() {
     return (
       <div className="seller-stock">
         <div className="page-header">
-          <h1>Inventory & Stock</h1>
+          <h1>{t('seller.stockPage.title')}</h1>
         </div>
         <Card>
-          <h2>No Shop Selected</h2>
-          <p className="muted">Select a shop from the header to manage inventory.</p>
+          <h2>{t('seller.stockPage.noShopTitle')}</h2>
+          <p className="muted">{t('seller.stockPage.noShopDesc')}</p>
         </Card>
       </div>
     )
@@ -116,20 +118,20 @@ export default function SellerStockPage() {
   return (
     <div className="seller-stock">
       <div className="page-header">
-        <h1>Inventory & Stock</h1>
+        <h1>{t('seller.stockPage.title')}</h1>
       </div>
 
       <div className="row-sm mb-4">
         <Button variant={tab === 'inventory' ? 'primary' : 'outline'} onClick={() => setTab('inventory')}>
-          Inventory
+          {t('seller.stockPage.tabInventory')}
         </Button>
         <Button variant={tab === 'movements' ? 'primary' : 'outline'} onClick={() => setTab('movements')}>
-          Stock History
+          {t('seller.stockPage.tabMovements')}
         </Button>
       </div>
 
       {loading ? (
-        <LoadingBlock label="Loading stock data…" />
+        <LoadingBlock label={t('seller.stockPage.loading')} />
       ) : error ? (
         <ErrorBox error={error} />
       ) : tab === 'inventory' ? (
@@ -139,8 +141,8 @@ export default function SellerStockPage() {
             <Card>
               <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
                 <div className="empty-icon" style={{ fontSize: 48 }}>📦</div>
-                <h3>No Inventory Yet</h3>
-                <p className="muted">Add stock for your product variants to see them here.</p>
+                <h3>{t('seller.stockPage.noInventoryTitle')}</h3>
+                <p className="muted">{t('seller.stockPage.noInventoryDesc')}</p>
               </div>
             </Card>
           ) : (
@@ -149,12 +151,12 @@ export default function SellerStockPage() {
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Product</th>
-                      <th>Variant</th>
-                      <th className="num">On Hand</th>
-                      <th className="num">Reserved</th>
-                      <th className="num">Available</th>
-                      <th>Restock</th>
+                      <th>{t('product.product')}</th>
+                      <th>{t('product.variant')}</th>
+                      <th className="num">{t('seller.stockPage.onHand')}</th>
+                      <th className="num">{t('points.reserved')}</th>
+                      <th className="num">{t('seller.productList.availableLabel')}</th>
+                      <th>{t('seller.stockPage.restock')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -176,14 +178,14 @@ export default function SellerStockPage() {
                               className="input input-sm"
                               type="number"
                               min="1"
-                              placeholder="Qty"
-                              aria-label={`Restock quantity for ${row.product?.name ?? 'variant'}`}
+                              placeholder={t('seller.productDetail.qtyPlaceholder')}
+                              aria-label={t('seller.stockPage.restockAria', { product: row.product?.name ?? t('product.variant') })}
                               value={restock[row.inventory.id] ?? ''}
                               onChange={(e) => setRestock((prev) => ({ ...prev, [row.inventory.id]: e.target.value }))}
                               style={{ width: 72 }}
                             />
                             <Button size="sm" disabled={actingId === row.inventory.id} onClick={() => addStock(row)}>
-                              {actingId === row.inventory.id ? '…' : 'Add'}
+                              {actingId === row.inventory.id ? '…' : t('seller.stockPage.add')}
                             </Button>
                           </div>
                         </td>
@@ -198,18 +200,18 @@ export default function SellerStockPage() {
       ) : (
         <Card>
           {movements.length === 0 ? (
-            <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>No stock movements yet</p>
+            <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>{t('seller.stockPage.noMovements')}</p>
           ) : (
             <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Type</th>
-                    <th className="num">Change</th>
-                    <th className="num">Previous</th>
-                    <th className="num">New</th>
-                    <th>Notes</th>
-                    <th>Date</th>
+                    <th>{t('seller.onboarding.shopType')}</th>
+                    <th className="num">{t('seller.stockPage.change')}</th>
+                    <th className="num">{t('common.previous')}</th>
+                    <th className="num">{t('seller.stockPage.new')}</th>
+                    <th>{t('seller.orders.notesLabel')}</th>
+                    <th>{t('common.date')}</th>
                   </tr>
                 </thead>
                 <tbody>

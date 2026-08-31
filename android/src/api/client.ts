@@ -1,6 +1,24 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { tokenStore } from './tokenStore'
+import { fr } from '../locales/fr'
+import { en } from '../locales/en'
+
+/** Stored language flag (same key as src/store/i18n.tsx). */
+const LANGUAGE_STORAGE_KEY = 'btmi.lang'
+
+/** Resolves a dictionary key against the stored language (French by default),
+ *  mirroring the i18n fallback. Used only for user-visible error fallbacks. */
+async function localized(key: keyof typeof fr): Promise<string> {
+  let lang: string | null = null
+  try {
+    lang = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)
+  } catch {
+    /* unreadable storage: stay on French */
+  }
+  return (lang === 'en' ? en[key] : undefined) ?? fr[key] ?? key
+}
 
 const emulatorDefault = Platform.OS === 'android'
   ? 'http://10.0.2.2:8080/api/v1'
@@ -72,14 +90,21 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   const token = await tokenStore.getAccess()
   if (token) headers.set('Authorization', `Bearer ${token}`)
   let response: Response
-  try { response = await fetch(`${API_URL}${path}`, { ...init, headers }) }
-  catch { throw new ApiError(0, 'NETWORK_ERROR', 'Check your connection and try again.') }
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10_000)
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...init, headers, signal: controller.signal })
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', await localized('errors.network'))
+  } finally {
+    clearTimeout(timeout)
+  }
   if (response.status === 401 && retry) {
     refreshPromise ??= refreshSession().finally(() => { refreshPromise = null })
     if (await refreshPromise) return request<T>(path, init, false)
   }
   if (!response.ok) {
-    let code = 'REQUEST_FAILED'; let message = 'Something went wrong. Please try again.'
+    let code = 'REQUEST_FAILED'; let message = await localized('errors.generic')
     try { const body = await response.json(); code = body?.error?.code || code; message = body?.error?.message || message } catch {}
     throw new ApiError(response.status, code, message)
   }

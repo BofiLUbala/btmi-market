@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { marketplaceApi } from '../../src/api'
 import { ProductCard } from '../../src/components/ProductCard'
 import { Button } from '../../src/components/ui'
+import { useI18n } from '../../src/store/i18n'
 import { colors, radius, spacing } from '../../src/theme'
 import { categoryImage } from '../../src/lib/categoryVisuals'
 import type { PublicProduct } from '../../src/types'
@@ -18,6 +19,7 @@ function ProductSkeleton() {
 }
 
 export default function HomeScreen() {
+  const { t } = useI18n()
   const [search, setSearch] = useState('')
   const [visualResults, setVisualResults] = useState<PublicProduct[] | null>(null)
   const [visualImage, setVisualImage] = useState<string | null>(null)
@@ -42,7 +44,7 @@ export default function HomeScreen() {
   const takeProductPhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert('Caméra nécessaire', 'Autorisez l’accès à la caméra pour rechercher un produit à partir d’une photo.')
+      Alert.alert(t('profile.cameraNeeded'), t('home.cameraNeededBody'))
       return
     }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: .72 })
@@ -52,7 +54,7 @@ export default function HomeScreen() {
   const chooseProductImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert('Photos nécessaires', 'Autorisez l’accès aux photos pour choisir l’image d’un objet à rechercher.')
+      Alert.alert(t('profile.photosNeeded'), t('home.photosNeededBody'))
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: .72, selectionLimit: 1 })
@@ -65,27 +67,27 @@ export default function HomeScreen() {
   const stickyHeader = (
     <View style={styles.stickyHeader}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => router.push('/(buyer)')} accessibilityRole="button" accessibilityLabel="TBK — accueil">
+        <Pressable onPress={() => router.push('/(buyer)')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt')}>
           <View style={styles.logo}><Text style={styles.logoText}>TBK</Text></View>
         </Pressable>
-        <Pressable style={styles.iconButton} onPress={() => router.push('/(buyer)/profile')} accessibilityLabel="Ouvrir mon profil"><Ionicons name="person-outline" size={21} color={colors.green}/></Pressable>
+        <Pressable style={styles.iconButton} onPress={() => router.push('/(buyer)/profile')} accessibilityLabel={t('home.openProfile')}><Ionicons name="person-outline" size={21} color={colors.green}/></Pressable>
       </View>
-      <View style={styles.searchBox}><Ionicons name="search" size={20} color={colors.muted}/><TextInput value={search} onChangeText={(value) => { clearVisualSearch(); setSearch(value) }} placeholder="Produit, catégorie ou boutique" placeholderTextColor={colors.mutedLight} style={styles.searchInput} returnKeyType="search" clearButtonMode="while-editing"/>{search.length > 0 && <Pressable onPress={() => setSearch('')} accessibilityLabel="Effacer la recherche"><Ionicons name="close-circle" size={20} color={colors.mutedLight}/></Pressable>}<View style={styles.searchDivider}/><Pressable style={styles.cameraButton} onPress={takeProductPhoto} accessibilityRole="button" accessibilityLabel="Prendre une photo pour rechercher"><Ionicons name="camera-outline" size={22} color={colors.green}/></Pressable><Pressable style={styles.cameraButton} onPress={chooseProductImage} accessibilityRole="button" accessibilityLabel="Choisir une image dans la galerie"><Ionicons name="images-outline" size={21} color={colors.green}/></Pressable></View>
+      <View style={styles.searchBox}><Ionicons name="search" size={20} color={colors.muted}/><TextInput value={search} onChangeText={(value) => { clearVisualSearch(); setSearch(value) }} placeholder={t('home.searchPlaceholder')} placeholderTextColor={colors.mutedLight} style={styles.searchInput} returnKeyType="search" clearButtonMode="while-editing"/>{search.length > 0 && <Pressable onPress={() => setSearch('')} accessibilityLabel={t('home.clearSearch')}><Ionicons name="close-circle" size={20} color={colors.mutedLight}/></Pressable>}<View style={styles.searchDivider}/><Pressable style={styles.cameraButton} onPress={takeProductPhoto} accessibilityRole="button" accessibilityLabel={t('home.takePhotoSearch')}><Ionicons name="camera-outline" size={22} color={colors.green}/></Pressable><Pressable style={styles.cameraButton} onPress={chooseProductImage} accessibilityRole="button" accessibilityLabel={t('home.chooseImageSearch')}><Ionicons name="images-outline" size={21} color={colors.green}/></Pressable></View>
     </View>
   )
 
   const header = <>
     <View style={styles.sectionBlock}>
-      <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Catégories</Text><Pressable onPress={() => router.push('/(buyer)/categories')}><Text style={styles.link}>Tout voir</Text></Pressable></View>
+      <View style={styles.sectionHead}><Text style={styles.sectionTitle}>{t('tabs.categories')}</Text><Pressable onPress={() => router.push('/(buyer)/categories')}><Text style={styles.link}>{t('home.seeAll')}</Text></Pressable></View>
       {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><Image source={categoryImage(category.slug, category.name)} style={styles.categoryImage} contentFit="cover" transition={140}/><Text style={styles.categoryText}>{category.name}</Text></Pressable>)}</ScrollView>}
     </View>
 
-    <View style={styles.productsHead}><View><Text style={styles.sectionTitle}>{visualMode ? 'Produits similaires' : term ? 'Résultats' : 'Sélection pour vous'}</Text><Text style={styles.sectionSubtitle}>{visualMode ? 'Résultats trouvés à partir de votre photo' : term ? `Recherche : “${term}”` : 'Des produits proposés par nos boutiques'}</Text></View>{visualImage && <Pressable onPress={clearVisualSearch} style={styles.visualPreview} accessibilityLabel="Fermer la recherche par photo"><Image source={visualImage} style={styles.visualImage} contentFit="cover"/><View style={styles.previewClose}><Ionicons name="close" size={13} color={colors.white}/></View></Pressable>}</View>
+    <View style={styles.productsHead}><View><Text style={styles.sectionTitle}>{visualMode ? t('home.similarProducts') : term ? t('home.results') : t('home.pickedForYou')}</Text><Text style={styles.sectionSubtitle}>{visualMode ? t('home.visualSubtitle') : term ? t('home.searchSubtitle', { term }) : t('home.featuredSubtitle')}</Text></View>{visualImage && <Pressable onPress={clearVisualSearch} style={styles.visualPreview} accessibilityLabel={t('home.closeVisualSearch')}><Image source={visualImage} style={styles.visualImage} contentFit="cover"/><View style={styles.previewClose}><Ionicons name="close" size={13} color={colors.white}/></View></Pressable>}</View>
   </>
 
   return <SafeAreaView style={styles.safe} edges={['top']}>
     {stickyHeader}
-    <FlatList data={failed || loading ? [] : data} numColumns={2} keyExtractor={(item) => item.id} columnWrapperStyle={styles.productRow} contentContainerStyle={styles.list} ListHeaderComponent={header} keyboardShouldPersistTaps="handled" renderItem={({item}) => <ProductCard product={item} onPress={() => router.push(`/products/${item.id}`)}/>} ListEmptyComponent={loading ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="scan-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? 'Analyse de la photo…' : 'Chargement…'}</Text><Text style={styles.stateText}>{visualMode ? 'Nous comparons votre photo aux produits du marché.' : 'Nous préparons votre sélection.'}</Text><ActivityIndicator color={colors.green}/></View> : failed ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="cloud-offline-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? 'Image non analysée' : 'Connexion impossible'}</Text><Text style={styles.stateText}>{visualMode ? 'Vérifiez la connexion au serveur, puis choisissez une autre image nette de l’objet.' : 'Vérifiez que le téléphone et le serveur TBK utilisent le même réseau, puis réessayez.'}</Text><Button title={visualMode ? 'Choisir une autre image' : 'Réessayer'} onPress={visualMode ? chooseProductImage : () => term ? searchQuery.refetch() : products.refetch()}/></View> : <View style={styles.compactState}><Ionicons name={visualMode ? 'images-outline' : 'search-outline'} size={30} color={colors.muted}/><Text style={styles.stateTitle}>Aucun produit trouvé</Text><Text style={styles.stateText}>{visualMode ? 'Essayez une image plus nette, avec l’objet bien centré et suffisamment éclairé.' : 'Essayez un autre nom ou parcourez les catégories.'}</Text></View>}/>
+    <FlatList data={failed || loading ? [] : data} numColumns={2} keyExtractor={(item) => item.id} columnWrapperStyle={styles.productRow} contentContainerStyle={styles.list} ListHeaderComponent={header} keyboardShouldPersistTaps="handled" renderItem={({item}) => <ProductCard product={item} onPress={() => router.push(`/products/${item.id}`)}/>} ListEmptyComponent={loading ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="scan-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? t('home.analyzingPhoto') : t('common.loading')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualAnalyzingHint') : t('home.preparingSelection')}</Text><ActivityIndicator color={colors.green}/></View> : failed ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="cloud-offline-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? t('home.imageNotAnalyzed') : t('home.connectionFailed')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualFailedBody') : t('home.connectionFailedBody')}</Text><Button title={visualMode ? t('home.chooseAnotherImage') : t('common.retry')} onPress={visualMode ? chooseProductImage : () => term ? searchQuery.refetch() : products.refetch()}/></View> : <View style={styles.compactState}><Ionicons name={visualMode ? 'images-outline' : 'search-outline'} size={30} color={colors.muted}/><Text style={styles.stateTitle}>{t('home.noProductsFound')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualNoProductsBody') : t('home.searchNoProductsBody')}</Text></View>}/>
   </SafeAreaView>
 }
 

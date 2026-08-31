@@ -4,6 +4,8 @@ import { marketplaceApi } from '@/api/marketplace'
 import type { CategoryResponse, PublicProduct, PublicShop, SubcategoryResponse } from '@/api/types'
 import { formatMoney, initials } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { useI18n } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 
 type Suggestion =
   | { kind: 'product'; id: string; label: string; detail: string; href: string; product: PublicProduct }
@@ -32,6 +34,7 @@ export function SearchAutocomplete({
   className?: string
 }) {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -72,11 +75,11 @@ export function SearchAutocomplete({
         const subcategoryItems: Suggestion[] = []
         for (const category of categories) {
           if (category.name.toLocaleLowerCase().includes(needle)) {
-            categoryItems.push({ kind: 'category', id: category.id, label: category.name, detail: 'Category', href: `/categories/${category.slug}`, category })
+            categoryItems.push({ kind: 'category', id: category.id, label: category.name, detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
           }
           for (const subcategory of category.subcategories ?? []) {
             if (subcategory.name.toLocaleLowerCase().includes(needle)) {
-              subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subcategory.name, detail: `In ${category.name}`, href: `/categories/${category.slug}`, category, subcategory })
+              subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subcategory.name, detail: t('search.kind.inCategory', { category: category.name }), href: `/categories/${category.slug}`, category, subcategory })
             }
           }
         }
@@ -101,7 +104,7 @@ export function SearchAutocomplete({
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [query])
+  }, [query, t])
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -111,10 +114,20 @@ export function SearchAutocomplete({
     return () => document.removeEventListener('mousedown', close)
   }, [])
 
+  const GROUP_LABELS: Record<Suggestion['kind'], TranslationKey> = {
+    product: 'search.group.products',
+    shop: 'search.group.shops',
+    category: 'search.group.categories',
+    subcategory: 'search.group.subcategories',
+  }
+
   const groups = useMemo(() => {
-    const labels: Record<Suggestion['kind'], string> = { product: 'Products', shop: 'Shops', category: 'Categories', subcategory: 'Subcategories' }
-    return (Object.keys(labels) as Suggestion['kind'][]).map((kind) => ({ kind, label: labels[kind], items: suggestions.filter((item) => item.kind === kind) })).filter((group) => group.items.length)
-  }, [suggestions])
+    return (Object.keys(GROUP_LABELS) as Suggestion['kind'][]).map((kind) => ({
+      kind,
+      label: t(GROUP_LABELS[kind]),
+      items: suggestions.filter((item) => item.kind === kind),
+    })).filter((group) => group.items.length)
+  }, [suggestions, t])
 
   function setValue(value: string) {
     setQuery(value)
@@ -169,20 +182,20 @@ export function SearchAutocomplete({
   return (
     <div ref={rootRef} className={`search-autocomplete search-autocomplete--${variant} ${className}`.trim()}>
       <form className={variant === 'header' ? 'header-search' : 'search-autocomplete-form'} onSubmit={submit} role="search">
-        <input ref={inputRef} className={variant === 'page' ? 'input' : undefined} value={query} onChange={(event) => setValue(event.target.value)} onFocus={() => query.trim().length >= 2 && setOpen(true)} onKeyDown={onKeyDown} placeholder="Search products, shops…" aria-label="Search products, shops and categories" role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} />
-        {query && <button className="search-clear" type="button" aria-label="Clear search" onClick={() => { setValue(''); setSuggestions([]); setOpen(false); inputRef.current?.focus() }}>×</button>}
+        <input ref={inputRef} className={variant === 'page' ? 'input' : undefined} value={query} onChange={(event) => setValue(event.target.value)} onFocus={() => query.trim().length >= 2 && setOpen(true)} onKeyDown={onKeyDown} placeholder={t('search.placeholder')} aria-label={t('search.autocompleteAria')} role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} />
+        {query && <button className="search-clear" type="button" aria-label={t('search.clear')} onClick={() => { setValue(''); setSuggestions([]); setOpen(false); inputRef.current?.focus() }}>×</button>}
         <input ref={imageInputRef} className="visual-search-input" type="file" accept="image/jpeg,image/png" onChange={searchImage} tabIndex={-1} />
-        <button className="visual-search-button" type="button" aria-label="Search using an image" title="Search using an image" disabled={imageStatus === 'loading'} onClick={() => imageInputRef.current?.click()}>{imageStatus === 'loading' ? '…' : '📷'}</button>
-        <button className="search-submit" type="submit">Search</button>
+        <button className="visual-search-button" type="button" aria-label={t('search.byImage')} title={t('search.byImage')} disabled={imageStatus === 'loading'} onClick={() => imageInputRef.current?.click()}>{imageStatus === 'loading' ? '…' : '📷'}</button>
+        <button className="search-submit" type="submit">{t('common.search')}</button>
       </form>
 
-      {imageStatus === 'error' && <div className="visual-search-error" role="alert">Choose a JPEG or PNG image smaller than 6 MB, then try again.</div>}
+      {imageStatus === 'error' && <div className="visual-search-error" role="alert">{t('search.imageError')}</div>}
 
       {open && query.trim().length >= 2 && (
-        <div id={listId} className="search-suggestions" role="listbox" aria-label="Search suggestions">
-          {status === 'loading' && <div className="search-message" role="status">Searching marketplace…</div>}
-          {status === 'error' && <div className="search-message search-message--error" role="alert">Suggestions are unavailable. Press Search to try the full results.</div>}
-          {status === 'ready' && suggestions.length === 0 && <div className="search-message">No matches for “{query.trim()}”.</div>}
+        <div id={listId} className="search-suggestions" role="listbox" aria-label={t('search.suggestionsAria')}>
+          {status === 'loading' && <div className="search-message" role="status">{t('search.searching')}</div>}
+          {status === 'error' && <div className="search-message search-message--error" role="alert">{t('search.suggestionsUnavailable')}</div>}
+          {status === 'ready' && suggestions.length === 0 && <div className="search-message">{t('search.noMatches', { query: query.trim() })}</div>}
           {status === 'ready' && groups.map((group) => (
             <section className="search-suggestion-group" key={group.kind} aria-label={group.label}>
               <div className="search-suggestion-heading">{group.label}</div>
@@ -192,7 +205,7 @@ export function SearchAutocomplete({
               })}
             </section>
           ))}
-          {status === 'ready' && <Link className="search-view-all" to={`/search?q=${encodeURIComponent(query.trim())}`} onClick={() => setOpen(false)}>View all results for “{query.trim()}”</Link>}
+          {status === 'ready' && <Link className="search-view-all" to={`/search?q=${encodeURIComponent(query.trim())}`} onClick={() => setOpen(false)}>{t('search.viewAll', { query: query.trim() })}</Link>}
         </div>
       )}
     </div>

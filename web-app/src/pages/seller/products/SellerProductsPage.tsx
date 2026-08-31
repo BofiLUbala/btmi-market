@@ -6,12 +6,24 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useAuth } from '@/store/auth'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 
-const FILTERS: Array<{ label: string; value: '' | PublicationStatus }> = [
-  { label: 'All', value: '' },
-  { label: 'Published', value: 'PUBLISHED' },
-  { label: 'Drafts', value: 'DRAFT' },
-]
+type FilterOption = { label: string; value: '' | PublicationStatus }
+
+function getFilters(t: ReturnType<typeof useT>): FilterOption[] {
+  return [
+    { label: t('seller.productList.filterAll'), value: '' },
+    { label: t('seller.productList.filterPublished'), value: 'PUBLISHED' },
+    { label: t('seller.productList.filterDrafts'), value: 'DRAFT' },
+  ]
+}
+
+function publicationStatusLabel(status: string, t: ReturnType<typeof useT>): string {
+  const key = `seller.publicationStatus.${status}`
+  const value = t(key as TranslationKey)
+  return value === key ? status : value
+}
 
 type ShopInventoryRow = {
   inventory: InventoryItem
@@ -20,6 +32,7 @@ type ShopInventoryRow = {
 }
 
 export default function SellerProductsPage() {
+  const t = useT()
   const { activeBusiness, activeShop } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [availableByProduct, setAvailableByProduct] = useState<Record<string, number>>({})
@@ -70,7 +83,7 @@ export default function SellerProductsPage() {
       setProducts(scopedProducts)
       setAvailableByProduct(stockByProduct)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load products')
+      setError(err instanceof Error ? err.message : t('seller.productList.loadFailed'))
       setProducts([])
       setAvailableByProduct({})
     } finally {
@@ -81,25 +94,25 @@ export default function SellerProductsPage() {
   async function sendToMarketplace(product: Product) {
     if (!activeBusiness) return
     if (!activeShop) {
-      setError('Select a Shop in the top bar before sending this product to the marketplace.')
+      setError(t('seller.productList.selectShopFirst'))
       return
     }
     setBusyId(product.id)
     setError('')
     try {
       const variants = await productApi.listVariants(activeBusiness.id, product.id)
-      if (variants.length === 0) throw new Error('This product needs at least one variant before publication.')
+      if (variants.length === 0) throw new Error(t('seller.productList.needVariant'))
       await Promise.all(
         variants.map((variant) => inventoryApi.addStock(activeShop, {
           variant_id: variant.id,
           quantity: 0,
-          notes: 'Marketplace offer registration',
+          notes: t('seller.productList.noteMarketplaceOffer'),
         }))
       )
       await productApi.update(activeBusiness.id, product.id, { publication_status: 'PUBLISHED', status: 'ACTIVE' })
       await loadProducts()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send product to marketplace')
+      setError(err instanceof Error ? err.message : t('seller.productList.sendFailed'))
     } finally {
       setBusyId('')
     }
@@ -113,7 +126,7 @@ export default function SellerProductsPage() {
       await productApi.update(activeBusiness.id, product.id, { publication_status: 'DRAFT' })
       await loadProducts()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to unpublish product')
+      setError(err instanceof Error ? err.message : t('seller.productList.unpublishFailed'))
     } finally {
       setBusyId('')
     }
@@ -122,7 +135,7 @@ export default function SellerProductsPage() {
   async function archiveProduct(product: Product) {
     if (!activeBusiness) return
     const confirmed = window.confirm(
-      `Delete “${product.name}” from your active catalog? Its sales history will be preserved.`
+      t('seller.productList.archiveConfirm', { name: product.name })
     )
     if (!confirmed) return
     setBusyId(product.id)
@@ -134,7 +147,7 @@ export default function SellerProductsPage() {
       })
       setProducts((current) => current.filter((item) => item.id !== product.id))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete product')
+      setError(err instanceof Error ? err.message : t('seller.productList.deleteFailed'))
     } finally {
       setBusyId('')
     }
@@ -144,8 +157,8 @@ export default function SellerProductsPage() {
     return (
       <div className="empty-state seller-products-empty">
         <div className="empty-icon">📦</div>
-        <h2>No Business Selected</h2>
-        <p className="muted">Select a business to manage products.</p>
+        <h2>{t('seller.noBusinessSelected')}</h2>
+        <p className="muted">{t('seller.productList.noBusinessSubtitle')}</p>
       </div>
     )
   }
@@ -154,18 +167,18 @@ export default function SellerProductsPage() {
     <div className="seller-products">
       <div className="seller-products-head">
         <div>
-          <h1>Products</h1>
-          <p className="muted">Products available in the selected shop only.</p>
+          <h1>{t('seller.products')}</h1>
+          <p className="muted">{t('seller.productList.scopedDesc')}</p>
         </div>
-        <Link to="/seller/products/select-shop" className="btn btn-primary">+ Create Product</Link>
+        <Link to="/seller/products/select-shop" className="btn btn-primary">{t('seller.productList.createProduct')}</Link>
       </div>
 
       {!activeShop ? (
         <Card>
           <div className="empty-state seller-products-empty">
             <div className="empty-icon">🏪</div>
-            <h3>Select a shop</h3>
-            <p className="muted">Choose a shop in the top bar to view only its products and stock.</p>
+            <h3>{t('seller.productList.selectShopTitle')}</h3>
+            <p className="muted">{t('seller.productList.selectShopDesc')}</p>
           </div>
         </Card>
       ) : <>
@@ -175,13 +188,13 @@ export default function SellerProductsPage() {
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by product name, SKU or description…"
-          aria-label="Search products"
+          placeholder={t('seller.productList.searchPlaceholder')}
+          aria-label={t('seller.productList.searchAria')}
         />
-        <div className="seller-product-filters" aria-label="Filter products by status">
-          {FILTERS.map((filter) => (
+        <div className="seller-product-filters" aria-label={t('seller.productList.filterAria')}>
+          {getFilters(t).map((filter) => (
             <button
-              key={filter.label}
+              key={filter.value || 'all'}
               type="button"
               className={`seller-product-filter${status === filter.value ? ' active' : ''}`}
               onClick={() => setStatus(filter.value)}
@@ -194,13 +207,13 @@ export default function SellerProductsPage() {
 
       {error && <ErrorBox error={error} />}
       {loading ? (
-        <LoadingBlock label="Loading products…" />
+        <LoadingBlock label={t('seller.productList.loading')} />
       ) : products.length === 0 ? (
         <Card>
           <div className="empty-state seller-products-empty">
             <div className="empty-icon">⌕</div>
-            <h3>{search || status ? 'No matching products' : 'No Products Yet'}</h3>
-            <p className="muted">{search || status ? 'Try another search or filter.' : 'Create your first product to start selling.'}</p>
+            <h3>{search || status ? t('seller.productList.noMatchTitle') : t('seller.productList.noProductsTitle')}</h3>
+            <p className="muted">{search || status ? t('seller.productList.noMatchDesc') : t('seller.productList.noProductsDesc')}</p>
           </div>
         </Card>
       ) : (
@@ -211,18 +224,18 @@ export default function SellerProductsPage() {
             return (
               <article className="seller-product-card" key={product.id}>
                 <div className="seller-product-card-top">
-                  <span className="badge badge-outline">{product.category_name || 'General'}</span>
+                  <span className="badge badge-outline">{product.category_name || t('seller.productList.generalCategory')}</span>
                   <span className={`badge badge-${product.publication_status === 'PUBLISHED' ? 'success' : 'warning'}`}>
-                    {product.publication_status}
+                    {publicationStatusLabel(product.publication_status, t)}
                   </span>
                 </div>
                 <div className="seller-product-card-main">
                   <h3 title={product.name}>{product.name}</h3>
-                  <span className="mono small muted">{product.sku ? `SKU: ${product.sku}` : 'No SKU'}</span>
+                  <span className="mono small muted">{product.sku ? t('seller.productDetail.skuInfo', { sku: product.sku }) : t('seller.productList.noSku')}</span>
                 </div>
                 <div className="seller-product-card-stats">
                   <div>
-                    <span>Price</span>
+                    <span>{t('common.price')}</span>
                     <strong>
                       {product.discount_active ? (
                         <span style={{ display: 'flex', flexDirection: 'column' }}>

@@ -6,6 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi } from '../../src/api'
 import { useCart } from '../../src/store/cart'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
+import { useI18n } from '../../src/store/i18n'
 import { colors, spacing } from '../../src/theme'
 
 const money = (value: number, currency = 'FC') =>
@@ -14,6 +15,7 @@ const money = (value: number, currency = 'FC') =>
 export default function PaymentScreen() {
   const { orderId } = useLocalSearchParams<{ orderId?: string }>()
   const clearCart = useCart((state) => state.clear)
+  const { t } = useI18n()
   const [error, setError] = useState('')
 
   // Creating the payment is idempotent server-side: re-entering this screen
@@ -37,13 +39,13 @@ export default function PaymentScreen() {
       clearCart()
       router.replace({ pathname: '/orders/[id]', params: { id: orderId! } })
     },
-    onError: () => setError('La confirmation n’a pas pu être enregistrée. Réessayez.'),
+    onError: () => setError(t('checkout.prepareFailed')),
   })
 
-  if (!orderId) return <ErrorState message="Commande introuvable." retry={() => router.replace('/(buyer)/cart')} />
-  if (payment.isLoading || order.isLoading) return <Loading label="Préparation du paiement…" />
+  if (!orderId) return <ErrorState message={t('checkout.orderNotFound')} retry={() => router.replace('/(buyer)/cart')} />
+  if (payment.isLoading || order.isLoading) return <Loading label={t('checkout.preparingPayment')} />
   if (payment.isError || !payment.data) {
-    return <ErrorState message="Impossible de préparer le paiement." retry={() => payment.refetch()} />
+    return <ErrorState message={t('checkout.paymentFailed')} retry={() => payment.refetch()} />
   }
 
   const p = payment.data
@@ -53,21 +55,21 @@ export default function PaymentScreen() {
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.steps}>
-        <Text style={styles.stepDone}>1 Panier</Text>
-        <Text style={styles.stepDone}>2 Livraison</Text>
-        <Text style={styles.stepActive}>3 Paiement</Text>
+        <Text style={styles.stepDone}>1 {t('tabs.cart')}</Text>
+        <Text style={styles.stepDone}>2 {t('checkout.delivery')}</Text>
+        <Text style={styles.stepActive}>3 {t('checkout.payment')}</Text>
       </View>
 
-      <SectionTitle title="Vérifiez votre commande" />
+      <SectionTitle title={t('checkout.reviewOrder')} />
 
       <Card>
-        <Text style={styles.blockTitle}>Produits</Text>
+        <Text style={styles.blockTitle}>{t('checkout.products')}</Text>
         {lines.map((line) => (
           <View key={line.id} style={styles.lineRow}>
             <View style={styles.lineInfo}>
               <Text style={styles.name} numberOfLines={2}>{line.product_name}</Text>
               <Text style={styles.muted}>
-                {[line.variant_name, `Quantité ${line.quantity}`].filter(Boolean).join(' · ')}
+                {[line.variant_name, `${t('common.quantity')} ${line.quantity}`].filter(Boolean).join(' · ')}
               </Text>
             </View>
             <Text style={styles.linePrice}>{money(line.final_unit_price * line.quantity)}</Text>
@@ -76,37 +78,36 @@ export default function PaymentScreen() {
       </Card>
 
       <Card>
-        <Text style={styles.blockTitle}>Détail du montant</Text>
+        <Text style={styles.blockTitle}>{t('checkout.amountBreakdown')}</Text>
         <View style={styles.totalRow}>
-          <Text style={styles.muted}>Produits</Text>
+          <Text style={styles.muted}>{t('checkout.products')}</Text>
           <Text style={styles.value}>{money(p.products_base_total, p.currency)}</Text>
         </View>
         {p.products_points_discount > 0 && (
           <View style={styles.totalRow}>
-            <Text style={styles.muted}>Points produits ({p.products_points_used} pts)</Text>
+            <Text style={styles.muted}>{t('checkout.productPoints', { points: p.products_points_used })}</Text>
             <Text style={styles.discount}>−{money(p.products_points_discount, p.currency)}</Text>
           </View>
         )}
         <View style={styles.totalRow}>
-          <Text style={styles.muted}>Livraison</Text>
+          <Text style={styles.muted}>{t('checkout.delivery')}</Text>
           <Text style={styles.value}>{money(p.delivery_fee_base, p.currency)}</Text>
         </View>
         {p.delivery_points_discount > 0 && (
           <View style={styles.totalRow}>
-            <Text style={styles.muted}>Points livraison ({p.delivery_points_used} pts)</Text>
+            <Text style={styles.muted}>{t('checkout.deliveryPoints', { points: p.delivery_points_used })}</Text>
             <Text style={styles.discount}>−{money(p.delivery_points_discount, p.currency)}</Text>
           </View>
         )}
       </Card>
 
       <Card>
-        <Text style={styles.eyebrow}>À PAYER EN ESPÈCES</Text>
+        <Text style={styles.eyebrow}>{t('checkout.cashDueEyebrow')}</Text>
         <Text style={styles.cashDue}>{money(p.cash_due, p.currency)}</Text>
         <View style={styles.cashNote}>
           <Ionicons name="cash-outline" size={18} color={colors.green} />
           <Text style={styles.muted}>
-            Vous payez en espèces à la livraison ou au retrait. Le vendeur confirmera ensuite
-            la réception du paiement.
+            {t('checkout.cashNote')}
           </Text>
         </View>
       </Card>
@@ -115,7 +116,7 @@ export default function PaymentScreen() {
 
       <Button
         variant="gold"
-        title={alreadyConfirmed ? 'Commande déjà confirmée' : 'Confirmer la commande'}
+        title={alreadyConfirmed ? t('checkout.alreadyConfirmed') : t('checkout.confirmOrder')}
         loading={confirm.isPending}
         disabled={alreadyConfirmed}
         onPress={() => confirm.mutate()}
@@ -124,7 +125,7 @@ export default function PaymentScreen() {
       {alreadyConfirmed && (
         <Button
           variant="outline"
-          title="Voir ma commande"
+          title={t('checkout.viewOrder')}
           onPress={() => router.replace({ pathname: '/orders/[id]', params: { id: orderId } })}
         />
       )}

@@ -7,6 +7,8 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
 import { RequireAuth } from '@/components/auth/Guards'
+import { useI18n } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 
 const POLL_INTERVAL = 15_000 // 15 seconds
 
@@ -16,23 +18,24 @@ const FLOW_STEPS: Record<string, string[]> = {
   PARTNER: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'HANDED_TO_PARTNER', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
 }
 
-function actorLabel(actor?: string) {
-  if (actor === 'SELLER') return 'by Shop'
-  if (actor === 'BUYER') return 'by Buyer'
-  if (actor === 'SYSTEM') return 'by System'
+function actorLabel(actor: string | undefined, t: (key: TranslationKey, vars?: Record<string, string | number>) => string) {
+  if (actor === 'SELLER') return t('tracking.byShop')
+  if (actor === 'BUYER') return t('tracking.byBuyer')
+  if (actor === 'SYSTEM') return t('tracking.bySystem')
   return ''
 }
 
-function timeAgo(date: Date): string {
+function timeAgo(date: Date, t: (key: TranslationKey, vars?: Record<string, string | number>) => string): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 5) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
+  if (seconds < 5) return t('time.justNow')
+  if (seconds < 60) return t('time.secondsAgo', { count: seconds })
   const minutes = Math.floor(seconds / 60)
-  return `${minutes}m ago`
+  return t('time.minutesAgo', { count: minutes })
 }
 
 function TrackInner() {
   const { orderId = '' } = useParams()
+  const { t } = useI18n()
   const [data, setData] = useState<TrackingResponse | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -57,7 +60,7 @@ function TrackInner() {
       setLastUpdated(new Date())
       setError('')
     } catch (e) {
-      if (!silent) setError(e instanceof Error ? e.message : 'Could not load tracking')
+      if (!silent) setError(e instanceof Error ? e.message : t('tracking.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -102,8 +105,8 @@ function TrackInner() {
     return () => clearInterval(id)
   }, [])
 
-  if (loading) return <LoadingBlock label="Loading tracking…" />
-  if (error || !data) return <ErrorBox error={error || 'No tracking data'} onRetry={() => void fetchTracking()} />
+  if (loading) return <LoadingBlock label={t('tracking.loading')} />
+  if (error || !data) return <ErrorBox error={error || t('tracking.noData')} onRetry={() => void fetchTracking()} />
 
   const baseSteps = FLOW_STEPS[data.delivery_method] ?? [data.current_status]
   const statusSteps = baseSteps.includes(data.current_status) ? baseSteps : [...baseSteps, data.current_status]
@@ -111,36 +114,35 @@ function TrackInner() {
 
   return (
     <div className="fade-in">
-      <Link to={`/orders/${orderId}`} className="small section-link">← Order details</Link>
+      <Link to={`/orders/${orderId}`} className="small section-link">← {t('tracking.orderDetails')}</Link>
 
       {/* Live sync bar */}
       <div className="live-bar">
-        <span className="live-label"><span className="live-dot" /> Live</span>
-        <span>{lastUpdated ? `Updated ${timeAgo(lastUpdated)}` : 'Loading…'}</span>
+        <span className="live-label"><span className="live-dot" /> {t('orders.live')}</span>
+        <span>{lastUpdated ? t('orders.updated', { time: timeAgo(lastUpdated, t) }) : t('common.loading')}</span>
         <button className="refresh-btn" onClick={() => void fetchTracking()} disabled={refreshing}>
-          {refreshing ? '⟳' : 'Refresh'}
+          {refreshing ? '⟳' : t('orders.refresh')}
         </button>
       </div>
 
       <div className={`row-between${statusFlash ? ' status-updated' : ''}`} style={{ marginTop: 8 }}>
-        <h1 style={{ fontSize: '1.5rem' }}>Tracking</h1>
+        <h1 style={{ fontSize: '1.5rem' }}>{t('tracking.title')}</h1>
         <StatusBadge status={data.current_status} />
       </div>
       <div className="small muted">
-        Order {data.order_number} · {data.delivery_method.replace(/_/g, ' ').toLowerCase()} ·{' '}
-        Payment: {data.payment_status.replace(/_/g, ' ').toLowerCase()}
+        {t('tracking.summary', { number: data.order_number, method: data.delivery_method.replace(/_/g, ' ').toLowerCase(), status: data.payment_status.replace(/_/g, ' ').toLowerCase() })}
       </div>
 
       {data.latest_update && (
         <div className="card" style={{ marginTop: 12, background: 'var(--color-accent-soft)', border: 'none' }}>
-          <div className="bold small">Latest update</div>
+          <div className="bold small">{t('tracking.latestUpdate')}</div>
           <p className="small mt-0">{data.latest_update}</p>
           <div className="t-time">{formatDateTime(data.latest_update_at)}</div>
         </div>
       )}
 
       <div className="card" style={{ marginTop: 16 }}>
-        <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>Progress</h2>
+        <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>{t('tracking.progress')}</h2>
         <ul className="timeline">
           {statusSteps.map((s, i) => {
             const reached = i <= currentIdx
@@ -150,9 +152,9 @@ function TrackInner() {
               <li key={s} className={`${reached ? 'done' : ''} ${isCurrent ? 'current' : ''}`}>
                 <div className="t-status small">
                   {s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-                  {isCurrent && ' — current'}
+                  {isCurrent && t('tracking.current')}
                 </div>
-                {event && <><div className="small muted">{actorLabel(event.actor_type)}{event.notes ? `${actorLabel(event.actor_type) ? ' · ' : ''}${event.notes}` : ''}</div><div className="t-time">{formatDateTime(event.created_at)}</div></>}
+                {event && <><div className="small muted">{actorLabel(event.actor_type, t)}{event.notes ? `${actorLabel(event.actor_type, t) ? ' · ' : ''}${event.notes}` : ''}</div><div className="t-time">{formatDateTime(event.created_at)}</div></>}
               </li>
             )
           })}
@@ -160,7 +162,7 @@ function TrackInner() {
       </div>
 
       <p className="pay-note" style={{ marginTop: 12 }}>
-        Tracking is updated by the shop and delivery partner. Cash payment is confirmed when the seller verifies it.
+        {t('tracking.note')}
       </p>
     </div>
   )

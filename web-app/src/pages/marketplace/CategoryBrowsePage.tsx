@@ -7,8 +7,10 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { asArray } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { useI18n } from '@/store/i18n'
 
 export default function CategoryBrowsePage() {
+  const { t } = useI18n()
   const { slug = '' } = useParams()
   const [subs, setSubs] = useState<SubcategoryResponse[]>([])
   const [products, setProducts] = useState<PublicProduct[]>([])
@@ -43,20 +45,20 @@ export default function CategoryBrowsePage() {
       },
       (e: unknown) => {
         if (!mounted) return
-        setError(e instanceof Error ? e.message : 'Failed to load products')
+        setError(e instanceof Error ? e.message : t('categoryBrowse.loadError'))
         setLoading(false)
       }
     )
     return () => {
       mounted = false
     }
-  }, [slug, page, sub])
+  }, [slug, page, sub, t])
 
   function loadMore() {
     setPage((p) => p + 1)
   }
 
-  if (loading && page === 1) return <LoadingBlock label="Loading products…" />
+  if (loading && page === 1) return <LoadingBlock label={t('categoryBrowse.loading')} />
   if (error) return <ErrorBox error={error} onRetry={() => setPage(1)} />
 
   return (
@@ -69,18 +71,18 @@ export default function CategoryBrowsePage() {
               background: visual.background,
             }}
           >
-            <img className="cat-detail-image" src={visual.image} alt={`${categoryName} category`} />
+            <img className="cat-detail-image" src={visual.image} alt={t('categoryBrowse.imageAlt', { name: categoryName })} />
             <div>
               <h1 style={{ marginBottom: 4, color: visual.accent }}>
                 {categoryName}
               </h1>
               <p className="muted small">
-                Browse {categoryName} products from TBK sellers.
+                {t('categoryBrowse.productSubtitle', { name: categoryName })}
               </p>
             </div>
           </div>
           <Link to="/categories" className="small section-link">
-            ← All categories
+            {t('categoryBrowse.allCategories')}
           </Link>
         </div>
       </div>
@@ -88,7 +90,7 @@ export default function CategoryBrowsePage() {
       {subs.length > 0 && (
         <div className="category-rail" style={{ marginTop: 12 }}>
           <button type="button" className={`category-chip ${!sub ? 'selected' : ''}`} onClick={() => setSub('')}>
-            All
+            {t('categoryBrowse.all')}
           </button>
           {subs.map((s) => (
             <button
@@ -105,7 +107,7 @@ export default function CategoryBrowsePage() {
 
       {products.length === 0 && !loading ? (
         <p className="muted" style={{ padding: '32px 0' }}>
-          No products in this category yet.
+          {t('categoryBrowse.noProducts')}
         </p>
       ) : (
         <>
@@ -117,7 +119,7 @@ export default function CategoryBrowsePage() {
           {hasMore && (
             <div className="load-more-wrap">
               <Button variant="outline" onClick={loadMore} loading={loading}>
-                Load more
+                {t('common.loadMore')}
               </Button>
             </div>
           )}

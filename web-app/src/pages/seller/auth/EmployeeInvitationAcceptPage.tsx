@@ -5,8 +5,10 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 export default function EmployeeInvitationAcceptPage() {
+  const t = useT()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const navigate = useNavigate()
@@ -23,47 +25,47 @@ export default function EmployeeInvitationAcceptPage() {
   useEffect(() => {
     if (!token) {
       setState('error')
-      setMessage('Invalid invitation link')
+      setMessage(t('seller.auth.invite.invalidLink'))
       return
     }
     // Token is present, show form
     setState('form')
-  }, [token])
+  }, [token, t])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
     if (form.password !== form.password_confirmation) {
-      setError('Passwords do not match')
+      setError(t('auth.register.passwordsMismatch'))
       return
     }
     if (form.password.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(t('seller.auth.invite.passwordTooShort'))
       return
     }
     setBusy(true)
     try {
       await employeeAuthApi.acceptInvitation({ token, password: form.password, password_confirmation: form.password_confirmation })
       setState('ok')
-      setMessage('Your employee account has been activated. You can now sign in.')
+      setMessage(t('seller.auth.invite.activated'))
       setTimeout(() => navigate('/employee/login'), 3000)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to accept invitation')
+      setError(err instanceof ApiError ? err.message : t('seller.auth.invite.failed'))
     } finally {
       setBusy(false)
     }
   }
 
-  if (state === 'loading') return <LoadingBlock label="Verifying invitation…" />
+  if (state === 'loading') return <LoadingBlock label={t('seller.auth.invite.verifying')} />
 
   if (state === 'error') {
     return (
       <div className="auth-wrap">
         <div className="card auth-card">
-          <h1>Invalid Invitation</h1>
+          <h1>{t('seller.auth.invite.invalidTitle')}</h1>
           <p className="muted">{message}</p>
           <Link to="/employee/login">
-            <Button block>Go to sign in</Button>
+            <Button block>{t('auth.register.goToSignIn')}</Button>
           </Link>
         </div>
       </div>
@@ -74,10 +76,10 @@ export default function EmployeeInvitationAcceptPage() {
     return (
       <div className="auth-wrap">
         <div className="card auth-card">
-          <h1>🎉 Account Activated</h1>
+          <h1>{t('seller.auth.invite.activatedTitle')}</h1>
           <p className="muted">{message}</p>
           <Link to="/employee/login">
-            <Button block>Go to sign in</Button>
+            <Button block>{t('auth.register.goToSignIn')}</Button>
           </Link>
         </div>
       </div>
@@ -87,13 +89,13 @@ export default function EmployeeInvitationAcceptPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Accept Invitation</h1>
-        <p className="muted small">Create your password to activate your employee account.</p>
+        <h1>{t('seller.auth.invite.title')}</h1>
+        <p className="muted small">{t('seller.auth.invite.subtitle')}</p>
         {error && <ErrorBox error={error} />}
-        <Field label="Password" name="password" type="password" required minLength={8} value={form.password} onChange={(e) => updateField('password', e.target.value)} hint="At least 8 characters (uppercase, lowercase, number, special char)" showPasswordToggle />
-        <Field label="Confirm Password" name="password_confirmation" type="password" required value={form.password_confirmation} onChange={(e) => updateField('password_confirmation', e.target.value)} showPasswordToggle />
+        <Field label={t('auth.password')} name="password" type="password" required minLength={8} value={form.password} onChange={(e) => updateField('password', e.target.value)} hint={t('auth.register.passwordHint')} showPasswordToggle />
+        <Field label={t('auth.passwordConfirm')} name="password_confirmation" type="password" required value={form.password_confirmation} onChange={(e) => updateField('password_confirmation', e.target.value)} showPasswordToggle />
         <Button type="submit" block size="lg" loading={busy}>
-          Activate Account
+          {t('seller.auth.invite.submit')}
         </Button>
       </form>
     </div>

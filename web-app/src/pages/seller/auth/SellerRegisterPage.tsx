@@ -5,12 +5,14 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 type RegPhase = 'form' | 'creating' | 'sending' | 'success' | 'email-failed'
 
 const MIN_LOADING_MS = 1500
 
 export default function SellerRegisterPage() {
+  const t = useT()
   const [form, setForm] = useState({
     first_name: '',
     middle_name: '',
@@ -46,11 +48,11 @@ export default function SellerRegisterPage() {
     e.preventDefault()
     setError('')
     if (!passwordValid) {
-      setError('Password must meet every requirement below.')
+      setError(t('seller.auth.register.invalidPassword'))
       return
     }
     if (form.password !== form.password_confirmation) {
-      setError('Passwords do not match')
+      setError(t('auth.register.passwordsMismatch'))
       return
     }
     setBusy(true)
@@ -69,7 +71,7 @@ export default function SellerRegisterPage() {
       }
       setPhase('success')
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Registration failed'
+      const msg = err instanceof ApiError ? err.message : t('auth.register.failed')
       if (msg.toLowerCase().includes('email') || msg.toLowerCase().includes('activation')) {
         setPhase('email-failed')
         setError(msg)
@@ -89,24 +91,21 @@ export default function SellerRegisterPage() {
       <div className="seller-register-layout">
         <aside className="seller-register-benefits">
           <span className="seller-eyebrow">TBK Seller</span>
-          <h1>Transformez votre activité en commerce organisé.</h1>
-          <p>Créez votre compte vendeur, puis gérez vos boutiques, produits, stocks et commandes depuis un seul espace.</p>
+          <h1>{t('seller.auth.register.benefitTitle')}</h1>
+          <p>{t('seller.auth.register.benefitSubtitle')}</p>
         </aside>
         <div className="card seller-register-card">
           <div className="registration-result">
             <span className="result-icon" aria-hidden>✓</span>
-            <h1>Seller account created</h1>
-            <p className="muted">Check your email</p>
-            <p>
-              We sent an activation link to:<br />
-              <strong>{form.email}</strong>
-            </p>
-            <p className="small muted">The link is valid for 24 hours and can only be used once.</p>
+            <h1>{t('seller.auth.register.sellerCreated')}</h1>
+            <p className="muted">{t('auth.register.checkEmail')}</p>
+            <p>{t('auth.register.sentLinkToEmail', { email: form.email })}</p>
+            <p className="small muted">{t('auth.register.linkValidity')}</p>
             <Link to="/seller/resend-activation">
-              <Button variant="outline" block>Resend activation email</Button>
+              <Button variant="outline" block>{t('auth.register.resendActivation')}</Button>
             </Link>
             <Link to="/seller/login">
-              <Button block>Go to sign in</Button>
+              <Button block>{t('auth.register.goToSignIn')}</Button>
             </Link>
           </div>
         </div>
@@ -120,19 +119,19 @@ export default function SellerRegisterPage() {
       <div className="seller-register-layout">
         <aside className="seller-register-benefits">
           <span className="seller-eyebrow">TBK Seller</span>
-          <h1>Transformez votre activité en commerce organisé.</h1>
+          <h1>{t('seller.auth.register.benefitTitle')}</h1>
         </aside>
         <div className="card seller-register-card">
           <div className="registration-result">
             <span className="result-icon result-icon--warn" aria-hidden>!</span>
-            <h1>Account created</h1>
-            <p className="muted">We couldn't send your activation email.</p>
+            <h1>{t('auth.register.created')}</h1>
+            <p className="muted">{t('auth.register.emailFailed')}</p>
             {error && <ErrorBox error={error} />}
             <Link to="/seller/resend-activation">
-              <Button block>Try sending again</Button>
+              <Button block>{t('auth.register.trySendingAgain')}</Button>
             </Link>
             <Link to="/seller/login">
-              <Button variant="outline" block>Go to sign in</Button>
+              <Button variant="outline" block>{t('auth.register.goToSignIn')}</Button>
             </Link>
           </div>
         </div>
@@ -146,69 +145,69 @@ export default function SellerRegisterPage() {
     <div className="seller-register-layout">
       <aside className="seller-register-benefits">
         <span className="seller-eyebrow">TBK Seller</span>
-        <h1>Transformez votre activité en commerce organisé.</h1>
-        <p>Créez votre compte vendeur, puis gérez vos boutiques, produits, stocks et commandes depuis un seul espace.</p>
+        <h1>{t('seller.auth.register.benefitTitle')}</h1>
+        <p>{t('seller.auth.register.benefitSubtitle')}</p>
         <ul>
-          <li><strong>Une vue claire</strong><span>Suivez votre activité au quotidien.</span></li>
-          <li><strong>Plus de contrôle</strong><span>Centralisez stock, commandes et équipe.</span></li>
-          <li><strong>Une inscription simple</strong><span>Votre compte est protégé par activation email.</span></li>
+          <li><strong>{t('seller.auth.register.benefit1Title')}</strong><span>{t('seller.auth.register.benefit1Desc')}</span></li>
+          <li><strong>{t('seller.auth.register.benefit2Title')}</strong><span>{t('seller.auth.register.benefit2Desc')}</span></li>
+          <li><strong>{t('seller.auth.register.benefit3Title')}</strong><span>{t('seller.auth.register.benefit3Desc')}</span></li>
         </ul>
       </aside>
       <form className="card seller-register-card" onSubmit={onSubmit}>
-        <span className="seller-eyebrow">Créer un compte</span>
-        <h2>Commencez à vendre sur TBK</h2>
-        <p className="muted">Renseignez vos informations de responsable vendeur.</p>
+        <span className="seller-eyebrow">{t('seller.auth.register.eyebrow')}</span>
+        <h2>{t('seller.auth.register.title')}</h2>
+        <p className="muted">{t('seller.auth.register.subtitle')}</p>
         {error && <ErrorBox error={error} />}
         {existingAccountError && phase === 'form' && (
           <div className="seller-registration-recovery">
-            <p className="small muted">Already registered? Use your existing account instead.</p>
+            <p className="small muted">{t('seller.auth.register.alreadyRegistered')}</p>
             <div className="seller-registration-recovery-actions">
-              <Link to="/seller/login"><Button variant="outline">Sign In</Button></Link>
-              <Link to="/forgot-password?account=seller" className="section-link">Forgot password?</Link>
+              <Link to="/seller/login"><Button variant="outline">{t('common.signIn')}</Button></Link>
+              <Link to="/forgot-password?account=seller" className="section-link">{t('auth.login.forgotPassword')}</Link>
             </div>
           </div>
         )}
 
         {isLoading && (
           <div className="registration-steps" aria-busy="true" aria-live="polite">
-            <Step label="Creating your account" done={phase === 'sending'} active={phase === 'creating'} />
-            <Step label="Sending activation email" done={false} active={phase === 'sending'} />
+            <Step label={t('auth.register.creating')} done={phase === 'sending'} active={phase === 'creating'} />
+            <Step label={t('auth.register.sendingEmail')} done={false} active={phase === 'sending'} />
           </div>
         )}
 
         {!isLoading && (
           <>
             <div className="seller-form-row">
-              <Field label="First name" name="first_name" autoComplete="given-name" required value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
-              <Field label="Last name" name="last_name" autoComplete="family-name" required value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
+              <Field label={t('auth.firstName')} name="first_name" autoComplete="given-name" required value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
+              <Field label={t('auth.lastName')} name="last_name" autoComplete="family-name" required value={form.last_name} onChange={(e) => set('last_name', e.target.value)} />
             </div>
-            <Field label="Middle name / Post-name (optional)" name="middle_name" autoComplete="additional-name" value={form.middle_name} onChange={(e) => set('middle_name', e.target.value)} />
-            <Field label="Phone" name="phone" type="tel" autoComplete="tel" required value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+243 …" />
-            <Field label="Email" name="email" type="email" autoComplete="email" required value={form.email} onChange={(e) => set('email', e.target.value)} />
-            <Field label="Password" name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={64} value={form.password} onChange={(e) => set('password', e.target.value)} showPasswordToggle />
+            <Field label={t('seller.auth.register.middleName')} name="middle_name" autoComplete="additional-name" value={form.middle_name} onChange={(e) => set('middle_name', e.target.value)} />
+            <Field label={t('common.phone')} name="phone" type="tel" autoComplete="tel" required value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
+            <Field label={t('common.email')} name="email" type="email" autoComplete="email" required value={form.email} onChange={(e) => set('email', e.target.value)} />
+            <Field label={t('auth.password')} name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={64} value={form.password} onChange={(e) => set('password', e.target.value)} showPasswordToggle />
             <div className="password-requirements" aria-live="polite">
-              <strong>Password requirements</strong>
+              <strong>{t('auth.reset.requirements')}</strong>
               <ul>
-                <Rule met={passwordRules.minLength}>At least 8 characters</Rule>
-                <Rule met={passwordRules.maxLength}>No more than 64 characters</Rule>
-                <Rule met={passwordRules.uppercase}>One uppercase letter</Rule>
-                <Rule met={passwordRules.lowercase}>One lowercase letter</Rule>
-                <Rule met={passwordRules.number}>One number</Rule>
-                <Rule met={passwordRules.special}>One special character</Rule>
+                <Rule met={passwordRules.minLength}>{t('auth.passwordRules.minLength')}</Rule>
+                <Rule met={passwordRules.maxLength}>{t('auth.passwordRules.maxLength')}</Rule>
+                <Rule met={passwordRules.uppercase}>{t('auth.passwordRules.uppercase')}</Rule>
+                <Rule met={passwordRules.lowercase}>{t('auth.passwordRules.lowercase')}</Rule>
+                <Rule met={passwordRules.number}>{t('auth.passwordRules.number')}</Rule>
+                <Rule met={passwordRules.special}>{t('auth.passwordRules.special')}</Rule>
               </ul>
             </div>
-            <Field label="Confirm password" name="password_confirmation" type="password" autoComplete="new-password" required maxLength={64} value={form.password_confirmation} onChange={(e) => set('password_confirmation', e.target.value)} showPasswordToggle />
-            {confirmStarted && <p className={`password-match ${passwordsMatch ? 'valid' : 'invalid'}`} role="status">{passwordsMatch ? 'Passwords match.' : 'Passwords do not match.'}</p>}
+            <Field label={t('auth.passwordConfirm')} name="password_confirmation" type="password" autoComplete="new-password" required maxLength={64} value={form.password_confirmation} onChange={(e) => set('password_confirmation', e.target.value)} showPasswordToggle />
+            {confirmStarted && <p className={`password-match ${passwordsMatch ? 'valid' : 'invalid'}`} role="status">{passwordsMatch ? t('auth.passwordsMatch') : t('auth.passwordsMismatchFull')}</p>}
             <Button type="submit" block size="lg" loading={busy} disabled={!canSubmit}>
-              Create Seller Account
+              {t('seller.auth.register.submit')}
             </Button>
             <p className="small muted">
-              Already have a seller account?
-              <Link to="/seller/login" className="section-link"> Sign In</Link>
+              {t('seller.auth.register.haveAccount')}
+              <Link to="/seller/login" className="section-link"> {t('common.signIn')}</Link>
             </p>
             <p className="small muted" style={{ marginTop: 8 }}>
-              Want to buy instead?
-              <Link to="/register" className="section-link"> Create a Buyer Account</Link>
+              {t('seller.auth.register.wantBuy')}
+              <Link to="/register" className="section-link"> {t('seller.auth.register.createBuyerAccount')}</Link>
             </p>
           </>
         )}

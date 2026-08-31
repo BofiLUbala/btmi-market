@@ -5,8 +5,10 @@ import { shopApi } from '@/api/seller'
 import type { Shop } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 export default function SelectShopPage() {
+  const t = useT()
   const { activeBusiness } = useAuth()
   const navigate = useNavigate()
   const [shops, setShops] = useState<Shop[]>([])
@@ -23,7 +25,7 @@ export default function SelectShopPage() {
         if (mounted) setShops(Array.isArray(data) ? data : [])
       })
       .catch((err) => {
-        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load your Shops.')
+        if (mounted) setError(err instanceof Error ? err.message : t('seller.products.loadShopsFailed'))
       })
       .finally(() => {
         if (mounted) setLoading(false)
@@ -31,13 +33,13 @@ export default function SelectShopPage() {
     return () => {
       mounted = false
     }
-  }, [activeBusiness?.id])
+  }, [activeBusiness?.id, t])
 
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <h2>No Business Selected</h2>
-        <p className="muted">Select a business before adding Products.</p>
+        <h2>{t('seller.noBusinessSelected')}</h2>
+        <p className="muted">{t('seller.products.noBusinessSubtitle')}</p>
       </div>
     )
   }
@@ -50,26 +52,26 @@ export default function SelectShopPage() {
     <div className="select-shop-page">
       <div className="page-header">
         <div>
-          <h1>Add Product</h1>
-          <p className="muted">Choose the Shop where you want to sell this Product.</p>
+          <h1>{t('seller.products.addProduct')}</h1>
+          <p className="muted">{t('seller.products.selectShopDesc')}</p>
         </div>
         <Link to="/seller/products">
-          <Button variant="ghost">← Back to Products</Button>
+          <Button variant="ghost">{t('seller.products.backToProducts')}</Button>
         </Link>
       </div>
 
       {loading ? (
-        <LoadingBlock label="Loading Shops…" />
+        <LoadingBlock label={t('seller.products.loadingShops')} />
       ) : error ? (
         <ErrorBox error={error} />
       ) : shops.length === 0 ? (
         <div className="card" style={{ padding: '48px 24px', textAlign: 'center' }}>
-          <h3>You need to create a Shop before adding Products.</h3>
+          <h3>{t('seller.products.noShopYetTitle')}</h3>
           <p className="muted" style={{ margin: '8px 0 20px' }}>
-            Products are always created inside a Shop — that is where their stock and sales live.
+            {t('seller.products.noShopYetDesc')}
           </p>
           <Link to="/seller/shops">
-            <Button size="lg">Create Shop</Button>
+            <Button size="lg">{t('seller.products.createShop')}</Button>
           </Link>
         </div>
       ) : (
@@ -89,7 +91,7 @@ export default function SelectShopPage() {
                 </span>
               </div>
               <Button variant="primary" block onClick={() => selectShop(shop.id)}>
-                Select Shop
+                {t('seller.products.selectShop')}
               </Button>
             </div>
           ))}

@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney, formatDateTime, asArray } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
+import { useI18n } from '@/store/i18n'
 
 function PendingInner() {
+  const { t } = useI18n()
   const [items, setItems] = useState<PendingPurchase[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -20,7 +22,7 @@ function PendingInner() {
         setLoading(false)
       },
       (e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Could not load purchases')
+        setError(e instanceof Error ? e.message : t('orders.loadPurchasesFailed'))
         setLoading(false)
       }
     )
@@ -35,42 +37,42 @@ function PendingInner() {
       await buyerApi.confirmPurchase(p.order_id, p.order_id)
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not confirm purchase')
+      setError(e instanceof Error ? e.message : t('orders.confirmPurchaseFailed'))
     } finally {
       setBusy(null)
     }
   }
 
-  if (loading) return <LoadingBlock label="Loading purchases…" />
+  if (loading) return <LoadingBlock label={t('orders.loadingPurchases')} />
   if (error) return <ErrorBox error={error} onRetry={load} />
 
   if (items.length === 0) {
     return (
       <EmptyState
         icon="🤝"
-        title="Nothing to confirm"
-        description="Purchases made in-store by a seller that need your confirmation will show here."
+        title={t('orders.nothingToConfirm')}
+        description={t('orders.nothingToConfirmDesc')}
       />
     )
   }
 
   return (
     <div className="fade-in">
-      <h1 style={{ marginBottom: 12 }}>Confirm purchases</h1>
+      <h1 style={{ marginBottom: 12 }}>{t('orders.confirmPurchases')}</h1>
       <p className="muted small">
-        These purchases were recorded by a seller at their shop. Confirm them so your points are credited.
+        {t('orders.confirmPurchasesDesc')}
       </p>
       <div className="stack">
         {items.map((p) => (
           <div key={p.order_id} className="card row-between">
             <div className="stack" style={{ gap: 2 }}>
               <div className="bold">{p.shop_name}</div>
-              <div className="small muted">{p.business_name} · by {p.employee_name}</div>
+              <div className="small muted">{p.business_name} · {t('orders.byEmployee', { employee: p.employee_name })}</div>
               <div className="small muted">{formatDateTime(p.created_at)}</div>
               <div className="bold">{formatMoney(p.amount, p.currency)}</div>
             </div>
             <Button loading={busy === p.order_id} onClick={() => confirm(p)}>
-              Confirm
+              {t('common.confirm')}
             </Button>
           </div>
         ))}

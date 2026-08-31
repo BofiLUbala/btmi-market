@@ -5,8 +5,10 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, SuccessBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 export default function ForgotPasswordPage() {
+  const t = useT()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const isSeller = params.get('account') === 'seller'
@@ -26,12 +28,12 @@ export default function ForgotPasswordPage() {
       await authApi.forgotPassword(identifier.trim())
       const remaining = 1200 - (Date.now() - startedAt)
       if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
-      setDone('If a matching account exists, a password reset link has been sent to its registered email address.')
+      setDone(t('auth.forgot.sent'))
       setTimeout(() => navigate(loginPath), 4000)
     } catch (err) {
       const remaining = 1200 - (Date.now() - startedAt)
       if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
-      setError(err instanceof ApiError ? err.message : 'Request failed')
+      setError(err instanceof ApiError ? err.message : t('auth.forgot.requestFailed'))
     } finally {
       setBusy(false)
     }
@@ -40,25 +42,25 @@ export default function ForgotPasswordPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Forgot password?</h1>
-        <p className="muted small">Enter the email or phone number registered on your account. The reset link will be sent to the registered email address.</p>
+        <h1>{t('auth.login.forgotPassword')}</h1>
+        <p className="muted small">{t('auth.forgot.hint')}</p>
         {done && <SuccessBox message={done} />}
         {error && <ErrorBox error={error} />}
         <Field
-          label="Email or phone number"
+          label={t('auth.forgot.identifier')}
           name="identifier"
           type="text"
           required
           autoComplete="username"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
-          placeholder="you@example.com or +243…"
+          placeholder={t('auth.forgot.identifierPlaceholder')}
         />
         <Button type="submit" block size="lg" loading={busy}>
-          Send reset link
+          {t('auth.forgot.submit')}
         </Button>
         <p className="small muted">
-          Remember your password? <Link to={loginPath} className="section-link">Sign in</Link>
+          {t('auth.forgot.remember')} <Link to={loginPath} className="section-link">{t('common.signIn')}</Link>
         </p>
       </form>
     </div>

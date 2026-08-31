@@ -5,10 +5,12 @@ import { formatDate, formatMoney } from '@/lib/format'
 import { resolvePromotion } from '@/lib/promotion'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { useFavorites } from '@/store/favorites'
+import { useI18n } from '@/store/i18n'
 import { StockChip } from './Badges'
 import { Rating } from './Rating'
 
 function FavoriteButton({ product }: { product: PublicProduct }) {
+  const { t } = useI18n()
   const { has, toggle } = useFavorites()
   const active = has(product.id)
   const first = product.variants?.[0]
@@ -37,7 +39,7 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
           addedAt: new Date().toISOString()
         })
       }}
-      aria-label={active ? 'Remove from favorites' : 'Add to favorites'}
+      aria-label={active ? t('product.removeFromFavorites') : t('product.addToFavorites')}
     >
       {active ? '♥' : '♡'}
     </button>
@@ -45,6 +47,8 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
 }
 
 export function ProductCard({ product }: { product: PublicProduct }) {
+  const { t, lang } = useI18n()
+  const dateLocale = lang === 'fr' ? 'fr-FR' : 'en-GB'
   const [imageFailed, setImageFailed] = useState(false)
   const first = product.variants?.[0]
   
@@ -95,12 +99,12 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         </span>
         {hasDiscount && (
           <span className="badge badge-success" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontWeight: 'bold' }}>
-            {discountPercent}% OFF
+            {t('product.discountOff', { percent: discountPercent })}
           </span>
         )}
-        {promotionUpcoming && (
+        {promotionUpcoming && product.discount_start && (
           <span className="badge badge-warning" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2 }}>
-            Sale starts {formatDate(product.discount_start)}
+            {t('product.saleStarts', { date: formatDate(product.discount_start, dateLocale) })}
           </span>
         )}
       </div>
@@ -130,8 +134,10 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         </div>
         {hasDiscount && (product.discount_start || product.discount_end) && (
           <span className="small muted">
-            {product.discount_start ? `From ${formatDate(product.discount_start)}` : 'Active now'}
-            {product.discount_end ? ` to ${formatDate(product.discount_end)}` : ''}
+            {product.discount_start
+              ? t('product.promoFrom', { date: formatDate(product.discount_start, dateLocale) })
+              : t('product.promoActiveNow')}
+            {product.discount_end ? t('product.promoTo', { date: formatDate(product.discount_end, dateLocale) }) : ''}
           </span>
         )}
       </div>

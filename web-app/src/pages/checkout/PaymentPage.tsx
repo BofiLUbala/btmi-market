@@ -8,15 +8,26 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
+
+const METHOD_LABEL: Record<string, TranslationKey> = {
+  PICKUP: 'delivery.pickup',
+  SHOP_DELIVERY: 'delivery.shopDelivery',
+  PARTNER: 'delivery.partner'
+}
 
 function PaymentInner() {
   const navigate = useNavigate()
   const location = useLocation()
+  const t = useT()
   const state = location.state as
     | { orderId: string; summary?: DeliverySelectResponse }
     | null
   const orderId = state?.orderId
   const summary = state?.summary
+
+  const methodLabel = (m: string) => (METHOD_LABEL[m] ? t(METHOD_LABEL[m]) : m.replace(/_/g, ' '))
 
   const [payment, setPayment] = useState<BuyerPayment | null>(null)
   const [order, setOrder] = useState<OrderWithLines | null>(null)
@@ -33,7 +44,7 @@ function PaymentInner() {
     let mounted = true
     Promise.all([buyerApi.createPayment(orderId), buyerApi.orderDetail(orderId)]).then(
       ([p, o]) => { if (mounted) { setPayment(p); setOrder(o) } },
-      (e: unknown) => mounted && setError(e instanceof ApiError ? e.message : 'Could not prepare order review')
+      (e: unknown) => mounted && setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare'))
     ).finally(() => mounted && setLoading(false))
     return () => {
       mounted = false
@@ -62,36 +73,36 @@ function PaymentInner() {
         replace: true
       })
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not confirm payment')
+      setError(e instanceof ApiError ? e.message : t('payment.couldNotConfirm'))
       setConfirming(false)
     }
   }
 
-  if (loading) return <LoadingBlock label="Preparing payment…" />
+  if (loading) return <LoadingBlock label={t('payment.preparing')} />
   if (!payment)
-    return <ErrorBox error={error || 'No payment available'} onRetry={() => window.location.reload()} />
+    return <ErrorBox error={error || t('payment.noPayment')} onRetry={() => window.location.reload()} />
 
   return (
     <div className="checkout-page fade-in">
       <CheckoutProgress current="Review" />
-      <header className="checkout-heading"><div><h1>Review your order</h1><p>Check the products, delivery and cash amount before placing the order.</p></div></header>
+      <header className="checkout-heading"><div><h1>{t('payment.title')}</h1><p>{t('payment.subtitle')}</p></div></header>
 
       {error && <ErrorBox error={error} />}
 
       <div className="checkout-layout">
         <div className="checkout-content stack">
-          <section className="checkout-card"><div className="checkout-card-head"><h2>Products</h2><span>{order?.order.total_items ?? 0} items</span></div>
-          {order?.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); return <div className="review-order-line" key={line.id}><div><strong>{product?.name ?? `Product ${line.product_id.slice(0, 8)}`}</strong><span>{variant?.name || variant?.sku || line.variant_id.slice(0, 8)} · Quantity {line.quantity}</span></div><strong>{formatMoney((line.final_unit_price || line.unit_price) * line.quantity)}</strong></div> })}
+          <section className="checkout-card"><div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{order?.order.total_items ?? 0} {order?.order.total_items === 1 ? t('cart.item') : t('cart.items')}</span></div>
+          {order?.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); return <div className="review-order-line" key={line.id}><div><strong>{product?.name ?? t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong><span>{variant?.name || variant?.sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span></div><strong>{formatMoney((line.final_unit_price || line.unit_price) * line.quantity)}</strong></div> })}
           </section>
       {summary && (
         <section className="checkout-card">
-          <div className="checkout-card-head"><h2>Delivery</h2><span>{summary.delivery.method.replace(/_/g, ' ')}</span></div>
+          <div className="checkout-card-head"><h2>{t('product.delivery')}</h2><span>{methodLabel(summary.delivery.method)}</span></div>
           <div className="total-row">
-            <span>Products</span>
+            <span>{t('cart.products')}</span>
             <span>{formatMoney(summary.products_final_total)}</span>
           </div>
           <div className="total-row">
-            <span>Delivery ({summary.delivery.method})</span>
+            <span>{t('product.delivery')} ({methodLabel(summary.delivery.method)})</span>
             <span>
               {summary.delivery.points_used > 0 ? (
                 <>
@@ -108,17 +119,17 @@ function PaymentInner() {
         </div>
 
       <aside className="checkout-card checkout-summary">
-        <span className="eyebrow">FINAL ORDER SUMMARY</span>
-        <div className="summary-lines"><div><span>Products</span><strong>{formatMoney(payment.products_base_total, payment.currency)}</strong></div><div><span>Product points</span><strong className="discount">−{formatMoney(payment.products_points_discount, payment.currency)}</strong></div><div><span>Delivery</span><strong>{formatMoney(payment.delivery_fee_base, payment.currency)}</strong></div><div><span>Delivery points</span><strong className="discount">−{formatMoney(payment.delivery_points_discount, payment.currency)}</strong></div></div>
-        <div className="summary-total"><span>TOTAL CASH TO PAY</span><strong>{formatMoney(payment.cash_due, payment.currency)}</strong><small>Pay cash when the order is delivered or collected.</small></div>
+        <span className="eyebrow">{t('payment.finalSummary')}</span>
+        <div className="summary-lines"><div><span>{t('cart.products')}</span><strong>{formatMoney(payment.products_base_total, payment.currency)}</strong></div><div><span>{t('payment.productPoints')}</span><strong className="discount">−{formatMoney(payment.products_points_discount, payment.currency)}</strong></div><div><span>{t('product.delivery')}</span><strong>{formatMoney(payment.delivery_fee_base, payment.currency)}</strong></div><div><span>{t('payment.deliveryPoints')}</span><strong className="discount">−{formatMoney(payment.delivery_points_discount, payment.currency)}</strong></div></div>
+        <div className="summary-total"><span>{t('payment.totalCash')}</span><strong>{formatMoney(payment.cash_due, payment.currency)}</strong><small>{t('payment.cashNote')}</small></div>
         <div className="pay-note">
-          {payment.products_points_used > 0 && `Products: ${payment.products_points_used} pts`}
+          {payment.products_points_used > 0 && t('payment.productsPts', { count: payment.products_points_used })}
           {payment.delivery_points_used > 0 &&
-            `${payment.products_points_used > 0 ? ' · ' : ''}Delivery: ${payment.delivery_points_used} pts`}
-          {payment.buyer_confirmed ? ' · Already confirmed' : ''}
+            `${payment.products_points_used > 0 ? ' · ' : ''}${t('payment.deliveryPts', { count: payment.delivery_points_used })}`}
+          {payment.buyer_confirmed ? ` · ${t('payment.alreadyConfirmed')}` : ''}
         </div>
         <Button variant="accent" size="lg" block onClick={confirmCash} loading={confirming} disabled={payment.buyer_confirmed}>
-          {payment.buyer_confirmed ? 'Order confirmed' : 'Place Order'}
+          {payment.buyer_confirmed ? t('payment.orderConfirmed') : t('payment.placeOrder')}
         </Button>
       </aside>
       </div>

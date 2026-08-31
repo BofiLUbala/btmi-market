@@ -8,7 +8,7 @@ export function SellerPublicLayout() {
     <div className="seller-public-shell">
       <header className="seller-public-header">
         <div className="container seller-public-header-inner">
-          <Link to="/seller" className="seller-public-brand" aria-label="TBK Seller home">
+          <Link to="/seller" className="seller-public-brand" aria-label={t('seller.publicBrandAria')}>
             <span className="brand-mark" aria-hidden="true">TBK</span>
             <span>TBK Seller</span>
           </Link>

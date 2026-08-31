@@ -7,8 +7,10 @@ import { SectionHead } from '@/components/ui/ShopCard'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { asArray } from '@/lib/format'
+import { useI18n } from '@/store/i18n'
 
 export default function HomePage() {
+  const { t } = useI18n()
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [products, setProducts] = useState<PublicProduct[]>([])
   const [error, setError] = useState('')
@@ -24,7 +26,7 @@ export default function HomePage() {
       if (cats.status === 'fulfilled') setCategories(asArray(cats.value))
       if (prods.status === 'fulfilled') setProducts(asArray(prods.value.products))
       if (cats.status === 'rejected' && prods.status === 'rejected') {
-        setError('Could not load the marketplace. Is the API running?')
+        setError(t('home.loadError'))
       }
       setLoading(false)
     })
@@ -33,16 +35,16 @@ export default function HomePage() {
     }
   }, [])
 
-  if (loading) return <LoadingBlock label="Loading marketplace…" />
+  if (loading) return <LoadingBlock label={t('home.loading')} />
   if (error) return <ErrorBox error={error} onRetry={() => window.location.reload()} />
 
   return (
     <div className="fade-in">
-      <p className="home-kicker">Achetez en toute confiance</p>
+      <p className="home-kicker">{t('home.trustBanner')}</p>
 
       {categories.length > 0 && (
         <>
-          <SectionHead title="Catégories" linkTo="/categories" linkLabel="Tout voir" />
+          <SectionHead title={t('home.categories')} linkTo="/categories" linkLabel={t('common.viewAll')} />
           <div className="category-rail">
             {categories.map((c) => {
               const visual = getCategoryVisual(c.slug)
@@ -62,10 +64,10 @@ export default function HomePage() {
       {products.length > 0 && (
         <>
           <SectionHead
-            title="Sélection pour vous"
-            subtitle="Des produits proposés par nos boutiques"
+            title={t('home.selectionForYou')}
+            subtitle={t('home.selectionSubtitle')}
             linkTo="/search"
-            linkLabel="Tout voir"
+            linkLabel={t('common.viewAll')}
           />
           <div className="product-grid">
             {products.map((p) => (

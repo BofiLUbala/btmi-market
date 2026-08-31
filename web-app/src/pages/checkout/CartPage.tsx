@@ -4,35 +4,42 @@ import { buyerApi } from '@/api/buyer'
 import { ApiError, type PointRedemptionPreviewResponse } from '@/api/types'
 import { useCart } from '@/store/cart'
 import { useAuth } from '@/store/auth'
+import { useT } from '@/store/i18n'
 import { Button } from '@/components/ui/Button'
 import { LoadingBlock } from '@/components/ui/Feedback'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 import { formatMoney, initials, uuid } from '@/lib/format'
 import { loginWithReturnTo } from '@/lib/returnTo'
 
-function previewErrorMessage(e: unknown): string {
-  if (!(e instanceof ApiError)) return 'Could not verify your cart with the server.'
+type T = ReturnType<typeof useT>
+
+type PreviewErrorResult = { message: string; kind: 'profile' | 'other' | 'none' }
+
+function previewErrorMessage(t: T, e: unknown): PreviewErrorResult {
+  if (!(e instanceof ApiError)) return { message: t('cart.cannotVerify'), kind: 'other' }
   if (/STOCK|INVENTORY/i.test(e.code)) {
-    return 'Stock changed for an item in your cart. Adjust quantities and try again.'
+    return { message: t('cart.stockChanged'), kind: 'other' }
   }
   if (e.code === 'BUYER_PROFILE_NOT_FOUND') {
-    return 'Finish setting up your buyer profile before placing an order.'
+    return { message: t('cart.profileNotSetUp'), kind: 'profile' }
   }
   if (e.code === 'BUYER_PROFILE_INCOMPLETE') {
-    return 'Add a phone number to your profile before placing an order.'
+    return { message: t('cart.profileIncomplete'), kind: 'profile' }
   }
-  if (/NO_POINT_ACCOUNT/i.test(`${e.code} ${e.message}`)) return ''
-  return e.message
+  if (/NO_POINT_ACCOUNT/i.test(`${e.code} ${e.message}`)) return { message: '', kind: 'none' }
+  return { message: e.message, kind: 'other' }
 }
 
 export default function CartPage() {
   const cart = useCart()
   const navigate = useNavigate()
+  const t = useT()
   const { user, buyerProfile } = useAuth()
   const [preview, setPreview] = useState<PointRedemptionPreviewResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [placing, setPlacing] = useState(false)
   const [error, setError] = useState('')
+  const [profileBlocked, setProfileBlocked] = useState(false)
 
   // Amazon-style guard: browsing and the cart itself stay open to everyone,
   // but checkout is blocked until the buyer has a phone number on file so
@@ -54,8 +61,9 @@ export default function CartPage() {
         (p) => mounted && setPreview(p),
         (e: unknown) => {
           if (!mounted) return
-          const message = previewErrorMessage(e)
+          const { message, kind } = previewErrorMessage(t, e)
           setError(message)
+          setProfileBlocked(kind === 'profile')
           if (!message && cart.usePoints) cart.setUsePoints(false)
         }
       )
@@ -85,7 +93,9 @@ export default function CartPage() {
       cart.clear()
       navigate('/checkout/delivery', { state: { orderId }, replace: true })
     } catch (e) {
-      setError(previewErrorMessage(e))
+      const { message, kind } = previewErrorMessage(t, e)
+      setError(message)
+      setProfileBlocked(kind === 'profile')
     } finally {
       setPlacing(false)
     }
@@ -95,10 +105,10 @@ export default function CartPage() {
     return (
       <div className="checkout-empty">
         <div className="checkout-empty-mark" aria-hidden>TBK</div>
-        <h1>Your cart is empty</h1>
-        <p>Browse products and add items you want to buy.</p>
+        <h1>{t('cart.empty.title')}</h1>
+        <p>{t('cart.empty.description')}</p>
         <Link to="/search">
-          <Button size="lg">Browse Marketplace</Button>
+          <Button size="lg">{t('cart.empty.browse')}</Button>
         </Link>
       </div>
     )
@@ -108,16 +118,16 @@ export default function CartPage() {
     <div className="checkout-page fade-in">
       <CheckoutProgress current="Cart" />
       <header className="checkout-heading">
-        <div><h1>Your Cart</h1><p>Order from <strong>{cart.shopName}</strong></p></div>
-        <span>{cart.totalQty} {cart.totalQty === 1 ? 'item' : 'items'}</span>
+        <div><h1>{t('cart.title')}</h1><p><strong>{t('cart.orderFrom', { shop: cart.shopName ?? '' })}</strong></p></div>
+        <span>{cart.totalQty} {cart.totalQty === 1 ? t('cart.item') : t('cart.items')}</span>
       </header>
 
-      {error && <div className="checkout-inline-error"><strong>Cart needs attention</strong><span>{error}</span>{/profile/i.test(error) && <button onClick={() => navigate('/account/profile-setup')}>Complete profile</button>}</div>}
+      {error && <div className="checkout-inline-error"><strong>{t('cart.needsAttention')}</strong><span>{error}</span>{profileBlocked && <button onClick={() => navigate('/account/profile-setup')}>{t('cart.completeProfile')}</button>}</div>}
 
       <div className="checkout-layout">
         <div className="checkout-content">
         <section className="checkout-card cart-products">
-          <div className="checkout-card-head"><h2>Products</h2><span>{cart.shopName}</span></div>
+          <div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{cart.shopName}</span></div>
           {cart.lines.map((l) => (
             <article key={l.variantId} className="cart-product-row">
               <div
@@ -135,77 +145,77 @@ export default function CartPage() {
               <div className="cart-product-info">
                 <h3>{l.name}</h3>
                 <p>{l.variantName}</p>
-                <small>Sold by {l.shopName}</small>
+                <small>{t('product.soldBy')} {l.shopName}</small>
                 <strong className="cart-unit-price">{formatMoney(l.unitPrice)}</strong>
               </div>
               <div className="cart-product-controls">
-                <label>Quantity</label>
-                <div className="stepper" role="group" aria-label={`Quantity for ${l.name}`}>
+                <label>{t('common.quantity')}</label>
+                <div className="stepper" role="group" aria-label={t('cart.quantityFor', { name: l.name })}>
                   <button
                     onClick={() => cart.setQuantity(l.variantId, l.quantity - 1)}
                     disabled={l.quantity <= 1}
-                    aria-label="Decrease quantity"
+                    aria-label={t('cart.decreaseQuantity')}
                   >
                     −
                   </button>
                   <span className="stepper-qty" aria-live="polite">{l.quantity}</span>
-                  <button onClick={() => cart.setQuantity(l.variantId, l.quantity + 1)} aria-label="Increase quantity">
+                  <button onClick={() => cart.setQuantity(l.variantId, l.quantity + 1)} aria-label={t('cart.increaseQuantity')}>
                     +
                   </button>
                 </div>
-                <button className="cart-remove" onClick={() => cart.remove(l.variantId)}>Remove</button>
+                <button className="cart-remove" onClick={() => cart.remove(l.variantId)}>{t('common.remove')}</button>
               </div>
-              <div className="cart-product-total"><span>Subtotal</span><strong>{formatMoney(l.unitPrice * l.quantity)}</strong></div>
+              <div className="cart-product-total"><span>{t('common.subtotal')}</span><strong>{formatMoney(l.unitPrice * l.quantity)}</strong></div>
             </article>
           ))}
           {user && (
             <section className={`rewards-card ${cart.usePoints ? 'active' : ''}`}>
-              <div><span className="eyebrow">TBK POINTS</span><h2>{busy && !preview ? 'Loading your points…' : `${(preview?.available_points ?? 0).toLocaleString()} points available`}</h2><p>{(preview?.available_points ?? 0) > 0 ? 'Reduce your product total using your available rewards.' : 'Complete verified purchases to earn points.'}</p></div>
-              <button type="button" role="switch" aria-label="Use points on this purchase" aria-checked={cart.usePoints} disabled={busy || !preview || preview.available_points <= 0} className={`toggle-switch ${cart.usePoints ? 'on' : ''}`} onClick={() => cart.setUsePoints(!cart.usePoints)}><span /></button>
-              {cart.usePoints && preview && <div className="rewards-result"><strong>✓ Points applied</strong><span>You save {formatMoney(preview.points_discount_amount, preview.currency)}</span><span>New product total: {formatMoney(preview.final_total, preview.currency)}</span><button onClick={() => cart.setUsePoints(false)}>Remove points</button></div>}
+              <div><span className="eyebrow">{t('points.title')}</span><h2>{busy && !preview ? t('points.loading') : t('points.available', { count: (preview?.available_points ?? 0).toLocaleString() })}</h2><p>{(preview?.available_points ?? 0) > 0 ? t('points.applyToOrder') : t('points.earnByPurchase')}</p></div>
+              <button type="button" role="switch" aria-label={t('points.useOnPurchase')} aria-checked={cart.usePoints} disabled={busy || !preview || preview.available_points <= 0} className={`toggle-switch ${cart.usePoints ? 'on' : ''}`} onClick={() => cart.setUsePoints(!cart.usePoints)}><span /></button>
+              {cart.usePoints && preview && <div className="rewards-result"><strong>{t('points.applied')}</strong><span>{t('points.youSave', { amount: formatMoney(preview.points_discount_amount, preview.currency) })}</span><span>{t('points.newTotal', { amount: formatMoney(preview.final_total, preview.currency) })}</span><button onClick={() => cart.setUsePoints(false)}>{t('points.remove')}</button></div>}
             </section>
           )}
         </section>
         </div>
 
         <aside className="checkout-card checkout-summary">
-          <span className="eyebrow">ORDER SUMMARY</span>
+          <span className="eyebrow">{t('cart.orderSummary')}</span>
 
           {!user ? (
             <>
-              <div className="summary-lines"><div><span>Items subtotal</span><strong>{formatMoney(cart.subtotal)}</strong></div><div><span>Delivery</span><strong>Calculated next</strong></div></div>
+              <div className="summary-lines"><div><span>{t('cart.itemsSubtotal')}</span><strong>{formatMoney(cart.subtotal)}</strong></div><div><span>{t('product.delivery')}</span><strong>{t('cart.calculatedNext')}</strong></div></div>
               <p className="small muted" style={{ margin: '8px 0' }}>
-                Create an account or sign in to place this order. Your cart is saved.
+                {t('cart.signInNote')}
               </p>
               <Button variant="accent" size="lg" block onClick={continueToCheckout}>
-                Sign in to check out
+                {t('cart.signInToCheckout')}
               </Button>
               <p className="small muted" style={{ marginTop: 8 }}>
-                New here?{' '}
+                {t('cart.newHere')}{' '}
                 <Link to="/register" className="section-link">
-                  Create an account
+                  {t('cart.createAccount')}
                 </Link>
               </p>
             </>
           ) : busy && !preview ? (
-            <LoadingBlock label="Verifying prices and stock…" />
+            <LoadingBlock label={t('cart.verifying')} />
           ) : preview ? (
             <>
               <div className="summary-lines">
-                <div><span>Items subtotal</span><strong>{formatMoney(preview.base_total, preview.currency)}</strong></div>
-                {preview.points_discount_amount > 0 && <div><span>Points discount</span><strong className="discount">−{formatMoney(preview.points_discount_amount, preview.currency)}</strong></div>}
-                <div><span>Delivery</span><strong>Calculated next</strong></div>
+                <div><span>{t('cart.itemsSubtotal')}</span><strong>{formatMoney(preview.base_total, preview.currency)}</strong></div>
+                {preview.points_discount_amount > 0 && <div><span>{t('cart.pointsDiscount')}</span><strong className="discount">−{formatMoney(preview.points_discount_amount, preview.currency)}</strong></div>}
+                <div><span>{t('product.delivery')}</span><strong>{t('cart.calculatedNext')}</strong></div>
               </div>
               <div className="summary-total">
-                <span>TOTAL PRODUCTS</span>
+                <span>{t('cart.totalProducts')}</span>
                 <span>{formatMoney(preview.final_total, preview.currency)}</span>
-                <small>Delivery is calculated in the next step.</small>
+                <small>{t('cart.deliveryNextStep')}</small>
               </div>
-              {busy && <p className="checkout-inline-status">Updating price and checking stock…</p>}
+              {busy && <p className="checkout-inline-status">{t('cart.updating')}</p>}
               {profileIncomplete && (
                 <div className="checkout-inline-error" style={{ marginBottom: 12 }}>
-                  <strong>Add a phone number to continue</strong>
-                  <span>Sellers and delivery need a way to reach you before you can place an order.</span>
+                  <strong>{t('cart.addPhoneTitle')}</strong>
+                  <span>{t('cart.addPhoneDescription')}</span>
                 </div>
               )}
               <Button
@@ -215,11 +225,11 @@ export default function CartPage() {
                 loading={placing}
                 onClick={continueToCheckout}
               >
-                {profileIncomplete ? 'Complete your profile' : 'Continue to checkout'}
+                {profileIncomplete ? t('cart.completeProfile') : t('cart.continueToCheckout')}
               </Button>
             </>
           ) : null}
-          <Link to="/search" className="checkout-secondary">Continue shopping</Link>
+          <Link to="/search" className="checkout-secondary">{t('cart.continueShopping')}</Link>
         </aside>
       </div>
     </div>

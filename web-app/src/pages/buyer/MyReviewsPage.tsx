@@ -7,8 +7,10 @@ import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Rating } from '@/components/ui/Rating'
 import { formatDate, asArray } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
+import { useI18n } from '@/store/i18n'
 
 function MyReviewsInner() {
+  const { t } = useI18n()
   const [reviews, setReviews] = useState<ReviewResponse[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -23,7 +25,7 @@ function MyReviewsInner() {
         setLoading(false)
       },
       (e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Could not load reviews')
+        setError(e instanceof Error ? e.message : t('reviews.loadFailed'))
         setLoading(false)
       }
     )
@@ -32,7 +34,7 @@ function MyReviewsInner() {
   useEffect(load, [])
 
   async function withdraw(id: string) {
-    if (!confirm('Withdraw this review?')) return
+    if (!confirm(t('reviews.withdrawConfirm'))) return
     setWithdrawing(id)
     try {
       await buyerApi.withdrawReview(id)
@@ -42,7 +44,7 @@ function MyReviewsInner() {
     }
   }
 
-  if (loading) return <LoadingBlock label="Loading your reviews…" />
+  if (loading) return <LoadingBlock label={t('reviews.loading')} />
   if (error) return <ErrorBox error={error} onRetry={load} />
 
   const productReviews = reviews.filter(r => r.product_id)
@@ -53,9 +55,9 @@ function MyReviewsInner() {
     <div className="fade-in">
       <div className="page-header" style={{ marginBottom: 16 }}>
         <div>
-          <div className="eyebrow">YOUR ACCOUNT</div>
-          <h1>My Reviews</h1>
-          <p className="muted">Manage reviews you've written for products and shop services.</p>
+          <div className="eyebrow">{t('account.eyebrow')}</div>
+          <h1>{t('account.myReviews')}</h1>
+          <p className="muted">{t('reviews.manageSubtitle')}</p>
         </div>
       </div>
 
@@ -64,28 +66,28 @@ function MyReviewsInner() {
           className={`tab ${activeTab === 'product' ? 'active' : ''}`}
           onClick={() => setActiveTab('product')}
         >
-          Product Reviews ({productReviews.length})
+          {t('reviews.productReviews', { count: productReviews.length })}
         </button>
         <button
           className={`tab ${activeTab === 'shop' ? 'active' : ''}`}
           onClick={() => setActiveTab('shop')}
         >
-          Shop & Service Reviews ({shopReviews.length})
+          {t('reviews.shopReviews', { count: shopReviews.length })}
         </button>
       </div>
 
       {activeReviews.length === 0 ? (
         <EmptyState
           icon="⭐"
-          title={activeTab === 'product' ? 'No product reviews' : 'No shop reviews'}
+          title={activeTab === 'product' ? t('reviews.noProductReviews') : t('reviews.noShopReviews')}
           description={
             activeTab === 'product'
-              ? "You haven't reviewed any products yet. Review products from your completed orders."
-              : "You haven't evaluated any shop services yet. Review shop services from your completed orders."
+              ? t('reviews.noProductReviewsDesc')
+              : t('reviews.noShopReviewsDesc')
           }
           action={
             <Link to="/orders" className="btn btn-primary">
-              My orders
+              {t('account.myOrders')}
             </Link>
           }
         />
@@ -96,18 +98,18 @@ function MyReviewsInner() {
               <div className="review-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <strong className="small" style={{ display: 'block', marginBottom: 4 }}>
-                    {r.product_id ? 'Product Review' : 'Shop & Service Evaluation'}
+                    {r.product_id ? t('reviews.productReviewLabel') : t('reviews.shopServiceEvaluation')}
                   </strong>
                   <Rating value={r.rating} />
                   <span className="badge" style={{ marginLeft: 8 }}>
-                    {r.verified_purchase ? 'Verified purchase' : 'Pending'}
+                    {r.verified_purchase ? t('reviews.verifiedPurchase') : t('reviews.pending')}
                   </span>
                 </div>
                 <span className="small muted">{formatDate(r.created_at)}</span>
               </div>
               {!r.product_id && r.delivery_rating && (
                 <div className="small muted" style={{ marginTop: 6 }}>
-                  Delivery: <strong>{r.delivery_rating}★</strong> · Shop service: <strong>{r.service_rating}★</strong> · Overall: <strong>{r.order_experience_rating}★</strong>
+                  {t('reviews.serviceBreakdown', { delivery: r.delivery_rating ?? 0, service: r.service_rating ?? 0, overall: r.order_experience_rating ?? 0 })}
                 </div>
               )}
               {r.comment && (
@@ -117,7 +119,7 @@ function MyReviewsInner() {
               )}
               <div className="row-between" style={{ marginTop: 8 }}>
                 <Link to={r.product_id ? `/products/${r.product_id}` : `/shops/${r.shop_id}`} className="small section-link">
-                  {r.product_id ? 'View Product Page →' : 'View Shop Page →'}
+                  {r.product_id ? t('reviews.viewProductPage') : t('reviews.viewShopPage')}
                 </Link>
                 <Button
                   variant="ghost"
@@ -125,7 +127,7 @@ function MyReviewsInner() {
                   loading={withdrawing === r.id}
                   onClick={() => withdraw(r.id)}
                 >
-                  Withdraw
+                  {t('reviews.withdraw')}
                 </Button>
               </div>
             </div>

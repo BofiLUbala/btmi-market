@@ -7,18 +7,21 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney, asArray } from '@/lib/format'
 import { useAuth } from '@/store/auth'
+import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
+import type { TranslationKey } from '@/locales/fr'
 
-const METHOD_LABEL: Record<string, string> = {
-  PICKUP: 'Pick up at the shop',
-  SHOP_DELIVERY: 'Shop delivery',
-  PARTNER: 'Delivery partner'
+const METHOD_LABEL: Record<string, TranslationKey> = {
+  PICKUP: 'delivery.pickup',
+  SHOP_DELIVERY: 'delivery.shopDelivery',
+  PARTNER: 'delivery.partner'
 }
 
 function DeliveryInner() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const t = useT()
   const location = useLocation()
   const orderId = (location.state as { orderId?: string } | null)?.orderId
 
@@ -28,7 +31,7 @@ function DeliveryInner() {
   const [contact, setContact] = useState({
     contact_name: user ? `${user.first_name} ${user.last_name}` : '',
     phone: user?.phone ?? '',
-    address: user?.city ? `City: ${user.city}` : '',
+    address: user?.city ? `${t('delivery.cityPrefix')}${user.city}` : '',
     notes: ''
   })
   const [previewFee, setPreviewFee] = useState<number | null>(null)
@@ -41,7 +44,7 @@ function DeliveryInner() {
     [data, method]
   )
 
-  const defaultAddress = useMemo(() => (user?.city ? `City: ${user.city}` : ''), [user?.city])
+  const defaultAddress = useMemo(() => (user?.city ? `${t('delivery.cityPrefix')}${user.city}` : ''), [user?.city, t])
 
   const isAddressIncomplete = useMemo(() => {
     if (method === 'PICKUP') return false
@@ -74,7 +77,7 @@ function DeliveryInner() {
         },
         (e: unknown) => {
           if (!mounted) return
-          setError(e instanceof ApiError ? e.message : 'Could not load delivery options')
+          setError(e instanceof ApiError ? e.message : t('delivery.couldNotLoad'))
           setLoading(false)
         }
       )
@@ -98,7 +101,7 @@ function DeliveryInner() {
   async function continueToPayment() {
     if (!orderId || !selected) return
     if (isFormInvalid) {
-      setError('Please fill in all delivery details completely.')
+      setError(t('delivery.fillAllFields'))
       return
     }
     setSubmitting(true)
@@ -117,24 +120,24 @@ function DeliveryInner() {
         replace: true
       })
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not select delivery')
+      setError(e instanceof ApiError ? e.message : t('delivery.couldNotSelect'))
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loading) return <LoadingBlock label="Loading delivery options…" />
+  if (loading) return <LoadingBlock label={t('delivery.loadingOptions')} />
 
   return (
     <div className="checkout-page fade-in">
       <CheckoutProgress current="Delivery" />
-      <header className="checkout-heading"><div><h1>Choose delivery</h1><p>Select how you want to receive this order.</p></div></header>
+      <header className="checkout-heading"><div><h1>{t('delivery.title')}</h1><p>{t('delivery.subtitle')}</p></div></header>
       {error && <ErrorBox error={error} />}
 
       {data && (
         <div className="checkout-layout">
           <div className="checkout-content stack">
-            <section className="checkout-card delivery-options-card"><div className="checkout-card-head"><h2>Delivery method</h2><span>{data.options.length} options</span></div>
+            <section className="checkout-card delivery-options-card"><div className="checkout-card-head"><h2>{t('delivery.method')}</h2><span>{t('delivery.options', { count: data.options.length })}</span></div>
             {data.options.map((o) => (
               <button type="button"
                 key={o.method}
@@ -145,66 +148,66 @@ function DeliveryInner() {
               >
                 <span className="delivery-radio" aria-hidden />
                 <div className="row-between">
-                  <h3>{METHOD_LABEL[o.method] ?? o.label}</h3>
-                  <div className="bold">{o.available ? formatMoney(o.fee) : 'Unavailable'}</div>
+                  <h3>{METHOD_LABEL[o.method] ? t(METHOD_LABEL[o.method]) : o.label}</h3>
+                  <div className="bold">{o.available ? formatMoney(o.fee) : t('delivery.unavailable')}</div>
                 </div>
-                {o.provider && <div className="small muted">Provided by {o.provider}</div>}
-                <div className="small muted">{o.method === 'PICKUP' ? 'Collect your order directly from the shop.' : 'Receive your order at the address provided.'}</div>
+                {o.provider && <div className="small muted">{t('delivery.providedBy', { provider: o.provider })}</div>}
+                <div className="small muted">{o.method === 'PICKUP' ? t('delivery.pickupNote') : t('delivery.deliveryNote')}</div>
               </button>
             ))}
             </section>
 
             <section className={`checkout-card rewards-card ${usePointsForDelivery ? 'active' : ''}`}>
-              <div><span className="eyebrow">DELIVERY REWARDS</span><h2>Use points for delivery</h2><p>Apply available points to reduce the delivery fee.</p></div>
-              <button type="button" role="switch" aria-label="Use points for delivery" aria-checked={usePointsForDelivery} className={`toggle-switch ${usePointsForDelivery ? 'on' : ''}`} onClick={() => togglePoints(!usePointsForDelivery)}><span /></button>
+              <div><span className="eyebrow">{t('delivery.rewards')}</span><h2>{t('delivery.usePointsForDelivery')}</h2><p>{t('delivery.reduceFee')}</p></div>
+              <button type="button" role="switch" aria-label={t('delivery.usePointsForDelivery')} aria-checked={usePointsForDelivery} className={`toggle-switch ${usePointsForDelivery ? 'on' : ''}`} onClick={() => togglePoints(!usePointsForDelivery)}><span /></button>
               {usePointsForDelivery && previewFee !== null && selected && (
-                <div className="rewards-result"><strong>✓ Points applied</strong><span>Delivery fee:{' '}
+                <div className="rewards-result"><strong>{t('points.applied')}</strong><span>{t('delivery.fee')}{' '}
                     <s className="muted">{formatMoney(selected.fee)}</s>{' '}
                     <span className="pd-discount">{formatMoney(previewFee)}</span>
-                  </span><button onClick={() => togglePoints(false)}>Remove points</button>
+                  </span><button onClick={() => togglePoints(false)}>{t('points.remove')}</button>
                 </div>
               )}
             </section>
           </div>
 
           <aside className="checkout-card checkout-summary stack">
-            <span className="eyebrow">DELIVERY DETAILS</span>
-            <h2>{selected ? METHOD_LABEL[selected.method] : 'Choose a method'}</h2>
+            <span className="eyebrow">{t('delivery.details')}</span>
+            <h2>{selected ? t(METHOD_LABEL[selected.method]) : t('delivery.chooseMethod')}</h2>
             {method === 'PICKUP' ? (
               <p className="small muted">
-                You will pick up this order at the shop. No address needed.
+                {t('delivery.noAddressNeeded')}
               </p>
             ) : (
               <>
                 <Field
-                  label="Contact name"
+                  label={t('delivery.contactName')}
                   name="contact_name"
                   required
                   value={contact.contact_name}
                   onChange={(e) => setContact({ ...contact, contact_name: e.target.value })}
                 />
                 <Field
-                  label="Phone"
+                  label={t('common.phone')}
                   name="phone"
                   required
                   value={contact.phone}
                   onChange={(e) => setContact({ ...contact, phone: e.target.value })}
                 />
                 <Field
-                  label="Delivery address"
+                  label={t('delivery.deliveryAddress')}
                   name="address"
                   required
                   value={contact.address}
                   onChange={(e) => setContact({ ...contact, address: e.target.value })}
-                  placeholder="City, commune, avenue, number…"
+                  placeholder={t('delivery.addressPlaceholder')}
                 />
                 {isAddressIncomplete && contact.address.trim().length > 0 && (
                   <p className="small" style={{ color: 'var(--color-danger)', marginTop: -8, marginBottom: 12 }}>
-                    Please add specific details (commune, avenue, house number, etc.).
+                    {t('delivery.addressIncomplete')}
                   </p>
                 )}
                 <Field
-                  label="Notes"
+                  label={t('delivery.notes')}
                   name="notes"
                   value={contact.notes}
                   onChange={(e) => setContact({ ...contact, notes: e.target.value })}
@@ -218,7 +221,7 @@ function DeliveryInner() {
               disabled={isFormInvalid}
               onClick={continueToPayment}
             >
-              Continue to review
+              {t('delivery.continueToReview')}
             </Button>
           </aside>
         </div>

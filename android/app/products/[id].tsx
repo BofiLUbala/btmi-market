@@ -27,11 +27,12 @@ const stars = (rating: number) =>
     Math.max(0, 5 - Math.round(rating))
   )}`
 
-const reviewDate = (value: string) => {
+const reviewDate = (value: string, lang: string) => {
+  const locale = lang === 'en' ? 'en-US' : 'fr-FR'
   const date = new Date(value)
   return Number.isNaN(date.getTime())
     ? ''
-    : date.toLocaleDateString('fr-FR', {
+    : date.toLocaleDateString(locale, {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -64,7 +65,7 @@ function RatingBreakdown({ summary }: { summary: ProductReviewSummary }) {
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
 
@@ -106,11 +107,11 @@ export default function ProductScreen() {
     return variants.find((v) => (v.stock_quantity ?? 0) > 0) || variants[0]
   }, [variants, selection, variantId, hasAttributeGroups])
 
-  if (query.isLoading) return <Loading label="Chargement du produit…" />
+  if (query.isLoading) return <Loading label={t('product.loading')} />
   if (!product || query.isError) {
     return (
       <ErrorState
-        message="Ce produit n’est pas disponible pour le moment."
+        message={t('product.unavailable')}
         retry={() => query.refetch()}
       />
     )
@@ -167,8 +168,8 @@ export default function ProductScreen() {
     })
     if (!accepted) {
       Alert.alert(
-        'Boutique différente',
-        'Votre panier contient déjà des produits d’une autre boutique. Terminez ou videz ce panier avant de continuer.'
+        t('cart.differentShop'),
+        t('cart.differentShopBody')
       )
     }
     return accepted
@@ -186,18 +187,18 @@ export default function ProductScreen() {
         )}
 
         <View style={styles.content}>
-          <Text style={styles.shop}>Vendu par {product.shop_name || 'un vendeur TBK'}</Text>
+          <Text style={styles.shop}>{t('product.soldBy', { shop: product.shop_name || t('product.aSeller') })}</Text>
           <Text style={styles.title}>{product.name}</Text>
           {reviewData?.summary.total_reviews ? (
             <View style={styles.ratingBadgeRow}>
               <View style={styles.ratingPill}>
                 <Text style={styles.ratingPillText}>{reviewData.summary.average_rating.toFixed(1)} ★</Text>
               </View>
-              <Text style={styles.ratingCountText}>{reviewData.summary.total_reviews} avis</Text>
+              <Text style={styles.ratingCountText}>{t('product.reviewsCount', { count: reviewData.summary.total_reviews })}</Text>
             </View>
           ) : (
             <Text style={styles.ratingEmpty}>
-              {reviewQuery.isLoading ? 'Chargement des avis…' : 'Aucun avis pour le moment'}
+              {reviewQuery.isLoading ? t('product.loadingReviews') : t('product.noReviews')}
             </Text>
           )}
           <View style={styles.priceRow}>
@@ -220,15 +221,15 @@ export default function ProductScreen() {
           )}
           {(onSale || promotion.phase === 'upcoming') && (promotion.startsAt || promotion.endsAt) && (
             <Text style={styles.promoWindow}>
-              {promotion.startsAt ? t('product.promotionFrom', { start: promotion.startsAt.toLocaleDateString('fr-FR') }) : ''}
-              {promotion.endsAt ? ' ' + t('product.promotionTo', { end: promotion.endsAt.toLocaleDateString('fr-FR') }) : ''}
+              {promotion.startsAt ? t('product.promotionFrom', { start: promotion.startsAt.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') }) : ''}
+              {promotion.endsAt ? ' ' + t('product.promotionTo', { end: promotion.endsAt.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') }) : ''}
             </Text>
           )}
 
           {/* Dynamic Variant Selectors (derives from actual saved attributes) */}
           {hasAttributeGroups ? (
             <View style={styles.optionSection}>
-              <SectionTitle title="Options disponibles" />
+              <SectionTitle title={t('product.availableOptions')} />
               {attributeGroups.map((g) => {
                 const activeVal = selection[g.key] || selected?.attributes?.[g.key] || g.values[0]
                 return (
@@ -271,13 +272,13 @@ export default function ProductScreen() {
             </View>
           ) : variants.length > 1 ? (
             <View style={styles.optionSection}>
-              <SectionTitle title="Choisissez une option" />
+              <SectionTitle title={t('product.chooseOption')} />
               <View style={styles.variants}>
                 {variants.map((v) => (
                   <Button
                     key={v.id}
                     variant={selected?.id === v.id ? 'primary' : 'outline'}
-                    title={v.name || describeAttributes(v) || v.sku || 'Option'}
+                    title={v.name || describeAttributes(v) || v.sku || t('product.option')}
                     onPress={() => {
                       setVariantId(v.id)
                       setQuantity(1)
@@ -290,14 +291,14 @@ export default function ProductScreen() {
 
           <Text style={[styles.stock, { color: stock > 0 ? colors.success : colors.danger }]}>
             {stock > 3
-              ? `En stock — ${stock} disponibles`
+              ? t('product.inStockCount', { count: stock })
               : stock > 0
-              ? `Plus que ${stock} en stock`
-              : 'Rupture de stock'}
+              ? t('product.onlyLeft', { count: stock })
+              : t('product.outOfStock')}
           </Text>
 
           <Card>
-            <SectionTitle title="Quantité" />
+            <SectionTitle title={t('common.quantity')} />
             <View style={styles.qty}>
               <Button variant="outline" title="−" onPress={() => setQuantity(Math.max(1, quantity - 1))} />
               <Text style={styles.qtyValue}>{quantity}</Text>
@@ -313,7 +314,7 @@ export default function ProductScreen() {
           {/* Product Specifications */}
           {specifications.length > 0 && (
             <Card>
-              <SectionTitle title="Caractéristiques" />
+              <SectionTitle title={t('product.specifications')} />
               <View style={styles.specsTable}>
                 {specifications.map((spec) => (
                   <View key={spec.key} style={styles.specRow}>
@@ -327,32 +328,32 @@ export default function ProductScreen() {
 
           {product.description ? (
             <Card>
-              <SectionTitle title="Description" />
+              <SectionTitle title={t('product.description')} />
               <Text style={styles.description}>{product.description}</Text>
             </Card>
           ) : null}
 
           <View style={styles.reviewSection}>
             <SectionTitle
-              title={`Avis clients${reviewData?.summary.total_reviews ? ` (${reviewData.summary.total_reviews})` : ''}`}
+              title={`${t('product.customerReviews')}${reviewData?.summary.total_reviews ? ` (${reviewData.summary.total_reviews})` : ''}`}
             />
             {reviewQuery.isLoading ? (
               <View style={styles.reviewLoading}>
-                <Loading label="Chargement des avis…" />
+                <Loading label={t('product.loadingReviews')} />
               </View>
             ) : reviewQuery.isError ? (
               <Card>
-                <Text style={styles.reviewEmptyTitle}>Avis indisponibles</Text>
+                <Text style={styles.reviewEmptyTitle}>{t('product.reviewsUnavailable')}</Text>
                 <Text style={styles.reviewEmpty}>
-                  Les avis n’ont pas pu être chargés. Réessayez dans quelques instants.
+                  {t('product.reviewsUnavailableBody')}
                 </Text>
-                <Button title="Réessayer" variant="outline" onPress={() => reviewQuery.refetch()} />
+                <Button title={t('common.retry')} variant="outline" onPress={() => reviewQuery.refetch()} />
               </Card>
             ) : !reviewData?.summary.total_reviews ? (
               <Card>
-                <Text style={styles.reviewEmptyTitle}>Pas encore d’avis</Text>
+                <Text style={styles.reviewEmptyTitle}>{t('product.noReviewsYet')}</Text>
                 <Text style={styles.reviewEmpty}>
-                  Les acheteurs ayant terminé leur commande pourront partager ici leur expérience avec ce produit.
+                  {t('product.noReviewsYetBody')}
                 </Text>
               </Card>
             ) : (
@@ -362,7 +363,7 @@ export default function ProductScreen() {
                     <View style={styles.scoreBlock}>
                       <Text style={styles.score}>{reviewData.summary.average_rating.toFixed(1)}</Text>
                       <Text style={styles.summaryStars}>{stars(reviewData.summary.average_rating)}</Text>
-                      <Text style={styles.reviewTotal}>{reviewData.summary.total_reviews} avis vérifiés</Text>
+                      <Text style={styles.reviewTotal}>{t('product.verifiedReviews', { count: reviewData.summary.total_reviews })}</Text>
                     </View>
                     <RatingBreakdown summary={reviewData.summary} />
                   </View>
@@ -372,20 +373,20 @@ export default function ProductScreen() {
                     <View style={styles.reviewTop}>
                       <View>
                         <Text style={styles.reviewStars}>{stars(review.rating)}</Text>
-                        <Text style={styles.reviewer}>{review.buyer_display_name || 'Acheteur TBK'}</Text>
+                        <Text style={styles.reviewer}>{review.buyer_display_name || t('product.tbkBuyer')}</Text>
                       </View>
-                      <Text style={styles.reviewDate}>{reviewDate(review.created_at)}</Text>
+                      <Text style={styles.reviewDate}>{reviewDate(review.created_at, lang)}</Text>
                     </View>
                     {review.verified_purchase && (
                       <View style={styles.verifiedBadge}>
                         <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                        <Text style={styles.verifiedText}>Achat vérifié</Text>
+                        <Text style={styles.verifiedText}>{t('product.verifiedPurchase')}</Text>
                       </View>
                     )}
                     <Text style={styles.reviewComment}>{review.comment}</Text>
                     {review.helpful_count > 0 && (
                       <Text style={styles.helpful}>
-                        Utile pour {review.helpful_count} personne{review.helpful_count > 1 ? 's' : ''}
+                        {t('product.helpfulFor', { count: review.helpful_count })}
                       </Text>
                     )}
                     {review.replies?.map((reply) => (
@@ -406,14 +407,14 @@ export default function ProductScreen() {
         <Button
           style={styles.actionButton}
           variant="outline"
-          title="Ajouter au panier"
+          title={t('product.addToCart')}
           disabled={!selected || stock < 1}
           onPress={addLine}
         />
         <Button
           style={styles.actionButton}
           variant="gold"
-          title="Acheter maintenant"
+          title={t('product.buyNow')}
           disabled={!selected || stock < 1}
           onPress={() => {
             if (addLine()) router.push('/(buyer)/cart')

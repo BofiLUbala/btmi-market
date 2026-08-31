@@ -5,8 +5,17 @@ import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import type { CashSession, CashSummary } from '@/api/types'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
+
+const CASH_SESSION_STATUS_KEYS: Record<string, TranslationKey> = {
+  OPEN: 'seller.cash.status.OPEN',
+  CLOSED: 'seller.cash.status.CLOSED',
+  RECONCILED: 'seller.cash.status.RECONCILED',
+}
 
 export default function SellerCashPage() {
+  const t = useT()
   const { activeBusiness, activeShop } = useAuth()
   const [summary, setSummary] = useState<CashSummary | null>(null)
   const [sessions, setSessions] = useState<CashSession[]>([])
@@ -35,7 +44,7 @@ export default function SellerCashPage() {
       setSummary(summaryData)
       setSessions(Array.isArray(sessionsData) ? sessionsData : [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load cash data')
+      setError(err instanceof Error ? err.message : t('seller.cash.loadFailed'))
       setSessions([])
     } finally {
       setLoading(false)
@@ -46,7 +55,7 @@ export default function SellerCashPage() {
     if (!activeShop) return
     const amount = parseFloat(openingAmount)
     if (isNaN(amount) || amount < 0) {
-      setActionError('Enter a valid opening amount')
+      setActionError(t('seller.cash.invalidOpeningAmount'))
       return
     }
     setActing(true)
@@ -56,7 +65,7 @@ export default function SellerCashPage() {
       setOpeningAmount('')
       await loadCashData()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to open session')
+      setActionError(err instanceof Error ? err.message : t('seller.cash.openFailed'))
     } finally {
       setActing(false)
     }
@@ -66,7 +75,7 @@ export default function SellerCashPage() {
     const raw = closingAmounts[session.id]
     const amount = parseFloat(raw)
     if (isNaN(amount) || amount < 0) {
-      setActionError('Enter a valid declared closing amount')
+      setActionError(t('seller.cash.invalidClosingAmount'))
       return
     }
     setActing(true)
@@ -76,7 +85,7 @@ export default function SellerCashPage() {
       setClosingAmounts((prev) => ({ ...prev, [session.id]: '' }))
       await loadCashData()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to close session')
+      setActionError(err instanceof Error ? err.message : t('seller.cash.closeFailed'))
     } finally {
       setActing(false)
     }
@@ -86,8 +95,8 @@ export default function SellerCashPage() {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
         <div className="empty-icon" style={{ fontSize: 64 }}>💵</div>
-        <h2>No Business Selected</h2>
-        <p className="muted">Select a business to manage cash.</p>
+        <h2>{t('seller.noBusinessSelected')}</h2>
+        <p className="muted">{t('seller.cash.noBusinessSelectedHint')}</p>
       </div>
     )
   }
@@ -98,11 +107,11 @@ export default function SellerCashPage() {
   return (
     <div className="seller-cash">
       <div className="page-header">
-        <h1>Cash Management</h1>
+        <h1>{t('seller.cash.title')}</h1>
       </div>
 
       {loading ? (
-        <LoadingBlock label="Loading cash data…" />
+        <LoadingBlock label={t('seller.cash.loading')} />
       ) : error ? (
         <ErrorBox error={error} />
       ) : (
@@ -110,10 +119,10 @@ export default function SellerCashPage() {
           {actionError && <ErrorBox error={actionError} />}
           <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <Button variant={activeTab === 'summary' ? 'primary' : 'outline'} onClick={() => setActiveTab('summary')}>
-              Summary
+              {t('seller.cash.summaryTab')}
             </Button>
             <Button variant={activeTab === 'sessions' ? 'primary' : 'outline'} onClick={() => setActiveTab('sessions')}>
-              Sessions
+              {t('seller.cash.sessionsTab')}
             </Button>
           </div>
 
@@ -121,7 +130,7 @@ export default function SellerCashPage() {
             <>
               <CardGrid>
                 <Card>
-                  <h3>Total Cash Sales</h3>
+                  <h3>{t('seller.cash.totalCashSales')}</h3>
                   <div className="stat-value">{summary.total_cash_sales.toLocaleString()} FC</div>
                 </Card>
                 {(summary.shop_breakdown || []).map((shop) => (
@@ -129,28 +138,28 @@ export default function SellerCashPage() {
                     <h3>{shop.shop_name}</h3>
                     <div className="stat-value">{shop.total_cash_sales.toLocaleString()} FC</div>
                     <p className="muted small">
-                      {shop.open_sessions} open · {shop.closed_sessions} closed
-                      {shop.total_shortage > 0 && ` · shortage ${shop.total_shortage.toLocaleString()}`}
-                      {shop.total_overage > 0 && ` · overage ${shop.total_overage.toLocaleString()}`}
+                      {t('seller.cash.sessionsOpenClosed', { open: shop.open_sessions, closed: shop.closed_sessions })}
+                      {shop.total_shortage > 0 && t('seller.cash.shortage', { amount: shop.total_shortage.toLocaleString() })}
+                      {shop.total_overage > 0 && t('seller.cash.overage', { amount: shop.total_overage.toLocaleString() })}
                     </p>
                   </Card>
                 ))}
               </CardGrid>
               {activeShop && (
                 <Card style={{ marginTop: 16 }}>
-                  <h3>Open a Cash Session</h3>
+                  <h3>{t('seller.cash.openSessionTitle')}</h3>
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <input
                       type="number"
                       min="0"
                       step="any"
-                      placeholder="Opening float amount"
+                      placeholder={t('seller.cash.openingFloatPlaceholder')}
                       value={openingAmount}
                       onChange={(e) => setOpeningAmount(e.target.value)}
                       style={{ flex: 1 }}
                     />
                     <Button onClick={openSession} disabled={acting}>
-                      {acting ? 'Opening…' : 'Open Session'}
+                      {acting ? t('seller.cash.opening') : t('seller.cash.openSession')}
                     </Button>
                   </div>
                 </Card>
@@ -161,24 +170,24 @@ export default function SellerCashPage() {
           {activeTab === 'sessions' && (
             <Card>
               <div className="card-header">
-                <h3>Recent Sessions</h3>
+                <h3>{t('seller.cash.recentSessions')}</h3>
               </div>
               {sessions.length === 0 ? (
-                <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>No sessions yet</p>
+                <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>{t('seller.cash.noSessionsYet')}</p>
               ) : (
                 <div className="table-responsive">
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Shop</th>
-                        <th>Employee</th>
-                        <th>Opening</th>
-                        <th>Cash Sales</th>
-                        <th>Expected</th>
-                        <th>Declared</th>
-                        <th>Diff</th>
-                        <th>Status</th>
-                        <th>Opened</th>
+                        <th>{t('orders.shop')}</th>
+                        <th>{t('seller.cash.employee')}</th>
+                        <th>{t('seller.cash.openingColumn')}</th>
+                        <th>{t('seller.cash.cashSales')}</th>
+                        <th>{t('seller.cash.expected')}</th>
+                        <th>{t('seller.cash.declared')}</th>
+                        <th>{t('seller.cash.difference')}</th>
+                        <th>{t('common.status')}</th>
+                        <th>{t('seller.cash.opened')}</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -192,7 +201,7 @@ export default function SellerCashPage() {
                           <td>{session.expected_amount.toLocaleString()}</td>
                           <td>{session.declared_closing_amount?.toLocaleString() || '—'}</td>
                           <td className={!session.difference ? 'success' : 'danger'}>{session.difference?.toLocaleString() ?? '—'}</td>
-                          <td><span className={`badge badge-${session.status === 'RECONCILED' ? 'success' : session.status === 'CLOSED' ? 'warning' : 'primary'}`}>{session.status}</span></td>
+                          <td><span className={`badge badge-${session.status === 'RECONCILED' ? 'success' : session.status === 'CLOSED' ? 'warning' : 'primary'}`}>{t(CASH_SESSION_STATUS_KEYS[session.status] ?? 'seller.cash.status.OPEN')}</span></td>
                           <td className="small">{new Date(session.opened_at).toLocaleDateString()}</td>
                           <td>
                             {session.status === 'OPEN' && (
@@ -201,13 +210,13 @@ export default function SellerCashPage() {
                                   type="number"
                                   min="0"
                                   step="any"
-                                  placeholder="Counted"
+                                  placeholder={t('seller.cash.counted')}
                                   value={closingAmounts[session.id] ?? ''}
                                   onChange={(e) => setClosingAmounts((prev) => ({ ...prev, [session.id]: e.target.value }))}
                                   style={{ width: 90 }}
                                 />
                                 <Button size="sm" onClick={() => closeSession(session)} disabled={acting}>
-                                  Close
+                                  {t('seller.cash.closeSession')}
                                 </Button>
                               </div>
                             )}

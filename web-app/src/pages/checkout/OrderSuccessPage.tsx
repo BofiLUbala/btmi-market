@@ -5,6 +5,7 @@ import type { BuyerPayment, OrderWithLines } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney } from '@/lib/format'
+import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 
@@ -12,6 +13,7 @@ function SuccessInner() {
   const { orderId = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const t = useT()
   const payment = (location.state as { payment?: BuyerPayment } | null)?.payment
   const [order, setOrder] = useState<OrderWithLines | null>(null)
 
@@ -27,7 +29,7 @@ function SuccessInner() {
     return null
   }
 
-  if (!order) return <LoadingBlock label="Confirming your order…" />
+  if (!order) return <LoadingBlock label={t('payment.confirmingOrder')} />
 
   const amount = payment?.cash_due ?? order.order.final_total + order.order.delivery_fee_final
 
@@ -36,22 +38,22 @@ function SuccessInner() {
       <CheckoutProgress current="Order" />
       <div className="card stack" style={{ textAlign: 'center', alignItems: 'center', padding: '40px 24px' }}>
         <div className="checkout-success-mark" aria-hidden>✓</div>
-        <h1>Order confirmed!</h1>
+        <h1>{t('success.title')}</h1>
         <p className="muted">
-          Order <strong>{order.order.order_number || order.order.id.slice(0, 8)}</strong> has been placed.
-          The shop has been notified.
+          {t('success.placed', { number: order.order.order_number || order.order.id.slice(0, 8) })}{' '}
+          {t('success.shopNotified')}
         </p>
         <div className="pay-big" style={{ width: '100%', maxWidth: 380 }}>
-          <div className="small muted">Amount to pay in cash</div>
+          <div className="small muted">{t('success.amountToPay')}</div>
           <div className="amount">{formatMoney(amount, payment?.currency ?? 'FC')}</div>
-          <div className="pay-note">Keep an eye on your tracking for updates.</div>
+          <div className="pay-note">{t('success.trackingHint')}</div>
         </div>
         <div className="row-between" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link to={`/orders/${orderId}/tracking`}>
-            <Button>Track order</Button>
+            <Button>{t('success.trackOrder')}</Button>
           </Link>
           <Link to="/orders">
-            <Button variant="outline">My orders</Button>
+            <Button variant="outline">{t('account.myOrders')}</Button>
           </Link>
         </div>
       </div>

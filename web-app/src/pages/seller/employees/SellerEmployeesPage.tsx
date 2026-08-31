@@ -5,6 +5,14 @@ import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
+
+const EMPLOYEE_STATUS_KEYS: Record<string, TranslationKey> = {
+  ACTIVE: 'employee.status.ACTIVE',
+  INACTIVE: 'employee.status.INACTIVE',
+  TERMINATED: 'employee.status.TERMINATED',
+}
 
 interface Employee {
   id: string
@@ -24,6 +32,7 @@ interface ShopLite {
 }
 
 export default function SellerEmployeesPage() {
+  const t = useT()
   const { activeBusiness, activeShop } = useAuth()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [shops, setShops] = useState<ShopLite[]>([])
@@ -58,7 +67,7 @@ export default function SellerEmployeesPage() {
       const data = await employeeApi.listByBusiness(activeBusiness.id)
       setEmployees(Array.isArray(data) ? data : [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load employees')
+      setError(err instanceof Error ? err.message : t('seller.employees.loadFailed'))
       setEmployees([])
     } finally {
       setLoading(false)
@@ -86,7 +95,7 @@ export default function SellerEmployeesPage() {
       setForm({ first_name: '', middle_name: '', last_name: '', phone: '', email: '', job_title: '' })
       loadEmployees()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create employee')
+      setError(err instanceof Error ? err.message : t('seller.employees.createFailed'))
     }
   }
 
@@ -103,7 +112,7 @@ export default function SellerEmployeesPage() {
       const assigned = await employeeApi.listShops(emp.id)
       setAssignedShopIds(assigned.map((s) => s.id))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to load assignments')
+      setActionError(err instanceof Error ? err.message : t('seller.employees.assignmentsLoadFailed'))
     } finally {
       setActing(false)
     }
@@ -116,7 +125,7 @@ export default function SellerEmployeesPage() {
       await employeeApi.assignToShop(empId, { shop_id: shopId })
       setAssignedShopIds((prev) => [...prev, shopId])
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to assign shop')
+      setActionError(err instanceof Error ? err.message : t('seller.employees.assignFailed'))
     } finally {
       setActing(false)
     }
@@ -129,7 +138,7 @@ export default function SellerEmployeesPage() {
       await employeeApi.removeFromShop(empId, shopId)
       setAssignedShopIds((prev) => prev.filter((id) => id !== shopId))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to remove shop assignment')
+      setActionError(err instanceof Error ? err.message : t('seller.employees.unassignFailed'))
     } finally {
       setActing(false)
     }
@@ -146,10 +155,10 @@ export default function SellerEmployeesPage() {
       if (res && res.invitation_url) {
         setInviteUrl({ employeeId: emp.id, url: res.invitation_url })
       } else {
-        setActionError('Invitation created, but no URL was returned.')
+        setActionError(t('seller.employees.invitationNoUrl'))
       }
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to create invitation')
+      setActionError(err instanceof Error ? err.message : t('seller.employees.invitationFailed'))
     } finally {
       setActing(false)
     }
@@ -159,8 +168,8 @@ export default function SellerEmployeesPage() {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
         <div className="empty-icon" style={{ fontSize: 64 }}>👥</div>
-        <h2>No Business Selected</h2>
-        <p className="muted">Select a business to manage employees.</p>
+        <h2>{t('seller.noBusinessSelected')}</h2>
+        <p className="muted">{t('seller.employees.noBusinessSelectedHint')}</p>
       </div>
     )
   }
@@ -171,40 +180,40 @@ export default function SellerEmployeesPage() {
   return (
     <div className="seller-employees">
       <div className="page-header">
-        <h1>Employees</h1>
-        <Button onClick={() => setShowCreate(true)}>➕ Add Employee</Button>
+        <h1>{t('seller.employees')}</h1>
+        <Button onClick={() => setShowCreate(true)}>➕ {t('seller.employees.add')}</Button>
       </div>
 
       {showCreate && (
         <Card style={{ marginBottom: 24 }}>
-          <h2>Add New Employee</h2>
+          <h2>{t('seller.employees.addNew')}</h2>
           {error && <ErrorBox error={error} />}
           <form onSubmit={createEmployee}>
-            <Field label="First Name" name="first_name" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
-            <Field label="Middle Name (optional)" name="middle_name" value={form.middle_name} onChange={(e) => setForm({ ...form, middle_name: e.target.value })} />
-            <Field label="Last Name" name="last_name" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
-            <Field label="Phone" name="phone" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+243 …" />
-            <Field label="Email" name="email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <Field label="Job Title / Role" name="job_title" required value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} placeholder="e.g. Cashier, Store Manager" />
+            <Field label={t('auth.firstName')} name="first_name" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+            <Field label={t('seller.employees.middleName')} name="middle_name" value={form.middle_name} onChange={(e) => setForm({ ...form, middle_name: e.target.value })} />
+            <Field label={t('auth.lastName')} name="last_name" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+            <Field label={t('common.phone')} name="phone" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder={t('auth.phonePlaceholder')} />
+            <Field label={t('common.email')} name="email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Field label={t('seller.employees.jobTitle')} name="job_title" required value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} placeholder={t('seller.employees.jobTitlePlaceholder')} />
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <Button type="submit">Create Employee</Button>
-              <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
+              <Button type="submit">{t('seller.employees.create')}</Button>
+              <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
             </div>
           </form>
         </Card>
       )}
 
       {loading ? (
-        <LoadingBlock label="Loading employees…" />
+        <LoadingBlock label={t('seller.employees.loading')} />
       ) : error ? (
         <ErrorBox error={error} />
       ) : empList.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
             <div className="empty-icon" style={{ fontSize: 48 }}>👥</div>
-            <h3>No Employees Yet</h3>
-            <p className="muted">Add employees to help manage your business.</p>
-            <Button onClick={() => setShowCreate(true)} size="lg">Add Employee</Button>
+            <h3>{t('seller.employees.noneYet')}</h3>
+            <p className="muted">{t('seller.employees.noneYetHint')}</p>
+            <Button onClick={() => setShowCreate(true)} size="lg">{t('seller.employees.add')}</Button>
           </div>
         </Card>
       ) : (
@@ -215,12 +224,12 @@ export default function SellerEmployeesPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Role</th>
-                    <th>Contact</th>
-                    <th>Status</th>
-                    <th>System Access</th>
-                    <th>Actions</th>
+                    <th>{t('common.name')}</th>
+                    <th>{t('seller.employees.role')}</th>
+                    <th>{t('seller.employees.contact')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('employee.dashboard.systemAccess')}</th>
+                    <th>{t('orders.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -235,33 +244,33 @@ export default function SellerEmployeesPage() {
                         {emp.phone}<br />
                         {emp.email}
                       </td>
-                      <td><span className={`badge badge-${emp.status === 'ACTIVE' ? 'success' : emp.status === 'INACTIVE' ? 'warning' : 'danger'}`}>{emp.status}</span></td>
-                      <td>{emp.linked_user_id ? '✓ Enabled' : '○ Disabled'}</td>
+                      <td><span className={`badge badge-${emp.status === 'ACTIVE' ? 'success' : emp.status === 'INACTIVE' ? 'warning' : 'danger'}`}>{t(EMPLOYEE_STATUS_KEYS[emp.status] ?? 'employee.status.ACTIVE')}</span></td>
+                      <td>{emp.linked_user_id ? t('employee.access.enabled') : t('employee.access.disabled')}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <Button variant="ghost" size="sm" onClick={() => toggleAssign(emp)}>
-                            {assigningId === emp.id ? 'Hide Shops' : 'Assign Shops'}
+                            {assigningId === emp.id ? t('seller.employees.hideShops') : t('seller.employees.assignShops')}
                           </Button>
                           {!emp.linked_user_id && (
                             <Button variant="primary" size="sm" disabled={acting} onClick={() => invite(emp)}>
-                              Invite Access
+                              {t('seller.employees.inviteAccess')}
                             </Button>
                           )}
                         </div>
                         {assigningId === emp.id && (
                           <div style={{ marginTop: 8, textAlign: 'left' }}>
                             {shopList.length === 0 ? (
-                              <span className="muted small">No shops to assign. Create a shop first.</span>
+                              <span className="muted small">{t('seller.employees.noShopsToAssign')}</span>
                             ) : (
                               shopList.map((shop) => {
                                 const isAssigned = assignedShopIds.includes(shop.id)
                                 return (
                                   <div key={shop.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                                    <span className="small">🏪 {shop.name}{shop.id === activeShop ? ' (current)' : ''}</span>
+                                    <span className="small">🏪 {shop.name}{shop.id === activeShop ? ` ${t('seller.employees.currentShop')}` : ''}</span>
                                     {isAssigned ? (
-                                      <Button variant="ghost" size="sm" disabled={acting} onClick={() => unassign(emp.id, shop.id)}>Remove</Button>
+                                      <Button variant="ghost" size="sm" disabled={acting} onClick={() => unassign(emp.id, shop.id)}>{t('common.remove')}</Button>
                                     ) : (
-                                      <Button variant="outline" size="sm" disabled={acting} onClick={() => assign(emp.id, shop.id)}>Assign</Button>
+                                      <Button variant="outline" size="sm" disabled={acting} onClick={() => assign(emp.id, shop.id)}>{t('seller.employees.assign')}</Button>
                                     )}
                                   </div>
                                 )
@@ -271,7 +280,7 @@ export default function SellerEmployeesPage() {
                         )}
                         {inviteUrl?.employeeId === emp.id && (
                           <div style={{ marginTop: 8, textAlign: 'left' }}>
-                            <span className="muted small">Invitation link (expires soon):</span>
+                            <span className="muted small">{t('seller.employees.invitationLink')}</span>
                             <br />
                             <input
                               readOnly

@@ -3,19 +3,21 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/Feedback'
 import { formatMoney, initials, formatDate } from '@/lib/format'
 import { useFavorites } from '@/store/favorites'
+import { useI18n } from '@/store/i18n'
 
 export default function FavoritesPage() {
   const { items, remove, clear } = useFavorites()
+  const { t } = useI18n()
 
   if (items.length === 0) {
     return (
       <EmptyState
         icon="❤️"
-        title="No favorites yet"
-        description="Tap the heart on any product to save it here. Favorites are stored on this device only — the marketplace has no favorites service yet."
+        title={t('favorites.title')}
+        description={t('favorites.empty.description')}
         action={
           <Link to="/search" className="btn btn-primary">
-            Browse products
+            {t('favorites.browse')}
           </Link>
         }
       />
@@ -25,13 +27,13 @@ export default function FavoritesPage() {
   return (
     <div className="fade-in">
       <div className="row-between" style={{ marginBottom: 12 }}>
-        <h1>Favorites</h1>
+        <h1>{t('nav.favorites')}</h1>
         <Button variant="ghost" size="sm" onClick={clear}>
-          Clear all
+          {t('favorites.clearAll')}
         </Button>
       </div>
       <p className="pay-note" style={{ marginTop: -8, marginBottom: 12 }}>
-        Saved on this device. A server-side favorites service is not available yet.
+        {t('favorites.localNote')}
       </p>
       <div className="card stack">
         {items.map((i) => (
@@ -47,12 +49,12 @@ export default function FavoritesPage() {
                 {i.name}
               </Link>
               <div className="small muted">
-                {i.shopName} · saved {formatDate(i.addedAt)}
+                {i.shopName} · {t('favorites.savedAt', { date: formatDate(i.addedAt) })}
               </div>
               <div className="bold">{formatMoney(i.price, i.currency)}</div>
             </div>
             <Button variant="outline" size="sm" onClick={() => remove(i.productId)}>
-              Remove
+              {t('common.remove')}
             </Button>
           </div>
         ))}

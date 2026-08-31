@@ -5,8 +5,10 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 export default function SellerLoginPage() {
+  const t = useT()
   const { login, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -28,19 +30,19 @@ export default function SellerLoginPage() {
         navigate('/employee/dashboard', { replace: true })
       } else {
         await logout()
-        setError('This account is not registered as a Seller. Please use a Seller account or register as a Seller.')
+        setError(t('seller.auth.login.notSeller'))
       }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 'ACCOUNT_NOT_ACTIVATED') {
-          setError('Your account has not been activated yet. Please check your email for the activation link.')
+          setError(t('auth.login.notActivatedMessage'))
         } else if (err.code === 'INVALID_CREDENTIALS') {
-          setError('Invalid email or password. Please try again.')
+          setError(t('auth.login.invalidCredentials'))
         } else {
           setError(err.message)
         }
       } else {
-        setError(err instanceof Error ? err.message : 'Sign in failed')
+        setError(err instanceof Error ? err.message : t('auth.login.failed'))
       }
     } finally {
       setBusy(false)
@@ -51,21 +53,21 @@ export default function SellerLoginPage() {
     <div className="seller-login-wrap">
       <form className="card seller-login-card" onSubmit={onSubmit}>
         <span className="seller-eyebrow">TBK Seller</span>
-        <h1>Bienvenue</h1>
-        <p className="muted">Connectez-vous pour gérer votre commerce.</p>
+        <h1>{t('seller.auth.login.title')}</h1>
+        <p className="muted">{t('seller.auth.login.subtitle')}</p>
         {error && <ErrorBox error={error} />}
         <Field
-          label="Email"
+          label={t('common.email')}
           name="email"
           type="email"
           required
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder={t('auth.emailPlaceholder')}
         />
         <Field
-          label="Password"
+          label={t('auth.password')}
           name="password"
           type="password"
           required
@@ -76,20 +78,20 @@ export default function SellerLoginPage() {
           showPasswordToggle
         />
         <div className="seller-forgot-password-link">
-          <Link to="/forgot-password?account=seller" className="section-link">Forgot password?</Link>
+          <Link to="/forgot-password?account=seller" className="section-link">{t('auth.login.forgotPassword')}</Link>
         </div>
         <Button type="submit" block size="lg" loading={busy}>
-          Se connecter
+          {t('auth.login.submit')}
         </Button>
         <p className="small muted">
-          No seller account? <Link to="/seller/register" className="section-link">Create one</Link>
+          {t('seller.auth.login.noAccount')} <Link to="/seller/register" className="section-link">{t('auth.login.createOne')}</Link>
           <br />
-          Not activated? <Link to="/seller/resend-activation" className="section-link">Resend email</Link>
+          {t('auth.login.notActivated')} <Link to="/seller/resend-activation" className="section-link">{t('auth.login.resendEmail')}</Link>
         </p>
         <p className="small muted" style={{ marginTop: 8 }}>
-          Employee? <Link to="/employee/login" className="section-link">Sign in as Employee</Link>
+          {t('seller.auth.login.employee')} <Link to="/employee/login" className="section-link">{t('auth.signInAsEmployee')}</Link>
         </p>
-        <Link to="/" className="seller-auth-back">← Retour au Marketplace</Link>
+        <Link to="/" className="seller-auth-back">{t('seller.entry.backToMarketplace')}</Link>
       </form>
     </div>
   )

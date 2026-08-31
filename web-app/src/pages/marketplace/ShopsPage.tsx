@@ -5,8 +5,10 @@ import { ShopCard } from '@/components/ui/ShopCard'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { asArray } from '@/lib/format'
+import { useI18n } from '@/store/i18n'
 
 export default function ShopsPage() {
+  const { t } = useI18n()
   const [shops, setShops] = useState<PublicShop[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
@@ -33,26 +35,26 @@ export default function ShopsPage() {
         },
         (e: unknown) => {
           if (!mounted) return
-          setError(e instanceof Error ? e.message : 'Failed to load shops')
+          setError(e instanceof Error ? e.message : t('shops.loadError'))
           setLoading(false)
         }
       )
     return () => {
       mounted = false
     }
-  }, [page, city])
+  }, [page, city, t])
 
-  if (loading && page === 1) return <LoadingBlock label="Loading shops…" />
+  if (loading && page === 1) return <LoadingBlock label={t('shops.loading')} />
   if (error) return <ErrorBox error={error} onRetry={() => setPage(1)} />
 
   return (
     <div className="fade-in">
       <div className="row-between">
-        <h1>Shops</h1>
+        <h1>{t('nav.shops')}</h1>
         <input
           className="input"
           style={{ maxWidth: 220 }}
-          placeholder="Filter by city…"
+          placeholder={t('shops.filterByCity')}
           value={city}
           onChange={(e) => setCity(e.target.value)}
         />
@@ -60,7 +62,7 @@ export default function ShopsPage() {
 
       {shops.length === 0 ? (
         <p className="muted" style={{ padding: '32px 0' }}>
-          No shops found{city ? ` in "${city}"` : ''}.
+          {city ? t('shops.noShopsInCity', { city }) : t('shops.noShops')}
         </p>
       ) : (
         <>
@@ -72,7 +74,7 @@ export default function ShopsPage() {
           {hasMore && (
             <div className="load-more-wrap">
               <Button variant="outline" onClick={() => setPage((p) => p + 1)} loading={loading}>
-                Load more
+                {t('common.loadMore')}
               </Button>
             </div>
           )}

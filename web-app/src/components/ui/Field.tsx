@@ -1,5 +1,6 @@
 import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes, type Ref, useState } from 'react'
 import { EyeIcon, EyeOffIcon } from './Icons'
+import { useI18n } from '@/store/i18n'
 
 interface FieldProps {
   label?: string
@@ -17,6 +18,7 @@ function renderField(
   ref: Ref<FieldElement>
 ) {
   const fieldId = id ?? rest.name
+  const { t } = useI18n()
   const [showPassword, setShowPassword] = useState(false)
   const isPassword = rest.type === 'password'
   const shouldShowToggle = showPasswordToggle && isPassword
@@ -50,7 +52,7 @@ function renderField(
             type="button"
             className="password-toggle"
             onClick={() => setShowPassword(!showPassword)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
             aria-pressed={showPassword}
           >
             {showPassword ? <EyeOffIcon /> : <EyeIcon />}

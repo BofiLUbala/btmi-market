@@ -5,8 +5,10 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, SuccessBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 export default function ResetPasswordPage() {
+  const t = useT()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
   const [form, setForm] = useState({
@@ -38,19 +40,19 @@ export default function ResetPasswordPage() {
     e.preventDefault()
     setError('')
     if (!passwordsMatch) {
-      setError('Passwords do not match')
+      setError(t('auth.register.passwordsMismatch'))
       return
     }
     if (!passwordValid) {
-      setError('Password must meet every security requirement below.')
+      setError(t('auth.reset.invalidPassword'))
       return
     }
     setBusy(true)
     try {
       await authApi.resetPassword({ token, password: form.password, password_confirmation: form.password_confirmation })
-      setDone('Password has been reset successfully. You can now sign in with your new password.')
+      setDone(t('auth.reset.success'))
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Reset failed')
+      setError(err instanceof ApiError ? err.message : t('auth.reset.failed'))
       if (err instanceof ApiError && (err.code === 'RESET_LINK_INVALID' || err.code === 'RESET_LINK_EXPIRED' || err.code === 'RESET_LINK_ALREADY_USED')) {
         setValidToken(false)
       }
@@ -63,9 +65,9 @@ export default function ResetPasswordPage() {
     return (
       <div className="auth-wrap">
         <div className="card auth-card">
-          <h1>Invalid reset link</h1>
-          <p className="muted small">This password reset link is missing a token. Please request a new one.</p>
-          <Link to="/forgot-password" className="section-link">Request new reset link</Link>
+          <h1>{t('auth.reset.invalidLink')}</h1>
+          <p className="muted small">{t('auth.reset.missingToken')}</p>
+          <Link to="/forgot-password" className="section-link">{t('auth.reset.requestNew')}</Link>
         </div>
       </div>
     )
@@ -74,13 +76,13 @@ export default function ResetPasswordPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Reset your password</h1>
-        <p className="muted small">Enter your new password below. The link expires in 1 hour.</p>
-        {!validToken && <ErrorBox error="This reset link is invalid, expired, or has already been used." />}
+        <h1>{t('auth.reset.title')}</h1>
+        <p className="muted small">{t('auth.reset.subtitle')}</p>
+        {!validToken && <ErrorBox error={t('auth.reset.invalidUsed')} />}
         {done && <SuccessBox message={done} />}
         {error && <ErrorBox error={error} />}
         <Field
-          label="New password"
+          label={t('auth.reset.newPassword')}
           name="password"
           type="password"
           required
@@ -91,18 +93,18 @@ export default function ResetPasswordPage() {
           showPasswordToggle
         />
         <div className="password-requirements" aria-live="polite">
-          <strong>Password requirements</strong>
+          <strong>{t('auth.reset.requirements')}</strong>
           <ul>
-            <PasswordRule met={passwordRules.minLength}>At least 8 characters</PasswordRule>
-            <PasswordRule met={passwordRules.maxLength}>No more than 64 characters</PasswordRule>
-            <PasswordRule met={passwordRules.uppercase}>One uppercase letter</PasswordRule>
-            <PasswordRule met={passwordRules.lowercase}>One lowercase letter</PasswordRule>
-            <PasswordRule met={passwordRules.number}>One number</PasswordRule>
-            <PasswordRule met={passwordRules.special}>One special character</PasswordRule>
+            <PasswordRule met={passwordRules.minLength}>{t('auth.passwordRules.minLength')}</PasswordRule>
+            <PasswordRule met={passwordRules.maxLength}>{t('auth.passwordRules.maxLength')}</PasswordRule>
+            <PasswordRule met={passwordRules.uppercase}>{t('auth.passwordRules.uppercase')}</PasswordRule>
+            <PasswordRule met={passwordRules.lowercase}>{t('auth.passwordRules.lowercase')}</PasswordRule>
+            <PasswordRule met={passwordRules.number}>{t('auth.passwordRules.number')}</PasswordRule>
+            <PasswordRule met={passwordRules.special}>{t('auth.passwordRules.special')}</PasswordRule>
           </ul>
         </div>
         <Field
-          label="Confirm new password"
+          label={t('auth.reset.confirmNewPassword')}
           name="password_confirmation"
           type="password"
           required
@@ -111,20 +113,20 @@ export default function ResetPasswordPage() {
           onChange={(e) => set('password_confirmation', e.target.value)}
           showPasswordToggle
         />
-        {confirmStarted && <p className={`password-match ${passwordsMatch ? 'valid' : 'invalid'}`} role="status">{passwordsMatch ? 'Passwords match.' : 'Passwords do not match.'}</p>}
+        {confirmStarted && <p className={`password-match ${passwordsMatch ? 'valid' : 'invalid'}`} role="status">{passwordsMatch ? t('auth.passwordsMatch') : t('auth.passwordsMismatchFull')}</p>}
         <Button type="submit" block size="lg" loading={busy} disabled={!canSubmit}>
-          Reset password
+          {t('auth.reset.submit')}
         </Button>
         {done ? (
           <div className="reset-login-options">
-            <Link to="/seller/login"><Button block>Sign in as Seller</Button></Link>
-            <Link to="/login"><Button variant="outline" block>Sign in as Buyer</Button></Link>
+            <Link to="/seller/login"><Button block>{t('auth.signInAsSeller')}</Button></Link>
+            <Link to="/login"><Button variant="outline" block>{t('auth.signInAsBuyer')}</Button></Link>
           </div>
         ) : (
           <p className="small muted">
-            <Link to="/seller/login" className="section-link">Seller sign in</Link>
+            <Link to="/seller/login" className="section-link">{t('auth.sellerSignIn')}</Link>
             {' · '}
-            <Link to="/login" className="section-link">Buyer sign in</Link>
+            <Link to="/login" className="section-link">{t('auth.buyerSignIn')}</Link>
           </p>
         )}
       </form>

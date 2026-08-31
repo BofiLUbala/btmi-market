@@ -5,9 +5,11 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 import { safeInternalPath } from '@/lib/returnTo'
 
 export default function LoginPage() {
+  const t = useT()
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -53,14 +55,14 @@ export default function LoginPage() {
       if (err instanceof ApiError) {
         setErrorCode(err.code ?? '')
         if (err.code === 'ACCOUNT_NOT_ACTIVATED') {
-          setError('Your account has not been activated yet. Please check your email for the activation link.')
+          setError(t('auth.login.notActivatedMessage'))
         } else if (err.code === 'INVALID_CREDENTIALS') {
-          setError('Invalid email or password. Please try again.')
+          setError(t('auth.login.invalidCredentials'))
         } else {
           setError(err.message)
         }
       } else {
-        setError('Sign in failed')
+        setError(t('auth.login.failed'))
       }
     } finally {
       setBusy(false)
@@ -70,26 +72,26 @@ export default function LoginPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Sign in</h1>
-        <p className="muted small">Buy from trusted shops, earn points on every purchase.</p>
+        <h1>{t('auth.login.title')}</h1>
+        <p className="muted small">{t('auth.login.subtitle')}</p>
         {error && <ErrorBox error={error} />}
         {errorCode === 'ACCOUNT_NOT_ACTIVATED' && (
           <p className="small" style={{ marginTop: -4, marginBottom: 12 }}>
-            <Link to="/resend-activation" className="section-link">Resend activation email</Link>
+            <Link to="/resend-activation" className="section-link">{t('auth.register.resendActivation')}</Link>
           </p>
         )}
         <Field
-          label="Email"
+          label={t('common.email')}
           name="email"
           type="email"
           required
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder={t('auth.emailPlaceholder')}
         />
         <Field
-          label="Password"
+          label={t('auth.password')}
           name="password"
           type="password"
           required
@@ -100,14 +102,14 @@ export default function LoginPage() {
           showPasswordToggle
         />
         <Button type="submit" block size="lg" loading={busy}>
-          Sign in
+          {t('auth.login.submit')}
         </Button>
         <p className="small muted">
-          No account? <Link to="/register" className="section-link">Create one</Link>
+          {t('auth.login.noAccount')} <Link to="/register" className="section-link">{t('auth.login.createOne')}</Link>
           <br />
-          Not activated? <Link to="/resend-activation" className="section-link">Resend email</Link>
+          {t('auth.login.notActivated')} <Link to="/resend-activation" className="section-link">{t('auth.login.resendEmail')}</Link>
           <br />
-          Forgot password? <Link to="/forgot-password" className="section-link">Reset it</Link>
+          {t('auth.login.forgotPassword')} <Link to="/forgot-password" className="section-link">{t('auth.login.resetIt')}</Link>
         </p>
       </form>
     </div>

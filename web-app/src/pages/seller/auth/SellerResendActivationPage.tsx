@@ -5,8 +5,10 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, SuccessBox } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
 
 export default function SellerResendActivationPage() {
+  const t = useT()
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
@@ -20,7 +22,7 @@ export default function SellerResendActivationPage() {
       await authApi.resendActivation(email.trim())
       setDone(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not resend')
+      setError(err instanceof ApiError ? err.message : t('auth.resend.failed'))
     } finally {
       setBusy(false)
     }
@@ -29,25 +31,25 @@ export default function SellerResendActivationPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <h1>Resend seller activation email</h1>
+        <h1>{t('seller.auth.resend.title')}</h1>
         {done && (
-          <SuccessBox message="If this email is registered as a seller, a new activation link has been sent." />
+          <SuccessBox message={t('seller.auth.resend.sent')} />
         )}
         {error && <ErrorBox error={error} />}
         <Field
-          label="Email"
+          label={t('common.email')}
           name="email"
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          placeholder={t('auth.emailPlaceholder')}
         />
         <Button type="submit" block loading={busy}>
-          Resend link
+          {t('auth.resend.submit')}
         </Button>
         <p className="small muted">
-          <Link to="/seller/login" className="section-link">Back to sign in</Link>
+          <Link to="/seller/login" className="section-link">{t('auth.resend.backToSignIn')}</Link>
         </p>
       </form>
     </div>

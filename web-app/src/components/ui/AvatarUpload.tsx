@@ -3,6 +3,7 @@ import { authApi } from '@/api/auth'
 import { ApiError } from '@/api/types'
 import { CameraIcon } from './Icons'
 import { initials } from '@/lib/format'
+import { useI18n } from '@/store/i18n'
 
 const MAX_BYTES = 3 * 1024 * 1024
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -15,6 +16,7 @@ interface AvatarUploadProps {
 }
 
 export function AvatarUpload({ url, name, size = 88, onUploaded }: AvatarUploadProps) {
+  const { t } = useI18n()
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -27,11 +29,11 @@ export function AvatarUpload({ url, name, size = 88, onUploaded }: AvatarUploadP
     setError('')
 
     if (!ALLOWED_TYPES.includes(file.type)) {
-      setError('Please choose a JPG, PNG or WEBP image.')
+      setError(t('account.photoTypeError'))
       return
     }
     if (file.size > MAX_BYTES) {
-      setError('Image must be 3 MB or smaller.')
+      setError(t('account.photoSizeError'))
       return
     }
 
@@ -42,7 +44,7 @@ export function AvatarUpload({ url, name, size = 88, onUploaded }: AvatarUploadP
       const res = await authApi.uploadAvatar(file)
       onUploaded?.(res.avatar_url)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not upload your photo. Try again.')
+      setError(err instanceof ApiError ? err.message : t('account.photoUploadError'))
       setPreview(null)
     } finally {
       setBusy(false)
@@ -60,8 +62,8 @@ export function AvatarUpload({ url, name, size = 88, onUploaded }: AvatarUploadP
         style={{ width: size, height: size, fontSize: size * 0.36 }}
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        aria-label="Change profile picture"
-        title="Change profile picture"
+        aria-label={t('account.changePhoto')}
+        title={t('account.changePhoto')}
       >
         {shown ? (
           <img src={shown} alt="" className="avatar-upload-img" />

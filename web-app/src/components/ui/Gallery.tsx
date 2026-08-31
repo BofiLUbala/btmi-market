@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { initials } from '@/lib/format'
+import { useI18n } from '@/store/i18n'
 
 export interface ProductImage {
   url: string
@@ -24,6 +25,7 @@ export function Gallery({
   badge?: React.ReactNode
   focusUrl?: string
 }) {
+  const { t } = useI18n()
   const [active, setActive] = useState(0)
   const [broken, setBroken] = useState<Record<number, boolean>>({})
   const mainRef = useRef<HTMLDivElement>(null)
@@ -78,13 +80,13 @@ export function Gallery({
         {badge}
       </div>
       {usable.length > 1 && (
-        <div className="pd-thumbs" role="tablist" aria-label="Product images">
+        <div className="pd-thumbs" role="tablist" aria-label={t('gallery.productImages')}>
           {usable.map((img, i) => (
             <button
               key={img.url + i}
               role="tab"
               aria-selected={i === active}
-              aria-label={img.alt ?? `${name} image ${i + 1}`}
+              aria-label={img.alt ?? t('gallery.imageLabel', { name, index: i + 1 })}
               className={`pd-thumb-btn ${i === active ? 'selected' : ''}`}
               onClick={() => setActive(i)}
             >

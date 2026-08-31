@@ -5,8 +5,10 @@ import type { CategoryResponse } from '@/api/types'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { asArray } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { useI18n } from '@/store/i18n'
 
 export default function CategoriesPage() {
+  const { t } = useI18n()
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -18,20 +20,20 @@ export default function CategoriesPage() {
         setLoading(false)
       },
       (e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Failed to load categories')
+        setError(e instanceof Error ? e.message : t('categories.loadError'))
         setLoading(false)
       }
     )
-  }, [])
+  }, [t])
 
-  if (loading) return <LoadingBlock label="Loading categories…" />
+  if (loading) return <LoadingBlock label={t('categories.loading')} />
   if (error) return <ErrorBox error={error} onRetry={() => window.location.reload()} />
 
   return (
     <div className="fade-in">
-      <h1 style={{ marginBottom: 8 }}>Categories</h1>
+      <h1 style={{ marginBottom: 8 }}>{t('categories.title')}</h1>
       <p className="muted small" style={{ marginBottom: 20 }}>
-        Browse products by category and find what you need.
+        {t('categories.subtitle')}
       </p>
       <div className="cat-grid">
         {categories.map((c, index) => {
@@ -46,7 +48,7 @@ export default function CategoriesPage() {
               }}
             >
               <div className="cat-image-wrap">
-                <img className="cat-image" src={visual.image} alt={`${c.name} category`}
+                <img className="cat-image" src={visual.image} alt={t('categories.imageAlt', { name: c.name })}
                   loading={index < 4 ? 'eager' : 'lazy'} decoding="async" />
               </div>
               <div className="cat-card-copy">

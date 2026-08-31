@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
+import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { colors, radius, spacing } from '../../src/theme'
 import type { BuyerPayment, SellerOrder } from '../../src/types'
 
@@ -11,23 +12,24 @@ const POLL_INTERVAL = 30_000
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
 const isTerminal = (status?: string) => !!status && TERMINAL_STATUSES.includes(status)
 
-interface SellerAction { label: string; status: string; destructive?: boolean }
+interface SellerAction { label: TranslationKey; status: string; destructive?: boolean }
 
 function nextActions(order: SellerOrder): SellerAction[] {
-  if (order.status === 'PENDING') return [{ label: 'Accepter', status: 'ACCEPTED' }]
-  if (order.status === 'ACCEPTED') return [{ label: 'Commencer la préparation', status: 'PREPARING' }]
+  if (order.status === 'PENDING') return [{ label: 'seller.accept', status: 'ACCEPTED' }]
+  if (order.status === 'ACCEPTED') return [{ label: 'seller.startPreparation', status: 'PREPARING' }]
   if (order.status === 'PREPARING') {
     return order.delivery_method === 'PICKUP'
-      ? [{ label: 'Prêt pour retrait', status: 'READY_FOR_PICKUP' }]
-      : [{ label: 'Prêt', status: 'READY' }]
+      ? [{ label: 'seller.readyForPickup', status: 'READY_FOR_PICKUP' }]
+      : [{ label: 'seller.ready', status: 'READY' }]
   }
-  if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: 'Expédier', status: 'OUT_FOR_DELIVERY' }]
-  if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: 'Remettre au livreur', status: 'HANDED_TO_PARTNER' }]
-  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: 'Marquer livrée', status: 'DELIVERED' }]
+  if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: 'seller.ship', status: 'OUT_FOR_DELIVERY' }]
+  if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: 'seller.handToCourier', status: 'HANDED_TO_PARTNER' }]
+  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: 'seller.markDelivered', status: 'DELIVERED' }]
   return []
 }
 
 export default function SellerOrders() {
+  const { t, lang } = useI18n()
   const queryClient = useQueryClient()
   const [shopId, setShopId] = useState('ALL')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -55,7 +57,7 @@ export default function SellerOrders() {
   const transition = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => sellerApi.sellerTransition(id, status),
     onSuccess: invalidateOrders,
-    onError: (e) => setActionError(e instanceof ApiError ? e.message : 'Action impossible'),
+    onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')),
   })
 
   const groups = useMemo(() => {
@@ -64,36 +66,36 @@ export default function SellerOrders() {
     for (const order of orders.data ?? []) grouped.set(order.shop_id, [...(grouped.get(order.shop_id) ?? []), order])
     return [...grouped.entries()].map(([id, shopOrders]) => ({
       id,
-      name: names.get(id) ?? 'Boutique inconnue',
+      name: names.get(id) ?? t('seller.unknownShop'),
       orders: shopOrders,
       total: shopOrders.reduce((sum, order) => sum + (order.final_total || 0), 0),
     })).sort((a, b) => a.name.localeCompare(b.name))
-  }, [orders.data, shops.data])
+  }, [orders.data, shops.data, t])
 
   const runAction = (order: SellerOrder, action: SellerAction) => {
     setActionError('')
     transition.mutate({ id: order.id, status: action.status })
   }
 
-  if (businesses.isLoading || shops.isLoading) return <Loading label="Chargement des boutiques…"/>
-  if (businesses.isError || shops.isError) return <ErrorState message="Impossible de charger l’espace vendeur." retry={() => { void businesses.refetch(); void shops.refetch() }}/>
-  if (!business) return <View style={styles.empty}><Text style={styles.title}>Aucune entreprise</Text><Text style={styles.muted}>Créez d’abord une entreprise pour recevoir des commandes.</Text></View>
+  if (businesses.isLoading || shops.isLoading) return <Loading label={t('seller.loadingBusinesses')}/>
+  if (businesses.isError || shops.isError) return <ErrorState message={t('seller.loadFailed')} retry={() => { void businesses.refetch(); void shops.refetch() }}/>
+  if (!business) return <View style={styles.empty}><Text style={styles.title}>{t('seller.noBusiness')}</Text><Text style={styles.muted}>{t('seller.noBusinessBody')}</Text></View>
 
   return <ScrollView
     contentContainerStyle={styles.page}
     refreshControl={<RefreshControl refreshing={orders.isRefetching} onRefresh={() => void orders.refetch()} tintColor={colors.green}/>}
   >
-    <SectionTitle title="Commandes"/>
-    <Text style={styles.muted}>Les statuts sont synchronisés en direct avec l’acheteur.</Text>
+    <SectionTitle title={t('seller.orders')}/>
+    <Text style={styles.muted}>{t('seller.liveStatusNote')}</Text>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-      <ShopFilter label="Toutes les boutiques" selected={shopId === 'ALL'} onPress={() => setShopId('ALL')}/>
+      <ShopFilter label={t('seller.allShops')} selected={shopId === 'ALL'} onPress={() => setShopId('ALL')}/>
       {(shops.data ?? []).map((shop) => <ShopFilter key={shop.id} label={shop.name} selected={shopId === shop.id} onPress={() => setShopId(shop.id)}/>) }
     </ScrollView>
     {actionError ? <Card><Text style={styles.error}>{actionError}</Text></Card> : null}
-    {orders.isLoading ? <Loading label="Chargement des commandes…"/> : orders.isError ? <ErrorState message="Impossible de charger les commandes." retry={() => void orders.refetch()}/> : !groups.length ? <Card><Text style={styles.emptyText}>Aucune commande pour cette sélection.</Text></Card> : groups.map((group) => <View key={group.id} style={styles.group}>
+    {orders.isLoading ? <Loading label={t('orders.loading')}/> : orders.isError ? <ErrorState message={t('orders.loadFailed')} retry={() => void orders.refetch()}/> : !groups.length ? <Card><Text style={styles.emptyText}>{t('seller.noOrdersFilter')}</Text></Card> : groups.map((group) => <View key={group.id} style={styles.group}>
       <View style={styles.groupHeader}>
-        <View><Text style={styles.shop}>{group.name}</Text><Text style={styles.muted}>{group.orders.length} commande{group.orders.length === 1 ? '' : 's'}</Text></View>
-        <Text style={styles.groupTotal}>{group.total.toLocaleString()} FC</Text>
+        <View><Text style={styles.shop}>{group.name}</Text><Text style={styles.muted}>{t('orders.orderCount', { count: group.orders.length })}</Text></View>
+        <Text style={styles.groupTotal}>{group.total.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} FC</Text>
       </View>
       {group.orders.map((order) => <OrderCard
         key={order.id}
@@ -108,6 +110,7 @@ export default function SellerOrders() {
 }
 
 function OrderCard({ order, expanded, busy, onToggle, onAction }: { order: SellerOrder; expanded: boolean; busy: boolean; onToggle: () => void; onAction: (action: SellerAction) => void }) {
+  const { t, lang } = useI18n()
   const queryClient = useQueryClient()
   const actions = nextActions(order)
   const payment = useQuery({
@@ -119,25 +122,25 @@ function OrderCard({ order, expanded, busy, onToggle, onAction }: { order: Selle
   const confirmCash = useMutation({
     mutationFn: () => sellerApi.sellerConfirmPayment(payment.data!.id),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['seller'] }) },
-    onError: (e) => Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Action impossible'),
+    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('common.actionImpossible')),
   })
 
   return <Card>
     <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{order.status.replaceAll('_', ' ')}</Text></View>
-    <View style={styles.row}><Text style={styles.muted}>{order.total_items} article{order.total_items === 1 ? '' : 's'} · {(order.delivery_method || '—').replaceAll('_',' ').toLowerCase()}</Text><Text style={styles.total}>{order.final_total.toLocaleString()} FC</Text></View>
-    <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString('fr-FR')}</Text>
+    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {(order.delivery_method || '—').replaceAll('_',' ').toLowerCase()}</Text><Text style={styles.total}>{order.final_total.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} FC</Text></View>
+    <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
     {actions.length ? actions.map((action) => (
-      <Button key={action.status} title={action.label} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
+      <Button key={action.status} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
     )) : null}
-    <Button variant="outline" title={expanded ? 'Masquer les détails' : 'Voir les détails'} onPress={onToggle}/>
+    <Button variant="outline" title={expanded ? t('seller.hideDetails') : t('seller.viewDetails')} onPress={onToggle}/>
     {expanded && <View style={styles.details}>
-      {payment.isLoading ? <Text style={styles.muted}>Chargement du paiement…</Text> : payment.data ? <>
-        <Text style={styles.muted}>Montant dû : {payment.data.cash_due.toLocaleString()} {payment.data.currency}</Text>
-        <Text style={styles.muted}>Acheteur : {payment.data.buyer_confirmed ? '✓ Paiement déclaré' : 'Non confirmé'}</Text>
-        <Text style={styles.muted}>Vendeur : {payment.data.seller_confirmed ? '✓ Espèces reçues' : 'Non confirmé'}</Text>
-        <Text style={styles.muted}>Statut : {payment.data.status}</Text>
-        {!payment.data.seller_confirmed && <Button title="Confirmer les espèces reçues" loading={confirmCash.isPending} onPress={() => confirmCash.mutate()}/>}
-      </> : <Text style={styles.muted}>Aucun paiement créé pour l’instant.</Text>}
+      {payment.isLoading ? <Text style={styles.muted}>{t('seller.loadingPayment')}</Text> : payment.data ? <>
+        <Text style={styles.muted}>{t('orders.amountDue', { amount: `${payment.data.cash_due.toLocaleString()} ${payment.data.currency}` })}</Text>
+        <Text style={styles.muted}>{t('orders.actorBuyer')} : {payment.data.buyer_confirmed ? t('orders.paymentDeclared') : t('orders.notConfirmed')}</Text>
+        <Text style={styles.muted}>{t('seller.seller')} : {payment.data.seller_confirmed ? t('orders.cashReceived') : t('orders.notConfirmed')}</Text>
+        <Text style={styles.muted}>{t('orders.status')} : {payment.data.status}</Text>
+        {!payment.data.seller_confirmed && <Button title={t('seller.confirmCash')} loading={confirmCash.isPending} onPress={() => confirmCash.mutate()}/>}
+      </> : <Text style={styles.muted}>{t('seller.noPayment')}</Text>}
     </View>}
   </Card>
 }

@@ -1,13 +1,15 @@
 import { EmptyState } from '@/components/ui/Feedback'
+import { useI18n } from '@/store/i18n'
 
 export default function NotificationsPage() {
+  const { t } = useI18n()
   return (
     <div className="fade-in">
-      <h1 style={{ marginBottom: 12 }}>Notifications</h1>
+      <h1 style={{ marginBottom: 12 }}>{t('notifications.title')}</h1>
       <EmptyState
         icon="🔔"
-        title="No notifications yet"
-        description="Order updates and promotional messages will appear here. The marketplace has no notification service yet, so nothing is shown."
+        title={t('notifications.empty.title')}
+        description={t('notifications.empty.description')}
       />
     </div>
   )

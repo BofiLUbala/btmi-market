@@ -8,20 +8,23 @@ import { ErrorBox } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
 import type { SellerBusiness } from '@/api/types'
 import { drcCityOptions } from '@/lib/drcLocations'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 
 interface OnboardingStep {
   id: 'business' | 'shop'
-  label: string
+  labelKey: TranslationKey
   completed: boolean
   current: boolean
 }
 
 const steps: OnboardingStep[] = [
-  { id: 'business', label: 'Create Business', completed: false, current: false },
-  { id: 'shop', label: 'Create First Shop', completed: false, current: false },
+  { id: 'business', labelKey: 'seller.onboarding.stepCreateBusiness', completed: false, current: false },
+  { id: 'shop', labelKey: 'seller.onboarding.stepCreateShop', completed: false, current: false },
 ]
 
 export default function SellerOnboardingPage() {
+  const t = useT()
   const { user, activeBusiness, setActiveBusiness, setSellerBusinesses, setActiveShop } = useAuth()
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<'business' | 'shop'>('business')
@@ -106,7 +109,7 @@ export default function SellerOnboardingPage() {
       steps[0].current = false
       steps[1].current = true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create business')
+      setError(err instanceof Error ? err.message : t('seller.onboarding.createBusinessFailed'))
     } finally {
       setBusy(false)
     }
@@ -115,7 +118,7 @@ export default function SellerOnboardingPage() {
   async function createShop(e: React.FormEvent) {
     e.preventDefault()
     if (!activeBusiness) {
-      setError('No active business found')
+      setError(t('seller.onboarding.noActiveBusiness'))
       return
     }
     setError('')
@@ -125,7 +128,7 @@ export default function SellerOnboardingPage() {
       setActiveShop(newShop.id)
       navigate('/seller/dashboard', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create shop')
+      setError(err instanceof Error ? err.message : t('seller.onboarding.createShopFailed'))
     } finally {
       setBusy(false)
     }
@@ -143,10 +146,10 @@ export default function SellerOnboardingPage() {
     return (
       <div className="auth-wrap">
         <div className="card auth-card">
-          <h1>Access Denied</h1>
-          <p className="muted">This account is not registered as a Seller.</p>
+          <h1>{t('seller.onboarding.accessDenied')}</h1>
+          <p className="muted">{t('seller.onboarding.notSeller')}</p>
           <Link to="/seller/login">
-            <Button block>Sign in as Seller</Button>
+            <Button block>{t('auth.signInAsSeller')}</Button>
           </Link>
         </div>
       </div>
@@ -157,11 +160,11 @@ export default function SellerOnboardingPage() {
     return (
       <div className="auth-wrap">
         <div className="card auth-card">
-          <h1>Welcome back!</h1>
-          <p className="muted">Your business <strong>{activeBusiness.name}</strong> is ready.</p>
-          <p className="small muted">Now create your first shop to start selling.</p>
+          <h1>{t('seller.onboarding.welcomeBack')}</h1>
+          <p className="muted">{t('seller.onboarding.yourBusiness')} <strong>{activeBusiness.name}</strong> {t('seller.onboarding.businessReadySuffix')}</p>
+          <p className="small muted">{t('seller.onboarding.createFirstShopHint')}</p>
           <Button block onClick={() => setCurrentStep('shop')}>
-            Create First Shop
+            {t('seller.onboarding.createFirstShop')}
           </Button>
         </div>
       </div>
@@ -181,76 +184,76 @@ export default function SellerOnboardingPage() {
               <span className={`step-circle ${step.completed ? 'completed' : step.current ? 'current' : ''}`}>
                 {step.completed ? '✓' : i + 1}
               </span>
-              <span className={step.current ? 'bold' : ''}>{step.label}</span>
+              <span className={step.current ? 'bold' : ''}>{t(step.labelKey)}</span>
             </li>
           ))}
         </ol>
 
         {currentStep === 'business' && (
           <form onSubmit={createBusiness}>
-            <h1>Create your Business</h1>
-            <p className="muted small">This will be your legal business entity on TBK.</p>
+            <h1>{t('seller.onboarding.createBusinessTitle')}</h1>
+            <p className="muted small">{t('seller.onboarding.businessSubtitle')}</p>
             {error && <ErrorBox error={error} />}
-            <Field label="Business Name" name="name" required value={businessForm.name} onChange={(e) => updateBusiness('name', e.target.value)} />
-            <Field label="Business Type" name="business_type" required value={businessForm.business_type} onChange={(e) => updateBusiness('business_type', e.target.value)} as="select" options={[
-              { value: 'RETAIL', label: 'Retail' },
-              { value: 'WHOLESALE', label: 'Wholesale' },
-              { value: 'MANUFACTURING', label: 'Manufacturing' },
-              { value: 'SERVICES', label: 'Services' },
-              { value: 'OTHER', label: 'Other' },
+            <Field label={t('seller.onboarding.businessName')} name="name" required value={businessForm.name} onChange={(e) => updateBusiness('name', e.target.value)} />
+            <Field label={t('seller.onboarding.businessType')} name="business_type" required value={businessForm.business_type} onChange={(e) => updateBusiness('business_type', e.target.value)} as="select" options={[
+              { value: 'RETAIL', label: t('seller.businessType.RETAIL') },
+              { value: 'WHOLESALE', label: t('seller.businessType.WHOLESALE') },
+              { value: 'MANUFACTURING', label: t('seller.businessType.MANUFACTURING') },
+              { value: 'SERVICES', label: t('seller.businessType.SERVICES') },
+              { value: 'OTHER', label: t('seller.businessType.OTHER') },
             ]} />
-            <Field label="Category" name="category" required value={businessForm.category} onChange={(e) => updateBusiness('category', e.target.value)} placeholder="e.g. general, electronics, food" />
-            <Field label="Business Phone" name="phone" required value={businessForm.phone} onChange={(e) => updateBusiness('phone', e.target.value)} placeholder="+243 …" />
-            <Field label="Business Email" name="email" type="email" required value={businessForm.email} onChange={(e) => updateBusiness('email', e.target.value)} />
-            <Field label="Country" name="country" required value={businessForm.country} onChange={(e) => updateBusiness('country', e.target.value)} placeholder="CD" />
-            <Field label="City" name="city" as="select" required value={businessForm.city} options={drcCityOptions()} onChange={(e) => updateBusiness('city', e.target.value)} />
-            <Field label="Default Currency" name="default_currency" required value={businessForm.default_currency} onChange={(e) => updateBusiness('default_currency', e.target.value)} as="select" options={[
+            <Field label={t('seller.onboarding.category')} name="category" required value={businessForm.category} onChange={(e) => updateBusiness('category', e.target.value)} placeholder={t('seller.onboarding.categoryPlaceholder')} />
+            <Field label={t('seller.onboarding.businessPhone')} name="phone" required value={businessForm.phone} onChange={(e) => updateBusiness('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
+            <Field label={t('seller.onboarding.businessEmail')} name="email" type="email" required value={businessForm.email} onChange={(e) => updateBusiness('email', e.target.value)} />
+            <Field label={t('seller.onboarding.country')} name="country" required value={businessForm.country} onChange={(e) => updateBusiness('country', e.target.value)} placeholder="CD" />
+            <Field label={t('common.city')} name="city" as="select" required value={businessForm.city} options={drcCityOptions()} onChange={(e) => updateBusiness('city', e.target.value)} />
+            <Field label={t('seller.onboarding.defaultCurrency')} name="default_currency" required value={businessForm.default_currency} onChange={(e) => updateBusiness('default_currency', e.target.value)} as="select" options={[
               { value: 'USD', label: 'USD' },
               { value: 'CDF', label: 'CDF' },
             ]} />
-            <Field label="Description (optional)" name="description" value={businessForm.description} onChange={(e) => updateBusiness('description', e.target.value)} rows={3} />
-            <Field label="Registration Number (optional)" name="registration_number" value={businessForm.registration_number} onChange={(e) => updateBusiness('registration_number', e.target.value)} />
-            <Field label="Tax ID (optional)" name="tax_id" value={businessForm.tax_id} onChange={(e) => updateBusiness('tax_id', e.target.value)} />
+            <Field label={t('seller.onboarding.descriptionOptional')} name="description" value={businessForm.description} onChange={(e) => updateBusiness('description', e.target.value)} rows={3} />
+            <Field label={t('seller.onboarding.registrationNumberOptional')} name="registration_number" value={businessForm.registration_number} onChange={(e) => updateBusiness('registration_number', e.target.value)} />
+            <Field label={t('seller.onboarding.taxIdOptional')} name="tax_id" value={businessForm.tax_id} onChange={(e) => updateBusiness('tax_id', e.target.value)} />
             <Button type="submit" block size="lg" loading={busy}>
-              Create Business
+              {t('seller.onboarding.createBusiness')}
             </Button>
           </form>
         )}
 
         {currentStep === 'shop' && !activeBusiness && (
           <div>
-            <h1>Create Business First</h1>
-            <p className="muted">You need to create a business before creating a shop.</p>
+            <h1>{t('seller.onboarding.createBusinessFirst')}</h1>
+            <p className="muted">{t('seller.onboarding.createBusinessFirstHint')}</p>
             <Button block onClick={() => setCurrentStep('business')}>
-              Back to Business
+              {t('seller.onboarding.backToBusiness')}
             </Button>
           </div>
         )}
 
         {currentStep === 'shop' && activeBusiness && (
           <form onSubmit={createShop}>
-            <h1>Create your First Shop</h1>
-            <p className="muted small">Business: <strong>{activeBusiness.name}</strong></p>
+            <h1>{t('seller.onboarding.createShopTitle')}</h1>
+            <p className="muted small">{t('seller.onboarding.businessLabel')} <strong>{activeBusiness.name}</strong></p>
             {error && <ErrorBox error={error} />}
-            <Field label="Shop Name" name="name" required value={shopForm.name} onChange={(e) => updateShop('name', e.target.value)} />
+            <Field label={t('seller.onboarding.shopName')} name="name" required value={shopForm.name} onChange={(e) => updateShop('name', e.target.value)} />
             <Field
-              label="Type"
+              label={t('seller.onboarding.shopType')}
               name="type"
               required
               value={shopForm.type}
               onChange={(e) => updateShop('type', e.target.value)}
               as="select"
               options={[
-                { value: 'PHYSICAL', label: 'Retail Store' },
-                { value: 'ONLINE', label: 'Online Only' },
+                { value: 'PHYSICAL', label: t('seller.shopType.PHYSICAL') },
+                { value: 'ONLINE', label: t('seller.shopType.ONLINE') },
               ]}
             />
-            <Field label="City" name="city" as="select" required value={shopForm.city} options={drcCityOptions()} onChange={(e) => updateShop('city', e.target.value)} />
-            <Field label="Address" name="address" required value={shopForm.address} onChange={(e) => updateShop('address', e.target.value)} rows={2} />
-            <Field label="Phone" name="phone" required value={shopForm.phone} onChange={(e) => updateShop('phone', e.target.value)} placeholder="+243 …" />
-            
+            <Field label={t('common.city')} name="city" as="select" required value={shopForm.city} options={drcCityOptions()} onChange={(e) => updateShop('city', e.target.value)} />
+            <Field label={t('common.address')} name="address" required value={shopForm.address} onChange={(e) => updateShop('address', e.target.value)} rows={2} />
+            <Field label={t('common.phone')} name="phone" required value={shopForm.phone} onChange={(e) => updateShop('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
+
             <details style={{ marginTop: 16 }}>
-              <summary className="small muted">Delivery Configuration (optional)</summary>
+              <summary className="small muted">{t('seller.onboarding.deliveryConfiguration')}</summary>
               <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
                 <label className="checkbox-row">
                   <input
@@ -258,11 +261,11 @@ export default function SellerOnboardingPage() {
                     checked={shopForm.supports_shop_delivery}
                     onChange={(e) => updateShop('supports_shop_delivery', e.target.checked)}
                   />
-                  <span>Shop provides own delivery</span>
+                  <span>{t('seller.onboarding.shopProvidesDelivery')}</span>
                 </label>
                 {shopForm.supports_shop_delivery && (
                   <Field
-                    label="Shop Delivery Fee (FC)"
+                    label={t('seller.onboarding.shopDeliveryFee')}
                     name="shop_delivery_fee"
                     type="number"
                     value={String(shopForm.shop_delivery_fee)}
@@ -275,25 +278,25 @@ export default function SellerOnboardingPage() {
                     checked={shopForm.supports_partner_delivery}
                     onChange={(e) => updateShop('supports_partner_delivery', e.target.checked)}
                   />
-                  <span>Partner delivery available</span>
+                  <span>{t('seller.onboarding.partnerDeliveryAvailable')}</span>
                 </label>
                 {shopForm.supports_partner_delivery && (
                   <>
                     <Field
-                      label="Partner Delivery Fee (FC)"
+                      label={t('seller.onboarding.partnerDeliveryFee')}
                       name="partner_delivery_fee"
                       type="number"
                       value={String(shopForm.partner_delivery_fee)}
                       onChange={(e) => updateShop('partner_delivery_fee', Number(e.target.value))}
                     />
                     <Field
-                      label="Partner Provider"
+                      label={t('seller.onboarding.partnerProvider')}
                       name="partner_delivery_provider"
                       value={shopForm.partner_delivery_provider}
                       onChange={(e) => updateShop('partner_delivery_provider', e.target.value)}
                     />
                     <Field
-                      label="Delivery City"
+                      label={t('seller.onboarding.deliveryCity')}
                       name="delivery_city"
                       as="select"
                       value={shopForm.delivery_city}
@@ -301,7 +304,7 @@ export default function SellerOnboardingPage() {
                       onChange={(e) => updateShop('delivery_city', e.target.value)}
                     />
                     <Field
-                      label="Delivery Address"
+                      label={t('seller.onboarding.deliveryAddress')}
                       name="delivery_address"
                       value={shopForm.delivery_address}
                       onChange={(e) => updateShop('delivery_address', e.target.value)}
@@ -313,7 +316,7 @@ export default function SellerOnboardingPage() {
             </details>
 
             <Button type="submit" block size="lg" loading={busy}>
-              Create Shop & Go to Dashboard
+              {t('seller.onboarding.createShopGo')}
             </Button>
           </form>
         )}

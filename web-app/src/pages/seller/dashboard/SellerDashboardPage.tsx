@@ -26,6 +26,15 @@ import {
 } from '@/components/ui/Icons'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
+
+const TRUST_STATUS_KEYS: Record<string, TranslationKey> = {
+  HIGH: 'seller.growth.trust.HIGH',
+  NORMAL: 'seller.growth.trust.NORMAL',
+  LOW: 'seller.growth.trust.LOW',
+  SUSPENDED: 'seller.growth.trust.SUSPENDED',
+}
 
 interface DashboardData {
   shops: Shop[]
@@ -37,6 +46,7 @@ interface DashboardData {
 }
 
 export default function SellerDashboardPage() {
+  const t = useT()
   const { activeBusiness, sellerBusinesses, setActiveBusiness, loading: authLoading } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -72,11 +82,11 @@ export default function SellerDashboardPage() {
         growth: growthRes.status === 'fulfilled' ? growthRes.value : null,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load dashboard metrics.')
+      setError(err instanceof Error ? err.message : t('seller.dashboard.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [activeBusiness?.id])
+  }, [activeBusiness?.id, t])
 
   useEffect(() => {
     if (activeBusiness) {
@@ -85,7 +95,7 @@ export default function SellerDashboardPage() {
   }, [activeBusiness?.id, loadDashboard])
 
   if (authLoading) {
-    return <LoadingBlock label="Loading seller workspace…" />
+    return <LoadingBlock label={t('seller.dashboard.loadingWorkspace')} />
   }
 
   const bizList = Array.isArray(sellerBusinesses) ? sellerBusinesses : []
@@ -97,54 +107,54 @@ export default function SellerDashboardPage() {
         <div className="empty-icon-wrap">
           <BusinessIcon />
         </div>
-        <h2>Welcome to TBK Seller</h2>
+        <h2>{t('seller.dashboard.welcomeTitle')}</h2>
         <p className="lead muted">
-          Create your first business to start selling products, managing shops, inventory, and orders across DRC.
+          {t('seller.dashboard.welcomeSubtitle')}
         </p>
         <div className="empty-actions">
           <Link to="/seller/onboarding">
             <Button size="lg">
-              <PlusIcon /> Create Business
+              <PlusIcon /> {t('seller.onboarding.createBusiness')}
             </Button>
           </Link>
         </div>
 
         <div className="onboarding-steps-preview">
-          <h3>How to get started:</h3>
+          <h3>{t('seller.dashboard.howToStart')}</h3>
           <div className="onboarding-step-grid">
             <div className="onboarding-step-item">
               <span className="step-num">1</span>
               <div>
-                <strong>Create Business</strong>
-                <p className="small muted">Register company name, category, and legal identity.</p>
+                <strong>{t('seller.onboarding.createBusiness')}</strong>
+                <p className="small muted">{t('seller.dashboard.stepCreateBusinessDesc')}</p>
               </div>
             </div>
             <div className="onboarding-step-item">
               <span className="step-num">2</span>
               <div>
-                <strong>Create Shop</strong>
-                <p className="small muted">Set up physical points of sale or fulfillment shops.</p>
+                <strong>{t('seller.dashboard.stepCreateShop')}</strong>
+                <p className="small muted">{t('seller.dashboard.stepCreateShopDesc')}</p>
               </div>
             </div>
             <div className="onboarding-step-item">
               <span className="step-num">3</span>
               <div>
-                <strong>Add Products</strong>
-                <p className="small muted">Define catalog items, variants, and prices in FC.</p>
+                <strong>{t('seller.dashboard.stepAddProducts')}</strong>
+                <p className="small muted">{t('seller.dashboard.stepAddProductsDesc')}</p>
               </div>
             </div>
             <div className="onboarding-step-item">
               <span className="step-num">4</span>
               <div>
-                <strong>Add Stock</strong>
-                <p className="small muted">Assign available inventory quantities to your shops.</p>
+                <strong>{t('seller.dashboard.stepAddStock')}</strong>
+                <p className="small muted">{t('seller.dashboard.stepAddStockDesc')}</p>
               </div>
             </div>
             <div className="onboarding-step-item">
               <span className="step-num">5</span>
               <div>
-                <strong>Receive Orders</strong>
-                <p className="small muted">Fulfill buyer orders with verified cash payments.</p>
+                <strong>{t('seller.dashboard.stepReceiveOrders')}</strong>
+                <p className="small muted">{t('seller.dashboard.stepReceiveOrdersDesc')}</p>
               </div>
             </div>
           </div>
@@ -160,8 +170,8 @@ export default function SellerDashboardPage() {
         <div className="empty-icon-wrap">
           <BusinessIcon />
         </div>
-        <h2>Select a Business</h2>
-        <p className="lead muted">Choose a business to open its operational workspace:</p>
+        <h2>{t('seller.dashboard.selectBusiness')}</h2>
+        <p className="lead muted">{t('seller.dashboard.selectBusinessHint')}</p>
         <div className="business-selection-grid">
           {bizList.map((b) => (
             <button
@@ -175,7 +185,7 @@ export default function SellerDashboardPage() {
               </div>
               <div className="choice-info">
                 <strong>{b.name}</strong>
-                <span className="small muted">{b.category || b.business_type || 'Registered Business'}</span>
+                <span className="small muted">{b.category || b.business_type || t('seller.dashboard.registeredBusiness')}</span>
               </div>
               <ArrowRightIcon />
             </button>
@@ -184,7 +194,7 @@ export default function SellerDashboardPage() {
         <div style={{ marginTop: 24 }}>
           <Link to="/seller/onboarding">
             <Button variant="outline">
-              <PlusIcon /> Add Another Business
+              <PlusIcon /> {t('seller.dashboard.addAnotherBusiness')}
             </Button>
           </Link>
         </div>
@@ -214,9 +224,9 @@ export default function SellerDashboardPage() {
       {/* ── Page Top Header ── */}
       <div className="dashboard-page-header">
         <div className="header-titles">
-          <h1>Dashboard</h1>
+          <h1>{t('seller.dashboard')}</h1>
           <p className="muted">
-            Overview and operational controls for <strong>{activeBusiness.name}</strong>
+            {t('seller.dashboard.overviewFor', { name: activeBusiness.name })}
           </p>
         </div>
         <div className="header-actions">
@@ -225,13 +235,13 @@ export default function SellerDashboardPage() {
             className="btn btn-outline btn-sm"
             onClick={loadDashboard}
             disabled={loading}
-            title="Refresh dashboard data"
+            title={t('seller.dashboard.refreshTitle')}
           >
-            <RefreshCwIcon /> Refresh
+            <RefreshCwIcon /> {t('orders.refresh')}
           </button>
           <Link to="/seller/products/new">
             <Button size="sm">
-              <PlusIcon /> Add Product
+              <PlusIcon /> {t('seller.dashboard.addProduct')}
             </Button>
           </Link>
         </div>
@@ -239,14 +249,14 @@ export default function SellerDashboardPage() {
 
       {error && <ErrorBox error={error} onRetry={loadDashboard} />}
 
-      {loading && !data && <LoadingBlock label="Loading business metrics…" />}
+      {loading && !data && <LoadingBlock label={t('seller.dashboard.loadingMetrics')} />}
 
       {/* ── Metrics Grid (Row 1) ── */}
       <div className="seller-metrics-grid">
         {/* Shops */}
         <div className="seller-stat-card">
           <div className="stat-header">
-            <span className="stat-label">Shops</span>
+            <span className="stat-label">{t('seller.shops')}</span>
             <span className="stat-icon stat-icon--shops">
               <StoreIcon />
             </span>
@@ -254,7 +264,7 @@ export default function SellerDashboardPage() {
           <div className="stat-value">{shopsCount}</div>
           <div className="stat-footer">
             <Link to="/seller/shops" className="stat-link">
-              Manage shops <ArrowRightIcon />
+              {t('seller.dashboard.manageShops')} <ArrowRightIcon />
             </Link>
           </div>
         </div>
@@ -262,16 +272,16 @@ export default function SellerDashboardPage() {
         {/* Products */}
         <div className="seller-stat-card">
           <div className="stat-header">
-            <span className="stat-label">Products</span>
+            <span className="stat-label">{t('seller.products')}</span>
             <span className="stat-icon stat-icon--products">
               <BoxIcon />
             </span>
           </div>
           <div className="stat-value">{productsCount}</div>
           <div className="stat-footer">
-            <span className="muted small">{publishedProducts} published</span>
+            <span className="muted small">{t('seller.dashboard.publishedCount', { count: publishedProducts })}</span>
             <Link to="/seller/products" className="stat-link">
-              View all <ArrowRightIcon />
+              {t('common.viewAll')} <ArrowRightIcon />
             </Link>
           </div>
         </div>
@@ -279,7 +289,7 @@ export default function SellerDashboardPage() {
         {/* Orders */}
         <div className="seller-stat-card">
           <div className="stat-header">
-            <span className="stat-label">Orders</span>
+            <span className="stat-label">{t('seller.orders')}</span>
             <span className="stat-icon stat-icon--orders">
               <OrdersIcon />
             </span>
@@ -288,7 +298,7 @@ export default function SellerDashboardPage() {
           <div className="stat-footer">
             <span className="muted small">{totalRevenue.toLocaleString()} FC</span>
             <Link to="/seller/orders" className="stat-link">
-              View orders <ArrowRightIcon />
+              {t('seller.dashboard.viewOrders')} <ArrowRightIcon />
             </Link>
           </div>
         </div>
@@ -296,7 +306,7 @@ export default function SellerDashboardPage() {
         {/* Team / Employees */}
         <div className="seller-stat-card">
           <div className="stat-header">
-            <span className="stat-label">Employees</span>
+            <span className="stat-label">{t('seller.employees')}</span>
             <span className="stat-icon stat-icon--employees">
               <UsersIcon />
             </span>
@@ -304,7 +314,7 @@ export default function SellerDashboardPage() {
           <div className="stat-value">{employeesCount}</div>
           <div className="stat-footer">
             <Link to="/seller/employees" className="stat-link">
-              Manage team <ArrowRightIcon />
+              {t('seller.dashboard.manageTeam')} <ArrowRightIcon />
             </Link>
           </div>
         </div>
@@ -312,7 +322,7 @@ export default function SellerDashboardPage() {
         {/* Cash Sales */}
         <div className="seller-stat-card">
           <div className="stat-header">
-            <span className="stat-label">Cash Sales</span>
+            <span className="stat-label">{t('seller.cash.cashSales')}</span>
             <span className="stat-icon stat-icon--cash">
               <CashIcon />
             </span>
@@ -320,7 +330,7 @@ export default function SellerDashboardPage() {
           <div className="stat-value">{cashTotal.toLocaleString()} <span className="currency-unit">FC</span></div>
           <div className="stat-footer">
             <Link to="/seller/cash" className="stat-link">
-              Cash sessions <ArrowRightIcon />
+              {t('seller.dashboard.cashSessions')} <ArrowRightIcon />
             </Link>
           </div>
         </div>
@@ -328,7 +338,7 @@ export default function SellerDashboardPage() {
         {/* Seller Growth & Trust */}
         <div className="seller-stat-card">
           <div className="stat-header">
-            <span className="stat-label">Seller Level</span>
+            <span className="stat-label">{t('seller.dashboard.sellerLevel')}</span>
             <span className="stat-icon stat-icon--growth">
               <GrowthIcon />
             </span>
@@ -336,10 +346,10 @@ export default function SellerDashboardPage() {
           <div className="stat-value stat-value--tier">{sellerLevel}</div>
           <div className="stat-footer">
             <span className="trust-pill">
-              <ShieldCheckIcon /> {trustStatus} ({sellerPoints} pts)
+              <ShieldCheckIcon /> {t(TRUST_STATUS_KEYS[trustStatus] ?? 'seller.growth.trust.NORMAL')} ({sellerPoints} pts)
             </span>
             <Link to="/seller/growth" className="stat-link">
-              Growth <ArrowRightIcon />
+              {t('seller.growth')} <ArrowRightIcon />
             </Link>
           </div>
         </div>
@@ -351,29 +361,29 @@ export default function SellerDashboardPage() {
         <div className="seller-section-card">
           <div className="section-card-header">
             <div>
-              <h3>Recent Orders</h3>
-              <p className="small muted">Latest orders placed across your shops</p>
+              <h3>{t('seller.dashboard.recentOrders')}</h3>
+              <p className="small muted">{t('seller.dashboard.recentOrdersHint')}</p>
             </div>
             <Link to="/seller/orders" className="section-header-link">
-              View all orders
+              {t('seller.dashboard.viewAllOrders')}
             </Link>
           </div>
 
           {recentOrders.length === 0 ? (
             <div className="section-empty-block">
               <OrdersIcon />
-              <p>No orders yet</p>
-              <span className="small muted">Customer orders will appear here once purchases are made.</span>
+              <p>{t('seller.dashboard.noOrdersYet')}</p>
+              <span className="small muted">{t('seller.dashboard.noOrdersYetHint')}</span>
             </div>
           ) : (
             <div className="seller-table-wrap">
               <table className="seller-data-table">
                 <thead>
                   <tr>
-                    <th>Order #</th>
-                    <th>Status</th>
-                    <th>Total</th>
-                    <th>Date</th>
+                    <th>{t('seller.dashboard.orderNumberHeader')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('common.total')}</th>
+                    <th>{t('common.date')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,7 +396,7 @@ export default function SellerDashboardPage() {
                       </td>
                       <td>
                         <span className={`seller-status-badge status-${order.status?.toLowerCase()}`}>
-                          {order.status}
+                          {order.status ? t(`status.${order.status}` as TranslationKey) : '—'}
                         </span>
                       </td>
                       <td>
@@ -407,8 +417,8 @@ export default function SellerDashboardPage() {
         <div className="seller-section-card">
           <div className="section-card-header">
             <div>
-              <h3>Quick Actions</h3>
-              <p className="small muted">Direct navigation to key operations</p>
+              <h3>{t('seller.dashboard.quickActions')}</h3>
+              <p className="small muted">{t('seller.dashboard.quickActionsHint')}</p>
             </div>
           </div>
 
@@ -416,48 +426,48 @@ export default function SellerDashboardPage() {
             <Link to="/seller/products/new" className="quick-action-btn">
               <span className="qa-icon"><PlusIcon /></span>
               <div className="qa-copy">
-                <strong>Add Product</strong>
-                <span className="small muted">Create catalog item</span>
+                <strong>{t('seller.dashboard.addProduct')}</strong>
+                <span className="small muted">{t('seller.dashboard.addProductDesc')}</span>
               </div>
             </Link>
 
             <Link to="/seller/stock" className="quick-action-btn">
               <span className="qa-icon"><BoxIcon /></span>
               <div className="qa-copy">
-                <strong>Manage Stock</strong>
-                <span className="small muted">Update shop inventory</span>
+                <strong>{t('seller.dashboard.manageStock')}</strong>
+                <span className="small muted">{t('seller.dashboard.manageStockDesc')}</span>
               </div>
             </Link>
 
             <Link to="/seller/orders" className="quick-action-btn">
               <span className="qa-icon"><OrdersIcon /></span>
               <div className="qa-copy">
-                <strong>Process Orders</strong>
-                <span className="small muted">Accept & fulfill</span>
+                <strong>{t('seller.dashboard.processOrders')}</strong>
+                <span className="small muted">{t('seller.dashboard.processOrdersDesc')}</span>
               </div>
             </Link>
 
             <Link to="/seller/shops" className="quick-action-btn">
               <span className="qa-icon"><StoreIcon /></span>
               <div className="qa-copy">
-                <strong>Manage Shops</strong>
-                <span className="small muted">Locations & hours</span>
+                <strong>{t('seller.dashboard.manageShops')}</strong>
+                <span className="small muted">{t('seller.dashboard.manageShopsDesc')}</span>
               </div>
             </Link>
 
             <Link to="/seller/employees" className="quick-action-btn">
               <span className="qa-icon"><UsersIcon /></span>
               <div className="qa-copy">
-                <strong>Team & Staff</strong>
-                <span className="small muted">Invite employees</span>
+                <strong>{t('seller.dashboard.teamAndStaff')}</strong>
+                <span className="small muted">{t('seller.dashboard.teamAndStaffDesc')}</span>
               </div>
             </Link>
 
             <Link to="/seller/cash" className="quick-action-btn">
               <span className="qa-icon"><CashIcon /></span>
               <div className="qa-copy">
-                <strong>Cash Sessions</strong>
-                <span className="small muted">POS & reconciliation</span>
+                <strong>{t('seller.dashboard.cashSessions')}</strong>
+                <span className="small muted">{t('seller.dashboard.cashSessionsDesc')}</span>
               </div>
             </Link>
           </div>
@@ -468,8 +478,8 @@ export default function SellerDashboardPage() {
       <div className="seller-section-card seller-setup-card">
         <div className="section-card-header">
           <div>
-            <h3>Store Setup Checklist</h3>
-            <p className="small muted">Essential steps to prepare your business for high marketplace sales</p>
+            <h3>{t('seller.dashboard.setupChecklist')}</h3>
+            <p className="small muted">{t('seller.dashboard.setupChecklistHint')}</p>
           </div>
         </div>
 
@@ -477,7 +487,7 @@ export default function SellerDashboardPage() {
           <div className="checklist-item checklist-item--done">
             <span className="check-icon"><CheckCircleIcon /></span>
             <div>
-              <strong>Business Registered</strong>
+              <strong>{t('seller.dashboard.checkBusinessRegistered')}</strong>
               <p className="small muted">{activeBusiness.name}</p>
             </div>
           </div>
@@ -485,11 +495,11 @@ export default function SellerDashboardPage() {
           <div className={`checklist-item ${shopsCount > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
             <span className="check-icon"><CheckCircleIcon /></span>
             <div>
-              <strong>Create at least one Shop</strong>
+              <strong>{t('seller.dashboard.checkCreateShop')}</strong>
               {shopsCount > 0 ? (
-                <p className="small muted">{shopsCount} shop(s) active</p>
+                <p className="small muted">{t('seller.dashboard.shopsActiveCount', { count: shopsCount })}</p>
               ) : (
-                <Link to="/seller/shops" className="small checklist-link">Create Shop &rarr;</Link>
+                <Link to="/seller/shops" className="small checklist-link">{t('seller.dashboard.checkCreateShopLink')}</Link>
               )}
             </div>
           </div>
@@ -497,11 +507,11 @@ export default function SellerDashboardPage() {
           <div className={`checklist-item ${productsCount > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
             <span className="check-icon"><CheckCircleIcon /></span>
             <div>
-              <strong>Add Products to Catalog</strong>
+              <strong>{t('seller.dashboard.checkAddProducts')}</strong>
               {productsCount > 0 ? (
-                <p className="small muted">{productsCount} product(s) in catalog</p>
+                <p className="small muted">{t('seller.dashboard.productsInCatalogCount', { count: productsCount })}</p>
               ) : (
-                <Link to="/seller/products/new" className="small checklist-link">Add Product &rarr;</Link>
+                <Link to="/seller/products/new" className="small checklist-link">{t('seller.dashboard.addProductLink')}</Link>
               )}
             </div>
           </div>
@@ -509,11 +519,11 @@ export default function SellerDashboardPage() {
           <div className={`checklist-item ${publishedProducts > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
             <span className="check-icon"><CheckCircleIcon /></span>
             <div>
-              <strong>Publish Products</strong>
+              <strong>{t('seller.dashboard.checkPublishProducts')}</strong>
               {publishedProducts > 0 ? (
-                <p className="small muted">{publishedProducts} published on marketplace</p>
+                <p className="small muted">{t('seller.dashboard.publishedMarketplaceCount', { count: publishedProducts })}</p>
               ) : (
-                <Link to="/seller/products" className="small checklist-link">Publish &rarr;</Link>
+                <Link to="/seller/products" className="small checklist-link">{t('seller.dashboard.publishLink')}</Link>
               )}
             </div>
           </div>
@@ -521,11 +531,11 @@ export default function SellerDashboardPage() {
           <div className={`checklist-item ${ordersCount > 0 ? 'checklist-item--done' : 'checklist-item--pending'}`}>
             <span className="check-icon"><CheckCircleIcon /></span>
             <div>
-              <strong>Receive First Order</strong>
+              <strong>{t('seller.dashboard.checkReceiveFirstOrder')}</strong>
               {ordersCount > 0 ? (
-                <p className="small muted">{ordersCount} order(s) processed</p>
+                <p className="small muted">{t('seller.dashboard.ordersProcessedCount', { count: ordersCount })}</p>
               ) : (
-                <p className="small muted">Orders will appear here once buyers checkout</p>
+                <p className="small muted">{t('seller.dashboard.ordersAppearHint')}</p>
               )}
             </div>
           </div>

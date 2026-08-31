@@ -7,17 +7,20 @@ import { ErrorBox } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { asArray } from '@/lib/format'
 import { SearchAutocomplete } from '@/components/search/SearchAutocomplete'
+import { useI18n } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 
-const SORTS = [
-  { value: 'relevance', label: 'Relevance' },
-  { value: 'price_asc', label: 'Price: low to high' },
-  { value: 'price_desc', label: 'Price: high to low' },
-  { value: 'seller_level', label: 'Top sellers' }
+const SORTS: { value: string; key: TranslationKey }[] = [
+  { value: 'relevance', key: 'search.sort.relevance' },
+  { value: 'price_asc', key: 'search.sort.priceAsc' },
+  { value: 'price_desc', key: 'search.sort.priceDesc' },
+  { value: 'seller_level', key: 'search.sort.topSellers' }
 ]
 
 const RATING_FILTERS = [4, 3]
 
 export default function SearchPage() {
+  const { t } = useI18n()
   const [params] = useSearchParams()
   const initialQ = params.get('q') ?? ''
   const visualSearch = params.get('visual') === '1'
@@ -48,7 +51,7 @@ export default function SearchPage() {
           setLoading(false)
         },
         (e: unknown) => {
-          setError(e instanceof Error ? e.message : 'Search failed')
+          setError(e instanceof Error ? e.message : t('search.failed'))
           setLoading(false)
         }
       )
@@ -63,9 +66,9 @@ export default function SearchPage() {
         setTotal(list.length)
         setHasMore(false)
         setSearched(true)
-        setVisualFileName(saved.fileName || 'selected image')
+        setVisualFileName(saved.fileName || t('search.selectedImage'))
       } catch {
-        setError('The image search results are no longer available. Import the image again.')
+        setError(t('search.imageResultsExpired'))
       }
     } else if (initialQ) runSearch(1, initialQ, 'relevance')
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,7 +89,7 @@ export default function SearchPage() {
 
   return (
     <div className="fade-in">
-      <h1 style={{ marginBottom: 12 }}>Search</h1>
+      <h1 style={{ marginBottom: 12 }}>{t('search.title')}</h1>
       <SearchAutocomplete
         variant="page"
         initialQuery={initialQ}
@@ -94,11 +97,11 @@ export default function SearchPage() {
         className="search-page-autocomplete"
       />
 
-      {visualSearch && visualFileName && <div className="visual-search-banner"><span aria-hidden>📷</span><div><strong>Products similar to your image</strong><small>{visualFileName}</small></div></div>}
+      {visualSearch && visualFileName && <div className="visual-search-banner"><span aria-hidden>📷</span><div><strong>{t('search.similarProductsTitle')}</strong><small>{visualFileName}</small></div></div>}
 
       {!visualSearch && (
-        <div className="search-facets" role="group" aria-label="Filter results">
-          <span className="small muted">Customer rating</span>
+        <div className="search-facets" role="group" aria-label={t('search.filterResults')}>
+          <span className="small muted">{t('search.customerRating')}</span>
           {RATING_FILTERS.map((r) => (
             <button
               key={r}
@@ -107,12 +110,12 @@ export default function SearchPage() {
               aria-pressed={minRating === r}
               onClick={() => changeRating(r)}
             >
-              {r}★ &amp; up
+              {r}★ {t('search.andUp')}
             </button>
           ))}
           {minRating !== undefined && (
             <button type="button" className="facet-chip facet-clear" onClick={() => changeRating(undefined)}>
-              Clear
+              {t('search.clearFilter')}
             </button>
           )}
         </div>
@@ -120,12 +123,12 @@ export default function SearchPage() {
 
       <div className="row-between" style={{ marginBottom: 12 }}>
         <span className="small muted">
-          {searched ? `${total} result${total === 1 ? '' : 's'}${visualSearch ? ' found from the image' : ''}` : 'Type something to search'}
+          {searched ? (visualSearch ? t('search.resultsFoundFromImage', { total }) : t('search.results', { total, query: q })) : t('search.typePrompt')}
         </span>
         <select className="select" style={{ width: 'auto' }} value={sort} onChange={(e) => changeSort(e.target.value)}>
           {SORTS.map((s) => (
             <option key={s.value} value={s.value}>
-              {s.label}
+              {t(s.key)}
             </option>
           ))}
         </select>
@@ -135,7 +138,7 @@ export default function SearchPage() {
 
       {searched && products.length === 0 && !loading ? (
         <p className="muted" style={{ padding: '32px 0' }}>
-          {visualSearch ? 'No similar marketplace products were found for this image.' : `No products found for “${q}”.`}
+          {visualSearch ? t('search.noResultsImage') : t('search.noResultsQuery', { query: q })}
         </p>
       ) : (
         <>
@@ -155,7 +158,7 @@ export default function SearchPage() {
                 }}
                 loading={loading}
               >
-                Load more
+                {t('common.loadMore')}
               </Button>
             </div>
           )}

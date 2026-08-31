@@ -31,14 +31,15 @@ function RootNavigator() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ title: t('common.signIn') }} />
-        <Stack.Screen name="auth/forgot-password" options={{ title: 'Mot de passe oublié' }} />
-        <Stack.Screen name="auth/reset-password" options={{ title: 'Nouveau mot de passe' }} />
+        <Stack.Screen name="auth/forgot-password" options={{ title: t('auth.forgotPassword') }} />
+        <Stack.Screen name="auth/reset-password" options={{ title: t('auth.newPassword') }} />
         <Stack.Screen name="profile-edit" options={{ title: t('editProfile.title') }} />
-        <Stack.Screen name="products/[id]" options={{ title: 'Produit' }} />
-        <Stack.Screen name="checkout/delivery" options={{ title: 'Livraison' }} />
-        <Stack.Screen name="checkout/payment" options={{ title: 'Paiement' }} />
+        <Stack.Screen name="products/[id]" options={{ title: t('product.title') }} />
+        <Stack.Screen name="categories/[slug]" options={{ title: t('categories.pageTitle') }} />
+        <Stack.Screen name="checkout/delivery" options={{ title: t('checkout.delivery') }} />
+        <Stack.Screen name="checkout/payment" options={{ title: t('checkout.payment') }} />
         <Stack.Screen name="orders/index" options={{ title: t('profile.myOrders') }} />
-        <Stack.Screen name="orders/[id]" options={{ title: 'Commande' }} />
+        <Stack.Screen name="orders/[id]" options={{ title: t('orders.detailTitle') }} />
         <Stack.Screen name="reviews/index" options={{ title: t('profile.myReviews') }} />
         <Stack.Screen name="reviews/write" options={{ title: t('review.publish') }} />
         <Stack.Screen name="seller" options={{ headerShown: false }} />

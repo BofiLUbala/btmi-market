@@ -6,15 +6,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
-function timeAgo(date: Date): string {
+function timeAgo(date: Date, t: ReturnType<typeof useT>): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 5) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
+  if (seconds < 5) return t('time.justNow')
+  if (seconds < 60) return t('time.secondsAgo', { count: seconds })
   const minutes = Math.floor(seconds / 60)
-  return `${minutes}m ago`
+  return t('time.minutesAgo', { count: minutes })
 }
 
 interface Order {
@@ -31,21 +33,28 @@ interface Order {
 
 type SellerAction = { label: string; status?: OrderStatus; action?: 'accept' | 'reject' | 'prepare' }
 
-function nextActions(order: Order): SellerAction[] {
-  if (order.status === 'PENDING') return [{ label: 'Accept Order', action: 'accept' }, { label: 'Reject', action: 'reject' }]
-  if (order.status === 'ACCEPTED') return [{ label: 'Start Preparing', action: 'prepare' }]
+function nextActions(order: Order, t: ReturnType<typeof useT>): SellerAction[] {
+  if (order.status === 'PENDING') return [{ label: t('seller.orders.accept'), action: 'accept' }, { label: t('seller.orders.reject'), action: 'reject' }]
+  if (order.status === 'ACCEPTED') return [{ label: t('seller.orders.startPreparing'), action: 'prepare' }]
   if (order.status === 'PREPARING') {
     return order.delivery_method === 'PICKUP'
-      ? [{ label: 'Ready for Pickup', status: 'READY_FOR_PICKUP' }]
-      : [{ label: 'Mark Ready', status: 'READY' }]
+      ? [{ label: t('seller.orders.readyForPickup'), status: 'READY_FOR_PICKUP' }]
+      : [{ label: t('seller.orders.markReady'), status: 'READY' }]
   }
-  if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: 'Dispatch Order', status: 'OUT_FOR_DELIVERY' }]
-  if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: 'Hand to Delivery Partner', status: 'HANDED_TO_PARTNER' }]
-  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: 'Mark Delivered', status: 'DELIVERED' }]
+  if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: t('seller.orders.dispatchOrder'), status: 'OUT_FOR_DELIVERY' }]
+  if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: t('seller.orders.handToPartner'), status: 'HANDED_TO_PARTNER' }]
+  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: t('seller.orders.markDelivered'), status: 'DELIVERED' }]
   return []
 }
 
+function orderStatusLabel(status: string, t: ReturnType<typeof useT>): string {
+  const key = `status.${status}`
+  const value = t(key as TranslationKey)
+  return value === key ? status : value
+}
+
 export default function SellerOrdersPage() {
+  const t = useT()
   const { activeBusiness } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -84,14 +93,14 @@ export default function SellerOrdersPage() {
       if (!silent) setError('')
     } catch (err) {
       if (!silent) {
-        setError(err instanceof Error ? err.message : 'Failed to load orders')
+        setError(err instanceof Error ? err.message : t('seller.orders.loadFailed'))
         setOrders([])
       }
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [activeBusiness?.id, shopFilter])
+  }, [activeBusiness?.id, shopFilter, t])
 
   useEffect(() => {
     void loadOrders()
@@ -136,7 +145,7 @@ export default function SellerOrdersPage() {
       await fn()
       await loadOrders()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Action failed')
+      setActionError(err instanceof Error ? err.message : t('seller.orders.actionFailed'))
     } finally {
       setActingId(null)
     }
@@ -157,7 +166,7 @@ export default function SellerOrdersPage() {
       setPayments(prev => ({ ...prev, [order.id]: payment }))
     }
     catch (err) {
-      if (!(err instanceof Error && /PAYMENT_NOT_FOUND/i.test(err.message))) setActionError(err instanceof Error ? err.message : 'Could not load payment')
+      if (!(err instanceof Error && /PAYMENT_NOT_FOUND/i.test(err.message))) setActionError(err instanceof Error ? err.message : t('seller.orders.loadPaymentFailed'))
       setPayments(prev => ({ ...prev, [order.id]: null }))
     }
   }
@@ -182,19 +191,19 @@ export default function SellerOrdersPage() {
     return [...grouped.entries()]
       .map(([shopId, shopOrders]) => ({
         shopId,
-        shopName: shopNames.get(shopId) ?? 'Unknown Shop',
+        shopName: shopNames.get(shopId) ?? t('seller.orders.unknownShop'),
         orders: shopOrders,
         total: shopOrders.reduce((sum, order) => sum + (order.final_total || 0), 0),
       }))
       .sort((a, b) => a.shopName.localeCompare(b.shopName))
-  }, [visibleOrders, shops])
+  }, [visibleOrders, shops, t])
 
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
         <div className="empty-icon" style={{ fontSize: 64 }}>🧾</div>
-        <h2>No Business Selected</h2>
-        <p className="muted">Select a business to view orders.</p>
+        <h2>{t('seller.noBusinessSelected')}</h2>
+        <p className="muted">{t('seller.orders.noBusinessSubtitle')}</p>
       </div>
     )
   }
@@ -202,33 +211,33 @@ export default function SellerOrdersPage() {
   return (
     <div className="seller-orders">
       <div className="page-header">
-        <h1>Orders</h1>
+        <h1>{t('seller.orders')}</h1>
       </div>
 
       {/* Live sync bar */}
       <div className="live-bar">
-        <span className="live-label"><span className="live-dot" /> Live</span>
-        <span>{lastUpdated ? `Updated ${timeAgo(lastUpdated)}` : 'Loading…'}</span>
+        <span className="live-label"><span className="live-dot" /> {t('orders.live')}</span>
+        <span>{lastUpdated ? t('orders.updated', { time: timeAgo(lastUpdated, t) }) : t('orders.loading')}</span>
         <button className="refresh-btn" onClick={() => void loadOrders()} disabled={refreshing}>
-          {refreshing ? '⟳' : 'Refresh'}
+          {refreshing ? '⟳' : t('orders.refresh')}
         </button>
       </div>
 
       <div className="row-between seller-order-filters">
-        <div><strong>{visibleOrders.length} order{visibleOrders.length === 1 ? '' : 's'}</strong><div className="small muted">{shopFilter === 'ALL' ? `Classified across ${orderGroups.length} shop${orderGroups.length === 1 ? '' : 's'}` : `Orders for ${shopNames.get(shopFilter) ?? 'selected shop'}`}</div></div>
-        <label className="small"><span className="muted">Shop </span><select className="select" value={shopFilter} onChange={(event) => setShopFilter(event.target.value)}><option value="ALL">All Shops</option>{shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select></label>
+        <div><strong>{visibleOrders.length === 1 ? t('seller.orders.count', { count: visibleOrders.length }) : t('seller.orders.count_plural', { count: visibleOrders.length })}</strong><div className="small muted">{shopFilter === 'ALL' ? (orderGroups.length === 1 ? t('seller.orders.classifiedAcross', { count: orderGroups.length }) : t('seller.orders.classifiedAcross_plural', { count: orderGroups.length })) : t('seller.orders.forShop', { shop: shopNames.get(shopFilter) ?? t('seller.orders.selectedShop') })}</div></div>
+        <label className="small"><span className="muted">{t('orders.shop')} </span><select className="select" value={shopFilter} onChange={(event) => setShopFilter(event.target.value)}><option value="ALL">{t('seller.allShops')}</option>{shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name}</option>)}</select></label>
       </div>
 
       {loading ? (
-        <LoadingBlock label="Loading orders…" />
+        <LoadingBlock label={t('seller.orders.loading')} />
       ) : error ? (
-        <ErrorBox error={`Unable to load orders: ${error}`} onRetry={() => void loadOrders()} />
+        <ErrorBox error={t('seller.orders.unableToLoad', { error })} onRetry={() => void loadOrders()} />
       ) : visibleOrders.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
             <div className="empty-icon" style={{ fontSize: 48 }}>🧾</div>
-            <h3>{shopFilter === 'ALL' ? 'No Orders Yet' : 'No orders for this Shop'}</h3>
-            <p className="muted">{shopFilter === 'ALL' ? 'Orders will appear here when customers place them.' : 'Choose All Shops to see every Order in this Business.'}</p>
+            <h3>{shopFilter === 'ALL' ? t('seller.orders.emptyTitle') : t('seller.orders.emptyShopTitle')}</h3>
+            <p className="muted">{shopFilter === 'ALL' ? t('seller.orders.emptyDesc') : t('seller.orders.emptyShopDesc')}</p>
           </div>
         </Card>
       ) : (
@@ -239,11 +248,11 @@ export default function SellerOrdersPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Order #</th>
-                    <th>Status</th>
-                    <th>Total (FC)</th>
-                    <th>Date</th>
-                    <th>Actions</th>
+                    <th>{t('seller.orders.orderNumber')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('seller.orders.totalFc')}</th>
+                    <th>{t('common.date')}</th>
+                    <th>{t('orders.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -251,20 +260,20 @@ export default function SellerOrdersPage() {
                     <tr className="seller-order-shop-heading" key={`shop-${group.shopId}`}>
                       <td colSpan={5}>
                         <div className="seller-order-shop-summary">
-                          <span><strong>{group.shopName}</strong> <span className="muted">· {group.orders.length} order{group.orders.length === 1 ? '' : 's'}</span></span>
+                          <span><strong>{group.shopName}</strong> <span className="muted">· {group.orders.length === 1 ? t('seller.orders.count', { count: group.orders.length }) : t('seller.orders.count_plural', { count: group.orders.length })}</span></span>
                           <strong>{group.total.toLocaleString()} FC</strong>
                         </div>
                       </td>
                     </tr>,
                     ...group.orders.map((order) => {
-                    const actions = nextActions(order)
+                    const actions = nextActions(order, t)
                     const isExpanded = expandedId === order.id
                     const payment = payments[order.id]
                     const detail = details[order.id]
                     return (
                       <tr key={order.id}>
                         <td>{order.order_number || order.id.slice(0, 8)}</td>
-                        <td><span className={`badge badge-${getStatusColor(order.status)}`}>{order.status}</span></td>
+                        <td><span className={`badge badge-${getStatusColor(order.status)}`}>{orderStatusLabel(order.status, t)}</span></td>
                         <td>{order.final_total?.toLocaleString() || '0'}</td>
                         <td>{new Date(order.created_at).toLocaleDateString()}</td>
                         <td>
@@ -288,25 +297,25 @@ export default function SellerOrdersPage() {
                               </Button>
                             ))}
                             <Button variant="ghost" size="sm" onClick={() => void toggleDetails(order)}>
-                              {isExpanded ? 'Hide' : 'View'}
+                              {isExpanded ? t('seller.orders.hide') : t('common.view')}
                             </Button>
                           </div>
                           {isExpanded && (
                             <div className="small muted" style={{ marginTop: 8, textAlign: 'left' }}>
-                              <div><strong>Delivery:</strong> {order.delivery_method || '—'}</div>
-                              <div><strong>Base total:</strong> {(order.base_total ?? order.final_total).toLocaleString()} FC</div>
-                              {order.notes && <div><strong>Notes:</strong> {order.notes}</div>}
-                              <div><strong>Shop ID:</strong> {order.shop_id}</div>
-                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>Products</strong>{detail.lines.map((line) => <div key={line.id}>{line.product_name || line.product_id}{line.variant_name ? ` · ${line.variant_name}` : ''} · Qty {line.quantity} · {(line.final_unit_price || line.unit_price).toLocaleString()} FC</div>)}</div> : <div>Loading product details…</div>}
+                              <div><strong>{t('orders.deliveryLabel')}:</strong> {order.delivery_method || '—'}</div>
+                              <div><strong>{t('seller.orders.baseTotal')}:</strong> {(order.base_total ?? order.final_total).toLocaleString()} FC</div>
+                              {order.notes && <div><strong>{t('seller.orders.notesLabel')}:</strong> {order.notes}</div>}
+                              <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
+                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <div key={line.id}>{line.variant_name ? t('seller.orders.lineWithVariant', { name: line.product_name || line.product_id || '', variant: line.variant_name, quantity: line.quantity, price: (line.final_unit_price || line.unit_price).toLocaleString() }) : t('seller.orders.line', { name: line.product_name || line.product_id || '', quantity: line.quantity, price: (line.final_unit_price || line.unit_price).toLocaleString() })}</div>)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
                               <div className="seller-payment-box">
-                                <strong>Cash payment</strong>
+                                <strong>{t('seller.orders.cashPayment')}</strong>
                                 {payment ? <>
-                                  <div>Amount due: <strong>{payment.cash_due.toLocaleString()} FC</strong></div>
-                                  <div>Buyer: {payment.buyer_confirmed ? '✓ Payment declared' : 'Not confirmed'}</div>
-                                  <div>Seller: {payment.seller_confirmed ? '✓ Cash received' : 'Not confirmed'}</div>
-                                  <div>Status: <strong>{payment.status}</strong></div>
-                                  {!payment.seller_confirmed && <Button size="sm" disabled={actingId === order.id} onClick={() => void confirmCash(order, payment)}>Confirm Cash Received</Button>}
-                                </> : <div>No cash payment created yet.</div>}
+                                  <div>{t('orders.amountDue')}: <strong>{payment.cash_due.toLocaleString()} FC</strong></div>
+                                  <div>{t('seller.orders.buyerColon')} {payment.buyer_confirmed ? `✓ ${t('orders.paymentDeclared')}` : t('orders.notConfirmed')}</div>
+                                  <div>{t('seller.orders.sellerColon')} {payment.seller_confirmed ? `✓ ${t('orders.cashReceived')}` : t('orders.notConfirmed')}</div>
+                                  <div>{t('common.status')}: <strong>{payment.status}</strong></div>
+                                  {!payment.seller_confirmed && <Button size="sm" disabled={actingId === order.id} onClick={() => void confirmCash(order, payment)}>{t('seller.orders.confirmCash')}</Button>}
+                                </> : <div>{t('seller.orders.noPaymentCreated')}</div>}
                               </div>
                             </div>
                           )}

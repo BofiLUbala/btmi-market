@@ -1,3 +1,8 @@
+import type { Dictionary } from '@/store/i18n'
+
+/** Signature-compatible with the store's `t`, so the hook can be passed in. */
+export type Translator = (key: keyof Dictionary, vars?: Record<string, string | number>) => string
+
 export interface LocationOption {
   value: string
   label: string
@@ -81,12 +86,12 @@ function optionsWithCurrent(values: readonly string[], current = ''): LocationOp
   return options
 }
 
-export const drcCityOptions = (current = ''): LocationOption[] => [
-  { value: '', label: 'Select a city' },
+export const drcCityOptions = (current = '', t?: Translator): LocationOption[] => [
+  { value: '', label: t ? t('drc.selectCity') : 'Select a city' },
   ...optionsWithCurrent(DRC_CITIES, current),
 ]
 
-export const kinshasaCommuneOptions = (current = ''): LocationOption[] => [
-  { value: '', label: 'Select a commune' },
+export const kinshasaCommuneOptions = (current = '', t?: Translator): LocationOption[] => [
+  { value: '', label: t ? t('drc.selectCommune') : 'Select a commune' },
   ...optionsWithCurrent(KINSHASA_COMMUNES, current),
 ]

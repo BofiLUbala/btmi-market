@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import type { PublicShop } from '@/api/types'
 import { initials } from '@/lib/format'
+import { useI18n } from '@/store/i18n'
 import { Rating } from './Rating'
 
 export function ShopCard({ shop, rating }: { shop: PublicShop; rating?: number }) {
+  const { t } = useI18n()
   return (
     <Link to={`/shops/${shop.id}`} className="shop-card">
       <div className="shop-logo">{initials(shop.name)}</div>
@@ -14,7 +16,9 @@ export function ShopCard({ shop, rating }: { shop: PublicShop; rating?: number }
           {shop.address ? ` · ${shop.address}` : ''}
         </div>
         <div className="shop-meta">
-          {shop.product_count} product{shop.product_count === 1 ? '' : 's'} · {shop.seller_level}
+          {t(shop.product_count === 1 ? 'shop.productsCount' : 'shop.productsCountPlural', {
+            count: shop.product_count,
+          })}{' · '}{shop.seller_level}
         </div>
         {rating !== undefined && <Rating value={rating} />}
       </div>

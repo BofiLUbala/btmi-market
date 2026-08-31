@@ -3,7 +3,7 @@ import { AuthProvider } from '@/store/auth'
 import { FavoritesProvider } from '@/store/favorites'
 import { CartProvider } from '@/store/cart'
 import { ThemeProvider } from '@/store/theme'
-import { I18nProvider } from '@/store/i18n'
+import { I18nProvider, useI18n } from '@/store/i18n'
 import { Layout } from '@/components/layout/Layout'
 import { PublicOnly, RequireAuth, RequireBuyer, RequireSeller, RequireEmployee, SellerIndexRedirect } from '@/components/auth/Guards'
 import { Button } from '@/components/ui/Button'
@@ -70,12 +70,13 @@ import SellerReviewsPage from '@/pages/seller/reviews/SellerReviewsPage'
 import SellerProfilePage from '@/pages/seller/profile/SellerProfilePage'
 
 function NotFound() {
+  const { t } = useI18n()
   return (
     <div className="empty-state" style={{ padding: '64px 0' }}>
       <div className="empty-icon">🧭</div>
-      <h3>Page not found</h3>
+      <h3>{t('notFound.title')}</h3>
       <Link to="/">
-        <Button>Back to marketplace</Button>
+        <Button>{t('notFound.backToMarketplace')}</Button>
       </Link>
     </div>
   )
