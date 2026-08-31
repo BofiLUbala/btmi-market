@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '../src/store/auth'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n } from '../src/store/i18n'
+import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 2, refetchOnReconnect: true }, mutations: { retry: 0 } } })
 
@@ -26,6 +27,9 @@ function RootNavigator() {
           headerTintColor: colors.ink,
           headerTitleStyle: { fontWeight: '800' },
           contentStyle: { backgroundColor: colors.cream },
+          // Language and appearance live in the header on every stack screen
+          // rather than only inside the profile.
+          headerRight: () => <PreferenceToggleButtons />,
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />

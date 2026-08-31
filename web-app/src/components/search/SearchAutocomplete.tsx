@@ -1,9 +1,10 @@
-import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
 import type { CategoryResponse, PublicProduct, PublicShop, SubcategoryResponse } from '@/api/types'
 import { formatMoney, initials } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { CameraIcon, ImageIcon } from '@/components/ui/Icons'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
@@ -38,6 +39,9 @@ export function SearchAutocomplete({
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const captureInputRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const listId = useId()
   const [query, setQuery] = useState(initialQuery)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -45,10 +49,33 @@ export function SearchAutocomplete({
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraError, setCameraError] = useState(false)
 
   useEffect(() => {
     setQuery(initialQuery)
   }, [initialQuery])
+
+  /** Releases the camera. Runs on cancel, after a capture, and on unmount. */
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+    setCameraOpen(false)
+  }, [])
+
+  useEffect(() => stopCamera, [stopCamera])
+
+  // The <video> only exists once the overlay has rendered, so the stream is
+  // attached here rather than at the moment getUserMedia resolves.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!cameraOpen || !video || !streamRef.current) return
+    video.srcObject = streamRef.current
+    void video.play().catch(() => {})
+    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') stopCamera() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [cameraOpen, stopCamera])
 
   useEffect(() => {
     const trimmed = query.trim()
@@ -159,10 +186,8 @@ export function SearchAutocomplete({
     }
   }
 
-  async function searchImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
+  /** Shared by the file picker and the camera: both end up with a File. */
+  async function runImageSearch(file: File, fileName: string) {
     if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 6 * 1024 * 1024) {
       setImageStatus('error')
       return
@@ -171,12 +196,56 @@ export function SearchAutocomplete({
     setOpen(false)
     try {
       const result = await marketplaceApi.searchByImage(file)
-      sessionStorage.setItem('btmi.visual-search', JSON.stringify({ products: result.products ?? [], fileName: file.name, createdAt: Date.now() }))
+      sessionStorage.setItem('btmi.visual-search', JSON.stringify({ products: result.products ?? [], fileName, createdAt: Date.now() }))
       setImageStatus('idle')
       navigate('/search?visual=1')
     } catch {
       setImageStatus('error')
     }
+  }
+
+  function searchImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) void runImageSearch(file, file.name)
+  }
+
+  async function openCamera() {
+    setCameraError(false)
+    // `mediaDevices` is undefined on an insecure origin and on older browsers.
+    // The `capture` input still hands the phone's own camera app the job.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      captureInputRef.current?.click()
+      return
+    }
+    try {
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+      setOpen(false)
+      setCameraOpen(true)
+    } catch {
+      setCameraError(true)
+    }
+  }
+
+  function capturePhoto() {
+    const video = videoRef.current
+    if (!video?.videoWidth) return
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d')?.drawImage(video, 0, 0)
+    canvas.toBlob(
+      (blob) => {
+        stopCamera()
+        if (!blob) {
+          setImageStatus('error')
+          return
+        }
+        void runImageSearch(new File([blob], 'capture.jpg', { type: 'image/jpeg' }), 'capture.jpg')
+      },
+      'image/jpeg',
+      0.82
+    )
   }
 
   return (
@@ -185,11 +254,26 @@ export function SearchAutocomplete({
         <input ref={inputRef} className={variant === 'page' ? 'input' : undefined} value={query} onChange={(event) => setValue(event.target.value)} onFocus={() => query.trim().length >= 2 && setOpen(true)} onKeyDown={onKeyDown} placeholder={t('search.placeholder')} aria-label={t('search.autocompleteAria')} role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined} />
         {query && <button className="search-clear" type="button" aria-label={t('search.clear')} onClick={() => { setValue(''); setSuggestions([]); setOpen(false); inputRef.current?.focus() }}>×</button>}
         <input ref={imageInputRef} className="visual-search-input" type="file" accept="image/jpeg,image/png" onChange={searchImage} tabIndex={-1} />
-        <button className="visual-search-button" type="button" aria-label={t('search.byImage')} title={t('search.byImage')} disabled={imageStatus === 'loading'} onClick={() => imageInputRef.current?.click()}>{imageStatus === 'loading' ? '…' : '📷'}</button>
+        <input ref={captureInputRef} className="visual-search-input" type="file" accept="image/*" capture="environment" onChange={searchImage} tabIndex={-1} />
+        <button className="visual-search-button" type="button" aria-label={t('search.byCamera')} title={t('search.byCamera')} disabled={imageStatus === 'loading'} onClick={openCamera}><CameraIcon width="19" height="19" /></button>
+        <button className="visual-search-button" type="button" aria-label={t('search.byImage')} title={t('search.byImage')} disabled={imageStatus === 'loading'} onClick={() => imageInputRef.current?.click()}>{imageStatus === 'loading' ? <span className="spinner" /> : <ImageIcon width="19" height="19" />}</button>
         <button className="search-submit" type="submit">{t('common.search')}</button>
       </form>
 
       {imageStatus === 'error' && <div className="visual-search-error" role="alert">{t('search.imageError')}</div>}
+      {cameraError && <div className="visual-search-error" role="alert">{t('search.cameraUnavailable')}</div>}
+
+      {cameraOpen && (
+        <div className="camera-capture" role="dialog" aria-modal="true" aria-label={t('search.byCamera')}>
+          <div className="camera-capture-panel">
+            <video ref={videoRef} className="camera-capture-video" playsInline muted autoPlay />
+            <div className="camera-capture-actions">
+              <button type="button" className="btn btn-outline" onClick={stopCamera}>{t('common.cancel')}</button>
+              <button type="button" className="btn btn-primary" onClick={capturePhoto}>{t('search.capture')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {open && query.trim().length >= 2 && (
         <div id={listId} className="search-suggestions" role="listbox" aria-label={t('search.suggestionsAria')}>

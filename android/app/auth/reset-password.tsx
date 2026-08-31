@@ -5,10 +5,13 @@ import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../../src/api'
 import { Button, Card, ErrorState, Field, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
-import { colors, spacing } from '../../src/theme'
+import { useColors } from '../../src/store/theme'
+import { spacing, type Colors } from '../../src/theme'
 
 export default function ResetPassword() {
   const { t } = useI18n()
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const { token = '' } = useLocalSearchParams<{ token?: string }>()
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
@@ -20,4 +23,4 @@ export default function ResetPassword() {
   return <View style={styles.page}><SectionTitle title={t('auth.createNewPassword')}/>{!token?<ErrorState message={t('auth.invalidToken')}/>:<><Card><Field label={t('auth.newPassword')} value={password} onChangeText={setPassword} secureTextEntry maxLength={64}/><View>{ruleLabels.map((label,index)=><Text key={label} style={[styles.rule,rules[index]&&styles.met]}>{rules[index]?'✓':'○'} {label}</Text>)}</View><Field label={t('auth.confirmPassword')} value={confirmation} onChangeText={setConfirmation} secureTextEntry maxLength={64}/>{confirmation.length>0&&<Text style={matches?styles.met:styles.error}>{matches?t('auth.passwordsMatch'):t('auth.passwordsMismatch')}</Text>}<Button title={t('auth.resetPassword')} loading={reset.isPending} disabled={!valid||reset.isSuccess} onPress={()=>reset.mutate()}/></Card>{reset.isError&&<ErrorState message={t('auth.resetFailed')}/>}{reset.isSuccess&&<Card><Text style={styles.met}>{t('auth.resetSuccess')}</Text><Button title={t('common.signIn')} onPress={()=>router.replace('/auth/login')}/></Card>}</>}</View>
 }
 
-const styles=StyleSheet.create({page:{padding:spacing.md,gap:spacing.md},rule:{color:colors.muted,lineHeight:23},met:{color:colors.success,fontWeight:'800'},error:{color:colors.danger,fontWeight:'800'}})
+const makeStyles = (colors: Colors) => StyleSheet.create({page:{padding:spacing.md,gap:spacing.md},rule:{color:colors.muted,lineHeight:23},met:{color:colors.success,fontWeight:'800'},error:{color:colors.danger,fontWeight:'800'}})

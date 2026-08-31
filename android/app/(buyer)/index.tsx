@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Alert, ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
@@ -9,17 +9,23 @@ import { useQuery } from '@tanstack/react-query'
 import { marketplaceApi } from '../../src/api'
 import { ProductCard } from '../../src/components/ProductCard'
 import { Button } from '../../src/components/ui'
+import { PreferenceToggleButtons } from '../../src/components/PreferenceToggles'
 import { useI18n } from '../../src/store/i18n'
-import { colors, radius, spacing } from '../../src/theme'
+import { useColors } from '../../src/store/theme'
+import { radius, spacing, type Colors } from '../../src/theme'
 import { categoryImage } from '../../src/lib/categoryVisuals'
 import type { PublicProduct } from '../../src/types'
 
 function ProductSkeleton() {
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   return <View style={styles.skeletonCard}><View style={styles.skeletonMedia}/><View style={styles.skeletonLine}/><View style={styles.skeletonLineShort}/></View>
 }
 
 export default function HomeScreen() {
   const { t } = useI18n()
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const [search, setSearch] = useState('')
   const [visualResults, setVisualResults] = useState<PublicProduct[] | null>(null)
   const [visualImage, setVisualImage] = useState<string | null>(null)
@@ -70,7 +76,10 @@ export default function HomeScreen() {
         <Pressable onPress={() => router.push('/(buyer)')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt')}>
           <View style={styles.logo}><Text style={styles.logoText}>TBK</Text></View>
         </Pressable>
-        <Pressable style={styles.iconButton} onPress={() => router.push('/(buyer)/profile')} accessibilityLabel={t('home.openProfile')}><Ionicons name="person-outline" size={21} color={colors.green}/></Pressable>
+        <View style={styles.headerActions}>
+          <PreferenceToggleButtons />
+          <Pressable style={styles.iconButton} onPress={() => router.push('/(buyer)/profile')} accessibilityLabel={t('home.openProfile')}><Ionicons name="person-outline" size={21} color={colors.green}/></Pressable>
+        </View>
       </View>
       <View style={styles.searchBox}><Ionicons name="search" size={20} color={colors.muted}/><TextInput value={search} onChangeText={(value) => { clearVisualSearch(); setSearch(value) }} placeholder={t('home.searchPlaceholder')} placeholderTextColor={colors.mutedLight} style={styles.searchInput} returnKeyType="search" clearButtonMode="while-editing"/>{search.length > 0 && <Pressable onPress={() => setSearch('')} accessibilityLabel={t('home.clearSearch')}><Ionicons name="close-circle" size={20} color={colors.mutedLight}/></Pressable>}<View style={styles.searchDivider}/><Pressable style={styles.cameraButton} onPress={takeProductPhoto} accessibilityRole="button" accessibilityLabel={t('home.takePhotoSearch')}><Ionicons name="camera-outline" size={22} color={colors.green}/></Pressable><Pressable style={styles.cameraButton} onPress={chooseProductImage} accessibilityRole="button" accessibilityLabel={t('home.chooseImageSearch')}><Ionicons name="images-outline" size={21} color={colors.green}/></Pressable></View>
     </View>
@@ -91,10 +100,11 @@ export default function HomeScreen() {
   </SafeAreaView>
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.cream }, list: { paddingBottom: 28 },
   stickyHeader: { backgroundColor: colors.white, paddingHorizontal: spacing.md, paddingTop: 10, paddingBottom: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   logo: { width: 39, height: 39, borderRadius: 19.5, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.white }, logoText: { color: colors.white, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }, iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
   hero: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, marginHorizontal: spacing.md, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 17, gap: 10, overflow: 'hidden' }, kicker: { color: colors.muted, fontSize: 10, letterSpacing: 1.25, fontWeight: '900' }, searchBox: { minHeight: 52, borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12, paddingRight: 6 }, searchInput: { flex: 1, minWidth: 80, color: colors.ink, fontSize: 14, paddingVertical: 0 }, searchDivider: { width: 1, height: 27, backgroundColor: colors.border }, cameraButton: { width: 37, height: 39, borderRadius: 12, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }, cameraHint: { color: colors.muted, fontSize: 11, lineHeight: 16 },
   sectionBlock: { paddingTop: 24 }, sectionHead: { paddingHorizontal: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }, sectionTitle: { color: colors.ink, fontSize: 20, fontWeight: '900' }, sectionSubtitle: { color: colors.muted, fontSize: 12, marginTop: 3 }, link: { color: colors.green, fontWeight: '800', fontSize: 13 }, chips: { paddingHorizontal: spacing.md, gap: 10 }, categoryChip: { width: 78, alignItems: 'center', gap: 7 }, categoryImage: { width: 62, height: 62, borderRadius: 31, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.greenSoft }, categoryText: { color: colors.ink, fontSize: 11, fontWeight: '700', textAlign: 'center' }, chipLoading: { height: 72, justifyContent: 'center' },

@@ -8,8 +8,9 @@
  *     const c = useColors()
  *     const styles = useMemo(() => makeStyles(c), [c])
  *
- * `colors` stays exported as the light palette so screens that have not been
- * migrated yet keep compiling and rendering exactly as before.
+ * Every screen now does this, so there is no module-scope palette export to
+ * reach for by accident — `lightColors`/`darkColors` are only ever read
+ * through `useColors()`.
  */
 
 export const lightColors = {
@@ -90,10 +91,6 @@ export const darkColors: Colors = {
   onGreen: '#16161A',
   onGold: '#16161A',
 }
-
-/** Light palette. Kept as the default export shape for screens that have not
- *  been migrated to `useColors()` yet. */
-export const colors = lightColors
 
 export const spacing = { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 } as const
 export const radius = { sm: 10, md: 16, lg: 24 } as const

@@ -331,6 +331,10 @@ export const fr = {
   'home.loadError': 'Impossible de charger le marketplace. L’API est-elle lancée ?',
   'search.placeholder': 'Rechercher produits, boutiques…',
   'search.byImage': 'Rechercher avec une image',
+  'search.byCamera': 'Prendre une photo',
+  'search.capture': 'Capturer',
+  'search.cameraUnavailable':
+    'Impossible d’ouvrir l’appareil photo. Autorisez l’accès à la caméra, ou choisissez une image existante.',
   'search.noResults': 'Aucun résultat',
 
   /* ── Recherche ─────────────────────────────────────────── */

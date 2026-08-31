@@ -5,7 +5,8 @@ import { sellerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
-import { colors, radius, spacing } from '../../src/theme'
+import { useColors } from '../../src/store/theme'
+import { radius, spacing, type Colors } from '../../src/theme'
 import type { BuyerPayment, SellerOrder } from '../../src/types'
 
 const POLL_INTERVAL = 30_000
@@ -29,6 +30,8 @@ function nextActions(order: SellerOrder): SellerAction[] {
 }
 
 export default function SellerOrders() {
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const { t, lang } = useI18n()
   const queryClient = useQueryClient()
   const [shopId, setShopId] = useState('ALL')
@@ -111,6 +114,8 @@ export default function SellerOrders() {
 
 function OrderCard({ order, expanded, busy, onToggle, onAction }: { order: SellerOrder; expanded: boolean; busy: boolean; onToggle: () => void; onAction: (action: SellerAction) => void }) {
   const { t, lang } = useI18n()
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const queryClient = useQueryClient()
   const actions = nextActions(order)
   const payment = useQuery({
@@ -146,10 +151,12 @@ function OrderCard({ order, expanded, busy, onToggle, onAction }: { order: Selle
 }
 
 function ShopFilter({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.filter, selected && styles.filterActive]}><Text style={[styles.filterText, selected && styles.filterTextActive]}>{label}</Text></Pressable>
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   filters: { gap: spacing.sm, paddingVertical: 2 },
   filter: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },

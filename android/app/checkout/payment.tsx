@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -7,12 +7,15 @@ import { buyerApi } from '../../src/api'
 import { useCart } from '../../src/store/cart'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
-import { colors, spacing } from '../../src/theme'
+import { useColors } from '../../src/store/theme'
+import { spacing, type Colors } from '../../src/theme'
 
 const money = (value: number, currency = 'FC') =>
   `${Math.round(value).toLocaleString('fr-FR')} ${currency}`
 
 export default function PaymentScreen() {
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const { orderId } = useLocalSearchParams<{ orderId?: string }>()
   const clearCart = useCart((state) => state.clear)
   const { t } = useI18n()
@@ -133,7 +136,7 @@ export default function PaymentScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   steps: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   stepDone: { color: colors.green, fontWeight: '800', fontSize: 12 },

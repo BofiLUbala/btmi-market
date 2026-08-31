@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -6,7 +6,8 @@ import { buyerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
-import { colors, spacing } from '../../src/theme'
+import { useColors } from '../../src/store/theme'
+import { spacing, type Colors } from '../../src/theme'
 import type { OrderStatusHistory } from '../../src/types'
 
 const POLL_INTERVAL = 15_000
@@ -37,7 +38,7 @@ function formatDateTime(value: string, lang: string) {
   return new Date(value).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-export default function OrderScreen(){
+export default function OrderScreen(){const colors=useColors();const styles=useMemo(()=>makeStyles(colors),[colors]);
   const { t, lang } = useI18n()
   const { id } = useLocalSearchParams<{id:string}>()
   const queryClient = useQueryClient()
@@ -151,4 +152,4 @@ export default function OrderScreen(){
   </ScrollView>
 }
 
-const styles=StyleSheet.create({page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12}})
+const makeStyles = (colors: Colors) => StyleSheet.create({page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12}})

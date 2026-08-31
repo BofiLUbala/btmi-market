@@ -9,7 +9,8 @@ import { marketplaceApi } from '../../src/api'
 import { resolveMediaUrl } from '../../src/api/client'
 import { useCart } from '../../src/store/cart'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
-import { colors, radius, spacing } from '../../src/theme'
+import { useColors } from '../../src/store/theme'
+import { radius, spacing, type Colors } from '../../src/theme'
 import { resolvePromotion } from '../../src/lib/promotion'
 import { useI18n } from '../../src/store/i18n'
 import type { ProductReviewSummary } from '../../src/types'
@@ -40,6 +41,8 @@ const reviewDate = (value: string, lang: string) => {
 }
 
 function RatingBreakdown({ summary }: { summary: ProductReviewSummary }) {
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   return (
     <View style={styles.breakdown}>
       {[5, 4, 3, 2, 1].map((rating) => {
@@ -64,6 +67,8 @@ function RatingBreakdown({ summary }: { summary: ProductReviewSummary }) {
 }
 
 export default function ProductScreen() {
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const { id } = useLocalSearchParams<{ id: string }>()
   const { t, lang } = useI18n()
   const { width } = useWindowDimensions()
@@ -94,18 +99,41 @@ export default function ProductScreen() {
   const hasAttributeGroups = attributeGroups.length > 0
   const specifications = useMemo(() => extractSpecifications(variants), [variants])
 
+  // The buyer picks every option themselves. Falling back to "first variant in
+  // stock" made a size and a colour look already chosen while the buy buttons
+  // stayed enabled, so an order could ship a variant nobody selected.
   const selected = useMemo(() => {
     if (variants.length === 0) return undefined
-    if (hasAttributeGroups && Object.keys(selection).length > 0) {
-      const resolved = resolveVariant(variants, selection)
-      if (resolved) return resolved
+    if (hasAttributeGroups) {
+      if (!attributeGroups.every((g) => selection[g.key])) return undefined
+      return resolveVariant(variants, selection) ?? undefined
     }
-    if (variantId) {
-      const byId = variants.find((v) => v.id === variantId)
-      if (byId) return byId
-    }
-    return variants.find((v) => (v.stock_quantity ?? 0) > 0) || variants[0]
-  }, [variants, selection, variantId, hasAttributeGroups])
+    if (variants.length > 1) return variants.find((v) => v.id === variantId)
+    return variants[0]
+  }, [variants, selection, variantId, hasAttributeGroups, attributeGroups])
+
+  /** Choices still owed by the buyer — named in the hint above the buy bar. */
+  const missingOptions = useMemo(() => {
+    if (hasAttributeGroups) return attributeGroups.filter((g) => !selection[g.key]).map((g) => g.label)
+    if (variants.length > 1 && !variantId) return [t('product.option')]
+    return []
+  }, [attributeGroups, hasAttributeGroups, selection, variants.length, variantId, t])
+  const optionsComplete = missingOptions.length === 0
+
+  // Picking a value can rule out an earlier one (a colour that size never comes
+  // in). Drop those rather than leaving a combination no variant satisfies.
+  const chooseValue = (key: string, value: string) => {
+    setSelection((prev) => {
+      const next: VariantSelection = { ...prev, [key]: value }
+      for (const g of attributeGroups) {
+        if (g.key === key) continue
+        const chosen = next[g.key]
+        if (chosen && !isValueAvailable(variants, next, g.key, chosen, false)) delete next[g.key]
+      }
+      return next
+    })
+    setQuantity(1)
+  }
 
   if (query.isLoading) return <Loading label={t('product.loading')} />
   if (!product || query.isError) {
@@ -231,11 +259,14 @@ export default function ProductScreen() {
             <View style={styles.optionSection}>
               <SectionTitle title={t('product.availableOptions')} />
               {attributeGroups.map((g) => {
-                const activeVal = selection[g.key] || selected?.attributes?.[g.key] || g.values[0]
+                const activeVal = selection[g.key]
                 return (
                   <View key={g.key} style={styles.attrGroup}>
                     <Text style={styles.attrLabel}>
-                      {g.label}: <Text style={{ fontWeight: '900', color: colors.green }}>{activeVal}</Text>
+                      {g.label}:{' '}
+                      <Text style={{ fontWeight: '900', color: activeVal ? colors.green : colors.muted }}>
+                        {activeVal ?? t('product.toChoose')}
+                      </Text>
                     </Text>
                     <View style={styles.pillRow}>
                       {g.values.map((val) => {
@@ -248,20 +279,7 @@ export default function ProductScreen() {
                             variant={isSelected ? 'primary' : 'outline'}
                             title={val}
                             disabled={!exists}
-                            onPress={() => {
-                              const matching =
-                                variants.find(
-                                  (candidate) =>
-                                    (candidate.stock_quantity ?? 0) > 0 && candidate.attributes?.[g.key] === val
-                                ) ?? variants.find((candidate) => candidate.attributes?.[g.key] === val)
-
-                              if (matching?.attributes) {
-                                setSelection({ ...matching.attributes })
-                              } else {
-                                setSelection((prev) => ({ ...prev, [g.key]: val }))
-                              }
-                              setQuantity(1)
-                            }}
+                            onPress={() => chooseValue(g.key, val)}
                           />
                         )
                       })}
@@ -404,28 +422,36 @@ export default function ProductScreen() {
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <Button
-          style={styles.actionButton}
-          variant="outline"
-          title={t('product.addToCart')}
-          disabled={!selected || stock < 1}
-          onPress={addLine}
-        />
-        <Button
-          style={styles.actionButton}
-          variant="gold"
-          title={t('product.buyNow')}
-          disabled={!selected || stock < 1}
-          onPress={() => {
-            if (addLine()) router.push('/(buyer)/cart')
-          }}
-        />
+        {/* Naming what is still missing beats a silently disabled button. */}
+        {!optionsComplete && (
+          <Text style={styles.selectHint}>
+            {t('product.selectOptionsFirst', { options: missingOptions.join(' · ') })}
+          </Text>
+        )}
+        <View style={styles.actionRow}>
+          <Button
+            style={styles.actionButton}
+            variant="outline"
+            title={t('product.addToCart')}
+            disabled={!optionsComplete || !selected || stock < 1}
+            onPress={addLine}
+          />
+          <Button
+            style={styles.actionButton}
+            variant="gold"
+            title={t('product.buyNow')}
+            disabled={!optionsComplete || !selected || stock < 1}
+            onPress={() => {
+              if (addLine()) router.push('/(buyer)/cart')
+            }}
+          />
+        </View>
       </View>
     </View>
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   screen: { flex: 1 },
   page: { paddingBottom: 100 },
   image: { width: '100%', backgroundColor: colors.white },
@@ -517,8 +543,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     padding: spacing.sm,
-    flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
+  actionRow: { flexDirection: 'row', gap: spacing.sm },
+  selectHint: { color: colors.gold, fontSize: 13, fontWeight: '800', textAlign: 'center' },
   actionButton: { flex: 1, paddingHorizontal: 8 },
 })

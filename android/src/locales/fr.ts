@@ -159,6 +159,8 @@ export const fr = {
   'product.tbkBuyer': 'Acheteur TBK',
   'product.title': 'Produit',
   'product.option': 'Option',
+  'product.toChoose': 'à choisir',
+  'product.selectOptionsFirst': 'Choisissez d’abord : {options}',
 
   /* ── Avis ───────────────────────────────────────────────── */
   'review.orderExperience': 'Votre expérience de commande',

@@ -16,7 +16,14 @@ export const useAuth = create<AuthState>((set) => ({
   user: null,
   ready: false,
   bootstrap: async () => {
-    try { set({ user: await authApi.me() }) }
+    try {
+      const accessToken = await tokenStore.getAccess()
+      if (!accessToken) {
+        set({ user: null })
+        return
+      }
+      set({ user: await authApi.me() })
+    }
     catch { await tokenStore.clear(); set({ user: null }) }
     finally { set({ ready: true }) }
   },

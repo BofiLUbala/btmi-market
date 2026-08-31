@@ -7,7 +7,8 @@ import { buyerApi } from '../../src/api'
 import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
-import { colors, radius, spacing } from '../../src/theme'
+import { useColors } from '../../src/store/theme'
+import { radius, spacing, type Colors } from '../../src/theme'
 import type { DeliveryMethod } from '../../src/types'
 
 const money = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} FC`
@@ -24,6 +25,8 @@ const METHOD_HINT: Record<string, TranslationKey> = {
 }
 
 export default function DeliveryScreen() {
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
   const { orderId } = useLocalSearchParams<{ orderId?: string }>()
   const user = useAuth((state) => state.user)
   const { t } = useI18n()
@@ -204,7 +207,7 @@ export default function DeliveryScreen() {
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   flex: { flex: 1 },
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   steps: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },

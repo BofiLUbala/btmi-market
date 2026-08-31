@@ -334,6 +334,10 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'home.loadError': 'Could not load the marketplace. Is the API running?',
   'search.placeholder': 'Search products, shops…',
   'search.byImage': 'Search using an image',
+  'search.byCamera': 'Take a photo',
+  'search.capture': 'Capture',
+  'search.cameraUnavailable':
+    'Could not open the camera. Allow camera access, or pick an existing image instead.',
   'search.noResults': 'No results',
   'search.autocompleteAria': 'Search products, shops and categories',
   'search.clear': 'Clear search',

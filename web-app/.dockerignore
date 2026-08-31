@@ -1,0 +1,18 @@
+# `COPY . .` runs after `npm ci`, so a host node_modules would overwrite the
+# one the image just built — and esbuild/rollup ship platform-specific binaries,
+# so Windows artefacts land in an Alpine image and the build breaks.
+node_modules
+
+# Rebuilt inside the image by `npm run build`; copying a stale one in only
+# wastes layer space and invalidates the cache on every local build.
+dist
+tsconfig.tsbuildinfo
+
+.git
+.gitignore
+Dockerfile
+.dockerignore
+*.log
+.env
+.env.*
+!.env.example

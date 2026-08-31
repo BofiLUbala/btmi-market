@@ -42,6 +42,47 @@ export function PreferenceToggles() {
   )
 }
 
+/** Compact variant for a top bar: two icon-sized buttons, no text labels.
+ *  Language and appearance belong where they are reachable from any screen,
+ *  not only from inside the profile, so this is what the app bars render. */
+export function PreferenceToggleButtons() {
+  const { lang, toggleLang, t } = useI18n()
+  const { theme, toggleTheme, colors } = useTheme()
+  const goingDark = theme === 'light'
+
+  return (
+    <View style={compact.row}>
+      <Pressable
+        onPress={toggleLang}
+        hitSlop={8}
+        style={[compact.button, { borderColor: colors.border, backgroundColor: colors.white }]}
+        accessibilityRole="button"
+        accessibilityLabel={lang === 'fr' ? t('prefs.switchToEnglish') : t('prefs.switchToFrench')}
+      >
+        <Text style={[compact.langText, { color: colors.green }]}>{lang === 'fr' ? 'FR' : 'EN'}</Text>
+      </Pressable>
+
+      <Pressable
+        onPress={toggleTheme}
+        hitSlop={8}
+        style={[compact.button, { borderColor: colors.border, backgroundColor: colors.white }]}
+        accessibilityRole="button"
+        accessibilityLabel={goingDark ? t('prefs.switchToDark') : t('prefs.switchToLight')}
+      >
+        <Ionicons name={goingDark ? 'moon-outline' : 'sunny-outline'} size={18} color={colors.green} />
+      </Pressable>
+    </View>
+  )
+}
+
+const compact = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  // 36pt keeps the pair inside a standard header without crowding the title,
+  // and hitSlop above restores a comfortable touch target.
+  button: { minWidth: 36, height: 36, borderRadius: radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  langText: { fontWeight: '900', fontSize: 13 },
+})
+
 const styles = StyleSheet.create({
   row: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 14, paddingHorizontal: spacing.md },

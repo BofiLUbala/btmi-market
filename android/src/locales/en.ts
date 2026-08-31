@@ -152,6 +152,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'product.tbkBuyer': 'TBK buyer',
   'product.title': 'Product',
   'product.option': 'Option',
+  'product.toChoose': 'to choose',
+  'product.selectOptionsFirst': 'Choose first: {options}',
 
   /* ── Reviews ────────────────────────────────────────────── */
   'review.orderExperience': 'Your order experience',
