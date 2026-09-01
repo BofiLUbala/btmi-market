@@ -1543,7 +1543,6 @@ export const fr = {
   'seller.reviews.recentShop': 'Évaluations boutique récentes',
   'seller.reviews.recentProduct': 'Avis produit récents',
 
-  /* ── Vendeur · Boutiques ────────────────────────────────── */
   'seller.shopPage.desc': 'Chaque boutique garde ses propres produits, stock et présence sur le marketplace.',
   'seller.shopPage.createShop': '+ Créer une boutique',
   'seller.shopPage.noBusinessSubtitle': 'Sélectionnez une entreprise pour gérer les boutiques.',
@@ -1608,6 +1607,98 @@ export const fr = {
 
   /* ── Vendeur · Profil ───────────────────────────────────── */
   'seller.profile.title': 'Profil & paramètres',
+
+
+  /* ── Vendeur · Inventaire d'une boutique (complément) ───── */
+  'seller.shopProducts.title': 'Inventaire · {shop}',
+  'seller.shopProducts.shopFallback': 'Boutique',
+  'seller.shopProducts.createProduct': '+ Créer un produit',
+  'seller.shopProducts.refresh': 'Actualiser',
+  'seller.shopProducts.emptyTitle': 'Aucun produit correspondant',
+  'seller.shopProducts.emptyBody': 'Le stock affecté à cette boutique apparaîtra ici.',
+  'seller.shopProducts.total': 'Total',
+  'seller.shopProducts.available': 'Disponible',
+  'seller.shopProducts.variantCount': '{count} variante',
+  'seller.shopProducts.variantCountPlural': '{count} variantes',
+  'seller.shopProducts.colVariant': 'Variante',
+  'seller.shopProducts.colStatus': 'Statut',
+  'seller.shopProducts.colAddStock': 'Ajouter du stock',
+  'seller.shopProducts.qtyPlaceholder': 'Qté',
+  'seller.shopProducts.add': 'Ajouter',
+  'seller.shopProducts.defaultVariant': 'Variante par défaut',
+  'seller.shopProducts.categoryFallback': 'Catégorie',
+  'seller.shopProducts.invalidQuantity': 'Saisissez une quantité de stock valide.',
+  'seller.shopProducts.addFailed': 'Impossible d’ajouter le stock.',
+  'seller.shopProducts.restockNote': 'Réapprovisionnement depuis les produits de la boutique',
+
+  /* ── Stock : états (libellés courts des puces) ───────────── */
+  'stock.state.out': 'RUPTURE',
+  'stock.state.low': 'STOCK FAIBLE',
+  'stock.state.in': 'EN STOCK',
+
+  'seller.shopPage.title': 'Boutiques',
+  'seller.shopPage.name': 'Nom de la boutique',
+  'seller.shopPage.type': 'Type',
+  'seller.shopPage.typePhysical': 'Magasin physique',
+  'seller.shopPage.typeOnline': 'En ligne uniquement',
+  'seller.shopPage.phonePlaceholder': '+243 …',
+  'seller.shopPage.selfDeliveryFee': 'Frais de livraison boutique',
+  'seller.shopPage.partnerFee': 'Frais du partenaire',
+  'seller.shopPage.deliveryCity': 'Ville de livraison',
+  'seller.shopPage.deliveryAddress': 'Adresse de livraison',
+  'seller.shopPage.createSubmit': 'Créer la boutique',
+  'seller.shopPage.deleteBody': 'Cette boutique contient actuellement {products} produits et {units} unités en stock.',
+  'seller.shopPage.emptyCta': 'Créer une boutique',
+  'seller.shopPage.statsProducts': '{count} produits',
+  'seller.shopPage.statsUnits': '{count} unités en stock',
+  'seller.shopStatus.ACTIVE': 'Active',
+  'seller.shopStatus.ARCHIVED': 'Archivee',
+  'seller.shopStatus.INACTIVE': 'Inactive',
+
+  /* ── Vendeur · Détail produit (validation promo) ─────────── */
+  'seller.productDetail.validSalePrice': 'Un prix de vente valide (> 0 FC) est requis.',
+  'seller.productDetail.promoInvalidValue': 'Veuillez saisir une valeur de remise valide.',
+  'seller.productDetail.promoMaxPercent': 'La remise en pourcentage ne peut pas dépasser 100 %.',
+  'seller.productDetail.promoFixedTooHigh': 'La remise fixe ne peut pas atteindre ou dépasser le prix de base.',
+  'seller.productDetail.promoEndBeforeStart': 'La date de fin doit être postérieure à la date de début.',
+  'seller.productDetail.discountType': 'Type de remise',
+  'seller.productDetail.discountPercentOff': 'Pourcentage de remise (%)',
+  'seller.productDetail.discountFixed': 'Remise en montant fixe (FC)',
+  'seller.productDetail.discountPercentLabel': 'Pourcentage de remise (%)',
+  'seller.productDetail.discountAmountLabel': 'Montant de la remise (FC)',
+  'seller.productDetail.startDateOptional': 'Date et heure de début (optionnel)',
+  'seller.productDetail.endDateOptional': 'Date et heure de fin (optionnel)',
+  'seller.productDetail.promotionLivePreview': 'Aperçu en direct de la promotion',
+  'seller.productDetail.backToProducts': '← Retour aux produits',
+  'seller.productDetail.productNameRequired': 'Nom du produit *',
+  'seller.productDetail.salePriceRequired': 'Prix de vente (FC) *',
+  'seller.productDetail.saveProductChanges': 'Enregistrer les modifications',
+  'seller.productDetail.selectedShop': 'Boutique sélectionnée',
+  'seller.productDetail.primary': 'Principale',
+  'seller.productDetail.noneOption': 'Aucune',
+  'seller.productDetail.attrColor': 'Couleur',
+  'seller.productDetail.attrSize': 'Taille',
+  'seller.productDetail.enterValue': 'Saisir',
+
+  'seller.productDetail.categoryFallback': 'Catégorie',
+  'seller.productDetail.enablePromotion': 'Activer la promotion / le prix soldé',
+
+  'seller.productDetail.unnamedVariant': 'sans nom',
+
+
+
+  'seller.productForm.breadcrumbProducts': 'Produits',
+  'seller.productForm.published': 'Produit publié',
+  'seller.productForm.draftSaved': 'Brouillon enregistré',
+  'seller.productForm.publishedBody': 'Votre produit est maintenant disponible dans {category} et chez {shop}.',
+  'seller.productForm.draftBody': 'Enregistrez-le chez {shop} en ajoutant du stock, puis publiez quand vous serez prêt.',
+  'seller.productForm.summaryShop': 'Boutique',
+  'seller.productForm.summaryCategory': 'Catégorie',
+  'seller.productForm.summaryStatus': 'Statut',
+  'seller.productForm.summaryUnits': '{count} unités',
+  'seller.productForm.genericError': 'Une erreur est survenue. Veuillez réessayer.',
+  'seller.productForm.requiredBadge': 'Obligatoire',
+  'seller.productForm.categoryChangedNoticeShort': 'Catégorie changée de {from} vers {to}. Vos réglages de variantes et attributs existants ({chars}) ont été conservés.',
 } as const
 
 export type TranslationKey = keyof typeof fr

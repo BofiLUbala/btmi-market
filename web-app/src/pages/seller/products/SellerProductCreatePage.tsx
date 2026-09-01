@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
+import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import type { CategoryResponse, SubcategoryResponse, Shop } from '@/api/types'
 import { Card } from '@/components/ui/Card'
@@ -59,6 +60,7 @@ export default function SellerProductCreatePage() {
   const { shopId = '' } = useParams()
   const navigate = useNavigate()
   const { activeBusiness } = useAuth()
+  const { t } = useI18n()
 
   /* Shop context */
   const [shop, setShop] = useState<Shop | null>(null)
@@ -132,13 +134,13 @@ export default function SellerProductCreatePage() {
         ])
         if (!mounted) return
         if (shopData.business_id !== activeBusiness?.id) {
-          setShopError('This Shop does not belong to your current Business.')
+          setShopError(t('seller.productForm.thisShopNotYours'))
           return
         }
         setShop(shopData)
         setCategories(Array.isArray(catsData) ? catsData : [])
       } catch (err) {
-        if (mounted) setShopError(err instanceof Error ? err.message : 'Failed to load this Shop.')
+        if (mounted) setShopError(err instanceof Error ? err.message : t('seller.productForm.loadShopFailed'))
       }
     }
 
@@ -197,17 +199,15 @@ export default function SellerProductCreatePage() {
     if (categoryId && newCatId !== categoryId && characteristics.length > 0) {
       const hasValues = characteristics.some((c) => c.name.trim() || c.values.trim())
       if (hasValues) {
-        const confirmed = window.confirm(
-          'Changing category may make some characteristics inappropriate for the new category.\n\nYour current characteristics will be preserved — you can keep, edit or remove them.\n\nContinue with category change?'
-        )
+        const confirmed = window.confirm(t('seller.productForm.categoryChangePrompt'))
         if (!confirmed) return
       }
-      const oldName = categories.find((c) => c.id === categoryId)?.name || 'previous category'
-      const newName = categories.find((c) => c.id === newCatId)?.name || 'new category'
+      const oldName = categories.find((c) => c.id === categoryId)?.name || t('seller.productForm.previousCategory')
+      const newName = categories.find((c) => c.id === newCatId)?.name || t('seller.productForm.newCategory')
       const charList = characteristics.map((c) => c.name.trim()).filter(Boolean).join(', ')
       if (charList) {
         setCategoryNotice(
-          `Category changed from ${oldName} to ${newName}. Your existing variant settings and attributes (${charList}) have been preserved. Review suggestions for ${newName} below or adjust your configuration.`
+          t('seller.productForm.categoryChangedNoticeShort', { from: oldName, to: newName, chars: charList })
         )
       }
     } else {
@@ -345,19 +345,19 @@ export default function SellerProductCreatePage() {
 
   /* ── Validation ── */
   function validate(intent: 'DRAFT' | 'PUBLISHED'): string {
-    if (!categoryId) return 'Please select a Category.'
-    if (!form.name.trim()) return 'Product Name is required.'
+    if (!categoryId) return t('seller.productForm.validation.selectCategory')
+    if (!form.name.trim()) return t('seller.productForm.validation.nameRequired')
     const price = parseFloat(form.unit_price)
-    if (isNaN(price) || price <= 0) return 'A valid Sale Price (> 0 FC) is required.'
+    if (isNaN(price) || price <= 0) return t('seller.productForm.validation.validPrice')
     
     if (form.discount_active) {
       const discVal = parseFloat(form.discount_value)
-      if (isNaN(discVal) || discVal <= 0) return 'Please enter a valid promotion discount value.'
-      if (form.discount_type === 'PERCENTAGE' && discVal > 100) return 'Percentage discount cannot exceed 100%.'
-      if (form.discount_type === 'FIXED' && discVal >= price) return 'Fixed discount cannot exceed or equal the base price.'
+      if (isNaN(discVal) || discVal <= 0) return t('seller.productDetail.promoInvalidValue')
+      if (form.discount_type === 'PERCENTAGE' && discVal > 100) return t('seller.productDetail.promoMaxPercent')
+      if (form.discount_type === 'FIXED' && discVal >= price) return t('seller.productDetail.promoFixedTooHigh')
       if (form.discount_start && form.discount_end) {
         if (new Date(form.discount_end) <= new Date(form.discount_start)) {
-          return 'Promotion end date must be after the start date.'
+          return t('seller.productDetail.promoEndBeforeStart')
         }
       }
     }
@@ -369,9 +369,13 @@ export default function SellerProductCreatePage() {
         .map((c) => c.name)
       const missing = missingRequiredAttributes(categoryRequirements, completed)
       if (missing.length > 0) {
-        return `This category requires ${missing.join(', ')}. Complete ${
-          missing.length > 1 ? 'them' : 'it'
-        } before publishing, or save as a draft.`
+        return (
+          t('seller.productForm.validation.missingAttributes', { attributes: missing.join(', ') }) +
+          ' ' +
+          t(missing.length > 1
+            ? 'seller.productForm.validation.missingThem'
+            : 'seller.productForm.validation.missingIt')
+        )
       }
     }
 
@@ -384,7 +388,7 @@ export default function SellerProductCreatePage() {
       }
     } else {
       const s = parseInt(simpleStock, 10)
-      if (isNaN(s) || s < 0) return 'Initial Stock must be 0 or more.'
+      if (isNaN(s) || s < 0) return t('seller.productForm.validation.stockNonNegative')
     }
     return ''
   }
@@ -401,7 +405,7 @@ export default function SellerProductCreatePage() {
       /* Step 1 — Create Product (always as DRAFT first) */
       let productId = progress.productId
       if (!productId) {
-        setStepLabel('Creating Product…')
+        setStepLabel(t('seller.productForm.stepCreatingProduct'))
         const created = await productApi.create(activeBusiness.id, {
           name: form.name.trim(),
           sku: form.sku.trim() || undefined,
@@ -425,7 +429,7 @@ export default function SellerProductCreatePage() {
 
       /* Step 2 — Resolve variants */
       if (progress.resolvedVariants.length === 0) {
-        setStepLabel('Configuring Variants…')
+        setStepLabel(t('seller.productForm.stepConfiguringVariants'))
         const existing = await productApi.listVariants(activeBusiness.id, productId!)
         let defaultVariant = existing[0]
         if (!defaultVariant) {
@@ -481,7 +485,7 @@ export default function SellerProductCreatePage() {
 
       /* Step 3 — Persist images (primary first) */
       if (progress.uploadedImages < imageFiles.length) {
-        setStepLabel('Uploading Images…')
+        setStepLabel(t('seller.productForm.stepUploadingImages'))
         for (let i = progress.uploadedImages; i < imageFiles.length; i++) {
           await productImageApi.upload(activeBusiness.id, productId!, imageFiles[i], i === 0)
           progress.uploadedImages += 1
@@ -492,12 +496,12 @@ export default function SellerProductCreatePage() {
          so the Product is traceable per Shop and shows OUT_OF_STOCK instead
          of disappearing from the Marketplace) */
       if (!progress.stockDone && progress.resolvedVariants.length > 0) {
-        setStepLabel('Adding Stock…')
+        setStepLabel(t('seller.productForm.stepAddingStock'))
         for (const entry of progress.resolvedVariants) {
           await inventoryApi.addStock(shop.id, {
             variant_id: entry.variantId,
             quantity: entry.stock,
-            notes: 'Initial stock',
+            notes: t('seller.productForm.initialStock'),
           })
         }
         progress.stockDone = true
@@ -505,7 +509,7 @@ export default function SellerProductCreatePage() {
 
       /* Step 5 — Publish (product stays consistent before it goes live) */
       if (publishIntentRef.current === 'PUBLISHED' && !progress.published) {
-        setStepLabel('Publishing…')
+        setStepLabel(t('seller.productForm.stepPublishing'))
         await productApi.update(activeBusiness.id, productId!, {
           publication_status: 'PUBLISHED',
         })
@@ -524,8 +528,8 @@ export default function SellerProductCreatePage() {
       })
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Something went wrong. Please retry.'
-      setPartialFailure({ stage: stepLabel || 'Processing…', message })
+        err instanceof Error ? err.message : t('seller.productForm.genericError')
+      setPartialFailure({ stage: stepLabel || t('seller.productForm.processing'), message })
     } finally {
       setBusy(false)
       setStepLabel('')
@@ -583,8 +587,8 @@ export default function SellerProductCreatePage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <h2>No Business Selected</h2>
-        <p className="muted">Select a business before creating Products.</p>
+        <h2>{t('seller.noBusinessSelected')}</h2>
+        <p className="muted">{t('seller.productForm.noBusinessSubtitle')}</p>
       </div>
     )
   }
@@ -594,14 +598,14 @@ export default function SellerProductCreatePage() {
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <ErrorBox error={shopError} />
         <Link to="/seller/products/select-shop">
-          <Button variant="outline" block>Choose another Shop</Button>
+          <Button variant="outline" block>{t('seller.productForm.chooseAnotherShop')}</Button>
         </Link>
       </div>
     )
   }
 
   if (!shop) {
-    return <LoadingBlock label="Loading Shop…" />
+    return <LoadingBlock label={t('seller.productForm.loadingShop')} />
   }
 
   /* ── Success screen ── */
@@ -610,11 +614,11 @@ export default function SellerProductCreatePage() {
       <div className="seller-product-create">
         <Card style={{ padding: '32px 24px', maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
           <div style={{ color: 'var(--color-success)', fontSize: 48, marginBottom: 8 }}>✓</div>
-          <h2>{summary.published ? 'Product published' : 'Draft saved'}</h2>
+          <h2>{summary.published ? t('seller.productForm.published') : t('seller.productForm.draftSaved')}</h2>
           <p className="muted" style={{ marginTop: 4 }}>
             {summary.published
-              ? <>Your Product is now available in <strong>{selectedCategory?.name}</strong> and at <strong>{shop.name}</strong>.</>
-              : <>Save it to <strong>{shop.name}</strong> by adding stock, then publish when ready.</>}
+              ? t('seller.productForm.publishedBody', { category: selectedCategory?.name ?? '', shop: shop.name })
+              : t('seller.productForm.draftBody', { shop: shop.name })}
           </p>
 
           <div
@@ -629,16 +633,16 @@ export default function SellerProductCreatePage() {
               textAlign: 'left',
             }}
           >
-            <div><span className="small muted">Shop</span><p><strong>{shop.name}</strong></p></div>
-            <div><span className="small muted">Category</span><p><strong>{summary.categoryName}</strong></p></div>
-            <div><span className="small muted">Variants</span><p><strong>{summary.variantCount}</strong></p></div>
-            <div><span className="small muted">Stock here</span><p><strong>{summary.totalStock} units</strong></p></div>
-            <div><span className="small muted">Images</span><p><strong>{summary.imageCount}</strong></p></div>
+            <div><span className="small muted">{t('seller.productForm.summaryShop')}</span><p><strong>{shop.name}</strong></p></div>
+            <div><span className="small muted">{t('seller.productForm.summaryCategory')}</span><p><strong>{summary.categoryName}</strong></p></div>
+            <div><span className="small muted">{t('seller.productForm.summaryVariants')}</span><p><strong>{summary.variantCount}</strong></p></div>
+            <div><span className="small muted">{t('seller.productForm.summaryStockHere')}</span><p><strong>{t('seller.productForm.summaryUnits', { count: summary.totalStock })}</strong></p></div>
+            <div><span className="small muted">{t('seller.productForm.summaryImages')}</span><p><strong>{summary.imageCount}</strong></p></div>
             <div>
-              <span className="small muted">Status</span>
+              <span className="small muted">{t('seller.productForm.summaryStatus')}</span>
               <p>
                 <span className={`badge badge-${summary.published ? 'success' : 'warning'}`}>
-                  {summary.published ? 'PUBLISHED' : 'DRAFT'}
+                  {t(summary.published ? 'seller.publicationStatus.PUBLISHED' : 'seller.publicationStatus.DRAFT')}
                 </span>
               </p>
             </div>
@@ -646,15 +650,15 @@ export default function SellerProductCreatePage() {
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
             <Button size="lg" onClick={() => navigate(`/seller/shops/${shop.id}/products`)}>
-              View in Shop
+              {t('seller.productForm.viewInShop')}
             </Button>
             {summary.published && (
               <Link to={`/products/${summary.productId}`}>
-                <Button variant="outline" size="lg">View in Marketplace</Button>
+                <Button variant="outline" size="lg">{t('seller.productForm.viewInMarketplace')}</Button>
               </Link>
             )}
             <Button variant="ghost" size="lg" onClick={resetForAnother}>
-              + Add Another Product
+              {t('seller.productForm.addAnotherProduct')}
             </Button>
           </div>
         </Card>
@@ -668,15 +672,15 @@ export default function SellerProductCreatePage() {
       <div className="seller-product-create">
         <Card style={{ padding: '32px 24px', maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
           <div style={{ color: 'var(--color-warning)', fontSize: 48, marginBottom: 8 }}>⚠</div>
-          <h2>{partialFailure.stage.replace(/…$/, '')} could not be completed</h2>
+          <h2>{t('seller.productForm.couldNotComplete', { stage: partialFailure.stage.replace(/…$/, '') })}</h2>
           <p className="muted small">
-            Your Product was saved. Retrying continues where it stopped — no duplicate will be created.
+            {t('seller.productForm.savedRetryDesc')}
           </p>
           <ErrorBox error={partialFailure.message} />
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
-            <Button size="lg" onClick={handleRetry}>Retry</Button>
+            <Button size="lg" onClick={handleRetry}>{t('common.retry')}</Button>
             <Link to={`/seller/products/${progressRef.current.productId}`}>
-              <Button variant="outline" size="lg">Open Product Details</Button>
+              <Button variant="outline" size="lg">{t('seller.productForm.openProductDetails')}</Button>
             </Link>
           </div>
         </Card>
@@ -692,17 +696,17 @@ export default function SellerProductCreatePage() {
       <div className="page-header">
         <div>
           <p className="small muted" style={{ margin: 0 }}>
-            <Link to="/seller/products" className="section-link">Products</Link>
+            <Link to="/seller/products" className="section-link">{t('seller.productForm.breadcrumbProducts')}</Link>
             {' / '}
             <Link to={`/seller/shops/${shop.id}/products`} className="section-link">{shop.name}</Link>
           </p>
-          <h1>Create Product</h1>
+          <h1>{t('seller.productForm.title')}</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Selling from:{' '}
+            {t('seller.productForm.sellingFrom')}{' '}
             <strong>{shop.name}</strong>
             {shop.city ? ` — ${shop.city}` : ''}
             {' · '}
-            <Link to="/seller/products/select-shop" className="section-link">Change Shop</Link>
+            <Link to="/seller/products/select-shop" className="section-link">{t('seller.productForm.changeShop')}</Link>
           </p>
         </div>
       </div>
@@ -712,31 +716,31 @@ export default function SellerProductCreatePage() {
       <form className="card-stack" onSubmit={(e) => handleSubmit(e, publishIntentRef.current)}>
         {/* STEP 1 — Category */}
         <Card>
-          <h3>What kind of Product is this?</h3>
+          <h3>{t('seller.productForm.whatKindTitle')}</h3>
           <p className="muted small mt-1 mb-3">
-            The Category places your Product correctly in the Marketplace and provides relevant attribute suggestions.
+            {t('seller.productForm.whatKindDesc')}
           </p>
           <div className="field-grid">
             <Field
-              label="Category *"
+              label={t('seller.productForm.categoryLabel')}
               name="category_id"
               as="select"
               value={categoryId}
               onChange={(e) => handleCategoryChange(e.target.value)}
               options={[
-                { value: '', label: 'Select Category…' },
+                { value: '', label: t('seller.productForm.selectCategory') },
                 ...categories.map((c) => ({ value: c.id, label: c.name })),
               ]}
             />
             <Field
-              label="Subcategory"
+              label={t('product.subcategory')}
               name="subcategory_id"
               as="select"
               disabled={subcategories.length === 0}
               value={subcategoryId}
               onChange={(e) => setSubcategoryId(e.target.value)}
               options={[
-                { value: '', label: subcategories.length > 0 ? 'Select Subcategory…' : 'None for this Category' },
+                { value: '', label: subcategories.length > 0 ? t('seller.productForm.selectSubcategory') : t('seller.productForm.noSubcategory') },
                 ...subcategories.map((s) => ({ value: s.id, label: s.name })),
               ]}
             />
@@ -751,57 +755,57 @@ export default function SellerProductCreatePage() {
         {detailsVisible && (
           <>
             <Card className="reveal-section">
-              <h3>Product Information</h3>
+              <h3>{t('seller.productForm.productInfo')}</h3>
               <div className="field-grid mt-3">
                 <Field
-                  label="Product Name *"
+                  label={t('seller.productForm.productName')}
                   name="name"
-                  placeholder="e.g. Nivea Cream 400ml"
+                  placeholder={t('seller.productForm.namePlaceholder')}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
                 <Field
-                  label="Sale Price (FC) *"
+                  label={t('seller.productForm.salePrice')}
                   name="unit_price"
                   type="number"
                   min="1"
                   step="any"
-                  placeholder="e.g. 8000"
+                  placeholder={t('seller.productForm.salePricePlaceholder')}
                   value={form.unit_price}
                   onChange={(e) => setForm({ ...form, unit_price: e.target.value })}
                 />
                 <Field
-                  label="SKU (optional)"
+                  label={t('seller.productForm.skuOptional')}
                   name="sku"
-                  placeholder="e.g. NIV-400"
+                  placeholder={t('seller.productForm.skuPlaceholder')}
                   value={form.sku}
                   onChange={(e) => setForm({ ...form, sku: e.target.value })}
                 />
                 <Field
-                  label="Unit"
+                  label={t('product.unit')}
                   name="unit"
-                  placeholder="PCS, KG, L, BOX"
+                  placeholder={t('seller.productForm.unitPlaceholder')}
                   value={form.unit}
                   onChange={(e) => setForm({ ...form, unit: e.target.value })}
                 />
                 <Field
-                  label="Cost Price (FC, optional)"
+                  label={t('seller.productForm.costPriceOptional')}
                   name="cost_price"
                   type="number"
                   min="0"
                   step="any"
-                  placeholder="e.g. 5500"
+                  placeholder={t('seller.productForm.costPricePlaceholder')}
                   value={form.cost_price}
                   onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
                 />
               </div>
               <div style={{ marginTop: 16 }}>
                 <Field
-                  label="Description (optional)"
+                  label={t('seller.productForm.descriptionOptional')}
                   name="description"
                   as="textarea"
                   rows={3}
-                  placeholder="Key details Buyers should know…"
+                  placeholder={t('seller.productForm.descriptionPlaceholder')}
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
@@ -810,7 +814,7 @@ export default function SellerProductCreatePage() {
 
             {/* Promotion & Sale Price Card */}
             <Card className="reveal-section">
-              <h3>Promotion & Special Offer</h3>
+              <h3>{t('seller.productForm.promotionTitle')}</h3>
               <p className="muted small" style={{ margin: '4px 0 12px' }}>
                 Set a discount price or percentage off. Discounted prices apply automatically during checkout.
               </p>
@@ -831,18 +835,18 @@ export default function SellerProductCreatePage() {
               {form.discount_active && (
                 <div className="reveal-section field-grid">
                   <Field
-                    label="Discount Type"
+                    label={t('seller.productDetail.discountType')}
                     name="discount_type"
                     as="select"
                     value={form.discount_type}
                     onChange={(e) => setForm({ ...form, discount_type: e.target.value })}
                     options={[
-                      { value: 'PERCENTAGE', label: 'Percentage Off (%)' },
-                      { value: 'FIXED', label: 'Fixed Price Discount (FC)' }
+                      { value: 'PERCENTAGE', label: t('seller.productDetail.discountPercentOff') },
+                      { value: 'FIXED', label: t('seller.productDetail.discountFixed') }
                     ]}
                   />
                   <Field
-                    label={form.discount_type === 'PERCENTAGE' ? 'Discount Percentage (%)' : 'Discount Amount (FC)'}
+                    label={form.discount_type === 'PERCENTAGE' ? t('seller.productDetail.discountPercentLabel') : t('seller.productDetail.discountAmountLabel')}
                     name="discount_value"
                     type="number"
                     min="1"
@@ -852,14 +856,14 @@ export default function SellerProductCreatePage() {
                     onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
                   />
                   <Field
-                    label="Start Date & Time (Optional)"
+                    label={t('seller.productDetail.startDateOptional')}
                     name="discount_start"
                     type="datetime-local"
                     value={form.discount_start}
                     onChange={(e) => setForm({ ...form, discount_start: e.target.value })}
                   />
                   <Field
-                    label="End Date & Time (Optional)"
+                    label={t('seller.productDetail.endDateOptional')}
                     name="discount_end"
                     type="datetime-local"
                     value={form.discount_end}
@@ -870,7 +874,7 @@ export default function SellerProductCreatePage() {
 
               {form.discount_active && form.unit_price && form.discount_value && (
                 <div style={{ marginTop: 16, padding: 12, background: 'var(--color-accent-soft)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                  <span className="small muted" style={{ display: 'block', marginBottom: 4 }}>Promotion Live Preview</span>
+                  <span className="small muted" style={{ display: 'block', marginBottom: 4 }}>{t('seller.productDetail.promotionLivePreview')}</span>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>
                       {(() => {
@@ -899,7 +903,7 @@ export default function SellerProductCreatePage() {
 
             {/* Images */}
             <Card className="reveal-section">
-              <h3>Product Photos</h3>
+              <h3>{t('seller.productForm.photosTitle')}</h3>
               <p className="muted small" style={{ margin: '4px 0 12px' }}>
                 Add photos from different angles so Buyers can better understand your Product. The first photo is the primary one shown in the Marketplace.
               </p>
@@ -907,12 +911,12 @@ export default function SellerProductCreatePage() {
                 {imagePreviews.map((url, idx) => (
                   <div key={url} className="image-thumb">
                     <img src={url} alt={`Preview ${idx + 1}`} />
-                    {idx === 0 && <span className="badge badge-success image-primary-badge">Primary</span>}
+                    {idx === 0 && <span className="badge badge-success image-primary-badge">{t('seller.productDetail.primary')}</span>}
                     <div className="image-thumb-actions">
                       {idx !== 0 && (
-                        <button type="button" title="Set as primary" onClick={() => makePrimary(idx)}>★</button>
+                        <button type="button" title={t('seller.productForm.setPrimary')} onClick={() => makePrimary(idx)}>★</button>
                       )}
-                      <button type="button" title="Remove" onClick={() => removeImage(idx)}>✕</button>
+                      <button type="button" title={t('common.remove')} onClick={() => removeImage(idx)}>✕</button>
                     </div>
                   </div>
                 ))}
@@ -933,7 +937,7 @@ export default function SellerProductCreatePage() {
                 )}
               </div>
               {imageFiles.length >= 10 && (
-                <p className="small muted" style={{ marginTop: 8 }}>Maximum of 10 photos reached.</p>
+                <p className="small muted" style={{ marginTop: 8 }}>{t('seller.productForm.maxPhotos')}</p>
               )}
             </Card>
 
@@ -941,7 +945,7 @@ export default function SellerProductCreatePage() {
             <Card className="reveal-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <h3 style={{ margin: 0 }}>Product Characteristics & Variant Settings</h3>
+                  <h3 style={{ margin: 0 }}>{t('seller.productForm.characteristicsTitle')}</h3>
                   <p className="muted small" style={{ margin: '4px 0 0' }}>
                     Select which attributes apply to this Product. You decide whether an attribute creates purchasable Variants (e.g. Color, Size, Flavor) or acts as Product Information (e.g. Material, Expiration Date).
                   </p>
@@ -983,7 +987,7 @@ export default function SellerProductCreatePage() {
                         >
                           <span>{alreadyAdded ? '✓' : '+'}</span>
                           <span>{sug.name}</span>
-                          {isRequired && <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>Required</span>}
+                          {isRequired && <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>{t('seller.productForm.requiredBadge')}</span>}
                           <span
                             style={{
                               fontSize: '0.72rem',
@@ -1028,7 +1032,7 @@ export default function SellerProductCreatePage() {
                           id={`${ch.id}-name`}
                           className="input"
                           list="characteristic-suggestions"
-                          placeholder="e.g. Color, Heel Height"
+                          placeholder={t('seller.productForm.attributeNamePlaceholder')}
                           value={ch.name}
                           onChange={(e) => updateCharacteristic(ch.id, 'name', e.target.value)}
                         />
@@ -1043,13 +1047,13 @@ export default function SellerProductCreatePage() {
                           value={ch.type}
                           onChange={(e) => updateCharacteristic(ch.id, 'type', e.target.value as AttributeClassification)}
                         >
-                          <option value="VARIANT">Variant Attribute (Combinations)</option>
-                          <option value="INFO">Product Information (Specification)</option>
+                          <option value="VARIANT">{t('seller.productForm.variantAttribute')}</option>
+                          <option value="INFO">{t('seller.productForm.infoAttribute')}</option>
                         </select>
                       </div>
                       <div>
                         <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-values`}>
-                          {ch.type === 'VARIANT' ? 'Values (comma separated)' : 'Specification Value'}
+                          {ch.type === 'VARIANT' ? t('seller.productForm.valuesCommaSeparated') : t('seller.productForm.specValueLabel')}
                         </label>
                         <input
                           id={`${ch.id}-values`}
@@ -1063,7 +1067,7 @@ export default function SellerProductCreatePage() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        title="Remove characteristic"
+                        title={t('seller.productForm.removeCharacteristic')}
                         onClick={() => removeCharacteristic(ch.id)}
                         style={{ alignSelf: 'center', marginTop: 18 }}
                       >
@@ -1081,13 +1085,13 @@ export default function SellerProductCreatePage() {
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Button type="button" variant="outline" size="sm" onClick={addCustomCharacteristic}>
-                  + Add Custom Characteristic
+                  {t('seller.productForm.addCustomCharacteristic')}
                 </Button>
                 {characteristics.length === 0 && (
                   <span className="small muted">
                     {requiredAttributeNames.size > 0
-                      ? 'Add and complete the required category characteristics before publishing.'
-                      : 'No custom characteristics added yet. Product will be published as a simple single-variant item.'}
+                      ? t('seller.productForm.charHintRequired')
+                      : t('seller.productForm.charHintOptional')}
                   </span>
                 )}
               </div>
@@ -1097,7 +1101,7 @@ export default function SellerProductCreatePage() {
                 <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                     <div>
-                      <h4 style={{ margin: 0 }}>Generated Variants ({activeCombos.length} Combinations)</h4>
+                      <h4 style={{ margin: 0 }}>{t('seller.productForm.generatedVariants', { count: activeCombos.length })}</h4>
                       <p className="muted small" style={{ margin: '2px 0 0' }}>
                         Review individual price, SKU, and initial stock at <strong>{shop.name}</strong> before publishing.
                       </p>
@@ -1111,10 +1115,10 @@ export default function SellerProductCreatePage() {
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th>Combination</th>
+                          <th>{t('seller.productForm.combination')}</th>
                           <th style={{ minWidth: 140 }}>SKU</th>
-                          <th style={{ minWidth: 130 }}>Sale Price (FC)</th>
-                          <th style={{ minWidth: 110 }}>Initial Stock</th>
+                          <th style={{ minWidth: 130 }}>{t('seller.productForm.salePriceFc')}</th>
+                          <th style={{ minWidth: 110 }}>{t('seller.productForm.initialStock')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1162,7 +1166,7 @@ export default function SellerProductCreatePage() {
 
               {!isVariantMode && characteristics.some((c) => c.type === 'INFO' && c.name.trim() && c.values.trim()) && (
                 <div style={{ marginTop: 16, padding: 12, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
-                  <span className="small bold" style={{ display: 'block', marginBottom: 6 }}>Informational Product Specifications:</span>
+                  <span className="small bold" style={{ display: 'block', marginBottom: 6 }}>{t('seller.productForm.infoSpecsTitle')}</span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                     {characteristics.filter((c) => c.type === 'INFO' && c.name.trim() && c.values.trim()).map((c) => (
                       <span key={c.id} className="small" style={{ background: 'var(--color-surface)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--color-border)' }}>
@@ -1185,7 +1189,7 @@ export default function SellerProductCreatePage() {
                   </p>
                   <div style={{ maxWidth: 280 }}>
                     <Field
-                      label="Initial Stock"
+                      label={t('seller.productForm.initialStock')}
                       name="simple_stock"
                       type="number"
                       min="0"
@@ -1209,7 +1213,7 @@ export default function SellerProductCreatePage() {
                 }}
               >
                 <div className="small muted">
-                  <strong>{form.name.trim() || 'This Product'}</strong>
+                  <strong>{form.name.trim() || t('seller.productForm.thisProduct')}</strong>
                   {' · '}{selectedCategory?.name}{subcategoryId && subcategories.find((s) => s.id === subcategoryId) ? ` › ${subcategories.find((s) => s.id === subcategoryId)!.name}` : ''}
                   {' · '}{shop.name}
                   {' · '}{totalUnits} units
@@ -1222,7 +1226,7 @@ export default function SellerProductCreatePage() {
                     disabled={busy}
                     onClick={() => (publishIntentRef.current = 'DRAFT')}
                   >
-                    {busy && publishIntentRef.current === 'DRAFT' ? stepLabel || 'Saving…' : 'Save Draft'}
+                    {busy && publishIntentRef.current === 'DRAFT' ? stepLabel || t('seller.productForm.saving') : t('seller.productForm.saveDraft')}
                   </Button>
                   <Button
                     type="submit"
@@ -1230,7 +1234,7 @@ export default function SellerProductCreatePage() {
                     disabled={busy}
                     onClick={() => (publishIntentRef.current = 'PUBLISHED')}
                   >
-                    {busy && publishIntentRef.current === 'PUBLISHED' ? stepLabel || 'Publishing…' : 'Publish Product'}
+                    {busy && publishIntentRef.current === 'PUBLISHED' ? stepLabel || t('seller.productForm.publishing') : t('seller.productForm.publishProduct')}
                   </Button>
                 </div>
               </div>

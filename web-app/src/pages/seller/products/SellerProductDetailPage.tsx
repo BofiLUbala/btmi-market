@@ -1,4 +1,5 @@
 import { useAuth } from '@/store/auth'
+import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, ProductImageResponse } from '@/api/types'
 import { Card } from '@/components/ui/Card'
@@ -7,12 +8,14 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { PlusIcon } from '@/components/ui/Icons'
 import { extractSpecifications } from '@/lib/variants'
+import type { TranslationKey } from '@/locales/fr'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 
 
 export default function SellerProductDetailPage() {
   const { activeBusiness, activeShop } = useAuth()
+  const { t } = useI18n()
   const { productId } = useParams<{ productId: string }>()
   const [searchParams] = useSearchParams()
   const scopedShopId = searchParams.get('shop') || ''
@@ -193,7 +196,7 @@ export default function SellerProductDetailPage() {
       const defaultShop = scopedShopId || activeShop || (safeShops.length > 0 ? safeShops[0].id : '')
       setVariantForm((prev) => ({ ...prev, shop_id: defaultShop }))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load product details.')
+      setError(err instanceof Error ? err.message : t('seller.productDetail.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -201,10 +204,10 @@ export default function SellerProductDetailPage() {
 
   function handleEditCategoryChange(newCatId: string) {
     if (product?.category_id && newCatId !== product.category_id) {
-      const oldCat = categories.find((c) => c.id === product.category_id)?.name || 'current category'
-      const newCat = categories.find((c) => c.id === newCatId)?.name || 'selected category'
+      const oldCat = categories.find((c) => c.id === product.category_id)?.name || t('seller.productDetail.currentCategory')
+      const newCat = categories.find((c) => c.id === newCatId)?.name || t('seller.productDetail.selectedCategory')
       setCategoryChangeWarning(
-        `Changing category from ${oldCat} to ${newCat} will update the catalog classification. Your existing product variants and inventory will NOT be deleted or reset.`
+        t('seller.productDetail.categoryChangeWarning', { from: oldCat, to: newCat })
       )
     } else {
       setCategoryChangeWarning('')
@@ -217,7 +220,7 @@ export default function SellerProductDetailPage() {
     if (!activeBusiness || !product) return
     const price = parseFloat(productEditForm.unit_price)
     if (isNaN(price) || price <= 0) {
-      setActionError('Valid Sale Price (> 0 FC) is required.')
+      setActionError(t('seller.productDetail.validSalePrice'))
       return
     }
     setBusy(true)
@@ -235,10 +238,10 @@ export default function SellerProductDetailPage() {
       })
       setProduct(updated)
       setShowProductEditForm(false)
-      setStockMsg('Product details and category updated successfully.')
+      setStockMsg(t('seller.productDetail.updatedSuccess'))
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update product details.')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.updateFailed'))
     } finally {
       setBusy(false)
     }
@@ -253,7 +256,7 @@ export default function SellerProductDetailPage() {
       const updated = await productApi.update(activeBusiness.id, product.id, { publication_status: next })
       setProduct(updated)
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update publication status')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.publishFailed'))
     } finally {
       setBusy(false)
     }
@@ -268,17 +271,17 @@ export default function SellerProductDetailPage() {
       const discVal = parseFloat(promoForm.discount_value)
       if (promoForm.discount_active) {
         if (isNaN(discVal) || discVal <= 0) {
-          throw new Error('Please enter a valid promotion discount value.')
+          throw new Error(t('seller.productDetail.promoInvalidValue'))
         }
         if (promoForm.discount_type === 'PERCENTAGE' && discVal > 100) {
-          throw new Error('Percentage discount cannot exceed 100%.')
+          throw new Error(t('seller.productDetail.promoMaxPercent'))
         }
         if (promoForm.discount_type === 'FIXED' && discVal >= (product.unit_price || 0)) {
-          throw new Error('Fixed discount cannot exceed or equal the base price.')
+          throw new Error(t('seller.productDetail.promoFixedTooHigh'))
         }
         if (promoForm.discount_start && promoForm.discount_end) {
           if (new Date(promoForm.discount_end) <= new Date(promoForm.discount_start)) {
-            throw new Error('Promotion end date must be after the start date.')
+            throw new Error(t('seller.productDetail.promoEndBeforeStart'))
           }
         }
       }
@@ -292,9 +295,9 @@ export default function SellerProductDetailPage() {
       })
       setProduct(updated)
       setShowPromoForm(false)
-      setStockMsg('Product promotion updated successfully.')
+      setStockMsg(t('seller.productDetail.promoSaved'))
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to save promotion settings.')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.promoSaveFailed'))
     } finally {
       setBusy(false)
     }
@@ -322,7 +325,7 @@ export default function SellerProductDetailPage() {
       }
     } else if (Object.keys(parsedAttrs).length === 0) {
       setActionError(
-        'Add at least one attribute (e.g. Color, Size) so buyers can tell this variant apart from the others.'
+        t('seller.productDetail.atLeastOneAttr')
       )
       return
     }
@@ -344,7 +347,7 @@ export default function SellerProductDetailPage() {
         await inventoryApi.addStock(shopId, {
           variant_id: newVar.id,
           quantity: initStock,
-          notes: 'Initial variant stock',
+          notes: t('seller.productDetail.noteInitialVariantStock'),
         })
       }
 
@@ -361,7 +364,7 @@ export default function SellerProductDetailPage() {
       setShowVariantForm(false)
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to create variant')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.createVariantFailed'))
     } finally {
       setBusy(false)
     }
@@ -376,12 +379,12 @@ export default function SellerProductDetailPage() {
       await productImageApi.assignVariant(activeBusiness.id, productId, imageId, variantId || null)
       setStockMsg(
         variantId
-          ? 'Photo linked to that variant — buyers now see it when they select that option.'
-          : 'Photo now applies to the whole product.'
+          ? t('seller.productDetail.photoLinkedVariant')
+          : t('seller.productDetail.photoLinkedWhole')
       )
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to link the photo to that variant.')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.linkPhotoFailed'))
     } finally {
       setBusy(false)
     }
@@ -393,10 +396,10 @@ export default function SellerProductDetailPage() {
     setActionError('')
     try {
       await productImageApi.upload(activeBusiness.id, productId, file, images.length === 0)
-      setStockMsg('Photo uploaded.')
+      setStockMsg(t('seller.productDetail.photoUploaded'))
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to upload the photo.')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.uploadPhotoFailed'))
     } finally {
       setBusy(false)
     }
@@ -404,15 +407,15 @@ export default function SellerProductDetailPage() {
 
   async function removeImage(imageId: string) {
     if (!activeBusiness || !productId) return
-    if (!window.confirm('Remove this photo from the product?')) return
+    if (!window.confirm(t('seller.productDetail.removePhotoConfirm'))) return
     setBusy(true)
     setActionError('')
     try {
       await productImageApi.delete(activeBusiness.id, productId, imageId)
-      setStockMsg('Photo removed.')
+      setStockMsg(t('seller.productDetail.photoRemoved'))
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to remove the photo.')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.removePhotoFailed'))
     } finally {
       setBusy(false)
     }
@@ -436,7 +439,7 @@ export default function SellerProductDetailPage() {
       if (k && v) attrs[k] = v
     }
     if (Object.keys(attrs).length === 0) {
-      setActionError('Enter at least one attribute value before saving.')
+      setActionError(t('seller.productDetail.enterAttrValue'))
       return
     }
     setBusy(true)
@@ -444,10 +447,10 @@ export default function SellerProductDetailPage() {
     try {
       await productApi.updateVariant(variantId, { attributes: attrs })
       setEditingAttrsFor(null)
-      setStockMsg('Variant attributes updated — buyers can now select it on the marketplace.')
+      setStockMsg(t('seller.productDetail.attrsUpdated'))
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update variant attributes.')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.updateAttrsFailed'))
     } finally {
       setBusy(false)
     }
@@ -456,24 +459,24 @@ export default function SellerProductDetailPage() {
   async function addStock(variantId: string) {
     const shopId = scopedShopId || targetShopByVariant[variantId] || activeShop || (shops.length > 0 ? shops[0].id : '')
     if (!shopId) {
-      setActionError('Please select a shop location to add stock.')
+      setActionError(t('seller.productDetail.selectShopLocation'))
       return
     }
     const qty = parseInt(stockByVariant[variantId], 10)
     if (isNaN(qty) || qty <= 0) {
-      setActionError('Enter a valid stock quantity (1 or greater).')
+      setActionError(t('seller.productDetail.validStockQty'))
       return
     }
     setBusy(true)
     setActionError('')
     try {
-      await inventoryApi.addStock(shopId, { variant_id: variantId, quantity: qty, notes: 'Restock from product detail' })
+      await inventoryApi.addStock(shopId, { variant_id: variantId, quantity: qty, notes: t('seller.productDetail.noteRestock') })
       setStockByVariant((prev) => ({ ...prev, [variantId]: '' }))
       const shopObj = shops.find((s) => s.id === shopId)
       setStockMsg(`Added ${qty} units to ${shopObj ? shopObj.name : 'shop'} successfully.`)
       await load()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to add stock.')
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.addStockFailed'))
     } finally {
       setBusy(false)
     }
@@ -483,14 +486,14 @@ export default function SellerProductDetailPage() {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
         <div className="empty-icon" style={{ fontSize: 64 }}>📦</div>
-        <h2>No Business Selected</h2>
+        <h2>{t('seller.noBusinessSelected')}</h2>
       </div>
     )
   }
 
-  if (loading) return <LoadingBlock label="Loading product details…" />
+  if (loading) return <LoadingBlock label={t('seller.productDetail.loading')} />
   if (error) return <ErrorBox error={error} />
-  if (!product) return <ErrorBox error="Product not found" />
+  if (!product) return <ErrorBox error={t('seller.productDetail.notFound')} />
 
   // Calculate physical total, reserved, and available stock across all variants and shops
   let totalProductAvailable = 0
@@ -512,10 +515,10 @@ export default function SellerProductDetailPage() {
       <div className="page-header">
         <div>
           <h1>{product.name}</h1>
-          <p className="muted">Catalog item & real-time variant inventory{scopedShopId ? ` · ${shops.find(s => s.id === scopedShopId)?.name ?? 'Selected Shop'} only` : ''}</p>
+          <p className="muted">{t('seller.productDetail.catalogSubtitle')}{scopedShopId ? t('seller.productDetail.shopOnly', { shop: shops.find(s => s.id === scopedShopId)?.name ?? t('seller.productDetail.selectedShop') }) : ''}</p>
         </div>
         <Link to={scopedShopId ? `/seller/shops/${scopedShopId}/products` : '/seller/products'}>
-          <Button variant="ghost">← Back to Products</Button>
+          <Button variant="ghost">{t('seller.productDetail.backToProducts')}</Button>
         </Link>
       </div>
 
@@ -532,14 +535,14 @@ export default function SellerProductDetailPage() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span className={`badge badge-${product.publication_status === 'PUBLISHED' ? 'success' : 'warning'}`}>
-                {product.publication_status}
+                {t(`seller.publicationStatus.${product.publication_status}` as TranslationKey)}
               </span>
-              {product.sku && <span className="mono small muted">SKU: {product.sku}</span>}
-              <span className="small muted">· Base Price: <strong>{Number(product.unit_price || 0).toLocaleString()} FC</strong></span>
-              <span className="small muted">· Unit: <strong>{product.unit || 'PCS'}</strong></span>
+              {product.sku && <span className="mono small muted">{t('seller.productDetail.skuInfo', { sku: product.sku })}</span>}
+              <span className="small muted">· {t('seller.productDetail.basePrice', { price: Number(product.unit_price || 0).toLocaleString() })}</span>
+              <span className="small muted">· {t('seller.productDetail.unitLabel', { unit: product.unit || 'PCS' })}</span>
               {product.category_id && (
                 <span className="badge badge-outline" style={{ fontSize: '0.75rem' }}>
-                  📁 {categories.find((c) => c.id === product.category_id)?.name || 'Category'}
+                  📁 {categories.find((c) => c.id === product.category_id)?.name || t('seller.productDetail.categoryFallback')}
                 </span>
               )}
             </div>
@@ -548,13 +551,13 @@ export default function SellerProductDetailPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ textAlign: 'right' }}>
-              <span className="small muted" style={{ display: 'block' }}>Inventory Status</span>
+              <span className="small muted" style={{ display: 'block' }}>{t('seller.productDetail.inventoryStatus')}</span>
               <strong style={{ fontSize: '1.25rem', color: totalProductAvailable > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
-                {totalProductAvailable} units available
+                {t('seller.productDetail.availableUnits', { count: totalProductAvailable })}
               </strong>
               {totalProductReserved > 0 && (
                 <span className="small muted" style={{ display: 'block' }}>
-                  ({totalProductQuantity} total · {totalProductReserved} reserved)
+                  {t('seller.productDetail.reservedSummary', { total: totalProductQuantity, reserved: totalProductReserved })}
                 </span>
               )}
             </div>
@@ -564,7 +567,7 @@ export default function SellerProductDetailPage() {
               size="sm"
               onClick={() => setShowProductEditForm(!showProductEditForm)}
             >
-              {showProductEditForm ? 'Cancel Edit' : 'Edit Product Settings'}
+              {showProductEditForm ? t('seller.productDetail.cancelEdit') : t('seller.productDetail.editSettings')}
             </Button>
 
             <Button
@@ -572,7 +575,7 @@ export default function SellerProductDetailPage() {
               onClick={togglePublish}
               disabled={busy}
             >
-              {product.publication_status === 'PUBLISHED' ? 'Unpublish' : 'Publish to Marketplace'}
+              {product.publication_status === 'PUBLISHED' ? t('seller.productDetail.unpublish') : t('seller.productDetail.publishToMarketplace')}
             </Button>
           </div>
         </div>
@@ -580,17 +583,17 @@ export default function SellerProductDetailPage() {
         {/* Inline Product & Category Edit Form */}
         {showProductEditForm && (
           <form onSubmit={saveProductDetails} className="inline-form">
-            <h4 style={{ margin: '0 0 12px' }}>Edit Product & Category Settings</h4>
+            <h4 style={{ margin: '0 0 12px' }}>{t('seller.productDetail.editTitle')}</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <Field
-                label="Product Name *"
+                label={t('seller.productDetail.productNameRequired')}
                 name="edit_name"
                 required
                 value={productEditForm.name}
                 onChange={(e) => setProductEditForm({ ...productEditForm, name: e.target.value })}
               />
               <Field
-                label="Sale Price (FC) *"
+                label={t('seller.productDetail.salePriceRequired')}
                 name="edit_price"
                 required
                 type="number"
@@ -606,31 +609,31 @@ export default function SellerProductDetailPage() {
                 onChange={(e) => setProductEditForm({ ...productEditForm, sku: e.target.value })}
               />
               <Field
-                label="Unit"
+                label={t('product.unit')}
                 name="edit_unit"
                 value={productEditForm.unit}
                 onChange={(e) => setProductEditForm({ ...productEditForm, unit: e.target.value })}
               />
               <Field
-                label="Category"
+                label={t('product.category')}
                 name="edit_category"
                 as="select"
                 value={productEditForm.category_id}
                 onChange={(e) => handleEditCategoryChange(e.target.value)}
                 options={[
-                  { value: '', label: 'None' },
+                  { value: '', label: t('seller.productDetail.noneOption') },
                   ...categories.map((c) => ({ value: c.id, label: c.name })),
                 ]}
               />
               {categories.find((c) => c.id === productEditForm.category_id)?.subcategories?.length ? (
                 <Field
-                  label="Subcategory"
+                  label={t('product.subcategory')}
                   name="edit_subcategory"
                   as="select"
                   value={productEditForm.subcategory_id}
                   onChange={(e) => setProductEditForm({ ...productEditForm, subcategory_id: e.target.value })}
                   options={[
-                    { value: '', label: 'None' },
+                    { value: '', label: t('seller.productDetail.noneOption') },
                     ...(categories.find((c) => c.id === productEditForm.category_id)?.subcategories || []).map((s) => ({ value: s.id, label: s.name })),
                   ]}
                 />
@@ -639,7 +642,7 @@ export default function SellerProductDetailPage() {
 
             <div style={{ marginTop: 12 }}>
               <Field
-                label="Description"
+                label={t('product.description')}
                 name="edit_desc"
                 as="textarea"
                 rows={2}
@@ -655,8 +658,8 @@ export default function SellerProductDetailPage() {
             )}
 
             <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-              <Button type="submit" loading={busy}>Save Product Changes</Button>
-              <Button type="button" variant="ghost" onClick={() => setShowProductEditForm(false)}>Cancel</Button>
+              <Button type="submit" loading={busy}>{t('seller.productDetail.saveProductChanges')}</Button>
+              <Button type="button" variant="ghost" onClick={() => setShowProductEditForm(false)}>{t('common.cancel')}</Button>
             </div>
           </form>
         )}
@@ -665,9 +668,9 @@ export default function SellerProductDetailPage() {
       {/* ── Product Specifications Card (if any fixed/informational attributes exist) ── */}
       {specifications.length > 0 && (
         <Card style={{ marginTop: 24 }}>
-          <h3 style={{ margin: '0 0 8px' }}>Product Specifications ({specifications.length})</h3>
+          <h3 style={{ margin: '0 0 8px' }}>{t('seller.productDetail.specificationsTitle', { count: specifications.length })}</h3>
           <p className="muted small" style={{ margin: '0 0 12px' }}>
-            Fixed attributes shared across all product variations.
+            {t('seller.productDetail.specificationsDesc')}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             {specifications.map((spec) => (
@@ -685,11 +688,11 @@ export default function SellerProductDetailPage() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
-            <h3 style={{ margin: 0 }}>Special Offer & Discount</h3>
-            <p className="muted small" style={{ margin: '2px 0 0' }}>Configure a promotional discount for this catalog item.</p>
+            <h3 style={{ margin: 0 }}>{t('seller.productDetail.promotionTitle')}</h3>
+            <p className="muted small" style={{ margin: '2px 0 0' }}>{t('seller.productDetail.promotionDesc')}</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => setShowPromoForm(!showPromoForm)}>
-            {showPromoForm ? 'Cancel' : 'Configure Promotion'}
+            {showPromoForm ? t('common.cancel') : t('seller.productDetail.configurePromotion')}
           </Button>
         </div>
 
@@ -704,25 +707,25 @@ export default function SellerProductDetailPage() {
                 style={{ width: 18, height: 18, cursor: 'pointer' }}
               />
               <label htmlFor="promo_discount_active" style={{ fontWeight: 600, cursor: 'pointer' }}>
-                Enable Promotion / Sale Price
+                {t('seller.productDetail.enablePromotion')}
               </label>
             </div>
 
             {promoForm.discount_active && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 16 }}>
                 <Field
-                  label="Discount Type"
+                  label={t('seller.productDetail.discountType')}
                   name="promo_discount_type"
                   as="select"
                   value={promoForm.discount_type}
                   onChange={(e) => setPromoForm({ ...promoForm, discount_type: e.target.value })}
                   options={[
-                    { value: 'PERCENTAGE', label: 'Percentage Off (%)' },
-                    { value: 'FIXED', label: 'Fixed Price Discount (FC)' }
+                    { value: 'PERCENTAGE', label: t('seller.productDetail.discountPercentOff') },
+                    { value: 'FIXED', label: t('seller.productDetail.discountFixed') }
                   ]}
                 />
                 <Field
-                  label={promoForm.discount_type === 'PERCENTAGE' ? 'Discount Percentage (%)' : 'Discount Amount (FC)'}
+                  label={promoForm.discount_type === 'PERCENTAGE' ? t('seller.productDetail.discountPercentLabel') : t('seller.productDetail.discountAmountLabel')}
                   name="promo_discount_value"
                   type="number"
                   min="1"
@@ -732,14 +735,14 @@ export default function SellerProductDetailPage() {
                   onChange={(e) => setPromoForm({ ...promoForm, discount_value: e.target.value })}
                 />
                 <Field
-                  label="Start Date & Time (Optional)"
+                  label={t('seller.productDetail.startDateOptional')}
                   name="promo_discount_start"
                   type="datetime-local"
                   value={promoForm.discount_start}
                   onChange={(e) => setPromoForm({ ...promoForm, discount_start: e.target.value })}
                 />
                 <Field
-                  label="End Date & Time (Optional)"
+                  label={t('seller.productDetail.endDateOptional')}
                   name="promo_discount_end"
                   type="datetime-local"
                   value={promoForm.discount_end}
@@ -750,7 +753,7 @@ export default function SellerProductDetailPage() {
 
             {promoForm.discount_active && product.unit_price && promoForm.discount_value && (
               <div style={{ marginTop: 12, marginBottom: 16, padding: 12, background: 'var(--color-accent-soft)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                <span className="small muted" style={{ display: 'block', marginBottom: 4 }}>Promotion Live Preview</span>
+                <span className="small muted" style={{ display: 'block', marginBottom: 4 }}>{t('seller.productDetail.promotionLivePreview')}</span>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                   <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-primary)' }}>
                     {(() => {
@@ -776,14 +779,14 @@ export default function SellerProductDetailPage() {
               </div>
             )}
 
-            <Button type="submit" loading={busy}>Save Promotion Settings</Button>
+            <Button type="submit" loading={busy}>{t('seller.productDetail.savePromotionSettings')}</Button>
           </form>
         ) : (
           <div style={{ padding: '8px 0' }}>
             {product.discount_active ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                 <div style={{ padding: '8px 16px', background: 'var(--color-accent-soft)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                  <span className="small muted" style={{ display: 'block', marginBottom: 2 }}>Current Active Promotion</span>
+                  <span className="small muted" style={{ display: 'block', marginBottom: 2 }}>{t('seller.productDetail.currentActivePromotion')}</span>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <strong style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>
                       {product.discount_type === 'PERCENTAGE' 
@@ -863,10 +866,10 @@ export default function SellerProductDetailPage() {
               <div key={img.id} className="photo-card">
                 <div className="photo-card-media">
                   <img src={img.url} alt={img.file_name || product.name} />
-                  {img.is_primary && <span className="badge badge-success">Primary</span>}
+                  {img.is_primary && <span className="badge badge-success">{t('seller.productDetail.primary')}</span>}
                 </div>
                 <div className="photo-card-body">
-                  <label className="small muted" htmlFor={`img-variant-${img.id}`}>Shows variant</label>
+                  <label className="small muted" htmlFor={`img-variant-${img.id}`}>{t('seller.productDetail.showsVariant')}</label>
                   <select
                     id={`img-variant-${img.id}`}
                     className="input input-sm"
@@ -874,7 +877,7 @@ export default function SellerProductDetailPage() {
                     disabled={busy}
                     onChange={(e) => void assignImageVariant(img.id, e.target.value)}
                   >
-                    <option value="">All variants (product-wide)</option>
+                    <option value="">{t('seller.productDetail.allVariants')}</option>
                     {variants.map((v) => (
                       <option key={v.id} value={v.id}>
                         {Object.values(v.attributes ?? {}).join(' / ') || v.name || v.sku || 'Variant'}
@@ -902,16 +905,16 @@ export default function SellerProductDetailPage() {
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h3 style={{ margin: 0 }}>Variants & Inventory ({variants.length})</h3>
-            <p className="muted small" style={{ margin: '2px 0 0' }}>Real inventory quantities per variant and shop.</p>
+            <p className="muted small" style={{ margin: '2px 0 0' }}>{t('seller.productDetail.variantsInventoryDesc')}</p>
           </div>
           <Button size="sm" onClick={() => setShowVariantForm(!showVariantForm)}>
-            {showVariantForm ? 'Cancel' : <><PlusIcon /> Add Variant</>}
+            {showVariantForm ? t('common.cancel') : <><PlusIcon /> {t('seller.productDetail.addVariant')}</>}
           </Button>
         </div>
 
         {showVariantForm && (
           <form onSubmit={createVariant} className="inline-form">
-            <h4 style={{ margin: '0 0 4px' }}>New Variant</h4>
+            <h4 style={{ margin: '0 0 4px' }}>{t('seller.productDetail.newVariant')}</h4>
             <p className="muted small" style={{ margin: '0 0 12px' }}>
               {knownAttributeKeys.length > 0
                 ? <>Give this variant its own value for {knownAttributeKeys.join(' and ')}. Buyers pick a product by these attributes, so every variant must define the same ones.</>
@@ -928,7 +931,7 @@ export default function SellerProductDetailPage() {
                     className="input"
                     value={variantAttrs[key]}
                     onChange={(e) => setVariantAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={`e.g. ${key === 'Color' ? 'Black' : key === 'Size' ? 'M' : 'value'}`}
+                    placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : key === 'Size' ? t('seller.productDetail.attrSizeM') : t('seller.productDetail.attrValue') })}
                   />
                   <Button
                     type="button"
@@ -949,13 +952,13 @@ export default function SellerProductDetailPage() {
               ))}
 
               <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr auto', gap: 8, alignItems: 'center' }}>
-                <label className="small muted" htmlFor="vattr-new">Add attribute</label>
+                <label className="small muted" htmlFor="vattr-new">{t('seller.productDetail.addAttribute')}</label>
                 <input
                   id="vattr-new"
                   className="input"
                   value={newAttrName}
                   onChange={(e) => setNewAttrName(e.target.value)}
-                  placeholder="e.g. Color, Size, Storage"
+                  placeholder={t('seller.productDetail.attrPlaceholder')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -986,22 +989,22 @@ export default function SellerProductDetailPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <Field
-                label="Variant Name *"
+                label={t('seller.productDetail.variantNameRequired')}
                 name="vname"
                 required
                 value={variantForm.name}
                 onChange={(e) => setVariantForm({ ...variantForm, name: e.target.value })}
-                placeholder="e.g. Black / 42"
+                placeholder={t('seller.productDetail.variantNamePlaceholder')}
               />
               <Field
                 label="SKU"
                 name="vsku"
                 value={variantForm.sku}
                 onChange={(e) => setVariantForm({ ...variantForm, sku: e.target.value })}
-                placeholder="Optional SKU"
+                placeholder={t('seller.productDetail.skuPlaceholder')}
               />
               <Field
-                label="Sale Price (FC) *"
+                label={t('seller.productDetail.salePriceRequired')}
                 name="vsale"
                 required
                 type="number"
@@ -1012,7 +1015,7 @@ export default function SellerProductDetailPage() {
                 placeholder={String(product.unit_price || '')}
               />
               <Field
-                label="Initial Stock Quantity"
+                label={t('seller.productDetail.initialStockQty')}
                 name="vstock"
                 type="number"
                 min="0"
@@ -1023,7 +1026,7 @@ export default function SellerProductDetailPage() {
               />
               {!scopedShopId && shops.length > 1 && (
                 <Field
-                  label="Stock Location"
+                  label={t('seller.productDetail.stockLocation')}
                   name="vshop"
                   as="select"
                   value={variantForm.shop_id}
@@ -1033,35 +1036,54 @@ export default function SellerProductDetailPage() {
               )}
             </div>
             <div style={{ marginTop: 12 }}>
-              <Button type="submit" loading={busy}>Save Variant</Button>
+              <Button type="submit" loading={busy}>{t('seller.productDetail.saveVariant')}</Button>
             </div>
           </form>
         )}
 
         {variantsMissingAttributes.length > 0 && (
           <div className="notice notice-warning mt-4 mb-4">
-            ⚠️ {variantsMissingAttributes.length} variant
-            {variantsMissingAttributes.length > 1 ? 's have' : ' has'} no attributes
-            {' '}({variantsMissingAttributes.map((v) => v.name || v.sku || 'unnamed').join(', ')}).
-            {' '}Buyers cannot select {variantsMissingAttributes.length > 1 ? 'them' : 'it'} by colour or size on the
-            marketplace — only by raw name. Use <strong>Set attributes</strong> in the table below to fix
-            {variantsMissingAttributes.length > 1 ? ' them' : ' it'}.
+            {/* Singular and plural are separate keys rather than assembled from
+                fragments: French agreement changes more than the noun ending,
+                so a sentence built by concatenation cannot be translated. */}
+            ⚠️{' '}
+            {t(
+              variantsMissingAttributes.length > 1
+                ? 'seller.productDetail.noAttrsIntroP'
+                : 'seller.productDetail.noAttrsIntroS',
+              { count: variantsMissingAttributes.length }
+            )}{' '}
+            {t('seller.productDetail.noAttrsNames', {
+              names: variantsMissingAttributes
+                .map((v) => v.name || v.sku || t('seller.productDetail.unnamedVariant'))
+                .join(', '),
+            })}{' '}
+            {t(
+              variantsMissingAttributes.length > 1
+                ? 'seller.productDetail.noAttrsCannotP'
+                : 'seller.productDetail.noAttrsCannotS'
+            )}{' '}
+            {t(
+              variantsMissingAttributes.length > 1
+                ? 'seller.productDetail.noAttrsFixP'
+                : 'seller.productDetail.noAttrsFixS'
+            )}
           </div>
         )}
 
         {variants.length === 0 ? (
-          <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>No variants found.</p>
+          <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>{t('seller.productDetail.noVariantsFound')}</p>
         ) : (
           <div className="table-responsive" style={{ marginTop: 16 }}>
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Variant & Attributes</th>
+                  <th>{t('seller.productDetail.variantAttrsHeader')}</th>
                   <th>SKU</th>
-                  <th>Sale Price</th>
-                  <th>Available Stock</th>
-                  <th>Stock By Shop</th>
-                  <th style={{ minWidth: 220 }}>Add Stock</th>
+                  <th>{t('seller.productDetail.salePriceHeader')}</th>
+                  <th>{t('seller.productDetail.availableStock')}</th>
+                  <th>{t('seller.productDetail.stockByShop')}</th>
+                  <th style={{ minWidth: 220 }}>{t('seller.productDetail.addStockHeader')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1077,7 +1099,7 @@ export default function SellerProductDetailPage() {
                   return (
                     <tr key={v.id}>
                       <td>
-                        <strong>{v.name || 'Default Variant'}</strong>
+                        <strong>{v.name || t('seller.productDetail.defaultVariant')}</strong>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, alignItems: 'center' }}>
                           <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
                             {v.status}
@@ -1098,7 +1120,7 @@ export default function SellerProductDetailPage() {
                             style={{ fontSize: '0.72rem', padding: '2px 6px' }}
                             onClick={() => (editingAttrsFor === v.id ? setEditingAttrsFor(null) : openAttrEditor(v))}
                           >
-                            {editingAttrsFor === v.id ? 'Cancel' : attrEntries.length === 0 ? 'Set attributes' : 'Edit attributes'}
+                            {editingAttrsFor === v.id ? t('common.cancel') : attrEntries.length === 0 ? t('seller.productDetail.setAttributes') : t('seller.productDetail.editAttributes')}
                           </button>
                         </div>
 
@@ -1117,14 +1139,14 @@ export default function SellerProductDetailPage() {
                                   className="input input-sm"
                                   value={editAttrs[key]}
                                   onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
-                                  placeholder={`e.g. ${key === 'Color' ? 'Black' : 'value'}`}
+                                  placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : t('seller.productDetail.attrValue') })}
                                 />
                               </div>
                             ))}
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               <input
                                 className="input input-sm"
-                                placeholder="New attribute name (e.g. Size)"
+                                placeholder={t('seller.productDetail.newAttrNamePlaceholder')}
                                 value={newAttrName}
                                 onChange={(e) => setNewAttrName(e.target.value)}
                               />
@@ -1175,7 +1197,7 @@ export default function SellerProductDetailPage() {
                               const res = inv.reserved_quantity || 0
                               return (
                                 <span key={inv.id} className="small muted">
-                                  🏪 {sObj ? sObj.name : 'Shop'}: <strong>{avail} avail</strong>
+                                  🏪 {t('seller.productDetail.shopAvail', { shop: sObj ? sObj.name : t('seller.shopProducts.shopFallback'), avail })}
                                   {res > 0 && ` (${inv.quantity} total · ${res} res)`}
                                 </span>
                               )
@@ -1203,7 +1225,7 @@ export default function SellerProductDetailPage() {
                             className="input input-sm"
                             type="number"
                             min="1"
-                            placeholder="Qty"
+                            placeholder={t('seller.productDetail.qtyPlaceholder')}
                             value={stockByVariant[v.id] ?? ''}
                             onChange={(e) => setStockByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
                             style={{ width: 65 }}

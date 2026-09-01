@@ -1609,7 +1609,6 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.reviews.recentShop': 'Recent shop evaluations',
   'seller.reviews.recentProduct': 'Recent product reviews',
 
-  /* ── Seller · Shops ─────────────────────────────────────── */
   'seller.shopPage.desc':
     'Each shop keeps its own products, stock and marketplace presence.',
   'seller.shopPage.createShop': '+ Create shop',
@@ -1680,4 +1679,96 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
 
   /* ── Seller · Profile ───────────────────────────────────── */
   'seller.profile.title': 'Profile & settings',
+
+
+  /* ── Seller · Shop inventory (additions) ────────────────── */
+  'seller.shopProducts.title': '{shop} inventory',
+  'seller.shopProducts.shopFallback': 'Shop',
+  'seller.shopProducts.createProduct': '+ Create Product',
+  'seller.shopProducts.refresh': 'Refresh',
+  'seller.shopProducts.emptyTitle': 'No matching products',
+  'seller.shopProducts.emptyBody': 'Stock assigned to this shop will appear here.',
+  'seller.shopProducts.total': 'Total',
+  'seller.shopProducts.available': 'Available',
+  'seller.shopProducts.variantCount': '{count} variant',
+  'seller.shopProducts.variantCountPlural': '{count} variants',
+  'seller.shopProducts.colVariant': 'Variant',
+  'seller.shopProducts.colStatus': 'Status',
+  'seller.shopProducts.colAddStock': 'Add stock',
+  'seller.shopProducts.qtyPlaceholder': 'Qty',
+  'seller.shopProducts.add': 'Add',
+  'seller.shopProducts.defaultVariant': 'Default variant',
+  'seller.shopProducts.categoryFallback': 'Category',
+  'seller.shopProducts.invalidQuantity': 'Enter a valid stock quantity.',
+  'seller.shopProducts.addFailed': 'Failed to add stock.',
+  'seller.shopProducts.restockNote': 'Restock from shop products',
+
+  /* ── Stock states (short chip labels) ───────────────────── */
+  'stock.state.out': 'OUT OF STOCK',
+  'stock.state.low': 'LOW STOCK',
+  'stock.state.in': 'IN STOCK',
+  'seller.shopPage.title': 'Shops',
+  'seller.shopPage.name': 'Shop name',
+  'seller.shopPage.type': 'Type',
+  'seller.shopPage.typePhysical': 'Retail store',
+  'seller.shopPage.typeOnline': 'Online only',
+  'seller.shopPage.phonePlaceholder': '+243 …',
+  'seller.shopPage.selfDeliveryFee': 'Shop delivery fee',
+  'seller.shopPage.partnerFee': 'Partner delivery fee',
+  'seller.shopPage.deliveryCity': 'Delivery city',
+  'seller.shopPage.deliveryAddress': 'Delivery address',
+  'seller.shopPage.createSubmit': 'Create shop',
+  'seller.shopPage.deleteBody': 'This shop currently contains {products} products and {units} units in stock.',
+  'seller.shopPage.emptyCta': 'Create shop',
+  'seller.shopPage.statsProducts': '{count} products',
+  'seller.shopPage.statsUnits': '{count} units in stock',
+  'seller.shopStatus.ACTIVE': 'Active',
+  'seller.shopStatus.ARCHIVED': 'Archived',
+  'seller.shopStatus.INACTIVE': 'Inactive',
+
+  /* ── Seller · Product detail (promo validation) ─────────── */
+  'seller.productDetail.validSalePrice': 'A valid sale price (> 0 FC) is required.',
+  'seller.productDetail.promoInvalidValue': 'Please enter a valid promotion discount value.',
+  'seller.productDetail.promoMaxPercent': 'Percentage discount cannot exceed 100%.',
+  'seller.productDetail.promoFixedTooHigh': 'Fixed discount cannot exceed or equal the base price.',
+  'seller.productDetail.promoEndBeforeStart': 'Promotion end date must be after the start date.',
+  'seller.productDetail.discountType': 'Discount type',
+  'seller.productDetail.discountPercentOff': 'Percentage off (%)',
+  'seller.productDetail.discountFixed': 'Fixed price discount (FC)',
+  'seller.productDetail.discountPercentLabel': 'Discount percentage (%)',
+  'seller.productDetail.discountAmountLabel': 'Discount amount (FC)',
+  'seller.productDetail.startDateOptional': 'Start date & time (optional)',
+  'seller.productDetail.endDateOptional': 'End date & time (optional)',
+  'seller.productDetail.promotionLivePreview': 'Promotion live preview',
+  'seller.productDetail.backToProducts': '← Back to products',
+  'seller.productDetail.productNameRequired': 'Product name *',
+  'seller.productDetail.salePriceRequired': 'Sale price (FC) *',
+  'seller.productDetail.saveProductChanges': 'Save product changes',
+  'seller.productDetail.selectedShop': 'Selected shop',
+  'seller.productDetail.primary': 'Primary',
+  'seller.productDetail.noneOption': 'None',
+  'seller.productDetail.attrColor': 'Color',
+  'seller.productDetail.attrSize': 'Size',
+  'seller.productDetail.enterValue': 'Enter',
+
+  'seller.productDetail.categoryFallback': 'Category',
+  'seller.productDetail.enablePromotion': 'Enable promotion / sale price',
+
+  'seller.productDetail.unnamedVariant': 'unnamed',
+
+
+
+  'seller.productForm.breadcrumbProducts': 'Products',
+  'seller.productForm.published': 'Product published',
+  'seller.productForm.draftSaved': 'Draft saved',
+  'seller.productForm.publishedBody': 'Your product is now available in {category} and at {shop}.',
+  'seller.productForm.draftBody': 'Save it to {shop} by adding stock, then publish when ready.',
+  'seller.productForm.summaryShop': 'Shop',
+  'seller.productForm.summaryCategory': 'Category',
+  'seller.productForm.summaryStatus': 'Status',
+  'seller.productForm.summaryUnits': '{count} units',
+  'seller.productForm.genericError': 'Something went wrong. Please retry.',
+  'seller.productForm.requiredBadge': 'Required',
+  'seller.productForm.categoryChangedNoticeShort': 'Category changed from {from} to {to}. Your existing variant settings and attributes ({chars}) have been preserved.',
+
 }
