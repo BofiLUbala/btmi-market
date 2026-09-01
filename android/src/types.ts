@@ -16,6 +16,17 @@ export interface LoginResponse {
   user?: User
 }
 
+/** Body of POST /auth/register. Field names match the API payload exactly so
+ *  the form state can be sent as-is. */
+export interface RegisterInput {
+  first_name: string
+  last_name: string
+  phone: string
+  email: string
+  password: string
+  password_confirmation: string
+}
+
 export interface Category { id: string; name: string; slug: string }
 export interface PublicImage { id?: string; url?: string; image_url?: string; is_primary?: boolean }
 export interface PublicVariant {

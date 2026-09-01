@@ -1,5 +1,5 @@
 import { del, get, patch, post, postForm } from './client'
-import type { Business, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse, Category, DeliveryOptionsResponse, DeliveryPointsPreview, DeliverySelectResponse, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines, PointRedemptionPreview, ProductDetail, ProductReviewsResponse, PublicProduct, ReviewEligibility, SelectDeliveryRequest, SellerOrder, Shop, ShopReviewsResponse, TrackingResponse, User } from '../types'
+import type { Business, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse, Category, DeliveryOptionsResponse, DeliveryPointsPreview, DeliverySelectResponse, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines, PointRedemptionPreview, ProductDetail, ProductReviewsResponse, PublicProduct, RegisterInput, ReviewEligibility, SelectDeliveryRequest, SellerOrder, Shop, ShopReviewsResponse, TrackingResponse, User } from '../types'
 
 const list = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[]
@@ -10,6 +10,10 @@ const list = <T>(value: unknown): T[] => {
 
 export const authApi = {
   login: (email: string, password: string) => post<LoginResponse>('/auth/login', { email, password }),
+  // The account is created inactive: the API only returns the new id and mails
+  // an activation link, so there is no session to store here.
+  register: (body: RegisterInput) => post<{ user_id: string }>('/auth/register', body),
+  resendActivation: (email: string) => post('/auth/resend-activation', { email }),
   forgotPassword: (identifier: string) => post('/auth/forgot-password', { identifier }),
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),

@@ -35,6 +35,7 @@ function RootNavigator() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ title: t('common.signIn') }} />
+        <Stack.Screen name="auth/register" options={{ title: t('auth.createAccount') }} />
         <Stack.Screen name="auth/forgot-password" options={{ title: t('auth.forgotPassword') }} />
         <Stack.Screen name="auth/reset-password" options={{ title: t('auth.newPassword') }} />
         <Stack.Screen name="profile-edit" options={{ title: t('editProfile.title') }} />

@@ -107,6 +107,7 @@ export default function ProfileScreen() {
         <Text style={themed.title}>{t('profile.yourAccount')}</Text>
         <Text style={themed.muted}>{t('profile.signInPrompt')}</Text>
         <Button title={t('common.signIn')} onPress={() => router.push('/auth/login')} />
+        <Button title={t('auth.createAccount')} variant="outline" onPress={() => router.push('/auth/register')} />
         <PreferenceToggles />
       </View>
     )
