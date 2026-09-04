@@ -670,14 +670,14 @@ export default function SellerProductCreatePage() {
   if (partialFailure) {
     return (
       <div className="seller-product-create">
-        <Card style={{ padding: '32px 24px', maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ color: 'var(--color-warning)', fontSize: 48, marginBottom: 8 }}>⚠</div>
+        <Card className="product-create-failure">
+          <div className="product-create-failure-icon" aria-hidden>⚠</div>
           <h2>{t('seller.productForm.couldNotComplete', { stage: partialFailure.stage.replace(/…$/, '') })}</h2>
-          <p className="muted small">
+          <p className="muted product-create-failure-copy">
             {t('seller.productForm.savedRetryDesc')}
           </p>
           <ErrorBox error={partialFailure.message} />
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+          <div className="product-create-failure-actions">
             <Button size="lg" onClick={handleRetry}>{t('common.retry')}</Button>
             <Link to={`/seller/products/${progressRef.current.productId}`}>
               <Button variant="outline" size="lg">{t('seller.productForm.openProductDetails')}</Button>
@@ -740,7 +740,18 @@ export default function SellerProductCreatePage() {
               value={subcategoryId}
               onChange={(e) => setSubcategoryId(e.target.value)}
               options={[
-                { value: '', label: subcategories.length > 0 ? t('seller.productForm.selectSubcategory') : t('seller.productForm.noSubcategory') },
+                {
+                  value: '',
+                  // Three distinct states: no category picked yet, a category
+                  // that genuinely has no subcategories, or one that does.
+                  // Collapsing the first two claims "no subcategory" before the
+                  // seller has chosen anything.
+                  label: !categoryId
+                    ? t('seller.productForm.chooseCategoryFirst')
+                    : subcategories.length > 0
+                      ? t('seller.productForm.selectSubcategory')
+                      : t('seller.productForm.noSubcategory'),
+                },
                 ...subcategories.map((s) => ({ value: s.id, label: s.name })),
               ]}
             />

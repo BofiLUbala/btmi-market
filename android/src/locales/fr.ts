@@ -195,10 +195,16 @@ export const fr = {
   /* ── Inscription ────────────────────────────────────────── */
   'auth.noAccount': 'Pas encore de compte ?',
   'auth.createAccount': 'Créer un compte',
+  'auth.register.accountType': 'Type de compte',
+  'auth.register.buyerAccount': 'Acheteur',
+  'auth.register.sellerAccount': 'Vendeur',
   'auth.register.title': 'Créer votre compte acheteur',
   'auth.register.subtitle': 'Gratuit. Gagnez des points sur chaque achat vérifié.',
+  'auth.register.sellerTitle': 'Créer votre compte vendeur',
+  'auth.register.sellerSubtitle': 'Vendez vos produits sur TBK et gérez votre boutique.',
   'auth.register.submit': 'Créer mon compte',
   'auth.firstName': 'Prénom',
+  'auth.middleName': 'Deuxième prénom (optionnel)',
   'auth.lastName': 'Nom',
   'auth.phone': 'Téléphone',
   'auth.phonePlaceholder': '+243 …',
@@ -374,6 +380,12 @@ export const fr = {
 
   /* ── Espace vendeur ─────────────────────────────────────── */
   'seller.workspace': 'Espace vendeur',
+  'seller.policy.navLabel': 'Politique des vendeurs',
+  'seller.policy.title': 'Politique des Vendeurs',
+  'seller.policy.intro':
+    'Ce que TBK attend de chaque vendeur — et ce qu’il peut attendre de TBK : ouverture de compte, catalogue, commission, commandes, livraison, retours, avis et sanctions.',
+  'seller.policy.version': 'Version {version} — mise à jour le {date}',
+  'seller.policy.consentPrefix': 'J’ai lu et j’accepte la',
   'seller.signInAsSeller': 'Se connecter en tant que vendeur',
   'seller.accessRequired': 'Accès vendeur requis',
   'seller.accessRequiredBody': 'Ce compte acheteur n’a pas accès aux opérations vendeur.',

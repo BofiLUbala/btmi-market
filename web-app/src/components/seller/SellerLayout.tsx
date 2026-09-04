@@ -18,6 +18,7 @@ import {
   OrdersIcon,
   ReviewIcon,
   SettingsIcon,
+  ShieldCheckIcon,
   StockIcon,
   StoreIcon,
   UsersIcon,
@@ -164,6 +165,18 @@ export function SellerLayout() {
                   <SettingsIcon />
                 </span>
                 <span className="seller-sidebar-label">{t('seller.profile')}</span>
+              </NavLink>
+            )}
+
+            {!isEmployee && (
+              <NavLink
+                to="/seller/politique"
+                className={({ isActive }) => `seller-sidebar-link ${isActive ? 'active' : ''}`}
+              >
+                <span className="seller-sidebar-icon">
+                  <ShieldCheckIcon />
+                </span>
+                <span className="seller-sidebar-label">{t('seller.policy.navLabel')}</span>
               </NavLink>
             )}
 
@@ -349,6 +362,13 @@ export function SellerLayout() {
                 <NavLink to="/seller/profile" onClick={() => setDrawer(false)}>
                   <span className="dnav-icon"><SettingsIcon /></span>
                   {t('seller.profile')}
+                </NavLink>
+              )}
+
+              {!isEmployee && (
+                <NavLink to="/seller/politique" onClick={() => setDrawer(false)}>
+                  <span className="dnav-icon"><ShieldCheckIcon /></span>
+                  {t('seller.policy.navLabel')}
                 </NavLink>
               )}
 

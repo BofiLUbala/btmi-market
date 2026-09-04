@@ -874,6 +874,12 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.growth': 'Growth',
   'seller.reviews': 'Reviews',
   'seller.profile': 'Profile',
+  'seller.policy.navLabel': 'Seller policy',
+  'seller.policy.title': 'Seller Policy',
+  'seller.policy.intro':
+    'What TBK expects from every seller — and what they can expect from TBK: account setup, catalog, commission, orders, delivery, returns, reviews and enforcement.',
+  'seller.policy.version': 'Version {version} — last updated {date}',
+  'seller.policy.consentPrefix': 'I have read and accept the',
   'seller.workspace': 'Workspace',
   'seller.publicBrandAria': 'TBK Seller — home',
   'seller.navigation': 'Seller Navigation',
@@ -1268,6 +1274,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.selectCategory': 'Select a category…',
   'seller.productForm.selectSubcategory': 'Select a subcategory…',
   'seller.productForm.noSubcategory': 'No subcategory for this category',
+  'seller.productForm.chooseCategoryFirst': 'Choose a category first',
   'seller.productForm.categoryChangePrompt':
     'Switching category may make some characteristics unsuitable for the new category.\n\nYour current characteristics will be kept — you can keep, edit or remove them.\n\nContinue the category change?',
   'seller.productForm.previousCategory': 'previous category',

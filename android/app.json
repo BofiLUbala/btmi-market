@@ -54,6 +54,12 @@
         "projectId": "c4094f79-8c40-4dbb-aac1-a59b59d7e9d3"
       }
     },
-    "owner": "e-attendance"
+    "owner": "e-attendance",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c4094f79-8c40-4dbb-aac1-a59b59d7e9d3"
+    }
   }
 }

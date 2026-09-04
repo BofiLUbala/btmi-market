@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/store/auth'
+import { AdminAuthProvider } from '@/store/adminAuth'
 import { FavoritesProvider } from '@/store/favorites'
 import { CartProvider } from '@/store/cart'
 import { ThemeProvider } from '@/store/theme'
@@ -7,6 +8,32 @@ import { I18nProvider, useI18n } from '@/store/i18n'
 import { Layout } from '@/components/layout/Layout'
 import { PublicOnly, RequireAuth, RequireBuyer, RequireSeller, RequireEmployee, SellerIndexRedirect } from '@/components/auth/Guards'
 import { Button } from '@/components/ui/Button'
+import { AdminLayout } from '@/components/admin/AdminLayout'
+import { RequireAdminAuth, RequireAdminRole, AdminPublicOnly } from '@/components/admin/AdminGuards'
+import AdminLoginPage from '@/pages/admin/auth/AdminLoginPage'
+import DirectionDashboardPage from '@/pages/admin/direction/DirectionDashboardPage'
+import CommerceDashboardPage from '@/pages/admin/commerce/CommerceDashboardPage'
+import CommerceProductsPage from '@/pages/admin/commerce/products/CommerceProductsPage'
+import CommerceProductDetailPage from '@/pages/admin/commerce/products/CommerceProductDetailPage'
+import CommerceCategoriesPage from '@/pages/admin/commerce/categories/CommerceCategoriesPage'
+import InventoryListPage from '@/pages/admin/commerce/inventory/InventoryListPage'
+import StockHistoryPage from '@/pages/admin/commerce/inventory/StockHistoryPage'
+import OrderListPage from '@/pages/admin/commerce/orders/OrderListPage'
+import AdminOrderDetailPage from '@/pages/admin/commerce/orders/OrderDetailPage'
+import MarketplaceVisibilityPage from '@/pages/admin/commerce/marketplace/MarketplaceVisibilityPage'
+import MarketplaceRankingPage from '@/pages/admin/commerce/marketplace/MarketplaceRankingPage'
+import SearchAdminPage from '@/pages/admin/commerce/marketplace/SearchAdminPage'
+import ProductQualityPage from '@/pages/admin/commerce/marketplace/ProductQualityPage'
+import PromotionVisibilityPage from '@/pages/admin/commerce/marketplace/PromotionVisibilityPage'
+import EmployeeManagementPage from '@/pages/admin/commerce/employees/EmployeeManagementPage'
+import SellerPerformancePage from '@/pages/admin/commerce/performance/SellerPerformancePage'
+import CategoryPerformancePage from '@/pages/admin/commerce/performance/CategoryPerformancePage'
+import ShopPerformancePage from '@/pages/admin/commerce/performance/ShopPerformancePage'
+import FinanceDashboardPage from '@/pages/admin/finance/FinanceDashboardPage'
+import TechnicalDashboardPage from '@/pages/admin/technical/TechnicalDashboardPage'
+import FeatureFlagsPage from '@/pages/admin/platform/FeatureFlagsPage'
+import GlobalConfigPage from '@/pages/admin/platform/GlobalConfigPage'
+import AdvancedManagementPage from '@/pages/admin/platform/AdvancedManagementPage'
 
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
@@ -47,6 +74,7 @@ import { SellerPublicLayout } from '@/components/seller/SellerPublicLayout'
 import SellerRegisterPage from '@/pages/seller/auth/SellerRegisterPage'
 import SellerLoginPage from '@/pages/seller/auth/SellerLoginPage'
 import SellerActivatePage from '@/pages/seller/auth/SellerActivatePage'
+import SellerPolicyPage from '@/pages/seller/auth/SellerPolicyPage'
 import SellerResendActivationPage from '@/pages/seller/auth/SellerResendActivationPage'
 import SellerOnboardingPage from '@/pages/seller/auth/SellerOnboardingPage'
 import EmployeeLoginPage from '@/pages/seller/auth/EmployeeLoginPage'
@@ -90,6 +118,7 @@ export default function App() {
       <AuthProvider>
         <FavoritesProvider>
           <CartProvider>
+            <AdminAuthProvider>
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<HomePage />} />
@@ -148,6 +177,7 @@ export default function App() {
                 </Route>
                 <Route path="/seller/activate" element={<SellerActivatePage />} />
                 <Route path="/activate-account" element={<SellerActivatePage />} />
+                <Route path="/seller/politique" element={<SellerPolicyPage />} />
               </Route>
 
               <Route element={<SellerLayout />}>
@@ -178,8 +208,53 @@ export default function App() {
                 </Route>
               </Route>
 
+              {/* Admin Control Center Routes */}
+              <Route element={<AdminPublicOnly />}>
+                <Route path="/admin/login" element={<AdminLoginPage />} />
+              </Route>
+
+              <Route element={<RequireAdminAuth />}>
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin" element={<Navigate to="/admin/direction" replace />} />
+                  <Route element={<RequireAdminRole allowedRoles={['DIRECTION_ADMIN', 'SUPER_ADMIN']} />}>
+                    <Route path="/admin/direction" element={<DirectionDashboardPage />} />
+                  </Route>
+                  <Route element={<RequireAdminRole allowedRoles={['COMMERCE_ADMIN', 'SUPER_ADMIN']} />}>
+                    <Route path="/admin/commerce" element={<CommerceDashboardPage />} />
+                    <Route path="/admin/commerce/products" element={<CommerceProductsPage />} />
+                    <Route path="/admin/commerce/products/:id" element={<CommerceProductDetailPage />} />
+                    <Route path="/admin/commerce/categories" element={<CommerceCategoriesPage />} />
+                    <Route path="/admin/commerce/inventory" element={<InventoryListPage />} />
+                    <Route path="/admin/commerce/inventory/history" element={<StockHistoryPage />} />
+                    <Route path="/admin/commerce/orders" element={<OrderListPage />} />
+                    <Route path="/admin/commerce/orders/:id" element={<AdminOrderDetailPage />} />
+                    <Route path="/admin/commerce/marketplace/visibility" element={<MarketplaceVisibilityPage />} />
+                    <Route path="/admin/commerce/marketplace/ranking" element={<MarketplaceRankingPage />} />
+                    <Route path="/admin/commerce/marketplace/search" element={<SearchAdminPage />} />
+                    <Route path="/admin/commerce/marketplace/quality" element={<ProductQualityPage />} />
+                    <Route path="/admin/commerce/marketplace/promotions" element={<PromotionVisibilityPage />} />
+                    <Route path="/admin/commerce/employees" element={<EmployeeManagementPage />} />
+                    <Route path="/admin/commerce/performance/sellers" element={<SellerPerformancePage />} />
+                    <Route path="/admin/commerce/performance/categories" element={<CategoryPerformancePage />} />
+                    <Route path="/admin/commerce/performance/shops" element={<ShopPerformancePage />} />
+                  </Route>
+                  <Route element={<RequireAdminRole allowedRoles={['FINANCE_SUPPORT_ADMIN', 'SUPER_ADMIN']} />}>
+                    <Route path="/admin/finance" element={<FinanceDashboardPage />} />
+                  </Route>
+                  <Route element={<RequireAdminRole allowedRoles={['TECHNICAL_ADMIN', 'SUPER_ADMIN']} />}>
+                    <Route path="/admin/technical" element={<TechnicalDashboardPage />} />
+                  </Route>
+                  <Route element={<RequireAdminRole allowedRoles={['SUPER_ADMIN', 'DIRECTION_ADMIN', 'COMMERCE_ADMIN', 'FINANCE_SUPPORT_ADMIN', 'TECHNICAL_ADMIN']} />}>
+                    <Route path="/admin/platform/feature-flags" element={<FeatureFlagsPage />} />
+                    <Route path="/admin/platform/config" element={<GlobalConfigPage />} />
+                    <Route path="/admin/platform/advanced" element={<AdvancedManagementPage />} />
+                  </Route>
+                </Route>
+              </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </AdminAuthProvider>
           </CartProvider>
         </FavoritesProvider>
       </AuthProvider>

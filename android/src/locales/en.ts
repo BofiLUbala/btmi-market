@@ -188,10 +188,16 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   /* ── Sign up ────────────────────────────────────────────── */
   'auth.noAccount': 'No account yet?',
   'auth.createAccount': 'Create an account',
+  'auth.register.accountType': 'Account type',
+  'auth.register.buyerAccount': 'Buyer',
+  'auth.register.sellerAccount': 'Seller',
   'auth.register.title': 'Create your buyer account',
   'auth.register.subtitle': 'Free. Earn points on every verified purchase.',
+  'auth.register.sellerTitle': 'Create your seller account',
+  'auth.register.sellerSubtitle': 'Sell your products on TBK and manage your shop.',
   'auth.register.submit': 'Create my account',
   'auth.firstName': 'First name',
+  'auth.middleName': 'Middle name (optional)',
   'auth.lastName': 'Last name',
   'auth.phone': 'Phone',
   'auth.phonePlaceholder': '+243 …',
@@ -367,6 +373,12 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
 
   /* ── Seller ─────────────────────────────────────────────── */
   'seller.workspace': 'Seller workspace',
+  'seller.policy.navLabel': 'Seller policy',
+  'seller.policy.title': 'Seller Policy',
+  'seller.policy.intro':
+    'What TBK expects from every seller — and what they can expect from TBK: account setup, catalog, commission, orders, delivery, returns, reviews and enforcement.',
+  'seller.policy.version': 'Version {version} — last updated {date}',
+  'seller.policy.consentPrefix': 'I have read and accept the',
   'seller.signInAsSeller': 'Sign in as seller',
   'seller.accessRequired': 'Seller access required',
   'seller.accessRequiredBody': 'This Buyer account does not have access to Seller operations.',

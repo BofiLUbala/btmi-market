@@ -70,8 +70,10 @@ func main() {
 	employeeRepo := repository.NewEmployeeRepository(db)
 	assignmentRepo := repository.NewAssignmentRepository(db)
 
+	adminPlatformRepo := repository.NewAdminPlatformRepository(db.DB)
+
 	pointRedemptionSvc := service.NewPointRedemptionService(pointRepo, pointTxnRepo, levelRepo, productRepo, variantRepo, inventoryRepo, shopRepo, buyerRepo, pointConfigRepo)
-	pointService := service.NewPointService(pointRepo, pointTxnRepo, levelRepo, buyerRepo)
+	pointService := service.NewPointService(pointRepo, pointTxnRepo, levelRepo, buyerRepo, adminPlatformRepo)
 
 	rankRepo := repository.NewRankingRepository(redisClient, mpRepo)
 	rankingService := service.NewCategoryRankingService(redisClient, rankRepo, mpRepo, categoryRepo, pointRepo, levelRepo, trustRepo)

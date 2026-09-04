@@ -13,6 +13,9 @@ export const authApi = {
   // The account is created inactive: the API only returns the new id and mails
   // an activation link, so there is no session to store here.
   register: (body: RegisterInput) => post<{ user_id: string }>('/auth/register', body),
+  // Seller accounts go through the same activation flow as buyers, just a
+  // different endpoint so the backend tags the user SELLER from creation.
+  registerSeller: (body: RegisterInput) => post<{ user_id: string }>('/auth/register/seller', body),
   resendActivation: (email: string) => post('/auth/resend-activation', { email }),
   forgotPassword: (identifier: string) => post('/auth/forgot-password', { identifier }),
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),

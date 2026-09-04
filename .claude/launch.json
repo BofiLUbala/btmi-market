@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "web-app", "--", "--port", "5174"],
       "port": 5174
+    },
+    {
+      "name": "android-expo-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "web", "--prefix", "android", "--", "--port", "19006"],
+      "port": 19006
     }
   ]
 }

@@ -1,0 +1,480 @@
+<title>Politique des Vendeurs TBK</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --paper: #F7F4ED;
+    --surface: #FFFFFF;
+    --ink: #13211D;
+    --muted: #68746F;
+    --muted-light: #8A948F;
+    --border: #DDD9CF;
+    --line: #E7E3D8;
+    --primary: #1C1C1A;
+    --accent: #B4531B;
+    --accent-dark: #8F3F13;
+    --accent-soft: #FBEEE5;
+    --success: #167647;
+    --success-soft: #EAF6EE;
+    --danger: #B42318;
+    --danger-soft: #FEECEB;
+    --shadow: 0 1px 2px rgba(19,33,29,.04), 0 8px 24px rgba(19,33,29,.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #16161A;
+      --surface: #1E1E23;
+      --ink: #F2F0EA;
+      --muted: #A6A49C;
+      --muted-light: #7A786F;
+      --border: #35353D;
+      --line: #2B2B2F;
+      --primary: #F2F0EA;
+      --accent: #E2793D;
+      --accent-dark: #C25F27;
+      --accent-soft: #3A2417;
+      --success: #4ADE80;
+      --success-soft: #16241C;
+      --danger: #F87171;
+      --danger-soft: #33191A;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #16161A;
+    --surface: #1E1E23;
+    --ink: #F2F0EA;
+    --muted: #A6A49C;
+    --muted-light: #7A786F;
+    --border: #35353D;
+    --line: #2B2B2F;
+    --primary: #F2F0EA;
+    --accent: #E2793D;
+    --accent-dark: #C25F27;
+    --accent-soft: #3A2417;
+    --success: #4ADE80;
+    --success-soft: #16241C;
+    --danger: #F87171;
+    --danger-soft: #33191A;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; text-wrap: balance; margin: 0; }
+
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+
+  /* ── Masthead ───────────────────────────────────────────── */
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    padding: 34px clamp(20px, 5vw, 56px) 28px;
+  }
+  .masthead-inner { max-width: 1160px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: var(--primary); color: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fraunces', serif; font-weight: 700; font-size: 15px;
+    flex: none;
+  }
+  .brand-name { font-weight: 600; letter-spacing: .01em; font-size: 15px; }
+  .brand-sub { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .doc-meta { display: flex; gap: 22px; flex-wrap: wrap; }
+  .doc-meta dt { font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted-light); margin-bottom: 3px; }
+  .doc-meta dd { margin: 0; font-size: 13px; }
+  .doc-meta div { min-width: 0; }
+
+  .title-block { max-width: 1160px; margin: 0 auto; padding: 44px clamp(20px, 5vw, 56px) 8px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; letter-spacing: .11em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 14px;
+  }
+  .eyebrow::before { content: ''; width: 16px; height: 1.5px; background: var(--accent); }
+  h1.doc-title { font-size: clamp(30px, 4.4vw, 44px); font-weight: 600; max-width: 16ch; }
+  .doc-lede { max-width: 62ch; color: var(--muted); font-size: 16px; margin-top: 16px; line-height: 1.6; }
+
+  .fill-note {
+    max-width: 62ch; margin-top: 20px;
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 12px 14px; border: 1px dashed var(--accent);
+    border-radius: 8px; background: var(--accent-soft);
+    font-size: 13px; color: var(--ink);
+  }
+  .fill-note .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-top: 6px; }
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  .layout {
+    max-width: 1160px; margin: 0 auto;
+    display: grid; grid-template-columns: 240px minmax(0,1fr);
+    gap: 56px;
+    padding: 28px clamp(20px, 5vw, 56px) 90px;
+  }
+  nav.toc { position: sticky; top: 24px; align-self: start; padding-top: 12px; }
+  .toc-label { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-light); margin-bottom: 12px; font-weight: 600; }
+  .toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
+  .toc li a {
+    display: flex; gap: 10px; padding: 7px 0 7px 16px; margin-left: -1px;
+    border-left: 1px solid transparent;
+    text-decoration: none; color: var(--muted); font-size: 13px;
+    transition: color .15s, border-color .15s;
+  }
+  .toc li a .num { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted-light); flex: none; width: 18px; }
+  .toc li a:hover { color: var(--ink); }
+  .toc li a.active { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+  .toc li a.active .num { color: var(--accent); }
+
+  main { min-width: 0; }
+
+  article.clause { padding: 30px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 24px; }
+  article.clause:last-of-type { border-bottom: none; }
+  .clause-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 14px; }
+  .clause-num { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 600; flex: none; }
+  h2.clause-title { font-size: 21px; font-weight: 600; }
+  .clause-body { max-width: 66ch; color: var(--ink); }
+  .clause-body p { margin: 0 0 12px; }
+  .clause-body p:last-child { margin-bottom: 0; }
+  .clause-body ul, .clause-body ol.sub { margin: 10px 0 14px; padding-left: 22px; }
+  .clause-body li { margin-bottom: 7px; }
+  .clause-body ol.sub { list-style: lower-alpha; }
+  strong { font-weight: 600; }
+
+  .callout {
+    max-width: 66ch; margin: 14px 0; padding: 13px 15px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); font-size: 13.5px;
+    display: flex; gap: 10px; box-shadow: var(--shadow);
+  }
+  .callout.todo { border: 1px dashed var(--accent); background: var(--accent-soft); box-shadow: none; }
+  .callout .icon { flex: none; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 11px; letter-spacing: .04em; color: var(--accent); text-transform: uppercase; padding-top: 1px; }
+  .callout p { margin: 0; }
+
+  table.rates { width: 100%; max-width: 66ch; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+  table.rates th, table.rates td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  table.rates th { font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted-light); font-weight: 600; }
+  table.rates td.num, table.rates th.num { font-family: 'IBM Plex Mono', monospace; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 100px; }
+  .badge.allow { color: var(--success); background: var(--success-soft); }
+  .badge.deny { color: var(--danger); background: var(--danger-soft); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 66ch; margin: 14px 0; }
+  .panel { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--surface); }
+  .panel h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
+  .panel ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  .panel li { margin-bottom: 5px; }
+
+  footer.doc-footer {
+    max-width: 1160px; margin: 0 auto; padding: 30px clamp(20px, 5vw, 56px) 60px;
+    color: var(--muted-light); font-size: 12.5px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">
+      <div class="brand-mark">T</div>
+      <div>
+        <div class="brand-name">TBK Marketplace</div>
+        <div class="brand-sub">Politique applicable aux vendeurs</div>
+      </div>
+    </div>
+    <dl class="doc-meta">
+      <div><dt>Statut</dt><dd>En vigueur</dd></div>
+      <div><dt>Version</dt><dd class="mono">v1.0</dd></div>
+      <div><dt>Champ</dt><dd>Comptes vendeurs &amp; boutiques</dd></div>
+      <div><dt>Langue de référence</dt><dd>Français</dd></div>
+    </dl>
+  </div>
+</header>
+
+<div class="title-block">
+  <span class="eyebrow">Politique vendeur</span>
+  <h1 class="doc-title">Ce que TBK attend de chaque vendeur — et ce qu'il peut attendre de TBK</h1>
+  <p class="doc-lede">
+    Ce document encadre la relation entre TBK et toute personne ou entreprise qui ouvre une boutique sur la marketplace :
+    ouverture de compte, fiches produits, commandes, retours, avis clients, comportements interdits et sanctions.
+    Il s'inspire des politiques vendeur utilisées par Jumia et Amazon, adaptées au fonctionnement réel de TBK
+    (comptes vendeur/employé, boutiques multiples, ventes en points de vente physiques et livraison).
+  </p>
+  <div class="fill-note">
+    <span class="dot"></span>
+    <p><strong>Déjà en ligne :</strong> ce texte (commission 10 %, retours sous 3 jours, versements hebdomadaires) est intégré dans l'app web et Android — un vendeur doit le lire et cocher qu'il l'accepte avant de créer son compte, et peut le rouvrir à tout moment depuis son tableau de bord.</p>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="toc" aria-label="Sommaire">
+    <div class="toc-label">Sommaire</div>
+    <ol id="toc-list">
+      <li><a href="#art-1"><span class="num">01</span>Objet</a></li>
+      <li><a href="#art-2"><span class="num">02</span>Ouverture du compte</a></li>
+      <li><a href="#art-3"><span class="num">03</span>Boutiques &amp; catalogue</a></li>
+      <li><a href="#art-4"><span class="num">04</span>Prix, commission &amp; frais</a></li>
+      <li><a href="#art-5"><span class="num">05</span>Commandes &amp; exécution</a></li>
+      <li><a href="#art-6"><span class="num">06</span>Livraison &amp; suivi</a></li>
+      <li><a href="#art-7"><span class="num">07</span>Retours &amp; remboursements</a></li>
+      <li><a href="#art-8"><span class="num">08</span>Avis clients</a></li>
+      <li><a href="#art-9"><span class="num">09</span>Comportements interdits</a></li>
+      <li><a href="#art-10"><span class="num">10</span>Employés &amp; boutique</a></li>
+      <li><a href="#art-11"><span class="num">11</span>Versements au vendeur</a></li>
+      <li><a href="#art-12"><span class="num">12</span>Suspension &amp; résiliation</a></li>
+      <li><a href="#art-13"><span class="num">13</span>Données personnelles</a></li>
+      <li><a href="#art-14"><span class="num">14</span>Modification &amp; contact</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <article class="clause" id="art-1">
+      <div class="clause-head"><span class="clause-num">Art. 01</span><h2 class="clause-title">Objet</h2></div>
+      <div class="clause-body">
+        <p>La présente Politique des Vendeurs (« Politique ») régit l'accès et l'utilisation de la marketplace TBK par toute
+        personne physique ou morale disposant d'un compte de type <strong>Vendeur</strong>. Elle complète les Conditions
+        Générales d'Utilisation de TBK et s'applique dès l'activation du compte vendeur, que la vente ait lieu en ligne
+        ou dans un point de vente physique géré depuis l'espace vendeur.</p>
+        <p>En créant un compte vendeur ou en ajoutant un produit au catalogue, le vendeur déclare avoir lu, compris et
+        accepté l'intégralité de cette Politique.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-2">
+      <div class="clause-head"><span class="clause-num">Art. 02</span><h2 class="clause-title">Ouverture du compte vendeur</h2></div>
+      <div class="clause-body">
+        <p>L'inscription se fait via le formulaire d'inscription vendeur (nom, prénom, téléphone, e-mail, mot de passe) et
+        n'est activée qu'après confirmation du lien envoyé par e-mail, valable 24 heures. Le vendeur s'engage à :</p>
+        <ul>
+          <li>fournir des informations exactes, complètes et à jour sur son identité et, le cas échéant, son entreprise ;</li>
+          <li>maintenir un seul compte vendeur actif par personne ou entreprise, sauf autorisation écrite de TBK ;</li>
+          <li>protéger ses identifiants et signaler immédiatement tout accès non autorisé ;</li>
+          <li>être joignable au numéro de téléphone déclaré pour la coordination des commandes et livraisons.</li>
+        </ul>
+        <div class="callout">
+          <span class="icon">Repère</span>
+          <p>Un compte vendeur peut ensuite créer une ou plusieurs <strong>boutiques</strong>, chacune avec son propre
+          catalogue, ses commandes et — si besoin — ses employés (article 10).</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="clause" id="art-3">
+      <div class="clause-head"><span class="clause-num">Art. 03</span><h2 class="clause-title">Boutiques &amp; catalogue produits</h2></div>
+      <div class="clause-body">
+        <p>Chaque fiche produit publiée par le vendeur doit :</p>
+        <ol class="sub">
+          <li>correspondre à un produit réellement disponible, avec un niveau de stock exact ;</li>
+          <li>utiliser des photos réelles du produit vendu (pas de visuel d'un autre article ou d'un fabricant tiers sans lien avec l'annonce) ;</li>
+          <li>indiquer un nom, une catégorie et — si le produit existe en plusieurs variantes (taille, couleur…) — des options cohérentes avec ce qui est réellement en stock ;</li>
+          <li>afficher un prix, une devise (FC ou USD) et, en cas de promotion, une période de validité claire.</li>
+        </ol>
+        <p>TBK peut retirer, sans préavis, toute fiche non conforme, trompeuse, ou portant sur un produit interdit à la vente
+        (voir article 9), et en informer le vendeur par e-mail.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-4">
+      <div class="clause-head"><span class="clause-num">Art. 04</span><h2 class="clause-title">Prix, commission &amp; frais</h2></div>
+      <div class="clause-body">
+        <p>Le vendeur fixe librement ses prix de vente. TBK prélève une commission sur chaque commande finalisée, calculée
+        sur le montant hors frais de livraison.</p>
+        <table class="rates">
+          <thead><tr><th>Catégorie</th><th class="num">Commission</th></tr></thead>
+          <tbody>
+            <tr><td>Toutes catégories (taux unique)</td><td class="num mono">10 %</td></tr>
+          </tbody>
+        </table>
+        <div class="callout">
+          <span class="icon">Repère</span>
+          <p>Cette commission s'applique aussi bien aux ventes en ligne qu'aux ventes enregistrées en point de vente
+          physique via une session de caisse.</p>
+        </div>
+      </div>
+    </article>
+
+    <article class="clause" id="art-5">
+      <div class="clause-head"><span class="clause-num">Art. 05</span><h2 class="clause-title">Commandes &amp; exécution</h2></div>
+      <div class="clause-body">
+        <p>Dès réception d'une commande, le vendeur s'engage à :</p>
+        <ul>
+          <li>confirmer ou préparer la commande dans un délai raisonnable et communiqué à l'acheteur ;</li>
+          <li>ne pas annuler une commande confirmée sans motif valable (rupture de stock imprévue, fraude suspectée) ;</li>
+          <li>emballer le produit de façon à préserver son état jusqu'à la livraison.</li>
+        </ul>
+        <p>Un taux d'annulation ou de rupture de stock anormalement élevé peut entraîner les mesures prévues à l'article 12.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-6">
+      <div class="clause-head"><span class="clause-num">Art. 06</span><h2 class="clause-title">Livraison &amp; suivi</h2></div>
+      <div class="clause-body">
+        <p>Selon le mode choisi à la commande, la livraison est assurée via un point de livraison partenaire ou organisée
+        directement par le vendeur. Dans tous les cas, le vendeur doit :</p>
+        <ul>
+          <li>mettre à jour le statut de la commande dans son espace vendeur dès qu'il change ;</li>
+          <li>fournir une preuve de remise (numéro de suivi ou confirmation) lorsque le mode de livraison le permet ;</li>
+          <li>informer l'acheteur sans délai en cas de retard significatif.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="clause" id="art-7">
+      <div class="clause-head"><span class="clause-num">Art. 07</span><h2 class="clause-title">Retours, remboursements &amp; annulations</h2></div>
+      <div class="clause-body">
+        <p>L'acheteur peut demander un retour lorsque le produit reçu est non conforme, défectueux, ou différent de la
+        fiche publiée. Le vendeur accepte la politique de retour commune à la marketplace et ne peut imposer de
+        conditions plus restrictives sur ses propres fiches.</p>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>🗓️ Fenêtre de retour</h3>
+            <ul><li class="mono">3 jours après livraison</li></ul>
+          </div>
+          <div class="panel">
+            <h3>📦 Conditions</h3>
+            <ul>
+              <li>Produit dans son emballage d'origine</li>
+              <li>Aucune trace d'usage</li>
+              <li>Accessoires et notice inclus</li>
+            </ul>
+          </div>
+        </div>
+        <p>Si le retour est validé, le remboursement à l'acheteur est prioritaire ; le vendeur peut ensuite contester
+        le motif auprès du support TBK avec preuves à l'appui.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-8">
+      <div class="clause-head"><span class="clause-num">Art. 08</span><h2 class="clause-title">Avis &amp; évaluations clients</h2></div>
+      <div class="clause-body">
+        <p>Les avis affichés sur une fiche produit ne peuvent provenir que d'un achat vérifié sur la plateforme.
+        Il est interdit au vendeur de :</p>
+        <ul>
+          <li>publier ou faire publier de faux avis, y compris via des comptes tiers ou des proches ;</li>
+          <li>offrir une compensation (remise, cadeau, remboursement partiel) en échange d'un avis positif ;</li>
+          <li>menacer, harceler ou tenter de faire retirer un avis négatif légitime.</li>
+        </ul>
+        <p>Le vendeur peut répondre publiquement à un avis pour apporter un complément d'information, dans un ton
+        professionnel.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-9">
+      <div class="clause-head"><span class="clause-num">Art. 09</span><h2 class="clause-title">Comportements interdits</h2></div>
+      <div class="clause-body">
+        <p>Sont strictement interdits, et exposent le compte à une suspension immédiate :</p>
+        <div class="grid-2">
+          <div class="panel">
+            <h3><span class="badge deny">Interdit</span></h3>
+            <ul>
+              <li>Vente de contrefaçons ou de produits contrefaits</li>
+              <li>Produits illégaux, dangereux ou réglementés sans autorisation</li>
+              <li>Fiches ou photos trompeuses sur l'origine, l'état ou les caractéristiques</li>
+              <li>Manipulation des avis ou des évaluations</li>
+              <li>Détournement d'un acheteur hors de la plateforme pour éviter la commission</li>
+              <li>Usage abusif des coordonnées d'un client (démarchage non sollicité)</li>
+              <li>Comptes multiples non déclarés pour contourner une sanction</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3><span class="badge allow">Attendu</span></h3>
+            <ul>
+              <li>Fiches produits exactes et à jour</li>
+              <li>Communication honnête avec les acheteurs</li>
+              <li>Respect des délais annoncés</li>
+              <li>Signalement spontané d'une erreur de stock ou de prix</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="clause" id="art-10">
+      <div class="clause-head"><span class="clause-num">Art. 10</span><h2 class="clause-title">Employés &amp; gestion de la boutique</h2></div>
+      <div class="clause-body">
+        <p>Un vendeur peut inviter des employés à gérer une ou plusieurs de ses boutiques (commandes, stock, caisse).
+        Le vendeur reste seul responsable, vis-à-vis de TBK et des acheteurs, des actions effectuées par ses employés
+        dans son espace, y compris les ventes enregistrées en session de caisse dans un point de vente physique.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-11">
+      <div class="clause-head"><span class="clause-num">Art. 11</span><h2 class="clause-title">Versements au vendeur</h2></div>
+      <div class="clause-body">
+        <p>Le montant dû au vendeur correspond au total des commandes livrées et non retournées, diminué de la
+        commission (article 4). TBK verse ce montant chaque semaine, selon le mode de paiement enregistré dans
+        l'espace vendeur.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-12">
+      <div class="clause-head"><span class="clause-num">Art. 12</span><h2 class="clause-title">Suspension &amp; résiliation</h2></div>
+      <div class="clause-body">
+        <p>TBK peut, selon la gravité du manquement, avertir le vendeur, suspendre temporairement une fiche ou une
+        boutique, ou résilier le compte vendeur, notamment en cas de :</p>
+        <ul>
+          <li>violation répétée de l'article 9 ;</li>
+          <li>fraude avérée ou tentative de fraude au paiement ;</li>
+          <li>taux anormal de commandes annulées, non honorées ou retournées pour non-conformité ;</li>
+          <li>inactivité prolongée sans catalogue actif.</li>
+        </ul>
+        <p>Le vendeur peut également résilier son compte à tout moment depuis son espace, sous réserve du traitement
+        des commandes en cours.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-13">
+      <div class="clause-head"><span class="clause-num">Art. 13</span><h2 class="clause-title">Données personnelles</h2></div>
+      <div class="clause-body">
+        <p>Le vendeur ne peut utiliser les coordonnées d'un acheteur (nom, téléphone, adresse) que pour l'exécution de
+        la commande concernée. Toute utilisation à d'autres fins — prospection, revente, partage avec un tiers — est
+        interdite et engage la seule responsabilité du vendeur vis-à-vis de l'acheteur concerné.</p>
+      </div>
+    </article>
+
+    <article class="clause" id="art-14">
+      <div class="clause-head"><span class="clause-num">Art. 14</span><h2 class="clause-title">Modification &amp; contact</h2></div>
+      <div class="clause-body">
+        <p>TBK peut faire évoluer cette Politique ; toute modification substantielle sera notifiée aux vendeurs par
+        e-mail ou via l'espace vendeur avant son entrée en vigueur. La poursuite de l'activité de vente après cette
+        date vaut acceptation.</p>
+        <p>Pour toute question sur cette Politique, le vendeur peut contacter le support TBK depuis son espace vendeur.</p>
+      </div>
+    </article>
+  </main>
+</div>
+
+<footer class="doc-footer">
+  <span>TBK Marketplace — Politique des Vendeurs</span>
+  <span class="mono">Brouillon — à valider avant publication</span>
+</footer>
+
+<script>
+  const links = Array.from(document.querySelectorAll('.toc a'));
+  const sections = links.map(a => document.querySelector(a.getAttribute('href')));
+  const setActive = (id) => links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+  try {
+    const io = new IntersectionObserver((entries) => {
+      const visible = entries.filter(e => e.isIntersecting).sort((a,b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible[0]) setActive(visible[0].target.id);
+    }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+    sections.forEach(s => s && io.observe(s));
+    if (links[0]) links[0].classList.add('active');
+  } catch (e) {}
+</script>

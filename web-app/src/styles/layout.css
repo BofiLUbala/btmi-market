@@ -862,6 +862,66 @@
   width: 100%;
 }
 
+@media (max-width: 639px) {
+  .seller-top-header {
+    height: auto;
+    min-height: 112px;
+    padding: 56px 12px 10px;
+    align-items: stretch;
+  }
+
+  .seller-header-left {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .seller-mobile-toggle {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+  }
+
+  .seller-context-item,
+  .seller-context-btn {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .seller-context-btn {
+    min-height: 40px;
+    padding: 7px 9px;
+  }
+
+  .seller-dropdown-menu {
+    width: min(280px, calc(100vw - 24px));
+  }
+
+  .seller-context-item:last-child .seller-dropdown-menu {
+    left: auto;
+    right: 0;
+  }
+
+  .seller-header-right {
+    position: absolute;
+    top: 9px;
+    right: 12px;
+    gap: 8px;
+  }
+
+  .seller-marketplace-link,
+  .seller-user-badge {
+    display: none;
+  }
+
+  .seller-content-area {
+    padding: 14px 12px 28px;
+    min-height: calc(100vh - 112px);
+  }
+}
+
 .drawer-logout-btn {
   display: flex;
   align-items: center;

@@ -1,9 +1,11 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
@@ -11,10 +13,11 @@ import (
 )
 
 type PointService struct {
-	pointRepo *repository.PointAccountRepository
-	txRepo    *repository.PointTransactionRepository
-	levelRepo *repository.LevelRepository
-	buyerRepo *repository.BuyerProfileRepository
+	pointRepo  *repository.PointAccountRepository
+	txRepo     *repository.PointTransactionRepository
+	levelRepo  *repository.LevelRepository
+	buyerRepo  *repository.BuyerProfileRepository
+	configRepo repository.AdminPlatformRepository // optional; nil falls back to PointsPerCDF
 }
 
 func NewPointService(
@@ -22,16 +25,40 @@ func NewPointService(
 	txRepo *repository.PointTransactionRepository,
 	levelRepo *repository.LevelRepository,
 	buyerRepo *repository.BuyerProfileRepository,
+	configRepo repository.AdminPlatformRepository,
 ) *PointService {
 	return &PointService{
-		pointRepo: pointRepo,
-		txRepo:    txRepo,
-		levelRepo: levelRepo,
-		buyerRepo: buyerRepo,
+		pointRepo:  pointRepo,
+		txRepo:     txRepo,
+		levelRepo:  levelRepo,
+		buyerRepo:  buyerRepo,
+		configRepo: configRepo,
 	}
 }
 
+// PointsPerCDF is the fallback conversion rate used when the
+// POINTS_CONVERSION_RATE admin-managed config (Phase 5A) is unavailable,
+// unset, or invalid — preserving prior behavior if the config row or DB is
+// unreachable rather than silently changing how points are earned.
 const PointsPerCDF = 1000.0
+
+// currentConversionRate resolves the live POINTS_CONVERSION_RATE from
+// global_configs (see backend/migrations/041_add_platform_flags_and_config.sql),
+// falling back to PointsPerCDF on any lookup failure or invalid value.
+func (s *PointService) currentConversionRate() float64 {
+	if s.configRepo == nil {
+		return PointsPerCDF
+	}
+	cfg, err := s.configRepo.GetGlobalConfig(context.Background(), "POINTS_CONVERSION_RATE")
+	if err != nil || cfg == nil {
+		return PointsPerCDF
+	}
+	rate, err := strconv.ParseFloat(cfg.Value, 64)
+	if err != nil || rate <= 0 {
+		return PointsPerCDF
+	}
+	return rate
+}
 
 func (s *PointService) AwardPoints(
 	ownerType models.PointOwnerType,
@@ -40,7 +67,7 @@ func (s *PointService) AwardPoints(
 	referenceID uuid.UUID,
 	amount float64,
 ) (int, error) {
-	return s.awardPointsAtRate(ownerType, ownerID, referenceType, referenceID, amount, PointsPerCDF)
+	return s.awardPointsAtRate(ownerType, ownerID, referenceType, referenceID, amount, s.currentConversionRate())
 }
 
 // AwardPointsAtRate is the configurable variant of AwardPoints: amount / rate = points.

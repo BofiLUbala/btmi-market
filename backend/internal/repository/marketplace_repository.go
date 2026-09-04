@@ -405,7 +405,7 @@ func (r *MarketplaceRepository) GetPublicProductByID(productID uuid.UUID) (*mode
 		LEFT JOIN point_accounts pa ON pa.owner_type = 'SELLER_BUSINESS' AND pa.owner_id = b.id
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = b.id
-		WHERE p.id = $1 AND p.publication_status = 'PUBLISHED' AND p.status = 'ACTIVE'
+		WHERE p.id = $1 AND p.publication_status = 'PUBLISHED' AND p.status = 'ACTIVE' AND b.status = 'ACTIVE'
 	`
 	p := &models.PublicProductResponse{}
 	var discountStart, discountEnd sql.NullTime

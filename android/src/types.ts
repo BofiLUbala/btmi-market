@@ -20,6 +20,7 @@ export interface LoginResponse {
  *  the form state can be sent as-is. */
 export interface RegisterInput {
   first_name: string
+  middle_name?: string
   last_name: string
   phone: string
   email: string

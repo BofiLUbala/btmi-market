@@ -884,6 +884,12 @@ export const fr = {
   'seller.growth': 'Croissance',
   'seller.reviews': 'Avis',
   'seller.profile': 'Profil',
+  'seller.policy.navLabel': 'Politique des vendeurs',
+  'seller.policy.title': 'Politique des Vendeurs',
+  'seller.policy.intro':
+    'Ce que TBK attend de chaque vendeur — et ce qu’il peut attendre de TBK : ouverture de compte, catalogue, commission, commandes, livraison, retours, avis et sanctions.',
+  'seller.policy.version': 'Version {version} — mise à jour le {date}',
+  'seller.policy.consentPrefix': 'J’ai lu et j’accepte la',
   'seller.workspace': 'Espace de travail',
   'seller.publicBrandAria': 'TBK Seller — accueil',
   'seller.navigation': 'Navigation vendeur',
@@ -1262,6 +1268,7 @@ export const fr = {
   'seller.productForm.selectCategory': 'Sélectionner une catégorie…',
   'seller.productForm.selectSubcategory': 'Sélectionner une sous-catégorie…',
   'seller.productForm.noSubcategory': 'Aucune sous-catégorie pour cette catégorie',
+  'seller.productForm.chooseCategoryFirst': 'Choisissez d’abord une catégorie',
   'seller.productForm.categoryChangePrompt':
     'Changer de catégorie peut rendre certaines caractéristiques inappropriées pour la nouvelle catégorie.\n\nVos caractéristiques actuelles seront conservées — vous pouvez les garder, les modifier ou les supprimer.\n\nContinuer le changement de catégorie ?',
   'seller.productForm.previousCategory': 'catégorie précédente',

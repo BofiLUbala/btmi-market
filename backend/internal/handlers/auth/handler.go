@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -10,13 +11,21 @@ import (
 	"github.com/google/uuid"
 )
 
+// FeatureFlagChecker is the minimal read used by handlers to gate a code
+// path behind an admin-controlled feature flag, satisfied by
+// repository.AdminPlatformRepository.
+type FeatureFlagChecker interface {
+	IsEnabled(ctx context.Context, key string) (enabled bool, found bool, err error)
+}
+
 type Handler struct {
 	authService     *service.AuthService
 	employeeService *service.EmployeeService
+	flags           FeatureFlagChecker
 }
 
-func NewHandler(authService *service.AuthService, employeeService *service.EmployeeService) *Handler {
-	return &Handler{authService: authService, employeeService: employeeService}
+func NewHandler(authService *service.AuthService, employeeService *service.EmployeeService, flags FeatureFlagChecker) *Handler {
+	return &Handler{authService: authService, employeeService: employeeService, flags: flags}
 }
 
 func (h *Handler) Register(c *gin.Context) {
@@ -75,6 +84,19 @@ func (h *Handler) Register(c *gin.Context) {
 }
 
 func (h *Handler) RegisterSeller(c *gin.Context) {
+	if enabled, found, err := h.flags.IsEnabled(c.Request.Context(), "NEW_SELLER_REGISTRATION_ENABLED"); err == nil && found && !enabled {
+		c.JSON(http.StatusServiceUnavailable, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "FEATURE_DISABLED",
+				Message: "New seller registration is temporarily disabled",
+			},
+		})
+		return
+	}
+
 	var req models.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{

@@ -1,0 +1,60 @@
+-- 039_add_admin_cases_and_risk.sql
+
+CREATE TABLE IF NOT EXISTS cases (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_number VARCHAR(50) NOT NULL UNIQUE,
+    case_type VARCHAR(50) NOT NULL, -- PAYMENT_DISPUTE, ORDER_CLAIM, PRODUCT_REPORT, REVIEW_REPORT, SHOP_REPORT, SELLER_REPORT, BUYER_REPORT, SUPPORT_REQUEST, DELIVERY_COMPLAINT
+    status VARCHAR(50) NOT NULL DEFAULT 'OPEN', -- OPEN, UNDER_REVIEW, WAITING_FOR_BUYER, WAITING_FOR_SELLER, WAITING_FOR_ADMIN, RESOLVED, REJECTED, CLOSED
+    priority VARCHAR(20) NOT NULL DEFAULT 'MEDIUM', -- LOW, MEDIUM, HIGH, URGENT
+    buyer_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    seller_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    business_id UUID REFERENCES businesses(id) ON DELETE SET NULL,
+    shop_id UUID REFERENCES shops(id) ON DELETE SET NULL,
+    order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+    payment_id UUID REFERENCES buyer_payments(id) ON DELETE SET NULL,
+    product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+    review_id UUID,
+    assigned_admin_id UUID REFERENCES admin_users(id) ON DELETE SET NULL,
+    created_by_type VARCHAR(20) NOT NULL DEFAULT 'SYSTEM', -- BUYER, SELLER, ADMIN, SYSTEM
+    created_by_id UUID,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    resolution TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS case_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    case_id UUID NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+    sender_type VARCHAR(20) NOT NULL, -- ADMIN, BUYER, SELLER, SYSTEM
+    sender_id UUID,
+    visibility VARCHAR(30) NOT NULL DEFAULT 'USER_VISIBLE', -- INTERNAL_ADMIN_NOTE, USER_VISIBLE
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS risk_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type VARCHAR(50) NOT NULL, -- UNUSUAL_CONFIRMATION_PATTERN, HIGH_CANCELLATION_RATE, DISPUTE_FREQUENCY, POINTS_ANOMALY, REVIEW_MANIPULATION, STOCK_ADJUSTMENT_ABUSE
+    severity VARCHAR(20) NOT NULL DEFAULT 'WARNING', -- INFO, WARNING, HIGH, CRITICAL
+    target_type VARCHAR(50) NOT NULL, -- USER, SELLER, BUSINESS, SHOP, PRODUCT, ORDER, PAYMENT
+    target_id UUID NOT NULL,
+    rule_code VARCHAR(100) NOT NULL,
+    details JSONB,
+    status VARCHAR(30) NOT NULL DEFAULT 'OPEN', -- OPEN, INVESTIGATING, RESOLVED, DISMISSED
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    resolved_by UUID REFERENCES admin_users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cases_type_status ON cases(case_type, status);
+CREATE INDEX IF NOT EXISTS idx_cases_buyer_id ON cases(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_cases_seller_id ON cases(seller_id);
+CREATE INDEX IF NOT EXISTS idx_cases_order_id ON cases(order_id);
+CREATE INDEX IF NOT EXISTS idx_cases_assigned_admin ON cases(assigned_admin_id);
+
+CREATE INDEX IF NOT EXISTS idx_case_messages_case_id ON case_messages(case_id);
+CREATE INDEX IF NOT EXISTS idx_risk_events_target ON risk_events(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_risk_events_status ON risk_events(status);

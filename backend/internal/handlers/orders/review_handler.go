@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -10,13 +11,21 @@ import (
 	"github.com/google/uuid"
 )
 
+// FeatureFlagChecker is the minimal read used to gate a code path behind
+// an admin-controlled feature flag, satisfied by
+// repository.AdminPlatformRepository.
+type FeatureFlagChecker interface {
+	IsEnabled(ctx context.Context, key string) (enabled bool, found bool, err error)
+}
+
 type ReviewHandler struct {
 	reviewService       *service.ReviewService
 	buyerProfileService *service.BuyerProfileService
+	flags               FeatureFlagChecker
 }
 
-func NewReviewHandler(reviewService *service.ReviewService, buyerProfileService *service.BuyerProfileService) *ReviewHandler {
-	return &ReviewHandler{reviewService: reviewService, buyerProfileService: buyerProfileService}
+func NewReviewHandler(reviewService *service.ReviewService, buyerProfileService *service.BuyerProfileService, flags FeatureFlagChecker) *ReviewHandler {
+	return &ReviewHandler{reviewService: reviewService, buyerProfileService: buyerProfileService, flags: flags}
 }
 
 func (h *ReviewHandler) errResponse(c *gin.Context, statusCode int, code, message string) {
@@ -81,6 +90,11 @@ func (h *ReviewHandler) GetReviewEligibility(c *gin.Context) {
 
 // POST /api/v1/buyer/orders/:order_id/review
 func (h *ReviewHandler) CreateReview(c *gin.Context) {
+	if enabled, found, err := h.flags.IsEnabled(c.Request.Context(), "PRODUCT_REVIEWS_ENABLED"); err == nil && found && !enabled {
+		h.errResponse(c, http.StatusServiceUnavailable, "FEATURE_DISABLED", "Product reviews are temporarily disabled")
+		return
+	}
+
 	buyerProfileID, ok := h.extractBuyerProfileID(c)
 	if !ok {
 		return

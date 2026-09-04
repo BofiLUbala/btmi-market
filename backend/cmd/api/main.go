@@ -7,16 +7,19 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/config"
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/email"
+	adminhandlers "github.com/btmi-ai-market/backend/internal/handlers/admin"
 	"github.com/btmi-ai-market/backend/internal/handlers/auth"
 	"github.com/btmi-ai-market/backend/internal/handlers/businesses"
 	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
 	"github.com/btmi-ai-market/backend/internal/handlers/cash"
 	"github.com/btmi-ai-market/backend/internal/handlers/categories"
+	configapi "github.com/btmi-ai-market/backend/internal/handlers/config"
 	"github.com/btmi-ai-market/backend/internal/handlers/customers"
 	"github.com/btmi-ai-market/backend/internal/handlers/employees"
 	"github.com/btmi-ai-market/backend/internal/handlers/growth"
@@ -25,6 +28,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
 	"github.com/btmi-ai-market/backend/internal/middleware"
+	"github.com/btmi-ai-market/backend/internal/models"
 	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -81,6 +85,11 @@ func main() {
 	employeeInvitationRepo := repository.NewEmployeeInvitationRepository(db)
 	employeeActivationTokenRepo := repository.NewEmployeeActivationTokenRepository(db)
 	passwordResetRepo := repository.NewPasswordResetTokenRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
+	auditRepo := repository.NewAuditRepository(db)
+	if err := adminRepo.EnsureDefaultSuperAdmin(); err != nil {
+		log.Printf("Notice: ensure default super admin: %v", err)
+	}
 
 	redisClient := redislib.NewClient(cfg)
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
@@ -111,7 +120,8 @@ func main() {
 	customerService := service.NewCustomerService(customerRepo, shopRepo, membershipRepo, db)
 	cashService := service.NewCashService(cashRepo, shopRepo, employeeRepo, assignmentRepo, membershipRepo, db)
 	buyerProfileService := service.NewBuyerProfileService(buyerProfileRepo, userRepo, pointAccountRepo, levelRepo)
-	pointService := service.NewPointService(pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo)
+	adminPlatformRepo := repository.NewAdminPlatformRepository(db.DB)
+	pointService := service.NewPointService(pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, adminPlatformRepo)
 	purchaseConfirmationService := service.NewPurchaseConfirmationService(confirmRepo, verifiedTxnRepo, orderRepo, shopRepo, cashRepo, pointService, trustRepo, asynqClient)
 	paymentService := service.NewPaymentService(buyerPaymentRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
 	marketplaceService := service.NewMarketplaceService(marketplaceRepo, pointService)
@@ -133,13 +143,13 @@ func main() {
 		}
 	}()
 
-	authHandler := auth.NewHandler(authService, employeeService)
+	authHandler := auth.NewHandler(authService, employeeService, adminPlatformRepo)
 	businessHandler := businesses.NewHandler(businessService)
 	shopHandler := shops.NewHandler(shopService)
 	employeeHandler := employees.NewHandler(employeeService)
 	inventoryHandler := inventory.NewHandler(inventoryService, productImageService)
 	orderHandler := orders.NewHandler(orderService, pointRedemptionService, buyerProfileService, paymentService)
-	reviewHandler := orders.NewReviewHandler(reviewService, buyerProfileService)
+	reviewHandler := orders.NewReviewHandler(reviewService, buyerProfileService, adminPlatformRepo)
 	customerHandler := customers.NewHandler(customerService)
 	cashHandler := cash.NewHandler(cashService)
 	buyerHandler := buyer.NewHandler(buyerProfileService, pointService, purchaseConfirmationService)
@@ -148,7 +158,48 @@ func main() {
 	categoryHandler := categories.NewHandler(categoryService)
 	growthHandler := growth.NewHandler(sellerGrowthService, pointService, membershipRepo)
 
+	adminAuthService := service.NewAdminAuthService(adminRepo, cfg)
+	auditService := service.NewAuditService(auditRepo)
+	adminDirectionService := service.NewAdminDirectionService(db, userRepo, refreshTokenRepo, auditService)
+	adminCommerceRepo := repository.NewAdminCommerceRepository(db)
+	adminCommerceService := service.NewAdminCommerceService(db, adminCommerceRepo, productRepo, inventoryRepo, stockMovementRepo, auditRepo)
+	adminFinanceRepo := repository.NewAdminFinanceRepository(db)
+	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService)
+	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB)
+	adminTechnicalService := service.NewAdminTechnicalService(adminTechnicalRepo, db.DB, redisClient.GetRedis(), auditService)
+	adminPlatformService := service.NewAdminPlatformService(adminPlatformRepo, auditService)
+	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
+
+	adminAuthHandler := adminhandlers.NewAuthHandler(adminAuthService, auditService)
+	adminDirectionHandler := adminhandlers.NewDirectionHandler(adminDirectionService, auditService)
+	adminCommerceHandler := adminhandlers.NewCommerceHandler(adminCommerceService)
+	adminFinanceHandler := adminhandlers.NewAdminFinanceHandler(adminFinanceService)
+	adminTechnicalHandler := adminhandlers.NewAdminTechnicalHandler(adminTechnicalService)
+	adminPlatformHandler := adminhandlers.NewAdminPlatformHandler(adminPlatformService)
+	adminPhase5Handler := adminhandlers.NewAdminPhase5Handler(adminPhase5Service)
+	configHandler := configapi.NewHandler(adminPlatformRepo)
+
 	router := gin.Default()
+
+	// Allow the local Expo/web clients to call the API while developing. Native
+	// Android requests are not subject to browser CORS, and production remains
+	// restricted to same-origin traffic handled by the web proxy.
+	if cfg.IsDevelopment() {
+		router.Use(func(c *gin.Context) {
+			origin := c.GetHeader("Origin")
+			if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Vary", "Origin")
+				c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			}
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+			c.Next()
+		})
+	}
 
 	// Serve persisted product media (public, read-only).
 	if err := os.MkdirAll(cfg.UploadDir, 0o755); err != nil {
@@ -412,6 +463,188 @@ func main() {
 		eventsGroup.Use(middleware.AuthMiddleware(authService))
 		{
 			eventsGroup.GET("/stock", inventoryHandler.GetStockEvents)
+		}
+
+		adminGroup := api.Group("/admin")
+		{
+			adminAuthGroup := adminGroup.Group("/auth")
+			{
+				adminAuthGroup.POST("/login", adminAuthHandler.Login)
+				adminAuthGroup.POST("/refresh", adminAuthHandler.Refresh)
+				adminAuthGroup.POST("/logout", adminAuthHandler.Logout)
+				adminAuthGroup.GET("/me", middleware.AdminAuthMiddleware(adminAuthService), adminAuthHandler.Me)
+			}
+
+			protectedAdmin := adminGroup.Group("")
+			protectedAdmin.Use(middleware.AdminAuthMiddleware(adminAuthService))
+			{
+				directionGroup := protectedAdmin.Group("/direction")
+				directionGroup.Use(middleware.RequireAdminRoles(
+					models.AdminRoleSuperAdmin,
+					models.AdminRoleDirectionAdmin,
+				))
+				{
+					directionGroup.GET("/overview", adminDirectionHandler.Overview)
+					directionGroup.GET("/users", adminDirectionHandler.ListUsers)
+					directionGroup.POST("/users/:id/suspend", adminDirectionHandler.SuspendUser)
+					directionGroup.POST("/users/:id/reactivate", adminDirectionHandler.ReactivateUser)
+					directionGroup.POST("/users/:id/force-logout", adminDirectionHandler.ForceLogoutUser)
+					directionGroup.GET("/audit-log", adminDirectionHandler.ListAuditLogs)
+				}
+
+				commerceGroup := protectedAdmin.Group("/commerce")
+				commerceGroup.Use(middleware.RequireAdminRoles(
+					models.AdminRoleSuperAdmin,
+					models.AdminRoleCommerceAdmin,
+					models.AdminRoleDirectionAdmin,
+				))
+				{
+					commerceWriters := middleware.RequireAdminRoles(models.AdminRoleSuperAdmin, models.AdminRoleCommerceAdmin)
+					commerceGroup.GET("/overview", adminCommerceHandler.Overview)
+					commerceGroup.GET("/products", adminCommerceHandler.ListProducts)
+					commerceGroup.GET("/products/:id", adminCommerceHandler.GetProduct)
+					commerceGroup.POST("/products/:id/unpublish", commerceWriters, adminCommerceHandler.UnpublishProduct)
+					commerceGroup.POST("/products/:id/publish", commerceWriters, adminCommerceHandler.PublishProduct)
+					commerceGroup.POST("/products/:id/archive", commerceWriters, adminCommerceHandler.ArchiveProduct)
+
+					commerceGroup.GET("/categories", adminCommerceHandler.ListCategories)
+					commerceGroup.POST("/categories", commerceWriters, adminCommerceHandler.CreateCategory)
+					commerceGroup.PATCH("/categories/:id", commerceWriters, adminCommerceHandler.UpdateCategory)
+					commerceGroup.POST("/subcategories", commerceWriters, adminCommerceHandler.CreateSubcategory)
+					commerceGroup.PATCH("/subcategories/:id", commerceWriters, adminCommerceHandler.UpdateSubcategory)
+					commerceGroup.GET("/attribute-suggestions", adminCommerceHandler.AttributeSuggestions)
+
+					commerceGroup.GET("/inventory", adminCommerceHandler.ListInventory)
+					commerceGroup.GET("/inventory/anomalies", adminCommerceHandler.ListStockAnomalies)
+					commerceGroup.GET("/inventory/history", adminCommerceHandler.ListStockMovementHistory)
+					commerceGroup.POST("/inventory/adjust", commerceWriters, adminCommerceHandler.AdjustStock)
+
+					commerceGroup.GET("/marketplace/visibility/:id", adminCommerceHandler.GetMarketplaceVisibility)
+					commerceGroup.GET("/shops/:id/page-control", adminCommerceHandler.GetShopPageControl)
+
+					commerceGroup.GET("/search/analytics", adminCommerceHandler.GetSearchAnalytics)
+					commerceGroup.GET("/search/queries", adminCommerceHandler.ListSearchQueries)
+
+					commerceGroup.GET("/marketplace/ranking", adminCommerceHandler.GetMarketplaceRanking)
+					commerceGroup.GET("/products/:id/card-quality", adminCommerceHandler.GetProductCardQuality)
+					commerceGroup.GET("/promotions", adminCommerceHandler.ListPromotionVisibility)
+
+					commerceGroup.GET("/sellers/performance", adminCommerceHandler.GetSellerPerformance)
+					commerceGroup.GET("/products/performance", adminCommerceHandler.GetProductPerformance)
+					commerceGroup.GET("/categories/performance", adminCommerceHandler.GetCategoryPerformance)
+					commerceGroup.GET("/shops/performance", adminCommerceHandler.GetShopPerformance)
+
+					commerceGroup.GET("/employees/:id/shop-auth/:shopId", adminCommerceHandler.CheckEmployeeShopAuth)
+
+					commerceGroup.GET("/orders", adminCommerceHandler.ListOrders)
+					commerceGroup.GET("/orders/:id", adminCommerceHandler.GetOrder)
+
+					commerceGroup.GET("/employees", adminCommerceHandler.ListEmployees)
+					commerceGroup.POST("/employees/:id/revoke", commerceWriters, adminCommerceHandler.RevokeEmployeeAccess)
+				}
+
+				financeGroup := protectedAdmin.Group("/finance")
+				financeGroup.Use(middleware.RequireAdminRoles(
+					models.AdminRoleSuperAdmin,
+					models.AdminRoleFinanceSupportAdmin,
+					models.AdminRoleDirectionAdmin,
+				))
+				{
+					financeGroup.GET("/summary", adminFinanceHandler.GetFinancialSummary)
+
+					financeGroup.GET("/payments", adminFinanceHandler.ListPayments)
+					financeGroup.GET("/payments/:id", adminFinanceHandler.GetPaymentDetail)
+
+					financeGroup.GET("/points/buyers", adminFinanceHandler.ListBuyerPoints)
+					financeGroup.GET("/points/buyers/:buyerId/history", adminFinanceHandler.GetBuyerPointHistory)
+					financeGroup.POST("/points/buyers/:buyerId/adjust", adminFinanceHandler.AdjustBuyerPoints)
+
+					financeGroup.GET("/growth/sellers", adminFinanceHandler.ListSellerGrowth)
+
+					financeGroup.GET("/reviews/products", adminFinanceHandler.ListProductReviews)
+					financeGroup.POST("/reviews/products/:id/hide", adminFinanceHandler.HideProductReview)
+					financeGroup.POST("/reviews/products/:id/restore", adminFinanceHandler.RestoreProductReview)
+
+					financeGroup.GET("/reviews/shops", adminFinanceHandler.ListShopReviews)
+					financeGroup.POST("/reviews/shops/:id/hide", adminFinanceHandler.HideShopReview)
+					financeGroup.POST("/reviews/shops/:id/restore", adminFinanceHandler.RestoreShopReview)
+
+					financeGroup.GET("/cases", adminFinanceHandler.ListCases)
+					financeGroup.POST("/cases", adminFinanceHandler.CreateCase)
+					financeGroup.GET("/cases/:id", adminFinanceHandler.GetCaseDetail)
+					financeGroup.POST("/cases/:id/assign", adminFinanceHandler.AssignCase)
+					financeGroup.POST("/cases/:id/resolve", adminFinanceHandler.ResolveCase)
+					financeGroup.POST("/cases/:id/messages", adminFinanceHandler.AddCaseMessage)
+
+					financeGroup.GET("/risk", adminFinanceHandler.ListRiskEvents)
+					financeGroup.POST("/risk/:id/resolve", adminFinanceHandler.ResolveRiskEvent)
+				}
+
+				technicalGroup := protectedAdmin.Group("/technical")
+				technicalGroup.Use(middleware.RequireAdminRoles(
+					models.AdminRoleSuperAdmin,
+					models.AdminRoleTechnicalAdmin,
+					models.AdminRoleDirectionAdmin,
+				))
+				{
+					technicalGroup.GET("/overview", adminTechnicalHandler.GetOverview)
+					technicalGroup.GET("/health", adminTechnicalHandler.GetSystemHealth)
+					technicalGroup.GET("/database", adminTechnicalHandler.GetDatabaseHealth)
+					technicalGroup.GET("/redis", adminTechnicalHandler.GetRedisHealth)
+					technicalGroup.GET("/workers", adminTechnicalHandler.GetWorkerMetrics)
+					technicalGroup.GET("/workers/failed", adminTechnicalHandler.ListFailedJobs)
+					technicalGroup.POST("/workers/:id/retry", adminTechnicalHandler.RetryFailedJob)
+					technicalGroup.GET("/visual-search", adminTechnicalHandler.GetVisualSearchHealth)
+					technicalGroup.GET("/backups", adminTechnicalHandler.GetBackupSummary)
+					technicalGroup.GET("/migrations", adminTechnicalHandler.GetMigrationSummary)
+					technicalGroup.GET("/email/health", adminTechnicalHandler.GetEmailHealth)
+					technicalGroup.GET("/sessions", adminTechnicalHandler.GetAdminSessions)
+					technicalGroup.POST("/sessions/:id/revoke", adminTechnicalHandler.RevokeAdminSession)
+					technicalGroup.GET("/security/events", adminTechnicalHandler.GetSecurityEvents)
+					technicalGroup.POST("/security/events/:id/acknowledge", adminTechnicalHandler.AcknowledgeSecurityEvent)
+					technicalGroup.GET("/versions", adminTechnicalHandler.GetAppVersions)
+					technicalGroup.PATCH("/versions/:platform", adminTechnicalHandler.UpdateAppVersion)
+				}
+
+				platformGroup := protectedAdmin.Group("/platform")
+				platformGroup.Use(middleware.RequireAdminRoles(
+					models.AdminRoleSuperAdmin,
+					models.AdminRoleDirectionAdmin,
+					models.AdminRoleCommerceAdmin,
+					models.AdminRoleFinanceSupportAdmin,
+					models.AdminRoleTechnicalAdmin,
+				))
+				{
+					platformGroup.GET("/feature-flags", adminPlatformHandler.ListFeatureFlags)
+					platformGroup.GET("/feature-flags/:key", adminPlatformHandler.GetFeatureFlag)
+					platformGroup.PATCH("/feature-flags/:key", adminPlatformHandler.UpdateFeatureFlag)
+					platformGroup.GET("/config", adminPlatformHandler.ListGlobalConfigs)
+					platformGroup.GET("/config/:key", adminPlatformHandler.GetGlobalConfig)
+					platformGroup.PATCH("/config/:key", adminPlatformHandler.UpdateGlobalConfig)
+					platformGroup.GET("/maintenance", adminPhase5Handler.GetMaintenance)
+					platformGroup.PATCH("/maintenance", adminPhase5Handler.UpdateMaintenance)
+					platformGroup.GET("/announcements", adminPhase5Handler.ListAnnouncements)
+					platformGroup.POST("/announcements", adminPhase5Handler.CreateAnnouncement)
+					platformGroup.PATCH("/announcements/:id", adminPhase5Handler.UpdateAnnouncement)
+				}
+
+				analyticsGroup := protectedAdmin.Group("/analytics")
+				analyticsGroup.GET("/:dashboard", adminPhase5Handler.Analytics)
+				exportsGroup := protectedAdmin.Group("/exports")
+				exportsGroup.GET("", adminPhase5Handler.ListExports)
+				exportsGroup.POST("", adminPhase5Handler.CreateExport)
+				approvalsGroup := protectedAdmin.Group("/approvals")
+				approvalsGroup.GET("", adminPhase5Handler.ListApprovals)
+				approvalsGroup.POST("", adminPhase5Handler.CreateApproval)
+				approvalsGroup.POST("/:id/approve", adminPhase5Handler.Approve)
+				approvalsGroup.POST("/:id/reject", adminPhase5Handler.Reject)
+			}
+		}
+
+		configGroup := api.Group("/config")
+		{
+			configGroup.GET("/feature-flags", configHandler.GetFeatureFlags)
+			configGroup.GET("/platform-state", adminPhase5Handler.PublicState)
 		}
 	}
 

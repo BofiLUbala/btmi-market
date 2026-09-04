@@ -25,6 +25,7 @@ export default function SellerRegisterPage() {
   const [error, setError] = useState('')
   const [phase, setPhase] = useState<RegPhase>('form')
   const [busy, setBusy] = useState(false)
+  const [policyAccepted, setPolicyAccepted] = useState(false)
   const passwordRules = {
     minLength: form.password.length >= 8,
     maxLength: form.password.length <= 64,
@@ -37,7 +38,7 @@ export default function SellerRegisterPage() {
   const confirmStarted = form.password_confirmation.length > 0
   const passwordsMatch = confirmStarted && form.password === form.password_confirmation
   const requiredComplete = Boolean(form.first_name && form.last_name && form.phone && form.email)
-  const canSubmit = requiredComplete && passwordValid && passwordsMatch && !busy
+  const canSubmit = requiredComplete && passwordValid && passwordsMatch && policyAccepted && !busy
   const existingAccountError = /already exists|already registered/i.test(error)
 
   function set<K extends keyof typeof form>(key: K, value: string) {
@@ -198,6 +199,19 @@ export default function SellerRegisterPage() {
             </div>
             <Field label={t('auth.passwordConfirm')} name="password_confirmation" type="password" autoComplete="new-password" required maxLength={64} value={form.password_confirmation} onChange={(e) => set('password_confirmation', e.target.value)} showPasswordToggle />
             {confirmStarted && <p className={`password-match ${passwordsMatch ? 'valid' : 'invalid'}`} role="status">{passwordsMatch ? t('auth.passwordsMatch') : t('auth.passwordsMismatchFull')}</p>}
+            <label className="seller-policy-consent">
+              <input
+                type="checkbox"
+                checked={policyAccepted}
+                onChange={(e) => setPolicyAccepted(e.target.checked)}
+              />
+              <span>
+                {t('seller.policy.consentPrefix')}{' '}
+                <Link to="/seller/politique" target="_blank" rel="noopener noreferrer" className="section-link">
+                  {t('seller.policy.navLabel')}
+                </Link>
+              </span>
+            </label>
             <Button type="submit" block size="lg" loading={busy} disabled={!canSubmit}>
               {t('seller.auth.register.submit')}
             </Button>
