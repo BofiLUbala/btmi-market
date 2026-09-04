@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductDetail } from '@/api/admin'
 
-function ActionModal({ title, onConfirm, onCancel }: { title: string; onConfirm: (reason: string) => void; onCancel: () => void }) {
+function ActionModal({ title, loading, onConfirm, onCancel }: { title: string; loading?: boolean; onConfirm: (reason: string) => void; onCancel: () => void }) {
   const [reason, setReason] = useState('')
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
@@ -11,6 +11,7 @@ function ActionModal({ title, onConfirm, onCancel }: { title: string; onConfirm:
         <textarea
           placeholder="Reason (minimum 5 characters)..."
           value={reason}
+          disabled={loading}
           onChange={(e) => setReason(e.target.value)}
           style={{
             width: '100%', minHeight: 80, padding: 10, borderRadius: 8, border: '1px solid #334155',
@@ -18,17 +19,17 @@ function ActionModal({ title, onConfirm, onCancel }: { title: string; onConfirm:
           }}
         />
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-          <button onClick={onCancel} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#cbd5e1', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+          <button onClick={onCancel} disabled={loading} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#cbd5e1', cursor: loading ? 'default' : 'pointer', fontSize: 13 }}>Cancel</button>
           <button
             onClick={() => reason.length >= 5 && onConfirm(reason)}
-            disabled={reason.length < 5}
+            disabled={reason.length < 5 || loading}
             style={{
               padding: '8px 16px', borderRadius: 6, border: 'none',
-              backgroundColor: reason.length >= 5 ? '#dc2626' : '#334155',
-              color: '#fff', cursor: reason.length >= 5 ? 'pointer' : 'default',
+              backgroundColor: reason.length >= 5 && !loading ? '#dc2626' : '#334155',
+              color: '#fff', cursor: reason.length >= 5 && !loading ? 'pointer' : 'default',
               fontSize: 13, fontWeight: 600
             }}
-          >Confirm</button>
+          >{loading ? 'Processing...' : 'Confirm'}</button>
         </div>
       </div>
     </div>
@@ -96,6 +97,7 @@ export default function CommerceProductDetailPage() {
       {actionModal && (
         <ActionModal
           title={actionModal === 'unpublish' ? 'Unpublish Product' : 'Archive Product'}
+          loading={actionLoading}
           onConfirm={(reason) => handleAction(actionModal, reason)}
           onCancel={() => setActionModal(null)}
         />

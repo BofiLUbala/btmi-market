@@ -64,7 +64,7 @@ export default function OrderDetailPage() {
           <div style={{ color: '#64748b', fontSize: 12 }}>Placed {new Date(order.order.created_at).toLocaleString()}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Badge status={order.order.fulfillment_status} />
+          <Badge status={order.order.status} />
           <Badge status={order.order.payment_status} />
         </div>
       </div>
@@ -73,64 +73,56 @@ export default function OrderDetailPage() {
         <div>
           <Section title="Order Summary">
             <Field label="Order Number" value={order.order.order_number} />
-            <Field label="Total" value={`$${order.order.total.toFixed(2)}`} />
-            <Field label="Subtotal" value={`$${order.order.subtotal.toFixed(2)}`} />
-            <Field label="Tax" value={`$${order.order.tax.toFixed(2)}`} />
-            <Field label="Discount" value={order.order.discount > 0 ? `-$${order.order.discount.toFixed(2)}` : '$0.00'} />
-            <Field label="Payment Method" value={order.order.payment_method} />
+            <Field label="Total" value={`$${order.order.final_total.toFixed(2)}`} />
+            <Field label="Base Total" value={`$${order.order.base_total.toFixed(2)}`} />
+            <Field label="Delivery Fee" value={`$${order.order.delivery_fee.toFixed(2)}`} />
+            <Field label="Points Discount" value={order.order.points_discount > 0 ? `-$${order.order.points_discount.toFixed(2)}` : '$0.00'} />
+            {order.payment && <Field label="Payment Method" value={order.payment.payment_method} />}
             <Field label="Payment Status" value={<Badge status={order.order.payment_status} />} />
-            <Field label="Delivery Method" value={order.order.delivery_method} />
-            {order.order.delivery_address && <Field label="Delivery Address" value={order.order.delivery_address} />}
-            {order.order.scheduled_delivery_time && <Field label="Scheduled Delivery" value={order.order.scheduled_delivery_time} />}
+            <Field label="Delivery Method" value={order.order.delivery_method || 'N/A'} />
+            {order.order.is_stuck && <Field label="Stuck Reason" value={order.order.stuck_reason || 'Order appears stuck'} />}
           </Section>
 
           <Section title="Customer">
-            <Field label="Name" value={order.order.customer_name} />
-            <Field label="Phone" value={order.order.customer_phone} />
-            {order.order.customer_email && <Field label="Email" value={order.order.customer_email} />}
-            {order.order.points_used > 0 && <Field label="Points Used" value={order.order.points_used} />}
+            <Field label="Name" value={order.order.buyer_name} />
+            <Field label="Phone" value={order.order.buyer_phone} />
           </Section>
 
           <Section title="Shop">
-            <Field label="Shop Name" value={order.shop_name} />
-            <Field label="Business" value={order.business_name} />
+            <Field label="Shop Name" value={order.order.shop_name} />
+            <Field label="Business" value={order.order.business_name} />
           </Section>
         </div>
 
         <div>
-          <Section title={`Items (${order.items.length})`}>
+          <Section title={`Items (${(order.lines ?? []).length})`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {order.items.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 12, padding: 10, backgroundColor: '#1e293b', borderRadius: 8, alignItems: 'center' }}>
-                  {item.product_image ? (
-                    <img src={item.product_image} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#64748b' }}>📦</div>
-                  )}
+              {(order.lines ?? []).map((item) => (
+                <div key={item.id} style={{ display: 'flex', gap: 12, padding: 10, backgroundColor: '#1e293b', borderRadius: 8, alignItems: 'center' }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#64748b', flexShrink: 0 }}>📦</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc' }}>{item.product_name}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>SKU: {item.sku} &middot; Qty: {item.quantity}</div>
-                    {item.variant_name && <div style={{ fontSize: 11, color: '#64748b' }}>{item.variant_name}</div>}
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc' }}>{item.product_name || 'N/A'}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Qty: {item.quantity}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>${item.line_total.toFixed(2)}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>${item.unit_price.toFixed(2)} each</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>${(item.final_unit_price * item.quantity).toFixed(2)}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>${item.final_unit_price.toFixed(2)} each</div>
                   </div>
                 </div>
               ))}
             </div>
           </Section>
 
-          {order.timeline && order.timeline.length > 0 && (
+          {(order.status_history ?? []).length > 0 && (
             <Section title="Order Timeline">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {order.timeline.map((event, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: 10, padding: 8, backgroundColor: '#1e293b', borderRadius: 6 }}>
+                {(order.status_history ?? []).map((event) => (
+                  <div key={event.id} style={{ display: 'flex', gap: 10, padding: 8, backgroundColor: '#1e293b', borderRadius: 6 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981', marginTop: 5, flexShrink: 0 }} />
                     <div>
                       <div style={{ fontSize: 13, color: '#f8fafc' }}>{event.status}</div>
-                      {event.note && <div style={{ fontSize: 12, color: '#94a3b8' }}>{event.note}</div>}
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.timestamp).toLocaleString()}</div>
+                      {event.notes && <div style={{ fontSize: 12, color: '#94a3b8' }}>{event.notes}</div>}
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.created_at).toLocaleString()}</div>
                     </div>
                   </div>
                 ))}

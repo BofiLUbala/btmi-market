@@ -58,7 +58,7 @@ func (s *PurchaseConfirmationService) ConfirmPurchase(buyerProfileID, orderID uu
 	// Check order exists and is completed
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 	if order.Status != models.OrderStatusCompleted {
 		return nil, errors.New("ORDER_NOT_COMPLETED")

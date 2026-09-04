@@ -15,24 +15,35 @@ export default function InventoryListPage() {
   const fetchInventory = useCallback(async () => {
     setLoading(true)
     try {
+      // The backend's /admin/commerce/inventory endpoint only supports
+      // business_id/shop_id/stock_status/limit/offset - there is no
+      // server-side "search" or "low_stock_only" filter, so those are
+      // applied client-side below instead of being sent to the API.
       const res = await adminCommerceApi.listInventory({
         shop_id: shopId || undefined,
-        search: search || undefined,
-        status: statusFilter || undefined,
-        low_stock_only: lowStockOnly || undefined,
+        stock_status: statusFilter || undefined,
         limit,
         offset: page,
       })
-      setItems(res.items)
+      setItems(res.inventory)
       setTotal(res.total)
     } catch (err) {
       console.error('Failed to load inventory', err)
     } finally {
       setLoading(false)
     }
-  }, [shopId, search, statusFilter, lowStockOnly, page, limit])
+  }, [shopId, statusFilter, page, limit])
 
   useEffect(() => { fetchInventory() }, [fetchInventory])
+
+  const visibleItems = items.filter((inv) => {
+    if (lowStockOnly && inv.stock_status !== 'LOW_STOCK' && inv.stock_status !== 'OUT_OF_STOCK') return false
+    if (search) {
+      const q = search.toLowerCase()
+      if (!inv.product_name?.toLowerCase().includes(q) && !inv.sku?.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
 
   const totalPages = Math.ceil(total / limit)
 
@@ -86,22 +97,22 @@ export default function InventoryListPage() {
 
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
-      ) : items.length === 0 ? (
+      ) : visibleItems.length === 0 ? (
         <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>No inventory records found</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Shop', 'Product', 'Variant / SKU', 'On Hand', 'Reserved', 'Available', 'Reorder Point', 'Status', 'Last Updated'].map(h => (
+                {['Shop', 'Product', 'Variant / SKU', 'On Hand', 'Reserved', 'Available', 'Status', 'Last Updated'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {items.map((inv, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600, fontSize: 12 }}>{inv.shop_id}</td>
+              {visibleItems.map((inv) => (
+                <tr key={inv.inventory_id} style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600, fontSize: 12 }}>{inv.shop_name || inv.shop_id}</td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{inv.product_name || '-'}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ color: '#f8fafc', fontSize: 12 }}>{inv.variant_name || '-'}</div>
@@ -110,10 +121,9 @@ export default function InventoryListPage() {
                   <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f8fafc' }}>{inv.quantity}</td>
                   <td style={{ padding: '10px 12px', color: '#fbbf24', fontWeight: 600 }}>{inv.reserved_quantity}</td>
                   <td style={{ padding: '10px 12px', fontWeight: 700, color: inv.available > 0 ? '#34d399' : '#ef4444' }}>{inv.available}</td>
-                  <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{inv.reorder_point ?? '-'}</td>
-                  <td style={{ padding: '10px 12px' }}>{statusBadge(inv.status)}</td>
+                  <td style={{ padding: '10px 12px' }}>{statusBadge(inv.stock_status)}</td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                    {inv.last_movement ? new Date(inv.last_movement).toLocaleString() : '-'}
+                    {inv.updated_at ? new Date(inv.updated_at).toLocaleString() : '-'}
                   </td>
                 </tr>
               ))}

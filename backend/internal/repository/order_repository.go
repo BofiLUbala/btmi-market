@@ -18,6 +18,46 @@ func NewOrderRepository(db *database.DB) *OrderRepository {
 	return &OrderRepository{db: db}
 }
 
+// ErrOrderNotFound is the sentinel error returned when an order row genuinely
+// does not exist. Any other error returned by this repository (e.g. a scan
+// failure) must NOT be treated as "not found" by callers.
+var ErrOrderNotFound = fmt.Errorf("order not found")
+
+// nullOrderScanFields groups the pointers used to scan the nullable string
+// columns on `orders` (they have no NOT NULL constraint in the schema, even
+// though several carry a non-NULL default) into sql.NullString so a legitimate
+// NULL value - e.g. delivery_* columns before a buyer picks delivery - never
+// causes Scan() to error out.
+type nullOrderScanFields struct {
+	notes               sql.NullString
+	orderNumber         sql.NullString
+	deliveryMethod      sql.NullString
+	deliveryContactName sql.NullString
+	deliveryPhone       sql.NullString
+	deliveryAddress     sql.NullString
+	deliveryNotes       sql.NullString
+}
+
+func (f *nullOrderScanFields) applyTo(order *models.Order) {
+	order.Notes = f.notes.String
+	order.OrderNumber = f.orderNumber.String
+	order.DeliveryMethod = f.deliveryMethod.String
+	order.DeliveryContactName = f.deliveryContactName.String
+	order.DeliveryPhone = f.deliveryPhone.String
+	order.DeliveryAddress = f.deliveryAddress.String
+	order.DeliveryNotes = f.deliveryNotes.String
+}
+
+// scanOrderErr maps a raw scan/query error to ErrOrderNotFound only for
+// sql.ErrNoRows, preserving every other error (e.g. a column scan failure)
+// as a real, wrapped internal error instead of silently reporting "not found".
+func scanOrderErr(err error) error {
+	if err == sql.ErrNoRows {
+		return ErrOrderNotFound
+	}
+	return fmt.Errorf("order repository: %w", err)
+}
+
 func (r *OrderRepository) Create(order *models.Order) error {
 	query := `
 		INSERT INTO orders (id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key, order_number)
@@ -84,24 +124,23 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 	`
 
 	order := &models.Order{}
+	var nf nullOrderScanFields
 	err := r.db.QueryRow(query, id).Scan(
 		&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.BuyerProfileID,
-		&order.Status, &order.TotalItems, &order.Notes, &order.CreatedBy,
+		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&order.OrderNumber,
-		&order.DeliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
+		&nf.orderNumber,
+		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("order not found")
-	}
 	if err != nil {
-		return nil, err
+		return nil, scanOrderErr(err)
 	}
+	nf.applyTo(order)
 
 	return order, nil
 }
@@ -118,24 +157,23 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 	`
 
 	order := &models.Order{}
+	var nf nullOrderScanFields
 	err := r.db.QueryRow(query, id).Scan(
 		&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.BuyerProfileID,
-		&order.Status, &order.TotalItems, &order.Notes, &order.CreatedBy,
+		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&order.OrderNumber,
-		&order.DeliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
+		&nf.orderNumber,
+		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("order not found")
-	}
 	if err != nil {
-		return nil, err
+		return nil, scanOrderErr(err)
 	}
+	nf.applyTo(order)
 
 	return order, nil
 }
@@ -226,13 +264,15 @@ func (r *OrderRepository) GetHistoryByOrderID(orderID uuid.UUID) ([]*models.Orde
 	var history []*models.OrderStatusHistory
 	for rows.Next() {
 		h := &models.OrderStatusHistory{}
+		var notes sql.NullString
 		err := rows.Scan(
 			&h.ID, &h.OrderID, &h.Status, &h.ChangedBy,
-			&h.Notes, &h.CreatedAt,
+			&notes, &h.CreatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("order repository: scan history: %w", err)
 		}
+		h.Notes = notes.String
 		history = append(history, h)
 	}
 
@@ -256,15 +296,19 @@ func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error)
 	var orders []*models.Order
 	for rows.Next() {
 		order := &models.Order{}
+		var notes, orderNumber, deliveryMethod sql.NullString
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
-			&order.TotalItems, &order.Notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
-			&order.OrderNumber, &order.DeliveryMethod,
+			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
+			&orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("order repository: scan by shop: %w", err)
 		}
+		order.Notes = notes.String
+		order.OrderNumber = orderNumber.String
+		order.DeliveryMethod = deliveryMethod.String
 		orders = append(orders, order)
 	}
 
@@ -288,15 +332,19 @@ func (r *OrderRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Order
 	var orders []*models.Order
 	for rows.Next() {
 		order := &models.Order{}
+		var notes, orderNumber, deliveryMethod sql.NullString
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
-			&order.TotalItems, &order.Notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
-			&order.OrderNumber, &order.DeliveryMethod,
+			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
+			&orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("order repository: scan by business: %w", err)
 		}
+		order.Notes = notes.String
+		order.OrderNumber = orderNumber.String
+		order.DeliveryMethod = deliveryMethod.String
 		orders = append(orders, order)
 	}
 
@@ -318,18 +366,17 @@ func (r *OrderRepository) UpdateStatus(id uuid.UUID, status models.OrderStatus) 
 		RETURNING id, business_id, shop_id, customer_id, status, total_items, notes, created_by, created_at, updated_at
 	`
 	order := &models.Order{}
+	var notes sql.NullString
 	err := r.db.QueryRow(query, id, status).Scan(
 		&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
-		&order.TotalItems, &order.Notes, &order.CreatedBy,
+		&order.TotalItems, &notes, &order.CreatedBy,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("order not found")
-	}
 	if err != nil {
-		return nil, err
+		return nil, scanOrderErr(err)
 	}
+	order.Notes = notes.String
 
 	return order, nil
 }
@@ -361,14 +408,16 @@ func (r *OrderRepository) GetByShopIDAndStatus(shopID uuid.UUID, status models.O
 	var orders []*models.Order
 	for rows.Next() {
 		order := &models.Order{}
+		var notes sql.NullString
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
-			&order.TotalItems, &order.Notes, &order.CreatedBy,
+			&order.TotalItems, &notes, &order.CreatedBy,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("order repository: scan by shop/status: %w", err)
 		}
+		order.Notes = notes.String
 		orders = append(orders, order)
 	}
 
@@ -395,20 +444,22 @@ func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*mode
 	var orders []*models.Order
 	for rows.Next() {
 		order := &models.Order{}
+		var nf nullOrderScanFields
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.BuyerProfileID,
-			&order.Status, &order.TotalItems, &order.Notes, &order.CreatedBy,
+			&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 			&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 			&order.IdempotencyKey,
-			&order.OrderNumber,
-			&order.DeliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-			&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized,
+			&nf.orderNumber,
+			&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
+			&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized,
 			&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("order repository: scan by buyer: %w", err)
 		}
+		nf.applyTo(order)
 		orders = append(orders, order)
 	}
 
@@ -426,14 +477,15 @@ func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, 
 		LIMIT 1
 	`
 	order := &models.Order{}
+	var nf nullOrderScanFields
 	err := r.db.QueryRow(query, buyerProfileID, idempotencyKey).Scan(
 		&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.BuyerProfileID,
-		&order.Status, &order.TotalItems, &order.Notes, &order.CreatedBy,
+		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&order.OrderNumber,
-		&order.DeliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized,
+		&nf.orderNumber,
+		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
@@ -441,8 +493,9 @@ func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, 
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("order repository: scan by idempotency key: %w", err)
 	}
+	nf.applyTo(order)
 	return order, nil
 }
 
@@ -470,23 +523,22 @@ func (r *OrderRepository) UpdateTrackingStatus(id uuid.UUID, status models.Order
 	`
 	_ = now
 	order := &models.Order{}
+	var nf nullOrderScanFields
 	err := r.db.QueryRow(query, id, status).Scan(
 		&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.BuyerProfileID,
-		&order.Status, &order.TotalItems, &order.Notes, &order.CreatedBy,
+		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&order.OrderNumber,
-		&order.DeliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&order.DeliveryContactName, &order.DeliveryPhone, &order.DeliveryAddress, &order.DeliveryNotes, &order.PointsFinalized,
+		&nf.orderNumber,
+		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("order not found")
-	}
 	if err != nil {
-		return nil, err
+		return nil, scanOrderErr(err)
 	}
+	nf.applyTo(order)
 	return order, nil
 }
 
@@ -518,11 +570,12 @@ func (r *OrderRepository) GetHistoryWithActor(orderID uuid.UUID) ([]map[string]i
 	var history []map[string]interface{}
 	for rows.Next() {
 		var id, oid uuid.UUID
-		var status, notes, actorType string
+		var status, actorType string
+		var notes sql.NullString
 		var changedBy *uuid.UUID
 		var createdAt time.Time
 		if err := rows.Scan(&id, &oid, &status, &changedBy, &notes, &createdAt, &actorType); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("order repository: scan history with actor: %w", err)
 		}
 		entry := map[string]interface{}{
 			"id":         id,
@@ -530,7 +583,7 @@ func (r *OrderRepository) GetHistoryWithActor(orderID uuid.UUID) ([]map[string]i
 			"status":     status,
 			"changed_by": changedBy,
 			"actor_type": actorType,
-			"notes":      notes,
+			"notes":      notes.String,
 			"created_at": createdAt,
 		}
 		history = append(history, entry)

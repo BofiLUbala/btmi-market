@@ -25,7 +25,7 @@ export default function PromotionVisibilityPage() {
 
   const totalPages = Math.ceil(total / limit)
 
-  const statusColor = (visible: boolean) => visible
+  const statusColor = (active: boolean) => active
     ? { bg: '#064e3b', fg: '#a7f3d0' }
     : { bg: '#7f1d1d', fg: '#fca5a5' }
 
@@ -33,7 +33,7 @@ export default function PromotionVisibilityPage() {
     <div>
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Promotion Visibility</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Inspect promotion visibility and flags across the marketplace.</p>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Inspect promotion visibility, discount badges, and active pricing across the marketplace.</p>
       </div>
 
       {loading ? (
@@ -45,37 +45,46 @@ export default function PromotionVisibilityPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Promotion', 'Type', 'Business', 'Shop', 'Discount', 'Visible', 'Start', 'End', 'Status'].map(h => (
+                {['Product', 'Shop', 'Discount', 'Prices (Sale / Reg)', 'Badge', 'Visibility', 'Start', 'End', 'Status'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {promotions.map((p, idx) => {
-                const vc = statusColor(p.is_visible)
+              {promotions.map((p) => {
+                const vc = statusColor(p.is_active)
                 return (
-                  <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
-                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{p.promotion_name}</td>
+                  <tr key={p.product_id} style={{ borderBottom: '1px solid #1e293b' }}>
+                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{p.product_name}</td>
+                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{p.shop_name || 'All Shops'}</td>
                     <td style={{ padding: '10px 12px' }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: '#1e293b', color: '#94a3b8' }}>
-                        {p.promotion_type}
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: '#1e293b', color: '#93c5fd' }}>
+                        {p.discount_type === 'PERCENTAGE' ? `${p.discount_value}% OFF` : `$${p.discount_value.toFixed(2)} OFF`}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{p.business_name || '-'}</td>
-                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{p.shop_name || 'All Shops'}</td>
-                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 700 }}>
-                      {p.discount_type === 'PERCENTAGE' ? `${p.discount_value}%` : `$${p.discount_value.toFixed(2)}`}
+                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>
+                      <span style={{ color: '#34d399' }}>${p.sale_price.toFixed(2)}</span>
+                      <span style={{ color: '#64748b', fontSize: 11, textDecoration: 'line-through', marginLeft: 6 }}>${p.regular_price.toFixed(2)}</span>
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                        backgroundColor: p.off_badge ? '#1e3a5f' : '#1e293b',
+                        color: p.off_badge ? '#60a5fa' : '#64748b'
+                      }}>
+                        {p.off_badge ? 'BADGE' : 'NONE'}
+                      </span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: vc.bg, color: vc.fg }}>
-                        {p.is_visible ? 'VISIBLE' : 'HIDDEN'}
+                        {p.is_active ? 'ACTIVE' : 'INACTIVE'}
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {new Date(p.start_date).toLocaleDateString()}
+                      {p.start_date ? new Date(p.start_date).toLocaleDateString() : 'Immediate'}
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {new Date(p.end_date).toLocaleDateString()}
+                      {p.end_date ? new Date(p.end_date).toLocaleDateString() : 'Ongoing'}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{

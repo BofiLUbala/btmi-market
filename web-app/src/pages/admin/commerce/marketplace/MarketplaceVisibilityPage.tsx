@@ -10,11 +10,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 14, color: '#f8fafc' }}>{value || '-'}</div>
+      <div style={{ fontSize: 14, color: color || '#f8fafc' }}>{value != null ? value : '-'}</div>
     </div>
   )
 }
@@ -129,14 +129,15 @@ export default function MarketplaceVisibilityPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 12 }}>
             <Field label="Product Status" value={visibility.product_status} />
             <Field label="Publication" value={visibility.publication_status} />
-            <Field label="Shop Visible" value={visibility.shop_visible ? 'Yes' : 'No'} />
-            <Field label="Business Active" value={visibility.business_active ? 'Yes' : 'No'} />
+            <Field label="Shop Status" value={visibility.shop_status} />
+            <Field label="Business Status" value={visibility.business_status} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
-            <Field label="Total Stock" value={visibility.total_stock ?? 'N/A'} />
-            <Field label="Quality Score" value={visibility.quality_score != null ? `${visibility.quality_score.toFixed(1)}%` : 'N/A'} />
-            <Field label="Last Checked" value={visibility.checked_at ? new Date(visibility.checked_at).toLocaleString() : 'N/A'} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 8 }}>
+            <Field label="Stock Available" value={visibility.stock_available} color={visibility.stock_available > 0 ? '#34d399' : '#ef4444'} />
+            <Field label="Shop Offer Status" value={visibility.shop_offer_status || 'ACTIVE'} />
+            <Field label="Policy Status" value={visibility.policy_status || 'PASS'} />
+            <Field label="Moderation Status" value={visibility.moderation_status || 'APPROVED'} />
           </div>
         </div>
       )}
@@ -145,17 +146,18 @@ export default function MarketplaceVisibilityPage() {
       {shopControl && (
         <Section title="Shop Page Control">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 24 }}>{shopControl.page_enabled ? '🏪' : '🔒'}</span>
+            <span style={{ fontSize: 24 }}>{shopControl.marketplace_visibility ? '🏪' : '🔒'}</span>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Shop {shopControl.shop_id}</div>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>Page is {shopControl.page_enabled ? 'ENABLED' : 'DISABLED'}</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{shopControl.shop_name} ({shopControl.business_name})</div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>Marketplace visibility is {shopControl.marketplace_visibility ? 'ENABLED' : 'DISABLED'} • Status: {shopControl.status}</div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-            <Field label="Can Receive Orders" value={shopControl.can_receive_orders ? 'Yes' : 'No'} />
-            <Field label="Can Be Searched" value={shopControl.is_searchable ? 'Yes' : 'No'} />
-            <Field label="Admin Notes" value={shopControl.admin_notes || 'None'} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <Field label="Products (Pub / Total)" value={`${shopControl.published_products} / ${shopControl.product_count}`} />
+            <Field label="Rating" value={`★ ${shopControl.rating.toFixed(1)} (${shopControl.review_count})`} color="#fbbf24" />
+            <Field label="Location" value={shopControl.location || 'Not set'} />
+            <Field label="Active Categories" value={shopControl.active_categories?.join(', ') || 'None'} />
           </div>
         </Section>
       )}

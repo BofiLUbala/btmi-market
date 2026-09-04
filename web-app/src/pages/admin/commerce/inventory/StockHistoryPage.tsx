@@ -93,23 +93,26 @@ export default function StockHistoryPage() {
               </tr>
             </thead>
             <tbody>
-              {movements.map((m, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString()}</td>
-                  <td style={{ padding: '10px 12px' }}>{typeColor(m.movement_type)}</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.shop_id}</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.variant_id}</td>
-                  <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 11 }}>{m.sku || '-'}</td>
-                  <td style={{ padding: '10px 12px', color: '#94a3b8', fontWeight: 600 }}>{m.previous_quantity}</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{m.new_quantity}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: m.delta > 0 ? '#34d399' : '#ef4444' }}>
-                    {m.delta > 0 ? '+' : ''}{m.delta}
-                  </td>
-                  <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.reason || ''}>
-                    {m.reason || '-'}
-                  </td>
-                </tr>
-              ))}
+              {movements.map((m, idx) => {
+                const delta = m.new_quantity - m.previous_quantity
+                return (
+                  <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
+                    <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString()}</td>
+                    <td style={{ padding: '10px 12px' }}>{typeColor(m.movement_type)}</td>
+                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.shop_name || m.shop_id}</td>
+                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.variant_name || m.product_name}</td>
+                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 11 }}>{m.variant_sku || '-'}</td>
+                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontWeight: 600 }}>{m.previous_quantity}</td>
+                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{m.new_quantity}</td>
+                    <td style={{ padding: '10px 12px', fontWeight: 700, color: delta > 0 ? '#34d399' : delta < 0 ? '#ef4444' : '#94a3b8' }}>
+                      {delta > 0 ? '+' : ''}{delta}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.notes || ''}>
+                      {m.notes || '-'}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

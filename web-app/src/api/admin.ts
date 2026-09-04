@@ -294,9 +294,11 @@ export interface AdminProductCardQuality {
   has_regular_price: boolean
   regular_price: number
   has_off_badge: boolean
+  discount_type?: string
+  discount_value?: number
   discount_percent: number
   shop_name: string
-  availability: number
+  availability: string
   rating: number
   review_count: number
   issues: string[]
@@ -450,6 +452,15 @@ export interface AdminOrderDetail {
     notes: string
     created_at: string
   }>
+  payment?: {
+    id: string
+    payment_method: string
+    products_final_total: number
+    delivery_fee_final: number
+    cash_due: number
+    buyer_confirmed: boolean
+    seller_confirmed: boolean
+  }
 }
 
 export interface AdminEmployeeItem {
@@ -460,7 +471,8 @@ export interface AdminEmployeeItem {
   first_name: string
   last_name: string
   email: string
-  role: string
+  job_title: string
+  role?: string
   status: string
   shops: string[]
   created_at: string

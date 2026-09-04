@@ -109,21 +109,21 @@ export default function OrderListPage() {
                       {o.order_number}
                     </Link>
                   </td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{o.customer_name}</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{o.buyer_name || 'N/A'}</td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{o.shop_name}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{o.business_name}</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{o.item_count}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f8fafc' }}>${o.total.toFixed(2)}</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{o.total_items}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f8fafc' }}>${o.final_total.toFixed(2)}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <StatusBadge status={o.payment_status} />
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 6px', borderRadius: 4, backgroundColor: '#1e293b', color: '#94a3b8' }}>
-                      {o.delivery_method}
+                      {o.delivery_method || 'N/A'}
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <StatusBadge status={o.fulfillment_status} />
+                    <StatusBadge status={o.status} />
                   </td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
                     {new Date(o.created_at).toLocaleDateString()}

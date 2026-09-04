@@ -103,11 +103,11 @@ export default function EmployeeManagementPage() {
               {employees.map(emp => (
                 <tr key={emp.id} style={{ borderBottom: '1px solid #1e293b', opacity: emp.status === 'REVOKED' ? 0.5 : 1 }}>
                   <td style={{ padding: '10px 12px' }}>
-                    <div style={{ color: '#f8fafc', fontWeight: 600 }}>{emp.name}</div>
+                    <div style={{ color: '#f8fafc', fontWeight: 600 }}>{`${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.email}</div>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{emp.email}</td>
-                  <td style={{ padding: '10px 12px' }}><RoleBadge role={emp.role} /></td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{emp.shop_name || '-'}</td>
+                  <td style={{ padding: '10px 12px' }}><RoleBadge role={emp.job_title || 'EMPLOYEE'} /></td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{emp.shops?.join(', ') || 'All Shops'}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{emp.business_name || '-'}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
@@ -117,7 +117,7 @@ export default function EmployeeManagementPage() {
                     }}>{emp.status}</span>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11 }}>
-                    {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : '-'}
+                    {emp.created_at ? new Date(emp.created_at).toLocaleDateString() : '-'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     {emp.status === 'ACTIVE' && (

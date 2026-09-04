@@ -48,7 +48,7 @@ export default function SellerPerformancePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Seller', 'Business', 'Total Orders', 'Fulfillment Rate', 'Avg Delivery', 'Return Rate', 'Health Score', 'Products', 'Revenue'].map(h => (
+                {['Seller', 'Business', 'Orders Received', 'Acceptance Rate', 'Completion Rate', 'Avg Prep Time', 'Cancellations', 'Review Score', 'Stock Accuracy'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -56,24 +56,24 @@ export default function SellerPerformancePage() {
             <tbody>
               {performance.map(s => (
                 <tr key={s.seller_id} style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{s.seller_name}</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{s.seller_name || 'N/A'}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{s.business_name}</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.total_orders}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: s.fulfillment_rate >= 90 ? '#34d399' : '#fbbf24' }}>
-                    {s.fulfillment_rate.toFixed(1)}%
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.orders_received}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 700, color: s.acceptance_rate >= 90 ? '#34d399' : '#fbbf24' }}>
+                    {s.acceptance_rate?.toFixed(1) ?? '0.0'}%
                   </td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.avg_delivery_days?.toFixed(1) ?? '-'} days</td>
-                  <td style={{ padding: '10px 12px', color: s.return_rate > 5 ? '#ef4444' : '#34d399' }}>{s.return_rate.toFixed(1)}%</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.completion_rate?.toFixed(1) ?? '0.0'}%</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.avg_preparation_time_hours?.toFixed(1) ?? '-'} hrs</td>
+                  <td style={{ padding: '10px 12px', color: s.cancellations > 0 ? '#ef4444' : '#34d399' }}>{s.cancellations}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ width: 60, height: 6, borderRadius: 3, backgroundColor: '#1e293b', overflow: 'hidden' }}>
-                        <div style={{ width: `${s.health_score}%`, height: '100%', backgroundColor: scoreColor(s.health_score), borderRadius: 3 }} />
+                        <div style={{ width: `${Math.min(100, s.review_score * 20)}%`, height: '100%', backgroundColor: scoreColor(s.review_score * 20), borderRadius: 3 }} />
                       </div>
-                      <span style={{ fontWeight: 700, color: scoreColor(s.health_score), fontSize: 12 }}>{s.health_score.toFixed(0)}</span>
+                      <span style={{ fontWeight: 700, color: scoreColor(s.review_score * 20), fontSize: 12 }}>{s.review_score?.toFixed(1) ?? '-'}</span>
                     </div>
                   </td>
-                  <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{s.total_products}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f8fafc' }}>${s.total_revenue?.toFixed(2) ?? '-'}</td>
+                  <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{s.stock_accuracy_score?.toFixed(1) ?? '-'}%</td>
                 </tr>
               ))}
             </tbody>

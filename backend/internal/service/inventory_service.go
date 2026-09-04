@@ -879,6 +879,30 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 		}
 	}
 
+	if req.DiscountActive {
+		discountType := strings.ToUpper(strings.TrimSpace(req.DiscountType))
+		switch discountType {
+		case "PERCENTAGE":
+			if req.DiscountValue <= 0 || req.DiscountValue > 100 {
+				return nil, errors.New("INVALID_DISCOUNT_VALUE")
+			}
+		case "FIXED":
+			if req.DiscountValue <= 0 || req.DiscountValue >= req.UnitPrice {
+				return nil, errors.New("INVALID_DISCOUNT_VALUE")
+			}
+		default:
+			return nil, errors.New("INVALID_DISCOUNT_TYPE")
+		}
+		if req.DiscountStart != nil && req.DiscountEnd != nil && !req.DiscountEnd.After(*req.DiscountStart) {
+			return nil, errors.New("INVALID_DISCOUNT_WINDOW")
+		}
+		product.DiscountActive = true
+		product.DiscountType = discountType
+		product.DiscountValue = req.DiscountValue
+		product.DiscountStart = req.DiscountStart
+		product.DiscountEnd = req.DiscountEnd
+	}
+
 	if err := s.productRepo.Create(product); err != nil {
 		return nil, err
 	}
@@ -1076,6 +1100,70 @@ func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID
 	}
 	if req.Unit != nil {
 		product.Unit = *req.Unit
+	}
+
+	// Discount fields: validate using the same PERCENTAGE/FIXED bounds the read
+	// side already enforces when deciding whether a discount is "effective"
+	// (see admin_commerce_repository.go's EffectivePrice computation and
+	// models.Promotion), so the write path can never persist a discount the
+	// marketplace/order pricing logic would treat as bogus.
+	effUnitPrice := product.UnitPrice
+	if req.UnitPrice != nil {
+		effUnitPrice = *req.UnitPrice
+	}
+	effActive := product.DiscountActive
+	if req.DiscountActive != nil {
+		effActive = *req.DiscountActive
+	}
+	effType := product.DiscountType
+	if req.DiscountType != nil {
+		effType = strings.ToUpper(*req.DiscountType)
+	}
+	effValue := product.DiscountValue
+	if req.DiscountValue != nil {
+		effValue = *req.DiscountValue
+	}
+	effStart := product.DiscountStart
+	if req.DiscountStart != nil {
+		effStart = req.DiscountStart
+	}
+	effEnd := product.DiscountEnd
+	if req.DiscountEnd != nil {
+		effEnd = req.DiscountEnd
+	}
+
+	if effActive {
+		switch effType {
+		case "PERCENTAGE":
+			if effValue <= 0 || effValue > 100 {
+				return nil, errors.New("INVALID_DISCOUNT_VALUE")
+			}
+		case "FIXED":
+			if effValue <= 0 || effValue >= effUnitPrice {
+				return nil, errors.New("INVALID_DISCOUNT_VALUE")
+			}
+		default:
+			return nil, errors.New("INVALID_DISCOUNT_TYPE")
+		}
+		if effStart != nil && effEnd != nil && !effEnd.After(*effStart) {
+			return nil, errors.New("INVALID_DISCOUNT_WINDOW")
+		}
+	}
+
+	if req.DiscountActive != nil {
+		product.DiscountActive = *req.DiscountActive
+	}
+	if req.DiscountType != nil {
+		product.DiscountType = strings.ToUpper(*req.DiscountType)
+	}
+	if req.DiscountValue != nil {
+		product.DiscountValue = *req.DiscountValue
+	}
+	if req.DiscountStart != nil {
+		product.DiscountStart = req.DiscountStart
+	}
+	if req.DiscountEnd != nil {
+		product.DiscountEnd = req.DiscountEnd
 	}
 
 	if err := s.productRepo.Update(product); err != nil {

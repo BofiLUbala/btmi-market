@@ -36,7 +36,7 @@ export default function ShopPerformancePage() {
     <div>
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Shop Performance</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Cross-business shop performance, revenue, and fulfillment metrics.</p>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Cross-business shop performance, order completion, cash confirmation, and fulfillment metrics.</p>
       </div>
 
       {loading ? (
@@ -48,7 +48,7 @@ export default function ShopPerformancePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Shop', 'Business', 'Orders', 'Revenue', 'Avg Order', 'Fulfillment', 'Return Rate', 'Products', 'Health'].map(h => (
+                {['Shop', 'Business', 'Orders (Done / Total)', 'Cancellations', 'Products', 'Stock Health', 'Rating', 'Cash Confirm', 'Fulfillment Time'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -58,21 +58,29 @@ export default function ShopPerformancePage() {
                 <tr key={s.shop_id} style={{ borderBottom: '1px solid #1e293b' }}>
                   <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{s.shop_name}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{s.business_name}</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.total_orders}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f8fafc' }}>${s.total_revenue?.toFixed(2) ?? '-'}</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>${s.avg_order_value?.toFixed(2) ?? '-'}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: s.fulfillment_rate >= 90 ? '#34d399' : '#fbbf24' }}>
-                    {s.fulfillment_rate?.toFixed(1) ?? '-'}%
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>
+                    <span style={{ color: '#34d399', fontWeight: 600 }}>{s.completed_orders}</span>
+                    <span style={{ color: '#64748b', margin: '0 4px' }}>/</span>
+                    <span style={{ color: '#f8fafc' }}>{s.orders}</span>
                   </td>
-                  <td style={{ padding: '10px 12px', color: s.return_rate > 5 ? '#ef4444' : '#34d399' }}>{s.return_rate?.toFixed(1) ?? '-'}%</td>
-                  <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{s.total_products}</td>
+                  <td style={{ padding: '10px 12px', color: s.cancellations > 0 ? '#fca5a5' : '#64748b' }}>{s.cancellations}</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.products}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ width: 60, height: 6, borderRadius: 3, backgroundColor: '#1e293b', overflow: 'hidden' }}>
-                        <div style={{ width: `${s.health_score}%`, height: '100%', backgroundColor: scoreColor(s.health_score), borderRadius: 3 }} />
+                        <div style={{ width: `${Math.min(100, Math.max(0, s.stock_availability_score))}%`, height: '100%', backgroundColor: scoreColor(s.stock_availability_score), borderRadius: 3 }} />
                       </div>
-                      <span style={{ fontWeight: 700, color: scoreColor(s.health_score), fontSize: 12 }}>{s.health_score?.toFixed(0) ?? '-'}</span>
+                      <span style={{ fontWeight: 700, color: scoreColor(s.stock_availability_score), fontSize: 12 }}>{s.stock_availability_score?.toFixed(0) ?? '0'}%</span>
                     </div>
+                  </td>
+                  <td style={{ padding: '10px 12px', color: '#fbbf24', fontWeight: 600 }}>
+                    ★ {s.review_score ? s.review_score.toFixed(1) : '5.0'}
+                  </td>
+                  <td style={{ padding: '10px 12px', color: '#34d399', fontWeight: 600 }}>
+                    {s.cash_confirmation_rate?.toFixed(0) ?? '100'}%
+                  </td>
+                  <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>
+                    {s.avg_fulfillment_time_hours ? `${s.avg_fulfillment_time_hours.toFixed(1)}h` : '-'}
                   </td>
                 </tr>
               ))}

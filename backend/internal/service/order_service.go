@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,6 +13,21 @@ import (
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
 )
+
+// mapOrderNotFoundErr distinguishes a genuine "order does not exist" condition
+// (sql.ErrNoRows / repository.ErrOrderNotFound) from any other repository error
+// (e.g. a scan failure on a NULL column, a connection error). Only the former
+// should ever surface to callers as ORDER_NOT_FOUND / HTTP 404 — anything else
+// is a real internal error and must be reported as such.
+func mapOrderNotFoundErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, repository.ErrOrderNotFound) {
+		return errors.New("ORDER_NOT_FOUND")
+	}
+	return fmt.Errorf("order lookup failed: %w", err)
+}
 
 type OrderService struct {
 	orderRepo          *repository.OrderRepository
@@ -196,11 +212,12 @@ func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus mode
 
 	// Lock the order row.
 	var currentStatus models.OrderStatus
-	var deliveryMethod string
-	err = tx.QueryRow("SELECT status, delivery_method FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethod)
+	var deliveryMethodNS sql.NullString
+	err = tx.QueryRow("SELECT status, delivery_method FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethodNS)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
+	deliveryMethod := deliveryMethodNS.String
 
 	if !canTransition(currentStatus, newStatus, deliveryMethod) {
 		return nil, fmt.Errorf("INVALID_TRANSITION: %s → %s not allowed for %s", currentStatus, newStatus, deliveryMethod)
@@ -257,7 +274,7 @@ func (s *OrderService) TransitionOrderNoAuth(orderID uuid.UUID, newStatus models
 func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*models.TrackingResponse, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if order.BuyerProfileID == nil || *order.BuyerProfileID != buyerProfileID {
@@ -329,7 +346,7 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 func (s *OrderService) CompleteIfReceivedAndPaid(orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 	if order.Status == models.OrderStatusCompleted {
 		return order, nil
@@ -732,7 +749,7 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 func (s *OrderService) getBuyerOrder(buyerProfileID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 	if order.BuyerProfileID == nil || *order.BuyerProfileID != buyerProfileID {
 		return nil, errors.New("FORBIDDEN")
@@ -953,7 +970,7 @@ func (s *OrderService) GetOrderRaw(orderID uuid.UUID) (*models.Order, error) {
 func (s *OrderService) GetOrderByID(userID, orderID uuid.UUID) (*models.OrderWithLinesResponse, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if err := s.RequireShopAccess(userID, order.ShopID); err != nil {
@@ -1040,7 +1057,7 @@ func (s *OrderService) ListBuyerOrders(buyerProfileID uuid.UUID) ([]*models.Orde
 func (s *OrderService) GetBuyerOrderByID(buyerProfileID, orderID uuid.UUID) (*models.OrderWithLinesResponse, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if order.BuyerProfileID == nil || *order.BuyerProfileID != buyerProfileID {
@@ -1113,7 +1130,7 @@ func (s *OrderService) GetBuyerOrderByID(buyerProfileID, orderID uuid.UUID) (*mo
 func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if order.Status != models.OrderStatusPending {
@@ -1151,7 +1168,7 @@ func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, er
 func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if order.Status != models.OrderStatusPending {
@@ -1226,7 +1243,7 @@ func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, er
 func (s *OrderService) PrepareOrder(userID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if order.Status != models.OrderStatusAccepted {
@@ -1264,7 +1281,7 @@ func (s *OrderService) PrepareOrder(userID, orderID uuid.UUID) (*models.Order, e
 func (s *OrderService) CompleteOrder(userID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if order.Status != models.OrderStatusPreparing {
@@ -1419,7 +1436,7 @@ func (s *OrderService) createCashPaymentFromOrder(order *models.Order, lines []*
 func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 
 	if order.Status != models.OrderStatusPending && order.Status != models.OrderStatusAccepted {

@@ -648,9 +648,19 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 	}
 
 	// Lines
+	// order_lines has no product_name column of its own (previously this query
+	// selected `product_name` directly from order_lines, which does not exist
+	// there, so the query always failed silently - err was swallowed by the
+	// `if err == nil` guard below - and detail.Lines came back nil/null for
+	// every order, crashing the admin order-detail page). Join products for
+	// the display name instead, matching order_repository.go's GetLinesByOrderID.
 	lineRows, err := r.db.Query(`
-		SELECT id, order_id, product_id, variant_id, quantity, unit_price, base_unit_price, points_discount_per_unit, final_unit_price, created_at, product_name
-		FROM order_lines WHERE order_id = $1 ORDER BY created_at ASC
+		SELECT ol.id, ol.order_id, ol.product_id, ol.variant_id, ol.quantity, ol.unit_price,
+		       ol.base_unit_price, ol.points_discount_per_unit, ol.final_unit_price, ol.created_at,
+		       COALESCE(p.name, '')
+		FROM order_lines ol
+		LEFT JOIN products p ON p.id = ol.product_id
+		WHERE ol.order_id = $1 ORDER BY ol.created_at ASC
 	`, id)
 	if err == nil {
 		defer lineRows.Close()

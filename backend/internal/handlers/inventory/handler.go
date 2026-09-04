@@ -413,6 +413,11 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
+		case "INVALID_CATEGORY_ID", "CATEGORY_NOT_FOUND", "CATEGORY_INACTIVE",
+			"INVALID_SUBCATEGORY_ID", "SUBCATEGORY_NOT_FOUND", "INVALID_SUBCATEGORY",
+			"INVALID_DISCOUNT_VALUE", "INVALID_DISCOUNT_TYPE", "INVALID_DISCOUNT_WINDOW":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
 		}
 
 		h.errResponse(c, statusCode, errorCode, err.Error())
@@ -434,6 +439,11 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 			PublicationStatus: product.PublicationStatus,
 			CategoryID:        product.CategoryID,
 			SubcategoryID:     product.SubcategoryID,
+			DiscountActive:    product.DiscountActive,
+			DiscountType:      product.DiscountType,
+			DiscountValue:     product.DiscountValue,
+			DiscountStart:     product.DiscountStart,
+			DiscountEnd:       product.DiscountEnd,
 			CreatedAt:         product.CreatedAt,
 			UpdatedAt:         product.UpdatedAt,
 		},
@@ -477,7 +487,8 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 			statusCode = http.StatusNotFound
 			errorCode = "PRODUCT_NOT_FOUND"
 		case "INVALID_CATEGORY_ID", "CATEGORY_NOT_FOUND", "CATEGORY_INACTIVE",
-			"INVALID_SUBCATEGORY_ID", "SUBCATEGORY_NOT_FOUND", "INVALID_SUBCATEGORY":
+			"INVALID_SUBCATEGORY_ID", "SUBCATEGORY_NOT_FOUND", "INVALID_SUBCATEGORY",
+			"INVALID_DISCOUNT_VALUE", "INVALID_DISCOUNT_TYPE", "INVALID_DISCOUNT_WINDOW":
 			statusCode = http.StatusBadRequest
 			errorCode = err.Error()
 		}
@@ -508,6 +519,11 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 			PublicationStatus: product.PublicationStatus,
 			CategoryID:        product.CategoryID,
 			SubcategoryID:     product.SubcategoryID,
+			DiscountActive:    product.DiscountActive,
+			DiscountType:      product.DiscountType,
+			DiscountValue:     product.DiscountValue,
+			DiscountStart:     product.DiscountStart,
+			DiscountEnd:       product.DiscountEnd,
 			CreatedAt:         product.CreatedAt,
 			UpdatedAt:         product.UpdatedAt,
 		},
@@ -585,6 +601,11 @@ func (h *Handler) GetProduct(c *gin.Context) {
 			PublicationStatus: product.PublicationStatus,
 			CategoryID:        product.CategoryID,
 			SubcategoryID:     product.SubcategoryID,
+			DiscountActive:    product.DiscountActive,
+			DiscountType:      product.DiscountType,
+			DiscountValue:     product.DiscountValue,
+			DiscountStart:     product.DiscountStart,
+			DiscountEnd:       product.DiscountEnd,
 			CreatedAt:         product.CreatedAt,
 			UpdatedAt:         product.UpdatedAt,
 		},

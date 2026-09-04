@@ -106,7 +106,7 @@ func (s *PaymentService) requireShopAccess(userID, shopID uuid.UUID) error {
 func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*models.BuyerPaymentResponse, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 	if order.BuyerProfileID == nil || *order.BuyerProfileID != buyerProfileID {
 		return nil, errors.New("FORBIDDEN")
@@ -165,7 +165,7 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*mode
 func (s *PaymentService) GetPaymentByOrder(buyerProfileID, orderID uuid.UUID) (*models.BuyerPaymentResponse, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("ORDER_NOT_FOUND")
+		return nil, mapOrderNotFoundErr(err)
 	}
 	if order.BuyerProfileID == nil || *order.BuyerProfileID != buyerProfileID {
 		return nil, errors.New("FORBIDDEN")
@@ -303,7 +303,7 @@ func (s *PaymentService) ProcessVerifiedPayment(paymentID uuid.UUID) error {
 
 	order, err := s.orderRepo.GetByID(payment.OrderID)
 	if err != nil {
-		return errors.New("ORDER_NOT_FOUND")
+		return mapOrderNotFoundErr(err)
 	}
 
 	if order.PointsFinalized {
