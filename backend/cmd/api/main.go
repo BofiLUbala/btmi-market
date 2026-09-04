@@ -87,9 +87,6 @@ func main() {
 	passwordResetRepo := repository.NewPasswordResetTokenRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
-	if err := adminRepo.EnsureDefaultSuperAdmin(); err != nil {
-		log.Printf("Notice: ensure default super admin: %v", err)
-	}
 
 	redisClient := redislib.NewClient(cfg)
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{

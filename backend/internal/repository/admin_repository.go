@@ -4,13 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type AdminRepository struct {
@@ -163,38 +161,43 @@ func (r *AdminRepository) RevokeAllRefreshTokensForAdmin(adminID uuid.UUID) erro
 	return err
 }
 
-// EnsureDefaultSuperAdmin bootstraps the initial super administrator if none exists.
-func (r *AdminRepository) EnsureDefaultSuperAdmin() error {
+// CountSuperAdmins returns the number of accounts with SUPER_ADMIN role.
+func (r *AdminRepository) CountSuperAdmins() (int, error) {
 	var count int
 	err := r.db.QueryRow(`SELECT COUNT(*) FROM admin_users WHERE role = $1`, models.AdminRoleSuperAdmin).Scan(&count)
 	if err != nil {
-		return fmt.Errorf("failed to count super admins: %w", err)
+		return 0, fmt.Errorf("failed to count super admins: %w", err)
 	}
+	return count, nil
+}
 
-	if count > 0 {
-		return nil
-	}
-
-	defaultPassword := "Admin@TBK2025!"
-	hash, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
+// CountActiveSuperAdmins returns the number of active accounts with SUPER_ADMIN role.
+func (r *AdminRepository) CountActiveSuperAdmins() (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM admin_users WHERE role = $1 AND status = $2`, models.AdminRoleSuperAdmin, models.AdminStatusActive).Scan(&count)
 	if err != nil {
-		return fmt.Errorf("failed to hash default admin password: %w", err)
+		return 0, fmt.Errorf("failed to count active super admins: %w", err)
 	}
+	return count, nil
+}
 
-	superAdmin := &models.AdminUser{
-		FirstName:    "Direction",
-		LastName:     "SuperAdmin",
-		Email:        "admin@tbkmarket.com",
-		PasswordHash: string(hash),
-		Role:         models.AdminRoleSuperAdmin,
-		Status:       models.AdminStatusActive,
-		MFAEnabled:   false,
+// ValidateSuperAdminProtection ensures that the invariant "at least one ACTIVE SUPER_ADMIN remains" is respected.
+func (r *AdminRepository) ValidateSuperAdminProtection(targetAdminID uuid.UUID, newRole models.AdminRole, newStatus models.AdminStatus) error {
+	admin, err := r.GetByID(targetAdminID)
+	if err != nil {
+		return err
 	}
-
-	if err := r.Create(superAdmin); err != nil {
-		return fmt.Errorf("failed to create default super admin: %w", err)
+	if admin.Role == models.AdminRoleSuperAdmin && admin.Status == models.AdminStatusActive {
+		// If changing role away from SUPER_ADMIN or changing status away from ACTIVE:
+		if newRole != models.AdminRoleSuperAdmin || newStatus != models.AdminStatusActive {
+			activeCount, err := r.CountActiveSuperAdmins()
+			if err != nil {
+				return err
+			}
+			if activeCount <= 1 {
+				return errors.New("cannot modify, downgrade, or deactivate the last remaining active SUPER_ADMIN")
+			}
+		}
 	}
-
-	log.Printf("Bootstrap: created initial Super Admin (%s)", superAdmin.Email)
 	return nil
 }

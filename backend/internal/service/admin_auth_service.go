@@ -123,6 +123,26 @@ func (s *AdminAuthService) ValidateAccessToken(tokenStr string) (*models.AdminCl
 	return claims, nil
 }
 
+// GenerateAccessTokenOnly creates a signed Admin access token for the given admin user without DB operations.
+func (s *AdminAuthService) GenerateAccessTokenOnly(admin *models.AdminUser) (string, error) {
+	expiresIn := 3600 // 1 hour
+	claims := &models.AdminClaims{
+		AdminID: admin.ID,
+		Email:   admin.Email,
+		Role:    admin.Role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   admin.ID.String(),
+			Issuer:    "tbk-market-admin",
+			Audience:  jwt.ClaimStrings{"admin"},
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expiresIn) * time.Second)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.config.JWTSecret))
+}
+
 func (s *AdminAuthService) generateTokenPair(admin *models.AdminUser, ipAddress, userAgent string) (*models.AdminLoginResponse, error) {
 	expiresIn := 3600 // 1 hour for admin sessions
 	claims := &models.AdminClaims{

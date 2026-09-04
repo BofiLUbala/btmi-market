@@ -11,6 +11,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/api
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/worker ./cmd/worker
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/create-superadmin ./cmd/create-superadmin
 
 FROM alpine:3.19
 
@@ -20,6 +21,7 @@ WORKDIR /app
 
 COPY --from=builder /app/server .
 COPY --from=builder /app/worker .
+COPY --from=builder /app/create-superadmin .
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/docs ./docs
 
