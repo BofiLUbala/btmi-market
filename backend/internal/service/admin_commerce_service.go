@@ -88,38 +88,6 @@ func (s *AdminCommerceService) UnpublishProduct(adminID uuid.UUID, adminRole mod
 	return nil
 }
 
-func (s *AdminCommerceService) PublishProduct(adminID uuid.UUID, adminRole models.AdminRole, productID uuid.UUID, reason, ip, userAgent string) error {
-	prod, err := s.commerceRepo.GetProductDetail(productID)
-	if err != nil {
-		return errors.New("PRODUCT_NOT_FOUND")
-	}
-	if prod.Product.PublicationStatus == models.PublicationStatusPublished {
-		return errors.New("PRODUCT_ALREADY_PUBLISHED")
-	}
-	if prod.Product.Status != models.ProductStatusActive {
-		return errors.New("PRODUCT_NOT_ACTIVE")
-	}
-	if prod.Product.CategoryID == nil || prod.Product.SubcategoryID == nil {
-		return errors.New("PRODUCT_TAXONOMY_REQUIRED")
-	}
-	if len(prod.Variants) == 0 {
-		return errors.New("PRODUCT_VARIANT_REQUIRED")
-	}
-
-	oldPub := prod.Product.PublicationStatus
-	if err := s.commerceRepo.UpdateProductPublication(productID, models.PublicationStatusPublished); err != nil {
-		return fmt.Errorf("failed to publish product: %w", err)
-	}
-	oldRaw := json.RawMessage(fmt.Sprintf(`{"publication_status":"%s"}`, oldPub))
-	newRaw := json.RawMessage(fmt.Sprintf(`{"publication_status":"%s"}`, models.PublicationStatusPublished))
-	_ = s.auditRepo.Record(&models.AdminAuditLog{
-		ActorAdminID: adminID, ActorRole: adminRole, Action: "PRODUCT_PUBLISH",
-		TargetType: "PRODUCT", TargetID: productID.String(), Reason: reason,
-		OldValue: &oldRaw, NewValue: &newRaw, IPAddress: &ip, UserAgent: &userAgent,
-	})
-	return nil
-}
-
 func (s *AdminCommerceService) ArchiveProduct(adminID uuid.UUID, adminRole models.AdminRole, productID uuid.UUID, reason, ip, userAgent string) error {
 	prod, err := s.commerceRepo.GetProductDetail(productID)
 	if err != nil {

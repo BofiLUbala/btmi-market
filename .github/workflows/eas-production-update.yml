@@ -1,4 +1,4 @@
-name: EAS Production OTA Update
+name: TBK Production OTA Update
 
 on:
   push:

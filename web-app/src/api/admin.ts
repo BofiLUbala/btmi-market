@@ -607,6 +607,80 @@ export const adminAuthApi = {
   }
 }
 
+export interface AdminUserManagementItem {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  role: AdminRole
+  status: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED' | 'PENDING'
+  last_login_at?: string
+  created_at: string
+}
+
+export const adminUsersApi = {
+  list: async (params?: { role?: string; status?: string; search?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.role) q.set('role', params.role)
+    if (params?.status) q.set('status', params.status)
+    if (params?.search) q.set('search', params.search)
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    return adminApi<{ admins: AdminUserManagementItem[]; total: number; limit: number; offset: number }>(
+      `/admin/admin-users?${q.toString()}`
+    )
+  },
+  invite: async (payload: { first_name: string; last_name: string; email: string; role: AdminRole }) => {
+    return adminApi<AdminUserManagementItem>('/admin/admin-users/invite', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+  },
+  resendInvitation: async (id: string) => {
+    return adminApi<{ message: string }>(`/admin/admin-users/${id}/resend-invitation`, { method: 'POST' })
+  },
+  suspend: async (id: string, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/admin-users/${id}/suspend`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    })
+  },
+  reactivate: async (id: string, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/admin-users/${id}/reactivate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    })
+  },
+  forceLogout: async (id: string, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/admin-users/${id}/force-logout`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    })
+  },
+  changeRole: async (id: string, role: AdminRole, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/admin-users/${id}/change-role`, {
+      method: 'POST',
+      body: JSON.stringify({ role, reason })
+    })
+  }
+}
+
+export const adminInvitationApi = {
+  verify: async (token: string) => {
+    return adminApi<{ first_name: string; last_name: string; email: string; role: AdminRole }>(
+      `/admin/invitations/verify?token=${encodeURIComponent(token)}`,
+      {},
+      false
+    )
+  },
+  activate: async (payload: { token: string; password: string; password_confirmation: string }) => {
+    return adminApi<{ email: string; role: AdminRole }>('/admin/invitations/activate', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }, false)
+  }
+}
+
 export const adminDirectionApi = {
   getOverview: async () => {
     return adminApi<DirectionOverviewStats>('/admin/direction/overview')

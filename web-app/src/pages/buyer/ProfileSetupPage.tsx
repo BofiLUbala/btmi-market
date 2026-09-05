@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
@@ -8,10 +8,12 @@ import { ErrorBox } from '@/components/ui/Feedback'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
+import { safeInternalPath } from '@/lib/returnTo'
 
 function SetupInner() {
   const { t } = useI18n()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, refreshUser } = useAuth()
   const [form, setForm] = useState({
     first_name: user?.first_name ?? '',
@@ -33,7 +35,7 @@ function SetupInner() {
     try {
       await buyerApi.createProfile(form)
       await refreshUser()
-      navigate('/', { replace: true })
+      navigate(safeInternalPath(searchParams.get('returnTo'), '/account'), { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('account.createProfileFailed'))
     } finally {

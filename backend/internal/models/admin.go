@@ -23,7 +23,61 @@ const (
 	AdminStatusActive      AdminStatus = "ACTIVE"
 	AdminStatusSuspended   AdminStatus = "SUSPENDED"
 	AdminStatusDeactivated AdminStatus = "DEACTIVATED"
+	AdminStatusPending     AdminStatus = "PENDING"
 )
+
+type AdminInvitationStatus string
+
+const (
+	AdminInvitationStatusPending  AdminInvitationStatus = "PENDING"
+	AdminInvitationStatusAccepted AdminInvitationStatus = "ACCEPTED"
+	AdminInvitationStatusExpired  AdminInvitationStatus = "EXPIRED"
+	AdminInvitationStatusRevoked  AdminInvitationStatus = "REVOKED"
+)
+
+type AdminInvitation struct {
+	ID               uuid.UUID             `json:"id" db:"id"`
+	AdminID          uuid.UUID             `json:"admin_id" db:"admin_id"`
+	InvitedByAdminID uuid.UUID             `json:"invited_by_admin_id" db:"invited_by_admin_id"`
+	TokenHash        string                `json:"-" db:"token_hash"`
+	Status           AdminInvitationStatus `json:"status" db:"status"`
+	ExpiresAt        time.Time             `json:"expires_at" db:"expires_at"`
+	AcceptedAt       *time.Time            `json:"accepted_at,omitempty" db:"accepted_at"`
+	CreatedAt        time.Time             `json:"created_at" db:"created_at"`
+}
+
+type InviteAdminRequest struct {
+	FirstName string    `json:"first_name" binding:"required"`
+	LastName  string    `json:"last_name" binding:"required"`
+	Email     string    `json:"email" binding:"required,email"`
+	Role      AdminRole `json:"role" binding:"required"`
+}
+
+type ActivateAdminRequest struct {
+	Token           string `json:"token" binding:"required"`
+	Password        string `json:"password" binding:"required,min=8,max=64"`
+	PasswordConfirm string `json:"password_confirmation" binding:"required"`
+}
+
+type ChangeAdminRoleRequest struct {
+	Role   AdminRole `json:"role" binding:"required"`
+	Reason string    `json:"reason" binding:"required,min=5"`
+}
+
+type AdminActionRequest struct {
+	Reason string `json:"reason" binding:"required,min=5"`
+}
+
+type AdminUserListResponse struct {
+	ID          uuid.UUID   `json:"id"`
+	FirstName   string      `json:"first_name"`
+	LastName    string      `json:"last_name"`
+	Email       string      `json:"email"`
+	Role        AdminRole   `json:"role"`
+	Status      AdminStatus `json:"status"`
+	LastLoginAt *time.Time  `json:"last_login_at"`
+	CreatedAt   time.Time   `json:"created_at"`
+}
 
 type AdminUser struct {
 	ID          uuid.UUID   `json:"id" db:"id"`

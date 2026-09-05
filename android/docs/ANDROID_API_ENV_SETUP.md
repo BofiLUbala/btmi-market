@@ -127,7 +127,42 @@ The `preview` and `production` profiles have `"EXPO_PUBLIC_API_URL": ""` in `eas
 - Northflank URLs should not be hardcoded in source code
 - `FRONTEND_URL` (backend → web frontend) is a separate variable; do not reuse for Android
 
-## 10. Known Limitations
+## 10. Testing With a VPN Active on the Phone
+
+A VPN on the phone routes traffic away from the local network, so it can no
+longer reach the dev machine's LAN IP. This breaks both the Metro connection
+(Expo Go shows "Something went wrong") and, if you'd gotten past that, the
+`:8080` API guess in `developmentApiUrl()`. Both Metro and the backend need to
+be reachable over the public internet instead:
+
+```bash
+# Terminal 1 -- tunnel Metro (bundle + dev tools) via the ngrok already
+# bundled as a devDependency
+cd android
+npm run start:phone
+
+# Terminal 2 -- tunnel the backend API on :8080 the same way
+cd android
+npm run tunnel:api
+# ngrok prints a URL like https://abcd1234.ngrok-free.app
+```
+
+Then put the printed URL in `android/.env` (create it from `.env.example` if
+it doesn't exist yet):
+
+```
+EXPO_PUBLIC_API_URL=https://abcd1234.ngrok-free.app/api/v1
+```
+
+Restart `npm run start:phone` so the new env var is picked up, and reload the
+app. With this in place, both the dev bundle and the API calls go over the
+public internet, so an active VPN on the phone no longer matters.
+
+If `Constants.expoConfig.hostUri` resolves to a tunnel domain (not a bare LAN
+IP) and `EXPO_PUBLIC_API_URL` is still unset, `client.ts` now logs a warning
+explaining exactly this instead of silently guessing a broken `:8080` URL.
+
+## 11. Known Limitations
 
 - **`expo export` on Windows:** May fail with `spawn UNKNOWN` due to Metro/Hermes bytecode generation issues on Windows. This is a known Expo/Metro issue, not related to API configuration.
 - **Emulator fallback:** `10.0.2.2` only works inside the Android emulator. Physical devices must use LAN IP or `EXPO_PUBLIC_API_URL`.

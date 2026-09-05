@@ -205,7 +205,7 @@ export default function ProductScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 110 + insets.bottom }]}>
+      <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 145 + insets.bottom }]}>
         {image ? (
           <Image source={image} contentFit="contain" style={[styles.image, { height: Math.min(width, 470) }]} />
         ) : (
@@ -422,6 +422,12 @@ export default function ProductScreen() {
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={styles.purchaseSummary}>
+          <Text style={styles.purchaseLabel}>{t('common.quantity')} : {quantity}</Text>
+          <Text style={styles.purchaseTotal}>
+            {(price * quantity).toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
+          </Text>
+        </View>
         {/* Naming what is still missing beats a silently disabled button. */}
         {!optionsComplete && (
           <Text style={styles.selectHint}>
@@ -544,7 +550,16 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     borderTopColor: colors.border,
     padding: spacing.sm,
     gap: spacing.xs,
+    zIndex: 100,
+    elevation: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
   },
+  purchaseSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  purchaseLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  purchaseTotal: { color: colors.green, fontSize: 18, fontWeight: '900' },
   actionRow: { flexDirection: 'row', gap: spacing.sm },
   selectHint: { color: colors.gold, fontSize: 13, fontWeight: '800', textAlign: 'center' },
   actionButton: { flex: 1, paddingHorizontal: 8 },

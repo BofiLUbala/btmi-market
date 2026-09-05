@@ -11,7 +11,9 @@ import { Button } from '@/components/ui/Button'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { RequireAdminAuth, RequireAdminRole, AdminPublicOnly } from '@/components/admin/AdminGuards'
 import AdminLoginPage from '@/pages/admin/auth/AdminLoginPage'
+import AdminActivatePage from '@/pages/admin/auth/AdminActivatePage'
 import DirectionDashboardPage from '@/pages/admin/direction/DirectionDashboardPage'
+import AdminUsersPage from '@/pages/admin/direction/AdminUsersPage'
 import CommerceDashboardPage from '@/pages/admin/commerce/CommerceDashboardPage'
 import CommerceProductsPage from '@/pages/admin/commerce/products/CommerceProductsPage'
 import CommerceProductDetailPage from '@/pages/admin/commerce/products/CommerceProductDetailPage'
@@ -212,12 +214,16 @@ export default function App() {
               <Route element={<AdminPublicOnly />}>
                 <Route path="/admin/login" element={<AdminLoginPage />} />
               </Route>
+              <Route path="/admin/activate" element={<AdminActivatePage />} />
 
               <Route element={<RequireAdminAuth />}>
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<Navigate to="/admin/direction" replace />} />
                   <Route element={<RequireAdminRole allowedRoles={['DIRECTION_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/direction" element={<DirectionDashboardPage />} />
+                  </Route>
+                  <Route element={<RequireAdminRole allowedRoles={['SUPER_ADMIN']} />}>
+                    <Route path="/admin/admin-users" element={<AdminUsersPage />} />
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['COMMERCE_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/commerce" element={<CommerceDashboardPage />} />

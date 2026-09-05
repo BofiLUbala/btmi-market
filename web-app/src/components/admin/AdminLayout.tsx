@@ -130,6 +130,28 @@ export function AdminLayout() {
               </NavLink>
             )}
 
+            {hasRole(['SUPER_ADMIN']) && (
+              <NavLink
+                to="/admin/admin-users"
+                style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  transition: 'all 0.15s ease',
+                  backgroundColor: isActive ? '#1e293b' : 'transparent',
+                  color: isActive ? '#e9d5ff' : '#94a3b8',
+                  border: isActive ? '1px solid #a855f7' : '1px solid transparent'
+                })}
+              >
+                <span>🔐</span> Admin Users
+              </NavLink>
+            )}
+
             {hasRole(['SUPER_ADMIN', 'DIRECTION_ADMIN', 'COMMERCE_ADMIN', 'FINANCE_SUPPORT_ADMIN', 'TECHNICAL_ADMIN']) && (
               <NavLink
                 to="/admin/platform/feature-flags"

@@ -247,8 +247,8 @@ type AdminShopPageControl struct {
 	BusinessID            uuid.UUID `json:"business_id"`
 	BusinessName          string    `json:"business_name"`
 	Location              string    `json:"location"`
-	Latitude              *float64  `json:"latitude"`
-	Longitude             *float64  `json:"longitude"`
+	Latitude              float64   `json:"latitude"`
+	Longitude             float64   `json:"longitude"`
 	Status                string    `json:"status"`
 	ActiveCategories      []string  `json:"active_categories"`
 	ProductCount          int       `json:"product_count"`
@@ -342,11 +342,11 @@ type AdminProductPerformance struct {
 	ProductID      uuid.UUID `json:"product_id"`
 	ProductName    string    `json:"product_name"`
 	SKU            string    `json:"sku"`
-	Views          *int      `json:"views"`
-	Favorites      *int      `json:"favorites"`
-	AddToCart      *int      `json:"add_to_cart"`
+	Views          int       `json:"views"`
+	Favorites      int       `json:"favorites"`
+	AddToCart      int       `json:"add_to_cart"`
 	Orders         int       `json:"orders"`
-	ConversionRate *float64  `json:"conversion_rate"`
+	ConversionRate float64   `json:"conversion_rate"`
 	SalesValue     float64   `json:"sales_value"`
 	ReviewScore    float64   `json:"review_score"`
 	StockState     string    `json:"stock_state"`
@@ -361,8 +361,8 @@ type AdminCategoryPerformance struct {
 	Orders            int       `json:"orders"`
 	SalesValue        float64   `json:"sales_value"`
 	AvailabilityScore float64   `json:"availability_score"`
-	SearchVolume      *int      `json:"search_volume"`
-	ConversionRate    *float64  `json:"conversion_rate"`
+	SearchVolume      int       `json:"search_volume"`
+	ConversionRate    float64   `json:"conversion_rate"`
 }
 
 type AdminShopPerformance struct {

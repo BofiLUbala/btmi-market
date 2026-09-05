@@ -24,12 +24,30 @@ const emulatorDefault = Platform.OS === 'android'
   ? 'http://10.0.2.2:8080/api/v1'
   : 'http://localhost:8080/api/v1'
 
+const IPV4_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/
+
 function developmentApiUrl() {
   if (!__DEV__) return emulatorDefault
   const hostUri = Constants.expoConfig?.hostUri
   if (!hostUri) return emulatorDefault
   try {
     const hostname = new URL(`http://${hostUri}`).hostname
+    // LAN discovery only makes sense when Metro's host is a bare LAN IP. In
+    // tunnel mode (`expo start --tunnel`, needed when the phone is on a VPN
+    // that breaks LAN reachability) hostUri is a public ngrok/exp.direct
+    // domain that does NOT also serve the backend on :8080 -- constructing
+    // that URL would silently target an address that was never listening,
+    // and every request would fail with an unhelpful generic error. Warn
+    // once and fall back instead of guessing wrong.
+    if (!IPV4_RE.test(hostname)) {
+      console.warn(
+        '[TBK] Metro is running in tunnel mode (host: ' + hostname + '). ' +
+        'The backend API is not reachable through the Metro tunnel -- run ' +
+        '`npm run tunnel:api` in a second terminal and set EXPO_PUBLIC_API_URL ' +
+        'in android/.env to the printed https URL + /api/v1, then restart Expo.'
+      )
+      return emulatorDefault
+    }
     return `http://${hostname}:8080/api/v1`
   } catch {
     return emulatorDefault

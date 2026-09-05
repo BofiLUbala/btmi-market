@@ -9,6 +9,8 @@ import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { drcCityOptions, isKinshasa, kinshasaCommuneOptions } from '@/lib/drcLocations'
+import { safeInternalPath } from '@/lib/returnTo'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const canonicalPhone = (value: string) => {
   const digits = value.replace(/\D/g, '')
@@ -18,6 +20,8 @@ const canonicalPhone = (value: string) => {
 function EditInner() {
   const { user, buyerProfile, refreshUser } = useAuth()
   const { t } = useI18n()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', backup_phone: '', address: '', city: '', commune: '' })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -47,7 +51,9 @@ function EditInner() {
     try {
       await buyerApi.updateProfile(form)
       await refreshUser()
-      setSuccess(t('account.updated'))
+      const returnTo = searchParams.get('returnTo')
+      if (returnTo) navigate(safeInternalPath(returnTo, '/account'), { replace: true })
+      else setSuccess(t('account.updated'))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('account.updateFailed'))
     } finally { setBusy(false) }

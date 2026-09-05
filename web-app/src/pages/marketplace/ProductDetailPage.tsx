@@ -219,7 +219,7 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in product-detail-page">
       <nav className="pd-breadcrumb" aria-label={t('product.breadcrumb')}>
         <Link to="/">{t('nav.marketplace')}</Link><span>›</span>
         {p.category && <><Link to={`/categories/${p.category.slug}`}>{p.category.name}</Link><span>›</span></>}

@@ -157,6 +157,8 @@ func main() {
 
 	adminAuthService := service.NewAdminAuthService(adminRepo, cfg)
 	auditService := service.NewAuditService(auditRepo)
+	adminInvitationRepo := repository.NewAdminInvitationRepository(db)
+	adminManagementService := service.NewAdminManagementService(adminRepo, adminInvitationRepo, auditService, emailService)
 	adminDirectionService := service.NewAdminDirectionService(db, userRepo, refreshTokenRepo, auditService)
 	adminCommerceRepo := repository.NewAdminCommerceRepository(db)
 	adminCommerceService := service.NewAdminCommerceService(db, adminCommerceRepo, productRepo, inventoryRepo, stockMovementRepo, auditRepo)
@@ -168,6 +170,7 @@ func main() {
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
 
 	adminAuthHandler := adminhandlers.NewAuthHandler(adminAuthService, auditService)
+	adminManagementHandler := adminhandlers.NewAdminManagementHandler(adminManagementService)
 	adminDirectionHandler := adminhandlers.NewDirectionHandler(adminDirectionService, auditService)
 	adminCommerceHandler := adminhandlers.NewCommerceHandler(adminCommerceService)
 	adminFinanceHandler := adminhandlers.NewAdminFinanceHandler(adminFinanceService)
@@ -472,9 +475,32 @@ func main() {
 				adminAuthGroup.GET("/me", middleware.AdminAuthMiddleware(adminAuthService), adminAuthHandler.Me)
 			}
 
+			// Public admin invitation/activation endpoints. There is deliberately no
+			// public admin registration route -- an admin_users row only ever comes
+			// into existence via the CLI bootstrap (SUPER_ADMIN) or a SUPER_ADMIN's
+			// invite (all other roles). These two endpoints only ever let an
+			// already-invited admin verify their token and set their own password.
+			adminInvitationsGroup := adminGroup.Group("/invitations")
+			{
+				adminInvitationsGroup.GET("/verify", adminManagementHandler.VerifyInvitation)
+				adminInvitationsGroup.POST("/activate", adminManagementHandler.ActivateAdmin)
+			}
+
 			protectedAdmin := adminGroup.Group("")
 			protectedAdmin.Use(middleware.AdminAuthMiddleware(adminAuthService))
 			{
+				adminUsersGroup := protectedAdmin.Group("/admin-users")
+				adminUsersGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
+				{
+					adminUsersGroup.GET("", adminManagementHandler.ListAdmins)
+					adminUsersGroup.POST("/invite", adminManagementHandler.InviteAdmin)
+					adminUsersGroup.POST("/:id/resend-invitation", adminManagementHandler.ResendInvitation)
+					adminUsersGroup.POST("/:id/suspend", adminManagementHandler.SuspendAdmin)
+					adminUsersGroup.POST("/:id/reactivate", adminManagementHandler.ReactivateAdmin)
+					adminUsersGroup.POST("/:id/force-logout", adminManagementHandler.ForceLogoutAdmin)
+					adminUsersGroup.POST("/:id/change-role", adminManagementHandler.ChangeAdminRole)
+				}
+
 				directionGroup := protectedAdmin.Group("/direction")
 				directionGroup.Use(middleware.RequireAdminRoles(
 					models.AdminRoleSuperAdmin,
@@ -496,25 +522,23 @@ func main() {
 					models.AdminRoleDirectionAdmin,
 				))
 				{
-					commerceWriters := middleware.RequireAdminRoles(models.AdminRoleSuperAdmin, models.AdminRoleCommerceAdmin)
 					commerceGroup.GET("/overview", adminCommerceHandler.Overview)
 					commerceGroup.GET("/products", adminCommerceHandler.ListProducts)
 					commerceGroup.GET("/products/:id", adminCommerceHandler.GetProduct)
-					commerceGroup.POST("/products/:id/unpublish", commerceWriters, adminCommerceHandler.UnpublishProduct)
-					commerceGroup.POST("/products/:id/publish", commerceWriters, adminCommerceHandler.PublishProduct)
-					commerceGroup.POST("/products/:id/archive", commerceWriters, adminCommerceHandler.ArchiveProduct)
+					commerceGroup.POST("/products/:id/unpublish", adminCommerceHandler.UnpublishProduct)
+					commerceGroup.POST("/products/:id/archive", adminCommerceHandler.ArchiveProduct)
 
 					commerceGroup.GET("/categories", adminCommerceHandler.ListCategories)
-					commerceGroup.POST("/categories", commerceWriters, adminCommerceHandler.CreateCategory)
-					commerceGroup.PATCH("/categories/:id", commerceWriters, adminCommerceHandler.UpdateCategory)
-					commerceGroup.POST("/subcategories", commerceWriters, adminCommerceHandler.CreateSubcategory)
-					commerceGroup.PATCH("/subcategories/:id", commerceWriters, adminCommerceHandler.UpdateSubcategory)
+					commerceGroup.POST("/categories", adminCommerceHandler.CreateCategory)
+					commerceGroup.PATCH("/categories/:id", adminCommerceHandler.UpdateCategory)
+					commerceGroup.POST("/subcategories", adminCommerceHandler.CreateSubcategory)
+					commerceGroup.PATCH("/subcategories/:id", adminCommerceHandler.UpdateSubcategory)
 					commerceGroup.GET("/attribute-suggestions", adminCommerceHandler.AttributeSuggestions)
 
 					commerceGroup.GET("/inventory", adminCommerceHandler.ListInventory)
 					commerceGroup.GET("/inventory/anomalies", adminCommerceHandler.ListStockAnomalies)
 					commerceGroup.GET("/inventory/history", adminCommerceHandler.ListStockMovementHistory)
-					commerceGroup.POST("/inventory/adjust", commerceWriters, adminCommerceHandler.AdjustStock)
+					commerceGroup.POST("/inventory/adjust", adminCommerceHandler.AdjustStock)
 
 					commerceGroup.GET("/marketplace/visibility/:id", adminCommerceHandler.GetMarketplaceVisibility)
 					commerceGroup.GET("/shops/:id/page-control", adminCommerceHandler.GetShopPageControl)
@@ -537,7 +561,7 @@ func main() {
 					commerceGroup.GET("/orders/:id", adminCommerceHandler.GetOrder)
 
 					commerceGroup.GET("/employees", adminCommerceHandler.ListEmployees)
-					commerceGroup.POST("/employees/:id/revoke", commerceWriters, adminCommerceHandler.RevokeEmployeeAccess)
+					commerceGroup.POST("/employees/:id/revoke", adminCommerceHandler.RevokeEmployeeAccess)
 				}
 
 				financeGroup := protectedAdmin.Group("/finance")

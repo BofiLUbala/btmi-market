@@ -11,3 +11,8 @@ export function safeInternalPath(path: string | null | undefined, fallback = '/'
 export function loginWithReturnTo(intendedPath: string): string {
   return `/login?returnTo=${encodeURIComponent(safeInternalPath(intendedPath))}`
 }
+
+/** Build a buyer-profile path that returns to the interrupted purchase flow. */
+export function profileWithReturnTo(profilePath: '/account/profile-setup' | '/account/edit', intendedPath: string): string {
+  return `${profilePath}?returnTo=${encodeURIComponent(safeInternalPath(intendedPath))}`
+}

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { LoadingBlock } from '@/components/ui/Feedback'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 import { formatMoney, initials, uuid } from '@/lib/format'
-import { loginWithReturnTo } from '@/lib/returnTo'
+import { loginWithReturnTo, profileWithReturnTo } from '@/lib/returnTo'
 
 type T = ReturnType<typeof useT>
 
@@ -45,6 +45,10 @@ export default function CartPage() {
   // but checkout is blocked until the buyer has a phone number on file so
   // sellers/delivery can actually reach them about the order.
   const profileIncomplete = Boolean(user && (!buyerProfile || !buyerProfile.phone.trim()))
+  const profileCompletionPath = profileWithReturnTo(
+    buyerProfile ? '/account/edit' : '/account/profile-setup',
+    '/cart'
+  )
 
   // Authoritative totals come from the backend preview (logged-in only).
   useEffect(() => {
@@ -79,7 +83,7 @@ export default function CartPage() {
       return
     }
     if (profileIncomplete) {
-      navigate('/account/edit')
+      navigate(profileCompletionPath)
       return
     }
     if (!cart.shopId) return
@@ -122,7 +126,7 @@ export default function CartPage() {
         <span>{cart.totalQty} {cart.totalQty === 1 ? t('cart.item') : t('cart.items')}</span>
       </header>
 
-      {error && <div className="checkout-inline-error"><strong>{t('cart.needsAttention')}</strong><span>{error}</span>{profileBlocked && <button onClick={() => navigate('/account/profile-setup')}>{t('cart.completeProfile')}</button>}</div>}
+      {error && <div className="checkout-inline-error"><strong>{t('cart.needsAttention')}</strong><span>{error}</span>{profileBlocked && <button onClick={() => navigate(profileCompletionPath)}>{t('cart.completeProfile')}</button>}</div>}
 
       <div className="checkout-layout">
         <div className="checkout-content">

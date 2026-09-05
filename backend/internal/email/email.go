@@ -110,6 +110,40 @@ func (s *Service) SendEmployeeInvitationEmail(to, firstName, invitationURL strin
 	return s.sendEmail(to, subject, body)
 }
 
+func (s *Service) BuildAdminInvitationURL(token string) string {
+	return fmt.Sprintf("%s/admin/activate?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+}
+
+func (s *Service) SendAdminInvitationEmail(to, firstName, role, invitationURL string) error {
+	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
+		log.Printf("[DEV MODE] Admin Invitation URL for %s (%s, role=%s): %s", to, firstName, role, invitationURL)
+		return nil
+	}
+
+	subject := "You're Invited to Join the BTMI Market Control Center"
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Invitation</title>
+</head>
+<body>
+    <h2>Hello %s,</h2>
+    <p>You have been invited to join the BTMI Market Control Center as <strong>%s</strong>.</p>
+    <p>Please click the link below to activate your administrator account and set your password:</p>
+    <p><a href="%s" style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Activate Admin Account</a></p>
+    <p>Or copy and paste this link into your browser:</p>
+    <p>%s</p>
+    <p>This invitation will expire in 7 days and can only be used once.</p>
+    <p>If you did not expect this invitation, please ignore this email.</p>
+</body>
+</html>
+`, firstName, role, invitationURL, invitationURL)
+
+	return s.sendEmail(to, subject, body)
+}
+
 func (s *Service) SendPasswordResetEmail(to, resetURL string) error {
 	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
 		log.Printf("[DEV MODE] Password Reset URL for %s: %s", to, resetURL)

@@ -172,40 +172,6 @@ func (h *CommerceHandler) UnpublishProduct(c *gin.Context) {
 	})
 }
 
-// POST /api/v1/admin/commerce/products/:id/publish
-func (h *CommerceHandler) PublishProduct(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		}{Code: "INVALID_ID", Message: "Invalid product UUID"}})
-		return
-	}
-	var req struct {
-		Reason string `json:"reason" binding:"required,min=5"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		}{Code: "INVALID_BODY", Message: "A mandatory reason of at least 5 characters is required"}})
-		return
-	}
-	adminIDVal, _ := c.Get("admin_id")
-	adminRoleVal, _ := c.Get("admin_role")
-	adminID, _ := adminIDVal.(uuid.UUID)
-	adminRole, _ := adminRoleVal.(models.AdminRole)
-	if err := h.commerceService.PublishProduct(adminID, adminRole, id, req.Reason, c.ClientIP(), c.Request.UserAgent()); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, models.ErrorResponse{Error: struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		}{Code: "PUBLISH_FAILED", Message: err.Error()}})
-		return
-	}
-	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Product published successfully"})
-}
-
 // POST /api/v1/admin/commerce/products/:id/archive
 func (h *CommerceHandler) ArchiveProduct(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
