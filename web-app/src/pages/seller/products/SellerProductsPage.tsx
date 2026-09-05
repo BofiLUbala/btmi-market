@@ -256,19 +256,19 @@ export default function SellerProductsPage() {
                       )}
                     </strong>
                   </div>
-                  <div><span>Available</span><strong className={available > 0 ? 'success' : 'muted'}>{available}</strong></div>
-                  <div><span>Variants</span><strong>{product.variant_count || 1}</strong></div>
+                  <div><span>{t('seller.productList.availableLabel')}</span><strong className={available > 0 ? 'success' : 'muted'}>{available}</strong></div>
+                  <div><span>{t('seller.productList.variantsLabel')}</span><strong>{product.variant_count || 1}</strong></div>
                 </div>
                 <div className="seller-product-card-actions">
-                  <Link to={`/seller/products/${product.id}`} className="btn btn-outline btn-sm">Edit</Link>
+                  <Link to={`/seller/products/${product.id}`} className="btn btn-outline btn-sm">{t('seller.productList.edit')}</Link>
                   <Button variant="primary" size="sm" disabled={busy} onClick={() => sendToMarketplace(product)}>
-                    {product.publication_status === 'PUBLISHED' ? 'Sync market' : 'Send to market'}
+                    {product.publication_status === 'PUBLISHED' ? t('seller.productList.syncMarket') : t('seller.productList.sendToMarket')}
                   </Button>
                   {product.publication_status === 'PUBLISHED' && (
-                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => unpublishProduct(product)}>Unpublish</Button>
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => unpublishProduct(product)}>{t('seller.productList.unpublish')}</Button>
                   )}
                   <Button variant="danger" size="sm" disabled={busy} onClick={() => archiveProduct(product)}>
-                    Delete
+                    {t('seller.productList.delete')}
                   </Button>
                 </div>
               </article>

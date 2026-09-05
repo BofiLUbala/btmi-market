@@ -1,9 +1,11 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '@/store/adminAuth'
+import { useT } from '@/store/i18n'
 
 export function AdminLayout() {
   const { admin, role, logout, canAccessDashboard, hasRole } = useAdminAuth()
   const navigate = useNavigate()
+  const t = useT()
 
   const handleLogout = async () => {
     await logout()
@@ -35,7 +37,7 @@ export function AdminLayout() {
                 TBK CONTROL CENTER
               </div>
               <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                4 Dashboards • Unified RBAC
+                {t('admin.layout.tagline')}
               </div>
             </div>
           </div>
@@ -60,7 +62,7 @@ export function AdminLayout() {
                   border: isActive ? '1px solid #3b82f6' : '1px solid transparent'
                 })}
               >
-                <span>🧭</span> Direction
+                <span>🧭</span> {t('admin.layout.navDirection')}
               </NavLink>
             )}
 
@@ -82,7 +84,7 @@ export function AdminLayout() {
                   border: isActive ? '1px solid #10b981' : '1px solid transparent'
                 })}
               >
-                <span>📦</span> Commerce & Ops
+                <span>📦</span> {t('admin.layout.navCommerce')}
               </NavLink>
             )}
 
@@ -104,7 +106,7 @@ export function AdminLayout() {
                   border: isActive ? '1px solid #f59e0b' : '1px solid transparent'
                 })}
               >
-                <span>💰</span> Finance & Trust
+                <span>💰</span> {t('admin.layout.navFinance')}
               </NavLink>
             )}
 
@@ -126,7 +128,7 @@ export function AdminLayout() {
                   border: isActive ? '1px solid #14b8a6' : '1px solid transparent'
                 })}
               >
-                <span>🛡️</span> Technical & Security
+                <span>🛡️</span> {t('admin.layout.navTechnical')}
               </NavLink>
             )}
 
@@ -148,7 +150,7 @@ export function AdminLayout() {
                   border: isActive ? '1px solid #a855f7' : '1px solid transparent'
                 })}
               >
-                <span>🔐</span> Admin Users
+                <span>🔐</span> {t('admin.layout.navAdminUsers')}
               </NavLink>
             )}
 
@@ -170,7 +172,7 @@ export function AdminLayout() {
                   border: isActive ? '1px solid #a855f7' : '1px solid transparent'
                 })}
               >
-                <span>🚩</span> Flags
+                <span>🚩</span> {t('admin.layout.navFlags')}
               </NavLink>
             )}
 
@@ -192,7 +194,7 @@ export function AdminLayout() {
                   border: isActive ? '1px solid #a855f7' : '1px solid transparent'
                 })}
               >
-                <span>⚙️</span> Advanced
+                <span>⚙️</span> {t('admin.layout.navAdvanced')}
               </NavLink>
             )}
           </nav>
@@ -233,9 +235,9 @@ export function AdminLayout() {
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
               }}
-              title="Sign out of Administrative Control Center"
+              title={t('admin.layout.signOutTitle')}
             >
-              Sign out
+              {t('admin.layout.signOut')}
             </button>
           </div>
         </div>
@@ -246,13 +248,13 @@ export function AdminLayout() {
         <div style={{ maxWidth: 1440, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 6, fontSize: 12 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, color: '#94a3b8' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
-            <span>Single Source of Truth: <strong>PostgreSQL / Redis live state</strong></span>
+            <span>{t('admin.layout.sourceOfTruthLabel')} <strong>{t('admin.layout.sourceOfTruthValue')}</strong></span>
             <span style={{ color: '#475569' }}>•</span>
-            <span style={{ color: '#64748b' }}>Scope: /api/v1/admin/*</span>
+            <span style={{ color: '#64748b' }}>{t('admin.layout.scope')}</span>
           </div>
 
           <div style={{ color: '#64748b', fontSize: 11 }}>
-            TBK Market Control Center v1.0 • Immutable Audit Active
+            {t('admin.layout.footer')}
           </div>
         </div>
       </div>

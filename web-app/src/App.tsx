@@ -224,6 +224,7 @@ export default function App() {
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['SUPER_ADMIN']} />}>
                     <Route path="/admin/admin-users" element={<AdminUsersPage />} />
+                    <Route path="/admin/users" element={<Navigate to="/admin/admin-users" replace />} />
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['COMMERCE_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/commerce" element={<CommerceDashboardPage />} />

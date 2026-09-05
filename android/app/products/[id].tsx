@@ -205,7 +205,7 @@ export default function ProductScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 145 + insets.bottom }]}>
+      <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 96 + insets.bottom }]}>
         {image ? (
           <Image source={image} contentFit="contain" style={[styles.image, { height: Math.min(width, 470) }]} />
         ) : (
@@ -422,28 +422,34 @@ export default function ProductScreen() {
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <View style={styles.purchaseSummary}>
-          <Text style={styles.purchaseLabel}>{t('common.quantity')} : {quantity}</Text>
-          <Text style={styles.purchaseTotal}>
-            {(price * quantity).toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
-          </Text>
-        </View>
         {/* Naming what is still missing beats a silently disabled button. */}
         {!optionsComplete && (
-          <Text style={styles.selectHint}>
+          <Text style={styles.selectHint} numberOfLines={1}>
             {t('product.selectOptionsFirst', { options: missingOptions.join(' · ') })}
           </Text>
         )}
-        <View style={styles.actionRow}>
+        <View style={styles.barRow}>
+          <View style={styles.priceBlock}>
+            <Text style={styles.priceBlockQty} numberOfLines={1}>
+              {stock < 1
+                ? t('product.outOfStock')
+                : `${quantity} × ${price.toLocaleString()} ${product.currency === 'USD' ? 'USD' : 'FC'}`}
+            </Text>
+            <Text style={styles.priceBlockTotal} numberOfLines={1}>
+              {(price * quantity).toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
+            </Text>
+          </View>
           <Button
-            style={styles.actionButton}
+            dense
+            style={styles.barButton}
             variant="outline"
             title={t('product.addToCart')}
             disabled={!optionsComplete || !selected || stock < 1}
             onPress={addLine}
           />
           <Button
-            style={styles.actionButton}
+            dense
+            style={styles.barButton}
             variant="gold"
             title={t('product.buyNow')}
             disabled={!optionsComplete || !selected || stock < 1}
@@ -548,8 +554,9 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    padding: spacing.sm,
-    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    gap: 6,
     zIndex: 100,
     elevation: 18,
     shadowColor: '#000',
@@ -557,10 +564,10 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 10,
   },
-  purchaseSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  purchaseLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  purchaseTotal: { color: colors.green, fontSize: 18, fontWeight: '900' },
-  actionRow: { flexDirection: 'row', gap: spacing.sm },
-  selectHint: { color: colors.gold, fontSize: 13, fontWeight: '800', textAlign: 'center' },
-  actionButton: { flex: 1, paddingHorizontal: 8 },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  priceBlock: { flex: 1, minWidth: 64 },
+  priceBlockQty: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  priceBlockTotal: { color: colors.green, fontSize: 17, fontWeight: '900' },
+  barButton: { flexGrow: 0, flexShrink: 0 },
+  selectHint: { color: colors.gold, fontSize: 12, fontWeight: '800', textAlign: 'center' },
 })

@@ -1,6 +1,8 @@
 import { Stack } from 'expo-router'
+import { useI18n } from '../../src/store/i18n'
 
 export default function AdminLayout() {
+  const { t } = useI18n()
   return (
     <Stack
       screenOptions={{
@@ -10,18 +12,18 @@ export default function AdminLayout() {
         contentStyle: { backgroundColor: '#090d16' },
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Direction Control Center', headerShown: false }} />
-      <Stack.Screen name="login" options={{ title: 'Admin Authentication', headerShown: false }} />
-      <Stack.Screen name="commerce/index" options={{ title: 'Commerce & Operations' }} />
-      <Stack.Screen name="commerce/products/index" options={{ title: 'Product Catalog' }} />
-      <Stack.Screen name="commerce/orders/index" options={{ title: 'Orders' }} />
-      <Stack.Screen name="commerce/inventory/index" options={{ title: 'Inventory Control' }} />
-      <Stack.Screen name="commerce/employees/index" options={{ title: 'Employees' }} />
-      <Stack.Screen name="commerce/marketplace/index" options={{ title: 'Marketplace Visibility' }} />
-      <Stack.Screen name="finance/index" options={{ title: 'Finance & Trust' }} />
-      <Stack.Screen name="technical/index" options={{ title: 'Technical & Security' }} />
-      <Stack.Screen name="technical/config/index" options={{ title: 'Feature Flags & Config' }} />
-      <Stack.Screen name="advanced/index" options={{ title: 'Advanced Management' }} />
+      <Stack.Screen name="index" options={{ title: t('admin.titles.direction'), headerShown: false }} />
+      <Stack.Screen name="login" options={{ title: t('admin.titles.login'), headerShown: false }} />
+      <Stack.Screen name="commerce/index" options={{ title: t('admin.titles.commerce') }} />
+      <Stack.Screen name="commerce/products/index" options={{ title: t('admin.titles.products') }} />
+      <Stack.Screen name="commerce/orders/index" options={{ title: t('admin.titles.orders') }} />
+      <Stack.Screen name="commerce/inventory/index" options={{ title: t('admin.titles.inventory') }} />
+      <Stack.Screen name="commerce/employees/index" options={{ title: t('admin.titles.employees') }} />
+      <Stack.Screen name="commerce/marketplace/index" options={{ title: t('admin.titles.marketplace') }} />
+      <Stack.Screen name="finance/index" options={{ title: t('admin.titles.finance') }} />
+      <Stack.Screen name="technical/index" options={{ title: t('admin.titles.technical') }} />
+      <Stack.Screen name="technical/config/index" options={{ title: t('admin.titles.config') }} />
+      <Stack.Screen name="advanced/index" options={{ title: t('admin.titles.advanced') }} />
     </Stack>
   )
 }

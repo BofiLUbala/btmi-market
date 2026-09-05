@@ -3,10 +3,12 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../../src/store/adminAuth'
 import { mobileAdminPlatformApi, FeatureFlag, GlobalConfigItem } from '../../../../src/api/admin'
+import { useI18n } from '../../../../src/store/i18n'
 
 export default function MobilePlatformConfigScreen() {
   const router = useRouter()
   const { hasRole } = useAdminAuth()
+  const { t } = useI18n()
 
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -27,7 +29,7 @@ export default function MobilePlatformConfigScreen() {
       setFlags(flagsRes.flags || [])
       setConfigs(configRes.configs || [])
     } catch (err: any) {
-      setError(err?.message || 'Failed to connect to Admin API')
+      setError(err?.message || t('admin.config.connectFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -42,10 +44,10 @@ export default function MobilePlatformConfigScreen() {
     return (
       <View style={styles.deniedContainer}>
         <Text style={{ fontSize: 36, marginBottom: 12 }}>🛡️</Text>
-        <Text style={styles.deniedTitle}>Access Prohibited</Text>
-        <Text style={styles.deniedSub}>Your role is not authorized to access Platform Configuration.</Text>
+        <Text style={styles.deniedTitle}>{t('admin.accessProhibited')}</Text>
+        <Text style={styles.deniedSub}>{t('admin.config.accessDeniedBody')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/admin')}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Return to Direction</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('admin.returnToDirection')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -59,7 +61,7 @@ export default function MobilePlatformConfigScreen() {
       setReason('')
       load()
     } catch (err: any) {
-      alert(err?.message || 'Update failed')
+      alert(err?.message || t('admin.config.updateFailed'))
     }
   }
 
@@ -73,8 +75,8 @@ export default function MobilePlatformConfigScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load() }} />}
     >
       <View style={styles.banner}>
-        <Text style={styles.bannerTitle}>🚩 Feature Flags & Config</Text>
-        <Text style={styles.bannerSub}>Quick toggles for low-risk flags. High-risk flags and global configuration values are Web-only.</Text>
+        <Text style={styles.bannerTitle}>{t('admin.config.header')}</Text>
+        <Text style={styles.bannerSub}>{t('admin.config.sub')}</Text>
       </View>
 
       {loading && (
@@ -92,7 +94,7 @@ export default function MobilePlatformConfigScreen() {
       {!loading && (
         <>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Low-Risk Flags (Quick Toggle)</Text>
+            <Text style={styles.cardTitle}>{t('admin.config.lowRisk')}</Text>
             {lowRiskFlags.map((f) => (
               <View key={f.key} style={styles.flagRow}>
                 <View style={{ flex: 1, marginRight: 10 }}>
@@ -107,11 +109,11 @@ export default function MobilePlatformConfigScreen() {
                 />
               </View>
             ))}
-            {lowRiskFlags.length === 0 && <Text style={styles.emptyText}>No low-risk flags found.</Text>}
+            {lowRiskFlags.length === 0 && <Text style={styles.emptyText}>{t('admin.config.noLowRisk')}</Text>}
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>High-Risk Flags (Web-only, view only)</Text>
+            <Text style={styles.cardTitle}>{t('admin.config.highRisk')}</Text>
             {highRiskFlags.map((f) => (
               <View key={f.key} style={styles.flagRow}>
                 <View style={{ flex: 1, marginRight: 10 }}>
@@ -120,16 +122,16 @@ export default function MobilePlatformConfigScreen() {
                 </View>
                 <View style={[styles.badge, { backgroundColor: f.enabled ? '#064e3b' : '#3f1d1d' }]}>
                   <Text style={{ fontSize: 10, fontWeight: '800', color: f.enabled ? '#34d399' : '#f87171' }}>
-                    {f.enabled ? 'ENABLED' : 'DISABLED'}
+                    {f.enabled ? t('admin.config.enabled') : t('admin.config.disabled')}
                   </Text>
                 </View>
               </View>
             ))}
-            {highRiskFlags.length === 0 && <Text style={styles.emptyText}>No high-risk flags found.</Text>}
+            {highRiskFlags.length === 0 && <Text style={styles.emptyText}>{t('admin.config.noHighRisk')}</Text>}
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Global Configuration (view only)</Text>
+            <Text style={styles.cardTitle}>{t('admin.config.globalConfig')}</Text>
             {configs.map((c) => (
               <View key={c.key} style={styles.flagRow}>
                 <View style={{ flex: 1, marginRight: 10 }}>
@@ -139,7 +141,7 @@ export default function MobilePlatformConfigScreen() {
                 <Text style={styles.configValue}>{c.value}</Text>
               </View>
             ))}
-            {configs.length === 0 && <Text style={styles.emptyText}>No configuration values found.</Text>}
+            {configs.length === 0 && <Text style={styles.emptyText}>{t('admin.config.noConfig')}</Text>}
           </View>
         </>
       )}
@@ -148,23 +150,23 @@ export default function MobilePlatformConfigScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
-              {pendingFlag && (pendingFlag.enabled ? 'Disable' : 'Enable')} {pendingFlag?.key}
+              {pendingFlag && (pendingFlag.enabled ? t('admin.config.disable') : t('admin.config.enable'))} {pendingFlag?.key}
             </Text>
-            <Text style={styles.modalLabel}>Reason (required)</Text>
+            <Text style={styles.modalLabel}>{t('admin.config.reasonRequired')}</Text>
             <TextInput
               value={reason}
               onChangeText={setReason}
-              placeholder="Why is this change being made?"
+              placeholder={t('admin.config.reasonPlaceholder')}
               placeholderTextColor="#64748b"
               multiline
               style={styles.textInput}
             />
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
               <TouchableOpacity onPress={() => { setPendingFlag(null); setReason('') }} style={styles.modalCancelBtn}>
-                <Text style={{ color: '#94a3b8' }}>Cancel</Text>
+                <Text style={{ color: '#94a3b8' }}>{t('admin.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={submitToggle} disabled={!reason} style={[styles.modalSubmitBtn, { opacity: reason ? 1 : 0.5 }]}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Submit</Text>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{t('admin.config.submit')}</Text>
               </TouchableOpacity>
             </View>
           </View>

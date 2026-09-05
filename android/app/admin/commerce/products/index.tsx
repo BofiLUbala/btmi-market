@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { adminCommerceApi } from '../../../../src/api/admin'
+import { useI18n } from '../../../../src/store/i18n'
 
 export default function MobileProductsScreen() {
   const router = useRouter()
+  const { t } = useI18n()
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -35,7 +37,7 @@ export default function MobileProductsScreen() {
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search products..."
+          placeholder={t('admin.products.searchPlaceholder')}
           placeholderTextColor="#64748b"
           value={search}
           onChangeText={(text) => { setSearch(text); setPage(0) }}
@@ -44,11 +46,11 @@ export default function MobileProductsScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>{t('admin.products.loading')}</Text>
         </View>
       ) : products.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No products found</Text>
+          <Text style={styles.emptyText}>{t('admin.products.empty')}</Text>
         </View>
       ) : (
         <FlatList
@@ -70,8 +72,8 @@ export default function MobileProductsScreen() {
                 <Text style={styles.metaText}>${item.effective_price.toFixed(2)}</Text>
               </View>
               <View style={styles.cardMeta}>
-                <Text style={styles.metaText}>Stock: {item.total_available}</Text>
-                <Text style={styles.metaText}>Variants: {item.variant_count}</Text>
+                <Text style={styles.metaText}>{t('admin.products.stock', { count: item.total_available })}</Text>
+                <Text style={styles.metaText}>{t('admin.products.variants', { count: item.variant_count })}</Text>
               </View>
             </TouchableOpacity>
           )}

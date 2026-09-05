@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { adminCommerceApi, type AdminProductCardQuality } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -20,6 +21,7 @@ function Field({ label, value, color }: { label: string; value: React.ReactNode;
 }
 
 export default function ProductQualityPage() {
+  const t = useT()
   const [productId, setProductId] = useState('')
   const [quality, setQuality] = useState<AdminProductCardQuality | null>(null)
   const [loading, setLoading] = useState(false)
@@ -33,7 +35,7 @@ export default function ProductQualityPage() {
       const res = await adminCommerceApi.getProductCardQuality(productId.trim())
       setQuality(res)
     } catch (err) {
-      setError('Failed to load product card quality')
+      setError(t('admin.quality.errorLoad'))
       setQuality(null)
     } finally {
       setLoading(false)
@@ -60,8 +62,8 @@ export default function ProductQualityPage() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Product Card Quality</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Inspect product card quality score and missing data warnings.</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.quality.title')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.quality.subtitle')}</p>
       </div>
 
       {error && (
@@ -70,14 +72,14 @@ export default function ProductQualityPage() {
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, alignItems: 'end' }}>
         <div style={{ flex: 1, maxWidth: 400 }}>
-          <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>Product ID</label>
+          <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>{t('admin.quality.productId')}</label>
           <input value={productId} onChange={(e) => setProductId(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && lookup()}
             style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, boxSizing: 'border-box' }} />
         </div>
         <button onClick={lookup} disabled={loading || !productId.trim()}
           style={{ padding: '8px 16px', borderRadius: 6, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 13, fontWeight: 600, cursor: loading || !productId.trim() ? 'default' : 'pointer', opacity: loading || !productId.trim() ? 0.5 : 1 }}>
-          {loading ? 'Checking...' : 'Check Quality'}
+          {loading ? t('admin.quality.checking') : t('admin.quality.checkQuality')}
         </button>
       </div>
 
@@ -86,16 +88,16 @@ export default function ProductQualityPage() {
           {/* Score Overview */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16, marginBottom: 16 }}>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: 24, textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', marginBottom: 8 }}>Quality Score</div>
+              <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', marginBottom: 8 }}>{t('admin.quality.qualityScore')}</div>
               <div style={{ fontSize: 48, fontWeight: 800, color: scoreColor(computeQualityScore(quality)) }}>
                 {computeQualityScore(quality)}%
               </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', marginTop: 8 }}>{quality.product_name}</div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Shop: {quality.shop_name || '-'}</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{t('admin.quality.shopLabel', { shop: quality.shop_name || '-' })}</div>
             </div>
 
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: 16 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: '#94a3b8' }}>Issues ({quality.issues?.length ?? 0})</h4>
+              <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: '#94a3b8' }}>{t('admin.quality.issuesCount', { count: quality.issues?.length ?? 0 })}</h4>
               {quality.issues && quality.issues.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {quality.issues.map((issue, i) => (
@@ -106,21 +108,21 @@ export default function ProductQualityPage() {
                   ))}
                 </div>
               ) : (
-                <div style={{ color: '#34d399', fontSize: 13, padding: 12, textAlign: 'center' }}>No issues found - product card quality is optimal!</div>
+                <div style={{ color: '#34d399', fontSize: 13, padding: 12, textAlign: 'center' }}>{t('admin.quality.noIssues')}</div>
               )}
             </div>
           </div>
 
           {/* Checklist */}
-          <Section title="Quality Criteria Checklist">
+          <Section title={t('admin.quality.checklistTitle')}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
               {[
-                { label: 'Primary Image Present', passed: quality.has_primary_image },
-                { label: 'Effective Price Defined', passed: quality.has_effective_price },
-                { label: 'Regular Price Defined', passed: quality.has_regular_price },
-                { label: 'In Stock Availability', passed: quality.availability === 'IN_STOCK' },
-                { label: 'Off-Badge Integrity', passed: !quality.has_off_badge || quality.discount_percent > 0 },
-                { label: 'No Catalog Data Issues', passed: quality.issues.length === 0 },
+                { label: t('admin.quality.criteriaPrimaryImage'), passed: quality.has_primary_image },
+                { label: t('admin.quality.criteriaEffectivePrice'), passed: quality.has_effective_price },
+                { label: t('admin.quality.criteriaRegularPrice'), passed: quality.has_regular_price },
+                { label: t('admin.quality.criteriaInStock'), passed: quality.availability === 'IN_STOCK' },
+                { label: t('admin.quality.criteriaOffBadge'), passed: !quality.has_off_badge || quality.discount_percent > 0 },
+                { label: t('admin.quality.criteriaNoIssues'), passed: quality.issues.length === 0 },
               ].map((item) => (
                 <div key={item.label} style={{
                   display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
@@ -136,16 +138,16 @@ export default function ProductQualityPage() {
           </Section>
 
           {/* Pricing & Media Details */}
-          <Section title="Card Attributes">
+          <Section title={t('admin.quality.cardAttributes')}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-              <Field label="Effective Price" value={`$${quality.effective_price.toFixed(2)}`} />
-              <Field label="Regular Price" value={`$${quality.regular_price.toFixed(2)}`} />
-              <Field label="Discount" value={quality.has_off_badge ? `${quality.discount_percent.toFixed(1)}% OFF` : 'None'} color={quality.has_off_badge ? '#34d399' : undefined} />
-              <Field label="Availability" value={quality.availability} color={quality.availability === 'IN_STOCK' ? '#34d399' : '#fbbf24'} />
-              <Field label="Image Count" value={quality.image_count} />
-              <Field label="Rating" value={`★ ${quality.rating.toFixed(1)} (${quality.review_count} reviews)`} color="#fbbf24" />
-              <Field label="Primary Image URL" value={quality.primary_image_url || 'None'} />
-              <Field label="Product ID" value={quality.product_id} />
+              <Field label={t('admin.quality.effectivePrice')} value={`$${quality.effective_price.toFixed(2)}`} />
+              <Field label={t('admin.quality.regularPrice')} value={`$${quality.regular_price.toFixed(2)}`} />
+              <Field label={t('admin.quality.discount')} value={quality.has_off_badge ? t('admin.quality.percentOff', { percent: quality.discount_percent.toFixed(1) }) : t('admin.common.none')} color={quality.has_off_badge ? '#34d399' : undefined} />
+              <Field label={t('admin.quality.availability')} value={quality.availability} color={quality.availability === 'IN_STOCK' ? '#34d399' : '#fbbf24'} />
+              <Field label={t('admin.quality.imageCount')} value={quality.image_count} />
+              <Field label={t('admin.quality.rating')} value={t('admin.quality.ratingValue', { rating: quality.rating.toFixed(1), count: quality.review_count })} color="#fbbf24" />
+              <Field label={t('admin.quality.primaryImageUrl')} value={quality.primary_image_url || t('admin.common.none')} />
+              <Field label={t('admin.quality.productIdField')} value={quality.product_id} />
             </div>
           </Section>
         </>
@@ -153,7 +155,7 @@ export default function ProductQualityPage() {
 
       {!quality && !loading && (
         <div style={{ padding: 40, textAlign: 'center', color: '#475569' }}>
-          Enter a Product ID above to check its card quality score and warnings.
+          {t('admin.quality.emptyState')}
         </div>
       )}
     </div>

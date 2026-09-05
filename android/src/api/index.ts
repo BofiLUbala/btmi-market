@@ -21,6 +21,7 @@ export const authApi = {
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),
   logout: () => post('/auth/logout'),
+  becomeSeller: () => post<User>('/auth/become-seller'),
   uploadAvatar: (asset: { uri: string; fileName?: string | null; mimeType?: string | null }) => {
     const form = new FormData()
     form.append('file', { uri: asset.uri, name: asset.fileName || `avatar-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' } as unknown as Blob)
@@ -79,6 +80,7 @@ export const buyerApi = {
 }
 export const sellerApi = {
   businesses: async () => list<Business>(await get<unknown>('/businesses')),
+  createBusiness: (body: { name: string; business_type: string; category: string; phone: string; whatsapp?: string; email: string; country: string; city: string; default_currency: string }) => post<Business>('/businesses', body),
   shops: async (businessId: string) => list<Shop>(await get<unknown>(`/businesses/${businessId}/shops`)),
   businessOrders: async (businessId: string) => list<SellerOrder>(await get<unknown>(`/businesses/${businessId}/orders`)),
   shopOrders: async (shopId: string) => list<SellerOrder>(await get<unknown>(`/shops/${shopId}/orders`)),

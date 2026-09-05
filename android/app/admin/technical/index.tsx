@@ -1,19 +1,21 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../src/store/adminAuth'
+import { useI18n } from '../../../src/store/i18n'
 
 export default function MobileTechnicalScreen() {
   const router = useRouter()
   const { hasRole } = useAdminAuth()
+  const { t } = useI18n()
 
   if (!hasRole(['TECHNICAL_ADMIN', 'SUPER_ADMIN'])) {
     return (
       <View style={styles.deniedContainer}>
         <Text style={{ fontSize: 36, marginBottom: 12 }}>🛡️</Text>
-        <Text style={styles.deniedTitle}>Access Prohibited</Text>
-        <Text style={styles.deniedSub}>Your role is not authorized to access Technical & Security.</Text>
+        <Text style={styles.deniedTitle}>{t('admin.accessProhibited')}</Text>
+        <Text style={styles.deniedSub}>{t('admin.technical.accessDeniedBody')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/admin')}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Return to Direction</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('admin.returnToDirection')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -22,60 +24,60 @@ export default function MobileTechnicalScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <View style={styles.banner}>
-        <Text style={styles.bannerTitle}>🛡️ Mobile Technical & Security</Text>
-        <Text style={styles.bannerSub}>Infrastructure availability, component lights, and incident acknowledgment.</Text>
+        <Text style={styles.bannerTitle}>{t('admin.technical.header')}</Text>
+        <Text style={styles.bannerSub}>{t('admin.technical.sub')}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Component Health Lights</Text>
+        <Text style={styles.cardTitle}>{t('admin.technical.componentHealth')}</Text>
         <View style={styles.componentRow}>
-          <Text style={styles.componentName}>Go REST API Engine</Text>
+          <Text style={styles.componentName}>{t('admin.technical.apiEngine')}</Text>
           <View style={styles.statusBadge}>
             <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>ONLINE</Text>
+            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
           </View>
         </View>
         <View style={styles.componentRow}>
-          <Text style={styles.componentName}>PostgreSQL Primary DB</Text>
+          <Text style={styles.componentName}>{t('admin.technical.postgres')}</Text>
           <View style={styles.statusBadge}>
             <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>ONLINE</Text>
+            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
           </View>
         </View>
         <View style={styles.componentRow}>
-          <Text style={styles.componentName}>Redis Cache & Ranking</Text>
+          <Text style={styles.componentName}>{t('admin.technical.redis')}</Text>
           <View style={styles.statusBadge}>
             <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>ONLINE</Text>
+            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
           </View>
         </View>
         <View style={styles.componentRow}>
-          <Text style={styles.componentName}>Asynq Background Workers</Text>
+          <Text style={styles.componentName}>{t('admin.technical.asynq')}</Text>
           <View style={styles.statusBadge}>
             <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>ONLINE</Text>
+            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
           </View>
         </View>
         <View style={styles.componentRow}>
-          <Text style={styles.componentName}>Visual Search Python Service</Text>
+          <Text style={styles.componentName}>{t('admin.technical.visualSearch')}</Text>
           <View style={styles.statusBadge}>
             <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>ONLINE</Text>
+            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
           </View>
         </View>
       </View>
 
       <TouchableOpacity style={styles.card} onPress={() => router.push('/admin/technical/config')}>
-        <Text style={styles.cardTitle}>🚩 Feature Flags & Config →</Text>
+        <Text style={styles.cardTitle}>{t('admin.technical.flagsConfigLink')}</Text>
         <Text style={{ color: '#94a3b8', fontSize: 12, lineHeight: 18 }}>
-          Quick-toggle low-risk feature flags and review global configuration values shared with Web.
+          {t('admin.technical.flagsConfigDesc')}
         </Text>
       </TouchableOpacity>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Mapped Control Domains (Phase 4)</Text>
+        <Text style={styles.cardTitle}>{t('admin.technical.controlDomains')}</Text>
         <Text style={{ color: '#94a3b8', fontSize: 12, lineHeight: 18 }}>
-          Live API monitoring, PostgreSQL pool status, Redis queue size, Asynq dead jobs, backup run status, database migration inspector, SMTP health, session revocation, admin user provisioning, and emergency maintenance toggle.
+          {t('admin.technical.controlDomainsDesc')}
         </Text>
       </View>
     </ScrollView>

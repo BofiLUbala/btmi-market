@@ -5,8 +5,10 @@ import {
   type AdminUserListItem,
   type AdminAuditLog
 } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 export default function DirectionDashboardPage() {
+  const t = useT()
   const [activeTab, setActiveTab] = useState<'kpis' | 'users' | 'audit'>('kpis')
   const [stats, setStats] = useState<DirectionOverviewStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
@@ -99,7 +101,7 @@ export default function DirectionDashboardPage() {
   const handleExecuteUserAction = async () => {
     if (!actionTargetUser || !actionType) return
     if (!actionReason.trim() || actionReason.trim().length < 5) {
-      setActionMessage({ type: 'error', text: 'A detailed reason of at least 5 characters is mandatory for auditing.' })
+      setActionMessage({ type: 'error', text: t('admin.direction.reasonRequired') })
       return
     }
 
@@ -113,7 +115,7 @@ export default function DirectionDashboardPage() {
       } else if (actionType === 'force_logout') {
         await adminDirectionApi.forceLogoutUser(actionTargetUser.id, actionReason)
       }
-      setActionMessage({ type: 'success', text: `Operation successfully executed. Audit record appended.` })
+      setActionMessage({ type: 'success', text: t('admin.direction.actionExecutedSuccess') })
       setTimeout(() => {
         setActionTargetUser(null)
         setActionType(null)
@@ -123,7 +125,7 @@ export default function DirectionDashboardPage() {
         void loadOverviewStats()
       }, 1200)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Action failed'
+      const msg = err instanceof Error ? err.message : t('admin.direction.actionFailed')
       setActionMessage({ type: 'error', text: msg })
     } finally {
       setActionSubmitting(false)
@@ -140,10 +142,10 @@ export default function DirectionDashboardPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>🧭</span> Dashboard 1 — Direction / Supervision
+            <span>🧭</span> {t('admin.direction.pageTitle')}
           </h1>
           <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>
-            Executive governance, strategic KPIs, cross-account supervision, and immutable audit inspection.
+            {t('admin.direction.pageSubtitle')}
           </p>
         </div>
 
@@ -167,7 +169,7 @@ export default function DirectionDashboardPage() {
             gap: 6
           }}
         >
-          <span>🔄</span> Refresh State
+          <span>🔄</span> {t('admin.direction.refreshState')}
         </button>
       </div>
 
@@ -186,7 +188,7 @@ export default function DirectionDashboardPage() {
             color: activeTab === 'kpis' ? '#ffffff' : '#94a3b8'
           }}
         >
-          📊 Strategic KPIs & Overview
+          📊 {t('admin.direction.tabKpis')}
         </button>
         <button
           onClick={() => setActiveTab('users')}
@@ -201,7 +203,7 @@ export default function DirectionDashboardPage() {
             color: activeTab === 'users' ? '#ffffff' : '#94a3b8'
           }}
         >
-          👥 User Management ({totalUsers > 0 ? totalUsers : stats?.total_users || 0})
+          👥 {t('admin.direction.tabUserManagement', { count: totalUsers > 0 ? totalUsers : stats?.total_users || 0 })}
         </button>
         <button
           onClick={() => setActiveTab('audit')}
@@ -216,7 +218,7 @@ export default function DirectionDashboardPage() {
             color: activeTab === 'audit' ? '#ffffff' : '#94a3b8'
           }}
         >
-          📜 Global Audit Ledger ({totalLogs})
+          📜 {t('admin.direction.tabAuditLedger', { count: totalLogs })}
         </button>
       </div>
 
@@ -226,39 +228,39 @@ export default function DirectionDashboardPage() {
           {loadingStats ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
               <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
-              Querying live database aggregations...
+              {t('admin.direction.queryingAggregations')}
             </div>
           ) : stats ? (
             <div>
               {/* Top Banner with Health */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Platform Health</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.platformHealth')}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#10b981' }} />
                     <span style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>{stats.platform_health}</span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>PostgreSQL • Redis • API online</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.platformHealthDetail')}</div>
                 </div>
 
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Confirmed Cash Volume</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.confirmedCashVolume')}</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: '#f59e0b' }}>{formatCurrency(stats.confirmed_cash)}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Double-confirmed transactions</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.doubleConfirmedTransactions')}</div>
                 </div>
 
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Orders Today</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.ordersToday')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>{stats.orders_today}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Lifetime Orders: {stats.total_orders}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.lifetimeOrders', { count: stats.total_orders })}</div>
                 </div>
 
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Open Disputes / Claims</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.openDisputes')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: stats.open_disputes > 0 ? '#ef4444' : '#10b981' }}>
                     {stats.open_disputes}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Requiring mediation</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.requiringMediation')}</div>
                 </div>
               </div>
 
@@ -267,20 +269,20 @@ export default function DirectionDashboardPage() {
                 {/* Users & Accounts */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>👥 Accounts Breakdown</h3>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{stats.total_users} Total</span>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>👥 {t('admin.direction.accountsBreakdown')}</h3>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.totalCount', { count: stats.total_users })}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Buyers:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.buyers')}</span>
                       <span style={{ fontWeight: 700 }}>{stats.total_buyers}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Sellers (Owners):</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.sellersOwners')}</span>
                       <span style={{ fontWeight: 700 }}>{stats.total_sellers}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Shop Employees:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.shopEmployees')}</span>
                       <span style={{ fontWeight: 700 }}>{stats.total_employees}</span>
                     </div>
                   </div>
@@ -289,20 +291,20 @@ export default function DirectionDashboardPage() {
                 {/* Businesses & Shops */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>🏪 Merchants & Outlets</h3>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{stats.total_businesses} Businesses</span>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>🏪 {t('admin.direction.merchantsAndOutlets')}</h3>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.businessesCount', { count: stats.total_businesses })}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Total Registered Shops:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.totalRegisteredShops')}</span>
                       <span style={{ fontWeight: 700 }}>{stats.total_shops}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Currently Active Shops:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.currentlyActiveShops')}</span>
                       <span style={{ fontWeight: 700, color: '#10b981' }}>{stats.active_shops}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Inactive / Suspended Shops:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.inactiveSuspendedShops')}</span>
                       <span style={{ fontWeight: 700, color: '#ef4444' }}>{stats.total_shops - stats.active_shops}</span>
                     </div>
                   </div>
@@ -311,20 +313,20 @@ export default function DirectionDashboardPage() {
                 {/* Catalog & Inventory */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>📦 Catalog & Stock</h3>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{stats.total_products} Products</span>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>📦 {t('admin.direction.catalogAndStock')}</h3>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.productsCount', { count: stats.total_products })}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Live Published Products:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.livePublishedProducts')}</span>
                       <span style={{ fontWeight: 700, color: '#3b82f6' }}>{stats.published_products}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Draft / Archived:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.draftArchived')}</span>
                       <span style={{ fontWeight: 700 }}>{stats.total_products - stats.published_products}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>Out of Stock Anomalies:</span>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.outOfStockAnomalies')}</span>
                       <span style={{ fontWeight: 700, color: stats.out_of_stock_products > 0 ? '#f59e0b' : '#10b981' }}>{stats.out_of_stock_products}</span>
                     </div>
                   </div>
@@ -342,7 +344,7 @@ export default function DirectionDashboardPage() {
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b' }}>
             <input
               type="text"
-              placeholder="Search by name, email, or phone..."
+              placeholder={t('admin.direction.searchUsersPlaceholder')}
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
               style={{
@@ -367,10 +369,10 @@ export default function DirectionDashboardPage() {
                 fontSize: 13
               }}
             >
-              <option value="">All Account Types</option>
-              <option value="BUYER">Buyer</option>
-              <option value="SELLER">Seller</option>
-              <option value="EMPLOYEE">Employee</option>
+              <option value="">{t('admin.direction.allAccountTypes')}</option>
+              <option value="BUYER">{t('admin.direction.accountTypeBuyer')}</option>
+              <option value="SELLER">{t('admin.direction.accountTypeSeller')}</option>
+              <option value="EMPLOYEE">{t('admin.direction.accountTypeEmployee')}</option>
             </select>
             <select
               value={userStatusFilter}
@@ -384,10 +386,10 @@ export default function DirectionDashboardPage() {
                 fontSize: 13
               }}
             >
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="SUSPENDED">Suspended</option>
-              <option value="PENDING_VERIFICATION">Pending Verification</option>
+              <option value="">{t('admin.direction.allStatuses')}</option>
+              <option value="ACTIVE">{t('admin.direction.statusActive')}</option>
+              <option value="SUSPENDED">{t('admin.direction.statusSuspended')}</option>
+              <option value="PENDING_VERIFICATION">{t('admin.direction.statusPendingVerification')}</option>
             </select>
             <button
               onClick={() => void loadUsers()}
@@ -402,7 +404,7 @@ export default function DirectionDashboardPage() {
                 cursor: 'pointer'
               }}
             >
-              Filter
+              {t('admin.direction.filter')}
             </button>
           </div>
 
@@ -411,27 +413,27 @@ export default function DirectionDashboardPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
-                  <th style={{ padding: '12px 16px' }}>User</th>
-                  <th style={{ padding: '12px 16px' }}>Contact</th>
-                  <th style={{ padding: '12px 16px' }}>Type</th>
-                  <th style={{ padding: '12px 16px' }}>Status</th>
-                  <th style={{ padding: '12px 16px' }}>Biz / Shops</th>
-                  <th style={{ padding: '12px 16px' }}>Orders</th>
-                  <th style={{ padding: '12px 16px' }}>Points</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Actions</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thUser')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thContact')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thType')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('common.status')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thBizShops')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thOrders')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thPoints')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('admin.direction.thActions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingUsers ? (
                   <tr>
                     <td colSpan={8} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
-                      Loading users...
+                      {t('admin.direction.loadingUsers')}
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
-                      No users found matching query.
+                      {t('admin.direction.noUsersFound')}
                     </td>
                   </tr>
                 ) : (
@@ -441,7 +443,7 @@ export default function DirectionDashboardPage() {
                         <div style={{ fontWeight: 700, color: '#ffffff' }}>
                           {u.first_name} {u.last_name}
                         </div>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>ID: {u.id.substring(0, 8)}...</div>
+                        <div style={{ fontSize: 11, color: '#64748b' }}>{t('admin.direction.idPrefix', { id: u.id.substring(0, 8) })}</div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <div>{u.email}</div>
@@ -472,7 +474,7 @@ export default function DirectionDashboardPage() {
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        {u.business_count} biz / {u.shop_count} shops
+                        {t('admin.direction.bizShopsValue', { biz: u.business_count, shops: u.shop_count })}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         {u.order_count}
@@ -500,7 +502,7 @@ export default function DirectionDashboardPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              Suspend
+                              {t('admin.direction.suspend')}
                             </button>
                           ) : (
                             <button
@@ -520,7 +522,7 @@ export default function DirectionDashboardPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              Reactivate
+                              {t('admin.direction.reactivate')}
                             </button>
                           )}
                           <button
@@ -539,9 +541,9 @@ export default function DirectionDashboardPage() {
                               fontWeight: 600,
                               cursor: 'pointer'
                             }}
-                            title="Revoke all active tokens"
+                            title={t('admin.direction.revokeTokensTooltip')}
                           >
-                            Logout
+                            {t('admin.direction.logout')}
                           </button>
                         </div>
                       </td>
@@ -571,14 +573,14 @@ export default function DirectionDashboardPage() {
                 fontSize: 13
               }}
             >
-              <option value="">All Target Entities</option>
-              <option value="USER">User Actions</option>
-              <option value="ADMIN_USER">Admin Auth Events</option>
-              <option value="BUSINESS">Business Lifecycle</option>
-              <option value="SHOP">Shop Lifecycle</option>
-              <option value="PRODUCT">Product Modifications</option>
-              <option value="ORDER">Order Overrides</option>
-              <option value="POINT_ACCOUNT">Points Adjustments</option>
+              <option value="">{t('admin.direction.allTargetEntities')}</option>
+              <option value="USER">{t('admin.direction.targetUserActions')}</option>
+              <option value="ADMIN_USER">{t('admin.direction.targetAdminAuthEvents')}</option>
+              <option value="BUSINESS">{t('admin.direction.targetBusinessLifecycle')}</option>
+              <option value="SHOP">{t('admin.direction.targetShopLifecycle')}</option>
+              <option value="PRODUCT">{t('admin.direction.targetProductModifications')}</option>
+              <option value="ORDER">{t('admin.direction.targetOrderOverrides')}</option>
+              <option value="POINT_ACCOUNT">{t('admin.direction.targetPointsAdjustments')}</option>
             </select>
             <button
               onClick={() => void loadAuditLogs()}
@@ -593,7 +595,7 @@ export default function DirectionDashboardPage() {
                 cursor: 'pointer'
               }}
             >
-              Filter Audit Log
+              {t('admin.direction.filterAuditLog')}
             </button>
           </div>
 
@@ -601,25 +603,25 @@ export default function DirectionDashboardPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
-                  <th style={{ padding: '12px 16px' }}>Timestamp</th>
-                  <th style={{ padding: '12px 16px' }}>Administrator</th>
-                  <th style={{ padding: '12px 16px' }}>Action</th>
-                  <th style={{ padding: '12px 16px' }}>Target</th>
-                  <th style={{ padding: '12px 16px' }}>Mandatory Justification</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Inspection</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thTimestamp')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thAdministrator')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thAction')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thTarget')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.direction.thMandatoryJustification')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('admin.direction.thInspection')}</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingAudit ? (
                   <tr>
                     <td colSpan={6} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
-                      Loading immutable audit ledger...
+                      {t('admin.direction.loadingAuditLedger')}
                     </td>
                   </tr>
                 ) : auditLogs.length === 0 ? (
                   <tr>
                     <td colSpan={6} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
-                      No audit events recorded for current filter.
+                      {t('admin.direction.noAuditEvents')}
                     </td>
                   </tr>
                 ) : (
@@ -629,7 +631,7 @@ export default function DirectionDashboardPage() {
                         {new Date(l.created_at).toLocaleString()}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <div style={{ fontWeight: 700, color: '#ffffff' }}>{l.actor_admin_name || l.actor_admin_email || 'Admin'}</div>
+                        <div style={{ fontWeight: 700, color: '#ffffff' }}>{l.actor_admin_name || l.actor_admin_email || t('admin.direction.adminFallback')}</div>
                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, backgroundColor: '#334155', color: '#cbd5e1' }}>
                           {l.actor_role}
                         </span>
@@ -668,7 +670,7 @@ export default function DirectionDashboardPage() {
                               cursor: 'pointer'
                             }}
                           >
-                            View Diff
+                            {t('admin.direction.viewDiff')}
                           </button>
                         )}
                       </td>
@@ -703,11 +705,11 @@ export default function DirectionDashboardPage() {
             boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px', color: actionType === 'suspend' ? '#ef4444' : '#60a5fa' }}>
-              Confirm Administrative Action: {actionType.toUpperCase().replace('_', ' ')}
+              {t('admin.direction.confirmActionTitle', { action: actionType.toUpperCase().replace('_', ' ') })}
             </h3>
             <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', lineHeight: 1.5 }}>
-              Target user: <strong>{actionTargetUser.first_name} {actionTargetUser.last_name}</strong> ({actionTargetUser.email}).
-              This action mutates live state in PostgreSQL and immediately records an immutable audit log.
+              {t('admin.direction.targetUserLabel')} <strong>{actionTargetUser.first_name} {actionTargetUser.last_name}</strong> ({actionTargetUser.email}).
+              {' '}{t('admin.direction.mutatesLiveStateNotice')}
             </p>
 
             {actionMessage && (
@@ -725,12 +727,12 @@ export default function DirectionDashboardPage() {
 
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>
-                Mandatory Justification Reason:
+                {t('admin.direction.mandatoryJustificationLabel')}
               </label>
               <textarea
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}
-                placeholder="Specify regulatory, policy, or operational justification for this action..."
+                placeholder={t('admin.direction.justificationPlaceholder')}
                 rows={4}
                 style={{
                   width: '100%',
@@ -766,7 +768,7 @@ export default function DirectionDashboardPage() {
                   cursor: 'pointer'
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleExecuteUserAction}
@@ -783,7 +785,7 @@ export default function DirectionDashboardPage() {
                   opacity: actionSubmitting ? 0.7 : 1
                 }}
               >
-                {actionSubmitting ? 'Executing...' : 'Confirm & Commit Audit'}
+                {actionSubmitting ? t('admin.direction.executing') : t('admin.direction.confirmAndCommitAudit')}
               </button>
             </div>
           </div>
@@ -812,21 +814,21 @@ export default function DirectionDashboardPage() {
             boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 6px', color: '#ffffff' }}>
-              Audit Mutation Diff: {selectedAuditLog.action}
+              {t('admin.direction.auditMutationDiff', { action: selectedAuditLog.action })}
             </h3>
             <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 18px' }}>
-              Event ID: {selectedAuditLog.id} • Target: {selectedAuditLog.target_type} ({selectedAuditLog.target_id})
+              {t('admin.direction.eventIdTarget', { id: selectedAuditLog.id, targetType: selectedAuditLog.target_type, targetId: selectedAuditLog.target_id })}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', marginBottom: 6 }}>Previous State (old_value):</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', marginBottom: 6 }}>{t('admin.direction.previousStateLabel')}</div>
                 <pre style={{ backgroundColor: '#1e293b', padding: 12, borderRadius: 8, fontSize: 11, color: '#cbd5e1', overflow: 'auto', maxHeight: 200 }}>
                   {JSON.stringify(selectedAuditLog.old_value, null, 2) || 'null'}
                 </pre>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', marginBottom: 6 }}>New State (new_value):</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', marginBottom: 6 }}>{t('admin.direction.newStateLabel')}</div>
                 <pre style={{ backgroundColor: '#1e293b', padding: 12, borderRadius: 8, fontSize: 11, color: '#cbd5e1', overflow: 'auto', maxHeight: 200 }}>
                   {JSON.stringify(selectedAuditLog.new_value, null, 2) || 'null'}
                 </pre>
@@ -847,7 +849,7 @@ export default function DirectionDashboardPage() {
                   cursor: 'pointer'
                 }}
               >
-                Close Diff Inspector
+                {t('admin.direction.closeDiffInspector')}
               </button>
             </div>
           </div>

@@ -13,16 +13,16 @@ const STORAGE_KEY = 'btmi.lang'
  *  Keys come from `fr` (which is `as const`, so they are literal), but values
  *  are widened to `string` — otherwise each entry's type would be its own
  *  French sentence and no translation could ever be assigned to it. */
-export type TranslationKey = keyof typeof fr
+export type TranslationKey = keyof typeof fr | keyof typeof en
 export type Dictionary = Record<TranslationKey, string>
 
-const DICTIONARIES: Record<Lang, Partial<Dictionary>> = { fr, en }
+const DICTIONARIES: Record<Lang, Record<string, string>> = { fr: fr as Record<string, string>, en: en as Record<string, string> }
 
 interface I18nState {
   lang: Lang
   setLang: (lang: Lang) => void
   toggleLang: () => void
-  t: (key: keyof Dictionary, vars?: Record<string, string | number>) => string
+  t: (key: keyof Dictionary | (string & {}), vars?: Record<string, string | number | undefined | null>) => string
 }
 
 const I18nContext = createContext<I18nState | null>(null)
@@ -41,10 +41,10 @@ function readInitialLang(): Lang {
 
 /** Replaces {name} placeholders. Missing vars are left visible on purpose so a
  *  forgotten interpolation shows up in review instead of rendering "undefined". */
-function interpolate(template: string, vars?: Record<string, string | number>): string {
+function interpolate(template: string, vars?: Record<string, string | number | undefined | null>): string {
   if (!vars) return template
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
-    key in vars ? String(vars[key]) : match
+    key in vars && vars[key] != null ? String(vars[key]) : match
   )
 }
 
@@ -61,9 +61,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [lang])
 
   const t = useCallback(
-    (key: keyof Dictionary, vars?: Record<string, string | number>) => {
+    (key: keyof Dictionary | (string & {}), vars?: Record<string, string | number | undefined | null>) => {
       const dict = DICTIONARIES[lang]
-      const value = dict[key] ?? fr[key] ?? (key as string)
+      const value = (dict as Record<string, string>)[key] ?? (fr as Record<string, string>)[key] ?? (key as string)
       return interpolate(value as string, vars)
     },
     [lang]

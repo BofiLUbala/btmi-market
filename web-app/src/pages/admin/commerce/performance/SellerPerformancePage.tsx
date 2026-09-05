@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminCommerceApi, type AdminSellerPerformance } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 export default function SellerPerformancePage() {
+  const t = useT()
   const [performance, setPerformance] = useState<AdminSellerPerformance[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -35,20 +37,20 @@ export default function SellerPerformancePage() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Seller Performance</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Cross-business seller performance metrics and health scores.</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.performance.sellerTitle')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.performance.sellerSubtitle')}</p>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : performance.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>No performance data available</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.performance.noPerformanceData')}</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Seller', 'Business', 'Orders Received', 'Acceptance Rate', 'Completion Rate', 'Avg Prep Time', 'Cancellations', 'Review Score', 'Stock Accuracy'].map(h => (
+                {[t('admin.performance.sellerColumn'), t('admin.performance.businessColumn'), t('admin.performance.ordersReceivedColumn'), t('admin.performance.acceptanceRateColumn'), t('admin.performance.completionRateColumn'), t('admin.performance.avgPrepTimeColumn'), t('admin.performance.cancellationsColumn'), t('admin.performance.reviewScoreColumn'), t('admin.performance.stockAccuracyColumn')].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -56,14 +58,14 @@ export default function SellerPerformancePage() {
             <tbody>
               {performance.map(s => (
                 <tr key={s.seller_id} style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{s.seller_name || 'N/A'}</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{s.seller_name || t('admin.common.notAvailable')}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{s.business_name}</td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.orders_received}</td>
                   <td style={{ padding: '10px 12px', fontWeight: 700, color: s.acceptance_rate >= 90 ? '#34d399' : '#fbbf24' }}>
                     {s.acceptance_rate?.toFixed(1) ?? '0.0'}%
                   </td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.completion_rate?.toFixed(1) ?? '0.0'}%</td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.avg_preparation_time_hours?.toFixed(1) ?? '-'} hrs</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{s.avg_preparation_time_hours != null ? t('admin.performance.hoursValue', { value: s.avg_preparation_time_hours.toFixed(1) }) : '-'}</td>
                   <td style={{ padding: '10px 12px', color: s.cancellations > 0 ? '#ef4444' : '#34d399' }}>{s.cancellations}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -85,11 +87,11 @@ export default function SellerPerformancePage() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
           <button onClick={() => setPage(Math.max(0, page - limit))} disabled={page === 0}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page === 0 ? '#475569' : '#f8fafc', cursor: page === 0 ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Previous</button>
-          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>Page {Math.floor(page / limit) + 1} of {totalPages}</span>
+          >{t('common.previous')}</button>
+          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>{t('admin.common.pageOf', { page: Math.floor(page / limit) + 1, total: totalPages })}</span>
           <button onClick={() => setPage(Math.min(total - limit, page + limit))} disabled={page + limit >= total}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page + limit >= total ? '#475569' : '#f8fafc', cursor: page + limit >= total ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Next</button>
+          >{t('common.next')}</button>
         </div>
       )}
     </div>

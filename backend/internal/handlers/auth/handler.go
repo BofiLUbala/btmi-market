@@ -24,6 +24,13 @@ type Handler struct {
 	flags           FeatureFlagChecker
 }
 
+func (h *Handler) authError(c *gin.Context, status int, code, message string) {
+	var response models.ErrorResponse
+	response.Error.Code = code
+	response.Error.Message = message
+	c.JSON(status, response)
+}
+
 func NewHandler(authService *service.AuthService, employeeService *service.EmployeeService, flags FeatureFlagChecker) *Handler {
 	return &Handler{authService: authService, employeeService: employeeService, flags: flags}
 }
@@ -149,6 +156,27 @@ func (h *Handler) RegisterSeller(c *gin.Context) {
 			"user_id": user.ID.String(),
 		},
 	})
+}
+
+func (h *Handler) BecomeSeller(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.authError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		return
+	}
+	user, err := h.authService.BecomeSeller(userID.(uuid.UUID))
+	if err != nil {
+		status, code := http.StatusInternalServerError, "INTERNAL_ERROR"
+		if err.Error() == "USER_NOT_FOUND" {
+			status, code = http.StatusNotFound, "USER_NOT_FOUND"
+		}
+		if err.Error() == "ACCOUNT_NOT_ACTIVATED" {
+			status, code = http.StatusForbidden, "ACCOUNT_NOT_ACTIVATED"
+		}
+		h.authError(c, status, code, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Seller onboarding enabled", Data: user})
 }
 
 func (h *Handler) Activate(c *gin.Context) {

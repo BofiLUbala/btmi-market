@@ -12,10 +12,12 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../src/store/adminAuth'
+import { useI18n } from '../../src/store/i18n'
 
 export default function AdminLoginScreen() {
   const router = useRouter()
   const login = useAdminAuth((s) => s.login)
+  const { t } = useI18n()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,7 +26,7 @@ export default function AdminLoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      setError('Please provide email and password')
+      setError(t('admin.login.missingCreds'))
       return
     }
 
@@ -34,7 +36,7 @@ export default function AdminLoginScreen() {
       await login(email.trim(), password)
       router.replace('/admin')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Invalid administrator credentials'
+      const msg = err instanceof Error ? err.message : t('admin.login.invalidCredentials')
       setError(msg)
     } finally {
       setSubmitting(false)
@@ -52,13 +54,13 @@ export default function AdminLoginScreen() {
             <Text style={{ fontSize: 32 }}>🏛️</Text>
           </View>
 
-          <Text style={styles.title}>TBK Control Center</Text>
-          <Text style={styles.subtitle}>Mobile Administrator Terminal</Text>
+          <Text style={styles.title}>{t('admin.login.title')}</Text>
+          <Text style={styles.subtitle}>{t('admin.login.subtitle')}</Text>
 
           <View style={styles.securityBanner}>
             <Text style={{ fontSize: 16 }}>🛡️</Text>
             <Text style={styles.securityText}>
-              Restricted administrative zone. Device IP and actions are logged to the immutable audit ledger.
+              {t('admin.login.securityNotice')}
             </Text>
           </View>
 
@@ -69,26 +71,26 @@ export default function AdminLoginScreen() {
           )}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Admin Email</Text>
+            <Text style={styles.label}>{t('admin.login.emailLabel')}</Text>
             <TextInput
               style={styles.input}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
-              placeholder="admin@tbkmarket.com"
+              placeholder={t('admin.login.emailPlaceholder')}
               placeholderTextColor="#64748b"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t('admin.login.passwordLabel')}</Text>
             <TextInput
               style={styles.input}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              placeholder="••••••••••••"
+              placeholder={t('admin.login.passwordPlaceholder')}
               placeholderTextColor="#64748b"
             />
           </View>
@@ -101,7 +103,7 @@ export default function AdminLoginScreen() {
             {submitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.loginBtnText}>Authenticate Session</Text>
+              <Text style={styles.loginBtnText}>{t('admin.login.submit')}</Text>
             )}
           </TouchableOpacity>
 
@@ -109,7 +111,7 @@ export default function AdminLoginScreen() {
             style={{ marginTop: 20, alignItems: 'center' }}
             onPress={() => router.replace('/')}
           >
-            <Text style={{ color: '#64748b', fontSize: 12 }}>← Return to Marketplace</Text>
+            <Text style={{ color: '#64748b', fontSize: 12 }}>{t('admin.login.returnToMarketplace')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

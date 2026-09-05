@@ -127,6 +127,25 @@ func (s *AuthService) RegisterSeller(req *models.RegisterRequest) (*models.User,
 	return s.registerWithAccountType(req, models.AccountTypeSeller)
 }
 
+// BecomeSeller enables seller onboarding on the existing authenticated user.
+// The user row, email, credentials and any buyer profile are deliberately
+// preserved, preventing a duplicate account for an existing buyer.
+func (s *AuthService) BecomeSeller(userID uuid.UUID) (*models.User, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, errors.New("USER_NOT_FOUND")
+	}
+	if user.Status != models.UserStatusActive || !user.EmailVerified {
+		return nil, errors.New("ACCOUNT_NOT_ACTIVATED")
+	}
+	if user.AccountType != models.AccountTypeSeller {
+		if err := s.userRepo.UpdateAccountType(userID, models.AccountTypeSeller); err != nil {
+			return nil, err
+		}
+	}
+	return s.userRepo.GetByID(userID)
+}
+
 func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accountType models.AccountType) (*models.User, error) {
 	if req.Password != req.PasswordConfirmation {
 		return nil, errors.New("PASSWORD_CONFIRMATION_MISMATCH")

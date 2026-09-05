@@ -8,8 +8,9 @@ import { useT } from '@/store/i18n'
 import { Button } from '@/components/ui/Button'
 import { LoadingBlock } from '@/components/ui/Feedback'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
+import { BuyerProfileModal } from '@/components/checkout/BuyerProfileModal'
 import { formatMoney, initials, uuid } from '@/lib/format'
-import { loginWithReturnTo, profileWithReturnTo } from '@/lib/returnTo'
+import { loginWithReturnTo } from '@/lib/returnTo'
 
 type T = ReturnType<typeof useT>
 
@@ -34,22 +35,19 @@ export default function CartPage() {
   const cart = useCart()
   const navigate = useNavigate()
   const t = useT()
-  const { user, buyerProfile } = useAuth()
+  const { user, buyerProfile, refreshUser } = useAuth()
   const [preview, setPreview] = useState<PointRedemptionPreviewResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [placing, setPlacing] = useState(false)
   const [error, setError] = useState('')
   const [profileBlocked, setProfileBlocked] = useState(false)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+  const [profileSaved, setProfileSaved] = useState(false)
 
   // Amazon-style guard: browsing and the cart itself stay open to everyone,
   // but checkout is blocked until the buyer has a phone number on file so
   // sellers/delivery can actually reach them about the order.
-  const profileIncomplete = Boolean(user && (!buyerProfile || !buyerProfile.phone.trim()))
-  const profileCompletionPath = profileWithReturnTo(
-    buyerProfile ? '/account/edit' : '/account/profile-setup',
-    '/cart'
-  )
-
+  const profileIncomplete = Boolean(user && !profileSaved && (!buyerProfile || !buyerProfile.phone.trim()))
   // Authoritative totals come from the backend preview (logged-in only).
   useEffect(() => {
     if (!user || cart.lines.length === 0 || !cart.shopId) {
@@ -83,7 +81,7 @@ export default function CartPage() {
       return
     }
     if (profileIncomplete) {
-      navigate(profileCompletionPath)
+      setProfileModalOpen(true)
       return
     }
     if (!cart.shopId) return
@@ -126,7 +124,8 @@ export default function CartPage() {
         <span>{cart.totalQty} {cart.totalQty === 1 ? t('cart.item') : t('cart.items')}</span>
       </header>
 
-      {error && <div className="checkout-inline-error"><strong>{t('cart.needsAttention')}</strong><span>{error}</span>{profileBlocked && <button onClick={() => navigate(profileCompletionPath)}>{t('cart.completeProfile')}</button>}</div>}
+      {error && <div className="checkout-inline-error"><strong>{t('cart.needsAttention')}</strong><span>{error}</span>{profileBlocked && <button onClick={() => setProfileModalOpen(true)}>{t('cart.completeProfile')}</button>}</div>}
+      {profileSaved && <div className="checkout-inline-success" role="status">Your buyer profile is complete. You can continue checkout.</div>}
 
       <div className="checkout-layout">
         <div className="checkout-content">
@@ -236,6 +235,7 @@ export default function CartPage() {
           <Link to="/search" className="checkout-secondary">{t('cart.continueShopping')}</Link>
         </aside>
       </div>
+      {user && <BuyerProfileModal open={profileModalOpen} profile={buyerProfile} user={user} onClose={() => setProfileModalOpen(false)} onSaved={async () => { await refreshUser(); setProfileSaved(true); setProfileBlocked(false); setError(''); setProfileModalOpen(false) }} />}
     </div>
   )
 }

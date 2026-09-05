@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native'
 import { adminCommerceApi } from '../../../../src/api/admin'
+import { useI18n } from '../../../../src/store/i18n'
 
 export default function MobileMarketplaceScreen() {
+  const { t } = useI18n()
   const [productId, setProductId] = useState('')
   const [visibility, setVisibility] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -16,7 +18,7 @@ export default function MobileMarketplaceScreen() {
       const res = await adminCommerceApi.getMarketplaceVisibility(productId.trim())
       setVisibility(res)
     } catch (err) {
-      setError('Failed to load visibility')
+      setError(t('admin.marketplace.failed'))
       setVisibility(null)
     } finally {
       setLoading(false)
@@ -25,20 +27,20 @@ export default function MobileMarketplaceScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
-      <Text style={styles.title}>Marketplace Visibility Lookup</Text>
-      <Text style={styles.subtitle}>Check if a product is visible on the public marketplace.</Text>
+      <Text style={styles.title}>{t('admin.marketplace.title')}</Text>
+      <Text style={styles.subtitle}>{t('admin.marketplace.subtitle')}</Text>
 
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
-          placeholder="Enter Product ID..."
+          placeholder={t('admin.marketplace.placeholder')}
           placeholderTextColor="#64748b"
           value={productId}
           onChangeText={setProductId}
         />
         <TouchableOpacity style={[styles.lookupBtn, (!productId.trim() || loading) && styles.lookupBtnDisabled]}
           onPress={lookup} disabled={!productId.trim() || loading}>
-          <Text style={styles.lookupBtnText}>{loading ? '...' : 'Lookup'}</Text>
+          <Text style={styles.lookupBtnText}>{loading ? '...' : t('admin.marketplace.lookup')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -50,29 +52,29 @@ export default function MobileMarketplaceScreen() {
         <View style={[styles.resultBox, { borderColor: visibility.is_visible ? '#10b981' : '#dc2626', backgroundColor: visibility.is_visible ? '#064e3b20' : '#7f1d1d20' }]}>
           <Text style={styles.resultIcon}>{visibility.is_visible ? '✅' : '🚫'}</Text>
           <Text style={[styles.resultTitle, { color: visibility.is_visible ? '#34d399' : '#ef4444' }]}>
-            Product {visibility.is_visible ? 'IS' : 'is NOT'} visible
+            {visibility.is_visible ? t('admin.marketplace.isVisible') : t('admin.marketplace.isNotVisible')}
           </Text>
 
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Product Status</Text>
+            <Text style={styles.fieldLabel}>{t('admin.marketplace.productStatus')}</Text>
             <Text style={styles.fieldValue}>{visibility.product_status}</Text>
           </View>
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Publication</Text>
+            <Text style={styles.fieldLabel}>{t('admin.marketplace.publication')}</Text>
             <Text style={styles.fieldValue}>{visibility.publication_status}</Text>
           </View>
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Shop Visible</Text>
-            <Text style={styles.fieldValue}>{visibility.shop_visible ? 'Yes' : 'No'}</Text>
+            <Text style={styles.fieldLabel}>{t('admin.marketplace.shopVisible')}</Text>
+            <Text style={styles.fieldValue}>{visibility.shop_visible ? t('admin.marketplace.yes') : t('admin.marketplace.no')}</Text>
           </View>
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Business Active</Text>
-            <Text style={styles.fieldValue}>{visibility.business_active ? 'Yes' : 'No'}</Text>
+            <Text style={styles.fieldLabel}>{t('admin.marketplace.businessActive')}</Text>
+            <Text style={styles.fieldValue}>{visibility.business_active ? t('admin.marketplace.yes') : t('admin.marketplace.no')}</Text>
           </View>
 
           {visibility.reasons_not_shown?.length > 0 && (
             <View style={{ marginTop: 12 }}>
-              <Text style={styles.reasonsTitle}>Reasons:</Text>
+              <Text style={styles.reasonsTitle}>{t('admin.marketplace.reasons')}</Text>
               {visibility.reasons_not_shown.map((r: string, i: number) => (
                 <Text key={i} style={styles.reasonText}>• {r}</Text>
               ))}

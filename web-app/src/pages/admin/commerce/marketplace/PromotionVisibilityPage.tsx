@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminCommerceApi, type AdminPromotionVisibility } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 export default function PromotionVisibilityPage() {
+  const t = useT()
   const [promotions, setPromotions] = useState<AdminPromotionVisibility[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -32,20 +34,30 @@ export default function PromotionVisibilityPage() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Promotion Visibility</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Inspect promotion visibility, discount badges, and active pricing across the marketplace.</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.promotions.title')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.promotions.subtitle')}</p>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : promotions.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>No promotions found</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.promotions.noPromotions')}</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Product', 'Shop', 'Discount', 'Prices (Sale / Reg)', 'Badge', 'Visibility', 'Start', 'End', 'Status'].map(h => (
+                {[
+                  t('admin.promotions.colProduct'),
+                  t('admin.promotions.colShop'),
+                  t('admin.promotions.colDiscount'),
+                  t('admin.promotions.colPrices'),
+                  t('admin.promotions.colBadge'),
+                  t('admin.promotions.colVisibility'),
+                  t('admin.promotions.colStart'),
+                  t('admin.promotions.colEnd'),
+                  t('common.status'),
+                ].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -56,7 +68,7 @@ export default function PromotionVisibilityPage() {
                 return (
                   <tr key={p.product_id} style={{ borderBottom: '1px solid #1e293b' }}>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{p.product_name}</td>
-                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{p.shop_name || 'All Shops'}</td>
+                    <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{p.shop_name || t('admin.promotions.allShops')}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: '#1e293b', color: '#93c5fd' }}>
                         {p.discount_type === 'PERCENTAGE' ? `${p.discount_value}% OFF` : `$${p.discount_value.toFixed(2)} OFF`}
@@ -72,19 +84,19 @@ export default function PromotionVisibilityPage() {
                         backgroundColor: p.off_badge ? '#1e3a5f' : '#1e293b',
                         color: p.off_badge ? '#60a5fa' : '#64748b'
                       }}>
-                        {p.off_badge ? 'BADGE' : 'NONE'}
+                        {p.off_badge ? t('admin.promotions.badgeYes') : t('admin.common.none')}
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: vc.bg, color: vc.fg }}>
-                        {p.is_active ? 'ACTIVE' : 'INACTIVE'}
+                        {p.is_active ? t('admin.promotions.active') : t('admin.promotions.inactive')}
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {p.start_date ? new Date(p.start_date).toLocaleDateString() : 'Immediate'}
+                      {p.start_date ? new Date(p.start_date).toLocaleDateString() : t('admin.promotions.immediate')}
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {p.end_date ? new Date(p.end_date).toLocaleDateString() : 'Ongoing'}
+                      {p.end_date ? new Date(p.end_date).toLocaleDateString() : t('admin.promotions.ongoing')}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{
@@ -105,11 +117,11 @@ export default function PromotionVisibilityPage() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
           <button onClick={() => setPage(Math.max(0, page - limit))} disabled={page === 0}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page === 0 ? '#475569' : '#f8fafc', cursor: page === 0 ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Previous</button>
-          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>Page {Math.floor(page / limit) + 1} of {totalPages}</span>
+          >{t('common.previous')}</button>
+          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>{t('admin.common.pageOf', { page: Math.floor(page / limit) + 1, total: totalPages })}</span>
           <button onClick={() => setPage(Math.min(total - limit, page + limit))} disabled={page + limit >= total}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page + limit >= total ? '#475569' : '#f8fafc', cursor: page + limit >= total ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Next</button>
+          >{t('common.next')}</button>
         </div>
       )}
     </div>

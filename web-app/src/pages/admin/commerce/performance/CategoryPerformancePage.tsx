@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { adminCommerceApi, type AdminCategoryPerformance } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 export default function CategoryPerformancePage() {
+  const t = useT()
   const [performance, setPerformance] = useState<AdminCategoryPerformance[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -23,20 +25,20 @@ export default function CategoryPerformancePage() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Category Performance</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Cross-business category health, catalog volume, and sales analytics.</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.performance.categoryTitle')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.performance.categorySubtitle')}</p>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : performance.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>No category performance data available</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.performance.noCategoryData')}</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Category', 'Products (Pub / Total)', 'Active Sellers', 'Orders', 'Sales Value', 'Availability Score', 'Conversion Rate'].map(h => (
+                {[t('admin.performance.categoryColumn'), t('admin.performance.productsPubTotalColumn'), t('admin.performance.activeSellersColumn'), t('admin.performance.ordersColumn'), t('admin.performance.salesValueColumn'), t('admin.performance.availabilityScoreColumn'), t('admin.performance.conversionRateColumn')].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>

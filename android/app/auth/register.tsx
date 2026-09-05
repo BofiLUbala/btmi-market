@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
@@ -23,11 +23,12 @@ const PASSWORD_RULES = [
 ]
 
 export default function RegisterScreen() {
+  const params = useLocalSearchParams<{ type?: string }>()
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
 
-  const [accountType, setAccountType] = useState<'BUYER' | 'SELLER'>('BUYER')
+  const [accountType, setAccountType] = useState<'BUYER' | 'SELLER'>(params.type === 'seller' ? 'SELLER' : 'BUYER')
   const [firstName, setFirstName] = useState('')
   const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState('')

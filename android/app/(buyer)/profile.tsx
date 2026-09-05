@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi, authApi } from '../../src/api'
 import { resolveMediaUrl } from '../../src/api/client'
@@ -100,6 +100,7 @@ export default function ProfileScreen() {
   const colors = useColors()
   const themed = useMemo(() => makeStyles(colors), [colors])
   const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: user?.account_type === 'BUYER' })
+  const becomeSeller = useMutation({ mutationFn: authApi.becomeSeller, onSuccess: async () => { await useAuth.getState().refresh(); router.push('/seller/onboarding') }, onError: () => Alert.alert(t('common.error'), t('seller.becomeFailed')) })
 
   if (!user) {
     return (
@@ -140,6 +141,7 @@ export default function ProfileScreen() {
       </Card>
 
       <Button variant="outline" title={t('profile.editProfile')} onPress={() => router.push('/profile-edit')} />
+      {user.account_type === 'BUYER' && <Button title={t('seller.becomeSeller')} loading={becomeSeller.isPending} onPress={() => becomeSeller.mutate()} />}
 
       <Card>
         <Pressable onPress={() => router.push('/orders')}><Text style={themed.item}>{t('profile.myOrders')}  ›</Text></Pressable>

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { View, Text, FlatList, StyleSheet, TextInput, Switch } from 'react-native'
 import { adminCommerceApi } from '../../../../src/api/admin'
+import { useI18n } from '../../../../src/store/i18n'
 
 export default function MobileInventoryScreen() {
+  const { t } = useI18n()
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -39,13 +41,13 @@ export default function MobileInventoryScreen() {
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search SKU or product..."
+          placeholder={t('admin.inventory.searchPlaceholder')}
           placeholderTextColor="#64748b"
           value={search}
           onChangeText={(text) => { setSearch(text); setPage(0) }}
         />
         <View style={styles.filterRow}>
-          <Text style={styles.filterLabel}>Low Stock Only</Text>
+          <Text style={styles.filterLabel}>{t('admin.inventory.lowStockOnly')}</Text>
           <Switch
             value={lowStockOnly}
             onValueChange={(val) => { setLowStockOnly(val); setPage(0) }}
@@ -56,9 +58,9 @@ export default function MobileInventoryScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}><Text style={styles.loadingText}>Loading...</Text></View>
+        <View style={styles.center}><Text style={styles.loadingText}>{t('admin.inventory.loading')}</Text></View>
       ) : items.length === 0 ? (
-        <View style={styles.center}><Text style={styles.emptyText}>No inventory records</Text></View>
+        <View style={styles.center}><Text style={styles.emptyText}>{t('admin.inventory.empty')}</Text></View>
       ) : (
         <FlatList
           data={items}
@@ -69,18 +71,18 @@ export default function MobileInventoryScreen() {
                 <Text style={styles.productName} numberOfLines={1}>{item.product_name || item.variant_name || item.sku}</Text>
                 <View style={[styles.statusDot, { backgroundColor: statusColor(item.available, item.status === 'LOW_STOCK') }]} />
               </View>
-              <Text style={styles.shopText}>Shop: {item.shop_id}</Text>
+              <Text style={styles.shopText}>{t('admin.inventory.shop', { shop: item.shop_id })}</Text>
               <View style={styles.row}>
                 <View style={styles.stat}>
-                  <Text style={styles.statLabel}>On Hand</Text>
+                  <Text style={styles.statLabel}>{t('admin.inventory.onHand')}</Text>
                   <Text style={styles.statValue}>{item.quantity}</Text>
                 </View>
                 <View style={styles.stat}>
-                  <Text style={styles.statLabel}>Reserved</Text>
+                  <Text style={styles.statLabel}>{t('admin.inventory.reserved')}</Text>
                   <Text style={[styles.statValue, { color: '#fbbf24' }]}>{item.reserved_quantity}</Text>
                 </View>
                 <View style={styles.stat}>
-                  <Text style={styles.statLabel}>Available</Text>
+                  <Text style={styles.statLabel}>{t('admin.inventory.available')}</Text>
                   <Text style={[styles.statValue, { color: statusColor(item.available, item.status === 'LOW_STOCK') }]}>{item.available}</Text>
                 </View>
               </View>

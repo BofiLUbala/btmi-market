@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminCommerceApi, type AdminEmployeeItem } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 const ROLE_COLORS: Record<string, { bg: string; fg: string }> = {
   SUPER_ADMIN: { bg: '#7f1d1d', fg: '#fca5a5' },
@@ -15,6 +16,7 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export default function EmployeeManagementPage() {
+  const t = useT()
   const [employees, setEmployees] = useState<AdminEmployeeItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -61,19 +63,19 @@ export default function EmployeeManagementPage() {
       {revokeModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <div style={{ backgroundColor: '#1e293b', borderRadius: 12, padding: 24, width: 420, maxWidth: '90vw' }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 12px', color: '#fca5a5' }}>Revoke Employee Access</h3>
-            <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 12 }}>This action is soft-reversible. Provide a reason:</p>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 12px', color: '#fca5a5' }}>{t('admin.employees.revokeTitle')}</h3>
+            <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 12 }}>{t('admin.employees.revokeDesc')}</p>
             <textarea
-              placeholder="Reason (min 5 chars)..."
+              placeholder={t('admin.employees.reasonPlaceholder')}
               value={revokeReason}
               onChange={(e) => setRevokeReason(e.target.value)}
               style={{ width: '100%', minHeight: 80, padding: 10, borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-              <button onClick={() => { setRevokeModal(null); setRevokeReason('') }} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #334155', backgroundColor: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button onClick={() => { setRevokeModal(null); setRevokeReason('') }} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #334155', backgroundColor: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: 13 }}>{t('common.cancel')}</button>
               <button onClick={() => handleRevoke(revokeModal)} disabled={revoking || revokeReason.length < 5}
                 style={{ padding: '8px 16px', borderRadius: 6, border: 'none', backgroundColor: revokeReason.length >= 5 ? '#dc2626' : '#334155', color: '#fff', cursor: revokeReason.length >= 5 ? 'pointer' : 'default', fontSize: 13, fontWeight: 600 }}>
-                {revoking ? 'Revoking...' : 'Revoke Access'}
+                {revoking ? t('admin.employees.revoking') : t('admin.employees.revokeAccess')}
               </button>
             </div>
           </div>
@@ -81,20 +83,20 @@ export default function EmployeeManagementPage() {
       )}
 
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Employee Management</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Cross-business employee listing with role-based revocation.</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.employees.title')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.employees.subtitle')}</p>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : employees.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>No employees found</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.employees.noResults')}</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Employee', 'Email', 'Role', 'Shop', 'Business', 'Status', 'Hired', 'Actions'].map(h => (
+                {[t('admin.employees.colEmployee'), t('common.email'), t('admin.employees.colRole'), t('admin.employees.colShop'), t('admin.employees.colBusiness'), t('common.status'), t('admin.employees.colHired'), t('admin.employees.colActions')].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -107,7 +109,7 @@ export default function EmployeeManagementPage() {
                   </td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{emp.email}</td>
                   <td style={{ padding: '10px 12px' }}><RoleBadge role={emp.job_title || 'EMPLOYEE'} /></td>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{emp.shops?.join(', ') || 'All Shops'}</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{emp.shops?.join(', ') || t('admin.employees.allShops')}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{emp.business_name || '-'}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{
@@ -123,7 +125,7 @@ export default function EmployeeManagementPage() {
                     {emp.status === 'ACTIVE' && (
                       <button onClick={() => setRevokeModal(emp.id)}
                         style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #dc2626', backgroundColor: 'transparent', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                        Revoke
+                        {t('admin.employees.revoke')}
                       </button>
                     )}
                   </td>
@@ -138,11 +140,11 @@ export default function EmployeeManagementPage() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
           <button onClick={() => setPage(Math.max(0, page - limit))} disabled={page === 0}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page === 0 ? '#475569' : '#f8fafc', cursor: page === 0 ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Previous</button>
-          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>Page {Math.floor(page / limit) + 1} of {totalPages}</span>
+          >{t('common.previous')}</button>
+          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>{t('admin.common.pageOf', { page: Math.floor(page / limit) + 1, total: totalPages })}</span>
           <button onClick={() => setPage(Math.min(total - limit, page + limit))} disabled={page + limit >= total}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page + limit >= total ? '#475569' : '#f8fafc', cursor: page + limit >= total ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Next</button>
+          >{t('common.next')}</button>
         </div>
       )}
     </div>

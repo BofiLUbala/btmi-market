@@ -3,10 +3,12 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../src/store/adminAuth'
 import { mobileAdminFinanceApi } from '../../../src/api/admin'
+import { useI18n } from '../../../src/store/i18n'
 
 export default function MobileFinanceScreen() {
   const router = useRouter()
   const { hasRole } = useAdminAuth()
+  const { t } = useI18n()
 
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -36,7 +38,7 @@ export default function MobileFinanceScreen() {
       const riskRes = await mobileAdminFinanceApi.listRiskEvents('OPEN')
       setRiskAlerts(riskRes.items || [])
     } catch (err: any) {
-      setError(err?.message || 'Failed to connect to Admin API')
+      setError(err?.message || t('admin.finance.connectFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -47,10 +49,10 @@ export default function MobileFinanceScreen() {
     return (
       <View style={styles.deniedContainer}>
         <Text style={{ fontSize: 36, marginBottom: 12 }}>🛡️</Text>
-        <Text style={styles.deniedTitle}>Access Prohibited</Text>
-        <Text style={styles.deniedSub}>Your role is not authorized to access Finance / Support / Trust.</Text>
+        <Text style={styles.deniedTitle}>{t('admin.accessProhibited')}</Text>
+        <Text style={styles.deniedSub}>{t('admin.finance.accessDeniedBody')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/admin')}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Return to Direction</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('admin.returnToDirection')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -63,8 +65,8 @@ export default function MobileFinanceScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchFinanceData() }} tintColor="#fbbf24" />}
     >
       <View style={styles.banner}>
-        <Text style={styles.bannerTitle}>💰 Mobile Finance, Support & Trust</Text>
-        <Text style={styles.bannerSub}>Payment double-confirmation, disputes triage, and risk indicators.</Text>
+        <Text style={styles.bannerTitle}>{t('admin.finance.header')}</Text>
+        <Text style={styles.bannerSub}>{t('admin.finance.sub')}</Text>
       </View>
 
       {error && (
@@ -79,31 +81,31 @@ export default function MobileFinanceScreen() {
         <>
           {summary && (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Financial & Trust Metrics</Text>
+              <Text style={styles.cardTitle}>{t('admin.finance.metricsTitle')}</Text>
               <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Verified Cash:</Text>
+                <Text style={styles.metricLabel}>{t('admin.finance.verifiedCash')}</Text>
                 <Text style={[styles.metricVal, { color: '#10b981' }]}>${summary.verified_cash?.toFixed(2)}</Text>
               </View>
               <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Unverified Cash:</Text>
+                <Text style={styles.metricLabel}>{t('admin.finance.unverifiedCash')}</Text>
                 <Text style={[styles.metricVal, { color: '#f59e0b' }]}>${summary.unverified_cash?.toFixed(2)}</Text>
               </View>
               <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Open Support Cases:</Text>
-                <Text style={[styles.metricVal, { color: '#ef4444' }]}>{summary.open_cases_count} Active</Text>
+                <Text style={styles.metricLabel}>{t('admin.finance.openSupportCases')}</Text>
+                <Text style={[styles.metricVal, { color: '#ef4444' }]}>{t('admin.finance.activeCount', { count: summary.open_cases_count })}</Text>
               </View>
               <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Risk & Fraud Alerts:</Text>
-                <Text style={[styles.metricVal, { color: '#f472b6' }]}>{summary.risk_alerts_count} Flagged</Text>
+                <Text style={styles.metricLabel}>{t('admin.finance.riskAlerts')}</Text>
+                <Text style={[styles.metricVal, { color: '#f472b6' }]}>{t('admin.finance.flaggedCount', { count: summary.risk_alerts_count })}</Text>
               </View>
             </View>
           )}
 
           {/* PENDING PAYMENTS SECTION */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Pending Payments ({pendingPayments.length})</Text>
+            <Text style={styles.cardTitle}>{t('admin.finance.pendingPayments', { count: pendingPayments.length })}</Text>
             {pendingPayments.length === 0 ? (
-              <Text style={styles.emptyText}>No pending payment confirmations.</Text>
+              <Text style={styles.emptyText}>{t('admin.finance.noPending')}</Text>
             ) : (
               pendingPayments.map((p) => (
                 <View key={p.payment_id} style={styles.itemRow}>
@@ -119,9 +121,9 @@ export default function MobileFinanceScreen() {
 
           {/* OPEN CASES SECTION */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Open Support & Disputes ({openCases.length})</Text>
+            <Text style={styles.cardTitle}>{t('admin.finance.openDisputes', { count: openCases.length })}</Text>
             {openCases.length === 0 ? (
-              <Text style={styles.emptyText}>No open dispute cases.</Text>
+              <Text style={styles.emptyText}>{t('admin.finance.noOpenCases')}</Text>
             ) : (
               openCases.map((c) => (
                 <View key={c.id} style={styles.itemRow}>
@@ -137,9 +139,9 @@ export default function MobileFinanceScreen() {
 
           {/* RISK ALERTS SECTION */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Risk Alerts ({riskAlerts.length})</Text>
+            <Text style={styles.cardTitle}>{t('admin.finance.riskAlertsSection', { count: riskAlerts.length })}</Text>
             {riskAlerts.length === 0 ? (
-              <Text style={styles.emptyText}>No active risk events flagged.</Text>
+              <Text style={styles.emptyText}>{t('admin.finance.noRiskEvents')}</Text>
             ) : (
               riskAlerts.map((r) => (
                 <View key={r.id} style={styles.itemRow}>

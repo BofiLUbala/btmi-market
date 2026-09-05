@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductListItem } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   PUBLISHED: { bg: '#064e3b', text: '#a7f3d0' },
@@ -24,6 +25,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function CommerceProductsPage() {
+  const t = useT()
   const [products, setProducts] = useState<AdminProductListItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -59,15 +61,15 @@ export default function CommerceProductsPage() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Product Catalog Control</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Cross-business search, flag, unpublish, and archive products.</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.products.listTitle')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.products.listSubtitle')}</p>
       </div>
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           type="text"
-          placeholder="Search by name or SKU..."
+          placeholder={t('admin.products.searchPlaceholder')}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           style={{
@@ -83,10 +85,10 @@ export default function CommerceProductsPage() {
             backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, minWidth: 140
           }}
         >
-          <option value="">All Status</option>
-          <option value="PUBLISHED">Published</option>
-          <option value="DRAFT">Draft</option>
-          <option value="ARCHIVED">Archived</option>
+          <option value="">{t('admin.products.filterAllStatus')}</option>
+          <option value="PUBLISHED">{t('admin.products.statusPublished')}</option>
+          <option value="DRAFT">{t('admin.products.statusDraft')}</option>
+          <option value="ARCHIVED">{t('admin.products.statusArchived')}</option>
         </select>
         <select
           value={stockStatus}
@@ -96,25 +98,25 @@ export default function CommerceProductsPage() {
             backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, minWidth: 140
           }}
         >
-          <option value="">All Stock</option>
-          <option value="IN_STOCK">In Stock</option>
-          <option value="LOW_STOCK">Low Stock</option>
-          <option value="OUT_OF_STOCK">Out of Stock</option>
+          <option value="">{t('admin.products.filterAllStock')}</option>
+          <option value="IN_STOCK">{t('admin.products.stockInStock')}</option>
+          <option value="LOW_STOCK">{t('admin.products.stockLowStock')}</option>
+          <option value="OUT_OF_STOCK">{t('admin.products.stockOutOfStock')}</option>
         </select>
-        <span style={{ color: '#64748b', fontSize: 12 }}>{total} products</span>
+        <span style={{ color: '#64748b', fontSize: 12 }}>{t('admin.products.productCount', { count: total })}</span>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : products.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>No products found</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.products.noResults')}</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Product', 'Business', 'Category', 'Status', 'Price', 'Stock', 'Variants', 'Images', 'Updated'].map(h => (
+                {[t('admin.products.colProduct'), t('admin.products.colBusiness'), t('admin.products.colCategory'), t('common.status'), t('common.price'), t('admin.products.colStock'), t('admin.products.colVariants'), t('admin.products.colImages'), t('admin.products.colUpdated')].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -131,7 +133,7 @@ export default function CommerceProductsPage() {
                       )}
                       <div>
                         <Link to={`/admin/commerce/products/${p.id}`} style={{ color: '#f8fafc', fontWeight: 600, textDecoration: 'none' }}>{p.name}</Link>
-                        <div style={{ color: '#64748b', fontSize: 11 }}>SKU: {p.sku || 'N/A'}</div>
+                        <div style={{ color: '#64748b', fontSize: 11 }}>{t('admin.products.skuLabel', { sku: p.sku || t('admin.products.notApplicable') })}</div>
                       </div>
                     </div>
                   </td>
@@ -151,7 +153,7 @@ export default function CommerceProductsPage() {
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <StatusBadge status={p.total_available > 0 ? (p.total_available <= 5 ? 'LOW_STOCK' : 'IN_STOCK') : 'OUT_OF_STOCK'} />
-                    <div style={{ color: '#64748b', fontSize: 11 }}>{p.total_available} units</div>
+                    <div style={{ color: '#64748b', fontSize: 11 }}>{t('admin.products.unitsCount', { count: p.total_available })}</div>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{p.variant_count}</td>
                   <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{p.image_count}</td>
@@ -176,9 +178,9 @@ export default function CommerceProductsPage() {
               backgroundColor: '#0f172a', color: page === 0 ? '#475569' : '#f8fafc',
               cursor: page === 0 ? 'default' : 'pointer', fontSize: 12, fontWeight: 600
             }}
-          >Previous</button>
+          >{t('common.previous')}</button>
           <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>
-            Page {Math.floor(page / limit) + 1} of {totalPages}
+            {t('admin.common.pageOf', { page: Math.floor(page / limit) + 1, total: totalPages })}
           </span>
           <button
             onClick={() => setPage(Math.min(total - limit, page + limit))}
@@ -188,7 +190,7 @@ export default function CommerceProductsPage() {
               backgroundColor: '#0f172a', color: page + limit >= total ? '#475569' : '#f8fafc',
               cursor: page + limit >= total ? 'default' : 'pointer', fontSize: 12, fontWeight: 600
             }}
-          >Next</button>
+          >{t('common.next')}</button>
         </div>
       )}
     </div>

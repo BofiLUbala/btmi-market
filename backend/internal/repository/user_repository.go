@@ -132,6 +132,11 @@ func (r *UserRepository) UpdateEmailVerified(id uuid.UUID, verified bool) error 
 	return err
 }
 
+func (r *UserRepository) UpdateAccountType(id uuid.UUID, accountType models.AccountType) error {
+	_, err := r.db.Exec(`UPDATE users SET account_type = $1, updated_at = NOW() WHERE id = $2`, accountType, id)
+	return err
+}
+
 func (r *UserRepository) EmailExists(email string) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`

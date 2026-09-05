@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminCommerceApi, type AdminCategoryItem } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 export default function CommerceCategoriesPage() {
+  const t = useT()
   const [categories, setCategories] = useState<AdminCategoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -102,8 +104,8 @@ export default function CommerceCategoriesPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Category Management</h2>
-          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Create, rename, reorder, and disable categories.</p>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.categories.title')}</h2>
+          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.categories.subtitle')}</p>
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
@@ -111,32 +113,32 @@ export default function CommerceCategoriesPage() {
             padding: '8px 16px', borderRadius: 6, border: 'none',
             backgroundColor: '#10b981', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600
           }}
-        >+ New Category</button>
+        >+ {t('admin.categories.newCategory')}</button>
       </div>
 
       {showCreate && (
         <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap' }}>
             <div>
-              <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>Name</label>
+              <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>{t('common.name')}</label>
               <input value={newCatName} onChange={e => setNewCatName(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#1e293b', color: '#f8fafc', fontSize: 13, width: 200 }} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>Slug</label>
+              <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>{t('admin.categories.slug')}</label>
               <input value={newCatSlug} onChange={e => setNewCatSlug(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#1e293b', color: '#f8fafc', fontSize: 13, width: 160 }} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>Sort</label>
+              <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>{t('admin.categories.sort')}</label>
               <input type="number" value={newCatSort} onChange={e => setNewCatSort(Number(e.target.value))} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#1e293b', color: '#f8fafc', fontSize: 13, width: 80 }} />
             </div>
-            <button onClick={handleCreateCategory} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Create</button>
-            <button onClick={() => setShowCreate(false)} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={handleCreateCategory} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{t('admin.categories.create')}</button>
+            <button onClick={() => setShowCreate(false)} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: 'transparent', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>{t('common.cancel')}</button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {categories.map(cat => (
@@ -148,8 +150,8 @@ export default function CommerceCategoriesPage() {
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <input value={editName} onChange={e => setEditName(e.target.value)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#1e293b', color: '#f8fafc', fontSize: 13 }} />
                       <input value={editSlug} onChange={e => setEditSlug(e.target.value)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#1e293b', color: '#f8fafc', fontSize: 13 }} />
-                      <button onClick={() => handleUpdateCategory(cat.ID)} style={{ padding: '4px 8px', borderRadius: 4, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Save</button>
-                      <button onClick={() => setEditingId(null)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', color: '#94a3b8', fontSize: 11, cursor: 'pointer' }}>Cancel</button>
+                      <button onClick={() => handleUpdateCategory(cat.ID)} style={{ padding: '4px 8px', borderRadius: 4, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 11, cursor: 'pointer' }}>{t('common.save')}</button>
+                      <button onClick={() => setEditingId(null)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', color: '#94a3b8', fontSize: 11, cursor: 'pointer' }}>{t('common.cancel')}</button>
                     </div>
                   ) : (
                     <span style={{ fontSize: 16, fontWeight: 700 }}>{cat.Name}</span>
@@ -161,10 +163,10 @@ export default function CommerceCategoriesPage() {
                   }}>{cat.Status}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => { setEditingId(cat.ID); setEditName(cat.Name); setEditSlug(cat.Slug) }} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #334155', color: '#94a3b8', fontSize: 11, cursor: 'pointer' }}>Edit</button>
-                  <button onClick={() => setShowSubCreate(showSubCreate === cat.ID ? null : cat.ID)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #10b981', color: '#10b981', fontSize: 11, cursor: 'pointer' }}>+ Sub</button>
+                  <button onClick={() => { setEditingId(cat.ID); setEditName(cat.Name); setEditSlug(cat.Slug) }} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #334155', color: '#94a3b8', fontSize: 11, cursor: 'pointer' }}>{t('common.edit')}</button>
+                  <button onClick={() => setShowSubCreate(showSubCreate === cat.ID ? null : cat.ID)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #10b981', color: '#10b981', fontSize: 11, cursor: 'pointer' }}>+ {t('admin.categories.sub')}</button>
                   <button onClick={() => handleToggleCategory(cat.ID, cat.Status)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #f59e0b', color: '#f59e0b', fontSize: 11, cursor: 'pointer' }}>
-                    {cat.Status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                    {cat.Status === 'ACTIVE' ? t('admin.categories.disable') : t('admin.categories.enable')}
                   </button>
                 </div>
               </div>
@@ -172,10 +174,10 @@ export default function CommerceCategoriesPage() {
               {/* Subcategories */}
               {showSubCreate === cat.ID && (
                 <div style={{ display: 'flex', gap: 6, marginBottom: 8, padding: 8, backgroundColor: '#1e293b', borderRadius: 6, alignItems: 'end' }}>
-                  <input placeholder="Name" value={newSubName} onChange={e => setNewSubName(e.target.value)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 12 }} />
-                  <input placeholder="Slug" value={newSubSlug} onChange={e => setNewSubSlug(e.target.value)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 12 }} />
-                  <input type="number" placeholder="Sort" value={newSubSort} onChange={e => setNewSubSort(Number(e.target.value))} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 12, width: 60 }} />
-                  <button onClick={() => handleCreateSubcategory(cat.ID)} style={{ padding: '4px 10px', borderRadius: 4, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Create</button>
+                  <input placeholder={t('common.name')} value={newSubName} onChange={e => setNewSubName(e.target.value)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 12 }} />
+                  <input placeholder={t('admin.categories.slug')} value={newSubSlug} onChange={e => setNewSubSlug(e.target.value)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 12 }} />
+                  <input type="number" placeholder={t('admin.categories.sort')} value={newSubSort} onChange={e => setNewSubSort(Number(e.target.value))} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 12, width: 60 }} />
+                  <button onClick={() => handleCreateSubcategory(cat.ID)} style={{ padding: '4px 10px', borderRadius: 4, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 11, cursor: 'pointer' }}>{t('admin.categories.create')}</button>
                 </div>
               )}
 
@@ -194,19 +196,19 @@ export default function CommerceCategoriesPage() {
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {subEditId === sub.id ? (
-                          <button onClick={() => handleUpdateSubcategory(sub.id)} style={{ padding: '2px 6px', borderRadius: 3, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 10, cursor: 'pointer' }}>Save</button>
+                          <button onClick={() => handleUpdateSubcategory(sub.id)} style={{ padding: '2px 6px', borderRadius: 3, border: 'none', backgroundColor: '#10b981', color: '#fff', fontSize: 10, cursor: 'pointer' }}>{t('common.save')}</button>
                         ) : (
-                          <button onClick={() => { setSubEditId(sub.id); setSubEditName(sub.name) }} style={{ padding: '2px 6px', borderRadius: 3, border: '1px solid #334155', color: '#94a3b8', fontSize: 10, cursor: 'pointer' }}>Edit</button>
+                          <button onClick={() => { setSubEditId(sub.id); setSubEditName(sub.name) }} style={{ padding: '2px 6px', borderRadius: 3, border: '1px solid #334155', color: '#94a3b8', fontSize: 10, cursor: 'pointer' }}>{t('common.edit')}</button>
                         )}
                         <button onClick={() => handleToggleSubcategory(sub.id, sub.status)} style={{ padding: '2px 6px', borderRadius: 3, border: '1px solid #f59e0b', color: '#f59e0b', fontSize: 10, cursor: 'pointer' }}>
-                          {sub.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                          {sub.status === 'ACTIVE' ? t('admin.categories.disable') : t('admin.categories.enable')}
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ color: '#475569', fontSize: 12, marginLeft: 20 }}>No subcategories</div>
+                <div style={{ color: '#475569', fontSize: 12, marginLeft: 20 }}>{t('admin.categories.noSubcategories')}</div>
               )}
             </div>
           ))}

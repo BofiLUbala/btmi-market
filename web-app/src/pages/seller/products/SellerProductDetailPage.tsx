@@ -800,7 +800,7 @@ export default function SellerProductDetailPage() {
                           const val = product.discount_value || 0
                           if (product.discount_type === 'PERCENTAGE') return (base * (1 - val / 100)).toLocaleString()
                           return Math.max(0, base - val).toLocaleString()
-                        })()} FC</strong> / normal: {product.unit_price.toLocaleString()} FC)
+                        })()} FC</strong> {t('seller.productDetail.normalPrice', { price: product.unit_price.toLocaleString() })})
                       </span>
                     )}
                   </div>
@@ -809,21 +809,21 @@ export default function SellerProductDetailPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {product.discount_start && (
                     <span className="small muted">
-                      📅 Starts: <strong>{new Date(product.discount_start).toLocaleString()}</strong>
+                      {t('seller.productDetail.startsAt', { date: new Date(product.discount_start).toLocaleString() })}
                     </span>
                   )}
                   {product.discount_end && (
                     <span className="small muted">
-                      📅 Ends: <strong>{new Date(product.discount_end).toLocaleString()}</strong>
+                      {t('seller.productDetail.endsAt', { date: new Date(product.discount_end).toLocaleString() })}
                     </span>
                   )}
                   {!product.discount_start && !product.discount_end && (
-                    <span className="small muted">📅 Active indefinitely</span>
+                    <span className="small muted">{t('seller.productDetail.activeIndefinitely')}</span>
                   )}
                 </div>
               </div>
             ) : (
-              <p className="muted small" style={{ margin: 0 }}>This product does not currently have any active promotions or discounts.</p>
+              <p className="muted small" style={{ margin: 0 }}>{t('seller.productDetail.noActivePromo')}</p>
             )}
           </div>
         )}

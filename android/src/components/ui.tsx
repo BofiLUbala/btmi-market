@@ -11,7 +11,7 @@ export function Card({ children, onPress }: PropsWithChildren<{ onPress?: () => 
   return onPress ? <Pressable onPress={onPress} accessibilityRole="button">{content}</Pressable> : content
 }
 
-export function Button({ title, onPress, variant = 'primary', disabled, loading, style }: { title: string; onPress: () => void; variant?: 'primary'|'outline'|'gold'; disabled?: boolean; loading?: boolean; style?: StyleProp<ViewStyle> }) {
+export function Button({ title, onPress, variant = 'primary', disabled, loading, style, dense }: { title: string; onPress: () => void; variant?: 'primary'|'outline'|'gold'; disabled?: boolean; loading?: boolean; style?: StyleProp<ViewStyle>; dense?: boolean }) {
   const c = useColors()
   const { t } = useI18n()
   const s = useMemo(() => makeStyles(c), [c])
@@ -20,9 +20,9 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading,
       onPress={onPress}
       disabled={disabled || loading}
       accessibilityRole="button"
-      style={({ pressed }) => [s.button, variant === 'outline' && s.outline, variant === 'gold' && s.gold, (disabled || loading) && styles.disabled, pressed && !disabled && styles.pressed, style]}
+      style={({ pressed }) => [s.button, dense && s.buttonDense, variant === 'outline' && s.outline, variant === 'gold' && s.gold, (disabled || loading) && styles.disabled, pressed && !disabled && styles.pressed, style]}
     >
-      <Text style={[s.buttonText, variant === 'outline' && s.outlineText, variant === 'gold' && s.goldText]}>
+      <Text numberOfLines={1} style={[s.buttonText, dense && s.buttonTextDense, variant === 'outline' && s.outlineText, variant === 'gold' && s.goldText]}>
         {loading ? t('common.oneMoment') : title}
       </Text>
     </Pressable>
@@ -74,6 +74,8 @@ const makeStyles = (c: Colors) =>
     card: { backgroundColor: c.white, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: c.border, gap: spacing.sm },
     button: { minHeight: 50, borderRadius: radius.sm, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
     buttonText: { color: c.onGreen, fontSize: 16, fontWeight: '800' },
+    buttonDense: { minHeight: 44, paddingHorizontal: spacing.sm },
+    buttonTextDense: { fontSize: 14 },
     outline: { backgroundColor: c.white, borderWidth: 1.5, borderColor: c.green },
     outlineText: { color: c.green },
     gold: { backgroundColor: c.gold },

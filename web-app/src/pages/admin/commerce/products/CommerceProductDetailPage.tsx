@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductDetail } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 function ActionModal({ title, loading, onConfirm, onCancel }: { title: string; loading?: boolean; onConfirm: (reason: string) => void; onCancel: () => void }) {
+  const t = useT()
   const [reason, setReason] = useState('')
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
       <div style={{ backgroundColor: '#1e293b', borderRadius: 12, padding: 24, width: 420, maxWidth: '90vw' }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 12px' }}>{title}</h3>
         <textarea
-          placeholder="Reason (minimum 5 characters)..."
+          placeholder={t('admin.products.reasonPlaceholder')}
           value={reason}
           disabled={loading}
           onChange={(e) => setReason(e.target.value)}
@@ -19,7 +21,7 @@ function ActionModal({ title, loading, onConfirm, onCancel }: { title: string; l
           }}
         />
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-          <button onClick={onCancel} disabled={loading} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#cbd5e1', cursor: loading ? 'default' : 'pointer', fontSize: 13 }}>Cancel</button>
+          <button onClick={onCancel} disabled={loading} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#cbd5e1', cursor: loading ? 'default' : 'pointer', fontSize: 13 }}>{t('common.cancel')}</button>
           <button
             onClick={() => reason.length >= 5 && onConfirm(reason)}
             disabled={reason.length < 5 || loading}
@@ -29,7 +31,7 @@ function ActionModal({ title, loading, onConfirm, onCancel }: { title: string; l
               color: '#fff', cursor: reason.length >= 5 && !loading ? 'pointer' : 'default',
               fontSize: 13, fontWeight: 600
             }}
-          >{loading ? 'Processing...' : 'Confirm'}</button>
+          >{loading ? t('admin.products.processing') : t('common.confirm')}</button>
         </div>
       </div>
     </div>
@@ -55,6 +57,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function CommerceProductDetailPage() {
+  const t = useT()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [product, setProduct] = useState<AdminProductDetail | null>(null)
@@ -87,8 +90,8 @@ export default function CommerceProductDetailPage() {
     }
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading product...</div>
-  if (!product) return <div style={{ padding: 40, textAlign: 'center', color: '#dc2626' }}>Product not found</div>
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.products.loadingProduct')}</div>
+  if (!product) return <div style={{ padding: 40, textAlign: 'center', color: '#dc2626' }}>{t('admin.products.notFound')}</div>
 
   const { product: p, business_name, category_name, subcategory_name, variants, images, inventory, visibility_report } = product
 
@@ -96,7 +99,7 @@ export default function CommerceProductDetailPage() {
     <div>
       {actionModal && (
         <ActionModal
-          title={actionModal === 'unpublish' ? 'Unpublish Product' : 'Archive Product'}
+          title={actionModal === 'unpublish' ? t('admin.products.unpublishTitle') : t('admin.products.archiveTitle')}
           loading={actionLoading}
           onConfirm={(reason) => handleAction(actionModal, reason)}
           onCancel={() => setActionModal(null)}
@@ -105,16 +108,16 @@ export default function CommerceProductDetailPage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <button onClick={() => navigate('/admin/commerce/products')} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 13, marginBottom: 4 }}>&larr; Back to Products</button>
+          <button onClick={() => navigate('/admin/commerce/products')} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 13, marginBottom: 4 }}>&larr; {t('admin.products.backToProducts')}</button>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{p.name}</h2>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>SKU: {p.sku || 'N/A'} &middot; ID: {p.id}</div>
+          <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>{t('admin.products.skuAndId', { sku: p.sku || t('admin.products.notApplicable'), id: p.id })}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {p.publication_status === 'PUBLISHED' && (
-            <button onClick={() => setActionModal('unpublish')} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #f59e0b', backgroundColor: 'transparent', color: '#f59e0b', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Unpublish</button>
+            <button onClick={() => setActionModal('unpublish')} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #f59e0b', backgroundColor: 'transparent', color: '#f59e0b', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{t('admin.products.unpublish')}</button>
           )}
           {p.publication_status !== 'ARCHIVED' && (
-            <button onClick={() => setActionModal('archive')} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #dc2626', backgroundColor: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Archive</button>
+            <button onClick={() => setActionModal('archive')} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #dc2626', backgroundColor: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{t('admin.products.archive')}</button>
           )}
         </div>
       </div>
@@ -129,7 +132,7 @@ export default function CommerceProductDetailPage() {
           <span style={{ fontSize: 20 }}>{visibility_report.is_visible ? '✅' : '🚫'}</span>
           <div>
             <div style={{ fontWeight: 700, fontSize: 14 }}>
-              {visibility_report.is_visible ? 'Visible on Marketplace' : 'NOT Visible on Marketplace'}
+              {visibility_report.is_visible ? t('admin.products.visibleOnMarketplace') : t('admin.products.notVisibleOnMarketplace')}
             </div>
             {visibility_report.reasons_not_shown?.length > 0 && (
               <div style={{ fontSize: 12, color: '#fca5a5', marginTop: 4 }}>
@@ -143,53 +146,53 @@ export default function CommerceProductDetailPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Left Column */}
         <div>
-          <Section title="Product Identity">
-            <Field label="Name" value={p.name} />
-            <Field label="SKU" value={p.sku} />
-            <Field label="Description" value={p.description || 'No description'} />
-            <Field label="Unit" value={p.unit} />
-            <Field label="Business" value={business_name} />
-            <Field label="Category" value={category_name} />
-            <Field label="Subcategory" value={subcategory_name} />
-            <Field label="Status" value={p.status} />
-            <Field label="Publication" value={p.publication_status} />
-            <Field label="Created" value={new Date(p.created_at).toLocaleString()} />
+          <Section title={t('admin.products.sectionIdentity')}>
+            <Field label={t('common.name')} value={p.name} />
+            <Field label={t('admin.products.fieldSku')} value={p.sku} />
+            <Field label={t('admin.products.fieldDescription')} value={p.description || t('admin.products.noDescription')} />
+            <Field label={t('admin.products.fieldUnit')} value={p.unit} />
+            <Field label={t('admin.products.fieldBusiness')} value={business_name} />
+            <Field label={t('admin.products.fieldCategory')} value={category_name} />
+            <Field label={t('admin.products.fieldSubcategory')} value={subcategory_name} />
+            <Field label={t('common.status')} value={p.status} />
+            <Field label={t('admin.products.fieldPublication')} value={p.publication_status} />
+            <Field label={t('admin.products.fieldCreated')} value={new Date(p.created_at).toLocaleString()} />
           </Section>
 
-          <Section title="Images">
+          <Section title={t('admin.products.sectionImages')}>
             {images && images.length > 0 ? (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {images.map(img => (
                   <div key={img.id} style={{ position: 'relative' }}>
                     <img src={img.url} alt={img.file_name} style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover', border: img.is_primary ? '2px solid #10b981' : '1px solid #334155' }} />
-                    {img.is_primary && <span style={{ position: 'absolute', top: 4, left: 4, fontSize: 9, fontWeight: 700, backgroundColor: '#10b981', color: '#fff', padding: '1px 5px', borderRadius: 4 }}>PRIMARY</span>}
+                    {img.is_primary && <span style={{ position: 'absolute', top: 4, left: 4, fontSize: 9, fontWeight: 700, backgroundColor: '#10b981', color: '#fff', padding: '1px 5px', borderRadius: 4 }}>{t('admin.products.primaryBadge')}</span>}
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ color: '#64748b', fontSize: 13 }}>No images uploaded</div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>{t('admin.products.noImagesUploaded')}</div>
             )}
           </Section>
         </div>
 
         {/* Right Column */}
         <div>
-          <Section title="Pricing">
-            <Field label="Regular Price" value={`$${p.unit_price.toFixed(2)}`} />
+          <Section title={t('admin.products.sectionPricing')}>
+            <Field label={t('admin.products.fieldRegularPrice')} value={`$${p.unit_price.toFixed(2)}`} />
             {p.discount_active && (
               <>
-                <Field label="Discount" value={`${p.discount_type} - ${p.discount_value}`} />
-                <Field label="Effective Price" value={`$${(p.unit_price - (p.discount_type === 'PERCENTAGE' ? p.unit_price * p.discount_value / 100 : p.discount_value)).toFixed(2)}`} />
+                <Field label={t('admin.products.fieldDiscount')} value={`${p.discount_type} - ${p.discount_value}`} />
+                <Field label={t('admin.products.fieldEffectivePrice')} value={`$${(p.unit_price - (p.discount_type === 'PERCENTAGE' ? p.unit_price * p.discount_value / 100 : p.discount_value)).toFixed(2)}`} />
               </>
             )}
           </Section>
 
-          <Section title="Variants">
+          <Section title={t('admin.products.sectionVariants')}>
             {variants && variants.length > 0 ? (
               <table style={{ width: '100%', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #334155' }}>
-                    {['SKU', 'Name', 'Attributes', 'Sale Price', 'Status'].map(h => (
+                    {[t('admin.products.fieldSku'), t('common.name'), t('admin.products.colAttributes'), t('admin.products.colSalePrice'), t('common.status')].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '6px 8px', color: '#94a3b8' }}>{h}</th>
                     ))}
                   </tr>
@@ -207,16 +210,16 @@ export default function CommerceProductDetailPage() {
                 </tbody>
               </table>
             ) : (
-              <div style={{ color: '#64748b', fontSize: 13 }}>No variants defined</div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>{t('admin.products.noVariantsDefined')}</div>
             )}
           </Section>
 
-          <Section title="Inventory per Shop">
+          <Section title={t('admin.products.sectionInventory')}>
             {inventory && inventory.length > 0 ? (
               <table style={{ width: '100%', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #334155' }}>
-                    {['Shop', 'Variant', 'On Hand', 'Reserved', 'Available'].map(h => (
+                    {[t('admin.products.colShop'), t('admin.products.colVariant'), t('admin.products.colOnHand'), t('admin.products.colReserved'), t('admin.products.colAvailable')].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '6px 8px', color: '#94a3b8' }}>{h}</th>
                     ))}
                   </tr>
@@ -234,7 +237,7 @@ export default function CommerceProductDetailPage() {
                 </tbody>
               </table>
             ) : (
-              <div style={{ color: '#64748b', fontSize: 13 }}>No inventory records</div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>{t('admin.products.noInventoryRecords')}</div>
             )}
           </Section>
         </div>

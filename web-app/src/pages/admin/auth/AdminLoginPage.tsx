@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '@/store/adminAuth'
+import { useT } from '@/store/i18n'
 
 export default function AdminLoginPage() {
   const { login } = useAdminAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const t = useT()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,7 +43,7 @@ export default function AdminLoginPage() {
         }
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Invalid administrator credentials'
+      const msg = err instanceof Error ? err.message : t('admin.login.invalidCredentials')
       setError(msg)
     } finally {
       setIsSubmitting(false)
@@ -55,34 +57,34 @@ export default function AdminLoginPage() {
           <div style={{ width: 56, height: 56, borderRadius: 14, background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(59, 130, 246, 0.35)' }}>
             🏛️
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '0.02em', margin: '0 0 6px' }}>TBK Control Center</h1>
-          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Omni-Channel Administrative Authentication</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '0.02em', margin: '0 0 6px' }}>{t('admin.login.title')}</h1>
+          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.login.subtitle')}</p>
         </div>
 
         <div style={{ backgroundColor: '#1e1b4b', border: '1px solid #3730a3', borderRadius: 8, padding: '10px 14px', marginBottom: 24, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <span style={{ fontSize: 14 }}>🛡️</span>
           <span style={{ fontSize: 12, color: '#c7d2fe', lineHeight: 1.5 }}>
-            Restricted area. All administrative access events and API interactions are permanently logged to the audit ledger.
+            {t('admin.login.restrictedNotice')}
           </span>
         </div>
 
         {error && (
           <div style={{ backgroundColor: '#450a0a', border: '1px solid #991b1b', borderRadius: 8, padding: '12px 14px', marginBottom: 20, color: '#fca5a5', fontSize: 13 }}>
-            <strong>Authentication Error:</strong> {error}
+            <strong>{t('admin.login.authErrorLabel')}</strong> {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 18 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
-              Administrator Email
+              {t('admin.login.emailLabel')}
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="admin@tbkmarket.com"
+              placeholder="admin@tbk.market"
               style={{
                 width: '100%',
                 padding: '11px 14px',
@@ -98,7 +100,7 @@ export default function AdminLoginPage() {
 
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
-              Password
+              {t('admin.login.passwordLabel')}
             </label>
             <input
               type="password"
@@ -137,13 +139,13 @@ export default function AdminLoginPage() {
               boxShadow: '0 4px 12px rgba(37, 99, 235, 0.4)'
             }}
           >
-            {isSubmitting ? 'Authenticating...' : 'Enter Control Center'}
+            {isSubmitting ? t('admin.login.authenticating') : t('admin.login.submit')}
           </button>
         </form>
 
         <div style={{ marginTop: 24, textAlign: 'center' }}>
           <a href="/" style={{ color: '#64748b', fontSize: 12, textDecoration: 'none' }}>
-            ← Return to Consumer Marketplace
+            ← {t('admin.login.returnToMarketplace')}
           </a>
         </div>
       </div>

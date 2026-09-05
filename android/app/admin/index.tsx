@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../src/store/adminAuth'
+import { useI18n } from '../../src/store/i18n'
 import {
   mobileAdminDirectionApi,
   type DirectionOverviewStats,
@@ -22,6 +23,7 @@ import {
 export default function MobileDirectionScreen() {
   const router = useRouter()
   const { admin, role, logout, canAccessDashboard, bootstrap } = useAdminAuth()
+  const { t } = useI18n()
 
   const [stats, setStats] = useState<DirectionOverviewStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -72,7 +74,7 @@ export default function MobileDirectionScreen() {
       const res = await mobileAdminDirectionApi.listUsers({ search: userQuery.trim(), limit: 5 })
       setSearchResults(res.users)
     } catch (err) {
-      Alert.alert('Search Failed', 'Could not query users')
+      Alert.alert(t('admin.direction.searchFailedTitle'), t('admin.direction.searchFailedBody'))
     } finally {
       setSearching(false)
     }
@@ -81,7 +83,7 @@ export default function MobileDirectionScreen() {
   const handleToggleUserStatus = async () => {
     if (!selectedUser) return
     if (!actionReason.trim() || actionReason.trim().length < 5) {
-      Alert.alert('Required', 'A justification reason of at least 5 characters is required for auditing.')
+      Alert.alert(t('admin.direction.reasonRequiredTitle'), t('admin.direction.reasonRequiredBody'))
       return
     }
 
@@ -89,10 +91,10 @@ export default function MobileDirectionScreen() {
     try {
       if (selectedUser.status === 'ACTIVE') {
         await mobileAdminDirectionApi.suspendUser(selectedUser.id, actionReason.trim())
-        Alert.alert('Success', `User ${selectedUser.email} has been SUSPENDED.`)
+        Alert.alert(t('admin.direction.successTitle'), t('admin.direction.suspendedMsg', { email: selectedUser.email }))
       } else {
         await mobileAdminDirectionApi.reactivateUser(selectedUser.id, actionReason.trim())
-        Alert.alert('Success', `User ${selectedUser.email} has been REACTIVATED.`)
+        Alert.alert(t('admin.direction.successTitle'), t('admin.direction.reactivatedMsg', { email: selectedUser.email }))
       }
       setSelectedUser(null)
       setActionReason('')
@@ -100,8 +102,8 @@ export default function MobileDirectionScreen() {
       setSearchResults([])
       void loadData()
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Action failed'
-      Alert.alert('Error', msg)
+      const msg = err instanceof Error ? err.message : t('admin.direction.actionFailed')
+      Alert.alert(t('admin.direction.errorTitle'), msg)
     } finally {
       setActionSubmitting(false)
     }
@@ -116,7 +118,7 @@ export default function MobileDirectionScreen() {
     return (
       <View style={[styles.centered, { backgroundColor: '#090d16' }]}>
         <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={{ color: '#94a3b8', marginTop: 12 }}>Checking Administrator Privileges...</Text>
+        <Text style={{ color: '#94a3b8', marginTop: 12 }}>{t('admin.direction.checkingPrivileges')}</Text>
       </View>
     )
   }
@@ -126,7 +128,7 @@ export default function MobileDirectionScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>TBK CONTROL</Text>
+          <Text style={styles.headerTitle}>{t('admin.direction.headerTitle')}</Text>
           <View style={styles.roleRow}>
             <Text style={styles.adminName}>{admin.first_name} {admin.last_name}</Text>
             <View style={styles.roleBadge}>
@@ -136,7 +138,7 @@ export default function MobileDirectionScreen() {
         </View>
 
         <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout}>
-          <Text style={styles.signOutText}>Sign out</Text>
+          <Text style={styles.signOutText}>{t('admin.direction.signOut')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -144,7 +146,7 @@ export default function MobileDirectionScreen() {
       <View style={styles.pillRow}>
         {canAccessDashboard('direction') && (
           <TouchableOpacity style={[styles.pill, styles.pillActive]}>
-            <Text style={[styles.pillText, styles.pillTextActive]}>🧭 Direction</Text>
+            <Text style={[styles.pillText, styles.pillTextActive]}>{t('admin.direction.navDirection')}</Text>
           </TouchableOpacity>
         )}
         {canAccessDashboard('commerce') && (
@@ -152,7 +154,7 @@ export default function MobileDirectionScreen() {
             style={styles.pill}
             onPress={() => router.push('/admin/commerce')}
           >
-            <Text style={styles.pillText}>📦 Commerce</Text>
+            <Text style={styles.pillText}>{t('admin.direction.navCommerce')}</Text>
           </TouchableOpacity>
         )}
         {canAccessDashboard('finance') && (
@@ -160,7 +162,7 @@ export default function MobileDirectionScreen() {
             style={styles.pill}
             onPress={() => router.push('/admin/finance')}
           >
-            <Text style={styles.pillText}>💰 Finance</Text>
+            <Text style={styles.pillText}>{t('admin.direction.navFinance')}</Text>
           </TouchableOpacity>
         )}
         {canAccessDashboard('technical') && (
@@ -168,11 +170,11 @@ export default function MobileDirectionScreen() {
             style={styles.pill}
             onPress={() => router.push('/admin/technical')}
           >
-            <Text style={styles.pillText}>🛡️ Technical</Text>
+            <Text style={styles.pillText}>{t('admin.direction.navTechnical')}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.pill} onPress={() => router.push('/admin/advanced')}>
-          <Text style={styles.pillText}>⚙️ Advanced</Text>
+          <Text style={styles.pillText}>{t('admin.direction.navAdvanced')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -181,9 +183,9 @@ export default function MobileDirectionScreen() {
         <View style={styles.healthCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={styles.onlineDot} />
-            <Text style={styles.healthTitle}>Platform Health: {stats?.platform_health || 'HEALTHY'}</Text>
+            <Text style={styles.healthTitle}>{t('admin.direction.platformHealth', { status: stats?.platform_health || t('admin.direction.healthDefault') })}</Text>
           </View>
-          <Text style={styles.healthSub}>Live PostgreSQL • Redis Cache • Asynq Workers Active</Text>
+          <Text style={styles.healthSub}>{t('admin.direction.healthSub')}</Text>
         </View>
 
         {/* Rapid KPI Cards */}
@@ -192,47 +194,47 @@ export default function MobileDirectionScreen() {
         ) : stats ? (
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Total Accounts</Text>
+              <Text style={styles.kpiLabel}>{t('admin.direction.kpiTotalAccounts')}</Text>
               <Text style={styles.kpiValue}>{stats.total_users}</Text>
-              <Text style={styles.kpiMeta}>{stats.total_buyers} Buyers • {stats.total_sellers} Sellers</Text>
+              <Text style={styles.kpiMeta}>{t('admin.direction.kpiBuyersSellers', { buyers: stats.total_buyers, sellers: stats.total_sellers })}</Text>
             </View>
 
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Orders Today</Text>
+              <Text style={styles.kpiLabel}>{t('admin.direction.kpiOrdersToday')}</Text>
               <Text style={[styles.kpiValue, { color: '#38bdf8' }]}>{stats.orders_today}</Text>
-              <Text style={styles.kpiMeta}>Lifetime: {stats.total_orders}</Text>
+              <Text style={styles.kpiMeta}>{t('admin.direction.kpiLifetime', { count: stats.total_orders })}</Text>
             </View>
 
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Active Shops</Text>
+              <Text style={styles.kpiLabel}>{t('admin.direction.kpiActiveShops')}</Text>
               <Text style={[styles.kpiValue, { color: '#10b981' }]}>{stats.active_shops}</Text>
-              <Text style={styles.kpiMeta}>Total Outlets: {stats.total_shops}</Text>
+              <Text style={styles.kpiMeta}>{t('admin.direction.kpiTotalOutlets', { count: stats.total_shops })}</Text>
             </View>
 
             <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Open Disputes</Text>
+              <Text style={styles.kpiLabel}>{t('admin.direction.kpiOpenDisputes')}</Text>
               <Text style={[styles.kpiValue, { color: stats.open_disputes > 0 ? '#ef4444' : '#10b981' }]}>
                 {stats.open_disputes}
               </Text>
-              <Text style={styles.kpiMeta}>Requiring Mediation</Text>
+              <Text style={styles.kpiMeta}>{t('admin.direction.kpiRequiringMediation')}</Text>
             </View>
           </View>
         ) : null}
 
         {/* Quick User Lookup Section */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>🔍 Rapid User Triage</Text>
+          <Text style={styles.sectionTitle}>{t('admin.direction.userTriage')}</Text>
           <View style={styles.searchRow}>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search user email or phone..."
+              placeholder={t('admin.direction.searchPlaceholder')}
               placeholderTextColor="#64748b"
               value={userQuery}
               onChangeText={setUserQuery}
               onSubmitEditing={handleSearchUser}
             />
             <TouchableOpacity style={styles.searchBtn} onPress={handleSearchUser} disabled={searching}>
-              {searching ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.searchBtnText}>Find</Text>}
+              {searching ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.searchBtnText}>{t('admin.direction.find')}</Text>}
             </TouchableOpacity>
           </View>
 
@@ -252,7 +254,7 @@ export default function MobileDirectionScreen() {
                 style={[styles.actionBtn, { backgroundColor: u.status === 'ACTIVE' ? '#7f1d1d' : '#064e3b' }]}
                 onPress={() => setSelectedUser(u)}
               >
-                <Text style={styles.actionBtnText}>{u.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}</Text>
+                <Text style={styles.actionBtnText}>{u.status === 'ACTIVE' ? t('admin.direction.suspend') : t('admin.direction.reactivate')}</Text>
               </TouchableOpacity>
             </View>
           ))}
@@ -260,13 +262,13 @@ export default function MobileDirectionScreen() {
 
         {/* Recent Audit Log Stream */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>📜 Immutable Audit Feed</Text>
+          <Text style={styles.sectionTitle}>{t('admin.direction.auditFeed')}</Text>
           {recentLogs.slice(0, 5).map((l) => (
             <View key={l.id} style={styles.auditRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.auditAction}>{l.action}</Text>
                 <Text style={styles.auditReason}>{l.reason}</Text>
-                <Text style={styles.auditMeta}>{l.actor_admin_name || 'Admin'} • {new Date(l.created_at).toLocaleTimeString()}</Text>
+                <Text style={styles.auditMeta}>{l.actor_admin_name || t('admin.direction.adminFallback')} • {new Date(l.created_at).toLocaleTimeString()}</Text>
               </View>
               <View style={styles.targetBadge}>
                 <Text style={styles.targetText}>{l.target_type}</Text>
@@ -282,16 +284,16 @@ export default function MobileDirectionScreen() {
           <View style={styles.modalBackdrop}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>
-                {selectedUser.status === 'ACTIVE' ? 'Suspend Account' : 'Reactivate Account'}
+                {selectedUser.status === 'ACTIVE' ? t('admin.direction.modalSuspendTitle') : t('admin.direction.modalReactivateTitle')}
               </Text>
               <Text style={styles.modalSub}>
-                Target: {selectedUser.first_name} {selectedUser.last_name} ({selectedUser.email})
+                {t('admin.direction.modalTarget', { name: `${selectedUser.first_name} ${selectedUser.last_name}`, email: selectedUser.email })}
               </Text>
 
-              <Text style={styles.modalLabel}>Audit Justification (Mandatory):</Text>
+              <Text style={styles.modalLabel}>{t('admin.direction.modalJustification')}</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Reason for changing status..."
+                placeholder={t('admin.direction.modalReasonPlaceholder')}
                 placeholderTextColor="#64748b"
                 value={actionReason}
                 onChangeText={setActionReason}
@@ -308,7 +310,7 @@ export default function MobileDirectionScreen() {
                   }}
                   disabled={actionSubmitting}
                 >
-                  <Text style={{ color: '#cbd5e1', fontWeight: '600' }}>Cancel</Text>
+                  <Text style={{ color: '#cbd5e1', fontWeight: '600' }}>{t('admin.cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -322,7 +324,7 @@ export default function MobileDirectionScreen() {
                   {actionSubmitting ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={{ color: '#fff', fontWeight: '700' }}>Confirm Action</Text>
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>{t('admin.direction.confirmAction')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

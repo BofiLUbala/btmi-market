@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminCommerceApi, type AdminShopPerformance } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 export default function ShopPerformancePage() {
+  const t = useT()
   const [performance, setPerformance] = useState<AdminShopPerformance[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -35,20 +37,20 @@ export default function ShopPerformancePage() {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Shop Performance</h2>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Cross-business shop performance, order completion, cash confirmation, and fulfillment metrics.</p>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.performance.shopTitle')}</h2>
+        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.performance.shopSubtitle')}</p>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Loading...</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>
       ) : performance.length === 0 ? (
-        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>No shop performance data available</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.performance.noShopData')}</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {['Shop', 'Business', 'Orders (Done / Total)', 'Cancellations', 'Products', 'Stock Health', 'Rating', 'Cash Confirm', 'Fulfillment Time'].map(h => (
+                {[t('admin.common.shopColumn'), t('admin.performance.businessColumn'), t('admin.performance.ordersDoneTotalColumn'), t('admin.performance.cancellationsColumn'), t('admin.performance.productsColumn'), t('admin.performance.stockHealthColumn'), t('admin.performance.ratingColumn'), t('admin.performance.cashConfirmColumn'), t('admin.performance.fulfillmentTimeColumn')].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -93,11 +95,11 @@ export default function ShopPerformancePage() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
           <button onClick={() => setPage(Math.max(0, page - limit))} disabled={page === 0}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page === 0 ? '#475569' : '#f8fafc', cursor: page === 0 ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Previous</button>
-          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>Page {Math.floor(page / limit) + 1} of {totalPages}</span>
+          >{t('common.previous')}</button>
+          <span style={{ padding: '6px 14px', color: '#94a3b8', fontSize: 12 }}>{t('admin.common.pageOf', { page: Math.floor(page / limit) + 1, total: totalPages })}</span>
           <button onClick={() => setPage(Math.min(total - limit, page + limit))} disabled={page + limit >= total}
             style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #334155', backgroundColor: '#0f172a', color: page + limit >= total ? '#475569' : '#f8fafc', cursor: page + limit >= total ? 'default' : 'pointer', fontSize: 12, fontWeight: 600 }}
-          >Next</button>
+          >{t('common.next')}</button>
         </div>
       )}
     </div>

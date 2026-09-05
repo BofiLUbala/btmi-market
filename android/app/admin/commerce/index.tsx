@@ -1,36 +1,38 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../src/store/adminAuth'
+import { useI18n, type TranslationKey } from '../../../src/store/i18n'
 
-const NAV_ITEMS = [
-  { label: 'Product Catalog', icon: '📦', route: '/admin/commerce/products' },
-  { label: 'Categories', icon: '🏷️', route: '/admin/commerce/categories' },
-  { label: 'Inventory Control', icon: '📊', route: '/admin/commerce/inventory' },
-  { label: 'Stock History', icon: '📋', route: '/admin/commerce/inventory/history' },
-  { label: 'Orders', icon: '🛒', route: '/admin/commerce/orders' },
-  { label: 'Marketplace Visibility', icon: '👁️', route: '/admin/commerce/marketplace/visibility' },
-  { label: 'Search Admin', icon: '🔍', route: '/admin/commerce/marketplace/search' },
-  { label: 'Marketplace Ranking', icon: '🏆', route: '/admin/commerce/marketplace/ranking' },
-  { label: 'Product Quality', icon: '✅', route: '/admin/commerce/marketplace/quality' },
-  { label: 'Promotions', icon: '🎁', route: '/admin/commerce/marketplace/promotions' },
-  { label: 'Employees', icon: '👥', route: '/admin/commerce/employees' },
-  { label: 'Seller Performance', icon: '📈', route: '/admin/commerce/performance/sellers' },
-  { label: 'Category Performance', icon: '📊', route: '/admin/commerce/performance/categories' },
-  { label: 'Shop Performance', icon: '🏪', route: '/admin/commerce/performance/shops' },
+const NAV_ITEMS: { key: TranslationKey; icon: string; route: string }[] = [
+  { key: 'admin.commerce.nav.productCatalog', icon: '📦', route: '/admin/commerce/products' },
+  { key: 'admin.commerce.nav.categories', icon: '🏷️', route: '/admin/commerce/categories' },
+  { key: 'admin.commerce.nav.inventoryControl', icon: '📊', route: '/admin/commerce/inventory' },
+  { key: 'admin.commerce.nav.stockHistory', icon: '📋', route: '/admin/commerce/inventory/history' },
+  { key: 'admin.commerce.nav.orders', icon: '🛒', route: '/admin/commerce/orders' },
+  { key: 'admin.commerce.nav.marketplaceVisibility', icon: '👁️', route: '/admin/commerce/marketplace/visibility' },
+  { key: 'admin.commerce.nav.searchAdmin', icon: '🔍', route: '/admin/commerce/marketplace/search' },
+  { key: 'admin.commerce.nav.marketplaceRanking', icon: '🏆', route: '/admin/commerce/marketplace/ranking' },
+  { key: 'admin.commerce.nav.productQuality', icon: '✅', route: '/admin/commerce/marketplace/quality' },
+  { key: 'admin.commerce.nav.promotions', icon: '🎁', route: '/admin/commerce/marketplace/promotions' },
+  { key: 'admin.commerce.nav.employees', icon: '👥', route: '/admin/commerce/employees' },
+  { key: 'admin.commerce.nav.sellerPerformance', icon: '📈', route: '/admin/commerce/performance/sellers' },
+  { key: 'admin.commerce.nav.categoryPerformance', icon: '📊', route: '/admin/commerce/performance/categories' },
+  { key: 'admin.commerce.nav.shopPerformance', icon: '🏪', route: '/admin/commerce/performance/shops' },
 ]
 
 export default function MobileCommerceScreen() {
   const router = useRouter()
   const { hasRole } = useAdminAuth()
+  const { t } = useI18n()
 
   if (!hasRole(['COMMERCE_ADMIN', 'SUPER_ADMIN'])) {
     return (
       <View style={styles.deniedContainer}>
         <Text style={{ fontSize: 36, marginBottom: 12 }}>🛡️</Text>
-        <Text style={styles.deniedTitle}>Access Prohibited</Text>
-        <Text style={styles.deniedSub}>Your role is not authorized to access Commerce & Operations.</Text>
+        <Text style={styles.deniedTitle}>{t('admin.accessProhibited')}</Text>
+        <Text style={styles.deniedSub}>{t('admin.commerce.accessDeniedBody')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/admin')}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Return to Direction</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('admin.returnToDirection')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -39,28 +41,28 @@ export default function MobileCommerceScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
       <View style={styles.banner}>
-        <Text style={styles.bannerTitle}>📦 Commerce & Operations</Text>
-        <Text style={styles.bannerSub}>Rapid order lookup, stuck order alerts, and catalog triage.</Text>
+        <Text style={styles.bannerTitle}>{t('admin.commerce.header')}</Text>
+        <Text style={styles.bannerSub}>{t('admin.commerce.sub')}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Live Operational Monitors</Text>
+        <Text style={styles.cardTitle}>{t('admin.commerce.monitorsTitle')}</Text>
         <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Stuck Orders Alert:</Text>
-          <Text style={[styles.metricVal, { color: '#10b981' }]}>0 Stuck</Text>
+          <Text style={styles.metricLabel}>{t('admin.commerce.stuckOrders')}</Text>
+          <Text style={[styles.metricVal, { color: '#10b981' }]}>{t('admin.commerce.stuckCount', { count: 0 })}</Text>
         </View>
         <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Fulfillment Speed:</Text>
-          <Text style={styles.metricVal}>Normal (&lt; 2h avg)</Text>
+          <Text style={styles.metricLabel}>{t('admin.commerce.fulfillmentSpeed')}</Text>
+          <Text style={styles.metricVal}>{t('admin.commerce.normalSpeed')}</Text>
         </View>
         <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>Negative Stock Anomalies:</Text>
-          <Text style={[styles.metricVal, { color: '#10b981' }]}>None detected</Text>
+          <Text style={styles.metricLabel}>{t('admin.commerce.negativeStock')}</Text>
+          <Text style={[styles.metricVal, { color: '#10b981' }]}>{t('admin.commerce.noneDetected')}</Text>
         </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Control Panels</Text>
+        <Text style={styles.cardTitle}>{t('admin.commerce.controlPanels')}</Text>
         {NAV_ITEMS.map((item) => (
           <TouchableOpacity
             key={item.route}
@@ -68,7 +70,7 @@ export default function MobileCommerceScreen() {
             onPress={() => router.push(item.route as any)}
           >
             <Text style={styles.navIcon}>{item.icon}</Text>
-            <Text style={styles.navLabel}>{item.label}</Text>
+            <Text style={styles.navLabel}>{t(item.key)}</Text>
             <Text style={styles.navArrow}>›</Text>
           </TouchableOpacity>
         ))}

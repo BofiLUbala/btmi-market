@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -15,6 +16,7 @@ type AdminBootstrapRepository interface {
 	CountSuperAdmins() (int, error)
 	GetByEmail(email string) (*models.AdminUser, error)
 	Create(admin *models.AdminUser) error
+	UpdatePassword(id uuid.UUID, passwordHash string) error
 }
 
 // AdminAuditRecorder records bootstrap actions in the audit log.
@@ -132,3 +134,65 @@ func (s *AdminBootstrapService) BootstrapSuperAdmin(name, email, password string
 		Admin:   superAdmin,
 	}, nil
 }
+
+// ResetSuperAdminPassword safely updates the password for an existing SUPER_ADMIN account.
+// It strictly validates:
+// - email and password are provided (min 8 characters)
+// - the account exists and is a SUPER_ADMIN (refuses non-SUPER_ADMIN accounts)
+// - password is encrypted via bcrypt
+// - action is recorded in the audit log
+// - never exposes or logs the password
+func (s *AdminBootstrapService) ResetSuperAdminPassword(email, newPassword string) (*models.AdminUser, error) {
+	cleanEmail := strings.TrimSpace(email)
+	if cleanEmail == "" {
+		return nil, errors.New("SUPER_ADMIN_EMAIL is required for password reset")
+	}
+
+	if len(newPassword) < 8 {
+		return nil, errors.New("SUPER_ADMIN_PASSWORD must be at least 8 characters")
+	}
+
+	existingAdmin, err := s.repo.GetByEmail(cleanEmail)
+	if err != nil || existingAdmin == nil {
+		return nil, fmt.Errorf("admin user with email %q not found", cleanEmail)
+	}
+
+	if existingAdmin.Role != models.AdminRoleSuperAdmin {
+		return nil, fmt.Errorf("account %q has role %q; password reset via this CLI is strictly restricted to SUPER_ADMIN", cleanEmail, existingAdmin.Role)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	if err := s.repo.UpdatePassword(existingAdmin.ID, string(hash)); err != nil {
+		return nil, fmt.Errorf("failed to update password: %w", err)
+	}
+
+	existingAdmin.PasswordHash = string(hash)
+	existingAdmin.Status = models.AdminStatusActive
+
+	if s.auditRecorder != nil {
+		newValJSON, _ := json.Marshal(map[string]interface{}{
+			"id":     existingAdmin.ID.String(),
+			"email":  existingAdmin.Email,
+			"role":   string(existingAdmin.Role),
+			"status": string(existingAdmin.Status),
+		})
+		rawNewVal := json.RawMessage(newValJSON)
+		auditEntry := &models.AdminAuditLog{
+			ActorAdminID: existingAdmin.ID,
+			ActorRole:    models.AdminRoleSuperAdmin,
+			Action:       "SUPER_ADMIN_PASSWORD_RESET",
+			TargetType:   "admin_user",
+			TargetID:     existingAdmin.ID.String(),
+			Reason:       "CLI SUPER_ADMIN password reset operation",
+			NewValue:     &rawNewVal,
+		}
+		_ = s.auditRecorder.Record(auditEntry)
+	}
+
+	return existingAdmin, nil
+}
+

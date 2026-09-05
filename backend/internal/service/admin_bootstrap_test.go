@@ -50,6 +50,17 @@ func (m *mockBootstrapRepo) Create(admin *models.AdminUser) error {
 	return nil
 }
 
+func (m *mockBootstrapRepo) UpdatePassword(id uuid.UUID, passwordHash string) error {
+	for _, a := range m.adminsByEmail {
+		if a.ID == id {
+			a.PasswordHash = passwordHash
+			a.Status = models.AdminStatusActive
+			return nil
+		}
+	}
+	return errors.New("admin not found")
+}
+
 type mockAuditRecorder struct {
 	entries []*models.AdminAuditLog
 }
@@ -294,4 +305,102 @@ func TestSuperAdminProtectionInvariant(t *testing.T) {
 		t.Errorf("expected non-super-admin modification to succeed, got: %v", err)
 	}
 }
+
+func TestResetSuperAdminPassword_Success(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	// Create initial super admin
+	_, err := svc.BootstrapSuperAdmin("Gauthier Bofi", "admin@tbk.market", "InitialPass2026!")
+	if err != nil {
+		t.Fatalf("failed to bootstrap super admin: %v", err)
+	}
+
+	// Reset password
+	updated, err := svc.ResetSuperAdminPassword("admin@tbk.market", "NewSecretPass2026!")
+	if err != nil {
+		t.Fatalf("expected reset to succeed, got error: %v", err)
+	}
+
+	if updated == nil || updated.Email != "admin@tbk.market" {
+		t.Fatalf("expected returned admin to match email, got %v", updated)
+	}
+
+	// Verify new password bcrypt matches
+	if err := bcrypt.CompareHashAndPassword([]byte(updated.PasswordHash), []byte("NewSecretPass2026!")); err != nil {
+		t.Errorf("expected new password bcrypt hash to match NewSecretPass2026!, got: %v", err)
+	}
+
+	// Verify old password bcrypt fails
+	if err := bcrypt.CompareHashAndPassword([]byte(updated.PasswordHash), []byte("InitialPass2026!")); err == nil {
+		t.Errorf("expected old password to fail against updated hash, but it succeeded")
+	}
+
+	// Verify audit trail entry was recorded
+	foundAudit := false
+	for _, entry := range audit.entries {
+		if entry.Action == "SUPER_ADMIN_PASSWORD_RESET" {
+			foundAudit = true
+			if entry.ActorRole != models.AdminRoleSuperAdmin {
+				t.Errorf("expected audit ActorRole SUPER_ADMIN, got %s", entry.ActorRole)
+			}
+		}
+	}
+	if !foundAudit {
+		t.Errorf("expected SUPER_ADMIN_PASSWORD_RESET audit log entry, none found")
+	}
+}
+
+func TestResetSuperAdminPassword_RefusesNonSuperAdmin(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	// Manually add a COMMERCE_ADMIN
+	hash, _ := bcrypt.GenerateFromPassword([]byte("SomePassword123!"), bcrypt.DefaultCost)
+	commerceAdmin := &models.AdminUser{
+		FirstName:    "Commerce",
+		LastName:     "Manager",
+		Email:        "commerce@tbk.market",
+		PasswordHash: string(hash),
+		Role:         models.AdminRoleCommerceAdmin,
+		Status:       models.AdminStatusActive,
+	}
+	_ = repo.Create(commerceAdmin)
+
+	// Attempting to reset a COMMERCE_ADMIN via this CLI must be refused
+	_, err := svc.ResetSuperAdminPassword("commerce@tbk.market", "NewPassword123!")
+	if err == nil || !strings.Contains(err.Error(), "strictly restricted to SUPER_ADMIN") {
+		t.Fatalf("expected refusal when resetting non-SUPER_ADMIN, got: %v", err)
+	}
+}
+
+func TestResetSuperAdminPassword_RefusesNonExistentEmail(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	_, err := svc.ResetSuperAdminPassword("unknown@tbk.market", "NewPassword123!")
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected error for non-existent email, got: %v", err)
+	}
+}
+
+func TestResetSuperAdminPassword_Validation(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	// Empty email
+	if _, err := svc.ResetSuperAdminPassword("", "ValidPassword123!"); err == nil {
+		t.Errorf("expected error for empty email, got nil")
+	}
+
+	// Short password
+	if _, err := svc.ResetSuperAdminPassword("admin@tbk.market", "short"); err == nil {
+		t.Errorf("expected error for password < 8 chars, got nil")
+	}
+}
+
 

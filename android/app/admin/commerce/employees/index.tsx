@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { View, Text, FlatList, StyleSheet } from 'react-native'
 import { adminCommerceApi } from '../../../../src/api/admin'
+import { useI18n } from '../../../../src/store/i18n'
 
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: '#fca5a5',
@@ -11,6 +12,7 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default function MobileEmployeesScreen() {
+  const { t } = useI18n()
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
@@ -32,9 +34,9 @@ export default function MobileEmployeesScreen() {
   return (
     <View style={styles.container}>
       {loading ? (
-        <View style={styles.center}><Text style={styles.loadingText}>Loading...</Text></View>
+        <View style={styles.center}><Text style={styles.loadingText}>{t('admin.employees.loading')}</Text></View>
       ) : employees.length === 0 ? (
-        <View style={styles.center}><Text style={styles.emptyText}>No employees found</Text></View>
+        <View style={styles.center}><Text style={styles.emptyText}>{t('admin.employees.empty')}</Text></View>
       ) : (
         <FlatList
           data={employees}
@@ -49,7 +51,7 @@ export default function MobileEmployeesScreen() {
               </View>
               <Text style={styles.email}>{item.email}</Text>
               <View style={styles.cardMeta}>
-                <Text style={styles.metaText}>Shop: {item.shop_name || 'N/A'}</Text>
+                <Text style={styles.metaText}>{t('admin.employees.shop', { shop: item.shop_name || t('admin.employees.notApplicable') })}</Text>
                 <View style={[styles.statusBadge, { backgroundColor: item.status === 'ACTIVE' ? '#064e3b' : '#7f1d1d' }]}>
                   <Text style={[styles.statusText, { color: item.status === 'ACTIVE' ? '#a7f3d0' : '#fca5a5' }]}>{item.status}</Text>
                 </View>

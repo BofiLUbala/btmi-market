@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -41,17 +42,37 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmsgprefix)
 	log.SetPrefix("[SUPER_ADMIN_BOOTSTRAP] ")
 
-	name := strings.TrimSpace(os.Getenv("SUPER_ADMIN_NAME"))
-	email := strings.TrimSpace(os.Getenv("SUPER_ADMIN_EMAIL"))
-	password := os.Getenv("SUPER_ADMIN_PASSWORD")
+	resetFlag := flag.Bool("reset", false, "Reset password for an existing SUPER_ADMIN account")
+	resetPassFlag := flag.Bool("reset-password", false, "Reset password for an existing SUPER_ADMIN account (alias for -reset)")
+	emailFlag := flag.String("email", "", "SUPER_ADMIN email address")
+	passwordFlag := flag.String("password", "", "SUPER_ADMIN password")
+	nameFlag := flag.String("name", "", "SUPER_ADMIN full name")
+	flag.Parse()
+
+	isReset := *resetFlag || *resetPassFlag || strings.ToLower(os.Getenv("SUPER_ADMIN_RESET_PASSWORD")) == "true" || os.Getenv("SUPER_ADMIN_RESET_PASSWORD") == "1"
+
+	email := strings.TrimSpace(*emailFlag)
+	if email == "" {
+		email = strings.TrimSpace(os.Getenv("SUPER_ADMIN_EMAIL"))
+	}
+
+	password := *passwordFlag
+	if password == "" {
+		password = os.Getenv("SUPER_ADMIN_PASSWORD")
+	}
+
+	name := strings.TrimSpace(*nameFlag)
+	if name == "" {
+		name = strings.TrimSpace(os.Getenv("SUPER_ADMIN_NAME"))
+	}
 
 	if email == "" {
-		fmt.Fprintln(os.Stderr, "[ERROR] SUPER_ADMIN_EMAIL is required")
+		fmt.Fprintln(os.Stderr, "[ERROR] SUPER_ADMIN_EMAIL (or -email flag) is required")
 		os.Exit(1)
 	}
 
 	if password == "" {
-		fmt.Fprintln(os.Stderr, "[ERROR] SUPER_ADMIN_PASSWORD is required")
+		fmt.Fprintln(os.Stderr, "[ERROR] SUPER_ADMIN_PASSWORD (or -password flag) is required")
 		os.Exit(1)
 	}
 
@@ -78,6 +99,16 @@ func main() {
 	adminRepo := repository.NewAdminRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	bootstrapService := service.NewAdminBootstrapService(adminRepo, auditRepo)
+
+	if isReset {
+		admin, err := bootstrapService.ResetSuperAdminPassword(email, password)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[ERROR] Password reset failed: %v\n", err)
+			os.Exit(1)
+		}
+		log.Printf("[SUCCESS] Password successfully reset for Super Admin: %s (ID: %s)\n", admin.Email, admin.ID)
+		os.Exit(0)
+	}
 
 	result, err := bootstrapService.BootstrapSuperAdmin(name, email, password)
 	if err != nil {

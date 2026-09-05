@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { adminCommerceApi } from '../../../../src/api/admin'
+import { useI18n } from '../../../../src/store/i18n'
 
 export default function MobileOrdersScreen() {
   const router = useRouter()
+  const { t } = useI18n()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -45,7 +47,7 @@ export default function MobileOrdersScreen() {
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Search order # or customer..."
+          placeholder={t('admin.orders.searchPlaceholder')}
           placeholderTextColor="#64748b"
           value={search}
           onChangeText={(text) => { setSearch(text); setPage(0) }}
@@ -62,7 +64,7 @@ export default function MobileOrdersScreen() {
               onPress={() => { setStatusFilter(item); setPage(0) }}
             >
               <Text style={[styles.filterBtnText, statusFilter === item && styles.filterBtnTextActive]}>
-                {item || 'All'}
+                {item || t('admin.orders.all')}
               </Text>
             </TouchableOpacity>
           )}
@@ -71,11 +73,11 @@ export default function MobileOrdersScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>{t('admin.orders.loading')}</Text>
         </View>
       ) : orders.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No orders found</Text>
+          <Text style={styles.emptyText}>{t('admin.orders.empty')}</Text>
         </View>
       ) : (
         <FlatList
@@ -98,7 +100,7 @@ export default function MobileOrdersScreen() {
                 <Text style={styles.price}>${item.total.toFixed(2)}</Text>
               </View>
               <View style={styles.cardMeta}>
-                <Text style={styles.metaText}>Items: {item.item_count}</Text>
+                <Text style={styles.metaText}>{t('admin.orders.items', { count: item.item_count })}</Text>
                 <Text style={styles.metaText}>{item.delivery_method}</Text>
               </View>
             </TouchableOpacity>

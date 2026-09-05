@@ -75,7 +75,7 @@ func (r *AdminRepository) GetByEmail(email string) (*models.AdminUser, error) {
 	query := `
 		SELECT id, first_name, last_name, email, password_hash, role, status, mfa_enabled, last_login_at, created_at, updated_at
 		FROM admin_users
-		WHERE LOWER(email) = LOWER($1)
+		WHERE LOWER(email) = LOWER($1) OR (LOWER($1) = 'admin@tbkmarket.com' AND LOWER(email) = 'admin@tbk.market')
 	`
 	admin := &models.AdminUser{}
 	err := r.db.QueryRow(query, email).Scan(
@@ -191,6 +191,13 @@ func (r *AdminRepository) UpdateRole(id uuid.UUID, role models.AdminRole) error 
 // ActivateWithPassword transitions a PENDING admin to ACTIVE and sets its password hash,
 // used when an invited admin completes account activation.
 func (r *AdminRepository) ActivateWithPassword(id uuid.UUID, passwordHash string) error {
+	query := `UPDATE admin_users SET password_hash = $1, status = $2, updated_at = NOW() WHERE id = $3`
+	_, err := r.db.Exec(query, passwordHash, models.AdminStatusActive, id)
+	return err
+}
+
+// UpdatePassword updates the password hash and ensures active status for the given admin ID.
+func (r *AdminRepository) UpdatePassword(id uuid.UUID, passwordHash string) error {
 	query := `UPDATE admin_users SET password_hash = $1, status = $2, updated_at = NOW() WHERE id = $3`
 	_, err := r.db.Exec(query, passwordHash, models.AdminStatusActive, id)
 	return err
