@@ -36,6 +36,12 @@ type nullOrderScanFields struct {
 	deliveryPhone       sql.NullString
 	deliveryAddress     sql.NullString
 	deliveryNotes       sql.NullString
+	deliveryStatus      sql.NullString
+	assignedCourierID   uuid.NullUUID
+	deliveryLatitude    sql.NullFloat64
+	deliveryLongitude   sql.NullFloat64
+	courierAssignedAt   sql.NullTime
+	courierNotes        sql.NullString
 }
 
 func (f *nullOrderScanFields) applyTo(order *models.Order) {
@@ -46,6 +52,28 @@ func (f *nullOrderScanFields) applyTo(order *models.Order) {
 	order.DeliveryPhone = f.deliveryPhone.String
 	order.DeliveryAddress = f.deliveryAddress.String
 	order.DeliveryNotes = f.deliveryNotes.String
+	if f.deliveryStatus.Valid && f.deliveryStatus.String != "" {
+		order.DeliveryStatus = f.deliveryStatus.String
+	} else if order.DeliveryMethod != "" {
+		order.DeliveryStatus = models.DeliveryStatusPendingTBK
+	}
+	if f.assignedCourierID.Valid {
+		id := f.assignedCourierID.UUID
+		order.AssignedCourierID = &id
+	}
+	if f.deliveryLatitude.Valid {
+		lat := f.deliveryLatitude.Float64
+		order.DeliveryLatitude = &lat
+	}
+	if f.deliveryLongitude.Valid {
+		lng := f.deliveryLongitude.Float64
+		order.DeliveryLongitude = &lng
+	}
+	if f.courierAssignedAt.Valid {
+		t := f.courierAssignedAt.Time
+		order.CourierAssignedAt = &t
+	}
+	order.CourierNotes = f.courierNotes.String
 }
 
 // scanOrderErr maps a raw scan/query error to ErrOrderNotFound only for
@@ -117,7 +145,9 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized, inventory_claimed,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, delivery_status, assigned_courier_id,
+		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
+		       points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE id = $1
@@ -132,7 +162,9 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		&order.IdempotencyKey,
 		&nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
+		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
@@ -149,7 +181,9 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized, inventory_claimed,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, delivery_status, assigned_courier_id,
+		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
+		       points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE id = $1
@@ -165,7 +199,9 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 		&order.IdempotencyKey,
 		&nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized, &order.InventoryClaimed,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
+		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
@@ -183,16 +219,30 @@ func (r *OrderRepository) UpdateDelivery(id uuid.UUID, delivery *models.Order) e
 		UPDATE orders
 		SET delivery_method = $2, delivery_fee_base = $3, delivery_points_used = $4, delivery_points_discount = $5,
 		    delivery_fee_final = $6, delivery_contact_name = $7, delivery_phone = $8, delivery_address = $9,
-		    delivery_notes = $10, updated_at = NOW()
+		    delivery_notes = $10, delivery_status = $11, delivery_latitude = $12, delivery_longitude = $13, updated_at = NOW()
 		WHERE id = $1
 		RETURNING updated_at
 	`
+	deliveryStatus := delivery.DeliveryStatus
+	if deliveryStatus == "" {
+		deliveryStatus = models.DeliveryStatusPendingTBK
+	}
 	var updatedAt time.Time
 	return r.db.QueryRow(query,
 		id, delivery.DeliveryMethod, delivery.DeliveryFeeBase, delivery.DeliveryPointsUsed, delivery.DeliveryPointsDiscount,
 		delivery.DeliveryFeeFinal, delivery.DeliveryContactName, delivery.DeliveryPhone, delivery.DeliveryAddress,
-		delivery.DeliveryNotes,
+		delivery.DeliveryNotes, deliveryStatus, delivery.DeliveryLatitude, delivery.DeliveryLongitude,
 	).Scan(&updatedAt)
+}
+
+func (r *OrderRepository) AssignCourier(id uuid.UUID, courierID uuid.UUID, notes string) error {
+	query := `
+		UPDATE orders
+		SET assigned_courier_id = $2, delivery_status = 'COURIER_ASSIGNED', courier_assigned_at = NOW(), courier_notes = $3, updated_at = NOW()
+		WHERE id = $1
+	`
+	_, err := r.db.Exec(query, id, courierID, notes)
+	return err
 }
 
 func (r *OrderRepository) SetPointsFinalized(id uuid.UUID) error {
@@ -428,7 +478,8 @@ func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*mode
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, delivery_status, assigned_courier_id,
+		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes, points_finalized,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE buyer_profile_id = $1
@@ -452,7 +503,9 @@ func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*mode
 			&order.IdempotencyKey,
 			&nf.orderNumber,
 			&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-			&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized,
+			&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
+			&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+			&order.PointsFinalized,
 			&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
@@ -470,7 +523,8 @@ func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, 
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, points_finalized,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, delivery_status, assigned_courier_id,
+		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes, points_finalized,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE buyer_profile_id = $1 AND idempotency_key = $2
@@ -485,7 +539,9 @@ func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, 
 		&order.IdempotencyKey,
 		&nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
+		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&order.PointsFinalized,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
@@ -517,6 +573,7 @@ func (r *OrderRepository) UpdateTrackingStatus(id uuid.UUID, status models.Order
 		          base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		          order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount,
 		          delivery_fee_final, delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
+		          delivery_status, assigned_courier_id, delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
 		          points_finalized,
 		          accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		          created_at, updated_at
@@ -531,7 +588,9 @@ func (r *OrderRepository) UpdateTrackingStatus(id uuid.UUID, status models.Order
 		&order.IdempotencyKey,
 		&nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
-		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes, &order.PointsFinalized,
+		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
+		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&order.PointsFinalized,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)

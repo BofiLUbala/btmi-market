@@ -52,14 +52,18 @@ function renderField(
             type="button"
             className="password-toggle"
             onClick={() => setShowPassword(!showPassword)}
-            aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+            aria-label={
+              showPassword
+                ? t('auth.hidePasswordFor', { field: label ?? t('auth.password') })
+                : t('auth.showPasswordFor', { field: label ?? t('auth.password') })
+            }
             aria-pressed={showPassword}
           >
             {showPassword ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         )}
       </div>
-      {hint && !error && <span className="field-error">{hint}</span>}
+      {hint && !error && <span className="field-hint">{hint}</span>}
       {error && <span className="field-error">{error}</span>}
     </div>
   )

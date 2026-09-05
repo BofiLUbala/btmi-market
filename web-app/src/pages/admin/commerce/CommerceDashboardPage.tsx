@@ -34,17 +34,17 @@ export default function CommerceDashboardPage() {
         <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span>📦</span> {t('admin.commerceDash.title')}
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>
+        <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
           {t('admin.commerceDash.subtitle')}
         </p>
       </div>
 
-      <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+      <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 24 }}>🏗️</span>
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px', color: '#34d399' }}>{t('admin.commerceDash.bannerTitle')}</h3>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px', color: 'var(--admin-success)' }}>{t('admin.commerceDash.bannerTitle')}</h3>
+            <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0 }}>
               {t('admin.commerceDash.bannerDesc')}
             </p>
           </div>
@@ -53,15 +53,15 @@ export default function CommerceDashboardPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
         {domains.map((d) => (
-          <div key={d.num} style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: 16 }}>
+          <div key={d.num} style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#34d399', backgroundColor: '#064e3b', padding: '2px 8px', borderRadius: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-success)', backgroundColor: 'var(--admin-success-soft)', padding: '2px 8px', borderRadius: 6 }}>
                 {t('admin.commerceDash.domainLabel', { num: d.num })}
               </span>
-              <span style={{ fontSize: 11, color: '#64748b' }}>{t('admin.commerceDash.phase2')}</span>
+              <span style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>{t('admin.commerceDash.phase2')}</span>
             </div>
-            <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 6px', color: '#f8fafc' }}>{d.name}</h4>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0, lineHeight: 1.4 }}>{d.desc}</p>
+            <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 6px', color: 'var(--admin-text)' }}>{d.name}</h4>
+            <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0, lineHeight: 1.4 }}>{d.desc}</p>
           </div>
         ))}
       </div>

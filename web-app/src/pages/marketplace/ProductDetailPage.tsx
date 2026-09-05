@@ -534,7 +534,7 @@ function ProductReviews({ productId, signedIn, onRequireLogin }: { productId: st
           )}
         </aside>
         <div className="review-feed">
-          <div className="row-between"><strong>{t('reviews.ratings')}</strong><select className="input review-sort" value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">{t('reviews.sortNewest')}</option><option value="helpful">{t('reviews.sortHelpful')}</option><option value="highest_rating">{t('reviews.sortHighest')}</option><option value="lowest_rating">{t('reviews.sortLowest')}</option></select></div>
+          <div className="row-between"><strong>{t('reviews.ratings')}</strong><select className="input review-sort" aria-label={t('reviews.sortBy')} value={sort} onChange={(e) => setSort(e.target.value)}><option value="newest">{t('reviews.sortNewest')}</option><option value="helpful">{t('reviews.sortHelpful')}</option><option value="highest_rating">{t('reviews.sortHighest')}</option><option value="lowest_rating">{t('reviews.sortLowest')}</option></select></div>
           {data?.reviews.length ? data.reviews.map((review) => (
             <article className="review-card" key={review.id}>
               <div className="review-meta"><span className="review-stars">{'★'.repeat(review.rating)}{'☆'.repeat(5-review.rating)}</span><strong>{review.buyer_display_name || t('reviews.buyer')}</strong>{review.verified_purchase && <span className="verified-badge">✓ {t('reviews.verifiedPurchase')}</span>}<span className="muted">{formatDate(review.created_at)}</span></div>

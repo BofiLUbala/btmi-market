@@ -139,6 +139,10 @@ textarea.input:focus {
   font-size: var(--text-xs);
   color: var(--color-danger);
 }
+.field-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
 
 /* ===== Feedback ===== */
 .spinner {

@@ -50,13 +50,13 @@ function StatusBadge({ status }: { status: string }) {
 function SectionCard({ title, icon, children, onRefresh }: { title: string; icon: string; children: React.ReactNode; onRefresh?: () => void }) {
   const t = useT()
   return (
-    <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+    <div style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--admin-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>{icon}</span>{title}
         </h3>
         {onRefresh && (
-          <button onClick={onRefresh} style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#94a3b8', padding: '4px 12px', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={onRefresh} style={{ background: 'var(--admin-surface-2)', border: '1px solid var(--admin-border)', borderRadius: 8, color: 'var(--admin-text-muted)', padding: '4px 12px', fontSize: 12, cursor: 'pointer' }}>
             {t('admin.technical.refresh')}
           </button>
         )}

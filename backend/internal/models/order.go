@@ -48,6 +48,12 @@ type Order struct {
 	DeliveryPhone          string      `json:"delivery_phone" db:"delivery_phone"`
 	DeliveryAddress        string      `json:"delivery_address" db:"delivery_address"`
 	DeliveryNotes          string      `json:"delivery_notes" db:"delivery_notes"`
+	DeliveryStatus         string      `json:"delivery_status" db:"delivery_status"`
+	AssignedCourierID      *uuid.UUID  `json:"assigned_courier_id" db:"assigned_courier_id"`
+	DeliveryLatitude       *float64    `json:"delivery_latitude" db:"delivery_latitude"`
+	DeliveryLongitude      *float64    `json:"delivery_longitude" db:"delivery_longitude"`
+	CourierAssignedAt      *time.Time  `json:"courier_assigned_at" db:"courier_assigned_at"`
+	CourierNotes           string      `json:"courier_notes" db:"courier_notes"`
 	PointsFinalized        bool        `json:"points_finalized" db:"points_finalized"`
 	InventoryClaimed       bool        `json:"inventory_claimed" db:"inventory_claimed"`
 	AcceptedAt             *time.Time  `json:"accepted_at" db:"accepted_at"`
@@ -137,6 +143,12 @@ type OrderResponse struct {
 	DeliveryPhone          string              `json:"delivery_phone"`
 	DeliveryAddress        string              `json:"delivery_address"`
 	DeliveryNotes          string              `json:"delivery_notes"`
+	DeliveryStatus         string              `json:"delivery_status"`
+	AssignedCourierID      *uuid.UUID          `json:"assigned_courier_id,omitempty"`
+	DeliveryLatitude       *float64            `json:"delivery_latitude,omitempty"`
+	DeliveryLongitude      *float64            `json:"delivery_longitude,omitempty"`
+	CourierAssignedAt      *time.Time          `json:"courier_assigned_at,omitempty"`
+	CourierNotes           string              `json:"courier_notes,omitempty"`
 	PointsFinalized        bool                `json:"points_finalized"`
 	AcceptedAt             *time.Time          `json:"accepted_at,omitempty"`
 	PreparingAt            *time.Time          `json:"preparing_at,omitempty"`
@@ -198,6 +210,15 @@ const (
 	DeliveryMethodPickup       = "PICKUP"
 	DeliveryMethodShopDelivery = "SHOP_DELIVERY"
 	DeliveryMethodPartner      = "PARTNER"
+	DeliveryMethodTBK          = "TBK_STANDARD"
+
+	DeliveryStatusPendingTBK       = "PENDING_TBK_ASSIGNMENT"
+	DeliveryStatusCourierAssigned  = "COURIER_ASSIGNED"
+	DeliveryStatusReadyForPickup   = "READY_FOR_PICKUP"
+	DeliveryStatusPickedUp         = "PICKED_UP"
+	DeliveryStatusInTransit        = "IN_TRANSIT"
+	DeliveryStatusDelivered        = "DELIVERED"
+	DeliveryStatusReceived         = "RECEIVED"
 )
 
 type DeliveryOption struct {
@@ -216,24 +237,35 @@ type DeliveryOptionsResponse struct {
 }
 
 type SelectDeliveryRequest struct {
-	Method               string `json:"method" binding:"required"`
-	UsePointsForDelivery bool   `json:"use_points_for_delivery"`
-	ContactName          string `json:"contact_name"`
-	Phone                string `json:"phone"`
-	Address              string `json:"address"`
-	Notes                string `json:"notes"`
+	Method               string   `json:"method"`
+	UsePointsForDelivery bool     `json:"use_points_for_delivery"`
+	ContactName          string   `json:"contact_name"`
+	Phone                string   `json:"phone"`
+	Address              string   `json:"address"`
+	Notes                string   `json:"notes"`
+	Latitude             *float64 `json:"latitude,omitempty"`
+	Longitude            *float64 `json:"longitude,omitempty"`
+}
+
+type AssignCourierRequest struct {
+	CourierID uuid.UUID `json:"courier_id" binding:"required"`
+	Notes     string    `json:"notes"`
 }
 
 type DeliverySummary struct {
-	Method         string  `json:"method"`
-	FeeBase        float64 `json:"fee_base"`
-	PointsUsed     int     `json:"points_used"`
-	PointsDiscount float64 `json:"points_discount"`
-	FeeFinal       float64 `json:"fee_final"`
-	ContactName    string  `json:"contact_name"`
-	Phone          string  `json:"phone"`
-	Address        string  `json:"address"`
-	Notes          string  `json:"notes"`
+	Method            string     `json:"method"`
+	Status            string     `json:"status"`
+	FeeBase           float64    `json:"fee_base"`
+	PointsUsed        int        `json:"points_used"`
+	PointsDiscount    float64    `json:"points_discount"`
+	FeeFinal          float64    `json:"fee_final"`
+	ContactName       string     `json:"contact_name"`
+	Phone             string     `json:"phone"`
+	Address           string     `json:"address"`
+	Notes             string     `json:"notes"`
+	AssignedCourierID *uuid.UUID `json:"assigned_courier_id,omitempty"`
+	Latitude          *float64   `json:"latitude,omitempty"`
+	Longitude         *float64   `json:"longitude,omitempty"`
 }
 
 type DeliverySelectResponse struct {

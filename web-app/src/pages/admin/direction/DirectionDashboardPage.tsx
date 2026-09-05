@@ -12,6 +12,7 @@ export default function DirectionDashboardPage() {
   const [activeTab, setActiveTab] = useState<'kpis' | 'users' | 'audit'>('kpis')
   const [stats, setStats] = useState<DirectionOverviewStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  const [statsError, setStatsError] = useState<string | null>(null)
 
   // Users Tab State
   const [users, setUsers] = useState<AdminUserListItem[]>([])
@@ -20,6 +21,7 @@ export default function DirectionDashboardPage() {
   const [accountTypeFilter, setAccountTypeFilter] = useState('')
   const [userStatusFilter, setUserStatusFilter] = useState('')
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [usersError, setUsersError] = useState<string | null>(null)
 
   // User Action Modal State
   const [actionTargetUser, setActionTargetUser] = useState<AdminUserListItem | null>(null)
@@ -33,24 +35,28 @@ export default function DirectionDashboardPage() {
   const [totalLogs, setTotalLogs] = useState(0)
   const [auditTargetFilter, setAuditTargetFilter] = useState('')
   const [loadingAudit, setLoadingAudit] = useState(false)
+  const [auditError, setAuditError] = useState<string | null>(null)
   const [selectedAuditLog, setSelectedAuditLog] = useState<AdminAuditLog | null>(null)
 
   // Fetch KPI Stats
   const loadOverviewStats = useCallback(async () => {
     setLoadingStats(true)
+    setStatsError(null)
     try {
       const data = await adminDirectionApi.getOverview()
       setStats(data)
     } catch (err) {
       console.error('Failed to load direction KPIs:', err)
+      setStatsError(err instanceof Error ? err.message : t('admin.direction.kpisLoadError'))
     } finally {
       setLoadingStats(false)
     }
-  }, [])
+  }, [t])
 
   // Fetch Users
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true)
+    setUsersError(null)
     try {
       const res = await adminDirectionApi.listUsers({
         search: userSearch || undefined,
@@ -63,14 +69,16 @@ export default function DirectionDashboardPage() {
       setTotalUsers(res.total)
     } catch (err) {
       console.error('Failed to list users:', err)
+      setUsersError(err instanceof Error ? err.message : t('admin.direction.usersLoadError'))
     } finally {
       setLoadingUsers(false)
     }
-  }, [userSearch, accountTypeFilter, userStatusFilter])
+  }, [userSearch, accountTypeFilter, userStatusFilter, t])
 
   // Fetch Audit Logs
   const loadAuditLogs = useCallback(async () => {
     setLoadingAudit(true)
+    setAuditError(null)
     try {
       const res = await adminDirectionApi.listAuditLogs({
         target_type: auditTargetFilter || undefined,
@@ -81,10 +89,11 @@ export default function DirectionDashboardPage() {
       setTotalLogs(res.total)
     } catch (err) {
       console.error('Failed to list audit logs:', err)
+      setAuditError(err instanceof Error ? err.message : t('admin.direction.auditLoadError'))
     } finally {
       setLoadingAudit(false)
     }
-  }, [auditTargetFilter])
+  }, [auditTargetFilter, t])
 
   useEffect(() => {
     void loadOverviewStats()
@@ -225,6 +234,17 @@ export default function DirectionDashboardPage() {
       {/* TAB 1: STRATEGIC KPIS */}
       {activeTab === 'kpis' && (
         <div>
+          {statsError && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: 'var(--admin-danger-soft)', border: '1px solid var(--admin-danger)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: 'var(--admin-text)' }}>
+              <span>⚠️ {t('admin.direction.kpisLoadErrorPrefix')} {statsError}</span>
+              <button
+                onClick={() => void loadOverviewStats()}
+                style={{ backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', border: '1px solid var(--admin-border)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+              >
+                {t('admin.direction.retry')}
+              </button>
+            </div>
+          )}
           {loadingStats ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
               <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
@@ -340,6 +360,17 @@ export default function DirectionDashboardPage() {
       {/* TAB 2: USER MANAGEMENT */}
       {activeTab === 'users' && (
         <div>
+          {usersError && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: 'var(--admin-danger-soft)', border: '1px solid var(--admin-danger)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: 'var(--admin-text)' }}>
+              <span>⚠️ {t('admin.direction.usersLoadErrorPrefix')} {usersError}</span>
+              <button
+                onClick={() => void loadUsers()}
+                style={{ backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', border: '1px solid var(--admin-border)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+              >
+                {t('admin.direction.retry')}
+              </button>
+            </div>
+          )}
           {/* Filter Bar */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b' }}>
             <input
@@ -559,6 +590,17 @@ export default function DirectionDashboardPage() {
       {/* TAB 3: AUDIT LEDGER */}
       {activeTab === 'audit' && (
         <div>
+          {auditError && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: 'var(--admin-danger-soft)', border: '1px solid var(--admin-danger)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: 'var(--admin-text)' }}>
+              <span>⚠️ {t('admin.direction.auditLoadErrorPrefix')} {auditError}</span>
+              <button
+                onClick={() => void loadAuditLogs()}
+                style={{ backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', border: '1px solid var(--admin-border)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+              >
+                {t('admin.direction.retry')}
+              </button>
+            </div>
+          )}
           {/* Audit Filter */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b' }}>
             <select

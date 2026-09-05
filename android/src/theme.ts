@@ -94,3 +94,16 @@ export const darkColors: Colors = {
 
 export const spacing = { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 } as const
 export const radius = { sm: 10, md: 16, lg: 24 } as const
+
+/** Admin console — `app/admin/_layout.tsx` renders its header/background
+ *  always dark, independent of `useColors()`/the light-dark toggle (mirrors
+ *  the web admin's "ops console" look, see web-app's --admin-* tokens).
+ *  Named here instead of inlined as hex in the layout file so the two call
+ *  sites (header style + content style) can't drift from each other, and so
+ *  the "always dark, on purpose" intent has one place to change if that
+ *  product decision changes. */
+export const adminDark = {
+  headerBg: '#0f172a',
+  headerTint: '#ffffff',
+  contentBg: '#090d16',
+} as const

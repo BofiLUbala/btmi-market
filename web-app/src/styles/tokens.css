@@ -119,6 +119,31 @@
   --shadow-md: var(--shadow);
   --space-8: 64px;
 
+  /* Admin console — the Direction/Commerce/Technical/Inventory screens were
+     built with their own always-dark "ops console" look (slate/emerald),
+     independent of the buyer-facing --color-* theme and of the light/dark
+     toggle. These tokens exist so that look stops being re-typed as raw hex
+     in every admin file (a source of drift — e.g. #0f172a vs #0f1729 by
+     typo) without changing what the admin actually sees. Fixed values on
+     purpose: unlike --color-*, they do NOT get a [data-theme='dark']
+     override, because the admin console's "always dark" behavior is a
+     product decision to confirm, not something this pass changes. */
+  --admin-bg: #090d16;
+  --admin-surface: #0f172a;
+  --admin-surface-2: #1e293b;
+  --admin-border: #334155;
+  --admin-border-soft: #1e293b;
+  --admin-text: #f8fafc;
+  --admin-text-muted: #94a3b8;
+  --admin-text-faint: #64748b;
+  --admin-accent: #2563eb;
+  --admin-success: #10b981;
+  --admin-success-soft: #064e3b;
+  --admin-warning: #f59e0b;
+  --admin-danger: #ef4444;
+  --admin-danger-soft: #3f0a0a;
+  --admin-info: #38bdf8;
+
   color-scheme: light;
 }
 

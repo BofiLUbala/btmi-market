@@ -1,15 +1,16 @@
 import { Stack } from 'expo-router'
 import { useI18n } from '../../src/store/i18n'
+import { adminDark } from '../../src/theme'
 
 export default function AdminLayout() {
   const { t } = useI18n()
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: '#0f172a' },
-        headerTintColor: '#ffffff',
+        headerStyle: { backgroundColor: adminDark.headerBg },
+        headerTintColor: adminDark.headerTint,
         headerTitleStyle: { fontWeight: '800' },
-        contentStyle: { backgroundColor: '#090d16' },
+        contentStyle: { backgroundColor: adminDark.contentBg },
       }}
     >
       <Stack.Screen name="index" options={{ title: t('admin.titles.direction'), headerShown: false }} />
