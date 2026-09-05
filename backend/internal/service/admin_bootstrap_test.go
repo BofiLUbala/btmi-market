@@ -50,6 +50,31 @@ func (m *mockBootstrapRepo) Create(admin *models.AdminUser) error {
 	return nil
 }
 
+func (m *mockBootstrapRepo) GetFirstSuperAdmin() (*models.AdminUser, error) {
+	for _, a := range m.adminsByEmail {
+		if a.Role == models.AdminRoleSuperAdmin {
+			return a, nil
+		}
+	}
+	return nil, errors.New("super admin not found")
+}
+
+func (m *mockBootstrapRepo) UpdateSuperAdminCredentials(id uuid.UUID, firstName, lastName, email, passwordHash string) error {
+	for _, a := range m.adminsByEmail {
+		if a.ID == id && a.Role == models.AdminRoleSuperAdmin {
+			delete(m.adminsByEmail, strings.ToLower(a.Email))
+			a.FirstName = firstName
+			a.LastName = lastName
+			a.Email = email
+			a.PasswordHash = passwordHash
+			a.Status = models.AdminStatusActive
+			m.adminsByEmail[strings.ToLower(email)] = a
+			return nil
+		}
+	}
+	return errors.New("super admin not found")
+}
+
 func (m *mockBootstrapRepo) UpdatePassword(id uuid.UUID, passwordHash string) error {
 	for _, a := range m.adminsByEmail {
 		if a.ID == id {
@@ -402,5 +427,134 @@ func TestResetSuperAdminPassword_Validation(t *testing.T) {
 		t.Errorf("expected error for password < 8 chars, got nil")
 	}
 }
+
+func TestUpdateSuperAdminCredentials_Success(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	// 1. Initial bootstrap
+	initial, err := svc.BootstrapSuperAdmin("Initial Admin", "initial@tbk.market", "OldPassword2026!")
+	if err != nil || !initial.Created {
+		t.Fatalf("failed to bootstrap initial super admin: %v", err)
+	}
+
+	// 2. Update credentials to new custom information
+	updated, err := svc.UpdateSuperAdminCredentials("Gauthier Bofi", "my-email@example.com", "my-new-password")
+	if err != nil {
+		t.Fatalf("expected update to succeed, got error: %v", err)
+	}
+
+	// 3. Verify fields
+	if updated.ID != initial.Admin.ID {
+		t.Errorf("expected ID to remain identical (no duplicate), got %s vs %s", updated.ID, initial.Admin.ID)
+	}
+	if updated.FirstName != "Gauthier" || updated.LastName != "Bofi" {
+		t.Errorf("expected name Gauthier Bofi, got %s %s", updated.FirstName, updated.LastName)
+	}
+	if updated.Email != "my-email@example.com" {
+		t.Errorf("expected email my-email@example.com, got %s", updated.Email)
+	}
+	if updated.Role != models.AdminRoleSuperAdmin {
+		t.Errorf("expected role SUPER_ADMIN, got %s", updated.Role)
+	}
+	if updated.Status != models.AdminStatusActive {
+		t.Errorf("expected status ACTIVE, got %s", updated.Status)
+	}
+
+	// 4. Verify password hashing
+	if updated.PasswordHash == "my-new-password" {
+		t.Fatalf("FATAL: plaintext password was stored!")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(updated.PasswordHash), []byte("my-new-password")); err != nil {
+		t.Errorf("bcrypt verification failed for new password: %v", err)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(updated.PasswordHash), []byte("OldPassword2026!")); err == nil {
+		t.Errorf("old password still worked against updated hash")
+	}
+
+	// 5. Verify exactly 1 super admin exists (no duplicate)
+	count, err := repo.CountSuperAdmins()
+	if err != nil || count != 1 {
+		t.Errorf("expected super admin count = 1, got %d (err: %v)", count, err)
+	}
+
+	// 6. Verify audit logging
+	foundAudit := false
+	for _, entry := range audit.entries {
+		if entry.Action == "SUPER_ADMIN_CREDENTIALS_UPDATED" {
+			foundAudit = true
+			if entry.ActorRole != models.AdminRoleSuperAdmin {
+				t.Errorf("expected audit ActorRole SUPER_ADMIN, got %s", entry.ActorRole)
+			}
+			if entry.TargetID != updated.ID.String() {
+				t.Errorf("expected audit TargetID %s, got %s", updated.ID.String(), entry.TargetID)
+			}
+		}
+	}
+	if !foundAudit {
+		t.Errorf("expected SUPER_ADMIN_CREDENTIALS_UPDATED audit log entry, none found")
+	}
+}
+
+func TestUpdateSuperAdminCredentials_EmailConflict(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	// Create initial super admin
+	_, err := svc.BootstrapSuperAdmin("Super Admin", "admin@tbk.market", "InitialPass2026!")
+	if err != nil {
+		t.Fatalf("failed to bootstrap: %v", err)
+	}
+
+	// Create another admin user (e.g. COMMERCE_ADMIN)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("Pass123456!"), bcrypt.DefaultCost)
+	commerceAdmin := &models.AdminUser{
+		FirstName:    "Commerce",
+		LastName:     "Admin",
+		Email:        "conflict@tbk.market",
+		PasswordHash: string(hash),
+		Role:         models.AdminRoleCommerceAdmin,
+		Status:       models.AdminStatusActive,
+	}
+	_ = repo.Create(commerceAdmin)
+
+	// Trying to update Super Admin to conflict@tbk.market should fail
+	_, err = svc.UpdateSuperAdminCredentials("Gauthier Bofi", "conflict@tbk.market", "NewValidPassword123!")
+	if err == nil || !strings.Contains(err.Error(), "already in use") {
+		t.Fatalf("expected conflict error, got: %v", err)
+	}
+}
+
+func TestUpdateSuperAdminCredentials_NoSuperAdmin(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	_, err := svc.UpdateSuperAdminCredentials("Gauthier Bofi", "my-email@example.com", "my-new-password")
+	if err == nil || !strings.Contains(err.Error(), "no SUPER_ADMIN account found") {
+		t.Fatalf("expected error when no super admin exists, got: %v", err)
+	}
+}
+
+func TestUpdateSuperAdminCredentials_Validation(t *testing.T) {
+	repo := newMockBootstrapRepo()
+	audit := &mockAuditRecorder{}
+	svc := service.NewAdminBootstrapService(repo, audit)
+
+	_, _ = svc.BootstrapSuperAdmin("Initial Admin", "admin@tbk.market", "InitialPass2026!")
+
+	// Empty email
+	if _, err := svc.UpdateSuperAdminCredentials("Gauthier Bofi", "", "my-new-password"); err == nil {
+		t.Errorf("expected error for empty email, got nil")
+	}
+
+	// Password < 8 chars
+	if _, err := svc.UpdateSuperAdminCredentials("Gauthier Bofi", "my-email@example.com", "short"); err == nil {
+		t.Errorf("expected error for short password, got nil")
+	}
+}
+
 
 

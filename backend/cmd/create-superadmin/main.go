@@ -42,13 +42,15 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmsgprefix)
 	log.SetPrefix("[SUPER_ADMIN_BOOTSTRAP] ")
 
-	resetFlag := flag.Bool("reset", false, "Reset password for an existing SUPER_ADMIN account")
+	updateFlag := flag.Bool("update", false, "Update credentials (name, email, password) for the existing SUPER_ADMIN account")
+	resetFlag := flag.Bool("reset", false, "Reset password / update credentials for an existing SUPER_ADMIN account")
 	resetPassFlag := flag.Bool("reset-password", false, "Reset password for an existing SUPER_ADMIN account (alias for -reset)")
 	emailFlag := flag.String("email", "", "SUPER_ADMIN email address")
 	passwordFlag := flag.String("password", "", "SUPER_ADMIN password")
 	nameFlag := flag.String("name", "", "SUPER_ADMIN full name")
 	flag.Parse()
 
+	isUpdate := *updateFlag || strings.ToLower(os.Getenv("SUPER_ADMIN_UPDATE")) == "true" || os.Getenv("SUPER_ADMIN_UPDATE") == "1"
 	isReset := *resetFlag || *resetPassFlag || strings.ToLower(os.Getenv("SUPER_ADMIN_RESET_PASSWORD")) == "true" || os.Getenv("SUPER_ADMIN_RESET_PASSWORD") == "1"
 
 	email := strings.TrimSpace(*emailFlag)
@@ -100,13 +102,14 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	bootstrapService := service.NewAdminBootstrapService(adminRepo, auditRepo)
 
-	if isReset {
-		admin, err := bootstrapService.ResetSuperAdminPassword(email, password)
+	if isUpdate || isReset {
+		admin, err := bootstrapService.UpdateSuperAdminCredentials(name, email, password)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[ERROR] Password reset failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[ERROR] Credentials update failed: %v\n", err)
 			os.Exit(1)
 		}
-		log.Printf("[SUCCESS] Password successfully reset for Super Admin: %s (ID: %s)\n", admin.Email, admin.ID)
+		log.Printf("[SUCCESS] Super Admin credentials successfully updated for: %s %s <%s> (ID: %s, Role: %s, Status: %s)\n",
+			admin.FirstName, admin.LastName, admin.Email, admin.ID, admin.Role, admin.Status)
 		os.Exit(0)
 	}
 
@@ -118,8 +121,10 @@ func main() {
 
 	if !result.Created {
 		log.Printf("[INFO] %s\n", result.Message)
+		log.Printf("[INFO] To update existing SUPER_ADMIN credentials, use the -update flag (or set SUPER_ADMIN_UPDATE=true).\n")
 		os.Exit(0)
 	}
 
 	log.Printf("[SUCCESS] %s\n", result.Message)
 }
+

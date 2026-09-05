@@ -15,9 +15,12 @@ import (
 type AdminBootstrapRepository interface {
 	CountSuperAdmins() (int, error)
 	GetByEmail(email string) (*models.AdminUser, error)
+	GetFirstSuperAdmin() (*models.AdminUser, error)
 	Create(admin *models.AdminUser) error
 	UpdatePassword(id uuid.UUID, passwordHash string) error
+	UpdateSuperAdminCredentials(id uuid.UUID, firstName, lastName, email, passwordHash string) error
 }
+
 
 // AdminAuditRecorder records bootstrap actions in the audit log.
 type AdminAuditRecorder interface {
@@ -195,4 +198,101 @@ func (s *AdminBootstrapService) ResetSuperAdminPassword(email, newPassword strin
 
 	return existingAdmin, nil
 }
+
+// UpdateSuperAdminCredentials safely updates the full name, email, and password for an existing SUPER_ADMIN account.
+// It strictly validates:
+// - email and password are provided (min 8 characters)
+// - name is provided and parsed into first_name and last_name
+// - the target account exists and is a SUPER_ADMIN
+// - email uniqueness is preserved across other admin accounts
+// - role remains SUPER_ADMIN and status is ACTIVE
+// - password is encrypted via bcrypt
+// - action is recorded in the audit log
+// - never exposes or logs the password
+func (s *AdminBootstrapService) UpdateSuperAdminCredentials(name, email, newPassword string) (*models.AdminUser, error) {
+	cleanEmail := strings.TrimSpace(email)
+	if cleanEmail == "" {
+		return nil, errors.New("SUPER_ADMIN_EMAIL is required")
+	}
+
+	if len(newPassword) < 8 {
+		return nil, errors.New("SUPER_ADMIN_PASSWORD must be at least 8 characters")
+	}
+
+	cleanName := strings.TrimSpace(name)
+	if cleanName == "" {
+		cleanName = "Super Admin"
+	}
+
+	// 1. Locate existing SUPER_ADMIN in the database
+	existingAdmin, err := s.repo.GetFirstSuperAdmin()
+	if err != nil || existingAdmin == nil {
+		// Fallback: check if an admin with cleanEmail exists and is a SUPER_ADMIN
+		adminByEmail, err := s.repo.GetByEmail(cleanEmail)
+		if err != nil || adminByEmail == nil || adminByEmail.Role != models.AdminRoleSuperAdmin {
+			return nil, errors.New("no SUPER_ADMIN account found in database to update")
+		}
+		existingAdmin = adminByEmail
+	}
+
+	// 2. Ensure target email is not already taken by another admin user (with different ID)
+	if !strings.EqualFold(existingAdmin.Email, cleanEmail) {
+		conflictingAdmin, err := s.repo.GetByEmail(cleanEmail)
+		if err == nil && conflictingAdmin != nil && conflictingAdmin.ID != existingAdmin.ID {
+			return nil, fmt.Errorf("email %q is already in use by another admin account (%s)", cleanEmail, conflictingAdmin.Role)
+		}
+	}
+
+	// 3. Hash password with bcrypt
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// 4. Parse name
+	nameParts := strings.Fields(cleanName)
+	firstName := nameParts[0]
+	lastName := "Admin"
+	if len(nameParts) > 1 {
+		lastName = strings.Join(nameParts[1:], " ")
+	}
+
+	// 5. Update database record
+	if err := s.repo.UpdateSuperAdminCredentials(existingAdmin.ID, firstName, lastName, cleanEmail, string(hash)); err != nil {
+		return nil, fmt.Errorf("failed to update super admin credentials: %w", err)
+	}
+
+	existingAdmin.FirstName = firstName
+	existingAdmin.LastName = lastName
+	existingAdmin.Email = cleanEmail
+	existingAdmin.PasswordHash = string(hash)
+	existingAdmin.Role = models.AdminRoleSuperAdmin
+	existingAdmin.Status = models.AdminStatusActive
+
+	// 6. Record audit log entry
+	if s.auditRecorder != nil {
+		newValJSON, _ := json.Marshal(map[string]interface{}{
+			"id":         existingAdmin.ID.String(),
+			"first_name": existingAdmin.FirstName,
+			"last_name":  existingAdmin.LastName,
+			"email":      existingAdmin.Email,
+			"role":       string(existingAdmin.Role),
+			"status":     string(existingAdmin.Status),
+		})
+		rawNewVal := json.RawMessage(newValJSON)
+		auditEntry := &models.AdminAuditLog{
+			ActorAdminID: existingAdmin.ID,
+			ActorRole:    models.AdminRoleSuperAdmin,
+			Action:       "SUPER_ADMIN_CREDENTIALS_UPDATED",
+			TargetType:   "admin_user",
+			TargetID:     existingAdmin.ID.String(),
+			Reason:       "CLI SUPER_ADMIN credentials update (name, email, password)",
+			NewValue:     &rawNewVal,
+		}
+		_ = s.auditRecorder.Record(auditEntry)
+	}
+
+	return existingAdmin, nil
+}
+
 

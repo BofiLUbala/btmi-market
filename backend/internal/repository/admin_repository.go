@@ -279,6 +279,59 @@ func (r *AdminRepository) CountActiveSuperAdmins() (int, error) {
 	return count, nil
 }
 
+// GetFirstSuperAdmin returns the first SUPER_ADMIN account found in the database.
+func (r *AdminRepository) GetFirstSuperAdmin() (*models.AdminUser, error) {
+	query := `
+		SELECT id, first_name, last_name, email, password_hash, role, status, mfa_enabled, last_login_at, created_at, updated_at
+		FROM admin_users
+		WHERE role = $1
+		ORDER BY created_at ASC
+		LIMIT 1
+	`
+	admin := &models.AdminUser{}
+	err := r.db.QueryRow(query, models.AdminRoleSuperAdmin).Scan(
+		&admin.ID,
+		&admin.FirstName,
+		&admin.LastName,
+		&admin.Email,
+		&admin.PasswordHash,
+		&admin.Role,
+		&admin.Status,
+		&admin.MFAEnabled,
+		&admin.LastLoginAt,
+		&admin.CreatedAt,
+		&admin.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.New("super admin not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get super admin: %w", err)
+	}
+	return admin, nil
+}
+
+// UpdateSuperAdminCredentials updates first_name, last_name, email, and password_hash for the specified SUPER_ADMIN account.
+func (r *AdminRepository) UpdateSuperAdminCredentials(id uuid.UUID, firstName, lastName, email, passwordHash string) error {
+	query := `
+		UPDATE admin_users
+		SET first_name = $1, last_name = $2, email = $3, password_hash = $4, status = $5, updated_at = NOW()
+		WHERE id = $6 AND role = $7
+	`
+	res, err := r.db.Exec(query, firstName, lastName, email, passwordHash, models.AdminStatusActive, id, models.AdminRoleSuperAdmin)
+	if err != nil {
+		return fmt.Errorf("failed to update super admin credentials: %w", err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return errors.New("super admin not found or role is not SUPER_ADMIN")
+	}
+	return nil
+}
+
 // ValidateSuperAdminProtection ensures that the invariant "at least one ACTIVE SUPER_ADMIN remains" is respected.
 func (r *AdminRepository) ValidateSuperAdminProtection(targetAdminID uuid.UUID, newRole models.AdminRole, newStatus models.AdminStatus) error {
 	admin, err := r.GetByID(targetAdminID)
@@ -299,3 +352,4 @@ func (r *AdminRepository) ValidateSuperAdminProtection(targetAdminID uuid.UUID, 
 	}
 	return nil
 }
+

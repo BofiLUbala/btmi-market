@@ -413,12 +413,6 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="pd-mobile-purchase" aria-label={t('product.purchaseActions')}>
-        <div><small>{outOfStock ? t('product.unavailable') : `${qty} × ${formatMoney(displayPrice)}`}</small><strong>{formatMoney(displayPrice * qty)}</strong></div>
-        <Button variant="outline" disabled={outOfStock} onClick={addToCart}>{t('product.addToCart')}</Button>
-        <Button variant="accent" disabled={outOfStock} onClick={buyNow}>{t('product.buyNow')}</Button>
-      </div>
-
       <div className="pd-information">
         <section className="pd-info-section" aria-labelledby="product-description">
           <h2 id="product-description">{t('product.description')}</h2>
