@@ -132,6 +132,7 @@ export default function App() {
                 <Route path="/search" element={<SearchPage />} />
 
                 <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout/buy-now" element={<CartPage />} />
                 <Route element={<RequireAuth />}>
                   <Route path="/checkout/delivery" element={<DeliveryPage />} />
                   <Route path="/checkout/payment" element={<PaymentPage />} />

@@ -31,6 +31,7 @@ interface CartState {
   shopName: string | null
   usePoints: boolean
   add: (line: CartLine) => void
+  buyNow: (line: CartLine) => void
   setQuantity: (variantId: string, quantity: number) => void
   remove: (variantId: string) => void
   setUsePoints: (v: boolean) => void
@@ -65,6 +66,7 @@ function load(): Persisted {
 
 type Action =
   | { type: 'ADD'; line: CartLine }
+  | { type: 'BUY_NOW'; line: CartLine }
   | { type: 'SET_QTY'; variantId: string; quantity: number }
   | { type: 'REMOVE'; variantId: string }
   | { type: 'USE_POINTS'; value: boolean }
@@ -86,6 +88,8 @@ function reducer(state: Persisted, action: Action): Persisted {
       }
       return { ...state, lines: [...state.lines, action.line] }
     }
+    case 'BUY_NOW':
+      return { lines: [action.line], usePoints: false }
     case 'SET_QTY':
       return {
         ...state,
@@ -119,6 +123,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartState>(() => {
     const add = (line: CartLine) => dispatch({ type: 'ADD', line })
+    const buyNow = (line: CartLine) => dispatch({ type: 'BUY_NOW', line })
     const setQuantity = (variantId: string, quantity: number) =>
       dispatch({ type: 'SET_QTY', variantId, quantity })
     const remove = (variantId: string) => dispatch({ type: 'REMOVE', variantId })
@@ -141,6 +146,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       shopName,
       usePoints: state.usePoints,
       add,
+      buyNow,
       setQuantity,
       remove,
       setUsePoints,

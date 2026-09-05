@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Header, MobileNav } from './Header'
 import { useI18n } from '@/store/i18n'
@@ -44,13 +44,30 @@ function Footer() {
 
 export function Layout() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const focusedCheckout = pathname.startsWith('/checkout/')
   useEffect(() => {
     window.scrollTo({ top: 0 })
-    document.body.classList.add('has-mobile-nav')
+    document.body.classList.toggle('has-mobile-nav', !focusedCheckout)
+    document.body.classList.toggle('checkout-focused', focusedCheckout)
     return () => {
       document.body.classList.remove('has-mobile-nav')
+      document.body.classList.remove('checkout-focused')
     }
-  }, [pathname])
+  }, [pathname, focusedCheckout])
+
+  if (focusedCheckout) {
+    return (
+      <div className="checkout-shell">
+        <header className="checkout-shell-header">
+          <button type="button" onClick={() => navigate(-1)} aria-label="Retour">←</button>
+          <strong>Checkout</strong>
+          <span aria-hidden>TBK</span>
+        </header>
+        <main className="checkout-shell-main"><div className="container"><Outlet /></div></main>
+      </div>
+    )
+  }
 
   return (
     <>

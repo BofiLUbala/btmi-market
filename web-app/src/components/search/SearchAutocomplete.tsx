@@ -4,6 +4,7 @@ import { marketplaceApi } from '@/api/marketplace'
 import type { CategoryResponse, PublicProduct, PublicShop, SubcategoryResponse } from '@/api/types'
 import { formatMoney, initials } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { CameraIcon, ImageIcon } from '@/components/ui/Icons'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
@@ -101,12 +102,14 @@ export function SearchAutocomplete({
         const categoryItems: Suggestion[] = []
         const subcategoryItems: Suggestion[] = []
         for (const category of categories) {
-          if (category.name.toLocaleLowerCase().includes(needle)) {
-            categoryItems.push({ kind: 'category', id: category.id, label: category.name, detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
+          const catLabel = categoryLabel(t, category.slug, category.name)
+          if (category.name.toLocaleLowerCase().includes(needle) || catLabel.toLocaleLowerCase().includes(needle)) {
+            categoryItems.push({ kind: 'category', id: category.id, label: catLabel, detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
           }
           for (const subcategory of category.subcategories ?? []) {
-            if (subcategory.name.toLocaleLowerCase().includes(needle)) {
-              subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subcategory.name, detail: t('search.kind.inCategory', { category: category.name }), href: `/categories/${category.slug}`, category, subcategory })
+            const subLabel = subcategoryLabel(t, subcategory.slug, subcategory.name)
+            if (subcategory.name.toLocaleLowerCase().includes(needle) || subLabel.toLocaleLowerCase().includes(needle)) {
+              subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subLabel, detail: t('search.kind.inCategory', { category: catLabel }), href: `/categories/${category.slug}`, category, subcategory })
             }
           }
         }

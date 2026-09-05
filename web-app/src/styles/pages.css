@@ -210,6 +210,7 @@
 .pd-rating-link strong { padding: 5px 9px; border-radius: 7px; color: var(--color-on-feedback); background: var(--color-success); }
 .pd-rating-link:hover span { text-decoration: underline; }
 .pd-rating-link--empty { color: var(--color-text-muted); font-style: italic; }
+.pd-rating-link--empty strong { background: var(--color-border); color: var(--color-text-muted); font-style: normal; }
 .pd-rating-link--empty:hover span { text-decoration: underline; }
 .pd-price-block { padding: 17px 0; border-block: 1px solid var(--color-border); }
 .pd-price-block > div { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
@@ -481,6 +482,12 @@
 
 /* ===== Cart / totals ===== */
 .checkout-page { display: grid; gap: 22px; }
+.checkout-shell { min-height: 100dvh; background: var(--color-bg); }
+.checkout-shell-header { position: sticky; top: 0; z-index: 80; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; min-height: 58px; padding: max(7px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 7px max(12px, env(safe-area-inset-left)); border-bottom: 1px solid var(--color-border); background: color-mix(in srgb, var(--color-surface) 94%, transparent); backdrop-filter: blur(12px); }
+.checkout-shell-header button { width: 40px; height: 40px; border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text); background: var(--color-surface); font-size: 1.35rem; cursor: pointer; }
+.checkout-shell-header strong { text-align: center; font-size: 1.05rem; }
+.checkout-shell-header span { color: var(--color-primary); font-size: .72rem; font-weight: 900; text-align: right; }
+.checkout-shell-main { padding: clamp(16px, 3vw, 34px) 0 max(24px, env(safe-area-inset-bottom)); }
 .checkout-progress { display: grid; grid-template-columns: repeat(4, 1fr); max-width: 680px; margin: 0 auto 4px; width: 100%; }
 .checkout-progress > div { position: relative; display: grid; justify-items: center; gap: 6px; color: var(--color-text-muted); font-size: .78rem; }
 .checkout-progress > div:not(:last-child)::after { content: ''; position: absolute; top: 15px; left: calc(50% + 20px); right: calc(-50% + 20px); height: 2px; background: var(--color-border); }
@@ -744,7 +751,14 @@
   .checkout-summary { position: static; }
 }
 @media (max-width: 680px) {
-  .checkout-page { gap: 17px; }
+  .checkout-page { gap: 14px; }
+  .checkout-focused .checkout-shell-main { padding-top: 12px; }
+  .checkout-focused .checkout-shell-main > .container { padding-inline: 10px; }
+  .checkout-focused .checkout-progress { margin-bottom: 0; }
+  .checkout-focused .checkout-heading h1 { font-size: 1.45rem; }
+  .checkout-focused .checkout-heading p { font-size: .82rem; }
+  .checkout-focused .checkout-heading > span { padding: 5px 9px; font-size: .72rem; }
+  .checkout-focused .checkout-layout { gap: 12px; }
   .checkout-progress strong { font-size: .68rem; }
   .checkout-progress span { width: 28px; height: 28px; }
   .checkout-progress > div:not(:last-child)::after { top: 13px; }
@@ -755,6 +769,9 @@
   .cart-product-total { grid-column: 2; justify-items: end; align-self: center; }
   .rewards-result button { margin-left: 0; }
   .checkout-card { padding: 15px; border-radius: 13px; }
+  .checkout-focused .checkout-card { padding: 12px; border-radius: 11px; box-shadow: none; }
+  .checkout-focused .cart-product-row { padding: 13px 0; }
+  .checkout-focused .rewards-card { margin-top: 12px; padding: 13px; }
   .account-points-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .buyer-order-head { align-items: flex-start; }
   .buyer-order-lines { padding-inline: 14px; }

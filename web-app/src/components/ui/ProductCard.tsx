@@ -4,6 +4,7 @@ import type { PublicProduct } from '@/api/types'
 import { formatDate, formatMoney } from '@/lib/format'
 import { resolvePromotion } from '@/lib/promotion'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { categoryLabel } from '@/lib/categoryLabels'
 import { useFavorites } from '@/store/favorites'
 import { useI18n } from '@/store/i18n'
 import { StockChip } from './Badges'
@@ -110,7 +111,7 @@ export function ProductCard({ product }: { product: PublicProduct }) {
       </div>
       <div className="product-body">
         {product.category_name && (
-          <span className="product-category-chip">{product.category_name}</span>
+          <span className="product-category-chip">{categoryLabel(t, product.category_slug, product.category_name)}</span>
         )}
         <span className="product-name">{product.name}</span>
         {product.shop_name && <span className="product-shop">{product.shop_name}</span>}

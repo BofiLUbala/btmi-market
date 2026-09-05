@@ -19,6 +19,7 @@ import {
   type VariantSelection
 } from '@/lib/variants'
 import { resolvePromotion } from '@/lib/promotion'
+import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { loginWithReturnTo } from '@/lib/returnTo'
 import { useCart } from '@/store/cart'
 import { useAuth } from '@/store/auth'
@@ -196,9 +197,15 @@ export default function ProductDetailPage() {
   }
 
   function buyNow() {
-    if (outOfStock) return
-    addToCart()
-    navigate('/cart')
+    if (!v || outOfStock) return
+    cart.buyNow({
+      productId: p.id, variantId: v.id, quantity: qty, name: p.name,
+      variantName: describeAttributes(v), attributes: v.attributes, unit: p.unit,
+      unitPrice: sellerSalePrice, currency: 'FC', shopId: p.shop_id,
+      shopName: p.shop_name,
+      image: p.images?.find((img) => img.is_primary)?.url ?? p.images?.[0]?.url
+    })
+    navigate('/checkout/buy-now')
   }
 
   function toggleFavorite() {
@@ -222,7 +229,7 @@ export default function ProductDetailPage() {
     <div className="fade-in product-detail-page">
       <nav className="pd-breadcrumb" aria-label={t('product.breadcrumb')}>
         <Link to="/">{t('nav.marketplace')}</Link><span>›</span>
-        {p.category && <><Link to={`/categories/${p.category.slug}`}>{p.category.name}</Link><span>›</span></>}
+        {p.category && <><Link to={`/categories/${p.category.slug}`}>{categoryLabel(t, p.category.slug, p.category.name)}</Link><span>›</span></>}
         <span aria-current="page">{p.name}</span>
       </nav>
 
@@ -248,6 +255,7 @@ export default function ProductDetailPage() {
               </a>
             ) : (
               <a className="pd-rating-link pd-rating-link--empty" href="#customer-reviews">
+                <strong>0.0 ★</strong>
                 <span>{t('reviews.noneYet')}</span>
               </a>
             )}
@@ -433,8 +441,8 @@ export default function ProductDetailPage() {
           <h2 id="product-specifications">{t('product.specifications')}</h2>
           <dl className="pd-specifications">
             <div><dt>{t('product.product')}</dt><dd>{p.name}</dd></div>
-            <div><dt>{t('product.category')}</dt><dd>{p.category?.name ?? t('product.general')}</dd></div>
-            {p.subcategory && <div><dt>{t('product.subcategory')}</dt><dd>{p.subcategory.name}</dd></div>}
+            <div><dt>{t('product.category')}</dt><dd>{p.category ? categoryLabel(t, p.category.slug, p.category.name) : t('product.general')}</dd></div>
+            {p.subcategory && <div><dt>{t('product.subcategory')}</dt><dd>{subcategoryLabel(t, p.subcategory.slug, p.subcategory.name)}</dd></div>}
             {specifications.map((spec) => (
               <div key={spec.key}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>
             ))}

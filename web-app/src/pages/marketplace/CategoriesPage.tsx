@@ -5,6 +5,7 @@ import type { CategoryResponse } from '@/api/types'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { asArray } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { useI18n } from '@/store/i18n'
 
 export default function CategoriesPage() {
@@ -48,14 +49,14 @@ export default function CategoriesPage() {
               }}
             >
               <div className="cat-image-wrap">
-                <img className="cat-image" src={visual.image} alt={t('categories.imageAlt', { name: c.name })}
+                <img className="cat-image" src={visual.image} alt={t('categories.imageAlt', { name: categoryLabel(t, c.slug, c.name) })}
                   loading={index < 4 ? 'eager' : 'lazy'} decoding="async" />
               </div>
               <div className="cat-card-copy">
-                <div className="bold" style={{ color: visual.accent }}>{c.name}</div>
+                <div className="bold" style={{ color: visual.accent }}>{categoryLabel(t, c.slug, c.name)}</div>
                 {c.subcategories && c.subcategories.length > 0 && (
                   <div className="cat-sub small muted">
-                    {c.subcategories.slice(0, 3).map((s) => s.name).join(' · ')}
+                    {c.subcategories.slice(0, 3).map((s) => subcategoryLabel(t, s.slug, s.name)).join(' · ')}
                   </div>
                 )}
                 </div>

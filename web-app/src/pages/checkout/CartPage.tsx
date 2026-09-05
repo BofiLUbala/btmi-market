@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { ApiError, type PointRedemptionPreviewResponse } from '@/api/types'
 import { useCart } from '@/store/cart'
@@ -34,6 +34,8 @@ function previewErrorMessage(t: T, e: unknown): PreviewErrorResult {
 export default function CartPage() {
   const cart = useCart()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const isBuyNow = pathname === '/checkout/buy-now'
   const t = useT()
   const { user, buyerProfile, refreshUser } = useAuth()
   const [preview, setPreview] = useState<PointRedemptionPreviewResponse | null>(null)
@@ -77,7 +79,7 @@ export default function CartPage() {
 
   async function continueToCheckout() {
     if (!user) {
-      navigate(loginWithReturnTo('/cart'))
+      navigate(loginWithReturnTo(isBuyNow ? '/checkout/buy-now' : '/cart'))
       return
     }
     if (profileIncomplete) {

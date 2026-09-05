@@ -14,6 +14,7 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import { categoryImage } from '../../src/lib/categoryVisuals'
+import { categoryLabel } from '../../src/lib/categoryLabels'
 import type { PublicProduct } from '../../src/types'
 
 function ProductSkeleton() {
@@ -88,7 +89,7 @@ export default function HomeScreen() {
   const header = <>
     <View style={styles.sectionBlock}>
       <View style={styles.sectionHead}><Text style={styles.sectionTitle}>{t('tabs.categories')}</Text><Pressable onPress={() => router.push('/(buyer)/categories')}><Text style={styles.link}>{t('home.seeAll')}</Text></Pressable></View>
-      {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><Image source={categoryImage(category.slug, category.name)} style={styles.categoryImage} contentFit="cover" transition={140}/><Text style={styles.categoryText}>{category.name}</Text></Pressable>)}</ScrollView>}
+      {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><Image source={categoryImage(category.slug, category.name)} style={styles.categoryImage} contentFit="cover" transition={140}/><Text style={styles.categoryText}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</ScrollView>}
     </View>
 
     <View style={styles.productsHead}><View><Text style={styles.sectionTitle}>{visualMode ? t('home.similarProducts') : term ? t('home.results') : t('home.pickedForYou')}</Text><Text style={styles.sectionSubtitle}>{visualMode ? t('home.visualSubtitle') : term ? t('home.searchSubtitle', { term }) : t('home.featuredSubtitle')}</Text></View>{visualImage && <Pressable onPress={clearVisualSearch} style={styles.visualPreview} accessibilityLabel={t('home.closeVisualSearch')}><Image source={visualImage} style={styles.visualImage} contentFit="cover"/><View style={styles.previewClose}><Ionicons name="close" size={13} color={colors.white}/></View></Pressable>}</View>
