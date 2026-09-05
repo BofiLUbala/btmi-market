@@ -99,6 +99,9 @@ export default function SellerProductCreatePage() {
   /* Simple-product initial stock */
   const [simpleStock, setSimpleStock] = useState('0')
 
+  /* Seller's own compulsory 1-5 star self-rating for this product */
+  const [selfRating, setSelfRating] = useState(0)
+
   /* Submission */
   const [busy, setBusy] = useState(false)
   const [stepLabel, setStepLabel] = useState('')
@@ -349,7 +352,8 @@ export default function SellerProductCreatePage() {
     if (!form.name.trim()) return t('seller.productForm.validation.nameRequired')
     const price = parseFloat(form.unit_price)
     if (isNaN(price) || price <= 0) return t('seller.productForm.validation.validPrice')
-    
+    if (selfRating < 1 || selfRating > 5) return t('seller.productForm.validation.selfRatingRequired')
+
     if (form.discount_active) {
       const discVal = parseFloat(form.discount_value)
       if (isNaN(discVal) || discVal <= 0) return t('seller.productDetail.promoInvalidValue')
@@ -416,6 +420,7 @@ export default function SellerProductCreatePage() {
           category_id: categoryId,
           subcategory_id: subcategoryId || undefined,
           publication_status: 'DRAFT',
+          self_rating: selfRating,
           discount_active: form.discount_active,
           discount_type: form.discount_type,
           discount_value: form.discount_active ? parseFloat(form.discount_value) : 0,
@@ -580,6 +585,7 @@ export default function SellerProductCreatePage() {
     setCharacteristics([])
     setSimpleStock('0')
     setCombosState([])
+    setSelfRating(0)
   }
 
   /* ── Guard states ── */
@@ -820,6 +826,42 @@ export default function SellerProductCreatePage() {
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <label className="small bold" style={{ display: 'block', marginBottom: 4 }}>
+                  {t('seller.productForm.selfRatingLabel')} <span style={{ color: 'var(--color-danger)' }}>*</span>
+                </label>
+                <p className="muted small" style={{ margin: '0 0 8px' }}>
+                  {t('seller.productForm.selfRatingHint')}
+                </p>
+                <div role="radiogroup" aria-label={t('seller.productForm.selfRatingLabel')} style={{ display: 'flex', gap: 4 }}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      role="radio"
+                      aria-checked={selfRating === n}
+                      title={t('reviews.starsLabel', { count: n })}
+                      onClick={() => setSelfRating(n)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '1.6rem',
+                        lineHeight: 1,
+                        padding: 2,
+                        color: n <= selfRating ? 'var(--color-warning, #f5a623)' : 'var(--color-border)',
+                      }}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  {selfRating > 0 && (
+                    <span className="small muted" style={{ alignSelf: 'center', marginLeft: 6 }}>
+                      {t('seller.productForm.selfRatingSelected', { count: selfRating })}
+                    </span>
+                  )}
+                </div>
               </div>
             </Card>
 

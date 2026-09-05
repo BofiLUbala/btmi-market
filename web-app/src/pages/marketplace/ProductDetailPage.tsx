@@ -259,6 +259,14 @@ export default function ProductDetailPage() {
                 <span>{t('reviews.noneYet')}</span>
               </a>
             )}
+            {typeof p.self_rating === 'number' && p.self_rating > 0 && (
+              <div className="pd-self-rating" title={t('product.selfRatingHint')}>
+                <span className="pd-self-rating-stars" aria-hidden="true">
+                  {'★'.repeat(p.self_rating)}{'☆'.repeat(5 - p.self_rating)}
+                </span>
+                <span className="small muted">{t('product.selfRatingLabel')}</span>
+              </div>
+            )}
             <div className="pd-seller-line">{t('product.soldBy')} <Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link> · {p.seller_level} {t('product.sellerLevelSuffix')}</div>
           </header>
 

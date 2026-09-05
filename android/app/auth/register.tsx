@@ -8,6 +8,7 @@ import { Button, Card, Field, SectionTitle } from '../../src/components/ui'
 import { SellerPolicyContent } from '../../src/components/SellerPolicyContent'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
+import { sellerIntent } from '../../src/store/sellerIntent'
 import { spacing, type Colors } from '../../src/theme'
 
 /** Same rules the API enforces in IsStrongPassword — checked here only so the
@@ -63,9 +64,15 @@ export default function RegisterScreen() {
         password,
         password_confirmation: confirmation,
       }
-      return accountType === 'SELLER' ? authApi.registerSeller(body) : authApi.register(body)
+      // Sellers start as ordinary TBK users. After activation/login, the
+      // stored intent upgrades this same user and starts business onboarding.
+      return authApi.register(body)
     },
     onMutate: () => setError(''),
+    onSuccess: async () => {
+      if (accountType === 'SELLER') await sellerIntent.set(email)
+      else await sellerIntent.clear()
+    },
     onError: (e) => {
       if (e instanceof ApiError) {
         if (e.code === 'EMAIL_ALREADY_EXISTS') setError(t('auth.register.emailExists'))

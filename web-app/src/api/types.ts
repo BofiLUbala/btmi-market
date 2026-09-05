@@ -172,6 +172,8 @@ export interface PublicProductDetail {
   discount_start?: string | null
   discount_end?: string | null
   seller_sale_price?: number
+  /** Seller's own 1-5 star claim for this product. Not a buyer review. */
+  self_rating?: number | null
   created_at: string
   buyer_level?: string
   discount_percent?: number
@@ -876,6 +878,8 @@ export interface Product {
   discount_value?: number
   discount_start?: string | null
   discount_end?: string | null
+  /** Seller's own 1-5 star claim, set once at creation. Not a buyer review. */
+  self_rating?: number | null
   created_at: string
   updated_at: string
 }
@@ -895,6 +899,8 @@ export interface CreateProductRequest {
   discount_value?: number
   discount_start?: string | null
   discount_end?: string | null
+  /** Required: seller's own 1-5 star claim for this product. */
+  self_rating: number
 }
 
 export interface UpdateProductRequest {

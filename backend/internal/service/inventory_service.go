@@ -823,6 +823,7 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 		return nil, err
 	}
 
+	selfRating := req.SelfRating
 	product := &models.Product{
 		BusinessID:  businessID,
 		Name:        req.Name,
@@ -832,6 +833,7 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 		CostPrice:   req.CostPrice,
 		Unit:        req.Unit,
 		Status:      models.ProductStatusActive,
+		SelfRating:  &selfRating,
 	}
 
 	if product.Unit == "" {

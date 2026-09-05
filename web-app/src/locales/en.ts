@@ -487,6 +487,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'product.discoverFrom': 'Discover {name}, available from verified local sellers.',
   'product.breadcrumb': 'Breadcrumb',
   'product.sellerLevelSuffix': 'seller',
+  'product.selfRatingLabel': "Seller's self-rating",
+  'product.selfRatingHint': "The seller's own rating of this product — not a verified buyer review.",
   'product.loyaltyDiscount': 'Loyalty -{percent}%',
   'product.regular': 'Regular',
   'product.promo': 'Promo',
@@ -1332,6 +1334,10 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.descriptionOptional': 'Description (optional)',
   'seller.productForm.descriptionPlaceholder':
     'Key information buyers should know…',
+  'seller.productForm.selfRatingLabel': 'Your self-rating for this product',
+  'seller.productForm.selfRatingHint':
+    'Shown to buyers as your own claim, separate from verified buyer reviews.',
+  'seller.productForm.selfRatingSelected': '{count} out of 5 stars',
   'seller.productForm.promotionTitle': 'Promotion & special offer',
   'seller.productForm.promotionDesc':
     'Set a discounted price or a discount percentage. Reduced prices apply automatically at checkout.',
@@ -1441,6 +1447,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
     'The product name is required.',
   'seller.productForm.validation.validPrice':
     'A valid sale price (> 0 FC) is required.',
+  'seller.productForm.validation.selfRatingRequired':
+    'Please choose your self-rating (1 to 5 stars) for this product.',
   'seller.productForm.validation.promoValue':
     'Please enter a valid promotional discount value.',
   'seller.productForm.validation.percentMax':

@@ -476,6 +476,8 @@ export const fr = {
   'product.discoverFrom': 'Découvrez {name}, disponible auprès de vendeurs locaux vérifiés.',
   'product.breadcrumb': 'Fil d’Ariane',
   'product.sellerLevelSuffix': 'vendeur',
+  'product.selfRatingLabel': 'Auto-évaluation du vendeur',
+  'product.selfRatingHint': "L'évaluation du vendeur pour ce produit — ce n'est pas un avis vérifié d'acheteur.",
   'product.loyaltyDiscount': 'Fidélité -{percent}%',
   'product.regular': 'Prix normal',
   'product.promo': 'Promo',
@@ -1325,6 +1327,10 @@ export const fr = {
   'seller.productForm.costPricePlaceholder': 'ex. 5500',
   'seller.productForm.descriptionOptional': 'Description (optionnelle)',
   'seller.productForm.descriptionPlaceholder': 'Informations clés que les acheteurs doivent connaître…',
+  'seller.productForm.selfRatingLabel': 'Votre auto-évaluation de ce produit',
+  'seller.productForm.selfRatingHint':
+    'Affichée aux acheteurs comme votre propre appréciation, distincte des avis vérifiés des acheteurs.',
+  'seller.productForm.selfRatingSelected': '{count} sur 5 étoiles',
   'seller.productForm.promotionTitle': 'Promotion & offre spéciale',
   'seller.productForm.promotionDesc':
     'Définissez un prix réduit ou un pourcentage de remise. Les prix réduits s’appliquent automatiquement lors du paiement.',
@@ -1418,6 +1424,8 @@ export const fr = {
   'seller.productForm.validation.selectCategory': 'Veuillez sélectionner une catégorie.',
   'seller.productForm.validation.nameRequired': 'Le nom du produit est obligatoire.',
   'seller.productForm.validation.validPrice': 'Un prix de vente valide (> 0 FC) est requis.',
+  'seller.productForm.validation.selfRatingRequired':
+    'Veuillez choisir votre auto-évaluation (1 à 5 étoiles) pour ce produit.',
   'seller.productForm.validation.promoValue': 'Veuillez saisir une valeur de remise promotionnelle valide.',
   'seller.productForm.validation.percentMax': 'La remise en pourcentage ne peut pas dépasser 100 %.',
   'seller.productForm.validation.fixedMax': 'La remise fixe ne peut pas dépasser ni être égale au prix de base.',

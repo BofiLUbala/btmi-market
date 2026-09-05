@@ -32,6 +32,7 @@ type Product struct {
 	DiscountValue     float64           `json:"discount_value" db:"discount_value"`
 	DiscountStart     *time.Time        `json:"discount_start" db:"discount_start"`
 	DiscountEnd       *time.Time        `json:"discount_end" db:"discount_end"`
+	SelfRating        *int              `json:"self_rating" db:"self_rating"`
 	CreatedAt         time.Time         `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time         `json:"updated_at" db:"updated_at"`
 }
@@ -51,6 +52,9 @@ type CreateProductRequest struct {
 	DiscountValue     float64    `json:"discount_value"`
 	DiscountStart     *time.Time `json:"discount_start"`
 	DiscountEnd       *time.Time `json:"discount_end"`
+	// SelfRating is the seller's own 1-5 star claim about this Product, set
+	// once at creation and required — distinct from the buyer-review average.
+	SelfRating int `json:"self_rating" binding:"required,min=1,max=5"`
 }
 
 type UpdateProductRequest struct {
@@ -69,6 +73,7 @@ type UpdateProductRequest struct {
 	DiscountValue     *float64   `json:"discount_value"`
 	DiscountStart     *time.Time `json:"discount_start"`
 	DiscountEnd       *time.Time `json:"discount_end"`
+	SelfRating        *int       `json:"self_rating"`
 }
 
 type ProductResponse struct {
@@ -94,6 +99,7 @@ type ProductResponse struct {
 	DiscountValue     float64           `json:"discount_value"`
 	DiscountStart     *time.Time        `json:"discount_start,omitempty"`
 	DiscountEnd       *time.Time        `json:"discount_end,omitempty"`
+	SelfRating        *int              `json:"self_rating,omitempty"`
 	CreatedAt         time.Time         `json:"created_at"`
 	UpdatedAt         time.Time         `json:"updated_at"`
 }

@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
+import { authApi } from '../../src/api'
 import { useAuth } from '../../src/store/auth'
 import { ApiError } from '../../src/api/client'
 import { Button, Field } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
+import { sellerIntent } from '../../src/store/sellerIntent'
 
 export default function LoginScreen() {
   const login = useAuth((state) => state.login)
+  const refresh = useAuth((state) => state.refresh)
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -19,6 +22,13 @@ export default function LoginScreen() {
     setError(''); setBusy(true)
     try {
       const user = await login(email.trim().toLowerCase(), password)
+      if (await sellerIntent.isFor(email)) {
+        await authApi.becomeSeller()
+        await refresh()
+        await sellerIntent.clear()
+        router.replace('/seller/onboarding')
+        return
+      }
       router.replace(user.account_type === 'SELLER' ? '/seller' : '/(buyer)/profile')
     } catch (e) {
       if (e instanceof ApiError) {

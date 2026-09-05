@@ -82,6 +82,8 @@ export const sellerApi = {
   businesses: async () => list<Business>(await get<unknown>('/businesses')),
   createBusiness: (body: { name: string; business_type: string; category: string; phone: string; whatsapp?: string; email: string; country: string; city: string; default_currency: string }) => post<Business>('/businesses', body),
   shops: async (businessId: string) => list<Shop>(await get<unknown>(`/businesses/${businessId}/shops`)),
+  createShop: (businessId: string, body: { name: string; type: 'PHYSICAL' | 'ONLINE'; city: string; address: string; phone: string }) =>
+    post<Shop>(`/businesses/${businessId}/shops`, body),
   businessOrders: async (businessId: string) => list<SellerOrder>(await get<unknown>(`/businesses/${businessId}/orders`)),
   shopOrders: async (shopId: string) => list<SellerOrder>(await get<unknown>(`/shops/${shopId}/orders`)),
   order: (id: string) => get<OrderDetail>(`/orders/${id}`),

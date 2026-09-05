@@ -167,6 +167,10 @@ type PublicProductDetailResponse struct {
 	DiscountStart    *time.Time                    `json:"discount_start,omitempty"`
 	DiscountEnd      *time.Time                    `json:"discount_end,omitempty"`
 	SellerSalePrice  float64                       `json:"seller_sale_price"` // Calculated sale price
+	// SelfRating is the seller's own 1-5 star claim, set at creation. It is
+	// never mixed into AverageRating/TotalReviews (the verified buyer-review
+	// aggregate) — the frontend must label it separately.
+	SelfRating       *int                          `json:"self_rating,omitempty"`
 	CreatedAt        time.Time                     `json:"created_at"`
 	BuyerLevel       string                        `json:"buyer_level,omitempty"`
 	DiscountPercent  float64                       `json:"discount_percent,omitempty"`

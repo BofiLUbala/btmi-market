@@ -23,9 +23,9 @@ func (r *ProductRepository) Create(product *models.Product) error {
 	query := `
 		INSERT INTO products (
 			id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
-			discount_active, discount_type, discount_value, discount_start, discount_end
+			discount_active, discount_type, discount_value, discount_start, discount_end, self_rating
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING created_at, updated_at
 	`
 
@@ -39,14 +39,14 @@ func (r *ProductRepository) Create(product *models.Product) error {
 		product.Unit, product.Status, product.PublicationStatus,
 		product.CategoryID, product.SubcategoryID,
 		product.DiscountActive, product.DiscountType, product.DiscountValue,
-		product.DiscountStart, product.DiscountEnd,
+		product.DiscountStart, product.DiscountEnd, product.SelfRating,
 	).Scan(&product.CreatedAt, &product.UpdatedAt)
 }
 
 func (r *ProductRepository) GetByID(id uuid.UUID) (*models.Product, error) {
 	query := `
 		SELECT id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
-		       discount_active, discount_type, discount_value, discount_start, discount_end, created_at, updated_at
+		       discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, created_at, updated_at
 		FROM products WHERE id = $1
 	`
 
@@ -57,7 +57,7 @@ func (r *ProductRepository) GetByID(id uuid.UUID) (*models.Product, error) {
 		&product.Unit, &product.Status, &product.PublicationStatus,
 		&product.CategoryID, &product.SubcategoryID,
 		&product.DiscountActive, &product.DiscountType, &product.DiscountValue,
-		&product.DiscountStart, &product.DiscountEnd,
+		&product.DiscountStart, &product.DiscountEnd, &product.SelfRating,
 		&product.CreatedAt, &product.UpdatedAt,
 	)
 
@@ -74,7 +74,7 @@ func (r *ProductRepository) GetByID(id uuid.UUID) (*models.Product, error) {
 func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Product, error) {
 	query := `
 		SELECT id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
-		       discount_active, discount_type, discount_value, discount_start, discount_end, created_at, updated_at
+		       discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, created_at, updated_at
 		FROM products WHERE business_id = $1
 		ORDER BY created_at DESC
 	`
@@ -94,7 +94,7 @@ func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Pro
 			&product.Unit, &product.Status, &product.PublicationStatus,
 			&product.CategoryID, &product.SubcategoryID,
 			&product.DiscountActive, &product.DiscountType, &product.DiscountValue,
-			&product.DiscountStart, &product.DiscountEnd,
+			&product.DiscountStart, &product.DiscountEnd, &product.SelfRating,
 			&product.CreatedAt, &product.UpdatedAt,
 		)
 		if err != nil {
@@ -108,9 +108,10 @@ func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Pro
 
 func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID, search, publicationStatus string) ([]*models.ProductResponse, error) {
 	query := `
-		SELECT p.id, p.business_id, p.name, p.sku, p.description, p.unit_price, p.cost_price, 
-		       p.unit, p.status, p.publication_status, p.category_id, p.subcategory_id, 
+		SELECT p.id, p.business_id, p.name, p.sku, p.description, p.unit_price, p.cost_price,
+		       p.unit, p.status, p.publication_status, p.category_id, p.subcategory_id,
 		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
+		       p.self_rating,
 		       p.created_at, p.updated_at,
 		       COALESCE(c.name, '') as category_name,
 		       COUNT(DISTINCT v.id) as variant_count,
@@ -145,6 +146,7 @@ func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID, sea
 			&p.CategoryID, &p.SubcategoryID,
 			&p.DiscountActive, &p.DiscountType, &p.DiscountValue,
 			&p.DiscountStart, &p.DiscountEnd,
+			&p.SelfRating,
 			&p.CreatedAt, &p.UpdatedAt,
 			&p.CategoryName,
 			&p.VariantCount,
