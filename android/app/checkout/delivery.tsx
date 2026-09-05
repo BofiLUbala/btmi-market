@@ -42,6 +42,26 @@ export default function DeliveryScreen() {
     notes: '',
   })
 
+  const profileQuery = useQuery({
+    queryKey: ['buyer', 'profile'],
+    queryFn: buyerApi.profile,
+    enabled: Boolean(user),
+  })
+
+  useEffect(() => {
+    if (!profileQuery.data && !user) return
+    const p = profileQuery.data
+    const name = [p?.first_name || user?.first_name, p?.last_name || user?.last_name].filter(Boolean).join(' ')
+    const phone = p?.phone || user?.phone || ''
+    const fullAddress = [p?.address, p?.commune, p?.city].filter(Boolean).join(', ')
+    setContact((prev) => ({
+      contact_name: prev.contact_name || name,
+      phone: prev.phone || phone,
+      address: prev.address || fullAddress,
+      notes: prev.notes,
+    }))
+  }, [profileQuery.data, user])
+
   const options = useQuery({
     queryKey: ['checkout', 'delivery-options', orderId],
     queryFn: () => buyerApi.deliveryOptions(orderId!),

@@ -16,16 +16,21 @@ export interface LoginResponse {
   user?: User
 }
 
-/** Body of POST /auth/register. Field names match the API payload exactly so
- *  the form state can be sent as-is. */
 export interface RegisterInput {
   first_name: string
   middle_name?: string
   last_name: string
   phone: string
+  backup_phone?: string
   email: string
   password: string
   password_confirmation: string
+  address?: string
+  city?: string
+  commune?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface Category { id: string; name: string; slug: string }
@@ -118,6 +123,19 @@ export interface Shop { id: string; name: string; city?: string; address?: strin
 export interface BuyerProfile {
   id: string; first_name: string; last_name: string; email: string; phone: string
   backup_phone?: string; address?: string; city?: string; commune?: string
+  country?: string; latitude?: number | null; longitude?: number | null
+}
+export interface UpdateBuyerProfileRequest {
+  first_name?: string
+  last_name?: string
+  phone?: string
+  backup_phone?: string
+  address?: string
+  city?: string
+  commune?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
 }
 export interface Business { id: string; name: string; status: string }
 export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; created_at: string; delivery_method?: string; notes?: string }

@@ -194,7 +194,7 @@ func (h *Handler) Activate(c *gin.Context) {
 		return
 	}
 
-	err := h.authService.ActivateAccount(token)
+	session, err := h.authService.ActivateAccount(token, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
 		statusCode := http.StatusBadRequest
 		errorCode := "INVALID_REQUEST"
@@ -224,7 +224,8 @@ func (h *Handler) Activate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
-		Message: "Account activated successfully. You can now login.",
+		Message: "Account activated successfully.",
+		Data:    session,
 	})
 }
 

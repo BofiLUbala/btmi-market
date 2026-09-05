@@ -62,7 +62,16 @@ function AccountInner() {
             <div className="small muted">{buyerProfile?.email}</div>
           </div>
           <div className="profile-contact-block"><div className="eyebrow">{t('account.contact')}</div><div className="info-row"><span className="k">{t('account.primary')}</span><span className="v">{buyerProfile?.phone || '—'}</span></div><div className="info-row"><span className="k">{t('account.backup')}</span><span className="v">{buyerProfile?.backup_phone || '—'}</span></div></div>
-          <div className="profile-contact-block"><div className="eyebrow">{t('account.location')}</div><div className="profile-address">{buyerProfile?.address || t('account.noAddress')}</div><div className="small muted">{[buyerProfile?.commune, buyerProfile?.city].filter(Boolean).join(', ') || t('account.noLocation')}</div></div>
+          <div className="profile-contact-block">
+            <div className="eyebrow">{t('account.location')}</div>
+            <div className="profile-address">{buyerProfile?.address || t('account.noAddress')}</div>
+            <div className="small muted">{[buyerProfile?.commune, buyerProfile?.city, buyerProfile?.country].filter(Boolean).join(', ') || t('account.noLocation')}</div>
+            {buyerProfile?.latitude != null && buyerProfile?.longitude != null && (
+              <div className="small muted" style={{ marginTop: '0.25rem' }}>
+                📍 GPS: {buyerProfile.latitude}, {buyerProfile.longitude}
+              </div>
+            )}
+          </div>
           <div className="info-row">
             <span className="k">{t('common.memberSince')}</span>
             <span className="v">{user ? formatDate(user.created_at) : '—'}</span>

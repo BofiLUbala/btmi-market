@@ -40,13 +40,20 @@ type User struct {
 }
 
 type RegisterRequest struct {
-	FirstName            string `json:"first_name" binding:"required"`
-	MiddleName           string `json:"middle_name"`
-	LastName             string `json:"last_name" binding:"required"`
-	Phone                string `json:"phone" binding:"required"`
-	Email                string `json:"email" binding:"required,email"`
-	Password             string `json:"password" binding:"required,min=8,max=64"`
-	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
+	FirstName            string   `json:"first_name" binding:"required"`
+	MiddleName           string   `json:"middle_name"`
+	LastName             string   `json:"last_name" binding:"required"`
+	Phone                string   `json:"phone" binding:"required"`
+	Email                string   `json:"email" binding:"required,email"`
+	Password             string   `json:"password" binding:"required,min=8,max=64"`
+	PasswordConfirmation string   `json:"password_confirmation" binding:"required"`
+	BackupPhone          string   `json:"backup_phone"`
+	Address              string   `json:"address"`
+	City                 string   `json:"city"`
+	Commune              string   `json:"commune"`
+	Country              string   `json:"country"`
+	Latitude             *float64 `json:"latitude"`
+	Longitude            *float64 `json:"longitude"`
 }
 
 type RegisterResponse struct {

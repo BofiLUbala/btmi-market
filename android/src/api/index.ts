@@ -47,7 +47,7 @@ export const marketplaceApi = {
 }
 export const buyerApi = {
   profile: async () => (await get<{ profile: BuyerProfile }>('/buyer/profile')).profile,
-  updateProfile: (body: { first_name?: string; last_name?: string; phone?: string; backup_phone?: string; address?: string; city?: string; commune?: string }) =>
+  updateProfile: (body: { first_name?: string; last_name?: string; phone?: string; backup_phone?: string; address?: string; city?: string; commune?: string; country?: string; latitude?: number | null; longitude?: number | null }) =>
     patch<BuyerProfile>('/buyer/profile', body),
   points: () => get<unknown>('/buyer/points'),
 

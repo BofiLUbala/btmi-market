@@ -38,6 +38,22 @@ export interface RegisterResponse {
   user_id: string
 }
 
+export interface RegisterRequest {
+  first_name: string
+  last_name: string
+  phone: string
+  backup_phone?: string
+  email: string
+  password: string
+  password_confirmation: string
+  address?: string
+  city?: string
+  commune?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
+}
+
 /* ---------- Buyer profile ---------- */
 
 export interface BuyerProfile {
@@ -51,6 +67,9 @@ export interface BuyerProfile {
   email: string
   city?: string
   commune?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
   status: string
   created_at: string
   updated_at: string
@@ -60,7 +79,14 @@ export interface CreateBuyerProfileRequest {
   first_name: string
   last_name: string
   phone: string
+  backup_phone?: string
   email: string
+  address?: string
+  city?: string
+  commune?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface UpdateBuyerProfileRequest {
@@ -71,6 +97,9 @@ export interface UpdateBuyerProfileRequest {
   address?: string
   city?: string
   commune?: string
+  country?: string
+  latitude?: number | null
+  longitude?: number | null
 }
 
 /* ---------- Categories ---------- */

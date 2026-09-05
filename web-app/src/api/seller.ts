@@ -68,9 +68,16 @@ export const sellerAuthApi = {
     last_name: string
     middle_name?: string
     phone: string
+    backup_phone?: string
     email: string
     password: string
     password_confirmation: string
+    address?: string
+    city?: string
+    commune?: string
+    country?: string
+    latitude?: number | null
+    longitude?: number | null
   }) => post<RegisterResponse>('/auth/register/seller', body),
 
   listSellerBusinesses: () => safeList(get<SellerBusiness[]>('/businesses')),

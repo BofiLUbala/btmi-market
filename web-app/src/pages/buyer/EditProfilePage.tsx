@@ -22,17 +22,41 @@ function EditInner() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', backup_phone: '', address: '', city: '', commune: '' })
+  const [form, setForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    backup_phone: '',
+    country: 'République Démocratique du Congo',
+    address: '',
+    city: '',
+    commune: '',
+    latitude: null as number | null,
+    longitude: null as number | null
+  })
+  const [gpsLoading, setGpsLoading] = useState(false)
+  const [gpsStatus, setGpsStatus] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (!buyerProfile) return
-    setForm({ first_name: buyerProfile.first_name ?? '', last_name: buyerProfile.last_name ?? '', phone: buyerProfile.phone ?? '', backup_phone: buyerProfile.backup_phone ?? '', address: buyerProfile.address ?? '', city: buyerProfile.city ?? '', commune: buyerProfile.commune ?? '' })
+    setForm({
+      first_name: buyerProfile.first_name ?? '',
+      last_name: buyerProfile.last_name ?? '',
+      phone: buyerProfile.phone ?? '',
+      backup_phone: buyerProfile.backup_phone ?? '',
+      country: buyerProfile.country ?? 'République Démocratique du Congo',
+      address: buyerProfile.address ?? '',
+      city: buyerProfile.city ?? '',
+      commune: buyerProfile.commune ?? '',
+      latitude: buyerProfile.latitude ?? null,
+      longitude: buyerProfile.longitude ?? null
+    })
   }, [buyerProfile])
 
-  function set<K extends keyof typeof form>(key: K, value: string) {
+  function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
     setForm((current) => ({ ...current, [key]: value }))
     setError(''); setSuccess('')
   }
@@ -40,6 +64,34 @@ function EditInner() {
   function setCity(city: string) {
     setForm((current) => ({ ...current, city, commune: isKinshasa(city) ? current.commune : '' }))
     setError(''); setSuccess('')
+  }
+
+  function getGpsLocation() {
+    if (!navigator.geolocation) {
+      setGpsStatus(t('auth.register.gpsUnavailable'))
+      return
+    }
+    setGpsLoading(true)
+    setGpsStatus(t('auth.register.gpsAcquiring'))
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6))
+        const lng = Number(pos.coords.longitude.toFixed(6))
+        setForm((f) => ({ ...f, latitude: lat, longitude: lng }))
+        setGpsLoading(false)
+        setGpsStatus(t('auth.register.gpsSuccess', { lat, lng }))
+      },
+      () => {
+        setGpsLoading(false)
+        setGpsStatus(t('auth.register.gpsUnavailable'))
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  function clearGps() {
+    setForm((f) => ({ ...f, latitude: null, longitude: null }))
+    setGpsStatus('')
   }
 
   async function onSubmit(event: FormEvent) {
@@ -93,9 +145,39 @@ function EditInner() {
         <section className="profile-form-section" aria-labelledby="location-title">
           <div><div className="eyebrow">{t('account.location')}</div><h2 id="location-title">{t('account.yourAddress')}</h2></div>
           <div className="profile-form-grid">
-            <div className="profile-field-full"><Field label={t('common.address')} name="address" maxLength={500} placeholder="12 Avenue Kasa-Vubu" value={form.address} onChange={(e) => set('address', e.target.value)} /></div>
+            <div className="profile-field-full">
+              <Field label={t('account.country')} name="country" value={form.country} onChange={(e) => set('country', e.target.value)} />
+            </div>
+            <div className="profile-field-full">
+              <Field label={t('common.address')} name="address" maxLength={500} placeholder="12 Avenue Kasa-Vubu" value={form.address} onChange={(e) => set('address', e.target.value)} />
+            </div>
             <Field label={t('common.city')} name="city" as="select" value={form.city} options={drcCityOptions(form.city)} onChange={(e) => setCity(e.target.value)} />
-            {isKinshasa(form.city) && <Field label={t('common.commune')} name="commune" as="select" value={form.commune} options={kinshasaCommuneOptions(form.commune)} onChange={(e) => set('commune', e.target.value)} />}
+            {isKinshasa(form.city) ? (
+              <Field label={t('common.commune')} name="commune" as="select" value={form.commune} options={kinshasaCommuneOptions(form.commune)} onChange={(e) => set('commune', e.target.value)} />
+            ) : (
+              <Field label={t('common.commune')} name="commune" placeholder="Commune / Quartier" value={form.commune} onChange={(e) => set('commune', e.target.value)} />
+            )}
+            <div className="profile-field-full">
+              <div className="profile-contact-block" style={{ padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                <div className="eyebrow">{t('account.gpsCoordinates')}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                  <Button type="button" variant="outline" size="sm" loading={gpsLoading} onClick={getGpsLocation}>
+                    📍 {t('account.gpsUse')}
+                  </Button>
+                  {form.latitude !== null && (
+                    <Button type="button" variant="ghost" size="sm" onClick={clearGps}>
+                      {t('account.gpsClear')}
+                    </Button>
+                  )}
+                </div>
+                {gpsStatus && <p className="small muted" style={{ marginTop: '0.4rem' }}>{gpsStatus}</p>}
+                {form.latitude !== null && (
+                  <p className="small" style={{ marginTop: '0.25rem', color: 'var(--success)' }}>
+                    Lat: {form.latitude}, Lng: {form.longitude}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </section>
         <div className="profile-form-actions"><Button type="submit" loading={busy}>{t('common.saveChanges')}</Button></div>

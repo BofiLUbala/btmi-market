@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const maxAvatarBytes = 3 << 20 // 3 MB
+const maxAvatarBytes = 8 << 20 // 8 MB; modern Android camera images often exceed 3 MB
 
 var allowedAvatarTypes = map[string]string{
 	"image/jpeg": "jpg",
@@ -38,6 +39,7 @@ type AuthService struct {
 	activationRepo    *repository.ActivationTokenRepository
 	passwordResetRepo *repository.PasswordResetTokenRepository
 	refreshTokenRepo  *repository.RefreshTokenRepository
+	buyerProfileRepo  *repository.BuyerProfileRepository
 	emailService      *email.Service
 	config            *config.Config
 }
@@ -60,6 +62,10 @@ func NewAuthService(
 	}
 }
 
+func (s *AuthService) SetBuyerProfileRepo(repo *repository.BuyerProfileRepository) {
+	s.buyerProfileRepo = repo
+}
+
 func (s *AuthService) Register(req *models.RegisterRequest) (*models.User, error) {
 	return s.registerWithAccountType(req, models.AccountTypeBuyer)
 }
@@ -77,16 +83,27 @@ func (s *AuthService) UploadAvatar(userID uuid.UUID, header *multipart.FileHeade
 		return "", errors.New("IMAGE_TOO_LARGE")
 	}
 
-	ext, ok := allowedAvatarTypes[header.Header.Get("Content-Type")]
-	if !ok {
-		return "", errors.New("INVALID_IMAGE_TYPE")
-	}
-
 	src, err := header.Open()
 	if err != nil {
 		return "", errors.New("IMAGE_READ_FAILED")
 	}
 	defer src.Close()
+
+	// Android content providers do not consistently supply a useful MIME
+	// header. Verify the file bytes instead of rejecting a valid image because
+	// its multipart header is empty or application/octet-stream.
+	prefix := make([]byte, 512)
+	n, readErr := io.ReadFull(src, prefix)
+	if readErr != nil && readErr != io.ErrUnexpectedEOF {
+		return "", errors.New("IMAGE_READ_FAILED")
+	}
+	ext, ok := allowedAvatarTypes[http.DetectContentType(prefix[:n])]
+	if !ok {
+		return "", errors.New("INVALID_IMAGE_TYPE")
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return "", errors.New("IMAGE_READ_FAILED")
+	}
 
 	dir := filepath.Join(s.config.UploadDir, "avatars", userID.String())
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -192,6 +209,31 @@ func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accou
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
+	if s.buyerProfileRepo != nil {
+		country := strings.TrimSpace(req.Country)
+		if country == "" {
+			country = "DRC"
+		}
+		profile := &models.BuyerProfile{
+			UserID:      user.ID,
+			FirstName:   req.FirstName,
+			LastName:    req.LastName,
+			Phone:       req.Phone,
+			BackupPhone: strings.TrimSpace(req.BackupPhone),
+			Address:     strings.TrimSpace(req.Address),
+			Email:       req.Email,
+			City:        strings.TrimSpace(req.City),
+			Commune:     strings.TrimSpace(req.Commune),
+			Country:     country,
+			Latitude:    req.Latitude,
+			Longitude:   req.Longitude,
+			Status:      models.BuyerProfileStatusActive,
+		}
+		if err := s.buyerProfileRepo.Create(profile); err != nil {
+			log.Printf("Warning: failed to create buyer profile for new user %s: %v", user.ID, err)
+		}
+	}
+
 	if err := s.sendActivationEmail(user); err != nil {
 		return nil, fmt.Errorf("failed to send activation email: %w", err)
 	}
@@ -223,35 +265,39 @@ func IsStrongPassword(password string) bool {
 	return upper && lower && number && special
 }
 
-func (s *AuthService) ActivateAccount(token string) error {
+func (s *AuthService) ActivateAccount(token, userAgent, ipAddress string) (*models.LoginResponse, error) {
 	tokenHash := HashToken(token)
 
 	activationToken, err := s.activationRepo.GetByTokenHash(tokenHash)
 	if err != nil {
-		return errors.New("ACTIVATION_LINK_INVALID")
+		return nil, errors.New("ACTIVATION_LINK_INVALID")
 	}
 
 	if activationToken.UsedAt != nil {
-		return errors.New("ACTIVATION_LINK_ALREADY_USED")
+		return nil, errors.New("ACTIVATION_LINK_ALREADY_USED")
 	}
 
 	if time.Now().After(activationToken.ExpiresAt) {
-		return errors.New("ACTIVATION_LINK_EXPIRED")
+		return nil, errors.New("ACTIVATION_LINK_EXPIRED")
 	}
 
 	if err := s.activationRepo.MarkAsUsed(activationToken.ID); err != nil {
-		return fmt.Errorf("failed to mark token as used: %w", err)
+		return nil, fmt.Errorf("failed to mark token as used: %w", err)
 	}
 
 	if err := s.userRepo.UpdateStatus(activationToken.UserID, models.UserStatusActive); err != nil {
-		return fmt.Errorf("failed to update user status: %w", err)
+		return nil, fmt.Errorf("failed to update user status: %w", err)
 	}
 
 	if err := s.userRepo.UpdateEmailVerified(activationToken.UserID, true); err != nil {
-		return fmt.Errorf("failed to update email verified: %w", err)
+		return nil, fmt.Errorf("failed to update email verified: %w", err)
 	}
 
-	return nil
+	user, err := s.userRepo.GetByID(activationToken.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load activated user: %w", err)
+	}
+	return s.generateTokenPair(user, userAgent, ipAddress)
 }
 
 func (s *AuthService) ResendActivation(emailAddr string) error {

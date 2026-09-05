@@ -1,15 +1,16 @@
 import { useEffect } from 'react'
+import { AppState } from 'react-native'
 import { Stack } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import NetInfo from '@react-native-community/netinfo'
-import { onlineManager } from '@tanstack/react-query'
+import { focusManager, onlineManager } from '@tanstack/react-query'
 import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '../src/store/auth'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 2, refetchOnReconnect: true }, mutations: { retry: 0 } } })
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 0, retry: 2, refetchOnMount: 'always', refetchOnReconnect: true, refetchOnWindowFocus: true }, mutations: { retry: 0 } } })
 
 /** Split out of RootLayout so it can read the theme and language contexts —
  *  screen titles and header colours both have to follow them. */
@@ -57,7 +58,15 @@ export default function RootLayout() {
   const bootstrap = useAuth((state) => state.bootstrap)
   useEffect(() => {
     bootstrap()
-    return NetInfo.addEventListener((state) => onlineManager.setOnline(Boolean(state.isConnected)))
+    const removeNetInfoListener = NetInfo.addEventListener((state) => onlineManager.setOnline(Boolean(state.isConnected)))
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      focusManager.setFocused(state === 'active')
+      if (state === 'active') void useAuth.getState().refresh()
+    })
+    return () => {
+      removeNetInfoListener()
+      appStateSubscription.remove()
+    }
   }, [bootstrap])
 
   return (

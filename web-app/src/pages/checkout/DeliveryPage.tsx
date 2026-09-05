@@ -20,7 +20,7 @@ const METHOD_LABEL: Record<string, TranslationKey> = {
 
 function DeliveryInner() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, buyerProfile } = useAuth()
   const t = useT()
   const location = useLocation()
   const orderId = (location.state as { orderId?: string } | null)?.orderId
@@ -28,16 +28,34 @@ function DeliveryInner() {
   const [data, setData] = useState<DeliveryOptionsResponse | null>(null)
   const [method, setMethod] = useState<DeliveryMethod>('PICKUP')
   const [usePointsForDelivery, setUsePointsForDelivery] = useState(false)
-  const [contact, setContact] = useState({
-    contact_name: user ? `${user.first_name} ${user.last_name}` : '',
-    phone: user?.phone ?? '',
-    address: user?.city ? `${t('delivery.cityPrefix')}${user.city}` : '',
-    notes: ''
+  const [contact, setContact] = useState(() => {
+    const name = [buyerProfile?.first_name || user?.first_name, buyerProfile?.last_name || user?.last_name].filter(Boolean).join(' ')
+    const phone = buyerProfile?.phone || user?.phone || ''
+    const fullAddress = [buyerProfile?.address, buyerProfile?.commune, buyerProfile?.city].filter(Boolean).join(', ')
+    return {
+      contact_name: name,
+      phone,
+      address: fullAddress || (user?.city ? `${t('delivery.cityPrefix')}${user.city}` : ''),
+      notes: ''
+    }
   })
   const [previewFee, setPreviewFee] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!buyerProfile && !user) return
+    const name = [buyerProfile?.first_name || user?.first_name, buyerProfile?.last_name || user?.last_name].filter(Boolean).join(' ')
+    const phone = buyerProfile?.phone || user?.phone || ''
+    const fullAddress = [buyerProfile?.address, buyerProfile?.commune, buyerProfile?.city].filter(Boolean).join(', ')
+    setContact((prev) => ({
+      contact_name: prev.contact_name || name,
+      phone: prev.phone || phone,
+      address: prev.address || fullAddress || (user?.city ? `${t('delivery.cityPrefix')}${user.city}` : ''),
+      notes: prev.notes
+    }))
+  }, [buyerProfile, user, t])
 
   const selected = useMemo(
     () => data?.options.find((o) => o.method === method) ?? null,

@@ -111,7 +111,7 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10_000)
   try {
-    response = await fetch(`${API_URL}${path}`, { ...init, headers, signal: controller.signal })
+    response = await fetch(`${API_URL}${path}`, { cache: 'no-store', ...init, headers, signal: controller.signal })
   } catch {
     throw new ApiError(0, 'NETWORK_ERROR', await localized('errors.network'))
   } finally {

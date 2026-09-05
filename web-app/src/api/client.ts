@@ -59,7 +59,7 @@ export async function api<T>(
 
   let res: Response
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+    res = await fetch(`${API_BASE}${path}`, { cache: 'no-store', ...options, headers })
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error
     throw new ApiError(

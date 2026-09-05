@@ -109,6 +109,11 @@ func (s *BuyerProfileService) CreateProfile(userID uuid.UUID, req *models.Create
 		return nil, errors.New("USER_NOT_FOUND")
 	}
 
+	country := req.Country
+	if country == "" {
+		country = "DRC"
+	}
+
 	profile := &models.BuyerProfile{
 		UserID:      userID,
 		FirstName:   req.FirstName,
@@ -119,6 +124,9 @@ func (s *BuyerProfileService) CreateProfile(userID uuid.UUID, req *models.Create
 		Email:       req.Email,
 		City:        req.City,
 		Commune:     req.Commune,
+		Country:     country,
+		Latitude:    req.Latitude,
+		Longitude:   req.Longitude,
 		Status:      models.BuyerProfileStatusActive,
 	}
 
@@ -148,6 +156,9 @@ func (s *BuyerProfileService) CreateProfile(userID uuid.UUID, req *models.Create
 		Email:       profile.Email,
 		City:        profile.City,
 		Commune:     profile.Commune,
+		Country:     profile.Country,
+		Latitude:    profile.Latitude,
+		Longitude:   profile.Longitude,
 		Status:      string(profile.Status),
 		CreatedAt:   profile.CreatedAt,
 		UpdatedAt:   profile.UpdatedAt,
@@ -219,6 +230,9 @@ func (s *BuyerProfileService) GetProfile(userID uuid.UUID) (*models.BuyerProfile
 			Email:       profile.Email,
 			City:        profile.City,
 			Commune:     profile.Commune,
+			Country:     profile.Country,
+			Latitude:    profile.Latitude,
+			Longitude:   profile.Longitude,
 			Status:      string(profile.Status),
 			CreatedAt:   profile.CreatedAt,
 			UpdatedAt:   profile.UpdatedAt,
@@ -282,6 +296,9 @@ func (s *BuyerProfileService) UpdateProfile(userID uuid.UUID, req *models.Update
 		Email:       profile.Email,
 		City:        profile.City,
 		Commune:     profile.Commune,
+		Country:     profile.Country,
+		Latitude:    profile.Latitude,
+		Longitude:   profile.Longitude,
 		Status:      string(profile.Status),
 		CreatedAt:   profile.CreatedAt,
 		UpdatedAt:   profile.UpdatedAt,
@@ -319,6 +336,7 @@ func (s *BuyerProfileService) GetOrCreateByUserID(userID uuid.UUID) (*models.Buy
 		Email:     user.Email,
 		City:      "",
 		Commune:   "",
+		Country:   "DRC",
 		Status:    models.BuyerProfileStatusActive,
 	}
 

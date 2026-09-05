@@ -106,6 +106,7 @@ func main() {
 
 	emailService := email.NewService(cfg)
 	authService := service.NewAuthService(userRepo, activationRepo, passwordResetRepo, refreshTokenRepo, emailService, cfg)
+	authService.SetBuyerProfileRepo(buyerProfileRepo)
 	businessService := service.NewBusinessService(userRepo, businessRepo, membershipRepo, db)
 	shopService := service.NewShopService(shopRepo, membershipRepo, db, asynqClient)
 	employeeService := service.NewEmployeeService(

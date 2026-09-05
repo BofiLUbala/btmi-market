@@ -137,7 +137,12 @@ export default function ProfileScreen() {
       <Card>
         <Text style={themed.eyebrow}>{t('profile.address')}</Text>
         <Text style={themed.value}>{p?.address || t('profile.noAddress')}</Text>
-        <Text style={themed.muted}>{[p?.commune, p?.city].filter(Boolean).join(', ') || t('profile.noLocation')}</Text>
+        <Text style={themed.muted}>{[p?.commune, p?.city, p?.country].filter(Boolean).join(', ') || t('profile.noLocation')}</Text>
+        {p?.latitude != null && p?.longitude != null && (
+          <Text style={[themed.muted, { fontSize: 13, marginTop: 4 }]}>
+            📍 GPS: {p.latitude}, {p.longitude}
+          </Text>
+        )}
       </Card>
 
       <Button variant="outline" title={t('profile.editProfile')} onPress={() => router.push('/profile-edit')} />

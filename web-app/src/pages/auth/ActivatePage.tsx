@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { get } from '@/api/client'
+import { get, tokenStore } from '@/api/client'
+import type { LoginResponseWithUser } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
@@ -20,11 +21,13 @@ export default function ActivatePage() {
 
   useEffect(() => {
     let mounted = true
-    get<null>(url).then(
-      () => {
+    get<LoginResponseWithUser>(url).then(
+      (session) => {
         if (!mounted) return
+        tokenStore.set(session.access_token, session.refresh_token)
         setState('ok')
         setMessage(t('auth.activate.active'))
+        window.location.replace(session.user?.account_type === 'SELLER' ? '/seller/onboarding' : '/account')
       },
       (err: unknown) => {
         if (!mounted) return
