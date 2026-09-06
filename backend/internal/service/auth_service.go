@@ -301,7 +301,7 @@ func (s *AuthService) ActivateAccount(token, userAgent, ipAddress string) (*mode
 }
 
 func (s *AuthService) ResendActivation(emailAddr string) error {
-	user, err := s.userRepo.GetByEmail(emailAddr)
+	user, err := s.userRepo.GetByEmail(strings.ToLower(strings.TrimSpace(emailAddr)))
 	if err != nil {
 		return errors.New("USER_NOT_FOUND")
 	}
@@ -318,6 +318,38 @@ func (s *AuthService) ResendActivation(emailAddr string) error {
 		return fmt.Errorf("failed to send activation email: %w", err)
 	}
 
+	return nil
+}
+
+// ReinitializeRegistration authenticates and restarts only the confirmation
+// process for an existing pending account. It never creates or updates a user,
+// profile, password, address, membership, cart, order, or preference record.
+func (s *AuthService) ReinitializeRegistration(emailAddr, password, userAgent, ipAddress string) error {
+	emailAddr = strings.ToLower(strings.TrimSpace(emailAddr))
+	user, err := s.userRepo.GetByEmail(emailAddr)
+	if err != nil {
+		return errors.New("INVALID_CREDENTIALS")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return errors.New("INVALID_CREDENTIALS")
+	}
+	if user.Status == models.UserStatusActive && user.EmailVerified {
+		return errors.New("REGISTRATION_ALREADY_CONFIRMED")
+	}
+	if user.Status != models.UserStatusPendingVerification || user.EmailVerified {
+		return errors.New("REGISTRATION_REINITIALIZATION_NOT_AVAILABLE")
+	}
+
+	if err := s.activationRepo.InvalidateAllForUser(user.ID); err != nil {
+		return fmt.Errorf("failed to invalidate old tokens: %w", err)
+	}
+	if err := s.sendActivationEmail(user); err != nil {
+		return fmt.Errorf("ACTIVATION_EMAIL_DELIVERY_FAILED: %w", err)
+	}
+	if err := s.activationRepo.RecordRegistrationReinitialized(user.ID, ipAddress, userAgent); err != nil {
+		log.Printf("registration reinitialization audit failed for user %s: %v", user.ID, err)
+		return errors.New("REGISTRATION_AUDIT_FAILED")
+	}
 	return nil
 }
 
@@ -550,7 +582,7 @@ func (s *AuthService) sendActivationEmail(user *models.User) error {
 		return err
 	}
 
-	activationURL := s.emailService.BuildActivationURL(rawToken)
+	activationURL := s.emailService.BuildActivationURL(rawToken, user.AccountType)
 	return s.emailService.SendActivationEmail(user.Email, activationURL)
 }
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/config"
+	"github.com/btmi-ai-market/backend/internal/models"
 )
 
 type Service struct {
@@ -68,8 +69,22 @@ func (s *Service) sendEmail(to, subject, htmlBody string) error {
 	return smtp.SendMail(addr, auth, from, []string{to}, []byte(message))
 }
 
-func (s *Service) BuildActivationURL(token string) string {
-	return fmt.Sprintf("%s/activate-account?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+// BuildActivationURL builds the web-app link included in the activation
+// email. The web router serves two different activation pages — "/activate"
+// (buyer, ActivatePage.tsx) and "/activate-account" (seller, an alias also
+// reachable at "/seller/activate", SellerActivatePage.tsx) — so this must
+// pick the buyer path for BUYER accounts. Before this fix every activation
+// email (buyer and seller alike) linked to the seller page: the backend
+// still activated the buyer's token correctly (the token itself is
+// account-type-agnostic), but the buyer landed on the seller page and was
+// redirected into seller onboarding after clicking their own confirmation
+// link.
+func (s *Service) BuildActivationURL(token string, accountType models.AccountType) string {
+	path := "/activate-account"
+	if accountType == models.AccountTypeBuyer {
+		path = "/activate"
+	}
+	return fmt.Sprintf("%s%s?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), path, token)
 }
 
 func (s *Service) BuildEmployeeInvitationURL(token string) string {

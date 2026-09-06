@@ -167,7 +167,7 @@ export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: 
    backend is the single source of truth for pricing, so nothing here is
    ever computed on the device. */
 
-export type DeliveryMethod = 'PICKUP' | 'SHOP_DELIVERY' | 'PARTNER'
+export type DeliveryMethod = 'TBK_STANDARD' | 'PICKUP' | 'SHOP_DELIVERY' | 'PARTNER'
 
 export interface OrderLineInput { product_id: string; variant_id: string; quantity: number }
 
@@ -180,7 +180,7 @@ export interface PointRedemptionPreview {
 }
 
 export interface DeliveryOption {
-  method: DeliveryMethod; label: string; fee: number
+  method: DeliveryMethod | string; label: string; fee: number
   provider?: string; available: boolean
 }
 
@@ -201,7 +201,7 @@ export interface DeliverySelectResponse {
 }
 
 export interface SelectDeliveryRequest {
-  method: DeliveryMethod; use_points_for_delivery: boolean
+  method?: DeliveryMethod | string; use_points_for_delivery: boolean
   contact_name?: string; phone?: string; address?: string; notes?: string
 }
 

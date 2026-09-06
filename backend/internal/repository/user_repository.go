@@ -139,7 +139,7 @@ func (r *UserRepository) UpdateAccountType(id uuid.UUID, accountType models.Acco
 
 func (r *UserRepository) EmailExists(email string) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = LOWER($1))`
 	err := r.db.QueryRow(query, email).Scan(&exists)
 	return exists, err
 }

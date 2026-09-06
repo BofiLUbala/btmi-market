@@ -75,10 +75,11 @@ export default function LoginPage() {
         <h1>{t('auth.login.title')}</h1>
         <p className="muted small">{t('auth.login.subtitle')}</p>
         {error && <ErrorBox error={error} />}
-        {errorCode === 'ACCOUNT_NOT_ACTIVATED' && (
-          <p className="small" style={{ marginTop: -4, marginBottom: 12 }}>
-            <Link to="/resend-activation" className="section-link">{t('auth.register.resendActivation')}</Link>
-          </p>
+          {errorCode === 'ACCOUNT_NOT_ACTIVATED' && (
+          <div className="small" style={{ marginTop: -4, marginBottom: 12 }}>
+            <p>{t('auth.reinitialize.didNotReceive')} <Link to="/resend-activation" className="section-link">{t('auth.reinitialize.resend')}</Link></p>
+            <p>{t('auth.reinitialize.stillBlocked')} <Link to="/reinitialize-registration" className="section-link">{t('auth.reinitialize.title')}</Link></p>
+          </div>
         )}
         <Field
           label={t('common.email')}
@@ -108,6 +109,8 @@ export default function LoginPage() {
           {t('auth.login.noAccount')} <Link to="/register" className="section-link">{t('auth.login.createOne')}</Link>
           <br />
           {t('auth.login.notActivated')} <Link to="/resend-activation" className="section-link">{t('auth.login.resendEmail')}</Link>
+          <br />
+          {t('auth.reinitialize.stillBlocked')} <Link to="/reinitialize-registration" className="section-link">{t('auth.reinitialize.title')}</Link>
           <br />
           {t('auth.login.forgotPassword')} <Link to="/forgot-password" className="section-link">{t('auth.login.resetIt')}</Link>
         </p>

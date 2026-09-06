@@ -234,6 +234,7 @@ func main() {
 			authGroup.POST("/register/seller", authHandler.RegisterSeller)
 			authGroup.GET("/activate", authHandler.Activate)
 			authGroup.POST("/resend-activation", authHandler.ResendActivation)
+			authGroup.POST("/reinitialize-registration", authHandler.ReinitializeRegistration)
 			authGroup.POST("/login", authHandler.Login)
 			authGroup.POST("/refresh", authHandler.Refresh)
 			authGroup.POST("/logout", authHandler.Logout)
@@ -561,6 +562,7 @@ func main() {
 
 					commerceGroup.GET("/orders", adminCommerceHandler.ListOrders)
 					commerceGroup.GET("/orders/:id", adminCommerceHandler.GetOrder)
+					commerceGroup.POST("/orders/:id/assign-courier", adminCommerceHandler.AssignCourier)
 
 					commerceGroup.GET("/employees", adminCommerceHandler.ListEmployees)
 					commerceGroup.POST("/employees/:id/revoke", adminCommerceHandler.RevokeEmployeeAccess)

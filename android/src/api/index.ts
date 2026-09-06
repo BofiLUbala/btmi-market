@@ -17,6 +17,7 @@ export const authApi = {
   // different endpoint so the backend tags the user SELLER from creation.
   registerSeller: (body: RegisterInput) => post<{ user_id: string }>('/auth/register/seller', body),
   resendActivation: (email: string) => post('/auth/resend-activation', { email }),
+  reinitializeRegistration: (email: string, password: string) => post('/auth/reinitialize-registration', { email, password }),
   forgotPassword: (identifier: string) => post('/auth/forgot-password', { identifier }),
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),

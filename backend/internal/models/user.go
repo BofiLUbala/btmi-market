@@ -91,6 +91,11 @@ type ResendActivationRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
+type ReinitializeRegistrationRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
 type ForgotPasswordRequest struct {
 	Identifier string `json:"identifier"`
 	Email      string `json:"email"`

@@ -427,6 +427,14 @@ export interface AdminOrderItem {
   delivery_fee: number
   final_total: number
   delivery_method: string
+  delivery_status?: string
+  assigned_courier_id?: string
+  delivery_contact_name?: string
+  delivery_phone?: string
+  delivery_address?: string
+  delivery_notes?: string
+  courier_assigned_at?: string
+  courier_notes?: string
   payment_status: string
   is_stuck: boolean
   stuck_reason?: string
@@ -873,6 +881,12 @@ export const adminCommerceApi = {
   },
   getOrder: async (id: string) => {
     return adminApi<AdminOrderDetail>(`/admin/commerce/orders/${id}`)
+  },
+  assignCourier: async (id: string, payload: { courier_name: string; courier_phone?: string; notes?: string }) => {
+    return adminApi<{ message: string; order: AdminOrderItem }>(`/admin/commerce/orders/${id}/assign-courier`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
   },
   listEmployees: async (params?: { limit?: number; offset?: number }) => {
     const q = new URLSearchParams()

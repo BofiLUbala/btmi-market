@@ -137,6 +137,15 @@ func (s *OrderService) RequireShopAccess(userID, shopID uuid.UUID) error {
 
 // allowedTransitions defines valid status transitions per delivery method.
 var allowedTransitions = map[string]map[models.OrderStatus][]models.OrderStatus{
+	models.DeliveryMethodTBK: {
+		models.OrderStatusPending:        {models.OrderStatusCancelled, models.OrderStatusRejected, models.OrderStatusAccepted},
+		models.OrderStatusAccepted:       {models.OrderStatusCancelled, models.OrderStatusPreparing},
+		models.OrderStatusPreparing:      {models.OrderStatusCancelled, models.OrderStatusReady},
+		models.OrderStatusReady:          {models.OrderStatusCancelled, models.OrderStatusOutForDelivery},
+		models.OrderStatusOutForDelivery: {models.OrderStatusDelivered},
+		models.OrderStatusDelivered:      {models.OrderStatusReceived},
+		models.OrderStatusReceived:       {models.OrderStatusCompleted},
+	},
 	"SHOP_DELIVERY": {
 		models.OrderStatusPending:        {models.OrderStatusCancelled, models.OrderStatusRejected, models.OrderStatusAccepted},
 		models.OrderStatusAccepted:       {models.OrderStatusCancelled, models.OrderStatusPreparing},
@@ -761,13 +770,13 @@ func deliveryFeeForMethod(shop *models.Shop, method string) (float64, error) {
 	switch method {
 	case models.DeliveryMethodPickup:
 		return 0, nil
-	case models.DeliveryMethodShopDelivery:
-		if !shop.SupportsShopDelivery {
-			return 0, errors.New("DELIVERY_NOT_AVAILABLE")
+	case models.DeliveryMethodTBK, models.DeliveryMethodShopDelivery, "TBK", "":
+		if shop != nil && shop.ShopDeliveryFee > 0 {
+			return shop.ShopDeliveryFee, nil
 		}
-		return shop.ShopDeliveryFee, nil
+		return 0, nil
 	case models.DeliveryMethodPartner:
-		if !shop.SupportsPartnerDelivery || shop.PartnerDeliveryProvider == "" {
+		if shop == nil || !shop.SupportsPartnerDelivery || shop.PartnerDeliveryProvider == "" {
 			return 0, errors.New("DELIVERY_NOT_AVAILABLE")
 		}
 		return shop.PartnerDeliveryFee, nil
@@ -776,6 +785,7 @@ func deliveryFeeForMethod(shop *models.Shop, method string) (float64, error) {
 }
 
 // GetDeliveryOptions returns the available delivery options for a buyer order.
+// In the TBK Centralized Delivery model, TBK manages and assigns delivery for all orders.
 func (s *OrderService) GetDeliveryOptions(buyerProfileID, orderID uuid.UUID) (*models.DeliveryOptionsResponse, error) {
 	order, err := s.getBuyerOrder(buyerProfileID, orderID)
 	if err != nil {
@@ -787,31 +797,32 @@ func (s *OrderService) GetDeliveryOptions(buyerProfileID, orderID uuid.UUID) (*m
 		return nil, errors.New("SHOP_NOT_FOUND")
 	}
 
+	fee, _ := deliveryFeeForMethod(shop, models.DeliveryMethodTBK)
 	options := []models.DeliveryOption{
-		{Method: models.DeliveryMethodPickup, Label: "Retrait au magasin", Fee: 0, Available: true},
+		{
+			Method:    models.DeliveryMethodTBK,
+			Label:     "Livraison assurée par TBK",
+			Fee:       fee,
+			Provider:  "TBK",
+			Available: true,
+		},
 	}
-	if shop.SupportsShopDelivery {
-		options = append(options, models.DeliveryOption{
-			Method: models.DeliveryMethodShopDelivery, Label: "Livraison par le magasin", Fee: shop.ShopDeliveryFee, Available: true,
-		})
-	}
-	if shop.SupportsPartnerDelivery && shop.PartnerDeliveryProvider != "" {
-		options = append(options, models.DeliveryOption{
-			Method: models.DeliveryMethodPartner, Label: "Livraison par partenaire", Fee: shop.PartnerDeliveryFee, Provider: shop.PartnerDeliveryProvider, Available: true,
-		})
+
+	currentMethod := order.DeliveryMethod
+	if currentMethod == "" {
+		currentMethod = models.DeliveryMethodTBK
 	}
 
 	return &models.DeliveryOptionsResponse{
 		OrderID: order.ID,
 		ShopID:  order.ShopID,
 		Options: options,
-		Current: order.DeliveryMethod,
+		Current: currentMethod,
 	}, nil
 }
 
-// SelectDelivery sets the delivery method + address on an order and reserves
-// delivery points when requested. Changing delivery before a payment is created
-// releases the previous delivery point reservation and recalculates.
+// SelectDelivery sets the delivery address and details on an order and reserves
+// delivery points when requested. Delivery is centrally managed by TBK (TBK_STANDARD).
 func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *models.SelectDeliveryRequest) (*models.DeliverySelectResponse, error) {
 	order, err := s.getBuyerOrder(buyerProfileID, orderID)
 	if err != nil {
@@ -821,9 +832,13 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		return nil, errors.New("INVALID_STATUS_TRANSITION")
 	}
 
+	// Canonical TBK delivery model
 	method := req.Method
-	if method != models.DeliveryMethodPickup && method != models.DeliveryMethodShopDelivery && method != models.DeliveryMethodPartner {
-		return nil, errors.New("INVALID_DELIVERY_METHOD")
+	if method == "" || method == "TBK" || method == "SHOP_DELIVERY" {
+		method = models.DeliveryMethodTBK
+	}
+	if method != models.DeliveryMethodTBK && method != models.DeliveryMethodPickup && method != models.DeliveryMethodPartner {
+		method = models.DeliveryMethodTBK
 	}
 
 	hasPayment, err := s.paymentRepo.ExistsByOrderID(orderID)
@@ -884,14 +899,21 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 
 	delivery := *order
 	delivery.DeliveryMethod = method
+	delivery.DeliveryStatus = models.DeliveryStatusPendingTBK
 	delivery.DeliveryFeeBase = feeBase
 	delivery.DeliveryPointsUsed = used
 	delivery.DeliveryPointsDiscount = discount
 	delivery.DeliveryFeeFinal = feeFinal
-	delivery.DeliveryContactName = req.ContactName
-	delivery.DeliveryPhone = req.Phone
-	delivery.DeliveryAddress = req.Address
-	delivery.DeliveryNotes = req.Notes
+	delivery.DeliveryContactName = strings.TrimSpace(req.ContactName)
+	delivery.DeliveryPhone = strings.TrimSpace(req.Phone)
+	delivery.DeliveryAddress = strings.TrimSpace(req.Address)
+	delivery.DeliveryNotes = strings.TrimSpace(req.Notes)
+	if req.Latitude != nil {
+		delivery.DeliveryLatitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		delivery.DeliveryLongitude = req.Longitude
+	}
 
 	if err := txOrderRepo.UpdateDelivery(orderID, &delivery); err != nil {
 		return nil, err
@@ -905,15 +927,19 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		OrderID:       order.ID,
 		ProductsTotal: order.FinalTotal,
 		Delivery: models.DeliverySummary{
-			Method:         method,
-			FeeBase:        feeBase,
-			PointsUsed:     used,
-			PointsDiscount: discount,
-			FeeFinal:       feeFinal,
-			ContactName:    req.ContactName,
-			Phone:          req.Phone,
-			Address:        req.Address,
-			Notes:          req.Notes,
+			Method:            method,
+			Status:            models.DeliveryStatusPendingTBK,
+			FeeBase:           feeBase,
+			PointsUsed:        used,
+			PointsDiscount:    discount,
+			FeeFinal:          feeFinal,
+			ContactName:       delivery.DeliveryContactName,
+			Phone:             delivery.DeliveryPhone,
+			Address:           delivery.DeliveryAddress,
+			Notes:             delivery.DeliveryNotes,
+			AssignedCourierID: delivery.AssignedCourierID,
+			Latitude:          delivery.DeliveryLatitude,
+			Longitude:         delivery.DeliveryLongitude,
 		},
 		TotalDue: order.FinalTotal + feeFinal,
 	}, nil

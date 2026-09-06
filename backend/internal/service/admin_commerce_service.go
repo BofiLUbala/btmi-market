@@ -302,6 +302,41 @@ func (s *AdminCommerceService) GetOrderDetail(id uuid.UUID) (*models.AdminOrderD
 	return s.commerceRepo.GetOrderDetail(id)
 }
 
+func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models.AdminRole, orderID uuid.UUID, courierID uuid.UUID, notes, ip, userAgent string) error {
+	orderRepo := repository.NewOrderRepository(s.db)
+	order, err := orderRepo.GetByID(orderID)
+	if err != nil {
+		return err
+	}
+	if err := orderRepo.AssignCourier(orderID, courierID, notes); err != nil {
+		return err
+	}
+
+	oldCourier := ""
+	if order.AssignedCourierID != nil {
+		oldCourier = order.AssignedCourierID.String()
+	}
+	oldRaw, _ := json.Marshal(map[string]string{"assigned_courier_id": oldCourier, "delivery_status": order.DeliveryStatus})
+	newRaw, _ := json.Marshal(map[string]string{"assigned_courier_id": courierID.String(), "delivery_status": "COURIER_ASSIGNED"})
+	oldJson := json.RawMessage(oldRaw)
+	newJson := json.RawMessage(newRaw)
+
+	_ = s.auditRepo.Record(&models.AdminAuditLog{
+		ActorAdminID: adminID,
+		ActorRole:    adminRole,
+		Action:       "COURIER_ASSIGNED",
+		TargetType:   "ORDER",
+		TargetID:     orderID.String(),
+		Reason:       notes,
+		OldValue:     &oldJson,
+		NewValue:     &newJson,
+		IPAddress:    &ip,
+		UserAgent:    &userAgent,
+	})
+
+	return nil
+}
+
 // 6. Employees
 func (s *AdminCommerceService) ListEmployees(limit, offset int) ([]*models.AdminEmployeeItem, int, error) {
 	return s.commerceRepo.ListEmployees(limit, offset)

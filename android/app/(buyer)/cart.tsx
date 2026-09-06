@@ -31,7 +31,7 @@ export default function CartScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const themed = useMemo(() => makeStyles(colors), [colors])
-  const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: Boolean(user) && user?.account_type === 'BUYER' })
+  const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: Boolean(user) && user?.account_type !== 'EMPLOYEE' })
   const [usePoints, setUsePoints] = useState(false)
   const [preview, setPreview] = useState<PointRedemptionPreview | null>(null)
   const [error, setError] = useState('')

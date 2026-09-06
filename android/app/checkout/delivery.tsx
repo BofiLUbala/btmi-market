@@ -6,23 +6,11 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi } from '../../src/api'
 import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
-import { useI18n, type TranslationKey } from '../../src/store/i18n'
+import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
-import type { DeliveryMethod } from '../../src/types'
 
 const money = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} FC`
-
-const METHOD_LABEL: Record<string, TranslationKey> = {
-  PICKUP: 'checkout.methodPickup',
-  SHOP_DELIVERY: 'checkout.methodShopDelivery',
-  PARTNER: 'checkout.methodPartner',
-}
-const METHOD_HINT: Record<string, TranslationKey> = {
-  PICKUP: 'checkout.methodPickupHint',
-  SHOP_DELIVERY: 'checkout.methodShopDeliveryHint',
-  PARTNER: 'checkout.methodPartnerHint',
-}
 
 export default function DeliveryScreen() {
   const colors = useColors()
@@ -31,7 +19,6 @@ export default function DeliveryScreen() {
   const user = useAuth((state) => state.user)
   const { t } = useI18n()
 
-  const [method, setMethod] = useState<DeliveryMethod>('PICKUP')
   const [usePoints, setUsePoints] = useState(false)
   const [previewFee, setPreviewFee] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -68,21 +55,14 @@ export default function DeliveryScreen() {
     enabled: Boolean(orderId),
   })
 
-  // Start on whichever method the order already carries.
-  useEffect(() => {
-    const current = options.data?.options.find((o) => o.method === options.data?.current_method)
-    if (current?.available) setMethod(current.method)
-  }, [options.data])
+  const option = options.data?.options?.[0]
+  const baseFee = option?.fee ?? 0
+  const displayedFee = previewFee !== null ? previewFee : baseFee
 
-  const selected = useMemo(
-    () => options.data?.options.find((o) => o.method === method) ?? null,
-    [options.data, method]
-  )
-
-  const needsAddress = method !== 'PICKUP'
   const formInvalid =
-    needsAddress &&
-    (!contact.contact_name.trim() || !contact.phone.trim() || !contact.address.trim())
+    !contact.contact_name.trim() ||
+    !contact.phone.trim() ||
+    !contact.address.trim()
 
   const pointsMutation = useMutation({
     mutationFn: (next: boolean) => buyerApi.deliveryPointsPreview(orderId!, next),
@@ -93,7 +73,7 @@ export default function DeliveryScreen() {
   const selectMutation = useMutation({
     mutationFn: () =>
       buyerApi.selectDelivery(orderId!, {
-        method,
+        method: 'TBK_STANDARD',
         use_points_for_delivery: usePoints,
         contact_name: contact.contact_name.trim(),
         phone: contact.phone.trim(),
@@ -101,7 +81,10 @@ export default function DeliveryScreen() {
         notes: contact.notes.trim(),
       }),
     onSuccess: () => router.push({ pathname: '/checkout/payment', params: { orderId } }),
-    onError: () => setError(t('checkout.deliverySaveFailed')),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || t('checkout.deliverySaveFailed')
+      setError(msg)
+    },
   })
 
   function togglePoints() {
@@ -136,33 +119,33 @@ export default function DeliveryScreen() {
 
         <SectionTitle title={t('checkout.deliveryMethod')} />
 
-        {options.data.options.map((option) => {
-          const active = method === option.method
-          return (
-            <Card key={option.method} onPress={option.available ? () => setMethod(option.method) : undefined}>
-              <View style={[styles.option, active && styles.optionActive, !option.available && styles.optionOff]}>
-                <Ionicons
-                  name={active ? 'radio-button-on' : 'radio-button-off'}
-                  size={20}
-                  color={option.available ? colors.green : colors.muted}
-                />
-                <View style={styles.optionBody}>
-                  <Text style={styles.optionTitle}>{METHOD_LABEL[option.method] ? t(METHOD_LABEL[option.method]) : option.label}</Text>
-                  <Text style={styles.muted}>{METHOD_HINT[option.method] ? t(METHOD_HINT[option.method]) : ''}</Text>
-                  {option.provider ? <Text style={styles.muted}>{t('checkout.providedBy', { provider: option.provider })}</Text> : null}
-                </View>
-                <Text style={option.available ? styles.fee : styles.muted}>
-                  {option.available ? money(option.fee) : t('checkout.unavailable')}
-                </Text>
-              </View>
-            </Card>
-          )
-        })}
+        <Card>
+          <View style={styles.tbkHeader}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="shield-checkmark" size={24} color={colors.green} />
+            </View>
+            <View style={styles.tbkHeaderText}>
+              <Text style={styles.tbkTitle}>{t('checkout.tbkDeliveryTitle')}</Text>
+              <Text style={styles.tbkSubtitle}>{t('checkout.tbkDeliverySubtitle')}</Text>
+            </View>
+          </View>
+          <View style={styles.tbkDivider} />
+          <View style={styles.rowBetween}>
+            <Text style={styles.muted}>{t('checkout.tbkDeliveryNotice')}</Text>
+          </View>
+          <View style={[styles.rowBetween, { marginTop: spacing.sm }]}>
+            <Text style={styles.optionTitle}>{t('checkout.delivery')}</Text>
+            <Text style={styles.fee}>{money(displayedFee)}</Text>
+          </View>
+        </Card>
 
-        {selected && selected.fee > 0 ? (
+        {baseFee > 0 ? (
           <Card>
             <View style={styles.rowBetween}>
-              <Text style={styles.optionTitle}>{t('checkout.payDeliveryWithPoints')}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.optionTitle}>{t('checkout.payDeliveryWithPoints')}</Text>
+                <Text style={styles.muted}>{t('checkout.usePointsHint')}</Text>
+              </View>
               <Button
                 variant={usePoints ? 'primary' : 'outline'}
                 title={usePoints ? t('cart.pointsEnabled') : t('cart.pointsEnable')}
@@ -170,49 +153,39 @@ export default function DeliveryScreen() {
               />
             </View>
             {usePoints && previewFee !== null ? (
-              <Text style={styles.pointsNote}>
-                {t('checkout.deliveryFee', { from: money(selected.fee), to: money(previewFee) })}
+              <Text style={[styles.pointsNote, { marginTop: spacing.xs }]}>
+                {t('checkout.deliveryFee', { from: money(baseFee), to: money(previewFee) })}
               </Text>
-            ) : (
-              <Text style={styles.muted}>{t('checkout.usePointsHint')}</Text>
-            )}
+            ) : null}
           </Card>
         ) : null}
 
-        {needsAddress ? (
-          <Card>
-            <Text style={styles.optionTitle}>{t('checkout.contactDetails')}</Text>
-            <Field
-              label={t('checkout.contactName')}
-              value={contact.contact_name}
-              onChangeText={(v) => setContact({ ...contact, contact_name: v })}
-            />
-            <Field
-              label={t('editProfile.phone')}
-              value={contact.phone}
-              keyboardType="phone-pad"
-              onChangeText={(v) => setContact({ ...contact, phone: v })}
-            />
-            <Field
-              label={t('checkout.address')}
-              value={contact.address}
-              placeholder={t('checkout.addressPlaceholder')}
-              onChangeText={(v) => setContact({ ...contact, address: v })}
-            />
-            <Field
-              label={t('checkout.instructions')}
-              value={contact.notes}
-              multiline
-              onChangeText={(v) => setContact({ ...contact, notes: v })}
-            />
-          </Card>
-        ) : (
-          <Card>
-            <Text style={styles.muted}>
-              {t('checkout.pickupNote')}
-            </Text>
-          </Card>
-        )}
+        <Card>
+          <Text style={styles.optionTitle}>{t('checkout.contactDetails')}</Text>
+          <Field
+            label={t('checkout.contactName')}
+            value={contact.contact_name}
+            onChangeText={(v) => setContact({ ...contact, contact_name: v })}
+          />
+          <Field
+            label={t('editProfile.phone')}
+            value={contact.phone}
+            keyboardType="phone-pad"
+            onChangeText={(v) => setContact({ ...contact, phone: v })}
+          />
+          <Field
+            label={t('checkout.address')}
+            value={contact.address}
+            placeholder={t('checkout.addressPlaceholder')}
+            onChangeText={(v) => setContact({ ...contact, address: v })}
+          />
+          <Field
+            label={t('checkout.instructions')}
+            value={contact.notes}
+            multiline
+            onChangeText={(v) => setContact({ ...contact, notes: v })}
+          />
+        </Card>
 
         {error ? <ErrorState message={error} /> : null}
 
@@ -234,13 +207,25 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   stepDone: { color: colors.green, fontWeight: '800', fontSize: 12 },
   stepActive: { color: colors.ink, fontWeight: '900', fontSize: 12 },
   stepNext: { color: colors.muted, fontWeight: '700', fontSize: 12 },
-  option: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radius.sm },
-  optionActive: {},
-  optionOff: { opacity: 0.5 },
-  optionBody: { flex: 1, gap: 2 },
-  optionTitle: { color: colors.ink, fontWeight: '800', fontSize: 16 },
+  tbkHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.greenSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tbkHeaderText: { flex: 1 },
+  tbkTitle: { color: colors.ink, fontWeight: '900', fontSize: 16 },
+  tbkSubtitle: { color: colors.muted, fontSize: 13, marginTop: 2 },
+  tbkDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
+  tbkNotice: { color: colors.muted, fontSize: 12, lineHeight: 16 },
+  optionTitle: { color: colors.ink, fontWeight: '800', fontSize: 15 },
   muted: { color: colors.muted, fontSize: 13 },
-  fee: { color: colors.green, fontWeight: '900' },
+  fee: { color: colors.green, fontWeight: '900', fontSize: 16 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   pointsNote: { color: colors.success, fontWeight: '700' },
 })

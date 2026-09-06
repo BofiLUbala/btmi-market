@@ -43,15 +43,46 @@ export default function OrderDetailPage() {
   const navigate = useNavigate()
   const [order, setOrder] = useState<AdminOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showAssign, setShowAssign] = useState(false)
+  const [courierName, setCourierName] = useState('')
+  const [courierPhone, setCourierPhone] = useState('')
+  const [courierNotes, setCourierNotes] = useState('')
+  const [assigning, setAssigning] = useState(false)
+  const [assignError, setAssignError] = useState('')
 
   useEffect(() => {
     if (!id) return
     setLoading(true)
     adminCommerceApi.getOrder(id)
-      .then(setOrder)
+      .then((res) => {
+        setOrder(res)
+        if (res.order.assigned_courier_id) {
+          setCourierName(res.order.assigned_courier_id)
+        }
+      })
       .catch(() => navigate('/admin/commerce/orders'))
       .finally(() => setLoading(false))
   }, [id, navigate])
+
+  async function handleAssignCourier() {
+    if (!id || !courierName.trim()) return
+    setAssigning(true)
+    setAssignError('')
+    try {
+      await adminCommerceApi.assignCourier(id, {
+        courier_name: courierName.trim(),
+        courier_phone: courierPhone.trim() || undefined,
+        notes: courierNotes.trim() || undefined,
+      })
+      const refreshed = await adminCommerceApi.getOrder(id)
+      setOrder(refreshed)
+      setShowAssign(false)
+    } catch (e: any) {
+      setAssignError(e?.message || 'Erreur lors de l’assignation du livreur')
+    } finally {
+      setAssigning(false)
+    }
+  }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('admin.orders.loadingDetail')}</div>
   if (!order) return <div style={{ padding: 40, textAlign: 'center', color: '#dc2626' }}>{t('admin.orders.notFound')}</div>
@@ -83,6 +114,88 @@ export default function OrderDetailPage() {
             <Field label={t('admin.orders.fieldPaymentStatus')} value={<Badge status={order.order.payment_status} />} />
             <Field label={t('admin.orders.fieldDeliveryMethod')} value={order.order.delivery_method || t('admin.common.notAvailable')} />
             {order.order.is_stuck && <Field label={t('admin.orders.fieldStuckReason')} value={order.order.stuck_reason || t('admin.orders.stuckReasonDefault')} />}
+          </Section>
+
+          <Section title="Livraison TBK">
+            <Field label="Statut de livraison" value={<Badge status={order.order.delivery_status || 'PENDING_TBK_ASSIGNMENT'} />} />
+            <Field label="Méthode" value={order.order.delivery_method || 'TBK_STANDARD'} />
+            <Field label="Contact livraison" value={order.order.delivery_contact_name || order.order.buyer_name} />
+            <Field label="Téléphone livraison" value={order.order.delivery_phone || order.order.buyer_phone} />
+            <Field label="Adresse de livraison" value={order.order.delivery_address || '-'} />
+            {order.order.delivery_notes && <Field label="Notes client" value={order.order.delivery_notes} />}
+            {order.order.assigned_courier_id && (
+              <>
+                <Field label="Livreur assigné" value={order.order.assigned_courier_id} />
+                {order.order.courier_assigned_at && (
+                  <Field label="Assigné le" value={new Date(order.order.courier_assigned_at).toLocaleString()} />
+                )}
+                {order.order.courier_notes && <Field label="Notes livreur" value={order.order.courier_notes} />}
+              </>
+            )}
+
+            <div style={{ marginTop: 12, borderTop: '1px solid #1e293b', paddingTop: 12 }}>
+              {!showAssign ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAssign(true)}
+                  style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {order.order.assigned_courier_id ? 'Changer de livreur' : 'Assigner un livreur TBK'}
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, backgroundColor: '#020617', padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#93c5fd' }}>Assigner un livreur</div>
+                  {assignError && <div style={{ color: '#ef4444', fontSize: 12 }}>{assignError}</div>}
+                  <div>
+                    <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Nom / ID du livreur *</label>
+                    <input
+                      type="text"
+                      value={courierName}
+                      onChange={(e) => setCourierName(e.target.value)}
+                      placeholder="Ex: Livreur Kinshasa #12"
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Téléphone livreur</label>
+                    <input
+                      type="text"
+                      value={courierPhone}
+                      onChange={(e) => setCourierPhone(e.target.value)}
+                      placeholder="+243..."
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Notes d’assignation</label>
+                    <input
+                      type="text"
+                      value={courierNotes}
+                      onChange={(e) => setCourierNotes(e.target.value)}
+                      placeholder="Instructions internes pour le livreur..."
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff', fontSize: 13 }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button
+                      type="button"
+                      disabled={assigning || !courierName.trim()}
+                      onClick={handleAssignCourier}
+                      style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {assigning ? 'Assignation...' : 'Confirmer l’assignation'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAssign(false); setAssignError('') }}
+                      style={{ backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </Section>
 
           <Section title={t('admin.orders.customerTitle')}>

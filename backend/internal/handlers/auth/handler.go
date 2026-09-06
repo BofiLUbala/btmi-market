@@ -4,6 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -19,9 +22,11 @@ type FeatureFlagChecker interface {
 }
 
 type Handler struct {
-	authService     *service.AuthService
-	employeeService *service.EmployeeService
-	flags           FeatureFlagChecker
+	authService      *service.AuthService
+	employeeService  *service.EmployeeService
+	flags            FeatureFlagChecker
+	reinitializeMu   sync.Mutex
+	reinitializeHits map[string][]time.Time
 }
 
 func (h *Handler) authError(c *gin.Context, status int, code, message string) {
@@ -32,7 +37,31 @@ func (h *Handler) authError(c *gin.Context, status int, code, message string) {
 }
 
 func NewHandler(authService *service.AuthService, employeeService *service.EmployeeService, flags FeatureFlagChecker) *Handler {
-	return &Handler{authService: authService, employeeService: employeeService, flags: flags}
+	return &Handler{authService: authService, employeeService: employeeService, flags: flags, reinitializeHits: make(map[string][]time.Time)}
+}
+
+const (
+	reinitializeLimit  = 5
+	reinitializeWindow = 15 * time.Minute
+)
+
+func (h *Handler) allowRegistrationReinitialization(key string, now time.Time) bool {
+	h.reinitializeMu.Lock()
+	defer h.reinitializeMu.Unlock()
+	cutoff := now.Add(-reinitializeWindow)
+	hits := h.reinitializeHits[key]
+	kept := hits[:0]
+	for _, hit := range hits {
+		if hit.After(cutoff) {
+			kept = append(kept, hit)
+		}
+	}
+	if len(kept) >= reinitializeLimit {
+		h.reinitializeHits[key] = kept
+		return false
+	}
+	h.reinitializeHits[key] = append(kept, now)
+	return true
 }
 
 func (h *Handler) Register(c *gin.Context) {
@@ -273,6 +302,42 @@ func (h *Handler) ResendActivation(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Activation email sent. Please check your inbox.",
 	})
+}
+
+func (h *Handler) ReinitializeRegistration(c *gin.Context) {
+	var req models.ReinitializeRegistrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "Email and current password are required")
+		return
+	}
+	rateKey := c.ClientIP() + "|" + strings.ToLower(strings.TrimSpace(req.Email))
+	if !h.allowRegistrationReinitialization(rateKey, time.Now()) {
+		c.Header("Retry-After", "900")
+		h.authError(c, http.StatusTooManyRequests, "RATE_LIMITED", "Too many attempts. Please try again later.")
+		return
+	}
+
+	err := h.authService.ReinitializeRegistration(req.Email, req.Password, c.Request.UserAgent(), c.ClientIP())
+	if err != nil {
+		switch err.Error() {
+		case "INVALID_CREDENTIALS":
+			h.authError(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid email or password")
+		case "REGISTRATION_ALREADY_CONFIRMED":
+			h.authError(c, http.StatusConflict, "REGISTRATION_ALREADY_CONFIRMED", "Registration reinitialization is not available for a confirmed account")
+		case "REGISTRATION_REINITIALIZATION_NOT_AVAILABLE":
+			h.authError(c, http.StatusForbidden, "REGISTRATION_REINITIALIZATION_NOT_AVAILABLE", "Registration reinitialization is not available for this account")
+		default:
+			log.Printf("registration reinitialization failed: %v", err)
+			if strings.HasPrefix(err.Error(), "ACTIVATION_EMAIL_DELIVERY_FAILED") {
+				h.authError(c, http.StatusBadGateway, "ACTIVATION_EMAIL_DELIVERY_FAILED", "We could not send the confirmation email. Please try again later.")
+			} else {
+				h.authError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Registration could not be reinitialized")
+			}
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Registration reinitialized. A new confirmation email has been accepted for delivery."})
 }
 
 func (h *Handler) ForgotPassword(c *gin.Context) {

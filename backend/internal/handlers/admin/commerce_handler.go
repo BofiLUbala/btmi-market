@@ -618,6 +618,66 @@ func (h *CommerceHandler) GetOrder(c *gin.Context) {
 	})
 }
 
+// POST /api/v1/admin/commerce/orders/:id/assign-courier
+func (h *CommerceHandler) AssignCourier(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_ID",
+				Message: "Invalid order UUID",
+			},
+		})
+		return
+	}
+
+	var req models.AssignCourierRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_REQUEST",
+				Message: "courier_id is required: " + err.Error(),
+			},
+		})
+		return
+	}
+
+	adminIDVal, _ := c.Get("admin_id")
+	adminRoleVal, _ := c.Get("admin_role")
+	adminID, _ := adminIDVal.(uuid.UUID)
+	adminRole, _ := adminRoleVal.(models.AdminRole)
+
+	err = h.commerceService.AssignCourier(adminID, adminRole, id, req.CourierID, req.Notes, c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		status := http.StatusInternalServerError
+		code := "INTERNAL_ERROR"
+		if err.Error() == "ORDER_NOT_FOUND" {
+			status = http.StatusNotFound
+			code = "ORDER_NOT_FOUND"
+		}
+		c.JSON(status, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    code,
+				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Courier assigned successfully",
+	})
+}
+
 // GET /api/v1/admin/commerce/employees
 func (h *CommerceHandler) ListEmployees(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))

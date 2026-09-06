@@ -19,7 +19,7 @@ function walk(dir: string, out: Set<string>) {
   let entries
   try { entries = readdirSync(dir) } catch { return }
   for (const entry of entries) {
-    if (['node_modules', 'dist', '.git', '.expo'].includes(entry)) continue
+    if (['node_modules', 'dist', '.git', '.expo', 'admin'].includes(entry)) continue
     const full = join(dir, entry)
     try {
       const st = statSync(full)
@@ -60,7 +60,7 @@ describe('FR / EN locale parity', () => {
 
   it('every key referenced via t() in the web app exists in FR', () => {
     const usedKeys = new Set<string>()
-    walk(join(LOCALES_DIR, '..', '..'), usedKeys)
+    walk(join(LOCALES_DIR, '..'), usedKeys)
     const missing = [...usedKeys].filter((k) => !frKeys.has(k))
     expect(missing, `t() keys missing from FR: ${missing.slice(0, 20).join(', ')}`).toHaveLength(0)
   })

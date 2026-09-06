@@ -99,7 +99,7 @@ export default function ProfileScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const themed = useMemo(() => makeStyles(colors), [colors])
-  const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: user?.account_type === 'BUYER' })
+  const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: Boolean(user) && user?.account_type !== 'EMPLOYEE' })
   const becomeSeller = useMutation({ mutationFn: authApi.becomeSeller, onSuccess: async () => { await useAuth.getState().refresh(); router.push('/seller/onboarding') }, onError: () => Alert.alert(t('common.error'), t('seller.becomeFailed')) })
 
   if (!user) {
@@ -108,13 +108,13 @@ export default function ProfileScreen() {
         <Text style={themed.title}>{t('profile.yourAccount')}</Text>
         <Text style={themed.muted}>{t('profile.signInPrompt')}</Text>
         <Button title={t('common.signIn')} onPress={() => router.push('/auth/login')} />
-        <Button title={t('auth.createAccount')} variant="outline" onPress={() => router.push('/auth/register')} />
+        <Button title={t('auth.createAccount')} variant="outline" onPress={() => router.push('/auth/register-choice')} />
         <PreferenceToggles />
       </View>
     )
   }
 
-  if (profile.isLoading && user.account_type === 'BUYER') return <Loading label={t('profile.loading')} />
+  if (profile.isLoading && user.account_type !== 'EMPLOYEE') return <Loading label={t('profile.loading')} />
 
   const p = profile.data
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import { ApiError, type DeliveryMethod, type DeliveryOptionsResponse } from '@/api/types'
+import { ApiError, type DeliveryOptionsResponse } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -10,13 +10,6 @@ import { useAuth } from '@/store/auth'
 import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
-import type { TranslationKey } from '@/locales/fr'
-
-const METHOD_LABEL: Record<string, TranslationKey> = {
-  PICKUP: 'delivery.pickup',
-  SHOP_DELIVERY: 'delivery.shopDelivery',
-  PARTNER: 'delivery.partner'
-}
 
 function DeliveryInner() {
   const navigate = useNavigate()
@@ -26,7 +19,6 @@ function DeliveryInner() {
   const orderId = (location.state as { orderId?: string } | null)?.orderId
 
   const [data, setData] = useState<DeliveryOptionsResponse | null>(null)
-  const [method, setMethod] = useState<DeliveryMethod>('PICKUP')
   const [usePointsForDelivery, setUsePointsForDelivery] = useState(false)
   const [contact, setContact] = useState(() => {
     const name = [buyerProfile?.first_name || user?.first_name, buyerProfile?.last_name || user?.last_name].filter(Boolean).join(' ')
@@ -57,23 +49,16 @@ function DeliveryInner() {
     }))
   }, [buyerProfile, user, t])
 
-  const selected = useMemo(
-    () => data?.options.find((o) => o.method === method) ?? null,
-    [data, method]
-  )
-
   const defaultAddress = useMemo(() => (user?.city ? `${t('delivery.cityPrefix')}${user.city}` : ''), [user?.city, t])
 
   const isAddressIncomplete = useMemo(() => {
-    if (method === 'PICKUP') return false
     const addr = contact.address.trim()
     return !addr || (!!defaultAddress && addr.toLowerCase() === defaultAddress.toLowerCase())
-  }, [method, contact.address, defaultAddress])
+  }, [contact.address, defaultAddress])
 
   const isFormInvalid = useMemo(() => {
-    if (method === 'PICKUP') return false
     return !contact.contact_name.trim() || !contact.phone.trim() || isAddressIncomplete
-  }, [method, contact.contact_name, contact.phone, isAddressIncomplete])
+  }, [contact.contact_name, contact.phone, isAddressIncomplete])
 
   useEffect(() => {
     if (!orderId) {
@@ -89,8 +74,6 @@ function DeliveryInner() {
           setData(
             d ? { ...d, options: asArray(d.options) } : d
           )
-          const current = d.options.find((o) => o.method === d.current_method)
-          if (current) setMethod(current.method)
           setLoading(false)
         },
         (e: unknown) => {
@@ -102,7 +85,11 @@ function DeliveryInner() {
     return () => {
       mounted = false
     }
-  }, [orderId, navigate])
+  }, [orderId, navigate, t])
+
+  const option = data?.options?.[0]
+  const baseFee = option?.fee ?? 0
+  const displayedFee = previewFee !== null ? previewFee : baseFee
 
   async function togglePoints(v: boolean) {
     setUsePointsForDelivery(v)
@@ -117,7 +104,7 @@ function DeliveryInner() {
   }
 
   async function continueToPayment() {
-    if (!orderId || !selected) return
+    if (!orderId) return
     if (isFormInvalid) {
       setError(t('delivery.fillAllFields'))
       return
@@ -126,7 +113,7 @@ function DeliveryInner() {
     setError('')
     try {
       const res = await buyerApi.selectDelivery(orderId, {
-        method,
+        method: 'TBK_STANDARD',
         use_points_for_delivery: usePointsForDelivery,
         contact_name: contact.contact_name.trim(),
         phone: contact.phone.trim(),
@@ -149,89 +136,104 @@ function DeliveryInner() {
   return (
     <div className="checkout-page fade-in">
       <CheckoutProgress current="Delivery" />
-      <header className="checkout-heading"><div><h1>{t('delivery.title')}</h1><p>{t('delivery.subtitle')}</p></div></header>
+      <header className="checkout-heading">
+        <div>
+          <h1>{t('delivery.title')}</h1>
+          <p>{t('delivery.subtitle')}</p>
+        </div>
+      </header>
       {error && <ErrorBox error={error} />}
 
       {data && (
         <div className="checkout-layout">
           <div className="checkout-content stack">
-            <section className="checkout-card delivery-options-card"><div className="checkout-card-head"><h2>{t('delivery.method')}</h2><span>{t('delivery.options', { count: data.options.length })}</span></div>
-            {data.options.map((o) => (
-              <button type="button"
-                key={o.method}
-                className={`delivery-option ${method === o.method ? 'selected' : ''} ${o.available ? '' : 'unavailable'}`}
-                onClick={() => o.available && setMethod(o.method as DeliveryMethod)}
-                disabled={!o.available}
-                aria-pressed={method === o.method}
-              >
-                <span className="delivery-radio" aria-hidden />
+            <section className="checkout-card delivery-options-card">
+              <div className="checkout-card-head">
+                <h2>{t('delivery.tbkTitle')}</h2>
+              </div>
+              <div className="delivery-option selected" style={{ cursor: 'default' }}>
+                <span className="delivery-radio checked" aria-hidden />
                 <div className="row-between">
-                  <h3>{METHOD_LABEL[o.method] ? t(METHOD_LABEL[o.method]) : o.label}</h3>
-                  <div className="bold">{o.available ? formatMoney(o.fee) : t('delivery.unavailable')}</div>
+                  <h3>{t('delivery.tbkTitle')}</h3>
+                  <div className="bold">{formatMoney(displayedFee)}</div>
                 </div>
-                {o.provider && <div className="small muted">{t('delivery.providedBy', { provider: o.provider })}</div>}
-                <div className="small muted">{o.method === 'PICKUP' ? t('delivery.pickupNote') : t('delivery.deliveryNote')}</div>
-              </button>
-            ))}
+                <div className="small muted" style={{ marginTop: 4 }}>
+                  {t('delivery.tbkSubtitle')}
+                </div>
+                <div className="small muted" style={{ marginTop: 4 }}>
+                  {t('delivery.tbkNotice')}
+                </div>
+              </div>
             </section>
 
-            <section className={`checkout-card rewards-card ${usePointsForDelivery ? 'active' : ''}`}>
-              <div><span className="eyebrow">{t('delivery.rewards')}</span><h2>{t('delivery.usePointsForDelivery')}</h2><p>{t('delivery.reduceFee')}</p></div>
-              <button type="button" role="switch" aria-label={t('delivery.usePointsForDelivery')} aria-checked={usePointsForDelivery} className={`toggle-switch ${usePointsForDelivery ? 'on' : ''}`} onClick={() => togglePoints(!usePointsForDelivery)}><span /></button>
-              {usePointsForDelivery && previewFee !== null && selected && (
-                <div className="rewards-result"><strong>{t('points.applied')}</strong><span>{t('delivery.fee')}{' '}
-                    <s className="muted">{formatMoney(selected.fee)}</s>{' '}
-                    <span className="pd-discount">{formatMoney(previewFee)}</span>
-                  </span><button onClick={() => togglePoints(false)}>{t('points.remove')}</button>
+            {baseFee > 0 && (
+              <section className={`checkout-card rewards-card ${usePointsForDelivery ? 'active' : ''}`}>
+                <div>
+                  <span className="eyebrow">{t('delivery.rewards')}</span>
+                  <h2>{t('delivery.usePointsForDelivery')}</h2>
+                  <p>{t('delivery.reduceFee')}</p>
                 </div>
-              )}
-            </section>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label={t('delivery.usePointsForDelivery')}
+                  aria-checked={usePointsForDelivery}
+                  className={`toggle-switch ${usePointsForDelivery ? 'on' : ''}`}
+                  onClick={() => togglePoints(!usePointsForDelivery)}
+                >
+                  <span />
+                </button>
+                {usePointsForDelivery && previewFee !== null && (
+                  <div className="rewards-result">
+                    <strong>{t('points.applied')}</strong>
+                    <span>
+                      {t('delivery.fee')}{' '}
+                      <s className="muted">{formatMoney(baseFee)}</s>{' '}
+                      <span className="pd-discount">{formatMoney(previewFee)}</span>
+                    </span>
+                    <button onClick={() => togglePoints(false)}>{t('points.remove')}</button>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
 
           <aside className="checkout-card checkout-summary stack">
             <span className="eyebrow">{t('delivery.details')}</span>
-            <h2>{selected ? t(METHOD_LABEL[selected.method]) : t('delivery.chooseMethod')}</h2>
-            {method === 'PICKUP' ? (
-              <p className="small muted">
-                {t('delivery.noAddressNeeded')}
+            <h2>{t('delivery.contactName')}</h2>
+            <Field
+              label={t('delivery.contactName')}
+              name="contact_name"
+              required
+              value={contact.contact_name}
+              onChange={(e) => setContact({ ...contact, contact_name: e.target.value })}
+            />
+            <Field
+              label={t('common.phone')}
+              name="phone"
+              required
+              value={contact.phone}
+              onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+            />
+            <Field
+              label={t('delivery.deliveryAddress')}
+              name="address"
+              required
+              value={contact.address}
+              onChange={(e) => setContact({ ...contact, address: e.target.value })}
+              placeholder={t('delivery.addressPlaceholder')}
+            />
+            {isAddressIncomplete && contact.address.trim().length > 0 && (
+              <p className="small" style={{ color: 'var(--color-danger)', marginTop: -8, marginBottom: 12 }}>
+                {t('delivery.addressIncomplete')}
               </p>
-            ) : (
-              <>
-                <Field
-                  label={t('delivery.contactName')}
-                  name="contact_name"
-                  required
-                  value={contact.contact_name}
-                  onChange={(e) => setContact({ ...contact, contact_name: e.target.value })}
-                />
-                <Field
-                  label={t('common.phone')}
-                  name="phone"
-                  required
-                  value={contact.phone}
-                  onChange={(e) => setContact({ ...contact, phone: e.target.value })}
-                />
-                <Field
-                  label={t('delivery.deliveryAddress')}
-                  name="address"
-                  required
-                  value={contact.address}
-                  onChange={(e) => setContact({ ...contact, address: e.target.value })}
-                  placeholder={t('delivery.addressPlaceholder')}
-                />
-                {isAddressIncomplete && contact.address.trim().length > 0 && (
-                  <p className="small" style={{ color: 'var(--color-danger)', marginTop: -8, marginBottom: 12 }}>
-                    {t('delivery.addressIncomplete')}
-                  </p>
-                )}
-                <Field
-                  label={t('delivery.notes')}
-                  name="notes"
-                  value={contact.notes}
-                  onChange={(e) => setContact({ ...contact, notes: e.target.value })}
-                />
-              </>
             )}
+            <Field
+              label={t('delivery.notes')}
+              name="notes"
+              value={contact.notes}
+              onChange={(e) => setContact({ ...contact, notes: e.target.value })}
+            />
             <Button
               size="lg"
               block

@@ -461,7 +461,7 @@ export type OrderStatus =
   | 'CANCELLED'
   | 'HANDED_TO_PARTNER'
 
-export type DeliveryMethod = 'PICKUP' | 'SHOP_DELIVERY' | 'PARTNER'
+export type DeliveryMethod = 'TBK_STANDARD' | 'PICKUP' | 'SHOP_DELIVERY' | 'PARTNER'
 
 export interface OrderLineInput {
   product_id: string
@@ -567,7 +567,7 @@ export interface DeliveryOptionsResponse {
 }
 
 export interface SelectDeliveryRequest {
-  method: DeliveryMethod
+  method?: DeliveryMethod | string
   use_points_for_delivery: boolean
   contact_name?: string
   phone?: string

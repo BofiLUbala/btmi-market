@@ -96,3 +96,13 @@ func (r *ActivationTokenRepository) InvalidateAllForUser(userID uuid.UUID) error
 	_, err := r.db.Exec(query, userID)
 	return err
 }
+
+// RecordRegistrationReinitialized records the security event without storing
+// credentials or token material.
+func (r *ActivationTokenRepository) RecordRegistrationReinitialized(userID uuid.UUID, ipAddress, userAgent string) error {
+	_, err := r.db.Exec(`
+		INSERT INTO auth_security_events (user_id, event_type, ip_address, user_agent)
+		VALUES ($1, 'REGISTRATION_REINITIALIZED', NULLIF($2, ''), NULLIF($3, ''))
+	`, userID, ipAddress, userAgent)
+	return err
+}

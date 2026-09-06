@@ -37,8 +37,12 @@ function RootNavigator() {
         <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ title: t('common.signIn') }} />
         <Stack.Screen name="auth/register" options={{ title: t('auth.createAccount') }} />
+        <Stack.Screen name="auth/register-choice" options={{ title: t('auth.createAccount') }} />
+        <Stack.Screen name="auth/register-buyer" options={{ title: t('auth.register.buyerFlowLabel') }} />
+        <Stack.Screen name="auth/register-seller" options={{ title: t('auth.register.sellerFlowLabel') }} />
         <Stack.Screen name="auth/forgot-password" options={{ title: t('auth.forgotPassword') }} />
         <Stack.Screen name="auth/reset-password" options={{ title: t('auth.newPassword') }} />
+        <Stack.Screen name="auth/registration-recovery" options={{ title: t('auth.reinitialize.title') }} />
         <Stack.Screen name="profile-edit" options={{ title: t('editProfile.title') }} />
         <Stack.Screen name="products/[id]" options={{ title: t('product.title') }} />
         <Stack.Screen name="categories/[slug]" options={{ title: t('categories.pageTitle') }} />
