@@ -422,7 +422,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   summaryLabel: { fontSize: 12, fontWeight: '900', color: colors.gold, textTransform: 'uppercase' },
   summaryVal: { fontSize: 14, color: colors.ink, fontWeight: '600' },
   policyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: spacing.xs },
-  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxChecked: { backgroundColor: colors.green, borderColor: colors.green },
   checkboxMark: { color: colors.white, fontSize: 13, fontWeight: '900' },
   policyText: { flex: 1, color: colors.muted, fontSize: 13, lineHeight: 19 },

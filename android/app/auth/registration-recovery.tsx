@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { authApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Field } from '../../src/components/ui'
@@ -9,9 +9,10 @@ import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 
 export default function RegistrationRecoveryScreen() {
+  const params = useLocalSearchParams<{ mode?: string }>()
   const { t } = useI18n(); const colors = useColors(); const styles = useMemo(() => makeStyles(colors), [colors])
   const [email, setEmail] = useState('')
-  const [busy, setBusy] = useState(false); const [mode, setMode] = useState<'resend'|'reinitialize'>('resend')
+  const [busy, setBusy] = useState(false); const [mode, setMode] = useState<'resend'|'reinitialize'>(params.mode === 'reinitialize' ? 'reinitialize' : 'resend')
   const [message, setMessage] = useState(''); const [error, setError] = useState('')
   async function submit() {
     if (busy) return

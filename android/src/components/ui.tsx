@@ -81,7 +81,7 @@ const makeStyles = (c: Colors) =>
     gold: { backgroundColor: c.gold },
     goldText: { color: c.onGold },
     label: { color: c.ink, fontWeight: '700' },
-    input: { minHeight: 52, backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: 14, color: c.ink, fontSize: 16 },
+    input: { minHeight: 52, backgroundColor: c.white, borderWidth: 1, borderColor: c.borderControl, borderRadius: radius.sm, paddingHorizontal: 14, color: c.ink, fontSize: 16 },
     error: { color: c.danger, fontSize: 13 },
     sectionTitle: { fontSize: 21, fontWeight: '900', color: c.ink },
     muted: { color: c.muted, textAlign: 'center' },

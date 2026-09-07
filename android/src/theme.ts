@@ -35,10 +35,15 @@ export const lightColors = {
   cream: '#F7F4ED',
   white: '#FFFFFF',
   ink: '#13211D',
-  muted: '#68746F',
+  muted: '#626E69',
   /* Lighter grey for inactive tab labels, where `muted` reads too strong. */
-  mutedLight: '#8A948F',
+  mutedLight: '#68726C',
   border: '#DDD9CF',
+  /* Border for form controls, where the outline is the only thing marking the
+     control as interactive and so must clear WCAG's 3:1 for UI components.
+     `border` stays lighter because a card outline is decorative -- grouping is
+     carried by spacing -- and darkening it would box in every surface. */
+  borderControl: '#8C887C',
   /* Neutral fills for skeletons, placeholders and empty media slots. */
   surfaceAlt: '#ECEAE4',
 
@@ -79,8 +84,9 @@ export const darkColors: Colors = {
   white: '#1E1E23',
   ink: '#F2F0EA',
   muted: '#A6A49C',
-  mutedLight: '#7A786F',
+  mutedLight: '#8E8C83',
   border: '#35353D',
+  borderControl: '#4A4A52',
   surfaceAlt: '#2B2B32',
 
   /* Lightened so they still pass contrast on a dark surface. */
