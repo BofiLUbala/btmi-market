@@ -55,6 +55,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
   const [longitude, setLongitude] = useState<number | null>(null)
 
   const [error, setError] = useState('')
+  const [existingSellerEmail, setExistingSellerEmail] = useState(false)
   const [policyAccepted, setPolicyAccepted] = useState(false)
   const [policyModalVisible, setPolicyModalVisible] = useState(false)
   const automaticLoginRunning = useRef(false)
@@ -138,14 +139,20 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
       }
       return accountType === 'SELLER' ? authApi.registerSeller(body) : authApi.register(body)
     },
-    onMutate: () => setError(''),
+    onMutate: () => { setError(''); setExistingSellerEmail(false) },
     onSuccess: async () => {
       if (accountType === 'SELLER') await sellerIntent.set(email)
       else await sellerIntent.clear()
     },
     onError: (e) => {
       if (e instanceof ApiError) {
-        if (e.code === 'EMAIL_ALREADY_EXISTS') setError(t(accountType === 'SELLER' ? 'auth.register.sellerEmailExists' : 'auth.register.emailExists'))
+        if (e.code === 'EMAIL_ALREADY_EXISTS') {
+          setError(t(accountType === 'SELLER' ? 'auth.register.sellerEmailExists' : 'auth.register.emailExists'))
+          if (accountType === 'SELLER') {
+            setExistingSellerEmail(true)
+            void sellerIntent.set(email)
+          }
+        }
         else if (e.code === 'PHONE_ALREADY_EXISTS') setError(t('auth.register.phoneExists'))
         else if (e.code === 'PASSWORD_TOO_WEAK') setError(t('auth.register.passwordTooWeak'))
         else if (e.code === 'PASSWORD_CONFIRMATION_MISMATCH') setError(t('auth.passwordsMismatch'))
@@ -247,6 +254,9 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
         </View>
 
         {error ? <Text style={styles.errorBox}>{error}</Text> : null}
+        {existingSellerEmail ? (
+          <Button title={t('auth.register.goToSignIn')} onPress={() => router.replace('/auth/login')} />
+        ) : null}
 
         {/* Step 1: Account Credentials */}
         {step === 1 && (

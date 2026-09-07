@@ -1,4 +1,5 @@
 import { del, get, patch, post, postForm } from './client'
+import type { UploadFile } from '../lib/imageUpload'
 import type { Business, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse, Category, DeliveryOptionsResponse, DeliveryPointsPreview, DeliverySelectResponse, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines, PointRedemptionPreview, ProductDetail, ProductReviewsResponse, PublicProduct, RegisterInput, ReviewEligibility, SelectDeliveryRequest, SellerOrder, Shop, ShopReviewsResponse, TrackingResponse, User } from '../types'
 
 const list = <T>(value: unknown): T[] => {
@@ -17,15 +18,15 @@ export const authApi = {
   // different endpoint so the backend tags the user SELLER from creation.
   registerSeller: (body: RegisterInput) => post<{ user_id: string }>('/auth/register/seller', body),
   resendActivation: (email: string) => post('/auth/resend-activation', { email }),
-  reinitializeRegistration: (email: string, password: string) => post('/auth/reinitialize-registration', { email, password }),
+  reinitializeRegistration: (email: string) => post('/auth/reinitialize-registration', { email }),
   forgotPassword: (identifier: string) => post('/auth/forgot-password', { identifier }),
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),
   logout: () => post('/auth/logout'),
   becomeSeller: () => post<User>('/auth/become-seller'),
-  uploadAvatar: (asset: { uri: string; fileName?: string | null; mimeType?: string | null }) => {
+  uploadAvatar: (file: UploadFile) => {
     const form = new FormData()
-    form.append('file', { uri: asset.uri, name: asset.fileName || `avatar-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' } as unknown as Blob)
+    form.append('file', file as unknown as Blob)
     return postForm<{ avatar_url: string }>('/auth/me/avatar', form)
   },
 }

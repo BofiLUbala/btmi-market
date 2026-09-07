@@ -138,3 +138,15 @@ func (r *MembershipRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.
 
 	return memberships, rows.Err()
 }
+
+// HasActiveSellerMembership reports server-authoritative seller access. Any
+// active business membership grants access; individual operations still
+// enforce their required role against the specific business.
+func (r *MembershipRepository) HasActiveSellerMembership(userID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(`SELECT EXISTS (
+		SELECT 1 FROM business_memberships
+		WHERE user_id = $1 AND status = 'ACTIVE'
+	)`, userID).Scan(&exists)
+	return exists, err
+}

@@ -6,15 +6,25 @@ import { router } from 'expo-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi, authApi } from '../../src/api'
-import { resolveMediaUrl } from '../../src/api/client'
+import { ApiError, resolveMediaUrl } from '../../src/api/client'
+import { prepareAvatarUpload } from '../../src/lib/imageUpload'
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { Button, Card, Loading, SectionTitle } from '../../src/components/ui'
 import { PreferenceToggles } from '../../src/components/PreferenceToggles'
 import { spacing, type Colors } from '../../src/theme'
+import { canSell, canOnboardSeller } from '../../src/types'
 
 const AVATAR_SIZE = 88
+
+function avatarErrorKey(error?: ApiError) {
+  if (!error) return 'profile.uploadFailedBody'
+  if (error.code === 'IMAGE_TOO_LARGE') return 'profile.uploadTooLarge'
+  if (error.code === 'INVALID_IMAGE_TYPE') return 'profile.uploadBadFormat'
+  if (error.status === 401 || error.status === 403) return 'profile.uploadSessionExpired'
+  return 'profile.uploadFailedBody'
+}
 
 function AvatarPicker() {
   const user = useAuth((state) => state.user)
@@ -26,10 +36,12 @@ function AvatarPicker() {
   async function uploadFromAsset(asset: ImagePicker.ImagePickerAsset) {
     setUploading(true)
     try {
-      await authApi.uploadAvatar(asset)
+      await authApi.uploadAvatar(await prepareAvatarUpload(asset))
       await refresh()
-    } catch {
-      Alert.alert(t('profile.uploadFailed'), t('profile.uploadFailedBody'))
+    } catch (error) {
+      const apiError = error instanceof ApiError ? error : undefined
+      if (__DEV__) console.warn('[TBK] avatar upload failed', apiError ? `${apiError.status} ${apiError.code}` : error)
+      Alert.alert(t('profile.uploadFailed'), t(avatarErrorKey(apiError)))
     } finally {
       setUploading(false)
     }
@@ -146,7 +158,7 @@ export default function ProfileScreen() {
       </Card>
 
       <Button variant="outline" title={t('profile.editProfile')} onPress={() => router.push('/profile-edit')} />
-      {user.account_type === 'BUYER' && <Button title={t('seller.becomeSeller')} loading={becomeSeller.isPending} onPress={() => becomeSeller.mutate()} />}
+      {!canSell(user) && !canOnboardSeller(user) && <Button title={t('seller.becomeSeller')} loading={becomeSeller.isPending} onPress={() => becomeSeller.mutate()} />}
 
       <Card>
         <Pressable onPress={() => router.push('/orders')}><Text style={themed.item}>{t('profile.myOrders')}  ›</Text></Pressable>
@@ -157,7 +169,7 @@ export default function ProfileScreen() {
       <SectionTitle title={t('prefs.title')} />
       <PreferenceToggles />
 
-      {user.account_type === 'SELLER' && <Button title={t('profile.openSellerSpace')} onPress={() => router.push('/seller')} />}
+      {(canSell(user) || canOnboardSeller(user)) && <Button title={t('profile.openSellerSpace')} onPress={() => router.push(canSell(user) ? '/seller' : '/seller/onboarding')} />}
       <Button variant="outline" title={t('common.signOut')} onPress={async () => { await logout(); router.replace('/(buyer)') }} />
     </ScrollView>
   )

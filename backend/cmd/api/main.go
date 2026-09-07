@@ -107,6 +107,7 @@ func main() {
 	emailService := email.NewService(cfg)
 	authService := service.NewAuthService(userRepo, activationRepo, passwordResetRepo, refreshTokenRepo, emailService, cfg)
 	authService.SetBuyerProfileRepo(buyerProfileRepo)
+	authService.SetMembershipRepo(membershipRepo)
 	businessService := service.NewBusinessService(userRepo, businessRepo, membershipRepo, db)
 	shopService := service.NewShopService(shopRepo, membershipRepo, db, asynqClient)
 	employeeService := service.NewEmployeeService(
@@ -235,6 +236,7 @@ func main() {
 			authGroup.GET("/activate", authHandler.Activate)
 			authGroup.POST("/resend-activation", authHandler.ResendActivation)
 			authGroup.POST("/reinitialize-registration", authHandler.ReinitializeRegistration)
+			authGroup.POST("/reinitialize-registration/complete", authHandler.CompleteRegistrationReinitialization)
 			authGroup.POST("/login", authHandler.Login)
 			authGroup.POST("/refresh", authHandler.Refresh)
 			authGroup.POST("/logout", authHandler.Logout)

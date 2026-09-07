@@ -27,6 +27,8 @@ type Handler struct {
 	flags            FeatureFlagChecker
 	reinitializeMu   sync.Mutex
 	reinitializeHits map[string][]time.Time
+	resendMu         sync.Mutex
+	resendHits       map[string][]time.Time
 }
 
 func (h *Handler) authError(c *gin.Context, status int, code, message string) {
@@ -37,31 +39,55 @@ func (h *Handler) authError(c *gin.Context, status int, code, message string) {
 }
 
 func NewHandler(authService *service.AuthService, employeeService *service.EmployeeService, flags FeatureFlagChecker) *Handler {
-	return &Handler{authService: authService, employeeService: employeeService, flags: flags, reinitializeHits: make(map[string][]time.Time)}
+	return &Handler{
+		authService:      authService,
+		employeeService:  employeeService,
+		flags:            flags,
+		reinitializeHits: make(map[string][]time.Time),
+		resendHits:       make(map[string][]time.Time),
+	}
 }
 
 const (
 	reinitializeLimit  = 5
 	reinitializeWindow = 15 * time.Minute
+	// Resend is lower-friction by design (email only, no password), so it's
+	// worth throttling independently of reinitialize rather than sharing one
+	// bucket — same limit/window for now since both exist to stop the same
+	// abuse (spamming a target inbox / the SMTP sender's reputation), not
+	// because the two are related in any other way.
+	resendLimit  = 5
+	resendWindow = 15 * time.Minute
 )
 
-func (h *Handler) allowRegistrationReinitialization(key string, now time.Time) bool {
-	h.reinitializeMu.Lock()
-	defer h.reinitializeMu.Unlock()
-	cutoff := now.Add(-reinitializeWindow)
-	hits := h.reinitializeHits[key]
-	kept := hits[:0]
-	for _, hit := range hits {
+// allowRateLimited applies a fixed-window-ish (sliding, evaluated lazily)
+// request cap per key, shared by any endpoint that needs one. `hits` is a
+// map, a reference type, so mutations made through this method are visible
+// to the caller's own field even though the map header is passed by value.
+func (h *Handler) allowRateLimited(mu *sync.Mutex, hits map[string][]time.Time, limit int, window time.Duration, key string, now time.Time) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	cutoff := now.Add(-window)
+	kept := hits[key][:0]
+	for _, hit := range hits[key] {
 		if hit.After(cutoff) {
 			kept = append(kept, hit)
 		}
 	}
-	if len(kept) >= reinitializeLimit {
-		h.reinitializeHits[key] = kept
+	if len(kept) >= limit {
+		hits[key] = kept
 		return false
 	}
-	h.reinitializeHits[key] = append(kept, now)
+	hits[key] = append(kept, now)
 	return true
+}
+
+func (h *Handler) allowRegistrationReinitialization(key string, now time.Time) bool {
+	return h.allowRateLimited(&h.reinitializeMu, h.reinitializeHits, reinitializeLimit, reinitializeWindow, key, now)
+}
+
+func (h *Handler) allowResend(key string, now time.Time) bool {
+	return h.allowRateLimited(&h.resendMu, h.resendHits, resendLimit, resendWindow, key, now)
 }
 
 func (h *Handler) Register(c *gin.Context) {
@@ -273,41 +299,30 @@ func (h *Handler) ResendActivation(c *gin.Context) {
 		return
 	}
 
-	err := h.authService.ResendActivation(req.Email)
-	if err != nil {
-		statusCode := http.StatusInternalServerError
-		errorCode := "INTERNAL_ERROR"
-
-		switch err.Error() {
-		case "USER_NOT_FOUND":
-			statusCode = http.StatusNotFound
-			errorCode = "USER_NOT_FOUND"
-		case "ACCOUNT_ALREADY_ACTIVE":
-			statusCode = http.StatusConflict
-			errorCode = "ACCOUNT_ALREADY_ACTIVE"
-		}
-
-		c.JSON(statusCode, models.ErrorResponse{
-			Error: struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
-			}{
-				Code:    errorCode,
-				Message: err.Error(),
-			},
-		})
+	rateKey := c.ClientIP() + "|" + strings.ToLower(strings.TrimSpace(req.Email))
+	if !h.allowResend(rateKey, time.Now()) {
+		c.Header("Retry-After", "900")
+		h.authError(c, http.StatusTooManyRequests, "RATE_LIMITED", "Too many attempts. Please try again later.")
 		return
 	}
 
+	// ResendActivation never returns a case-specific error (see its doc
+	// comment) — an unauthenticated, email-only endpoint that answered
+	// differently for "no such account" / "already active" / "sent" would be
+	// an account-enumeration oracle. The response is identical either way.
+	if err := h.authService.ResendActivation(req.Email); err != nil {
+		log.Printf("resend-activation: unexpected error: %v", err)
+	}
+
 	c.JSON(http.StatusOK, models.SuccessResponse{
-		Message: "Activation email sent. Please check your inbox.",
+		Message: "If an account exists for this email and is not yet verified, a confirmation email has been sent.",
 	})
 }
 
 func (h *Handler) ReinitializeRegistration(c *gin.Context) {
 	var req models.ReinitializeRegistrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "Email and current password are required")
+		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "Email is required")
 		return
 	}
 	rateKey := c.ClientIP() + "|" + strings.ToLower(strings.TrimSpace(req.Email))
@@ -317,27 +332,39 @@ func (h *Handler) ReinitializeRegistration(c *gin.Context) {
 		return
 	}
 
-	err := h.authService.ReinitializeRegistration(req.Email, req.Password, c.Request.UserAgent(), c.ClientIP())
+	err := h.authService.ReinitializeRegistration(req.Email, c.Request.UserAgent(), c.ClientIP())
 	if err != nil {
-		switch err.Error() {
-		case "INVALID_CREDENTIALS":
-			h.authError(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Invalid email or password")
-		case "REGISTRATION_ALREADY_CONFIRMED":
-			h.authError(c, http.StatusConflict, "REGISTRATION_ALREADY_CONFIRMED", "Registration reinitialization is not available for a confirmed account")
-		case "REGISTRATION_REINITIALIZATION_NOT_AVAILABLE":
-			h.authError(c, http.StatusForbidden, "REGISTRATION_REINITIALIZATION_NOT_AVAILABLE", "Registration reinitialization is not available for this account")
-		default:
-			log.Printf("registration reinitialization failed: %v", err)
-			if strings.HasPrefix(err.Error(), "ACTIVATION_EMAIL_DELIVERY_FAILED") {
-				h.authError(c, http.StatusBadGateway, "ACTIVATION_EMAIL_DELIVERY_FAILED", "We could not send the confirmation email. Please try again later.")
-			} else {
-				h.authError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Registration could not be reinitialized")
-			}
+		log.Printf("registration reinitialization failed: %v", err)
+		if strings.HasPrefix(err.Error(), "REINITIALIZATION_EMAIL_DELIVERY_FAILED") {
+			h.authError(c, http.StatusBadGateway, "REINITIALIZATION_EMAIL_DELIVERY_FAILED", "We could not send the reinitialization email. Please try again later.")
+		} else {
+			h.authError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Registration could not be reinitialized")
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Registration reinitialized. A new confirmation email has been accepted for delivery."})
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "If an eligible pending account exists, a private reinitialization link has been sent."})
+}
+
+func (h *Handler) CompleteRegistrationReinitialization(c *gin.Context) {
+	var req models.CompleteRegistrationReinitializationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "Token, email, new password, and confirmation are required")
+		return
+	}
+	session, err := h.authService.CompleteRegistrationReinitialization(&req, c.Request.UserAgent(), c.ClientIP())
+	if err != nil {
+		status, code := http.StatusBadRequest, err.Error()
+		if code == "REINITIALIZATION_LINK_EXPIRED" {
+			status = http.StatusGone
+		}
+		if code == "REGISTRATION_ALREADY_CONFIRMED" {
+			status = http.StatusConflict
+		}
+		h.authError(c, status, code, code)
+		return
+	}
+	c.JSON(http.StatusOK, session)
 }
 
 func (h *Handler) ForgotPassword(c *gin.Context) {

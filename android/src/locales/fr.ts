@@ -71,6 +71,10 @@ export const fr = {
   'profile.uploadFailed': 'Échec de l’envoi',
   'profile.uploadFailedBody':
     'La photo de profil n’a pas pu être enregistrée. Réessayez.',
+  'profile.uploadTooLarge': 'La photo est trop volumineuse.',
+  'profile.uploadBadFormat': 'Ce format d’image n’est pas pris en charge.',
+  'profile.uploadSessionExpired':
+    'Votre session a expiré. Reconnectez-vous pour changer votre photo.',
   'profile.cameraNeeded': 'Caméra nécessaire',
   'profile.cameraNeededBody':
     'Autorisez l’accès à la caméra pour changer votre photo de profil.',
@@ -204,8 +208,8 @@ export const fr = {
   'auth.reinitialize.resendSuccess': 'Si ce compte est en attente, un nouveau lien de confirmation a été envoyé.',
   'auth.reinitialize.stillBlocked': 'Toujours bloqué ?',
   'auth.reinitialize.title': 'Réinitialiser mon inscription',
-  'auth.reinitialize.explanation': 'Cette action ne supprime pas votre compte. Elle réinitialise uniquement le processus de confirmation de votre inscription.',
-  'auth.reinitialize.success': 'Votre inscription a été réinitialisée. Nous avons conservé votre compte et envoyé un nouveau lien de confirmation à votre adresse email.',
+  'auth.reinitialize.explanation': 'Saisissez uniquement votre e-mail. Nous enverrons un lien privé à usage unique pour choisir un nouveau mot de passe et confirmer votre inscription. Vos données existantes seront conservées.',
+  'auth.reinitialize.success': 'Si ce compte en attente est admissible, ses données ont été conservées et un lien privé de réinitialisation a été envoyé.',
   'auth.reinitialize.failed': 'La réinitialisation de votre inscription a échoué. Réessayez plus tard.',
   'auth.reinitialize.back': 'Retour à la connexion',
   /* ── Inscription ────────────────────────────────────────── */

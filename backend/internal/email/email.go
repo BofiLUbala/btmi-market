@@ -95,6 +95,23 @@ func (s *Service) BuildPasswordResetURL(token string) string {
 	return fmt.Sprintf("%s/reset-password?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
 }
 
+func (s *Service) BuildRegistrationReinitializationURL(token string) string {
+	return fmt.Sprintf("%s/reinitialize-registration/confirm?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+}
+
+func (s *Service) SendRegistrationReinitializationEmail(to, reinitializationURL string) error {
+	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
+		log.Printf("[DEV MODE] Registration reinitialization URL for %s: %s", to, reinitializationURL)
+		return nil
+	}
+	subject := "Reinitialize Your TBK Registration"
+	body := fmt.Sprintf(`<h2>Reinitialize your TBK registration</h2>
+<p>Use this private, one-time link to choose a new password and confirm your registration. Your name, contact details, address, and account data will be kept.</p>
+<p><a href="%s" style="background-color:#146c43;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Continue reinitialization</a></p>
+<p>%s</p><p>This link expires in 1 hour. If you did not request it, ignore this email.</p>`, reinitializationURL, reinitializationURL)
+	return s.sendEmail(to, subject, body)
+}
+
 func (s *Service) SendEmployeeInvitationEmail(to, firstName, invitationURL string) error {
 	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
 		log.Printf("[DEV MODE] Employee Invitation URL for %s (%s): %s", to, firstName, invitationURL)

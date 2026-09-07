@@ -7,8 +7,17 @@ export interface User {
   email: string
   phone: string
   account_type: AccountType
+  capabilities?: {
+    buyer: boolean
+    seller: boolean
+    seller_onboarding: boolean
+  }
   avatar_url?: string | null
 }
+
+export const canBuy = (user?: User | null) => user?.capabilities?.buyer ?? (user?.account_type !== 'EMPLOYEE')
+export const canSell = (user?: User | null) => user?.capabilities?.seller ?? (user?.account_type === 'SELLER')
+export const canOnboardSeller = (user?: User | null) => user?.capabilities?.seller_onboarding ?? (user?.account_type === 'SELLER')
 
 export interface LoginResponse {
   access_token: string

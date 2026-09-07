@@ -42,6 +42,7 @@ import RegisterPage from '@/pages/auth/RegisterPage'
 import ActivatePage from '@/pages/auth/ActivatePage'
 import ResendActivationPage from '@/pages/auth/ResendActivationPage'
 import ReinitializeRegistrationPage from '@/pages/auth/ReinitializeRegistrationPage'
+import CompleteRegistrationReinitializationPage from '@/pages/auth/CompleteRegistrationReinitializationPage'
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
 import ResetPasswordPage from '@/pages/auth/ResetPasswordPage'
 
@@ -160,6 +161,7 @@ export default function App() {
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/resend-activation" element={<ResendActivationPage />} />
                   <Route path="/reinitialize-registration" element={<ReinitializeRegistrationPage />} />
+                  <Route path="/reinitialize-registration/confirm" element={<CompleteRegistrationReinitializationPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                 </Route>

@@ -20,15 +20,18 @@ func NewActivationTokenRepository(db *database.DB) *ActivationTokenRepository {
 
 func (r *ActivationTokenRepository) Create(token *models.AccountActivationToken) error {
 	query := `
-		INSERT INTO account_activation_tokens (id, user_id, token_hash, created_at, expires_at, used_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO account_activation_tokens (id, user_id, token_hash, purpose, created_at, expires_at, used_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	token.ID = uuid.New()
 	token.CreatedAt = time.Now()
+	if token.Purpose == "" {
+		token.Purpose = "ACTIVATION"
+	}
 
 	_, err := r.db.Exec(query,
-		token.ID, token.UserID, token.TokenHash,
+		token.ID, token.UserID, token.TokenHash, token.Purpose,
 		token.CreatedAt, token.ExpiresAt, token.UsedAt,
 	)
 	return err
@@ -36,13 +39,13 @@ func (r *ActivationTokenRepository) Create(token *models.AccountActivationToken)
 
 func (r *ActivationTokenRepository) GetByTokenHash(tokenHash string) (*models.AccountActivationToken, error) {
 	query := `
-		SELECT id, user_id, token_hash, created_at, expires_at, used_at
+		SELECT id, user_id, token_hash, purpose, created_at, expires_at, used_at
 		FROM account_activation_tokens WHERE token_hash = $1
 	`
 
 	token := &models.AccountActivationToken{}
 	err := r.db.QueryRow(query, tokenHash).Scan(
-		&token.ID, &token.UserID, &token.TokenHash,
+		&token.ID, &token.UserID, &token.TokenHash, &token.Purpose,
 		&token.CreatedAt, &token.ExpiresAt, &token.UsedAt,
 	)
 
@@ -58,7 +61,7 @@ func (r *ActivationTokenRepository) GetByTokenHash(tokenHash string) (*models.Ac
 
 func (r *ActivationTokenRepository) GetValidByUserID(userID uuid.UUID) (*models.AccountActivationToken, error) {
 	query := `
-		SELECT id, user_id, token_hash, created_at, expires_at, used_at
+		SELECT id, user_id, token_hash, purpose, created_at, expires_at, used_at
 		FROM account_activation_tokens 
 		WHERE user_id = $1 AND used_at IS NULL AND expires_at > NOW()
 		ORDER BY created_at DESC
@@ -67,7 +70,7 @@ func (r *ActivationTokenRepository) GetValidByUserID(userID uuid.UUID) (*models.
 
 	token := &models.AccountActivationToken{}
 	err := r.db.QueryRow(query, userID).Scan(
-		&token.ID, &token.UserID, &token.TokenHash,
+		&token.ID, &token.UserID, &token.TokenHash, &token.Purpose,
 		&token.CreatedAt, &token.ExpiresAt, &token.UsedAt,
 	)
 

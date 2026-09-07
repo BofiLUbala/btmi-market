@@ -24,19 +24,29 @@ const (
 )
 
 type User struct {
-	ID            uuid.UUID   `json:"id" db:"id"`
-	FirstName     string      `json:"first_name" db:"first_name"`
-	MiddleName    string      `json:"middle_name" db:"middle_name"`
-	LastName      string      `json:"last_name" db:"last_name"`
-	Phone         string      `json:"phone" db:"phone"`
-	Email         string      `json:"email" db:"email"`
-	PasswordHash  string      `json:"-" db:"password_hash"`
-	Status        UserStatus  `json:"status" db:"status"`
-	EmailVerified bool        `json:"email_verified" db:"email_verified"`
-	AccountType   AccountType `json:"account_type" db:"account_type"`
-	AvatarURL     *string     `json:"avatar_url" db:"avatar_url"`
-	CreatedAt     time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time   `json:"updated_at" db:"updated_at"`
+	ID            uuid.UUID         `json:"id" db:"id"`
+	FirstName     string            `json:"first_name" db:"first_name"`
+	MiddleName    string            `json:"middle_name" db:"middle_name"`
+	LastName      string            `json:"last_name" db:"last_name"`
+	Phone         string            `json:"phone" db:"phone"`
+	Email         string            `json:"email" db:"email"`
+	PasswordHash  string            `json:"-" db:"password_hash"`
+	Status        UserStatus        `json:"status" db:"status"`
+	EmailVerified bool              `json:"email_verified" db:"email_verified"`
+	AccountType   AccountType       `json:"account_type" db:"account_type"`
+	Capabilities  *UserCapabilities `json:"capabilities,omitempty" db:"-"`
+	AvatarURL     *string           `json:"avatar_url" db:"avatar_url"`
+	CreatedAt     time.Time         `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at" db:"updated_at"`
+}
+
+// UserCapabilities is the additive account model exposed to clients. The
+// legacy AccountType remains for backwards compatibility, but must not be
+// used to infer that buyer and seller access are mutually exclusive.
+type UserCapabilities struct {
+	Buyer            bool `json:"buyer"`
+	Seller           bool `json:"seller"`
+	SellerOnboarding bool `json:"seller_onboarding"`
 }
 
 type RegisterRequest struct {
@@ -92,8 +102,14 @@ type ResendActivationRequest struct {
 }
 
 type ReinitializeRegistrationRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+}
+
+type CompleteRegistrationReinitializationRequest struct {
+	Token                string `json:"token" binding:"required"`
+	Email                string `json:"email" binding:"required,email"`
+	Password             string `json:"password" binding:"required,min=8,max=64"`
+	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
 }
 
 type ForgotPasswordRequest struct {

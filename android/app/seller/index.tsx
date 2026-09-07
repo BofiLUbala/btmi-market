@@ -8,15 +8,16 @@ import { Button, Card, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
+import { canSell, canOnboardSeller } from '../../src/types'
 export default function SellerHome() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
-  const user=useAuth((s)=>s.user); const businesses=useQuery({queryKey:['seller','businesses'],queryFn:sellerApi.businesses,enabled:user?.account_type==='SELLER'})
+  const user=useAuth((s)=>s.user); const businesses=useQuery({queryKey:['seller','businesses'],queryFn:sellerApi.businesses,enabled:canSell(user) || canOnboardSeller(user)})
   const active=businesses.data?.[0]
   const shops=useQuery({queryKey:['seller','shops',active?.id],queryFn:()=>sellerApi.shops(active!.id),enabled:Boolean(active)})
   if(!user) return <View style={styles.center}><Text style={styles.title}>{t('seller.workspace')}</Text><Button title={t('seller.signInAsSeller')} onPress={()=>router.push('/auth/login')}/></View>
-  if(user.account_type !== 'SELLER') return <View style={styles.center}><Text style={styles.title}>{t('seller.accessRequired')}</Text><Text style={styles.muted}>{t('seller.accessRequiredBody')}</Text><Button variant="outline" title={t('common.backToMarketplace')} onPress={()=>router.replace('/(buyer)')}/></View>
+  if(!canSell(user) && !canOnboardSeller(user)) return <View style={styles.center}><Text style={styles.title}>{t('seller.accessRequired')}</Text><Text style={styles.muted}>{t('seller.accessRequiredBody')}</Text><Button variant="outline" title={t('common.backToMarketplace')} onPress={()=>router.replace('/(buyer)')}/></View>
   if(businesses.isLoading) return <Loading label={t('seller.loadingBusinesses')}/>
   if (!active) return <View style={styles.center}><Text style={styles.title}>{t('seller.createBusiness')}</Text><Text style={styles.muted}>{t('seller.onboardingBody')}</Text><Button title={t('seller.startOnboarding')} onPress={()=>router.push('/seller/onboarding')}/><Button variant="outline" title={t('common.backToMarketplace')} onPress={()=>router.replace('/(buyer)')}/></View>
   if(shops.isLoading) return <Loading label={t('seller.loadingBusinesses')}/>

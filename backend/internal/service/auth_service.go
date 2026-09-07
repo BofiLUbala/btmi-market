@@ -40,6 +40,7 @@ type AuthService struct {
 	passwordResetRepo *repository.PasswordResetTokenRepository
 	refreshTokenRepo  *repository.RefreshTokenRepository
 	buyerProfileRepo  *repository.BuyerProfileRepository
+	membershipRepo    *repository.MembershipRepository
 	emailService      *email.Service
 	config            *config.Config
 }
@@ -66,13 +67,40 @@ func (s *AuthService) SetBuyerProfileRepo(repo *repository.BuyerProfileRepositor
 	s.buyerProfileRepo = repo
 }
 
+func (s *AuthService) SetMembershipRepo(repo *repository.MembershipRepository) {
+	s.membershipRepo = repo
+}
+
 func (s *AuthService) Register(req *models.RegisterRequest) (*models.User, error) {
 	return s.registerWithAccountType(req, models.AccountTypeBuyer)
 }
 
 // GetUserByID returns the current user for authenticated session restore.
 func (s *AuthService) GetUserByID(userID uuid.UUID) (*models.User, error) {
-	return s.userRepo.GetByID(userID)
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	s.populateCapabilities(user)
+	return user, nil
+}
+
+func (s *AuthService) populateCapabilities(user *models.User) {
+	capabilities := &models.UserCapabilities{}
+	if s.buyerProfileRepo != nil {
+		if profile, err := s.buyerProfileRepo.GetByUserID(user.ID); err == nil && profile != nil && profile.Status == models.BuyerProfileStatusActive {
+			capabilities.Buyer = true
+		}
+	}
+	if s.membershipRepo != nil {
+		if seller, err := s.membershipRepo.HasActiveSellerMembership(user.ID); err == nil {
+			capabilities.Seller = seller
+		}
+	}
+	// SELLER is retained as a server-owned onboarding marker for a new seller
+	// or buyer who has opted in but has not created a business yet.
+	capabilities.SellerOnboarding = user.AccountType == models.AccountTypeSeller && !capabilities.Seller
+	user.Capabilities = capabilities
 }
 
 // UploadAvatar stores a new profile picture for the user and replaces any
@@ -160,7 +188,7 @@ func (s *AuthService) BecomeSeller(userID uuid.UUID) (*models.User, error) {
 			return nil, err
 		}
 	}
-	return s.userRepo.GetByID(userID)
+	return s.GetUserByID(userID)
 }
 
 func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accountType models.AccountType) (*models.User, error) {
@@ -272,6 +300,9 @@ func (s *AuthService) ActivateAccount(token, userAgent, ipAddress string) (*mode
 	if err != nil {
 		return nil, errors.New("ACTIVATION_LINK_INVALID")
 	}
+	if activationToken.Purpose != "ACTIVATION" {
+		return nil, errors.New("ACTIVATION_LINK_INVALID")
+	}
 
 	if activationToken.UsedAt != nil {
 		return nil, errors.New("ACTIVATION_LINK_ALREADY_USED")
@@ -300,57 +331,116 @@ func (s *AuthService) ActivateAccount(token, userAgent, ipAddress string) (*mode
 	return s.generateTokenPair(user, userAgent, ipAddress)
 }
 
+// ResendActivation always reports success to the caller, whether or not the
+// email exists, is already active, or the send itself fails — the endpoint
+// is unauthenticated (email only), so any response that varies by case turns
+// it into an account-enumeration oracle. Every branch is still logged
+// server-side so failures remain visible to operators.
 func (s *AuthService) ResendActivation(emailAddr string) error {
 	user, err := s.userRepo.GetByEmail(strings.ToLower(strings.TrimSpace(emailAddr)))
 	if err != nil {
-		return errors.New("USER_NOT_FOUND")
+		return nil
 	}
 
 	if user.Status == models.UserStatusActive && user.EmailVerified {
-		return errors.New("ACCOUNT_ALREADY_ACTIVE")
+		return nil
 	}
 
 	if err := s.activationRepo.InvalidateAllForUser(user.ID); err != nil {
-		return fmt.Errorf("failed to invalidate old tokens: %w", err)
+		log.Printf("resend-activation: failed to invalidate old tokens for user %s: %v", user.ID, err)
+		return nil
 	}
 
 	if err := s.sendActivationEmail(user); err != nil {
-		return fmt.Errorf("failed to send activation email: %w", err)
+		log.Printf("resend-activation: failed to send activation email for user %s (%s): %v", user.ID, user.Email, err)
 	}
 
 	return nil
 }
 
-// ReinitializeRegistration authenticates and restarts only the confirmation
-// process for an existing pending account. It never creates or updates a user,
-// profile, password, address, membership, cart, order, or preference record.
-func (s *AuthService) ReinitializeRegistration(emailAddr, password, userAgent, ipAddress string) error {
+// ReinitializeRegistration starts a separate one-time recovery flow. It keeps
+// the pending user and all profile/domain data unchanged and never accepts the
+// old password as authorization.
+func (s *AuthService) ReinitializeRegistration(emailAddr, userAgent, ipAddress string) error {
 	emailAddr = strings.ToLower(strings.TrimSpace(emailAddr))
 	user, err := s.userRepo.GetByEmail(emailAddr)
 	if err != nil {
-		return errors.New("INVALID_CREDENTIALS")
-	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return errors.New("INVALID_CREDENTIALS")
+		return nil
 	}
 	if user.Status == models.UserStatusActive && user.EmailVerified {
-		return errors.New("REGISTRATION_ALREADY_CONFIRMED")
+		return nil
 	}
 	if user.Status != models.UserStatusPendingVerification || user.EmailVerified {
-		return errors.New("REGISTRATION_REINITIALIZATION_NOT_AVAILABLE")
+		return nil
 	}
 
 	if err := s.activationRepo.InvalidateAllForUser(user.ID); err != nil {
 		return fmt.Errorf("failed to invalidate old tokens: %w", err)
 	}
-	if err := s.sendActivationEmail(user); err != nil {
-		return fmt.Errorf("ACTIVATION_EMAIL_DELIVERY_FAILED: %w", err)
+	rawToken, err := GenerateSecureToken(32)
+	if err != nil {
+		return err
+	}
+	recoveryToken := &models.AccountActivationToken{UserID: user.ID, TokenHash: HashToken(rawToken), Purpose: "REINITIALIZATION", ExpiresAt: time.Now().Add(time.Hour)}
+	if err := s.activationRepo.Create(recoveryToken); err != nil {
+		return err
+	}
+	url := s.emailService.BuildRegistrationReinitializationURL(rawToken)
+	if err := s.emailService.SendRegistrationReinitializationEmail(user.Email, url); err != nil {
+		return fmt.Errorf("REINITIALIZATION_EMAIL_DELIVERY_FAILED: %w", err)
 	}
 	if err := s.activationRepo.RecordRegistrationReinitialized(user.ID, ipAddress, userAgent); err != nil {
 		log.Printf("registration reinitialization audit failed for user %s: %v", user.ID, err)
 		return errors.New("REGISTRATION_AUDIT_FAILED")
 	}
 	return nil
+}
+
+func (s *AuthService) CompleteRegistrationReinitialization(req *models.CompleteRegistrationReinitializationRequest, userAgent, ipAddress string) (*models.LoginResponse, error) {
+	if req.Password != req.PasswordConfirmation {
+		return nil, errors.New("PASSWORD_CONFIRMATION_MISMATCH")
+	}
+	if !IsStrongPassword(req.Password) {
+		return nil, errors.New("PASSWORD_TOO_WEAK")
+	}
+	token, err := s.activationRepo.GetByTokenHash(HashToken(req.Token))
+	if err != nil || token.Purpose != "REINITIALIZATION" {
+		return nil, errors.New("REINITIALIZATION_LINK_INVALID")
+	}
+	if token.UsedAt != nil {
+		return nil, errors.New("REINITIALIZATION_LINK_ALREADY_USED")
+	}
+	if time.Now().After(token.ExpiresAt) {
+		return nil, errors.New("REINITIALIZATION_LINK_EXPIRED")
+	}
+	user, err := s.userRepo.GetByID(token.UserID)
+	if err != nil || !strings.EqualFold(strings.TrimSpace(req.Email), user.Email) {
+		return nil, errors.New("REINITIALIZATION_EMAIL_MISMATCH")
+	}
+	if user.Status != models.UserStatusPendingVerification || user.EmailVerified {
+		return nil, errors.New("REGISTRATION_ALREADY_CONFIRMED")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.UpdatePassword(user.ID, string(hash)); err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.UpdateStatus(user.ID, models.UserStatusActive); err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.UpdateEmailVerified(user.ID, true); err != nil {
+		return nil, err
+	}
+	if err := s.activationRepo.MarkAsUsed(token.ID); err != nil {
+		return nil, err
+	}
+	if err := s.activationRepo.RecordRegistrationReinitialized(user.ID, ipAddress, userAgent); err != nil {
+		log.Printf("registration reinitialization audit failed for user %s: %v", user.ID, err)
+	}
+	user.Status, user.EmailVerified = models.UserStatusActive, true
+	return s.generateTokenPair(user, userAgent, ipAddress)
 }
 
 func (s *AuthService) RequestPasswordReset(identifier string) error {
@@ -624,6 +714,7 @@ func (s *AuthService) generateTokenPair(user *models.User, userAgent, ipAddress 
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
 	}
+	s.populateCapabilities(userResp)
 
 	return &models.LoginResponse{
 		AccessToken:  accessToken,

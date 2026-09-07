@@ -79,6 +79,9 @@ export const API_URL = resolveApiUrl()
 export const MEDIA_URL = API_URL.replace(/\/api\/v1\/?$/, '')
 export const resolveMediaUrl = (value?: string) => !value ? undefined : value.startsWith('http') ? value : `${MEDIA_URL}${value.startsWith('/') ? '' : '/'}${value}`
 
+const REQUEST_TIMEOUT_MS = 10_000
+const UPLOAD_TIMEOUT_MS = 60_000
+
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message) }
 }
@@ -109,7 +112,10 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   if (token) headers.set('Authorization', `Bearer ${token}`)
   let response: Response
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 10_000)
+  // A photo upload over a mobile connection routinely needs more than the
+  // ten seconds a JSON call gets; aborting it surfaced as a generic network
+  // failure with no request ever reaching the API.
+  const timeout = setTimeout(() => controller.abort(), init.body instanceof FormData ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
   try {
     response = await fetch(`${API_URL}${path}`, { cache: 'no-store', ...init, headers, signal: controller.signal })
   } catch {

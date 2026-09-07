@@ -6,8 +6,11 @@ export const authApi = {
 
   resendActivation: (email: string) => post<null>('/auth/resend-activation', { email }),
 
-  reinitializeRegistration: (email: string, password: string) =>
-    post<null>('/auth/reinitialize-registration', { email, password }),
+  reinitializeRegistration: (email: string) =>
+    post<null>('/auth/reinitialize-registration', { email }),
+
+  completeRegistrationReinitialization: (body: { token: string; email: string; password: string; password_confirmation: string }) =>
+    post<LoginResponse>('/auth/reinitialize-registration/complete', body),
 
   login: (email: string, password: string) =>
     post<LoginResponse>('/auth/login', { email, password }),

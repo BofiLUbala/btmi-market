@@ -10,7 +10,6 @@ import { useT } from '@/store/i18n'
 export default function ReinitializeRegistrationPage() {
   const t = useT()
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
@@ -19,8 +18,8 @@ export default function ReinitializeRegistrationPage() {
     e.preventDefault()
     setBusy(true); setError('')
     try {
-      await authApi.reinitializeRegistration(email.trim().toLowerCase(), password)
-      setDone(true); setPassword('')
+      await authApi.reinitializeRegistration(email.trim().toLowerCase())
+      setDone(true)
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : t('auth.reinitialize.failed'))
     } finally { setBusy(false) }
@@ -33,7 +32,6 @@ export default function ReinitializeRegistrationPage() {
     {error && <ErrorBox error={error} />}
     {!done && <>
       <Field label={t('common.email')} name="email" type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
-      <Field label={t('auth.password')} name="password" type="password" required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} showPasswordToggle />
       <Button type="submit" block loading={busy}>{t('auth.reinitialize.submit')}</Button>
     </>}
     <p className="small muted"><Link to="/resend-activation" className="section-link">{t('auth.reinitialize.resend')}</Link><br /><Link to="/login" className="section-link">{t('auth.resend.backToSignIn')}</Link></p>

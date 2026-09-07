@@ -29,7 +29,7 @@ export default function LoginScreen() {
         router.replace('/seller/onboarding')
         return
       }
-      router.replace(user.account_type === 'SELLER' ? '/seller' : '/(buyer)/profile')
+      router.replace('/(buyer)')
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.code === 'INVALID_CREDENTIALS') setError(t('auth.invalidCredentials'))
