@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { tokenStore } from '@/api/client'
+import { onSessionInvalidated, tokenStore } from '@/api/client'
 import { authApi } from '@/api/auth'
 import { buyerApi } from '@/api/buyer'
 import { sellerAuthApi } from '@/api/seller'
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loadSession = useCallback(async (): Promise<{ user: User; accountType: AccountType } | null> => {
-    if (!tokenStore.getAccess()) {
+    if (!tokenStore.getAccess() && !tokenStore.getRefresh()) {
       resetState()
       setLoading(false)
       return null
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me)
       setAccountType(me.account_type)
 
-      if (me.account_type === 'SELLER') {
+      if (me.capabilities?.seller ?? me.account_type === 'SELLER') {
         setBuyerProfile(null)
         try {
           const rawBiz = await sellerAuthApi.listSellerBusinesses()
@@ -84,9 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSellerBusinesses([])
           setActiveBusiness(null)
         }
-      } else if (me.account_type === 'BUYER') {
+      } else {
         setSellerBusinesses([])
         setActiveBusiness(null)
+      }
+
+      if (me.capabilities?.buyer ?? me.account_type === 'BUYER') {
         try {
           const profile = await buyerApi.getProfile()
           setBuyerProfile(profile)
@@ -94,9 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setBuyerProfile(null)
         }
       } else {
-        // EMPLOYEE or other: clear seller/buyer specific caches
-        setSellerBusinesses([])
-        setActiveBusiness(null)
         setBuyerProfile(null)
       }
       return { user: me, accountType: me.account_type }
@@ -114,6 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadSession()
   }, [loadSession])
 
+  useEffect(() => onSessionInvalidated(resetState), [resetState])
+
   const refreshUser = useCallback(async () => {
     await loadSession()
   }, [loadSession])
@@ -126,38 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await authApi.login(email, password) as LoginResponseWithUser
       tokenStore.set(res.access_token, res.refresh_token)
 
-      if (res.user) {
-        setUser(res.user)
-        setAccountType(res.user.account_type)
-
-        if (res.user.account_type === 'SELLER') {
-          // Fetch seller businesses
-          try {
-            const rawBiz = await sellerAuthApi.listSellerBusinesses()
-            const businesses = Array.isArray(rawBiz) ? rawBiz : []
-            setSellerBusinesses(businesses)
-            if (businesses.length > 0) {
-              setActiveBusiness(businesses[0])
-              localStorage.setItem(ACTIVE_BUSINESS_KEY, businesses[0].id)
-            } else {
-              setActiveBusiness(null)
-            }
-          } catch {
-            setSellerBusinesses([])
-            setActiveBusiness(null)
-          }
-        } else if (res.user.account_type === 'BUYER') {
-          try {
-            const profile = await buyerApi.getProfile()
-            setBuyerProfile(profile)
-          } catch {
-            setBuyerProfile(null)
-          }
-        }
-        return { accountType: res.user.account_type, user: res.user }
-      }
-
-      // Fallback: resolve session from the API
+      // Resolve buyer/seller capabilities via loadSession rather than
+      // duplicating the branching here -- a user can be both BUYER and
+      // SELLER, and capabilities (not the legacy account_type) is the
+      // source of truth for which profiles/businesses to fetch.
       const session = await loadSession()
       if (!session) throw new Error('Login succeeded but session could not be established')
       return { accountType: session.accountType, user: session.user }
@@ -166,8 +140,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(async () => {
+    const refreshToken = tokenStore.getRefresh()
     try {
-      await authApi.logout()
+      if (refreshToken) await authApi.logout(refreshToken)
     } catch {
       /* ignore */
     }

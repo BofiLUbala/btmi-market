@@ -1,0 +1,48 @@
+# Compiled binaries built locally on the host (Windows .exe, Linux server/worker
+# binaries from local `go build`). Not needed in the context — the image builds
+# its own from source.
+*.exe
+*.exe~
+server
+worker
+create-superadmin
+tmp/
+
+# Go test/coverage artifacts
+*.test
+*.out
+coverage.*
+
+# Logs
+*.log
+
+# Local dev/e2e scripts and ad-hoc test scripts — not used by the Docker build
+scripts/
+test_*.sh
+test_*.ps1
+test_*.bat
+temp.js
+
+# VCS / IDE / OS metadata
+.git
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Env files (must not be baked into the image)
+.env
+.env.local
+.env.production
+
+# Docker-related files not needed inside their own build context
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Go module cache/vendor if ever present locally
+vendor/

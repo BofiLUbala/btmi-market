@@ -87,6 +87,17 @@ export class ApiError extends Error {
 }
 
 let refreshPromise: Promise<boolean> | null = null
+const sessionListeners = new Set<() => void>()
+
+export function onSessionInvalidated(listener: () => void) {
+  sessionListeners.add(listener)
+  return () => { sessionListeners.delete(listener) }
+}
+
+async function invalidateSession() {
+  await tokenStore.clear()
+  sessionListeners.forEach((listener) => listener())
+}
 
 async function refreshSession() {
   const refreshToken = await tokenStore.getRefresh()
@@ -95,12 +106,12 @@ async function refreshSession() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
-  if (!response.ok) { await tokenStore.clear(); return false }
+  if (!response.ok) { await invalidateSession(); return false }
   const envelope = await response.json()
   // Auth endpoints return the token object directly, while marketplace
   // endpoints use the standard { data } envelope.
   const data = envelope.data ?? envelope
-  if (!data?.access_token || !data?.refresh_token) return false
+  if (!data?.access_token || !data?.refresh_token) { await invalidateSession(); return false }
   await tokenStore.set(data.access_token, data.refresh_token)
   return true
 }

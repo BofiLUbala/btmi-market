@@ -35,5 +35,5 @@ export const authApi = {
   refresh: (refresh_token: string) =>
     post<LoginResponse>('/auth/refresh', { refresh_token }),
 
-  logout: () => post<null>('/auth/logout', {})
+  logout: (refresh_token: string) => post<null>('/auth/logout', { refresh_token })
 }

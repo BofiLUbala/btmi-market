@@ -140,6 +140,43 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      <SectionTitle title={t('profile.accountsTitle')} />
+      <Card>
+        <View style={styles.accountHeading}>
+          <View style={[styles.accountIcon, { backgroundColor: colors.greenSoft }]}>
+            <Ionicons name="bag-handle-outline" size={24} color={colors.green} />
+          </View>
+          <View style={styles.accountCopy}>
+            <Text style={themed.accountTitle}>{t('profile.buyerAccount')}</Text>
+            <Text style={themed.muted}>{t('profile.buyerAccountActive')}</Text>
+          </View>
+          <Ionicons name="checkmark-circle" size={25} color={colors.green} />
+        </View>
+        <Button title={t('profile.openMarketplace')} variant="outline" onPress={() => router.push('/(buyer)')} />
+      </Card>
+
+      <Card>
+        <View style={styles.accountHeading}>
+          <View style={[styles.accountIcon, { backgroundColor: colors.goldSoft }]}>
+            <Ionicons name="storefront-outline" size={24} color={colors.gold} />
+          </View>
+          <View style={styles.accountCopy}>
+            <Text style={themed.accountTitle}>{t('profile.sellerAccount')}</Text>
+            <Text style={themed.muted}>
+              {canSell(user) ? t('profile.sellerAccountActive') : canOnboardSeller(user) ? t('profile.sellerAccountPending') : t('profile.sellerAccountInactive')}
+            </Text>
+          </View>
+          {canSell(user) ? <Ionicons name="checkmark-circle" size={25} color={colors.green} /> : null}
+        </View>
+        {canSell(user) ? (
+          <Button title={t('profile.openSellerSpace')} variant="gold" onPress={() => router.push('/seller')} />
+        ) : canOnboardSeller(user) ? (
+          <Button title={t('seller.finishSetup')} variant="gold" onPress={() => router.push('/seller/onboarding')} />
+        ) : (
+          <Button title={t('profile.createSellerAccount')} variant="gold" loading={becomeSeller.isPending} onPress={() => becomeSeller.mutate()} />
+        )}
+      </Card>
+
       <Card>
         <Text style={themed.eyebrow}>{t('profile.contact')}</Text>
         <Text style={themed.value}>{p?.phone || t('profile.noPhone')}</Text>
@@ -158,7 +195,6 @@ export default function ProfileScreen() {
       </Card>
 
       <Button variant="outline" title={t('profile.editProfile')} onPress={() => router.push('/profile-edit')} />
-      {!canSell(user) && !canOnboardSeller(user) && <Button title={t('seller.becomeSeller')} loading={becomeSeller.isPending} onPress={() => becomeSeller.mutate()} />}
 
       <Card>
         <Pressable onPress={() => router.push('/orders')}><Text style={themed.item}>{t('profile.myOrders')}  ›</Text></Pressable>
@@ -169,7 +205,6 @@ export default function ProfileScreen() {
       <SectionTitle title={t('prefs.title')} />
       <PreferenceToggles />
 
-      {(canSell(user) || canOnboardSeller(user)) && <Button title={t('profile.openSellerSpace')} onPress={() => router.push(canSell(user) ? '/seller' : '/seller/onboarding')} />}
       <Button variant="outline" title={t('common.signOut')} onPress={async () => { await logout(); router.replace('/(buyer)') }} />
     </ScrollView>
   )
@@ -184,6 +219,7 @@ const makeStyles = (c: Colors) =>
     eyebrow: { color: c.gold, fontWeight: '900', fontSize: 12 },
     value: { color: c.ink, fontWeight: '700', fontSize: 16 },
     item: { color: c.ink, fontWeight: '800', fontSize: 17, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
+    accountTitle: { color: c.ink, fontWeight: '900', fontSize: 17 },
   })
 
 const styles = StyleSheet.create({
@@ -191,6 +227,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerText: { flex: 1, gap: 2 },
+  accountHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  accountIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  accountCopy: { flex: 1, gap: 3 },
   avatarWrap: { width: AVATAR_SIZE, height: AVATAR_SIZE },
   avatarImage: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 },
   avatarPlaceholder: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, alignItems: 'center', justifyContent: 'center' },

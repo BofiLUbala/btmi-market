@@ -19,6 +19,18 @@ export const tokenStore = {
   }
 }
 
+const sessionListeners = new Set<() => void>()
+
+export function onSessionInvalidated(listener: () => void) {
+  sessionListeners.add(listener)
+  return () => { sessionListeners.delete(listener) }
+}
+
+function invalidateSession() {
+  tokenStore.clear()
+  sessionListeners.forEach((listener) => listener())
+}
+
 let refreshPromise: Promise<boolean> | null = null
 
 async function refreshTokens(): Promise<boolean> {
@@ -30,7 +42,7 @@ async function refreshTokens(): Promise<boolean> {
     body: JSON.stringify({ refresh_token: refresh })
   })
   if (!res.ok) {
-    tokenStore.clear()
+    invalidateSession()
     return false
   }
   const json = (await res.json()) as unknown
@@ -38,7 +50,7 @@ async function refreshTokens(): Promise<boolean> {
     ? (json as Record<string, unknown>).data as { access_token: string; refresh_token: string }
     : (json as { access_token: string; refresh_token: string })
   if (!d?.access_token || !d?.refresh_token) {
-    tokenStore.clear()
+    invalidateSession()
     return false
   }
   tokenStore.set(d.access_token, d.refresh_token)

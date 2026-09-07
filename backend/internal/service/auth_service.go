@@ -180,6 +180,10 @@ func (s *AuthService) BecomeSeller(userID uuid.UUID) (*models.User, error) {
 	if err != nil {
 		return nil, errors.New("USER_NOT_FOUND")
 	}
+	if user.Status == models.UserStatusSuspended || user.Status == models.UserStatusDeactivated {
+		return nil, errors.New("ACCOUNT_SUSPENDED")
+	}
+
 	if user.Status != models.UserStatusActive || !user.EmailVerified {
 		return nil, errors.New("ACCOUNT_NOT_ACTIVATED")
 	}
@@ -580,6 +584,10 @@ func (s *AuthService) RefreshToken(refreshTokenStr, userAgent, ipAddress string)
 	user, err := s.userRepo.GetByID(refreshToken.UserID)
 	if err != nil {
 		return nil, errors.New("USER_NOT_FOUND")
+	}
+
+	if user.Status == models.UserStatusSuspended || user.Status == models.UserStatusDeactivated {
+		return nil, errors.New("ACCOUNT_SUSPENDED")
 	}
 
 	if user.Status != models.UserStatusActive {

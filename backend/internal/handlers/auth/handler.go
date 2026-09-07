@@ -485,6 +485,9 @@ func (h *Handler) Login(c *gin.Context) {
 		errorCode := "INVALID_CREDENTIALS"
 
 		switch err.Error() {
+		case "ACCOUNT_SUSPENDED":
+			statusCode = http.StatusForbidden
+			errorCode = "ACCOUNT_SUSPENDED"
 		case "ACCOUNT_NOT_ACTIVATED":
 			statusCode = http.StatusForbidden
 			errorCode = "ACCOUNT_NOT_ACTIVATED"
@@ -533,6 +536,9 @@ func (h *Handler) Refresh(c *gin.Context) {
 			errorCode = "REFRESH_TOKEN_REVOKED"
 		case "REFRESH_TOKEN_EXPIRED":
 			errorCode = "REFRESH_TOKEN_EXPIRED"
+		case "ACCOUNT_SUSPENDED":
+			statusCode = http.StatusForbidden
+			errorCode = "ACCOUNT_SUSPENDED"
 		case "ACCOUNT_NOT_ACTIVATED":
 			statusCode = http.StatusForbidden
 			errorCode = "ACCOUNT_NOT_ACTIVATED"
@@ -613,6 +619,18 @@ func (h *Handler) Me(c *gin.Context) {
 				Message: "User not found",
 			},
 		})
+		return
+	}
+
+	if user.Status != models.UserStatusActive || !user.EmailVerified {
+		code := "ACCOUNT_NOT_ACTIVATED"
+		if user.Status == models.UserStatusSuspended || user.Status == models.UserStatusDeactivated {
+			code = "ACCOUNT_SUSPENDED"
+		}
+		c.JSON(http.StatusForbidden, models.ErrorResponse{Error: struct {
+			Code string `json:"code"`
+			Message string `json:"message"`
+		}{Code: code, Message: "Account is not permitted to start a session"}})
 		return
 	}
 

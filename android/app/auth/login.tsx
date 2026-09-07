@@ -54,6 +54,7 @@ export default function LoginScreen() {
         <Button title={t('common.signIn')} loading={busy} disabled={!email || !password} onPress={submit} />
 
         <View style={styles.recovery}>
+          <Text style={styles.recoveryTitle}>{t('auth.reinitialize.helpTitle')}</Text>
           <Text style={styles.choiceTitle}>{t('auth.reinitialize.didNotReceive')}</Text>
           <Button title={t('auth.reinitialize.resend')} variant="outline" onPress={() => router.push({ pathname: '/auth/registration-recovery', params: { mode: 'resend' } })} />
           <Text style={styles.choiceTitle}>{t('auth.reinitialize.stillBlocked')}</Text>
@@ -77,5 +78,6 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   error: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 12, borderRadius: 10 },
   link: { color: colors.green, fontWeight: '800', textAlign: 'right' },
   recovery: { gap: spacing.sm, marginTop: spacing.xs },
+  recoveryTitle: { color: colors.ink, fontWeight: '900', textAlign: 'center', fontSize: 16 },
   choiceTitle: { color: colors.muted, textAlign: 'center', fontWeight: '700' },
 })

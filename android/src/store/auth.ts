@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { authApi } from '../api'
 import { tokenStore } from '../api/tokenStore'
+import { onSessionInvalidated } from '../api/client'
 import type { User } from '../types'
 
 interface AuthState {
@@ -18,7 +19,8 @@ export const useAuth = create<AuthState>((set) => ({
   bootstrap: async () => {
     try {
       const accessToken = await tokenStore.getAccess()
-      if (!accessToken) {
+      const refreshToken = await tokenStore.getRefresh()
+      if (!accessToken && !refreshToken) {
         set({ user: null })
         return
       }
@@ -40,8 +42,11 @@ export const useAuth = create<AuthState>((set) => ({
     return user
   },
   logout: async () => {
-    try { await authApi.logout() } catch {}
+    const refreshToken = await tokenStore.getRefresh()
+    try { if (refreshToken) await authApi.logout(refreshToken) } catch {}
     await tokenStore.clear(); set({ user: null, ready: true })
   },
 }))
+
+onSessionInvalidated(() => useAuth.setState({ user: null, ready: true }))
 

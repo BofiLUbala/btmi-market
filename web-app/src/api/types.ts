@@ -677,6 +677,11 @@ export interface User {
   status: string
   email_verified: boolean
   account_type: AccountType
+  capabilities?: {
+    buyer: boolean
+    seller: boolean
+    seller_onboarding: boolean
+  }
   avatar_url?: string | null
   created_at: string
   updated_at: string
