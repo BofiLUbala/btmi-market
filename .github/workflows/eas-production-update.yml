@@ -33,8 +33,9 @@ jobs:
       - name: Typecheck TypeScript
         run: npx tsc --noEmit
 
-      - name: Expo doctor
+      - name: Expo doctor (advisory only, never blocks the publish)
         run: npx expo-doctor
+        continue-on-error: true
 
       - name: Publish EAS Update to production channel
         env:

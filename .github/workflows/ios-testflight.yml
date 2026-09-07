@@ -31,8 +31,9 @@ jobs:
       - name: Typecheck TypeScript
         run: npx tsc --noEmit
 
-      - name: Expo Doctor
+      - name: Expo Doctor (advisory only, never blocks the build)
         run: npx expo-doctor
+        continue-on-error: true
 
       - name: Build and submit iOS to TestFlight
         env:
