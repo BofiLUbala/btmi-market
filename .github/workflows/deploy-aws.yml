@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    paths:
+      - backend/**
+      - web-app/**
+      - .github/workflows/deploy-aws.yml
+
+concurrency:
+  group: deploy-tbk-aws-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -29,7 +37,10 @@ jobs:
               "git pull origin main",
               "cd backend",
               "docker compose up -d --build",
-              "docker compose ps"
+              "for i in $(seq 1 60); do if curl -fsS http://localhost:8080/health >/dev/null; then docker compose ps; exit 0; fi; sleep 2; done",
+              "docker compose ps",
+              "docker compose logs --tail=200 api",
+              "exit 1"
             ]' \
             --query "Command.CommandId" \
             --output text)

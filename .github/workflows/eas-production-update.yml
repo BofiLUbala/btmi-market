@@ -40,4 +40,7 @@ jobs:
       - name: Publish EAS Update to production channel
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas update --channel production --message "Production ${GITHUB_SHA}" --non-interactive
+        # SDK 55+ requires an explicit EAS environment. Without this flag,
+        # EXPO_PUBLIC_API_URL is not injected and physical Android devices
+        # fall back to the emulator-only 10.0.2.2 address after an OTA update.
+        run: eas update --channel production --environment production --message "Production ${GITHUB_SHA}" --non-interactive

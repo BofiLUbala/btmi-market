@@ -343,11 +343,12 @@ func (s *PointRedemptionService) GetDeliveryPointsPreview(
 	if err != nil {
 		return nil, err
 	}
-	if account == nil {
-		return nil, errors.New("NO_POINT_ACCOUNT")
+	// Older buyer profiles can legitimately predate point_accounts. Missing
+	// rewards data must behave like a zero balance, not block checkout.
+	trulyAvailable := 0
+	if account != nil {
+		trulyAvailable = account.CurrentPoints - account.ReservedPoints
 	}
-
-	trulyAvailable := account.CurrentPoints - account.ReservedPoints
 	if trulyAvailable < 0 {
 		trulyAvailable = 0
 	}
@@ -379,11 +380,12 @@ func (s *PointRedemptionService) CalculateDeliveryPointsSelection(
 	if err != nil {
 		return 0, 0, 0, 0, err
 	}
-	if account == nil {
-		return 0, 0, 0, 0, errors.New("NO_POINT_ACCOUNT")
+	// Selecting delivery without rewards must also work for legacy buyers that
+	// do not yet have a point account. They simply have zero available points.
+	trulyAvailable := 0
+	if account != nil {
+		trulyAvailable = account.CurrentPoints - account.ReservedPoints
 	}
-
-	trulyAvailable := account.CurrentPoints - account.ReservedPoints
 	if trulyAvailable < 0 {
 		trulyAvailable = 0
 	}
