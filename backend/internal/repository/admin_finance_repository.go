@@ -25,11 +25,11 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 
 	query := `
 		SELECT 
-			COALESCE(SUM(o.total_amount), 0) as total_order_value,
-			COALESCE(SUM(CASE WHEN p.status = 'VERIFIED' THEN p.total_amount ELSE 0 END), 0) as verified_cash,
-			COALESCE(SUM(CASE WHEN p.status IN ('PENDING', 'BUYER_CONFIRMED') THEN p.total_amount ELSE 0 END), 0) as unverified_cash,
-			COALESCE(SUM(CASE WHEN p.status = 'DISPUTED' THEN p.total_amount ELSE 0 END), 0) as disputed_cash,
-			COALESCE(SUM(p.points_discount_amount), 0) as points_discount_value,
+			COALESCE(SUM(o.final_total), 0) as total_order_value,
+			COALESCE(SUM(CASE WHEN p.status = 'VERIFIED' THEN p.cash_due ELSE 0 END), 0) as verified_cash,
+			COALESCE(SUM(CASE WHEN p.status IN ('PENDING', 'BUYER_CONFIRMED') THEN p.cash_due ELSE 0 END), 0) as unverified_cash,
+			COALESCE(SUM(CASE WHEN p.status = 'DISPUTED' THEN p.cash_due ELSE 0 END), 0) as disputed_cash,
+			COALESCE(SUM(p.products_points_discount + p.delivery_points_discount), 0) as points_discount_value,
 			COUNT(DISTINCT o.id) as total_orders,
 			COUNT(DISTINCT CASE WHEN p.status IN ('PENDING', 'BUYER_CONFIRMED') THEN p.id END) as pending_payments_count,
 			COUNT(DISTINCT CASE WHEN p.status = 'VERIFIED' THEN p.id END) as verified_payments_count,
@@ -79,7 +79,7 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 
 	// Count open cases & flagged reviews
 	_ = r.db.QueryRow(`SELECT COUNT(*) FROM cases WHERE status IN ('OPEN', 'UNDER_REVIEW', 'WAITING_FOR_ADMIN')`).Scan(&summary.OpenCasesCount)
-	_ = r.db.QueryRow(`SELECT COUNT(*) FROM product_reviews WHERE moderation_status IN ('FLAGGED', 'UNDER_REVIEW')`).Scan(&summary.FlaggedReviewsCount)
+	_ = r.db.QueryRow(`SELECT COUNT(*) FROM seller_reviews WHERE status IN ('FLAGGED', 'UNDER_REVIEW')`).Scan(&summary.FlaggedReviewsCount)
 	_ = r.db.QueryRow(`SELECT COUNT(*) FROM risk_events WHERE status IN ('OPEN', 'INVESTIGATING')`).Scan(&summary.RiskAlertsCount)
 
 	return summary, nil
