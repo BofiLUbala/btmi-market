@@ -41,7 +41,10 @@ function AvatarPicker() {
     } catch (error) {
       const apiError = error instanceof ApiError ? error : undefined
       if (__DEV__) console.warn('[TBK] avatar upload failed', apiError ? `${apiError.status} ${apiError.code}` : error)
-      Alert.alert(t('profile.uploadFailed'), t(avatarErrorKey(apiError)))
+      // TEMP diagnostic: surfaces the raw error while we track down a
+      // production-only upload failure. Remove once resolved.
+      const debugDetail = apiError ? `${apiError.status} ${apiError.code}` : error instanceof Error ? error.message : String(error)
+      Alert.alert(t('profile.uploadFailed'), `${t(avatarErrorKey(apiError))}\n\n[debug] ${debugDetail}`)
     } finally {
       setUploading(false)
     }
