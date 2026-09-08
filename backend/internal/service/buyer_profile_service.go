@@ -166,11 +166,11 @@ func (s *BuyerProfileService) CreateProfile(userID uuid.UUID, req *models.Create
 }
 
 func (s *BuyerProfileService) GetProfile(userID uuid.UUID) (*models.BuyerProfileViewResponse, error) {
-	profile, err := s.buyerRepo.GetByUserID(userID)
+	// Registration best-effort creates the profile row; auto-heal here for the
+	// accounts where that failed silently, instead of 404ing forever with no
+	// way for the client to ever recover.
+	profile, err := s.GetOrCreateByUserID(userID)
 	if err != nil {
-		return nil, errors.New("BUYER_PROFILE_NOT_FOUND")
-	}
-	if profile == nil {
 		return nil, errors.New("BUYER_PROFILE_NOT_FOUND")
 	}
 
@@ -248,11 +248,8 @@ func (s *BuyerProfileService) GetProfile(userID uuid.UUID) (*models.BuyerProfile
 }
 
 func (s *BuyerProfileService) UpdateProfile(userID uuid.UUID, req *models.UpdateBuyerProfileRequest) (*models.BuyerProfileResponse, error) {
-	profile, err := s.buyerRepo.GetByUserID(userID)
+	profile, err := s.GetOrCreateByUserID(userID)
 	if err != nil {
-		return nil, errors.New("BUYER_PROFILE_NOT_FOUND")
-	}
-	if profile == nil {
 		return nil, errors.New("BUYER_PROFILE_NOT_FOUND")
 	}
 	phone, backup, address, city, commune := profile.Phone, profile.BackupPhone, profile.Address, profile.City, profile.Commune
