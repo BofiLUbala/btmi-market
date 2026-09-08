@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - develop
+      # Preview APKs installed directly on test phones listen to the internal
+      # channel. Production fixes merged to main must reach those devices too.
+      - main
 
 jobs:
   update:
