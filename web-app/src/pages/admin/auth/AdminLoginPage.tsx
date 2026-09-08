@@ -43,7 +43,13 @@ export default function AdminLoginPage() {
         }
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t('admin.login.invalidCredentials')
+      const rawMsg = err instanceof Error ? err.message : ''
+      let msg = t('admin.login.invalidCredentials')
+      if (rawMsg === 'ADMIN_ACCOUNT_SUSPENDED') {
+        msg = t('admin.login.accountSuspended')
+      } else if (rawMsg && rawMsg !== 'INVALID_CREDENTIALS' && rawMsg !== 'UNAUTHORIZED') {
+        msg = rawMsg
+      }
       setError(msg)
     } finally {
       setIsSubmitting(false)
@@ -69,22 +75,27 @@ export default function AdminLoginPage() {
         </div>
 
         {error && (
-          <div style={{ backgroundColor: '#450a0a', border: '1px solid #991b1b', borderRadius: 8, padding: '12px 14px', marginBottom: 20, color: '#fca5a5', fontSize: 13 }}>
+          <div
+            id="admin-login-error"
+            role="alert"
+            style={{ backgroundColor: '#450a0a', border: '1px solid #991b1b', borderRadius: 8, padding: '12px 14px', marginBottom: 20, color: '#fca5a5', fontSize: 13 }}
+          >
             <strong>{t('admin.login.authErrorLabel')}</strong> {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate={false}>
           <div style={{ marginBottom: 18 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
+            <label htmlFor="admin-email" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
               {t('admin.login.emailLabel')}
             </label>
             <input
+              id="admin-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="admin@tbk.market"
+              placeholder="bofibendedji@gmail.com"
               style={{
                 width: '100%',
                 padding: '11px 14px',
@@ -99,10 +110,11 @@ export default function AdminLoginPage() {
           </div>
 
           <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
+            <label htmlFor="admin-password" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
               {t('admin.login.passwordLabel')}
             </label>
             <input
+              id="admin-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -122,6 +134,7 @@ export default function AdminLoginPage() {
           </div>
 
           <button
+            id="admin-submit-btn"
             type="submit"
             disabled={isSubmitting}
             style={{

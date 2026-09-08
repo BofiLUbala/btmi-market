@@ -75,7 +75,7 @@ func (r *AdminRepository) GetByEmail(email string) (*models.AdminUser, error) {
 	query := `
 		SELECT id, first_name, last_name, email, password_hash, role, status, mfa_enabled, last_login_at, created_at, updated_at
 		FROM admin_users
-		WHERE LOWER(email) = LOWER($1) OR (LOWER($1) = 'admin@tbkmarket.com' AND LOWER(email) = 'admin@tbk.market')
+		WHERE LOWER(email) = LOWER($1)
 	`
 	admin := &models.AdminUser{}
 	err := r.db.QueryRow(query, email).Scan(

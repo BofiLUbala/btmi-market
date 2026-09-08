@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me)
       setAccountType(me.account_type)
 
-      if (me.capabilities?.seller ?? me.account_type === 'SELLER') {
+      if (me.capabilities?.seller || me.account_type === 'SELLER') {
         setBuyerProfile(null)
         try {
           const rawBiz = await sellerAuthApi.listSellerBusinesses()
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveBusiness(null)
       }
 
-      if (me.capabilities?.buyer ?? me.account_type === 'BUYER') {
+      if (me.capabilities?.buyer || me.account_type === 'BUYER') {
         try {
           const profile = await buyerApi.getProfile()
           setBuyerProfile(profile)

@@ -242,7 +242,9 @@ export const fr = {
   'auth.passwordRules.number': 'Un chiffre',
   'auth.passwordRules.special': 'Un caractère spécial',
   'auth.passwordsMatch': 'Les mots de passe correspondent.',
+  'auth.passwordsMismatch': 'Les mots de passe ne correspondent pas',
   'auth.passwordsMismatchFull': 'Les mots de passe ne correspondent pas.',
+  'auth.confirmPassword': 'Confirmer le mot de passe',
 
   'auth.activate.loading': 'Activation de votre compte…',
   'auth.activate.title': '🎉 Compte activé',
@@ -2262,6 +2264,7 @@ export const fr = {
 
   /* ── Admin : authentification + direction ────────────────── */
   'admin.login.invalidCredentials': 'Identifiants administrateur invalides',
+  'admin.login.accountSuspended': 'Votre compte administrateur est suspendu. Veuillez contacter la direction.',
   'admin.login.title': 'Centre de contrôle TBK',
   'admin.login.subtitle': 'Authentification administrative omnicanale',
   'admin.login.restrictedNotice': "Zone restreinte. Tous les accès administratifs et interactions API sont enregistrés de façon permanente dans le registre d'audit.",

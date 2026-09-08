@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestRealAdminLoginEndpoint(t *testing.T) {
+func TestAdminLoginEndpoint_SecurityAndErrors(t *testing.T) {
 	cfg := config.Load()
 	db, err := database.Connect(
 		cfg.DBHost, cfg.DBPort, cfg.DBName,
@@ -37,55 +37,62 @@ func TestRealAdminLoginEndpoint(t *testing.T) {
 	router := gin.New()
 	router.POST("/api/v1/admin/auth/login", adminAuthHandler.Login)
 
-	// Fetch current super admin from DB
-	superAdmin, err := adminRepo.GetFirstSuperAdmin()
-	if err != nil {
-		t.Fatalf("failed to fetch super admin: %v", err)
-	}
+	t.Run("Fails with 401 for non-existent admin email", func(t *testing.T) {
+		payload := map[string]string{
+			"email":    "nonexistent.admin@tbk.market",
+			"password": "AnyRandomPassword123!",
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/auth/login", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
 
-	payload := map[string]string{
-		"email":    superAdmin.Email,
-		"password": "MyNewAdminPassword2026!",
-	}
-	body, _ := json.Marshal(payload)
+		router.ServeHTTP(w, req)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/auth/login", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 Unauthorized, got %d", w.Code)
+		}
 
-	router.ServeHTTP(w, req)
+		var errResp models.ErrorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+			t.Fatalf("failed to parse error JSON: %v", err)
+		}
+		if errResp.Error.Code != "UNAUTHORIZED" {
+			t.Errorf("expected error code UNAUTHORIZED, got %s", errResp.Error.Code)
+		}
+	})
 
-	t.Logf("Response Code: %d", w.Code)
-	t.Logf("Response Body: %s", w.Body.String())
+	t.Run("Fails with 401 for incorrect password on existing admin", func(t *testing.T) {
+		superAdmin, err := adminRepo.GetFirstSuperAdmin()
+		if err != nil {
+			t.Skipf("no super admin found in DB: %v", err)
+		}
 
-	if w.Code != http.StatusOK {
-		t.Fatalf("LOGIN TEST FAILED: expected 200 OK, got %d", w.Code)
-	}
+		payload := map[string]string{
+			"email":    superAdmin.Email,
+			"password": "DefinitelyIncorrectPassword999!",
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/auth/login", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
 
-	var resp struct {
-		Success bool `json:"success"`
-		Data    struct {
-			AccessToken string            `json:"access_token"`
-			TokenType   string            `json:"token_type"`
-			Admin       *models.AdminUser `json:"admin"`
-		} `json:"data"`
-	}
+		router.ServeHTTP(w, req)
 
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("failed to parse JSON response: %v", err)
-	}
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 Unauthorized, got %d", w.Code)
+		}
+	})
 
-	if resp.Data.Admin == nil {
-		t.Fatalf("expected admin user in response data, got nil")
-	}
+	t.Run("Fails with 400 for malformed input", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/auth/login", bytes.NewBufferString("{bad json}"))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
 
-	if resp.Data.Admin.Role != models.AdminRoleSuperAdmin {
-		t.Fatalf("expected role SUPER_ADMIN, got %s", resp.Data.Admin.Role)
-	}
+		router.ServeHTTP(w, req)
 
-	if resp.Data.AccessToken == "" {
-		t.Fatalf("expected non-empty access token")
-	}
-
-	t.Logf("LOGIN TEST PASSED: 200 OK, role = %s, token generated", resp.Data.Admin.Role)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 Bad Request, got %d", w.Code)
+		}
+	})
 }

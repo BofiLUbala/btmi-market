@@ -19,7 +19,7 @@ There is **NO public registration** for admin accounts. The first Super Admin mu
 
 | Variable | Description | Required | Example |
 | :--- | :--- | :--- | :--- |
-| `SUPER_ADMIN_EMAIL` | Unique email for the inaugural Super Admin | **Yes** | `admin@tbk.market` |
+| `SUPER_ADMIN_EMAIL` | Unique email for the inaugural Super Admin | **Yes** | `bofibendedji@gmail.com` |
 | `SUPER_ADMIN_PASSWORD` | Strong password (hashed via bcrypt; never stored in plaintext) | **Yes** | `StrongBootstrapPass2026!` |
 | `SUPER_ADMIN_NAME` | Full name of the Super Admin (split to first & last name) | Optional | `Gauthier Bofi` (defaults to `Super Admin`) |
 
@@ -33,18 +33,18 @@ The binary `/app/create-superadmin` is pre-compiled inside the API Docker image.
 #### Using `docker compose exec` (on running stack):
 ```powershell
 docker compose exec `
-  -e SUPER_ADMIN_NAME="Gauthier Bofi" `
-  -e SUPER_ADMIN_EMAIL="admin@tbk.market" `
-  -e SUPER_ADMIN_PASSWORD="StrongTemporaryPassword123!" `
+  -e SUPER_ADMIN_NAME="Super Admin" `
+  -e SUPER_ADMIN_EMAIL="bofibendedji@gmail.com" `
+  -e SUPER_ADMIN_PASSWORD="YourStrongPassword123!" `
   api ./create-superadmin
 ```
 
 #### Using `docker compose run` (one-off container):
 ```powershell
 docker compose run --rm `
-  -e SUPER_ADMIN_NAME="Gauthier Bofi" `
-  -e SUPER_ADMIN_EMAIL="admin@tbk.market" `
-  -e SUPER_ADMIN_PASSWORD="StrongTemporaryPassword123!" `
+  -e SUPER_ADMIN_NAME="Super Admin" `
+  -e SUPER_ADMIN_EMAIL="bofibendedji@gmail.com" `
+  -e SUPER_ADMIN_PASSWORD="YourStrongPassword123!" `
   api ./create-superadmin
 ```
 
@@ -54,9 +54,9 @@ Make sure the database host and port match your local PostgreSQL configuration (
 ```powershell
 $env:DB_HOST="127.0.0.1"
 $env:DB_PORT="5433"
-$env:SUPER_ADMIN_NAME="Gauthier Bofi"
-$env:SUPER_ADMIN_EMAIL="admin@tbk.market"
-$env:SUPER_ADMIN_PASSWORD="StrongTemporaryPassword123!"
+$env:SUPER_ADMIN_NAME="Super Admin"
+$env:SUPER_ADMIN_EMAIL="bofibendedji@gmail.com"
+$env:SUPER_ADMIN_PASSWORD="YourStrongPassword123!"
 
 cd backend
 go run ./cmd/create-superadmin

@@ -34,7 +34,7 @@ export function RequireBuyer({ children }: { children?: ReactNode }) {
       />
     )
   }
-  if (!(user.capabilities?.buyer ?? accountType === 'BUYER')) {
+  if (!(user.capabilities?.buyer || accountType === 'BUYER')) {
     if (accountType === 'SELLER') {
       return <Navigate to="/seller/dashboard" replace />
     }
@@ -76,7 +76,7 @@ export function RequireSeller({ children }: { children?: ReactNode }) {
   if (!user) {
     return <Navigate to="/seller/login" state={{ from: location.pathname }} replace />
   }
-  if (!(user.capabilities?.seller ?? accountType === 'SELLER')) {
+  if (!(user.capabilities?.seller || accountType === 'SELLER')) {
     if (accountType === 'EMPLOYEE') {
       return <Navigate to="/employee/dashboard" replace />
     }

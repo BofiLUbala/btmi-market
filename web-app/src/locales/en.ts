@@ -243,7 +243,9 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'auth.passwordRules.number': 'One number',
   'auth.passwordRules.special': 'One special character',
   'auth.passwordsMatch': 'Passwords match.',
+  'auth.passwordsMismatch': 'Passwords do not match',
   'auth.passwordsMismatchFull': 'Passwords do not match.',
+  'auth.confirmPassword': 'Confirm Password',
 
   'auth.activate.loading': 'Activating your account…',
   'auth.activate.title': '🎉 Activated',
@@ -2334,6 +2336,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
 
   /* ── Admin: auth + direction ──────────────────────────────── */
   'admin.login.invalidCredentials': 'Invalid administrator credentials',
+  'admin.login.accountSuspended': 'Your administrator account is suspended. Please contact management.',
   'admin.login.title': 'TBK Control Center',
   'admin.login.subtitle': 'Omni-Channel Administrative Authentication',
   'admin.login.restrictedNotice': 'Restricted area. All administrative access events and API interactions are permanently logged to the audit ledger.',

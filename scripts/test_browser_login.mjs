@@ -134,7 +134,15 @@ async function run() {
     throw new Error('Email or password input not found on /admin/login');
   }
 
-  console.log('2. Entering credentials for admin@tbkmarket.com (alias)...');
+  const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'bofibendedji@gmail.com';
+  const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    console.error('[ERROR] SUPER_ADMIN_PASSWORD environment variable is required to run test_browser_login.mjs');
+    process.exit(1);
+  }
+
+  console.log(`2. Entering credentials for ${adminEmail}...`);
   await client.eval(`
     (() => {
       const emailEl = document.querySelector('input[type="email"]');
@@ -142,11 +150,11 @@ async function run() {
       
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
       
-      nativeInputValueSetter.call(emailEl, 'admin@tbkmarket.com');
+      nativeInputValueSetter.call(emailEl, ${JSON.stringify(adminEmail)});
       emailEl.dispatchEvent(new Event('input', { bubbles: true }));
       emailEl.dispatchEvent(new Event('change', { bubbles: true }));
       
-      nativeInputValueSetter.call(passEl, 'SuperSecretAdmin2026!');
+      nativeInputValueSetter.call(passEl, ${JSON.stringify(adminPassword)});
       passEl.dispatchEvent(new Event('input', { bubbles: true }));
       passEl.dispatchEvent(new Event('change', { bubbles: true }));
     })()

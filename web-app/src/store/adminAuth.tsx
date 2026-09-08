@@ -60,15 +60,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, [loadSession])
 
   const login = useCallback(async (email: string, password: string): Promise<AdminUser> => {
-    setLoading(true)
-    try {
-      const res = await adminAuthApi.login(email, password)
-      adminTokenStore.set(res.access_token, res.refresh_token)
-      setAdmin(res.admin)
-      return res.admin
-    } finally {
-      setLoading(false)
-    }
+    const res = await adminAuthApi.login(email, password)
+    adminTokenStore.set(res.access_token, res.refresh_token)
+    setAdmin(res.admin)
+    return res.admin
   }, [])
 
   const logout = useCallback(async () => {

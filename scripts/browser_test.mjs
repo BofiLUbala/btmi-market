@@ -89,6 +89,13 @@ class CDPClient {
 async function run() {
   console.log('=== STARTING CHROME BROWSER RUNTIME VALIDATION ===\n');
 
+  const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'bofibendedji@gmail.com';
+  const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
+  if (!adminPassword) {
+    console.error('[ERROR] SUPER_ADMIN_PASSWORD environment variable is required to run browser_test.mjs');
+    process.exit(1);
+  }
+
   // 1. Get Super Admin Token via API
   console.log('1. Authenticating Admin via API for browser session...');
   const loginRes = await new Promise((resolve, reject) => {
@@ -101,7 +108,7 @@ async function run() {
       res.on('end', () => resolve(JSON.parse(d)));
     });
     req.on('error', reject);
-    req.write(JSON.stringify({ email: 'admin@tbk.market', password: 'SuperSecretAdmin2026!' }));
+    req.write(JSON.stringify({ email: adminEmail, password: adminPassword }));
     req.end();
   });
 

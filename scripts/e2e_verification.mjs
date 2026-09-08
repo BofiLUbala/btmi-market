@@ -54,10 +54,20 @@ async function run() {
   assert('API Health Check', health.status === 200 && health.data.status === 'ok');
 
   // 2. Admin Authentication
+  const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'bofibendedji@gmail.com';
+  const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
+  const sellerEmail = process.env.SELLER_EMAIL || 'bofigauthier3@gmail.com';
+  const sellerPassword = process.env.SELLER_PASSWORD || adminPassword;
+
+  if (!adminPassword) {
+    console.error('[ERROR] SUPER_ADMIN_PASSWORD environment variable is required to run e2e_verification.mjs');
+    process.exit(1);
+  }
+
   console.log('\n--- Authenticating Admin & Seller ---');
   const adminLogin = await request('POST', '/api/v1/admin/auth/login', {
-    email: 'admin@tbk.market',
-    password: 'SuperSecretAdmin2026!'
+    email: adminEmail,
+    password: adminPassword
   });
   assert('Admin Login', adminLogin.status === 200 && !!adminLogin.data?.data?.access_token);
   const adminToken = adminLogin.data?.data?.access_token;
@@ -65,8 +75,8 @@ async function run() {
 
   // Seller Authentication
   const sellerLogin = await request('POST', '/api/v1/auth/login', {
-    email: 'bofigauthier3@gmail.com',
-    password: 'SuperSecretAdmin2026!'
+    email: sellerEmail,
+    password: sellerPassword
   });
   assert('Seller Login', sellerLogin.status === 200 && !!sellerLogin.data?.access_token);
   const sellerToken = sellerLogin.data?.access_token;
