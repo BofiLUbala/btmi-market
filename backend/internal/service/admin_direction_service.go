@@ -100,13 +100,18 @@ func (s *AdminDirectionService) GetOverviewStats(ctx context.Context) (*models.D
 	// 5. Confirmed Cash
 	var cashTotal sql.NullFloat64
 	_ = s.db.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(amount), 0)
+		SELECT COALESCE(SUM(cash_due), 0)
 		FROM buyer_payments
 		WHERE status = 'VERIFIED' OR seller_confirmed = true
 	`).Scan(&cashTotal)
 	if cashTotal.Valid {
 		stats.ConfirmedCash = cashTotal.Float64
 	}
+
+	// 6. Open disputes/cases requiring mediation
+	_ = s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM cases WHERE status IN ('OPEN', 'UNDER_REVIEW', 'WAITING_FOR_ADMIN')
+	`).Scan(&stats.OpenDisputes)
 
 	return stats, nil
 }
@@ -174,8 +179,12 @@ func (s *AdminDirectionService) ListUsers(search, accountType, status string, li
 			GROUP BY bp.user_id
 		) o ON u.id = o.user_id
 		LEFT JOIN (
-			SELECT owner_id, current_points AS p_points FROM point_accounts
-		) p ON u.id = p.owner_id
+			-- A BUYER point account is keyed by buyer_profiles.id, not users.id.
+			SELECT bp.user_id, pa.current_points AS p_points
+			FROM point_accounts pa
+			JOIN buyer_profiles bp ON pa.owner_id = bp.id
+			WHERE pa.owner_type = 'BUYER'
+		) p ON u.id = p.user_id
 		WHERE %s
 		ORDER BY u.created_at DESC
 		LIMIT $%d OFFSET $%d

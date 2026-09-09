@@ -97,12 +97,12 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 		argIdx++
 	}
 	if filter.BuyerConfirmed != nil {
-		where += fmt.Sprintf(" AND p.buyer_confirmed_paid = $%d", argIdx)
+		where += fmt.Sprintf(" AND p.buyer_confirmed = $%d", argIdx)
 		args = append(args, *filter.BuyerConfirmed)
 		argIdx++
 	}
 	if filter.SellerConfirmed != nil {
-		where += fmt.Sprintf(" AND p.seller_confirmed_received = $%d", argIdx)
+		where += fmt.Sprintf(" AND p.seller_confirmed = $%d", argIdx)
 		args = append(args, *filter.SellerConfirmed)
 		argIdx++
 	}
@@ -117,7 +117,7 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 		argIdx++
 	}
 	if filter.BuyerID != "" {
-		where += fmt.Sprintf(" AND p.buyer_id = $%d", argIdx)
+		where += fmt.Sprintf(" AND bp.user_id = $%d", argIdx)
 		args = append(args, filter.BuyerID)
 		argIdx++
 	}
@@ -137,7 +137,12 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 		argIdx++
 	}
 
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM buyer_payments p JOIN orders o ON p.order_id = o.id %s`, where)
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM buyer_payments p
+		JOIN orders o ON p.order_id = o.id
+		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
+		%s`, where)
 	var total int
 	err := r.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
@@ -146,20 +151,22 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 
 	offset := (filter.Page - 1) * filter.Limit
 	query := fmt.Sprintf(`
-		SELECT 
-			p.id as payment_id, p.order_id, o.order_number, p.buyer_id,
-			COALESCE(bu.first_name || ' ' || bu.last_name, bu.email) as buyer_name,
-			bu.email as buyer_email,
+		SELECT
+			p.id as payment_id, p.order_id, o.order_number, bp.user_id as buyer_id,
+			COALESCE(NULLIF(TRIM(bp.first_name || ' ' || bp.last_name), ''), bp.email, '') as buyer_name,
+			COALESCE(bp.email, '') as buyer_email,
 			o.business_id, COALESCE(b.name, '') as business_name,
 			o.shop_id, COALESCE(s.name, '') as shop_name,
-			p.subtotal_amount, COALESCE(p.discount_amount, 0), p.points_discount_amount, p.delivery_fee, p.total_amount,
-			(p.total_amount) as cash_due,
-			p.buyer_confirmed_paid, p.buyer_confirmed_at,
-			p.seller_confirmed_received, p.seller_confirmed_at,
+			p.products_base_total, 0::numeric as discount_amount,
+			(p.products_points_discount + p.delivery_points_discount) as points_discount_amount,
+			p.delivery_fee_final, o.final_total as total_amount,
+			p.cash_due,
+			p.buyer_confirmed, p.buyer_confirmed_at,
+			p.seller_confirmed, p.seller_confirmed_at,
 			p.status as payment_status, p.created_at, p.verified_at
 		FROM buyer_payments p
 		JOIN orders o ON p.order_id = o.id
-		LEFT JOIN users bu ON p.buyer_id = bu.id
+		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
 		%s
@@ -218,20 +225,22 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPaymentDetail, error) {
 	where := "WHERE p.id = $1"
 	query := fmt.Sprintf(`
-		SELECT 
-			p.id as payment_id, p.order_id, o.order_number, p.buyer_id,
-			COALESCE(bu.first_name || ' ' || bu.last_name, bu.email) as buyer_name,
-			bu.email as buyer_email,
+		SELECT
+			p.id as payment_id, p.order_id, o.order_number, bp.user_id as buyer_id,
+			COALESCE(NULLIF(TRIM(bp.first_name || ' ' || bp.last_name), ''), bp.email, '') as buyer_name,
+			COALESCE(bp.email, '') as buyer_email,
 			o.business_id, COALESCE(b.name, '') as business_name,
 			o.shop_id, COALESCE(s.name, '') as shop_name,
-			p.subtotal_amount, COALESCE(p.discount_amount, 0), p.points_discount_amount, p.delivery_fee, p.total_amount,
-			(p.total_amount) as cash_due,
-			p.buyer_confirmed_paid, p.buyer_confirmed_at,
-			p.seller_confirmed_received, p.seller_confirmed_at,
+			p.products_base_total, 0::numeric as discount_amount,
+			(p.products_points_discount + p.delivery_points_discount) as points_discount_amount,
+			p.delivery_fee_final, o.final_total as total_amount,
+			p.cash_due,
+			p.buyer_confirmed, p.buyer_confirmed_at,
+			p.seller_confirmed, p.seller_confirmed_at,
 			p.status as payment_status, p.created_at, p.verified_at
 		FROM buyer_payments p
 		JOIN orders o ON p.order_id = o.id
-		LEFT JOIN users bu ON p.buyer_id = bu.id
+		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
 		%s
@@ -268,11 +277,18 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 		detail.AnomalyReason = "Seller confirmed cash received over 24h ago awaiting buyer confirmation"
 	}
 
-	// Fetch Order Product Lines
+	// Fetch Order Product Lines. Names and SKUs live on products/variants,
+	// not on the line itself, so they are joined in.
 	linesQuery := `
-		SELECT id, product_id, COALESCE(product_name, ''), variant_id, COALESCE(variant_name, ''), COALESCE(sku, ''), quantity, unit_price, total_price
-		FROM order_items
-		WHERE order_id = $1
+		SELECT ol.id, ol.product_id, COALESCE(pr.name, ''), ol.variant_id, COALESCE(v.name, ''),
+		       COALESCE(NULLIF(v.sku, ''), pr.sku, '') as sku,
+		       ol.quantity, ol.final_unit_price,
+		       (ol.final_unit_price * ol.quantity) as total_price
+		FROM order_lines ol
+		LEFT JOIN products pr ON ol.product_id = pr.id
+		LEFT JOIN product_variants v ON ol.variant_id = v.id
+		WHERE ol.order_id = $1
+		ORDER BY ol.created_at ASC
 	`
 	rows, err := r.db.Query(linesQuery, detail.OrderID)
 	if err == nil {
@@ -281,6 +297,23 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 			var line models.AdminOrderProductLine
 			if err := rows.Scan(&line.ID, &line.ProductID, &line.ProductName, &line.VariantID, &line.VariantName, &line.SKU, &line.Quantity, &line.UnitPrice, &line.TotalPrice); err == nil {
 				detail.ProductLines = append(detail.ProductLines, line)
+			}
+		}
+	}
+
+	// Fetch Order Status History
+	historyRows, err := r.db.Query(`
+		SELECT status, COALESCE(notes, ''), created_at
+		FROM order_status_history
+		WHERE order_id = $1
+		ORDER BY created_at ASC
+	`, detail.OrderID)
+	if err == nil {
+		defer historyRows.Close()
+		for historyRows.Next() {
+			var h models.AdminOrderHistoryLog
+			if err := historyRows.Scan(&h.Status, &h.Note, &h.Timestamp); err == nil {
+				detail.OrderHistory = append(detail.OrderHistory, h)
 			}
 		}
 	}
@@ -294,13 +327,21 @@ func (r *AdminFinanceRepository) ListBuyerPoints(page, limit int, search string)
 	args := []interface{}{}
 	argIdx := 1
 
+	// point_accounts is polymorphic: a BUYER row's owner_id is a buyer_profiles.id,
+	// and the buyer's identity (and users.id) hangs off that profile.
+	where += " AND pa.owner_type = 'BUYER'"
+
 	if search != "" {
-		where += fmt.Sprintf(" AND (u.email ILIKE $%d OR u.first_name ILIKE $%d OR u.last_name ILIKE $%d)", argIdx, argIdx, argIdx)
+		where += fmt.Sprintf(" AND (bp.email ILIKE $%d OR bp.first_name ILIKE $%d OR bp.last_name ILIKE $%d)", argIdx, argIdx, argIdx)
 		args = append(args, "%"+search+"%")
 		argIdx++
 	}
 
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM point_accounts pa JOIN users u ON pa.user_id = u.id %s`, where)
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM point_accounts pa
+		JOIN buyer_profiles bp ON pa.owner_id = bp.id
+		%s`, where)
 	var total int
 	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
@@ -308,17 +349,17 @@ func (r *AdminFinanceRepository) ListBuyerPoints(page, limit int, search string)
 
 	offset := (page - 1) * limit
 	query := fmt.Sprintf(`
-		SELECT 
-			pa.user_id as buyer_id,
-			COALESCE(u.first_name || ' ' || u.last_name, u.email) as buyer_name,
-			u.email as buyer_email,
+		SELECT
+			bp.user_id as buyer_id,
+			COALESCE(NULLIF(TRIM(bp.first_name || ' ' || bp.last_name), ''), bp.email, '') as buyer_name,
+			COALESCE(bp.email, '') as buyer_email,
 			pa.id as account_id,
-			pa.available_points, pa.reserved_points, pa.lifetime_points,
-			COALESCE(bl.level_name, 'BRONZE') as current_level,
+			pa.current_points, pa.reserved_points, pa.lifetime_points,
+			COALESCE(bl.name, 'BRONZE') as current_level,
 			pa.updated_at
 		FROM point_accounts pa
-		JOIN users u ON pa.user_id = u.id
-		LEFT JOIN buyer_levels bl ON pa.current_level_id = bl.id
+		JOIN buyer_profiles bp ON pa.owner_id = bp.id
+		LEFT JOIN buyer_levels bl ON pa.level_id = bl.id
 		%s
 		ORDER BY pa.updated_at DESC
 		LIMIT $%d OFFSET $%d
@@ -353,15 +394,18 @@ func (r *AdminFinanceRepository) ListBuyerPoints(page, limit int, search string)
 }
 
 func (r *AdminFinanceRepository) GetBuyerPointHistory(buyerID uuid.UUID) ([]models.AdminPointTransaction, error) {
+	// An order-linked transaction carries the order in reference_id; other
+	// reference types (redemptions, admin adjustments) have no order to join.
 	query := `
-		SELECT 
-			pt.id, pt.point_account_id, pt.type, pt.amount,
-			COALESCE(pt.balance_after, 0), pt.order_id, COALESCE(o.order_number, ''),
-			COALESCE(pt.reason, ''), pt.created_at
+		SELECT
+			pt.id, pt.point_account_id, pt.type, pt.points_change,
+			pt.new_points, pt.reference_id, COALESCE(o.order_number, ''),
+			COALESCE(pt.reference_type, ''), pt.created_at
 		FROM point_transactions pt
 		JOIN point_accounts pa ON pt.point_account_id = pa.id
-		LEFT JOIN orders o ON pt.order_id = o.id
-		WHERE pa.user_id = $1
+		JOIN buyer_profiles bp ON pa.owner_id = bp.id AND pa.owner_type = 'BUYER'
+		LEFT JOIN orders o ON pt.reference_id = o.id
+		WHERE bp.user_id = $1
 		ORDER BY pt.created_at DESC
 	`
 	rows, err := r.db.Query(query, buyerID)
@@ -390,9 +434,11 @@ func (r *AdminFinanceRepository) AdjustBuyerPoints(buyerID uuid.UUID, adjType st
 	var accountID uuid.UUID
 	var oldAvailable, oldLifetime int
 	err = tx.QueryRow(`
-		SELECT id, available_points, lifetime_points 
-		FROM point_accounts 
-		WHERE user_id = $1 FOR UPDATE
+		SELECT pa.id, pa.current_points, pa.lifetime_points
+		FROM point_accounts pa
+		JOIN buyer_profiles bp ON pa.owner_id = bp.id
+		WHERE pa.owner_type = 'BUYER' AND bp.user_id = $1
+		FOR UPDATE OF pa
 	`, buyerID).Scan(&accountID, &oldAvailable, &oldLifetime)
 	if err != nil {
 		return 0, 0, fmt.Errorf("point account not found for buyer: %w", err)
@@ -414,18 +460,24 @@ func (r *AdminFinanceRepository) AdjustBuyerPoints(buyerID uuid.UUID, adjType st
 	}
 
 	_, err = tx.Exec(`
-		UPDATE point_accounts 
-		SET available_points = $1, lifetime_points = $2, updated_at = CURRENT_TIMESTAMP 
+		UPDATE point_accounts
+		SET current_points = $1, lifetime_points = $2, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $3
 	`, newAvailable, newLifetime, accountID)
 	if err != nil {
 		return 0, 0, err
 	}
 
+	// point_transactions has no free-text reason column; the operator's
+	// justification is persisted by the caller's audit-log record.
+	txType := "CREDIT"
+	if adjType == "REMOVE" {
+		txType = "DEBIT"
+	}
 	_, err = tx.Exec(`
-		INSERT INTO point_transactions (id, point_account_id, type, amount, balance_after, reason, created_at)
-		VALUES ($1, $2, 'ADJUSTED', $3, $4, $5, CURRENT_TIMESTAMP)
-	`, uuid.New(), accountID, amount, newAvailable, reason)
+		INSERT INTO point_transactions (id, point_account_id, reference_type, type, points_change, previous_points, new_points, created_at)
+		VALUES ($1, $2, 'ADMIN_ADJUSTMENT', $3, $4, $5, $6, CURRENT_TIMESTAMP)
+	`, uuid.New(), accountID, txType, amount, oldAvailable, newAvailable)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -450,10 +502,10 @@ func (r *AdminFinanceRepository) ListSellerGrowth(page, limit int, search string
 	}
 
 	countQuery := fmt.Sprintf(`
-		SELECT COUNT(DISTINCT u.id) 
-		FROM users u 
-		JOIN business_memberships bm ON bm.user_id = u.id 
-		JOIN businesses b ON bm.business_id = b.id 
+		SELECT COUNT(DISTINCT (u.id, b.id))
+		FROM users u
+		JOIN business_memberships bm ON bm.user_id = u.id
+		JOIN businesses b ON bm.business_id = b.id
 		%s
 	`, where)
 	var total int
@@ -472,23 +524,27 @@ func (r *AdminFinanceRepository) ListSellerGrowth(page, limit int, search string
 			COUNT(DISTINCT o.id) as total_orders,
 			COUNT(DISTINCT CASE WHEN o.status = 'COMPLETED' THEN o.id END) as completed_orders,
 			COUNT(DISTINCT CASE WHEN o.status = 'CANCELLED' THEN o.id END) as cancelled_orders,
-			COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_gmv,
+			COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.final_total ELSE 0 END), 0) as total_gmv,
 			COALESCE(AVG(sr.rating), 5.0) as average_rating,
 			COUNT(DISTINCT sr.id) as review_count,
 			COUNT(DISTINCT c.id) as dispute_count,
-			CASE WHEN u.status = 'SUSPENDED' THEN 'SUSPENDED' ELSE 'TRUSTED' END as trust_status,
-			'SILVER' as level,
-			95.5 as cash_confirmation_rate,
-			1500 as growth_points
+			CASE WHEN u.status = 'SUSPENDED' THEN 'SUSPENDED' ELSE COALESCE(st.trust_status, 'UNRATED') END as trust_status,
+			COALESCE(sl.name, 'UNRANKED') as level,
+			COALESCE(st.purchase_confirmation_rate, 0) as cash_confirmation_rate,
+			COALESCE(pa.current_points, 0) as growth_points
 		FROM users u
 		JOIN business_memberships bm ON bm.user_id = u.id
 		JOIN businesses b ON bm.business_id = b.id
 		LEFT JOIN shops s ON s.business_id = b.id
 		LEFT JOIN orders o ON o.business_id = b.id
-		LEFT JOIN seller_reviews sr ON sr.seller_id = u.id
+		LEFT JOIN seller_reviews sr ON sr.business_id = b.id
 		LEFT JOIN cases c ON c.seller_id = u.id AND c.case_type = 'PAYMENT_DISPUTE'
+		LEFT JOIN seller_trust st ON st.business_id = b.id
+		LEFT JOIN point_accounts pa ON pa.owner_type = 'SELLER_BUSINESS' AND pa.owner_id = b.id
+		LEFT JOIN seller_levels sl ON pa.level_id = sl.id
 		%s
-		GROUP BY u.id, u.first_name, u.last_name, u.email, u.status, b.id, b.name
+		GROUP BY u.id, u.first_name, u.last_name, u.email, u.status, b.id, b.name,
+		         st.trust_status, st.purchase_confirmation_rate, sl.name, pa.current_points
 		ORDER BY total_gmv DESC
 		LIMIT $%d OFFSET $%d
 	`, where, argIdx, argIdx+1)
@@ -522,13 +578,17 @@ func (r *AdminFinanceRepository) ListProductReviews(page, limit int, status stri
 	args := []interface{}{}
 	argIdx := 1
 
+	// Product reviews are the seller_reviews rows that target a specific
+	// product; the shop-level reviews are the rows where product_id is null.
+	where += " AND pr.product_id IS NOT NULL"
+
 	if status != "" {
-		where += fmt.Sprintf(" AND pr.moderation_status = $%d", argIdx)
+		where += fmt.Sprintf(" AND pr.status = $%d", argIdx)
 		args = append(args, status)
 		argIdx++
 	}
 
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM product_reviews pr %s`, where)
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM seller_reviews pr %s`, where)
 	var total int
 	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
@@ -536,27 +596,27 @@ func (r *AdminFinanceRepository) ListProductReviews(page, limit int, status stri
 
 	offset := (page - 1) * limit
 	query := fmt.Sprintf(`
-		SELECT 
-			pr.id as review_id, pr.buyer_id,
-			COALESCE(u.first_name || ' ' || u.last_name, u.email) as buyer_name,
+		SELECT
+			pr.id as review_id, bp.user_id as buyer_id,
+			COALESCE(NULLIF(TRIM(bp.first_name || ' ' || bp.last_name), ''), bp.email, '') as buyer_name,
 			pr.order_id, COALESCE(o.order_number, '') as order_number,
 			pr.product_id, COALESCE(p.name, '') as product_name,
 			pr.variant_id, COALESCE(pv.name, '') as variant_name,
-			COALESCE(o.shop_id, '00000000-0000-0000-0000-000000000000'::uuid) as shop_id,
+			COALESCE(pr.shop_id, '00000000-0000-0000-0000-000000000000'::uuid) as shop_id,
 			COALESCE(s.name, '') as shop_name,
-			COALESCE(o.business_id, '00000000-0000-0000-0000-000000000000'::uuid) as business_id,
+			COALESCE(pr.business_id, '00000000-0000-0000-0000-000000000000'::uuid) as business_id,
 			COALESCE(b.name, '') as business_name,
-			pr.rating, pr.comment, pr.is_verified_purchase,
-			COALESCE(pr.helpful_count, 0),
-			COALESCE(pr.moderation_status, 'VISIBLE'),
+			pr.rating, COALESCE(pr.comment, ''), pr.verified_purchase,
+			0 as helpful_count,
+			COALESCE(pr.status, 'VISIBLE'),
 			pr.created_at
-		FROM product_reviews pr
-		JOIN users u ON pr.buyer_id = u.id
-		JOIN products p ON pr.product_id = p.id
+		FROM seller_reviews pr
+		LEFT JOIN buyer_profiles bp ON pr.buyer_profile_id = bp.id
+		LEFT JOIN products p ON pr.product_id = p.id
 		LEFT JOIN product_variants pv ON pr.variant_id = pv.id
 		LEFT JOIN orders o ON pr.order_id = o.id
-		LEFT JOIN shops s ON o.shop_id = s.id
-		LEFT JOIN businesses b ON o.business_id = b.id
+		LEFT JOIN shops s ON pr.shop_id = s.id
+		LEFT JOIN businesses b ON pr.business_id = b.id
 		%s
 		ORDER BY pr.created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -587,9 +647,9 @@ func (r *AdminFinanceRepository) ListProductReviews(page, limit int, status stri
 
 func (r *AdminFinanceRepository) ModerateProductReview(reviewID uuid.UUID, newStatus string) error {
 	result, err := r.db.Exec(`
-		UPDATE product_reviews 
-		SET moderation_status = $1, updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $2
+		UPDATE seller_reviews
+		SET status = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2 AND product_id IS NOT NULL
 	`, newStatus, reviewID)
 	if err != nil {
 		return err
@@ -607,8 +667,11 @@ func (r *AdminFinanceRepository) ListShopReviews(page, limit int, status string)
 	args := []interface{}{}
 	argIdx := 1
 
+	// Shop-level reviews are the seller_reviews rows not tied to a product.
+	where += " AND sr.product_id IS NULL"
+
 	if status != "" {
-		where += fmt.Sprintf(" AND sr.moderation_status = $%d", argIdx)
+		where += fmt.Sprintf(" AND sr.status = $%d", argIdx)
 		args = append(args, status)
 		argIdx++
 	}
@@ -621,19 +684,25 @@ func (r *AdminFinanceRepository) ListShopReviews(page, limit int, status string)
 
 	offset := (page - 1) * limit
 	query := fmt.Sprintf(`
-		SELECT 
-			sr.id as review_id, sr.buyer_id,
-			COALESCE(u.first_name || ' ' || u.last_name, u.email) as buyer_name,
+		SELECT
+			sr.id as review_id, bp.user_id as buyer_id,
+			COALESCE(NULLIF(TRIM(bp.first_name || ' ' || bp.last_name), ''), bp.email, '') as buyer_name,
 			sr.order_id, COALESCE(o.order_number, '') as order_number,
 			sr.shop_id, COALESCE(s.name, '') as shop_name,
-			sr.seller_id, COALESCE(su.first_name || ' ' || su.last_name, su.email) as seller_name,
-			sr.rating, sr.comment,
-			COALESCE(sr.moderation_status, 'VISIBLE'),
+			bm.user_id as seller_id,
+			COALESCE(NULLIF(TRIM(su.first_name || ' ' || su.last_name), ''), su.email, '') as seller_name,
+			sr.rating, COALESCE(sr.comment, ''),
+			COALESCE(sr.status, 'VISIBLE'),
 			sr.created_at
 		FROM seller_reviews sr
-		JOIN users u ON sr.buyer_id = u.id
+		LEFT JOIN buyer_profiles bp ON sr.buyer_profile_id = bp.id
 		LEFT JOIN shops s ON sr.shop_id = s.id
-		LEFT JOIN users su ON sr.seller_id = su.id
+		LEFT JOIN LATERAL (
+			SELECT user_id FROM business_memberships
+			WHERE business_id = sr.business_id
+			ORDER BY created_at ASC LIMIT 1
+		) bm ON TRUE
+		LEFT JOIN users su ON bm.user_id = su.id
 		LEFT JOIN orders o ON sr.order_id = o.id
 		%s
 		ORDER BY sr.created_at DESC
@@ -663,9 +732,9 @@ func (r *AdminFinanceRepository) ListShopReviews(page, limit int, status string)
 
 func (r *AdminFinanceRepository) ModerateShopReview(reviewID uuid.UUID, newStatus string) error {
 	result, err := r.db.Exec(`
-		UPDATE seller_reviews 
-		SET moderation_status = $1, updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $2
+		UPDATE seller_reviews
+		SET status = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2 AND product_id IS NULL
 	`, newStatus, reviewID)
 	if err != nil {
 		return err

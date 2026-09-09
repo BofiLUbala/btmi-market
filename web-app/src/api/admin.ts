@@ -884,7 +884,7 @@ export const adminCommerceApi = {
   getOrder: async (id: string) => {
     return adminApi<AdminOrderDetail>(`/admin/commerce/orders/${id}`)
   },
-  assignCourier: async (id: string, payload: { courier_name: string; courier_phone?: string; notes?: string }) => {
+  assignCourier: async (id: string, payload: { courier_id: string; notes?: string }) => {
     return adminApi<{ message: string; order: AdminOrderItem }>(`/admin/commerce/orders/${id}/assign-courier`, {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -1018,7 +1018,9 @@ export interface AdminBuyerPointsItem {
 export interface AdminPointTransaction {
   id: string
   point_account_id: string
-  type: 'EARNED' | 'RESERVED' | 'RELEASED' | 'CONSUMED' | 'ADJUSTED'
+  // The ledger stores a CREDIT/DEBIT direction; `reason` carries the
+  // reference_type that caused it (VERIFIED_PURCHASE, REDEMPTION_*, ADMIN_ADJUSTMENT).
+  type: 'CREDIT' | 'DEBIT'
   amount: number
   balance_after: number
   order_id?: string

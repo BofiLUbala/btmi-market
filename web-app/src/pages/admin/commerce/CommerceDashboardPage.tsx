@@ -1,7 +1,56 @@
+import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { adminCommerceApi, type CommerceOverviewStats } from '@/api/admin'
 import { useT } from '@/store/i18n'
+
+// Route is set when a real admin page exists for this domain; otherwise the
+// card is shown but disabled instead of linking to a page that doesn't exist.
+const DOMAIN_ROUTES: Record<number, string> = {
+  9: '/admin/commerce/products',
+  10: '/admin/commerce/categories',
+  11: '/admin/commerce/categories',
+  14: '/admin/commerce/inventory',
+  15: '/admin/commerce/inventory/history',
+  16: '/admin/commerce/inventory',
+  17: '/admin/commerce/orders',
+  18: '/admin/commerce/orders',
+  19: '/admin/commerce/orders',
+  20: '/admin/commerce/orders',
+  21: '/admin/commerce/marketplace/visibility',
+  22: '/admin/commerce/marketplace/visibility',
+  23: '/admin/commerce/marketplace/search',
+  24: '/admin/commerce/marketplace/ranking',
+  25: '/admin/commerce/marketplace/quality',
+  26: '/admin/commerce/marketplace/promotions',
+  27: '/admin/commerce/performance/sellers',
+  29: '/admin/commerce/performance/categories',
+  30: '/admin/commerce/employees'
+}
 
 export default function CommerceDashboardPage() {
   const t = useT()
+  const navigate = useNavigate()
+  const [stats, setStats] = useState<CommerceOverviewStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadOverview = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await adminCommerceApi.getOverview()
+      setStats(data)
+    } catch (err) {
+      console.error('Failed to load commerce overview:', err)
+      setError(err instanceof Error ? err.message : t('admin.commerceDash.kpisLoadError'))
+    } finally {
+      setLoading(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void loadOverview()
+  }, [loadOverview])
 
   const domains = [
     { num: 9, name: t('admin.commerceDash.domain9Name'), desc: t('admin.commerceDash.domain9Desc') },
@@ -39,31 +88,84 @@ export default function CommerceDashboardPage() {
         </p>
       </div>
 
-      <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 24 }}>🏗️</span>
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px', color: 'var(--admin-success)' }}>{t('admin.commerceDash.bannerTitle')}</h3>
-            <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0 }}>
-              {t('admin.commerceDash.bannerDesc')}
-            </p>
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: 'var(--admin-danger-soft)', border: '1px solid var(--admin-danger)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: 'var(--admin-text)' }}>
+          <span>⚠️ {error}</span>
+          <button
+            onClick={() => void loadOverview()}
+            style={{ backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', border: '1px solid var(--admin-border)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+          >
+            {t('admin.direction.retry')}
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>
+          <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
+        </div>
+      ) : stats ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 24 }}>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.commerceDash.ordersToday')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>{stats.orders_today}</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.commerceDash.totalOrders', { count: stats.total_orders })}</div>
+          </div>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.commerceDash.stuckOrders')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: stats.stuck_orders > 0 ? '#ef4444' : '#10b981' }}>{stats.stuck_orders}</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.commerceDash.pendingOrders', { count: stats.pending_orders })}</div>
+          </div>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.commerceDash.catalog')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc' }}>{stats.total_products}</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.commerceDash.publishedCount', { count: stats.published_products })}</div>
+          </div>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.commerceDash.stockAnomalies')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: stats.stock_anomalies_count > 0 ? '#f59e0b' : '#10b981' }}>{stats.stock_anomalies_count}</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.commerceDash.outOfStockCount', { count: stats.out_of_stock_products })}</div>
+          </div>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.commerceDash.taxonomy')}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc' }}>{stats.total_categories}</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.commerceDash.subcategoriesCount', { count: stats.total_subcategories })}</div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
-        {domains.map((d) => (
-          <div key={d.num} style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-success)', backgroundColor: 'var(--admin-success-soft)', padding: '2px 8px', borderRadius: 6 }}>
-                {t('admin.commerceDash.domainLabel', { num: d.num })}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>{t('admin.commerceDash.phase2')}</span>
+        {domains.map((d) => {
+          const route = DOMAIN_ROUTES[d.num]
+          const isLive = Boolean(route)
+          return (
+            <div
+              key={d.num}
+              onClick={isLive ? () => navigate(route) : undefined}
+              style={{
+                backgroundColor: 'var(--admin-surface)',
+                border: '1px solid var(--admin-border-soft)',
+                borderRadius: 10,
+                padding: 16,
+                cursor: isLive ? 'pointer' : 'default',
+                opacity: isLive ? 1 : 0.6
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-success)', backgroundColor: 'var(--admin-success-soft)', padding: '2px 8px', borderRadius: 6 }}>
+                  {t('admin.commerceDash.domainLabel', { num: d.num })}
+                </span>
+                {isLive ? (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981' }}>{t('admin.commerceDash.statusLive')}</span>
+                ) : (
+                  <span style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>{t('admin.commerceDash.statusNotBuilt')}</span>
+                )}
+              </div>
+              <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 6px', color: 'var(--admin-text)' }}>{d.name}</h4>
+              <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0, lineHeight: 1.4 }}>{d.desc}</p>
             </div>
-            <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 6px', color: 'var(--admin-text)' }}>{d.name}</h4>
-            <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: 0, lineHeight: 1.4 }}>{d.desc}</p>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

@@ -127,6 +127,20 @@ export default function TechnicalDashboardPage() {
   const [versions, setVersions] = useState<AppVersionItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'database' | 'redis' | 'workers' | 'security' | 'sessions' | 'versions'>('overview')
+  const [editingVersion, setEditingVersion] = useState<AppVersionItem | null>(null)
+  const [versionForm, setVersionForm] = useState({ current_version: '', min_supported_version: '', recommended_version: '', reason: '' })
+  const [savingVersion, setSavingVersion] = useState(false)
+
+  useEffect(() => {
+    if (editingVersion) {
+      setVersionForm({
+        current_version: editingVersion.current_version,
+        min_supported_version: editingVersion.min_supported_version,
+        recommended_version: editingVersion.recommended_version,
+        reason: ''
+      })
+    }
+  }, [editingVersion])
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -159,6 +173,51 @@ export default function TechnicalDashboardPage() {
   }, [])
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  const handleRevokeSession = async (sessionId: string, adminEmail: string) => {
+    const reason = window.prompt(t('admin.technical.revokeSessionPrompt', { email: adminEmail }))
+    if (!reason || !reason.trim()) return
+    try {
+      await adminTechnicalApi.revokeSession(sessionId, reason.trim())
+      const res = await adminTechnicalApi.getAdminSessions()
+      setSessions(res.sessions ?? [])
+    } catch (err: any) {
+      alert(err?.message || t('admin.technical.actionFailed'))
+    }
+  }
+
+  const handleSaveVersion = async () => {
+    if (!editingVersion) return
+    if (!versionForm.reason.trim()) return
+    setSavingVersion(true)
+    try {
+      await adminTechnicalApi.updateAppVersion(editingVersion.platform, {
+        current_version: versionForm.current_version.trim(),
+        min_supported_version: versionForm.min_supported_version.trim(),
+        recommended_version: versionForm.recommended_version.trim(),
+        reason: versionForm.reason.trim()
+      })
+      const res = await adminTechnicalApi.getAppVersions()
+      setVersions(res.versions ?? [])
+      setEditingVersion(null)
+    } catch (err: any) {
+      alert(err?.message || t('admin.technical.actionFailed'))
+    } finally {
+      setSavingVersion(false)
+    }
+  }
+
+  const handleAcknowledgeEvent = async (id: string) => {
+    const reason = window.prompt(t('admin.technical.acknowledgePrompt'))
+    if (!reason || !reason.trim()) return
+    try {
+      await adminTechnicalApi.acknowledgeSecurityEvent(id, 'ACKNOWLEDGED', reason.trim())
+      const res = await adminTechnicalApi.getSecurityEvents({ limit: 20 })
+      setSecurityEvents(res.events ?? [])
+    } catch (err: any) {
+      alert(err?.message || t('admin.technical.actionFailed'))
+    }
+  }
 
   const tabs = [
     { key: 'overview', label: t('admin.technical.tabOverview') },
@@ -358,13 +417,24 @@ export default function TechnicalDashboardPage() {
       {activeTab === 'security' && (
         <SectionCard title={t('admin.technical.tabSecurity')} icon="🔐" onRefresh={() => adminTechnicalApi.getSecurityEvents({ limit: 20 }).then((r) => setSecurityEvents(r.events ?? []))}>
           <DataTable
-            columns={[t('admin.technical.colSeverity'), t('admin.technical.colEventType'), t('admin.technical.colIp'), t('common.status'), t('admin.technical.colTime')]}
+            columns={[t('admin.technical.colSeverity'), t('admin.technical.colEventType'), t('admin.technical.colIp'), t('common.status'), t('admin.technical.colTime'), t('admin.common.actions')]}
             rows={securityEvents.map((e) => [
               <StatusBadge key={e.id} status={e.severity} />,
               e.event_type,
               e.ip_address || '—',
               <StatusBadge key={`s-${e.id}`} status={e.status} />,
-              new Date(e.created_at).toLocaleString()
+              new Date(e.created_at).toLocaleString(),
+              e.status === 'ACKNOWLEDGED' || e.status === 'RESOLVED' ? (
+                <span key={`a-${e.id}`} style={{ color: '#64748b', fontSize: 11 }}>—</span>
+              ) : (
+                <button
+                  key={`a-${e.id}`}
+                  onClick={() => handleAcknowledgeEvent(e.id)}
+                  style={{ padding: '4px 10px', backgroundColor: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                >
+                  {t('admin.technical.acknowledgeBtn')}
+                </button>
+              )
             ])}
           />
           {securityEvents.length === 0 && !loading && (
@@ -380,14 +450,21 @@ export default function TechnicalDashboardPage() {
             {t('admin.technical.activeSessionsCount', { count: sessions.length, plural: sessions.length !== 1 ? 's' : '' })}
           </div>
           <DataTable
-            columns={[t('admin.technical.colAdminEmail'), t('admin.technical.colRole'), t('admin.technical.colIp'), t('admin.technical.colDevice'), t('admin.common.created'), t('admin.technical.colExpires')]}
+            columns={[t('admin.technical.colAdminEmail'), t('admin.technical.colRole'), t('admin.technical.colIp'), t('admin.technical.colDevice'), t('admin.common.created'), t('admin.technical.colExpires'), t('admin.common.actions')]}
             rows={sessions.map((s) => [
               s.admin_email,
               <span key={s.session_id} style={{ fontSize: 11, color: '#2dd4bf', background: '#134e4a', padding: '2px 6px', borderRadius: 4 }}>{s.admin_role}</span>,
               s.ip_address,
               <span key={`d-${s.session_id}`} style={{ fontSize: 10, color: '#64748b', wordBreak: 'break-all' }}>{s.device_info.substring(0, 30)}…</span>,
               new Date(s.created_at).toLocaleDateString(),
-              new Date(s.expires_at).toLocaleDateString()
+              new Date(s.expires_at).toLocaleDateString(),
+              <button
+                key={`r-${s.session_id}`}
+                onClick={() => handleRevokeSession(s.session_id, s.admin_email)}
+                style={{ padding: '4px 10px', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+              >
+                {t('admin.technical.revokeBtn')}
+              </button>
             ])}
           />
         </SectionCard>
@@ -410,6 +487,12 @@ export default function TechnicalDashboardPage() {
                   <div>{t('admin.technical.labelMinSupported')} <strong style={{ color: '#f1f5f9' }}>{v.min_supported_version}</strong></div>
                   <div>{t('admin.technical.labelRecommended')} <strong style={{ color: '#f1f5f9' }}>{v.recommended_version}</strong></div>
                 </div>
+                <button
+                  onClick={() => setEditingVersion(v)}
+                  style={{ marginTop: 12, padding: '6px 12px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                >
+                  {t('admin.technical.editVersionBtn')}
+                </button>
               </div>
             ))}
           </div>
@@ -422,6 +505,61 @@ export default function TechnicalDashboardPage() {
       {loading && (
         <div style={{ textAlign: 'center', padding: 40, color: '#64748b', fontSize: 14 }}>
           {t('admin.technical.loadingData')}
+        </div>
+      )}
+
+      {/* APP VERSION EDIT MODAL */}
+      {editingVersion && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 420 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>
+              {t('admin.technical.editVersionTitle', { platform: editingVersion.platform })}
+            </h3>
+
+            {([
+              ['current_version', t('admin.technical.labelCurrent')],
+              ['min_supported_version', t('admin.technical.labelMinSupported')],
+              ['recommended_version', t('admin.technical.labelRecommended')]
+            ] as const).map(([field, label]) => (
+              <div key={field} style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{label}</label>
+                <input
+                  type="text"
+                  value={versionForm[field]}
+                  onChange={(e) => setVersionForm((f) => ({ ...f, [field]: e.target.value }))}
+                  placeholder="1.0.0"
+                  style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6, fontFamily: 'monospace', fontSize: 13 }}
+                />
+              </div>
+            ))}
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{t('admin.technical.labelReason')}</label>
+              <textarea
+                value={versionForm.reason}
+                onChange={(e) => setVersionForm((f) => ({ ...f, reason: e.target.value }))}
+                rows={2}
+                placeholder={t('admin.technical.reasonPlaceholder')}
+                style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6, fontSize: 13 }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setEditingVersion(null)}
+                style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSaveVersion}
+                disabled={savingVersion || !versionForm.reason.trim()}
+                style={{ padding: '8px 16px', backgroundColor: savingVersion || !versionForm.reason.trim() ? '#1e40af' : '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: savingVersion || !versionForm.reason.trim() ? 'default' : 'pointer', fontWeight: 700 }}
+              >
+                {savingVersion ? t('admin.technical.savingEllipsis') : t('admin.technical.saveVersionBtn')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

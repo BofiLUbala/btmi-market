@@ -1316,33 +1316,42 @@ func (r *AdminCommerceRepository) ListSearchQueries(limit, offset int) ([]*model
 }
 
 // 15. Marketplace Ranking Inspection
+// GetMarketplaceRanking reports the ranking rule the platform actually applies.
+// CategoryRankingService scores a shop as:
+//
+//	score = seller_points * (1 + search_boost/100)
+//
+// where search_boost comes from the seller's level, and the score is halved
+// when the seller's trust status is LOW or SUSPENDED. The per-level boosts are
+// read from seller_levels rather than restated here, so the page cannot drift
+// from the values the engine uses.
 func (r *AdminCommerceRepository) GetMarketplaceRanking() (*models.AdminMarketplaceRanking, error) {
-	// Check if ranking configuration exists in Redis or database
-	// For now, return available factors from the category ranking service
-	return &models.AdminMarketplaceRanking{
+	ranking := &models.AdminMarketplaceRanking{
 		Available: true,
-		Message:   "Ranking factors retrieved from category ranking service",
+		Message:   "score = seller_points × (1 + search_boost/100); halved when trust status is LOW or SUSPENDED",
 		RankingFactors: []string{
-			"relevance",
-			"seller_trust_score",
 			"seller_points",
-			"availability",
-			"category_match",
-			"review_score",
-			"popularity",
-			"similarity",
+			"seller_level_search_boost",
+			"seller_trust_status",
 		},
-		CategoryWeights: map[string]float64{
-			"relevance":      0.30,
-			"seller_trust":   0.15,
-			"seller_points":  0.10,
-			"availability":   0.15,
-			"category_match": 0.10,
-			"review_score":   0.10,
-			"popularity":     0.05,
-			"similarity":     0.05,
-		},
-	}, nil
+		CategoryWeights: map[string]float64{},
+	}
+
+	rows, err := r.db.Query(`SELECT name, search_boost FROM seller_levels ORDER BY min_points ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		var boost float64
+		if err := rows.Scan(&name, &boost); err != nil {
+			return nil, err
+		}
+		ranking.CategoryWeights[name] = boost
+	}
+	return ranking, rows.Err()
 }
 
 // 16. Product Card Quality Control

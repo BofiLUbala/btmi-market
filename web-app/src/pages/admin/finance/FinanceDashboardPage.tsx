@@ -8,17 +8,32 @@ import {
   AdminProductReviewItem,
   AdminShopReviewItem,
   AdminCaseListItem,
+  AdminCaseDetail,
+  AdminPaymentDetail,
+  AdminPointTransaction,
   AdminRiskEvent
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
+import { useAdminAuth } from '@/store/adminAuth'
 
 type ActiveTab = 'overview' | 'payments' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'risk'
 
+const PAGE_SIZE = 25
+
 export default function FinanceDashboardPage() {
   const t = useT()
+  const { admin } = useAdminAuth()
   const [tab, setTab] = useState<ActiveTab>('overview')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Pagination + server-side filters. Every value below is forwarded to the
+  // backend, which paginates and filters in SQL — nothing is sliced client-side.
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   // Data states
   const [summary, setSummary] = useState<AdminFinancialSummary | null>(null)
@@ -39,6 +54,7 @@ export default function FinanceDashboardPage() {
   
   const [moderationReason, setModerationReason] = useState('')
   const [moderatingReviewId, setModeratingReviewId] = useState<string | null>(null)
+  const [moderatingReviewKind, setModeratingReviewKind] = useState<'product' | 'shop'>('product')
 
   const [newCaseTitle, setNewCaseTitle] = useState('')
   const [newCaseDesc, setNewCaseDesc] = useState('')
@@ -46,11 +62,48 @@ export default function FinanceDashboardPage() {
   const [newCasePriority, setNewCasePriority] = useState('HIGH')
   const [showCreateCaseModal, setShowCreateCaseModal] = useState(false)
 
+  const [selectedCase, setSelectedCase] = useState<AdminCaseDetail | null>(null)
+  const [loadingCaseDetail, setLoadingCaseDetail] = useState(false)
+  const [resolutionText, setResolutionText] = useState('')
+  const [newMessage, setNewMessage] = useState('')
+
+  const [resolvingRisk, setResolvingRisk] = useState<AdminRiskEvent | null>(null)
+  const [riskResolveReason, setRiskResolveReason] = useState('')
+
+  const [paymentDetail, setPaymentDetail] = useState<AdminPaymentDetail | null>(null)
+  const [historyBuyer, setHistoryBuyer] = useState<AdminBuyerPointsItem | null>(null)
+  const [pointHistory, setPointHistory] = useState<AdminPointTransaction[] | null>(null)
+
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+
+  const paginationLabels = {
+    prev: t('admin.finance.prevPage'),
+    next: t('admin.finance.nextPage'),
+    range: t('admin.finance.pageRange'),
+    empty: t('admin.finance.noResults')
+  }
+
+  // Switching tabs clears filters that don't apply to the new tab.
+  useEffect(() => {
+    setPage(1)
+    setTotal(0)
+    setSearchInput('')
+    setSearch('')
+    setStatusFilter('')
+  }, [tab])
+
+  // Debounce typing so each keystroke doesn't fire a request.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   useEffect(() => {
     loadTabContent()
-  }, [tab])
+  }, [tab, page, search, statusFilter])
 
   const loadTabContent = async () => {
     setLoading(true)
@@ -60,26 +113,37 @@ export default function FinanceDashboardPage() {
         const sum = await adminFinanceApi.getSummary()
         setSummary(sum)
       } else if (tab === 'payments') {
-        const res = await adminFinanceApi.listPayments({ limit: 50 })
+        const res = await adminFinanceApi.listPayments({
+          page, limit: PAGE_SIZE,
+          payment_status: statusFilter || undefined,
+          order_number: search || undefined
+        })
         setPayments(res.items || [])
+        setTotal(res.total || 0)
       } else if (tab === 'points') {
-        const res = await adminFinanceApi.listBuyerPoints({ limit: 50 })
+        const res = await adminFinanceApi.listBuyerPoints({ page, limit: PAGE_SIZE, search: search || undefined })
         setBuyerPoints(res.items || [])
+        setTotal(res.total || 0)
       } else if (tab === 'growth') {
-        const res = await adminFinanceApi.listSellerGrowth({ limit: 50 })
+        const res = await adminFinanceApi.listSellerGrowth({ page, limit: PAGE_SIZE, search: search || undefined })
         setSellerGrowth(res.items || [])
+        setTotal(res.total || 0)
       } else if (tab === 'reviews_product') {
-        const res = await adminFinanceApi.listProductReviews({ limit: 50 })
+        const res = await adminFinanceApi.listProductReviews({ page, limit: PAGE_SIZE, status: statusFilter || undefined })
         setProductReviews(res.items || [])
+        setTotal(res.total || 0)
       } else if (tab === 'reviews_shop') {
-        const res = await adminFinanceApi.listShopReviews({ limit: 50 })
+        const res = await adminFinanceApi.listShopReviews({ page, limit: PAGE_SIZE, status: statusFilter || undefined })
         setShopReviews(res.items || [])
+        setTotal(res.total || 0)
       } else if (tab === 'cases') {
-        const res = await adminFinanceApi.listCases({ limit: 50 })
+        const res = await adminFinanceApi.listCases({ page, limit: PAGE_SIZE, status: statusFilter || undefined })
         setCases(res.items || [])
+        setTotal(res.total || 0)
       } else if (tab === 'risk') {
-        const res = await adminFinanceApi.listRiskEvents({ limit: 50 })
+        const res = await adminFinanceApi.listRiskEvents({ page, limit: PAGE_SIZE, status: statusFilter || undefined })
         setRiskEvents(res.items || [])
+        setTotal(res.total || 0)
       }
     } catch (err: any) {
       setError(err?.message || t('admin.finance.loadError'))
@@ -101,20 +165,118 @@ export default function FinanceDashboardPage() {
     }
   }
 
-  const handleModerateProductReview = async (id: string, action: 'hide' | 'restore') => {
+  const handleModerateReview = async (id: string, kind: 'product' | 'shop', action: 'hide' | 'restore') => {
     if (action === 'hide' && !moderationReason) {
       alert(t('admin.finance.hideReasonRequired'))
       return
     }
     try {
-      if (action === 'hide') {
-        await adminFinanceApi.hideProductReview(id, moderationReason)
+      if (kind === 'product') {
+        if (action === 'hide') {
+          await adminFinanceApi.hideProductReview(id, moderationReason)
+        } else {
+          await adminFinanceApi.restoreProductReview(id, moderationReason || t('admin.finance.adminRestorationDefault'))
+        }
       } else {
-        await adminFinanceApi.restoreProductReview(id, moderationReason || t('admin.finance.adminRestorationDefault'))
+        if (action === 'hide') {
+          await adminFinanceApi.hideShopReview(id, moderationReason)
+        } else {
+          await adminFinanceApi.restoreShopReview(id, moderationReason || t('admin.finance.adminRestorationDefault'))
+        }
       }
       setActionSuccess(action === 'hide' ? t('admin.finance.reviewHiddenSuccess') : t('admin.finance.reviewRestoredSuccess'))
       setModeratingReviewId(null)
       setModerationReason('')
+      loadTabContent()
+    } catch (err: any) {
+      alert(err?.message || t('admin.finance.actionFailed'))
+    }
+  }
+
+  const closePaymentModal = () => {
+    setSelectedPayment(null)
+    setPaymentDetail(null)
+  }
+
+  const openPaymentDetail = async (p: AdminPaymentListItem) => {
+    setSelectedPayment(p)
+    setPaymentDetail(null)
+    try {
+      setPaymentDetail(await adminFinanceApi.getPaymentDetail(p.payment_id))
+    } catch {
+      // The modal still shows the list-row fields if the drill-down fails.
+    }
+  }
+
+  const openPointHistory = async (b: AdminBuyerPointsItem) => {
+    setHistoryBuyer(b)
+    setPointHistory(null)
+    try {
+      const res = await adminFinanceApi.getBuyerPointHistory(b.buyer_id)
+      setPointHistory(res.history || [])
+    } catch (err: any) {
+      setPointHistory([])
+      alert(err?.message || t('admin.finance.actionFailed'))
+    }
+  }
+
+  const openCaseDetail = async (id: string) => {
+    setLoadingCaseDetail(true)
+    try {
+      const detail = await adminFinanceApi.getCaseDetail(id)
+      setSelectedCase(detail)
+      setResolutionText('')
+      setNewMessage('')
+    } catch (err: any) {
+      alert(err?.message || t('admin.finance.actionFailed'))
+    } finally {
+      setLoadingCaseDetail(false)
+    }
+  }
+
+  const handleAssignToMe = async () => {
+    if (!selectedCase || !admin) return
+    try {
+      await adminFinanceApi.assignCase(selectedCase.id, admin.id)
+      const refreshed = await adminFinanceApi.getCaseDetail(selectedCase.id)
+      setSelectedCase(refreshed)
+      loadTabContent()
+    } catch (err: any) {
+      alert(err?.message || t('admin.finance.actionFailed'))
+    }
+  }
+
+  const handleResolveCase = async (status: 'RESOLVED' | 'DISMISSED') => {
+    if (!selectedCase || !resolutionText.trim()) return
+    try {
+      await adminFinanceApi.resolveCase(selectedCase.id, status, resolutionText.trim())
+      setActionSuccess(t('admin.finance.caseCreatedSuccess'))
+      setSelectedCase(null)
+      loadTabContent()
+    } catch (err: any) {
+      alert(err?.message || t('admin.finance.actionFailed'))
+    }
+  }
+
+  const handleAddCaseMessage = async () => {
+    if (!selectedCase || !newMessage.trim()) return
+    try {
+      await adminFinanceApi.addCaseMessage(selectedCase.id, 'INTERNAL_ADMIN_NOTE', newMessage.trim())
+      const refreshed = await adminFinanceApi.getCaseDetail(selectedCase.id)
+      setSelectedCase(refreshed)
+      setNewMessage('')
+    } catch (err: any) {
+      alert(err?.message || t('admin.finance.actionFailed'))
+    }
+  }
+
+  const handleResolveRisk = async (status: 'RESOLVED' | 'DISMISSED') => {
+    if (!resolvingRisk || !riskResolveReason.trim()) return
+    try {
+      await adminFinanceApi.resolveRiskEvent(resolvingRisk.id, status, riskResolveReason.trim())
+      setActionSuccess(t('admin.finance.reviewRestoredSuccess'))
+      setResolvingRisk(null)
+      setRiskResolveReason('')
       loadTabContent()
     } catch (err: any) {
       alert(err?.message || t('admin.finance.actionFailed'))
@@ -225,8 +387,18 @@ export default function FinanceDashboardPage() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.paymentsTitle')}</h3>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>{t('admin.finance.paymentsCount', { count: payments.length })}</span>
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>{t('admin.finance.paymentsCount', { count: total })}</span>
           </div>
+
+          <FilterBar
+            searchValue={searchInput}
+            onSearchChange={setSearchInput}
+            searchPlaceholder={t('admin.finance.searchOrderPlaceholder')}
+            statusValue={statusFilter}
+            onStatusChange={(v) => { setStatusFilter(v); setPage(1) }}
+            statusOptions={['PENDING', 'VERIFIED', 'DISPUTED']}
+            statusAllLabel={t('admin.finance.allStatuses')}
+          />
 
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
@@ -272,7 +444,7 @@ export default function FinanceDashboardPage() {
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <button
-                      onClick={() => setSelectedPayment(p)}
+                      onClick={() => openPaymentDetail(p)}
                       style={{ padding: '4px 10px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
                     >
                       {t('admin.finance.inspect')}
@@ -282,6 +454,7 @@ export default function FinanceDashboardPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPage={setPage} labels={paginationLabels} />
         </div>
       )}
 
@@ -290,8 +463,14 @@ export default function FinanceDashboardPage() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.pointsTitle')}</h3>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>{t('admin.finance.pointsCount', { count: buyerPoints.length })}</span>
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>{t('admin.finance.pointsCount', { count: total })}</span>
           </div>
+
+          <FilterBar
+            searchValue={searchInput}
+            onSearchChange={setSearchInput}
+            searchPlaceholder={t('admin.finance.searchBuyerPlaceholder')}
+          />
 
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
@@ -319,17 +498,26 @@ export default function FinanceDashboardPage() {
                   <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{t('admin.finance.ptsAmount', { value: b.reserved_points.toLocaleString() })}</td>
                   <td style={{ padding: '12px 14px', color: '#a78bfa' }}>{t('admin.finance.ptsAmount', { value: b.lifetime_points.toLocaleString() })}</td>
                   <td style={{ padding: '12px 14px' }}>
-                    <button
-                      onClick={() => setSelectedBuyer(b)}
-                      style={{ padding: '4px 10px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
-                    >
-                      {t('admin.finance.adjustPointsBtn')}
-                    </button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => setSelectedBuyer(b)}
+                        style={{ padding: '4px 10px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
+                      >
+                        {t('admin.finance.adjustPointsBtn')}
+                      </button>
+                      <button
+                        onClick={() => openPointHistory(b)}
+                        style={{ padding: '4px 10px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
+                      >
+                        {t('admin.finance.historyBtn')}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPage={setPage} labels={paginationLabels} />
         </div>
       )}
 
@@ -337,6 +525,11 @@ export default function FinanceDashboardPage() {
       {!loading && tab === 'growth' && (
         <div>
           <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.growthTitle')}</h3>
+          <FilterBar
+            searchValue={searchInput}
+            onSearchChange={setSearchInput}
+            searchPlaceholder={t('admin.finance.searchSellerPlaceholder')}
+          />
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
               <tr style={{ backgroundColor: '#1e293b', textAlign: 'left', fontSize: 12, color: '#94a3b8' }}>
@@ -349,8 +542,9 @@ export default function FinanceDashboardPage() {
               </tr>
             </thead>
             <tbody>
+              {/* One row per seller-business pair, so the seller id alone is not unique. */}
               {sellerGrowth.map((s) => (
-                <tr key={s.seller_id} style={{ borderBottom: '1px solid #1e293b', fontSize: 13 }}>
+                <tr key={`${s.seller_id}-${s.business_id}`} style={{ borderBottom: '1px solid #1e293b', fontSize: 13 }}>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 700 }}>{s.seller_name}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>{s.business_name} {t('admin.finance.shopsCount', { count: s.shop_count })}</div>
@@ -368,6 +562,7 @@ export default function FinanceDashboardPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPage={setPage} labels={paginationLabels} />
         </div>
       )}
 
@@ -375,6 +570,12 @@ export default function FinanceDashboardPage() {
       {!loading && tab === 'reviews_product' && (
         <div>
           <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.reviewsProductTitle')}</h3>
+          <FilterBar
+            statusValue={statusFilter}
+            onStatusChange={(v) => { setStatusFilter(v); setPage(1) }}
+            statusOptions={['VISIBLE', 'FLAGGED', 'UNDER_REVIEW', 'HIDDEN']}
+            statusAllLabel={t('admin.finance.allStatuses')}
+          />
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
               <tr style={{ backgroundColor: '#1e293b', textAlign: 'left', fontSize: 12, color: '#94a3b8' }}>
@@ -403,11 +604,11 @@ export default function FinanceDashboardPage() {
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     {r.moderation_status === 'HIDDEN' ? (
-                      <button onClick={() => handleModerateProductReview(r.review_id, 'restore')} style={{ padding: '4px 10px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
+                      <button onClick={() => handleModerateReview(r.review_id, 'product', 'restore')} style={{ padding: '4px 10px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
                         {t('admin.common.restore')}
                       </button>
                     ) : (
-                      <button onClick={() => setModeratingReviewId(r.review_id)} style={{ padding: '4px 10px', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
+                      <button onClick={() => { setModeratingReviewId(r.review_id); setModeratingReviewKind('product') }} style={{ padding: '4px 10px', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
                         {t('admin.finance.hideBtn')}
                       </button>
                     )}
@@ -416,6 +617,7 @@ export default function FinanceDashboardPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPage={setPage} labels={paginationLabels} />
         </div>
       )}
 
@@ -423,6 +625,12 @@ export default function FinanceDashboardPage() {
       {!loading && tab === 'reviews_shop' && (
         <div>
           <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.reviewsShopTitle')}</h3>
+          <FilterBar
+            statusValue={statusFilter}
+            onStatusChange={(v) => { setStatusFilter(v); setPage(1) }}
+            statusOptions={['VISIBLE', 'FLAGGED', 'UNDER_REVIEW', 'HIDDEN']}
+            statusAllLabel={t('admin.finance.allStatuses')}
+          />
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
               <tr style={{ backgroundColor: '#1e293b', textAlign: 'left', fontSize: 12, color: '#94a3b8' }}>
@@ -431,6 +639,7 @@ export default function FinanceDashboardPage() {
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colRating')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colComment')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('common.status')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('admin.common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -445,10 +654,22 @@ export default function FinanceDashboardPage() {
                       {r.moderation_status}
                     </span>
                   </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    {r.moderation_status === 'HIDDEN' ? (
+                      <button onClick={() => handleModerateReview(r.review_id, 'shop', 'restore')} style={{ padding: '4px 10px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
+                        {t('admin.common.restore')}
+                      </button>
+                    ) : (
+                      <button onClick={() => { setModeratingReviewId(r.review_id); setModeratingReviewKind('shop') }} style={{ padding: '4px 10px', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
+                        {t('admin.finance.hideBtn')}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPage={setPage} labels={paginationLabels} />
         </div>
       )}
 
@@ -461,6 +682,13 @@ export default function FinanceDashboardPage() {
               {t('admin.finance.openNewCase')}
             </button>
           </div>
+
+          <FilterBar
+            statusValue={statusFilter}
+            onStatusChange={(v) => { setStatusFilter(v); setPage(1) }}
+            statusOptions={['OPEN', 'UNDER_REVIEW', 'WAITING_FOR_ADMIN', 'RESOLVED', 'DISMISSED']}
+            statusAllLabel={t('admin.finance.allStatuses')}
+          />
 
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
@@ -475,7 +703,7 @@ export default function FinanceDashboardPage() {
             </thead>
             <tbody>
               {cases.map((c) => (
-                <tr key={c.id} style={{ borderBottom: '1px solid #1e293b', fontSize: 13 }}>
+                <tr key={c.id} onClick={() => openCaseDetail(c.id)} style={{ borderBottom: '1px solid #1e293b', fontSize: 13, cursor: 'pointer' }}>
                   <td style={{ padding: '12px 14px', fontWeight: 700 }}>{c.case_number}</td>
                   <td style={{ padding: '12px 14px', fontSize: 11, color: '#94a3b8' }}>{c.case_type}</td>
                   <td style={{ padding: '12px 14px', fontWeight: 700 }}>{c.title}</td>
@@ -494,6 +722,7 @@ export default function FinanceDashboardPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPage={setPage} labels={paginationLabels} />
         </div>
       )}
 
@@ -501,6 +730,12 @@ export default function FinanceDashboardPage() {
       {!loading && tab === 'risk' && (
         <div>
           <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.riskTitle')}</h3>
+          <FilterBar
+            statusValue={statusFilter}
+            onStatusChange={(v) => { setStatusFilter(v); setPage(1) }}
+            statusOptions={['OPEN', 'INVESTIGATING', 'RESOLVED', 'DISMISSED']}
+            statusAllLabel={t('admin.finance.allStatuses')}
+          />
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
               <tr style={{ backgroundColor: '#1e293b', textAlign: 'left', fontSize: 12, color: '#94a3b8' }}>
@@ -509,6 +744,7 @@ export default function FinanceDashboardPage() {
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colTargetName')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colRuleCode')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('common.status')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('admin.common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -523,10 +759,20 @@ export default function FinanceDashboardPage() {
                   <td style={{ padding: '12px 14px' }}>{r.target_name} ({r.target_type})</td>
                   <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: '#94a3b8' }}>{r.rule_code}</td>
                   <td style={{ padding: '12px 14px' }}>{r.status}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    {(r.status === 'OPEN' || r.status === 'INVESTIGATING') ? (
+                      <button onClick={() => setResolvingRisk(r)} style={{ padding: '4px 10px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
+                        {t('admin.finance.resolveBtn')}
+                      </button>
+                    ) : (
+                      <span style={{ color: '#64748b', fontSize: 11 }}>—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onPage={setPage} labels={paginationLabels} />
         </div>
       )}
 
@@ -536,7 +782,7 @@ export default function FinanceDashboardPage() {
           <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 480 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.paymentDetailTitle', { number: selectedPayment.order_number })}</h3>
-              <button onClick={() => setSelectedPayment(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>✕</button>
+              <button onClick={() => closePaymentModal()} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>✕</button>
             </div>
 
             <div style={{ backgroundColor: '#1e293b', borderRadius: 8, padding: 14, marginBottom: 16 }}>
@@ -582,6 +828,36 @@ export default function FinanceDashboardPage() {
               </div>
             </div>
 
+            {paymentDetail && paymentDetail.product_lines?.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#94a3b8' }}>{t('admin.finance.orderLinesTitle')}</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 150, overflowY: 'auto' }}>
+                  {paymentDetail.product_lines.map((line) => (
+                    <div key={line.id} style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', borderRadius: 6, padding: '6px 10px', fontSize: 12 }}>
+                      <span style={{ color: '#cbd5e1' }}>
+                        {line.product_name}{line.variant_name ? ` · ${line.variant_name}` : ''} × {line.quantity}
+                      </span>
+                      <span style={{ fontWeight: 700 }}>${line.total_price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {paymentDetail && paymentDetail.order_history?.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#94a3b8' }}>{t('admin.finance.orderHistoryTitle')}</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 130, overflowY: 'auto' }}>
+                  {paymentDetail.order_history.map((h, i) => (
+                    <div key={`${h.status}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#cbd5e1' }}>
+                      <span>{h.status}{h.note ? ` — ${h.note}` : ''}</span>
+                      <span style={{ color: '#64748b', flexShrink: 0 }}>{new Date(h.timestamp).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {selectedPayment.anomaly_flag && (
               <div style={{ backgroundColor: '#78350f', border: '1px solid #d97706', color: '#fef3c7', padding: 10, borderRadius: 6, fontSize: 12, marginBottom: 16 }}>
                 {t('admin.finance.anomalyDetected', { reason: selectedPayment.anomaly_reason })}
@@ -599,14 +875,14 @@ export default function FinanceDashboardPage() {
                     amount: selectedPayment.cash_due.toFixed(2)
                   }))
                   setNewCaseType('PAYMENT_DISPUTE')
-                  setSelectedPayment(null)
+                  closePaymentModal()
                   setShowCreateCaseModal(true)
                 }}
                 style={{ padding: '8px 14px', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
               >
                 {t('admin.finance.openDisputeCase')}
               </button>
-              <button onClick={() => setSelectedPayment(null)} style={{ padding: '8px 14px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+              <button onClick={() => closePaymentModal()} style={{ padding: '8px 14px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
                 {t('common.close')}
               </button>
             </div>
@@ -658,7 +934,173 @@ export default function FinanceDashboardPage() {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setModeratingReviewId(null)} style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>{t('common.cancel')}</button>
-              <button onClick={() => handleModerateProductReview(moderatingReviewId, 'hide')} style={{ padding: '8px 16px', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>{t('admin.finance.hideReviewBtn')}</button>
+              <button onClick={() => handleModerateReview(moderatingReviewId, moderatingReviewKind, 'hide')} style={{ padding: '8px 16px', backgroundColor: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>{t('admin.finance.hideReviewBtn')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CASE DETAIL DRAWER */}
+      {(selectedCase || loadingCaseDetail) && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 560, maxHeight: '85vh', overflowY: 'auto' }}>
+            {loadingCaseDetail || !selectedCase ? (
+              <div style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>⏳ {t('admin.finance.fetchingData')}</div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{selectedCase.case_number} — {selectedCase.title}</h3>
+                  <button onClick={() => setSelectedCase(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: '#1e293b', color: '#94a3b8' }}>{selectedCase.case_type}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#7f1d1d' : '#1e293b', color: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#fca5a5' : '#94a3b8' }}>{selectedCase.priority}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.status === 'RESOLVED' ? '#064e3b' : '#78350f', color: selectedCase.status === 'RESOLVED' ? '#34d399' : '#fcd34d' }}>{selectedCase.status}</span>
+                </div>
+
+                <div style={{ backgroundColor: '#1e293b', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ color: '#94a3b8' }}>{t('admin.finance.colAssignedAdmin')}</span>
+                    <span style={{ fontWeight: 700 }}>{selectedCase.assigned_admin || t('admin.finance.unassigned')}</span>
+                  </div>
+                  {selectedCase.buyer_name && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.finance.colBuyer')}</span>
+                      <span>{selectedCase.buyer_name}</span>
+                    </div>
+                  )}
+                  {selectedCase.order_number && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#94a3b8' }}>{t('admin.orders.colOrderNumber')}</span>
+                      <span>{selectedCase.order_number}</span>
+                    </div>
+                  )}
+                </div>
+
+                {selectedCase.status !== 'RESOLVED' && selectedCase.status !== 'DISMISSED' && !selectedCase.assigned_admin_id && (
+                  <button onClick={handleAssignToMe} style={{ padding: '6px 12px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700, marginBottom: 16 }}>
+                    {t('admin.finance.assignToMeBtn')}
+                  </button>
+                )}
+
+                <div style={{ marginBottom: 16 }}>
+                  <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#94a3b8' }}>{t('admin.finance.caseMessagesTitle')}</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
+                    {selectedCase.messages && selectedCase.messages.length > 0 ? selectedCase.messages.map((m) => (
+                      <div key={m.id} style={{ backgroundColor: '#1e293b', borderRadius: 6, padding: 8, fontSize: 12 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: 11, marginBottom: 4 }}>
+                          <span>{m.sender_name || m.sender_type}</span>
+                          <span>{new Date(m.created_at).toLocaleString()}</span>
+                        </div>
+                        <div style={{ color: '#cbd5e1' }}>{m.message}</div>
+                      </div>
+                    )) : (
+                      <div style={{ color: '#64748b', fontSize: 12 }}>{t('admin.finance.noMessages')}</div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder={t('admin.finance.addNotePlaceholder')}
+                      style={{ flex: 1, padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6, fontSize: 12 }}
+                    />
+                    <button onClick={handleAddCaseMessage} style={{ padding: '8px 12px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                      {t('admin.finance.addNoteBtn')}
+                    </button>
+                  </div>
+                </div>
+
+                {selectedCase.status !== 'RESOLVED' && selectedCase.status !== 'DISMISSED' && (
+                  <div style={{ borderTop: '1px solid #1e293b', paddingTop: 14 }}>
+                    <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#94a3b8' }}>{t('admin.finance.resolveCaseTitle')}</h4>
+                    <textarea
+                      value={resolutionText}
+                      onChange={(e) => setResolutionText(e.target.value)}
+                      rows={2}
+                      placeholder={t('admin.finance.resolutionPlaceholder')}
+                      style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6, marginBottom: 10, fontSize: 12 }}
+                    />
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                      <button onClick={() => handleResolveCase('DISMISSED')} disabled={!resolutionText.trim()} style={{ padding: '8px 14px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                        {t('admin.finance.dismissCaseBtn')}
+                      </button>
+                      <button onClick={() => handleResolveCase('RESOLVED')} disabled={!resolutionText.trim()} style={{ padding: '8px 14px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                        {t('admin.finance.resolveCaseBtn')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* BUYER POINT HISTORY MODAL */}
+      {historyBuyer && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 560, maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.pointHistoryTitle', { name: historyBuyer.buyer_name })}</h3>
+              <button onClick={() => { setHistoryBuyer(null); setPointHistory(null) }} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>✕</button>
+            </div>
+
+            {pointHistory === null ? (
+              <div style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>⏳ {t('admin.finance.fetchingData')}</div>
+            ) : pointHistory.length === 0 ? (
+              <div style={{ color: '#64748b', fontSize: 13 }}>{t('admin.finance.noPointHistory')}</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#1e293b', textAlign: 'left', color: '#94a3b8' }}>
+                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.colType')}</th>
+                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.labelAmount')}</th>
+                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.colBalanceAfter')}</th>
+                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.colComment')}</th>
+                    <th style={{ padding: '8px 10px' }}>{t('admin.technical.colTime')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pointHistory.map((tx) => (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: '8px 10px', fontWeight: 700 }}>{tx.type}</td>
+                      {/* points_change is stored unsigned; the direction lives in `type`. */}
+                      <td style={{ padding: '8px 10px', color: tx.type === 'DEBIT' ? '#f87171' : '#34d399', fontWeight: 700 }}>
+                        {tx.type === 'DEBIT' ? '−' : '+'}{Math.abs(tx.amount)}
+                      </td>
+                      <td style={{ padding: '8px 10px', color: '#94a3b8' }}>{tx.balance_after}</td>
+                      <td style={{ padding: '8px 10px', color: '#cbd5e1' }}>
+                        {tx.reason}{tx.order_number ? ` (${tx.order_number})` : ''}
+                      </td>
+                      <td style={{ padding: '8px 10px', color: '#64748b' }}>{new Date(tx.created_at).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* RESOLVE RISK EVENT MODAL */}
+      {resolvingRisk && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 420 }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.resolveRiskTitle')}</h3>
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 16px' }}>{resolvingRisk.event_type} — {resolvingRisk.target_name}</p>
+            <textarea
+              value={riskResolveReason}
+              onChange={(e) => setRiskResolveReason(e.target.value)}
+              rows={3}
+              placeholder={t('admin.finance.resolutionPlaceholder')}
+              style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6, marginBottom: 20 }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setResolvingRisk(null)} style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>{t('common.cancel')}</button>
+              <button onClick={() => handleResolveRisk('DISMISSED')} disabled={!riskResolveReason.trim()} style={{ padding: '8px 16px', backgroundColor: '#78350f', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>{t('admin.finance.dismissCaseBtn')}</button>
+              <button onClick={() => handleResolveRisk('RESOLVED')} disabled={!riskResolveReason.trim()} style={{ padding: '8px 16px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>{t('admin.finance.resolveBtn')}</button>
             </div>
           </div>
         </div>
@@ -708,6 +1150,81 @@ export default function FinanceDashboardPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function FilterBar({
+  searchValue, onSearchChange, searchPlaceholder,
+  statusValue, onStatusChange, statusOptions, statusAllLabel
+}: {
+  searchValue?: string
+  onSearchChange?: (v: string) => void
+  searchPlaceholder?: string
+  statusValue?: string
+  onStatusChange?: (v: string) => void
+  statusOptions?: string[]
+  statusAllLabel?: string
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      {onSearchChange && (
+        <input
+          type="text"
+          value={searchValue}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder={searchPlaceholder}
+          style={{ flex: '1 1 220px', minWidth: 200, padding: '8px 10px', backgroundColor: '#0f172a', border: '1px solid #1e293b', color: '#f8fafc', borderRadius: 6, fontSize: 13 }}
+        />
+      )}
+      {onStatusChange && statusOptions && (
+        <select
+          value={statusValue}
+          onChange={(e) => onStatusChange(e.target.value)}
+          style={{ padding: '8px 10px', backgroundColor: '#0f172a', border: '1px solid #1e293b', color: '#f8fafc', borderRadius: 6, fontSize: 13 }}
+        >
+          <option value="">{statusAllLabel}</option>
+          {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      )}
+    </div>
+  )
+}
+
+function Pagination({ page, total, pageSize, onPage, labels }: {
+  page: number
+  total: number
+  pageSize: number
+  onPage: (p: number) => void
+  labels: { prev: string; next: string; range: string; empty: string }
+}) {
+  const lastPage = Math.max(1, Math.ceil(total / pageSize))
+  if (total === 0) {
+    return <div style={{ marginTop: 14, color: '#64748b', fontSize: 12 }}>{labels.empty}</div>
+  }
+  const from = (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, total)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, gap: 10 }}>
+      <span style={{ fontSize: 12, color: '#94a3b8' }}>
+        {labels.range.replace('{from}', String(from)).replace('{to}', String(to)).replace('{total}', String(total))}
+      </span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => onPage(page - 1)}
+          disabled={page <= 1}
+          style={{ padding: '6px 12px', backgroundColor: page <= 1 ? '#1e293b' : '#334155', color: page <= 1 ? '#475569' : '#f8fafc', border: 'none', borderRadius: 6, cursor: page <= 1 ? 'default' : 'pointer', fontSize: 12 }}
+        >
+          {labels.prev}
+        </button>
+        <button
+          onClick={() => onPage(page + 1)}
+          disabled={page >= lastPage}
+          style={{ padding: '6px 12px', backgroundColor: page >= lastPage ? '#1e293b' : '#334155', color: page >= lastPage ? '#475569' : '#f8fafc', border: 'none', borderRadius: 6, cursor: page >= lastPage ? 'default' : 'pointer', fontSize: 12 }}
+        >
+          {labels.next}
+        </button>
+      </div>
     </div>
   )
 }

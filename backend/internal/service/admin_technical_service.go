@@ -109,11 +109,10 @@ func (s *AdminTechnicalService) checkAPIHealth(_ context.Context) models.Service
 	start := time.Now()
 	now := time.Now()
 	return models.ServiceHealthItem{
-		ServiceName:   "API",
-		Status:        "HEALTHY",
-		LatencyMS:     int(time.Since(start).Milliseconds()),
-		LastCheck:     now,
-		UptimePercent: 99.9,
+		ServiceName: "API",
+		Status:      "HEALTHY",
+		LatencyMS:   int(time.Since(start).Milliseconds()),
+		LastCheck:   now,
 	}
 }
 
@@ -133,7 +132,6 @@ func (s *AdminTechnicalService) checkPostgresHealth(ctx context.Context) models.
 		item.LastFailure = &fail
 	} else {
 		item.Status = "HEALTHY"
-		item.UptimePercent = 99.9
 	}
 	return item
 }
@@ -159,7 +157,6 @@ func (s *AdminTechnicalService) checkRedisServiceHealth(ctx context.Context) mod
 		item.LastFailure = &fail
 	} else {
 		item.Status = "HEALTHY"
-		item.UptimePercent = 99.9
 	}
 	return item
 }
@@ -200,11 +197,10 @@ func (s *AdminTechnicalService) checkVisualSearchHealth(_ context.Context) model
 	}
 	conn.Close()
 	return models.ServiceHealthItem{
-		ServiceName:   "VisualSearch",
-		Status:        "HEALTHY",
-		LatencyMS:     latencyMS,
-		LastCheck:     time.Now(),
-		UptimePercent: 99.9,
+		ServiceName: "VisualSearch",
+		Status:      "HEALTHY",
+		LatencyMS:   latencyMS,
+		LastCheck:   time.Now(),
 	}
 }
 
@@ -560,7 +556,12 @@ func (s *AdminTechnicalService) GetTechnicalOverview(ctx context.Context, role m
 
 	// Backup
 	kpis.BackupStatus = "NOT_CONFIGURED"
+
+	// Migrations
 	kpis.MigrationStatus = "UP_TO_DATE"
+	if migSummary, err := s.repo.GetMigrationSummary(ctx); err == nil && migSummary.PendingCount > 0 {
+		kpis.MigrationStatus = "PENDING"
+	}
 
 	// App versions
 	versions, _ := s.repo.GetAppVersions(ctx)

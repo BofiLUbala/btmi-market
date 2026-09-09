@@ -166,7 +166,7 @@ func main() {
 	adminCommerceService := service.NewAdminCommerceService(db, adminCommerceRepo, productRepo, inventoryRepo, stockMovementRepo, auditRepo)
 	adminFinanceRepo := repository.NewAdminFinanceRepository(db)
 	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService)
-	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB)
+	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB, migrationsDir)
 	adminTechnicalService := service.NewAdminTechnicalService(adminTechnicalRepo, db.DB, redisClient.GetRedis(), auditService)
 	adminPlatformService := service.NewAdminPlatformService(adminPlatformRepo, auditService)
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
@@ -630,9 +630,18 @@ func main() {
 					technicalGroup.PATCH("/versions/:platform", adminTechnicalHandler.UpdateAppVersion)
 				}
 
+				// Route membership is the coarse gate; the per-category read/write
+				// rules in models.HasPermission and the direction()/technical()
+				// checks in AdminPhase5Service are what actually authorize each
+				// operation, so the group admits every admin role and lets the
+				// service layer reject what a role may not do.
 				platformGroup := protectedAdmin.Group("/platform")
 				platformGroup.Use(middleware.RequireAdminRoles(
 					models.AdminRoleSuperAdmin,
+					models.AdminRoleDirectionAdmin,
+					models.AdminRoleCommerceAdmin,
+					models.AdminRoleFinanceSupportAdmin,
+					models.AdminRoleTechnicalAdmin,
 				))
 				{
 					platformGroup.GET("/feature-flags", adminPlatformHandler.ListFeatureFlags)
@@ -648,15 +657,23 @@ func main() {
 					platformGroup.PATCH("/announcements/:id", adminPhase5Handler.UpdateAnnouncement)
 				}
 
+				allAdminRoles := []models.AdminRole{
+					models.AdminRoleSuperAdmin,
+					models.AdminRoleDirectionAdmin,
+					models.AdminRoleCommerceAdmin,
+					models.AdminRoleFinanceSupportAdmin,
+					models.AdminRoleTechnicalAdmin,
+				}
+
 				analyticsGroup := protectedAdmin.Group("/analytics")
-				analyticsGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
+				analyticsGroup.Use(middleware.RequireAdminRoles(allAdminRoles...))
 				analyticsGroup.GET("/:dashboard", adminPhase5Handler.Analytics)
 				exportsGroup := protectedAdmin.Group("/exports")
-				exportsGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
+				exportsGroup.Use(middleware.RequireAdminRoles(allAdminRoles...))
 				exportsGroup.GET("", adminPhase5Handler.ListExports)
 				exportsGroup.POST("", adminPhase5Handler.CreateExport)
 				approvalsGroup := protectedAdmin.Group("/approvals")
-				approvalsGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
+				approvalsGroup.Use(middleware.RequireAdminRoles(allAdminRoles...))
 				approvalsGroup.GET("", adminPhase5Handler.ListApprovals)
 				approvalsGroup.POST("", adminPhase5Handler.CreateApproval)
 				approvalsGroup.POST("/:id/approve", adminPhase5Handler.Approve)

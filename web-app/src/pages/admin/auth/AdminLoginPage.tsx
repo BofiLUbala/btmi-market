@@ -60,9 +60,11 @@ export default function AdminLoginPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#090d16', color: '#f8fafc', padding: '24px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <div style={{ maxWidth: 420, width: '100%', backgroundColor: '#0f172a', borderRadius: 16, border: '1px solid #1e293b', padding: '36px', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(59, 130, 246, 0.35)' }}>
-            🏛️
-          </div>
+          <img
+            src="/tbk-admin-logo.png"
+            alt="TBK"
+            style={{ width: 56, height: 56, objectFit: 'contain', display: 'block', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(59, 130, 246, 0.35)', borderRadius: 13 }}
+          />
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '0.02em', margin: '0 0 6px' }}>{t('admin.login.title')}</h1>
           <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.login.subtitle')}</p>
         </div>
@@ -95,7 +97,7 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="bofibendedji@gmail.com"
+              placeholder="admin@tbk.cd"
               style={{
                 width: '100%',
                 padding: '11px 14px',

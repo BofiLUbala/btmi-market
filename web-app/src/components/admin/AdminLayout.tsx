@@ -29,9 +29,11 @@ export function AdminLayout() {
         <div style={{ maxWidth: 1440, margin: '0 auto', padding: '10px 16px', minHeight: 68, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           {/* Brand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
-              🏛️
-            </div>
+            <img
+              src="/tbk-admin-logo.png"
+              alt="TBK"
+              style={{ width: 38, height: 38, objectFit: 'contain', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)', borderRadius: 9 }}
+            />
             <div>
               <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '0.04em', background: 'linear-gradient(90deg, #ffffff 0%, #94a3b8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 TBK CONTROL CENTER

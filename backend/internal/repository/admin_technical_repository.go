@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -27,19 +29,25 @@ type AdminTechnicalRepository interface {
 }
 
 type adminTechnicalRepository struct {
-	db *sql.DB
+	db            *sql.DB
+	migrationsDir string
 }
 
-func NewAdminTechnicalRepository(db *sql.DB) AdminTechnicalRepository {
-	return &adminTechnicalRepository{db: db}
+func NewAdminTechnicalRepository(db *sql.DB, migrationsDir string) AdminTechnicalRepository {
+	return &adminTechnicalRepository{db: db, migrationsDir: migrationsDir}
 }
 
 func (r *adminTechnicalRepository) GetPostgresHealth(ctx context.Context) (*models.PostgresHealth, error) {
 	health := &models.PostgresHealth{
-		Reachable:        true,
-		MigrationVersion: "040_add_admin_technical_and_security",
+		Reachable: true,
+		// No backup system is wired up yet; report that rather than inventing a status.
 		LastBackupStatus: "NOT_CONFIGURED",
 	}
+
+	// Latest migration actually applied to this database.
+	_ = r.db.QueryRowContext(ctx,
+		`SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1`,
+	).Scan(&health.MigrationVersion)
 
 	// 1. Connection counts
 	connQuery := `
@@ -354,27 +362,64 @@ func (r *adminTechnicalRepository) GetRecentHealthEvents(ctx context.Context, li
 		if errorMsg.Valid {
 			item.ErrorMessageSummary = errorMsg.String
 		}
-		item.UptimePercent = 99.9
-		item.DependencyStatus = "OK"
+		// Share of this service's recorded checks that came back healthy.
+		_ = r.db.QueryRowContext(ctx, `
+			SELECT COALESCE(ROUND(100.0 * COUNT(*) FILTER (WHERE status = 'HEALTHY') / NULLIF(COUNT(*), 0), 2), 0)
+			FROM system_health_events
+			WHERE service_name = $1 AND checked_at >= NOW() - INTERVAL '7 days'
+		`, item.ServiceName).Scan(&item.UptimePercent)
 		items = append(items, item)
 	}
 	return items, nil
 }
 
 func (r *adminTechnicalRepository) GetMigrationSummary(ctx context.Context) (*models.MigrationSummary, error) {
-	// Query schema_migrations if exists or mock from database status
-	summary := &models.MigrationSummary{
-		CurrentVersion: "040_add_admin_technical_and_security",
-		AppliedCount:   40,
-		PendingCount:   0,
-		FailedCount:    0,
-		AppliedMigrations: []models.MigrationItem{
-			{Version: "038", Name: "create_admin_control_center", AppliedAt: time.Now().Add(-72 * time.Hour), Status: "APPLIED"},
-			{Version: "039", Name: "add_admin_cases_and_risk", AppliedAt: time.Now().Add(-24 * time.Hour), Status: "APPLIED"},
-			{Version: "040", Name: "add_admin_technical_and_security", AppliedAt: time.Now(), Status: "APPLIED"},
-		},
+	summary := &models.MigrationSummary{AppliedMigrations: []models.MigrationItem{}}
+
+	rows, err := r.db.QueryContext(ctx, `SELECT version, applied_at FROM schema_migrations ORDER BY version ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query schema_migrations: %w", err)
 	}
-	now := time.Now()
-	summary.LastAppliedAt = &now
+	defer rows.Close()
+
+	appliedFiles := make(map[string]bool)
+	for rows.Next() {
+		var version string
+		var appliedAt time.Time
+		if err := rows.Scan(&version, &appliedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan migration row: %w", err)
+		}
+		appliedFiles[version] = true
+		summary.AppliedMigrations = append(summary.AppliedMigrations, models.MigrationItem{
+			Version:   version,
+			Name:      version,
+			AppliedAt: appliedAt,
+			Status:    "APPLIED",
+		})
+		summary.AppliedCount++
+		if summary.LastAppliedAt == nil || appliedAt.After(*summary.LastAppliedAt) {
+			t := appliedAt
+			summary.LastAppliedAt = &t
+		}
+		summary.CurrentVersion = version
+	}
+
+	// Pending = migration files bundled with this binary that schema_migrations
+	// has no record of. RunMigrations() applies every pending file at process
+	// startup, so a non-zero count here means the last startup run failed partway.
+	if r.migrationsDir != "" {
+		entries, err := os.ReadDir(r.migrationsDir)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+					continue
+				}
+				if !appliedFiles[entry.Name()] {
+					summary.PendingCount++
+				}
+			}
+		}
+	}
+
 	return summary, nil
 }

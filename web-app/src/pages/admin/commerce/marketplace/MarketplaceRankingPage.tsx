@@ -63,7 +63,8 @@ export default function MarketplaceRankingPage() {
             {Object.entries(ranking.category_weights).map(([cat, weight]) => (
               <div key={cat} style={{ backgroundColor: '#1e293b', borderRadius: 8, padding: 12, textAlign: 'center' }}>
                 <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>{cat}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc' }}>{(weight * 100).toFixed(0)}%</div>
+                {/* search_boost is already a percentage figure (0.10 = +0.10%). */}
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc' }}>+{weight.toFixed(2)}%</div>
               </div>
             ))}
           </div>

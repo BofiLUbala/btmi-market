@@ -286,7 +286,18 @@ func (s *AdminFinanceService) AddCaseMessage(adminID uuid.UUID, role models.Admi
 	if err := s.checkFinanceMutation(role); err != nil {
 		return nil, err
 	}
-	return s.repo.AddCaseMessage(caseID, "ADMIN", &adminID, req.Visibility, req.Message)
+	msg, err := s.repo.AddCaseMessage(caseID, "ADMIN", &adminID, req.Visibility, req.Message)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = s.auditService.Record(
+		adminID, role, "ADD_CASE_MESSAGE", "CASE", caseID.String(), "case message added",
+		nil,
+		map[string]interface{}{"visibility": req.Visibility},
+		ip, userAgent,
+	)
+	return msg, nil
 }
 
 // Phase 3E - Risk & Fraud
