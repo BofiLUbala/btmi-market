@@ -44,18 +44,25 @@ export function PreferenceToggles() {
 
 /** Compact variant for a top bar: two icon-sized buttons, no text labels.
  *  Language and appearance belong where they are reachable from any screen,
- *  not only from inside the profile, so this is what the app bars render. */
-export function PreferenceToggleButtons() {
+ *  not only from inside the profile, so this is what the app bars render.
+ *
+ *  `round` matches the seller workspace header on web, where the pair renders
+ *  as 34px transparent circles rather than the filled squares the buyer app
+ *  bars use. */
+export function PreferenceToggleButtons({ round }: { round?: boolean } = {}) {
   const { lang, toggleLang, t } = useI18n()
   const { theme, toggleTheme, colors } = useTheme()
   const goingDark = theme === 'light'
+  const shape = round
+    ? { borderColor: colors.border, backgroundColor: 'transparent', width: 34, minWidth: 34, height: 34, borderRadius: 999 }
+    : { borderColor: colors.border, backgroundColor: colors.white }
 
   return (
     <View style={compact.row}>
       <Pressable
         onPress={toggleLang}
         hitSlop={8}
-        style={[compact.button, { borderColor: colors.border, backgroundColor: colors.white }]}
+        style={[compact.button, shape]}
         accessibilityRole="button"
         accessibilityLabel={lang === 'fr' ? t('prefs.switchToEnglish') : t('prefs.switchToFrench')}
       >
@@ -65,7 +72,7 @@ export function PreferenceToggleButtons() {
       <Pressable
         onPress={toggleTheme}
         hitSlop={8}
-        style={[compact.button, { borderColor: colors.border, backgroundColor: colors.white }]}
+        style={[compact.button, shape]}
         accessibilityRole="button"
         accessibilityLabel={goingDark ? t('prefs.switchToDark') : t('prefs.switchToLight')}
       >

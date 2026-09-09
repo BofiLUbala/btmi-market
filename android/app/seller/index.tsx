@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { router } from 'expo-router'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -9,7 +9,7 @@ import { Button, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
-import { canSell, canOnboardSeller, type Business, type Shop } from '../../src/types'
+import { canSell, canOnboardSeller } from '../../src/types'
 
 // Port of web-app/src/pages/seller/dashboard/SellerDashboardPage.tsx at its
 // narrow-screen layout: same context pills, same six stat cards (uppercase
@@ -36,12 +36,7 @@ export default function SellerHome() {
   const user = useAuth((s) => s.user)
   const sellerBusinesses = useAuth((s) => s.sellerBusinesses)
   const activeBusiness = useAuth((s) => s.activeBusiness)
-  const activeShop = useAuth((s) => s.activeShop)
   const setActiveBusiness = useAuth((s) => s.setActiveBusiness)
-  const setActiveShop = useAuth((s) => s.setActiveShop)
-  // Two separate dropdowns on web (business pill, shop pill), so the overlay
-  // opens on whichever pill was tapped rather than showing both lists at once.
-  const [switcher, setSwitcher] = useState<'business' | 'shop' | null>(null)
 
   const shops = useQuery({ queryKey: ['seller', 'shops', activeBusiness?.id], queryFn: () => sellerApi.shops(activeBusiness!.id), enabled: Boolean(activeBusiness) })
   const products = useQuery({ queryKey: ['seller', 'products', activeBusiness?.id], queryFn: () => sellerApi.products(activeBusiness!.id), enabled: Boolean(activeBusiness) })
@@ -102,24 +97,9 @@ export default function SellerHome() {
   const sellerPoints = growth.data?.points?.current_points ?? 0
   const trustStatus = growth.data?.trust?.trust_status || 'NORMAL'
   const recentOrders = (orders.data ?? []).slice(0, 5)
-  const currentShop = (shops.data ?? []).find((s) => s.id === activeShop) ?? shops.data?.[0]
   const loadingMetrics = shops.isLoading || products.isLoading || orders.isLoading
 
-  return <>
-  <ScrollView contentContainerStyle={styles.page}>
-    {/* ── Context pills: web renders the business and shop switchers as two
-        equal-width pills side by side on narrow screens ── */}
-    <View style={styles.contextRow}>
-      <Pressable accessibilityRole="button" style={styles.contextBtn} onPress={() => setSwitcher('business')}>
-        <Ionicons name="business-outline" size={16} color={colors.green} />
-        <Text numberOfLines={1} style={styles.contextLabel}>{activeBusiness.name}</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" style={styles.contextBtn} onPress={() => setSwitcher('shop')}>
-        <Ionicons name="storefront-outline" size={16} color={colors.green} />
-        <Text numberOfLines={1} style={styles.contextLabel}>{currentShop ? currentShop.name : t('seller.allShops')}</Text>
-      </Pressable>
-    </View>
-
+  return <ScrollView contentContainerStyle={styles.page}>
     <View>
       <Text style={styles.h1}>{t('seller.dashboard')}</Text>
       <Text style={styles.muted}>{t('seller.dashboard.overviewFor', { name: activeBusiness.name })}</Text>
@@ -207,32 +187,6 @@ export default function SellerHome() {
 
     <Button variant="outline" title={t('common.backToMarketplace')} onPress={() => router.replace('/(buyer)')} />
   </ScrollView>
-
-  {switcher && <Pressable style={styles.overlayBackdrop} onPress={() => setSwitcher(null)}>
-    <Pressable style={styles.overlayCard} onPress={(e) => e.stopPropagation()}>
-      {switcher === 'business' ? <>
-        <Text style={styles.overlayTitle}>{t('seller.currentBusiness')}</Text>
-        {sellerBusinesses.map((business: Business) => (
-          <Pressable key={business.id} accessibilityRole="button" style={styles.overlayRow} onPress={() => { setActiveBusiness(business); setSwitcher(null) }}>
-            <Text style={[styles.overlayRowText, business.id === activeBusiness.id && styles.overlayRowActive]}>{business.name}</Text>
-            {business.id === activeBusiness.id && <Ionicons name="checkmark" size={18} color={colors.green} />}
-          </Pressable>
-        ))}
-        <Pressable accessibilityRole="button" onPress={() => { setSwitcher(null); router.push('/seller/onboarding') }}><Text style={styles.overlayAdd}>{t('seller.addNewBusiness')}</Text></Pressable>
-        <Pressable accessibilityRole="button" onPress={() => { setSwitcher(null); router.push('/seller/business') }}><Text style={styles.overlayAdd}>{t('seller.manageBusiness')}</Text></Pressable>
-      </> : <>
-        <Text style={styles.overlayTitle}>{t('seller.selectActiveShop')}</Text>
-        {(shops.data as Shop[] ?? []).map((shop) => (
-          <Pressable key={shop.id} accessibilityRole="button" style={styles.overlayRow} onPress={() => { setActiveShop(shop.id); setSwitcher(null) }}>
-            <Text style={[styles.overlayRowText, shop.id === activeShop && styles.overlayRowActive]}>{shop.name}</Text>
-            {shop.id === activeShop && <Ionicons name="checkmark" size={18} color={colors.green} />}
-          </Pressable>
-        ))}
-      </>}
-      <Button variant="outline" title={t('common.cancel')} onPress={() => setSwitcher(null)} />
-    </Pressable>
-  </Pressable>}
-  </>
 }
 
 type S = ReturnType<typeof makeStyles>
@@ -302,24 +256,21 @@ function Step({ n, title, desc, styles }: { n: number; title: string; desc: stri
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  // web: .seller-content-area { padding: 14px 12px 28px }
-  page: { padding: 12, paddingTop: 14, paddingBottom: 28, gap: 14 },
+  // web: .seller-content-area { padding: 14px 12px 28px }, grid gap 16
+  page: { padding: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   flex1: { flex: 1 },
   title: { fontSize: 25, fontWeight: '900', color: colors.ink, textAlign: 'center' },
-  h1: { fontSize: 24, fontWeight: '800', color: colors.green, marginBottom: 2 },
+  h1: { fontSize: 24, fontWeight: '700', color: colors.green, marginBottom: 2, lineHeight: 30 },
   h3: { fontSize: 18, fontWeight: '800', color: colors.ink, marginBottom: 2 },
-  muted: { color: colors.muted },
+  muted: { color: colors.muted, fontSize: 16, lineHeight: 24 },
   small: { color: colors.muted, fontSize: 12 },
   headActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
 
   // web: .seller-header-left { grid, 2 equal columns, gap 8 } + .seller-context-btn
-  contextRow: { flexDirection: 'row', gap: 8 },
-  contextBtn: { flex: 1, minWidth: 0, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 9, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },
-  contextLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.ink },
 
   // web: .seller-stat-card
-  statCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 16 },
+  statCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 16, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
   statHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   statLabel: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6 },
   statIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -330,7 +281,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   statLink: { fontSize: 12, fontWeight: '700', color: colors.green },
 
   // web: .seller-section-card / .section-card-header
-  sectionCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 16, gap: 12 },
+  sectionCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 16, gap: 12, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
   headerLink: { fontSize: 12, fontWeight: '700', color: colors.green },
   emptyBlock: { alignItems: 'center', paddingVertical: spacing.lg, gap: 2 },
@@ -359,11 +310,4 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
   stepNumText: { color: colors.onGreen, fontWeight: '900' },
 
-  overlayBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  overlayCard: { backgroundColor: colors.white, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, gap: spacing.xs, maxHeight: '80%' },
-  overlayTitle: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6 },
-  overlayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  overlayRowText: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  overlayRowActive: { color: colors.green },
-  overlayAdd: { color: colors.gold, fontWeight: '800', paddingVertical: spacing.sm },
 })
