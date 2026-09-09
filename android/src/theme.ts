@@ -32,13 +32,17 @@ export const lightColors = {
   star: '#8A6207',
   starEmpty: '#D8D3C7',
 
-  cream: '#F7F4ED',
+  /* Neutrals are the web's light tokens verbatim (--color-bg / -surface /
+     -text / -text-muted / -border). The dark palette below already matched
+     them hex for hex; only these light values had drifted, which showed up as
+     the seller workspace reading subtly different from the same page on web. */
+  cream: '#F7F5F0',
   white: '#FFFFFF',
-  ink: '#13211D',
-  muted: '#626E69',
+  ink: '#1C1C1A',
+  muted: '#6B6A63',
   /* Lighter grey for inactive tab labels, where `muted` reads too strong. */
   mutedLight: '#68726C',
-  border: '#DDD9CF',
+  border: '#E3DED3',
   /* Border for form controls, where the outline is the only thing marking the
      control as interactive and so must clear WCAG's 3:1 for UI components.
      `border` stays lighter because a card outline is decorative -- grouping is
