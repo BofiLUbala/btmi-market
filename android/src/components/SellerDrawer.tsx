@@ -1,10 +1,8 @@
-import { useMemo } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { useAuth } from '../store/auth'
 import { useI18n, type TranslationKey } from '../store/i18n'
-import { useColors } from '../store/theme'
-import { radius, spacing, type Colors } from '../theme'
+import { radius, spacing } from '../theme'
 
 /** Mirrors web's SELLER_NAV in components/seller/SellerLayout.tsx: same items,
  *  same order, Profile and Seller policy pinned at the bottom. This is the
@@ -30,8 +28,6 @@ const PINNED: { key: TranslationKey; path: string }[] = [
 
 export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useI18n()
-  const colors = useColors()
-  const styles = useMemo(() => makeStyles(colors), [colors])
   const logout = useAuth((s) => s.logout)
 
   const go = (path: string) => { onClose(); router.push(path as any) }
@@ -57,15 +53,22 @@ export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: 
   </Pressable>
 }
 
-const makeStyles = (colors: Colors) => StyleSheet.create({
+// Mirrors web's `.seller-sidebar` / `.drawer`: both always use the black
+// brand "band" colour (`--color-band: #000000` / `#101014`), in either
+// light or dark site theme -- unlike this app's own `colors.green`, which
+// inverts to a light cream in dark mode. So this panel is hardcoded rather
+// than theme-driven, to stay black regardless of the app's own theme.
+const BAND = '#101014'
+const ON_BAND = '#FFFFFF'
+const styles = StyleSheet.create({
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row' },
-  panel: { width: '78%', maxWidth: 320, backgroundColor: colors.white, height: '100%' },
-  head: { backgroundColor: colors.green, padding: spacing.md, paddingTop: spacing.xl },
-  brand: { color: colors.white, fontWeight: '900', fontSize: 20 },
-  sub: { color: colors.white, opacity: 0.85, marginTop: 2 },
+  panel: { width: '78%', maxWidth: 320, backgroundColor: BAND, height: '100%' },
+  head: { padding: spacing.md, paddingTop: spacing.xl, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.12)' },
+  brand: { color: ON_BAND, fontWeight: '900', fontSize: 20 },
+  sub: { color: ON_BAND, opacity: 0.75, marginTop: 2 },
   list: { padding: spacing.sm },
   row: { paddingVertical: 14, paddingHorizontal: spacing.sm, borderRadius: radius.sm },
-  rowText: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  rowTextDanger: { fontSize: 16, fontWeight: '700', color: colors.danger },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
+  rowText: { fontSize: 16, fontWeight: '700', color: ON_BAND },
+  rowTextDanger: { fontSize: 16, fontWeight: '700', color: '#F87171' },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: spacing.xs },
 })
