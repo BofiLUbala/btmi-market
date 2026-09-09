@@ -69,28 +69,30 @@ type AdminActionRequest struct {
 }
 
 type AdminUserListResponse struct {
-	ID          uuid.UUID   `json:"id"`
-	FirstName   string      `json:"first_name"`
-	LastName    string      `json:"last_name"`
-	Email       string      `json:"email"`
-	Role        AdminRole   `json:"role"`
-	Status      AdminStatus `json:"status"`
-	LastLoginAt *time.Time  `json:"last_login_at"`
-	CreatedAt   time.Time   `json:"created_at"`
+	ID               uuid.UUID              `json:"id"`
+	FirstName        string                 `json:"first_name"`
+	LastName         string                 `json:"last_name"`
+	Email            string                 `json:"email"`
+	Role             AdminRole              `json:"role"`
+	Status           AdminStatus            `json:"status"`
+	InvitationStatus *AdminInvitationStatus `json:"invitation_status"`
+	InvitationExpiry *time.Time             `json:"invitation_expires_at"`
+	LastLoginAt      *time.Time             `json:"last_login_at"`
+	CreatedAt        time.Time              `json:"created_at"`
 }
 
 type AdminUser struct {
-	ID          uuid.UUID   `json:"id" db:"id"`
-	FirstName   string      `json:"first_name" db:"first_name"`
-	LastName    string      `json:"last_name" db:"last_name"`
-	Email       string      `json:"email" db:"email"`
-	PasswordHash string     `json:"-" db:"password_hash"`
-	Role        AdminRole   `json:"role" db:"role"`
-	Status      AdminStatus `json:"status" db:"status"`
-	MFAEnabled  bool        `json:"mfa_enabled" db:"mfa_enabled"`
-	LastLoginAt *time.Time  `json:"last_login_at" db:"last_login_at"`
-	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
+	ID           uuid.UUID   `json:"id" db:"id"`
+	FirstName    string      `json:"first_name" db:"first_name"`
+	LastName     string      `json:"last_name" db:"last_name"`
+	Email        string      `json:"email" db:"email"`
+	PasswordHash string      `json:"-" db:"password_hash"`
+	Role         AdminRole   `json:"role" db:"role"`
+	Status       AdminStatus `json:"status" db:"status"`
+	MFAEnabled   bool        `json:"mfa_enabled" db:"mfa_enabled"`
+	LastLoginAt  *time.Time  `json:"last_login_at" db:"last_login_at"`
+	CreatedAt    time.Time   `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at" db:"updated_at"`
 }
 
 type AdminRefreshToken struct {
@@ -105,9 +107,10 @@ type AdminRefreshToken struct {
 }
 
 type AdminClaims struct {
-	AdminID uuid.UUID `json:"sub"`
-	Email   string    `json:"email"`
-	Role    AdminRole `json:"role"`
+	AdminID        uuid.UUID `json:"sub"`
+	Email          string    `json:"email"`
+	Role           AdminRole `json:"role"`
+	SessionVersion int64     `json:"session_version"`
 	jwt.RegisteredClaims
 }
 

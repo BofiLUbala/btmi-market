@@ -29,10 +29,21 @@ interface FavoritesState {
 const KEY = 'btmi.favorites'
 const FavoritesContext = createContext<FavoritesState | null>(null)
 
+export function parsePersistedFavorites(raw: string | null): FavoritesItem[] {
+  if (!raw) return []
+  const parsed: unknown = JSON.parse(raw)
+  if (!Array.isArray(parsed)) return []
+  return parsed.filter((item): item is FavoritesItem => Boolean(
+    item &&
+    typeof item === 'object' &&
+    typeof (item as Partial<FavoritesItem>).productId === 'string'
+  ))
+}
+
 function load(): FavoritesItem[] {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? (JSON.parse(raw) as FavoritesItem[]) : []
+    return parsePersistedFavorites(raw)
   } catch {
     return []
   }

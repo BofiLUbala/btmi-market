@@ -23,7 +23,7 @@ export default function AdminUsersPage() {
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const [showInvite, setShowInvite] = useState(false)
-  const [inviteForm, setInviteForm] = useState({ first_name: '', last_name: '', email: '', role: INVITABLE_ROLES[0] })
+  const [inviteForm, setInviteForm] = useState({ full_name: '', email: '', role: INVITABLE_ROLES[0] })
   const [inviteSubmitting, setInviteSubmitting] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
 
@@ -56,10 +56,13 @@ export default function AdminUsersPage() {
     setInviteError(null)
     setInviteSubmitting(true)
     try {
-      await adminUsersApi.invite(inviteForm)
+      const nameParts = inviteForm.full_name.trim().split(/\s+/)
+      const firstName = nameParts.shift() || ''
+      const lastName = nameParts.join(' ') || firstName
+      await adminUsersApi.invite({ first_name: firstName, last_name: lastName, email: inviteForm.email, role: inviteForm.role })
       setBanner({ type: 'success', text: t('admin.users.invitationSent', { email: inviteForm.email }) })
       setShowInvite(false)
-      setInviteForm({ first_name: '', last_name: '', email: '', role: INVITABLE_ROLES[0] })
+      setInviteForm({ full_name: '', email: '', role: INVITABLE_ROLES[0] })
       void load()
     } catch (err: unknown) {
       setInviteError(err instanceof Error ? err.message : t('admin.users.failedToInvite'))
@@ -194,6 +197,7 @@ export default function AdminUsersPage() {
               <th style={{ padding: '12px 16px' }}>{t('admin.users.thProfessionalEmail')}</th>
               <th style={{ padding: '12px 16px' }}>{t('admin.users.thRole')}</th>
               <th style={{ padding: '12px 16px' }}>{t('common.status')}</th>
+              <th style={{ padding: '12px 16px' }}>{t('admin.users.thInvitationStatus')}</th>
               <th style={{ padding: '12px 16px' }}>{t('admin.users.thCreated')}</th>
               <th style={{ padding: '12px 16px' }}>{t('admin.users.thLastLogin')}</th>
               <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('admin.direction.thActions')}</th>
@@ -201,9 +205,9 @@ export default function AdminUsersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('admin.users.loadingAdminAccounts')}</td></tr>
+              <tr><td colSpan={8} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('admin.users.loadingAdminAccounts')}</td></tr>
             ) : admins.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('admin.users.noAdminAccountsFound')}</td></tr>
+              <tr><td colSpan={8} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('admin.users.noAdminAccountsFound')}</td></tr>
             ) : (
               admins.map((a) => {
                 const statusStyle = STATUS_COLORS[a.status] || STATUS_COLORS.DEACTIVATED
@@ -221,6 +225,7 @@ export default function AdminUsersPage() {
                         {a.status}
                       </span>
                     </td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.invitation_status || '—'}</td>
                     <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{new Date(a.created_at).toLocaleDateString()}</td>
                     <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.last_login_at ? new Date(a.last_login_at).toLocaleString() : '—'}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
@@ -277,14 +282,10 @@ export default function AdminUsersPage() {
             )}
 
             <form onSubmit={handleInvite}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+              <div style={{ marginBottom: 14 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>{t('admin.users.firstNameLabel')}</label>
-                  <input required value={inviteForm.first_name} onChange={(e) => setInviteForm({ ...inviteForm, first_name: e.target.value })} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>{t('admin.users.lastNameLabel')}</label>
-                  <input required value={inviteForm.last_name} onChange={(e) => setInviteForm({ ...inviteForm, last_name: e.target.value })} style={inputStyle} />
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>{t('admin.users.fullNameLabel')}</label>
+                  <input required value={inviteForm.full_name} onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })} style={inputStyle} />
                 </div>
               </div>
               <div style={{ marginBottom: 14 }}>

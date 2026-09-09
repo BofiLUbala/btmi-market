@@ -54,7 +54,7 @@ func (s *AdminManagementService) ListAdmins(roleFilter, statusFilter, search str
 	}
 	items := make([]*models.AdminUserListResponse, 0, len(admins))
 	for _, a := range admins {
-		items = append(items, &models.AdminUserListResponse{
+		item := &models.AdminUserListResponse{
 			ID:          a.ID,
 			FirstName:   a.FirstName,
 			LastName:    a.LastName,
@@ -63,7 +63,16 @@ func (s *AdminManagementService) ListAdmins(roleFilter, statusFilter, search str
 			Status:      a.Status,
 			LastLoginAt: a.LastLoginAt,
 			CreatedAt:   a.CreatedAt,
-		})
+		}
+		if invitation, invitationErr := s.invitationRepo.GetByAdminID(a.ID); invitationErr == nil {
+			status := invitation.Status
+			if status == models.AdminInvitationStatusPending && time.Now().After(invitation.ExpiresAt) {
+				status = models.AdminInvitationStatusExpired
+			}
+			item.InvitationStatus = &status
+			item.InvitationExpiry = &invitation.ExpiresAt
+		}
+		items = append(items, item)
 	}
 	return items, total, nil
 }
@@ -104,6 +113,12 @@ func (s *AdminManagementService) InviteAdmin(actorID uuid.UUID, actorRole models
 
 	invitationURL := s.emailService.BuildAdminInvitationURL(rawToken)
 	if err := s.emailService.SendAdminInvitationEmail(admin.Email, admin.FirstName, string(admin.Role), invitationURL); err != nil {
+		// Invitation creation is only successful if delivery succeeds. Roll back
+		// the still-PENDING account (its invitation cascades) so a retry with the
+		// same email is possible instead of returning EMAIL_ALREADY_EXISTS.
+		if rollbackErr := s.adminRepo.DeletePendingAdmin(admin.ID); rollbackErr != nil {
+			return nil, "", fmt.Errorf("failed to send invitation email: %v; rollback failed: %w", err, rollbackErr)
+		}
 		return nil, "", fmt.Errorf("failed to send invitation email: %w", err)
 	}
 
@@ -304,7 +319,7 @@ func (s *AdminManagementService) ForceLogoutAdmin(actorID uuid.UUID, actorRole m
 	if _, err := s.adminRepo.GetByID(targetID); err != nil {
 		return errors.New("ADMIN_NOT_FOUND")
 	}
-	if err := s.adminRepo.RevokeAllRefreshTokensForAdmin(targetID); err != nil {
+	if err := s.adminRepo.InvalidateAllSessions(targetID); err != nil {
 		return fmt.Errorf("failed to revoke admin sessions: %w", err)
 	}
 

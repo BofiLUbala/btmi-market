@@ -154,7 +154,7 @@ export function AdminLayout() {
               </NavLink>
             )}
 
-            {hasRole(['SUPER_ADMIN', 'DIRECTION_ADMIN', 'COMMERCE_ADMIN', 'FINANCE_SUPPORT_ADMIN', 'TECHNICAL_ADMIN']) && (
+            {hasRole(['SUPER_ADMIN']) && (
               <NavLink
                 to="/admin/platform/feature-flags"
                 style={({ isActive }) => ({
@@ -176,7 +176,7 @@ export function AdminLayout() {
               </NavLink>
             )}
 
-            {hasRole(['SUPER_ADMIN', 'DIRECTION_ADMIN', 'COMMERCE_ADMIN', 'FINANCE_SUPPORT_ADMIN', 'TECHNICAL_ADMIN']) && (
+            {hasRole(['SUPER_ADMIN']) && (
               <NavLink
                 to="/admin/platform/advanced"
                 style={({ isActive }) => ({

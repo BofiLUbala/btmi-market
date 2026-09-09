@@ -91,6 +91,11 @@ func (s *AdminAuthService) GetAdminByID(id uuid.UUID) (*models.AdminUser, error)
 	return s.adminRepo.GetByID(id)
 }
 
+func (s *AdminAuthService) IsSessionVersionCurrent(id uuid.UUID, tokenVersion int64) bool {
+	currentVersion, err := s.adminRepo.GetSessionVersion(id)
+	return err == nil && currentVersion == tokenVersion
+}
+
 func (s *AdminAuthService) ValidateAccessToken(tokenStr string) (*models.AdminClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &models.AdminClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -126,10 +131,19 @@ func (s *AdminAuthService) ValidateAccessToken(tokenStr string) (*models.AdminCl
 // GenerateAccessTokenOnly creates a signed Admin access token for the given admin user without DB operations.
 func (s *AdminAuthService) GenerateAccessTokenOnly(admin *models.AdminUser) (string, error) {
 	expiresIn := 3600 // 1 hour
+	var sessionVersion int64
+	if s.adminRepo != nil {
+		var err error
+		sessionVersion, err = s.adminRepo.GetSessionVersion(admin.ID)
+		if err != nil {
+			return "", err
+		}
+	}
 	claims := &models.AdminClaims{
-		AdminID: admin.ID,
-		Email:   admin.Email,
-		Role:    admin.Role,
+		AdminID:        admin.ID,
+		Email:          admin.Email,
+		Role:           admin.Role,
+		SessionVersion: sessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   admin.ID.String(),
 			Issuer:    "tbk-market-admin",
@@ -145,10 +159,15 @@ func (s *AdminAuthService) GenerateAccessTokenOnly(admin *models.AdminUser) (str
 
 func (s *AdminAuthService) generateTokenPair(admin *models.AdminUser, ipAddress, userAgent string) (*models.AdminLoginResponse, error) {
 	expiresIn := 3600 // 1 hour for admin sessions
+	sessionVersion, err := s.adminRepo.GetSessionVersion(admin.ID)
+	if err != nil {
+		return nil, err
+	}
 	claims := &models.AdminClaims{
-		AdminID: admin.ID,
-		Email:   admin.Email,
-		Role:    admin.Role,
+		AdminID:        admin.ID,
+		Email:          admin.Email,
+		Role:           admin.Role,
+		SessionVersion: sessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   admin.ID.String(),
 			Issuer:    "tbk-market-admin",

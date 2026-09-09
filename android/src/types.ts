@@ -42,7 +42,7 @@ export interface RegisterInput {
   longitude?: number | null
 }
 
-export interface Category { id: string; name: string; slug: string }
+export interface Category { id: string; name: string; slug: string; sort_order?: number; subcategories?: Category[] }
 export interface PublicImage { id?: string; url?: string; image_url?: string; is_primary?: boolean }
 export interface PublicVariant {
   id: string
@@ -128,7 +128,20 @@ export interface ProductReviewsResponse {
   reviews: ProductReview[]
   pagination: { page: number; limit: number; total: number; has_more?: boolean }
 }
-export interface Shop { id: string; name: string; city?: string; address?: string; product_count?: number }
+export interface Shop {
+  id: string; name: string; city?: string; address?: string; product_count?: number
+  business_id?: string; type?: string; phone?: string; status?: string
+  supports_shop_delivery?: boolean; shop_delivery_fee?: number
+  supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
+  delivery_city?: string; delivery_address?: string
+  created_at?: string; updated_at?: string
+}
+export interface UpdateShopRequest {
+  name?: string; type?: string; city?: string; address?: string; phone?: string; status?: string
+  supports_shop_delivery?: boolean; shop_delivery_fee?: number
+  supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
+  delivery_city?: string; delivery_address?: string
+}
 export interface BuyerProfile {
   id: string; first_name: string; last_name: string; email: string; phone: string
   backup_phone?: string; address?: string; city?: string; commune?: string
@@ -146,7 +159,18 @@ export interface UpdateBuyerProfileRequest {
   latitude?: number | null
   longitude?: number | null
 }
-export interface Business { id: string; name: string; status: string }
+export interface Business {
+  id: string; name: string; status: string
+  business_type?: string; category?: string; phone?: string; whatsapp?: string; email?: string
+  country?: string; city?: string; default_currency?: string
+  created_at?: string; updated_at?: string
+}
+export interface BusinessLifecycleSummary {
+  shops: number; products: number; employees: number; inventory_units: number
+  active_orders: number; historical_orders: number; unresolved_payments: number
+  shop_summaries: Array<{ id: string; name: string; status: string; product_count: number }>
+}
+export interface ArchiveBusinessResponse { action: 'archived'; summary: BusinessLifecycleSummary }
 export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; created_at: string; delivery_method?: string; notes?: string }
 export interface SellerOrder extends BuyerOrder {
   business_id: string
@@ -224,3 +248,108 @@ export interface ReviewEligibility { eligible: boolean; reason: string; existing
 export interface BuyerReview { id: string; order_id: string; product_id?: string; order_line_id?: string; rating: number; comment: string; verified_purchase: boolean; status: string; delivery_rating?: number; service_rating?: number; order_experience_rating?: number; created_at: string }
 export interface BuyerReviewsResponse { reviews: BuyerReview[]; pagination: { page: number; limit: number; total: number; has_more?: boolean } }
 export interface ShopReviewsResponse { shop_id: string; summary: ProductReviewSummary; reviews: ProductReview[]; pagination: { page: number; limit: number; total: number; has_more?: boolean } }
+
+/* ---------- Seller: Employees ---------- */
+export type EmployeeStatus = 'ACTIVE' | 'INACTIVE' | 'TERMINATED'
+export interface Employee {
+  id: string; business_id: string; linked_user_id?: string | null
+  first_name: string; middle_name?: string; last_name: string
+  phone: string; email: string; job_title: string; status: EmployeeStatus
+  created_at: string; updated_at: string
+}
+export interface CreateEmployeeRequest { first_name: string; middle_name?: string; last_name: string; phone?: string; email?: string; job_title: string }
+export interface UpdateEmployeeRequest { first_name?: string; middle_name?: string; last_name?: string; phone?: string; email?: string; job_title?: string; status?: string }
+export interface EmployeeShopAssignment { id: string; employee_id: string; shop_id: string; assigned_by: string; status: string; assigned_at: string; created_at: string; updated_at: string }
+export interface AssignEmployeeRequest { shop_id: string }
+export interface CreateEmployeeInvitationRequest { employee_id: string }
+export interface EmployeeInvitationResponse { id: string; employee_id: string; status: string; expires_at: string; invitation_url?: string; created_at: string }
+export interface AcceptEmployeeInvitationRequest { token: string; password: string; password_confirmation: string }
+
+/* ---------- Seller: Products & Variants ---------- */
+export type PublicationStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+export interface Product {
+  id: string; business_id: string; name: string; description?: string; sku?: string
+  unit_price?: number; cost_price?: number; unit?: string; status?: string
+  category_id?: string | null; subcategory_id?: string | null; category_name?: string
+  variant_count?: number; total_quantity?: number; reserved_quantity?: number; available_quantity?: number
+  publication_status: PublicationStatus
+  discount_active?: boolean; discount_type?: string; discount_value?: number
+  discount_start?: string | null; discount_end?: string | null
+  self_rating?: number | null
+  created_at: string; updated_at: string
+}
+export interface CreateProductRequest {
+  name: string; description?: string; sku?: string; unit_price?: number; cost_price?: number; unit?: string
+  publication_status?: PublicationStatus; category_id?: string; subcategory_id?: string
+  discount_active?: boolean; discount_type?: string; discount_value?: number
+  discount_start?: string | null; discount_end?: string | null
+  self_rating: number
+}
+export interface UpdateProductRequest {
+  name?: string; description?: string; sku?: string; unit_price?: number; cost_price?: number; unit?: string
+  status?: string; publication_status?: PublicationStatus; category_id?: string; subcategory_id?: string
+  discount_active?: boolean; discount_type?: string; discount_value?: number
+  discount_start?: string | null; discount_end?: string | null
+}
+export interface ProductVariant {
+  id: string; product_id: string; sku?: string; name?: string; attributes?: Record<string, string>
+  sale_price: number; purchase_price?: number; barcode?: string; unit?: string; status?: string
+  created_at: string; updated_at: string
+}
+export interface CreateVariantRequest { sku?: string; name?: string; attributes?: Record<string, string>; sale_price: number; purchase_price?: number; barcode?: string; unit?: string }
+export interface UpdateVariantRequest { sku?: string; name?: string; attributes?: Record<string, string>; sale_price?: number; purchase_price?: number; barcode?: string; unit?: string; status?: string }
+export interface ProductImageResponse { id: string; product_id: string; variant_id?: string; url: string; file_name?: string; sort_order?: number; is_primary: boolean; created_at: string }
+
+/* ---------- Seller: Inventory & Stock ---------- */
+// GET /shops/:id/inventory nests the row under `inventory` (unlike stock
+// movements, which are flat) -- shape confirmed against the live API.
+export interface InventoryItem {
+  inventory: {
+    id: string; business_id: string; shop_id: string; product_id: string; variant_id: string
+    quantity: number; reserved_quantity: number; available: number
+    created_at: string; updated_at: string
+  }
+  variant?: ProductVariant
+  product?: Product
+}
+export interface StockMovement {
+  id: string; business_id: string; shop_id: string; product_id: string; variant_id?: string | null
+  variant?: ProductVariant; product?: Product
+  movement_type: string; quantity: number; previous_quantity: number; new_quantity: number
+  notes?: string; created_at: string
+}
+export interface StockReceipt { id: string; shop_id: string; supplier: string; notes?: string; status: string; created_at: string; updated_at: string }
+export interface CreateStockReceiptRequest { supplier: string; notes?: string; lines: Array<{ variant_id: string; quantity: number; unit_cost: number }> }
+export interface AddStockRequest { variant_id: string; quantity: number; notes?: string }
+export interface RecordSaleRequest { variant_id: string; quantity: number; customer_id?: string; employee_id?: string; notes?: string }
+
+/* ---------- Seller: Customers ---------- */
+export interface Customer {
+  id: string; business_id: string; first_name: string; last_name: string; phone?: string | null; email?: string | null; status: string; created_at: string; updated_at: string
+  total_orders?: number; total_purchased?: number
+}
+export interface CreateCustomerRequest { first_name: string; last_name: string; phone?: string; email?: string }
+export interface UpdateCustomerRequest { first_name?: string; last_name?: string; phone?: string; email?: string; status?: string }
+
+/* ---------- Seller: Cash Management ---------- */
+export interface CashSession {
+  id: string; business_id: string; shop_id: string; employee_id?: string | null
+  shop_name?: string; employee_first_name?: string; employee_last_name?: string
+  opened_at: string; closed_at?: string | null; opening_amount: number; currency: string
+  cash_sales_total: number; expected_amount: number
+  declared_closing_amount?: number | null; difference?: number | null; reconciliation_result?: string | null
+  status: 'OPEN' | 'CLOSED' | 'RECONCILED'; created_at: string
+}
+export interface CashPayment { id: string; session_id: string; order_id: string; amount: number; payment_method: string; received_by?: string; created_at: string }
+export interface CashSummarySeller { employee_id: string; first_name: string; last_name: string; total_cash_sales: number; open_sessions: number; closed_sessions: number; total_shortage: number; total_overage: number }
+export interface CashSummaryShop { shop_id: string; shop_name: string; total_cash_sales: number; open_sessions: number; closed_sessions: number; total_shortage: number; total_overage: number; seller_breakdown: CashSummarySeller[] }
+export interface CashSummary { business_id: string; total_cash_sales: number; shop_breakdown: CashSummaryShop[]; seller_breakdown: CashSummarySeller[] }
+
+/* ---------- Seller: Growth ---------- */
+export interface PointAccount { id: string; owner_type: string; owner_id: string; current_points: number; lifetime_points: number; reserved_points: number; level_id?: string | null; status: string; updated_at: string }
+export interface PointTransaction { id: string; reference_type: string; reference_id: string; type: string; points_change: number; previous_points: number; new_points: number; created_at: string }
+export interface SellerLevelInfo { name: string; min_points: number; max_points: number; search_boost: number; recommendation_eligible: boolean; high_value_buyer_access: boolean; progress_to_next_level_percent: number; description: string }
+export interface SellerTrustInfo { trust_status: 'HIGH' | 'NORMAL' | 'LOW' | 'SUSPENDED'; verified_sales_count: number; order_completion_rate: number; cancellation_rate: number; purchase_confirmation_rate: number; stock_reliability_rate: number }
+export interface LevelBenefitInfo { benefit_type: string; benefit_value: number }
+export interface SellerGrowth { points: PointAccount; level: SellerLevelInfo; trust: SellerTrustInfo; benefits: LevelBenefitInfo[]; high_value_buyer_eligible: boolean }
+export interface SellerPointsHistory { account: PointAccount; transactions: PointTransaction[]; level_name: string; next_level?: SellerLevelInfo }

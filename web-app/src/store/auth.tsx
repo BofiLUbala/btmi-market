@@ -34,6 +34,10 @@ const AuthContext = createContext<AuthState | null>(null)
 const ACTIVE_BUSINESS_KEY = 'btmi.activeBusiness'
 const ACTIVE_SHOP_KEY = 'btmi.activeShop'
 
+export function isAdminRoute(pathname: string): boolean {
+  return pathname === '/admin' || pathname.startsWith('/admin/')
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [buyerProfile, setBuyerProfile] = useState<BuyerProfile | null>(null)
@@ -111,7 +115,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [resetState])
 
   useEffect(() => {
-    loadSession()
+    // Admin authentication uses a separate token pair and /admin/auth/me.
+    // Hydrating the consumer session here causes an unrelated /auth/me 401
+    // whenever an expired buyer/seller token is still present in storage.
+    if (isAdminRoute(window.location.pathname)) {
+      setLoading(false)
+      return
+    }
+    void loadSession()
   }, [loadSession])
 
   useEffect(() => onSessionInvalidated(resetState), [resetState])

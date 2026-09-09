@@ -181,6 +181,23 @@ func (r *AdminRepository) UpdateStatus(id uuid.UUID, status models.AdminStatus) 
 	return err
 }
 
+// DeletePendingAdmin rolls back an invitation whose email could not be sent.
+// The status predicate prevents this helper from deleting an activated account.
+func (r *AdminRepository) DeletePendingAdmin(id uuid.UUID) error {
+	result, err := r.db.Exec(`DELETE FROM admin_users WHERE id = $1 AND status = $2`, id, models.AdminStatusPending)
+	if err != nil {
+		return err
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if deleted != 1 {
+		return errors.New("pending admin rollback did not delete exactly one account")
+	}
+	return nil
+}
+
 // UpdateRole changes the role of an admin_users row.
 func (r *AdminRepository) UpdateRole(id uuid.UUID, role models.AdminRole) error {
 	query := `UPDATE admin_users SET role = $1, updated_at = NOW() WHERE id = $2`
@@ -257,6 +274,23 @@ func (r *AdminRepository) RevokeAllRefreshTokensForAdmin(adminID uuid.UUID) erro
 	query := `UPDATE admin_refresh_tokens SET revoked_at = $1 WHERE admin_id = $2 AND revoked_at IS NULL`
 	_, err := r.db.Exec(query, time.Now(), adminID)
 	return err
+}
+
+func (r *AdminRepository) GetSessionVersion(adminID uuid.UUID) (int64, error) {
+	var version int64
+	if err := r.db.QueryRow(`SELECT session_version FROM admin_users WHERE id = $1`, adminID).Scan(&version); err != nil {
+		return 0, fmt.Errorf("failed to get admin session version: %w", err)
+	}
+	return version, nil
+}
+
+// InvalidateAllSessions makes every access token issued with the previous
+// version unusable and revokes every refresh token for the administrator.
+func (r *AdminRepository) InvalidateAllSessions(adminID uuid.UUID) error {
+	if _, err := r.db.Exec(`UPDATE admin_users SET session_version = session_version + 1, updated_at = NOW() WHERE id = $1`, adminID); err != nil {
+		return fmt.Errorf("failed to invalidate admin access tokens: %w", err)
+	}
+	return r.RevokeAllRefreshTokensForAdmin(adminID)
 }
 
 // CountSuperAdmins returns the number of accounts with SUPER_ADMIN role.
@@ -352,4 +386,3 @@ func (r *AdminRepository) ValidateSuperAdminProtection(targetAdminID uuid.UUID, 
 	}
 	return nil
 }
-

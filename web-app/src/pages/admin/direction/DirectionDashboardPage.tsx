@@ -65,7 +65,7 @@ export default function DirectionDashboardPage() {
         limit: 30,
         offset: 0
       })
-      setUsers(res.users)
+      setUsers(Array.isArray(res.users) ? res.users : [])
       setTotalUsers(res.total)
     } catch (err) {
       console.error('Failed to list users:', err)
@@ -85,7 +85,7 @@ export default function DirectionDashboardPage() {
         limit: 40,
         offset: 0
       })
-      setAuditLogs(res.logs)
+      setAuditLogs(Array.isArray(res.logs) ? res.logs : [])
       setTotalLogs(res.total)
     } catch (err) {
       console.error('Failed to list audit logs:', err)

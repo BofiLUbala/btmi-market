@@ -43,6 +43,7 @@ function RootNavigator() {
         <Stack.Screen name="auth/forgot-password" options={{ title: t('auth.forgotPassword') }} />
         <Stack.Screen name="auth/reset-password" options={{ title: t('auth.newPassword') }} />
         <Stack.Screen name="auth/registration-recovery" options={{ title: t('auth.reinitialize.title') }} />
+        <Stack.Screen name="auth/employee-invite" options={{ title: t('seller.employeeInvite.title') }} />
         <Stack.Screen name="profile-edit" options={{ title: t('editProfile.title') }} />
         <Stack.Screen name="products/[id]" options={{ title: t('product.title') }} />
         <Stack.Screen name="categories/[slug]" options={{ title: t('categories.pageTitle') }} />

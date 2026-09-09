@@ -13,11 +13,11 @@ const POLL_INTERVAL = 30_000
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
 const isTerminal = (status?: string) => !!status && TERMINAL_STATUSES.includes(status)
 
-interface SellerAction { label: TranslationKey; status: string; destructive?: boolean }
+interface SellerAction { label: TranslationKey; status: string; kind?: 'accept' | 'reject' | 'prepare' | 'transition' | 'cancel'; destructive?: boolean }
 
 function nextActions(order: SellerOrder): SellerAction[] {
-  if (order.status === 'PENDING') return [{ label: 'seller.accept', status: 'ACCEPTED' }]
-  if (order.status === 'ACCEPTED') return [{ label: 'seller.startPreparation', status: 'PREPARING' }]
+  if (order.status === 'PENDING') return [{ label: 'seller.accept', status: 'ACCEPTED', kind: 'accept' }, { label: 'seller.reject', status: 'REJECTED', kind: 'reject', destructive: true }]
+  if (order.status === 'ACCEPTED') return [{ label: 'seller.startPreparation', status: 'PREPARING', kind: 'prepare' }]
   if (order.status === 'PREPARING') {
     return order.delivery_method === 'PICKUP'
       ? [{ label: 'seller.readyForPickup', status: 'READY_FOR_PICKUP' }]
@@ -58,7 +58,18 @@ export default function SellerOrders() {
   const invalidateOrders = () => { void queryClient.invalidateQueries({ queryKey: ['seller', 'orders'] }) }
 
   const transition = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => sellerApi.sellerTransition(id, status),
+    mutationFn: ({ id, action }: { id: string; action: SellerAction }) => {
+      if (action.kind === 'accept') return sellerApi.acceptOrder(id)
+      if (action.kind === 'reject') return sellerApi.rejectOrder(id)
+      if (action.kind === 'prepare') return sellerApi.prepareOrder(id)
+      return sellerApi.sellerTransition(id, action.status)
+    },
+    onSuccess: invalidateOrders,
+    onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')),
+  })
+
+  const cancel = useMutation({
+    mutationFn: (id: string) => sellerApi.cancelOrder(id),
     onSuccess: invalidateOrders,
     onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')),
   })
@@ -77,7 +88,12 @@ export default function SellerOrders() {
 
   const runAction = (order: SellerOrder, action: SellerAction) => {
     setActionError('')
-    transition.mutate({ id: order.id, status: action.status })
+    transition.mutate({ id: order.id, action })
+  }
+  const CANCELLABLE = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY']
+  const runCancel = (order: SellerOrder) => {
+    setActionError('')
+    cancel.mutate(order.id)
   }
 
   if (businesses.isLoading || shops.isLoading) return <Loading label={t('seller.loadingBusinesses')}/>
@@ -105,14 +121,17 @@ export default function SellerOrders() {
         order={order}
         expanded={expandedId === order.id}
         busy={transition.isPending && transition.variables?.id === order.id}
+        cancelBusy={cancel.isPending && cancel.variables === order.id}
+        canCancel={CANCELLABLE.includes(order.status)}
         onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
         onAction={(action) => runAction(order, action)}
+        onCancel={() => runCancel(order)}
       />)}
     </View>)}
   </ScrollView>
 }
 
-function OrderCard({ order, expanded, busy, onToggle, onAction }: { order: SellerOrder; expanded: boolean; busy: boolean; onToggle: () => void; onAction: (action: SellerAction) => void }) {
+function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onAction, onCancel }: { order: SellerOrder; expanded: boolean; busy: boolean; cancelBusy: boolean; canCancel: boolean; onToggle: () => void; onAction: (action: SellerAction) => void; onCancel: () => void }) {
   const { t, lang } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -135,9 +154,10 @@ function OrderCard({ order, expanded, busy, onToggle, onAction }: { order: Selle
     <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {(order.delivery_method || '—').replaceAll('_',' ').toLowerCase()}</Text><Text style={styles.total}>{order.final_total.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} FC</Text></View>
     <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
     {actions.length ? actions.map((action) => (
-      <Button key={action.status} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
+      <Button key={action.status} variant={action.destructive ? 'outline' : 'primary'} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
     )) : null}
     <Button variant="outline" title={expanded ? t('seller.hideDetails') : t('seller.viewDetails')} onPress={onToggle}/>
+    {canCancel && <Button variant="outline" title={t('seller.cancelOrder')} loading={cancelBusy} onPress={onCancel}/>}
     {expanded && <View style={styles.details}>
       {payment.isLoading ? <Text style={styles.muted}>{t('seller.loadingPayment')}</Text> : payment.data ? <>
         <Text style={styles.muted}>{t('orders.amountDue', { amount: `${payment.data.cash_due.toLocaleString()} ${payment.data.currency}` })}</Text>

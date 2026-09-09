@@ -59,6 +59,7 @@ export default function SellerOnboardingScreen() {
     onMutate: () => setError(''),
     onSuccess: async (business) => {
       await queryClient.invalidateQueries({ queryKey: ['seller', 'businesses'] })
+      await useAuth.getState().refresh()
       setBusinessId(business.id)
       setJustCreatedBusiness(true)
       setStep('shop')
@@ -81,6 +82,7 @@ export default function SellerOnboardingScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['seller', 'businesses'] })
       await queryClient.invalidateQueries({ queryKey: ['seller', 'shops'] })
+      await useAuth.getState().refresh()
       router.replace('/seller')
     },
     onError: (reason) => setError(reason instanceof ApiError ? reason.message : t('seller.createShopFailed')),

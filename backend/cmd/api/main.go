@@ -524,7 +524,6 @@ func main() {
 				commerceGroup.Use(middleware.RequireAdminRoles(
 					models.AdminRoleSuperAdmin,
 					models.AdminRoleCommerceAdmin,
-					models.AdminRoleDirectionAdmin,
 				))
 				{
 					commerceGroup.GET("/overview", adminCommerceHandler.Overview)
@@ -574,7 +573,6 @@ func main() {
 				financeGroup.Use(middleware.RequireAdminRoles(
 					models.AdminRoleSuperAdmin,
 					models.AdminRoleFinanceSupportAdmin,
-					models.AdminRoleDirectionAdmin,
 				))
 				{
 					financeGroup.GET("/summary", adminFinanceHandler.GetFinancialSummary)
@@ -611,7 +609,6 @@ func main() {
 				technicalGroup.Use(middleware.RequireAdminRoles(
 					models.AdminRoleSuperAdmin,
 					models.AdminRoleTechnicalAdmin,
-					models.AdminRoleDirectionAdmin,
 				))
 				{
 					technicalGroup.GET("/overview", adminTechnicalHandler.GetOverview)
@@ -636,10 +633,6 @@ func main() {
 				platformGroup := protectedAdmin.Group("/platform")
 				platformGroup.Use(middleware.RequireAdminRoles(
 					models.AdminRoleSuperAdmin,
-					models.AdminRoleDirectionAdmin,
-					models.AdminRoleCommerceAdmin,
-					models.AdminRoleFinanceSupportAdmin,
-					models.AdminRoleTechnicalAdmin,
 				))
 				{
 					platformGroup.GET("/feature-flags", adminPlatformHandler.ListFeatureFlags)
@@ -656,11 +649,14 @@ func main() {
 				}
 
 				analyticsGroup := protectedAdmin.Group("/analytics")
+				analyticsGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
 				analyticsGroup.GET("/:dashboard", adminPhase5Handler.Analytics)
 				exportsGroup := protectedAdmin.Group("/exports")
+				exportsGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
 				exportsGroup.GET("", adminPhase5Handler.ListExports)
 				exportsGroup.POST("", adminPhase5Handler.CreateExport)
 				approvalsGroup := protectedAdmin.Group("/approvals")
+				approvalsGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
 				approvalsGroup.GET("", adminPhase5Handler.ListApprovals)
 				approvalsGroup.POST("", adminPhase5Handler.CreateApproval)
 				approvalsGroup.POST("/:id/approve", adminPhase5Handler.Approve)

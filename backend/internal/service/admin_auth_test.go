@@ -107,22 +107,22 @@ func TestAdminRBACMiddleware(t *testing.T) {
 			expectedCode: http.StatusOK,
 		},
 		{
-			name:         "Commerce Admin accessing Commerce (Allowed)",
+			name:         "Commerce Admin accessing Commerce",
 			adminRole:    models.AdminRoleCommerceAdmin,
-			allowedRoles: []models.AdminRole{models.AdminRoleCommerceAdmin, models.AdminRoleDirectionAdmin},
+			allowedRoles: []models.AdminRole{models.AdminRoleCommerceAdmin},
 			expectedCode: http.StatusOK,
 		},
 		{
 			name:         "Finance Admin accessing Commerce (Forbidden)",
 			adminRole:    models.AdminRoleFinanceSupportAdmin,
-			allowedRoles: []models.AdminRole{models.AdminRoleCommerceAdmin, models.AdminRoleDirectionAdmin},
+			allowedRoles: []models.AdminRole{models.AdminRoleCommerceAdmin},
 			expectedCode: http.StatusForbidden,
 		},
 		{
-			name:         "Direction Admin accessing Commerce (Allowed Read)",
+			name:         "Direction Admin accessing Commerce (Forbidden)",
 			adminRole:    models.AdminRoleDirectionAdmin,
-			allowedRoles: []models.AdminRole{models.AdminRoleCommerceAdmin, models.AdminRoleDirectionAdmin},
-			expectedCode: http.StatusOK,
+			allowedRoles: []models.AdminRole{models.AdminRoleCommerceAdmin},
+			expectedCode: http.StatusForbidden,
 		},
 	}
 

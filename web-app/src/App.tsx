@@ -256,7 +256,7 @@ export default function App() {
                   <Route element={<RequireAdminRole allowedRoles={['TECHNICAL_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/technical" element={<TechnicalDashboardPage />} />
                   </Route>
-                  <Route element={<RequireAdminRole allowedRoles={['SUPER_ADMIN', 'DIRECTION_ADMIN', 'COMMERCE_ADMIN', 'FINANCE_SUPPORT_ADMIN', 'TECHNICAL_ADMIN']} />}>
+                  <Route element={<RequireAdminRole allowedRoles={['SUPER_ADMIN']} />}>
                     <Route path="/admin/platform/feature-flags" element={<FeatureFlagsPage />} />
                     <Route path="/admin/platform/config" element={<GlobalConfigPage />} />
                     <Route path="/admin/platform/advanced" element={<AdvancedManagementPage />} />

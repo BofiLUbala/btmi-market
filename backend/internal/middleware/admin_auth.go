@@ -57,9 +57,23 @@ func AdminAuthMiddleware(adminAuthService *service.AdminAuthService) gin.Handler
 			return
 		}
 
-		c.Set("admin_id", claims.AdminID)
-		c.Set("admin_email", claims.Email)
-		c.Set("admin_role", claims.Role)
+		// Resolve status and role from the database on every request. A signed
+		// token can outlive a suspension or role change; authorization must not.
+		admin, err := adminAuthService.GetAdminByID(claims.AdminID)
+		if err != nil || admin.Status != models.AdminStatusActive || !adminAuthService.IsSessionVersionCurrent(claims.AdminID, claims.SessionVersion) {
+			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+				Error: struct {
+					Code    string `json:"code"`
+					Message string `json:"message"`
+				}{Code: "UNAUTHORIZED", Message: "Administrator account is unavailable or inactive"},
+			})
+			c.Abort()
+			return
+		}
+
+		c.Set("admin_id", admin.ID)
+		c.Set("admin_email", admin.Email)
+		c.Set("admin_role", admin.Role)
 		c.Next()
 	}
 }

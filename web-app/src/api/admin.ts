@@ -622,6 +622,8 @@ export interface AdminUserManagementItem {
   email: string
   role: AdminRole
   status: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED' | 'PENDING'
+  invitation_status?: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED' | null
+  invitation_expires_at?: string | null
   last_login_at?: string
   created_at: string
 }
