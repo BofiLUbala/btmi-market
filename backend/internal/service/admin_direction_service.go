@@ -320,3 +320,107 @@ func (s *AdminDirectionService) ForceLogoutUser(adminID uuid.UUID, adminRole mod
 
 	return nil
 }
+
+// DeleteUser permanently removes a user and everything that belongs to them:
+// buyer profile, orders, payments, reviews, points, and any business they own
+// (which cascades to its shops, products and inventory).
+//
+// This destroys financial and order history and cannot be undone. The audit
+// record is written before the deletion so the action survives its own target.
+func (s *AdminDirectionService) DeleteUser(adminID uuid.UUID, adminRole models.AdminRole, userID uuid.UUID, reason, ip, userAgent string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return errors.New("USER_NOT_FOUND")
+	}
+
+	// Record the audit entry first: once the rows are gone there is nothing
+	// left to describe, and admin_audit_log holds target_id as plain text so
+	// the entry outlives the user row.
+	_ = s.auditService.Record(
+		adminID,
+		adminRole,
+		"USER_DELETED",
+		"USER",
+		userID.String(),
+		reason,
+		map[string]interface{}{
+			"email":        user.Email,
+			"account_type": user.AccountType,
+			"status":       user.Status,
+		},
+		nil,
+		ip,
+		userAgent,
+	)
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start deletion: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Businesses the user owns, and their shops. Everything below is scoped to
+	// these sets plus the user's own buyer profiles.
+	const profiles = `SELECT id FROM buyer_profiles WHERE user_id = $1`
+	const biz = `SELECT business_id FROM business_memberships WHERE user_id = $1 AND role = 'OWNER'`
+	const shopsOfBiz = `SELECT id FROM shops WHERE business_id IN (` + biz + `)`
+	const ownOrders = `SELECT id FROM orders WHERE buyer_profile_id IN (` + profiles + `) OR business_id IN (` + biz + `)`
+
+	// Ordered so that every child is removed before its parent. Tables not
+	// listed here are covered by ON DELETE CASCADE from users or businesses.
+	steps := []string{
+		// Points ledger (point_transactions -> point_accounts is NO ACTION).
+		`DELETE FROM point_transactions WHERE point_account_id IN (
+			SELECT id FROM point_accounts
+			WHERE (owner_type = 'BUYER' AND owner_id IN (` + profiles + `))
+			   OR (owner_type = 'SELLER_BUSINESS' AND owner_id IN (` + biz + `)))`,
+		`DELETE FROM point_accounts
+			WHERE (owner_type = 'BUYER' AND owner_id IN (` + profiles + `))
+			   OR (owner_type = 'SELLER_BUSINESS' AND owner_id IN (` + biz + `))`,
+
+		// Reviews and their aggregates.
+		`DELETE FROM shop_review_aggregates WHERE shop_id IN (` + shopsOfBiz + `)`,
+		`DELETE FROM seller_reviews WHERE buyer_profile_id IN (` + profiles + `)
+			OR business_id IN (` + biz + `) OR shop_id IN (` + shopsOfBiz + `)
+			OR order_id IN (` + ownOrders + `)`,
+
+		// Money trail attached to the orders/shops being removed.
+		`DELETE FROM verified_transactions WHERE buyer_profile_id IN (` + profiles + `)
+			OR business_id IN (` + biz + `) OR shop_id IN (` + shopsOfBiz + `)
+			OR order_id IN (` + ownOrders + `)`,
+		`DELETE FROM purchase_confirmations WHERE buyer_profile_id IN (` + profiles + `)
+			OR order_id IN (` + ownOrders + `)`,
+		`DELETE FROM buyer_payments WHERE buyer_profile_id IN (` + profiles + `)
+			OR business_id IN (` + biz + `) OR shop_id IN (` + shopsOfBiz + `)
+			OR order_id IN (` + ownOrders + `)`,
+		`DELETE FROM cash_payments WHERE business_id IN (` + biz + `) OR shop_id IN (` + shopsOfBiz + `)`,
+		`DELETE FROM cash_sessions WHERE business_id IN (` + biz + `) OR shop_id IN (` + shopsOfBiz + `)`,
+
+		// Order history rows this user authored on orders that survive.
+		`DELETE FROM order_status_history WHERE changed_by = $1`,
+		`DELETE FROM review_history WHERE changed_by = $1`,
+
+		// Orders themselves cascade to order_lines and order_status_history.
+		`DELETE FROM orders WHERE id IN (` + ownOrders + `)`,
+
+		`DELETE FROM buyer_profiles WHERE user_id = $1`,
+		`DELETE FROM seller_trust WHERE business_id IN (` + biz + `)`,
+
+		// Cascades to shops, products, inventory, stock_movements, employees.
+		`DELETE FROM businesses WHERE id IN (` + biz + `)`,
+
+		// RESTRICT on users, so it must go before the user row.
+		`DELETE FROM auth_security_events WHERE user_id = $1`,
+
+		// Cascades to refresh tokens, memberships and activation tokens.
+		`DELETE FROM users WHERE id = $1`,
+	}
+
+	for i, stmt := range steps {
+		if _, err := tx.Exec(stmt, userID); err != nil {
+			return fmt.Errorf("deletion step %d failed: %w", i+1, err)
+		}
+	}
+
+	return tx.Commit()
+}

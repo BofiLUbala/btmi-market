@@ -724,6 +724,13 @@ export const adminDirectionApi = {
       body: JSON.stringify({ reason })
     })
   },
+  // Permanently erases the user and everything they own. SUPER_ADMIN only.
+  deleteUser: async (id: string, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/direction/users/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ reason })
+    })
+  },
   listAuditLogs: async (params?: { action?: string; role?: string; target_type?: string; target_id?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
     if (params?.action) q.set('action', params.action)

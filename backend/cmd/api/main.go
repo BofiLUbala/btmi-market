@@ -517,6 +517,11 @@ func main() {
 					directionGroup.POST("/users/:id/suspend", adminDirectionHandler.SuspendUser)
 					directionGroup.POST("/users/:id/reactivate", adminDirectionHandler.ReactivateUser)
 					directionGroup.POST("/users/:id/force-logout", adminDirectionHandler.ForceLogoutUser)
+					// Permanent erasure destroys order and payment history, so it is
+					// held to SUPER_ADMIN even though the rest of the group is not.
+					directionGroup.DELETE("/users/:id",
+						middleware.RequireAdminRoles(models.AdminRoleSuperAdmin),
+						adminDirectionHandler.DeleteUser)
 					directionGroup.GET("/audit-log", adminDirectionHandler.ListAuditLogs)
 				}
 

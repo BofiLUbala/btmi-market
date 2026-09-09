@@ -6,9 +6,12 @@ import {
   type AdminAuditLog
 } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { useAdminAuth } from '@/store/adminAuth'
 
 export default function DirectionDashboardPage() {
   const t = useT()
+  const { role } = useAdminAuth()
+  const isSuperAdmin = role === 'SUPER_ADMIN'
   const [activeTab, setActiveTab] = useState<'kpis' | 'users' | 'audit'>('kpis')
   const [stats, setStats] = useState<DirectionOverviewStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
@@ -25,7 +28,8 @@ export default function DirectionDashboardPage() {
 
   // User Action Modal State
   const [actionTargetUser, setActionTargetUser] = useState<AdminUserListItem | null>(null)
-  const [actionType, setActionType] = useState<'suspend' | 'reactivate' | 'force_logout' | null>(null)
+  const [actionType, setActionType] = useState<'suspend' | 'reactivate' | 'force_logout' | 'delete' | null>(null)
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [actionReason, setActionReason] = useState('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -113,26 +117,36 @@ export default function DirectionDashboardPage() {
       setActionMessage({ type: 'error', text: t('admin.direction.reasonRequired') })
       return
     }
+    if (actionType === 'delete' && deleteConfirmEmail.trim().toLowerCase() !== actionTargetUser.email.toLowerCase()) {
+      setActionMessage({ type: 'error', text: t('admin.direction.deleteEmailMismatch') })
+      return
+    }
 
     setActionSubmitting(true)
     setActionMessage(null)
     try {
+      // Force-logout leaves the row visually unchanged, so surface what the
+      // server actually did instead of a generic acknowledgement.
+      let res: { message: string } | undefined
       if (actionType === 'suspend') {
-        await adminDirectionApi.suspendUser(actionTargetUser.id, actionReason)
+        res = await adminDirectionApi.suspendUser(actionTargetUser.id, actionReason)
       } else if (actionType === 'reactivate') {
-        await adminDirectionApi.reactivateUser(actionTargetUser.id, actionReason)
+        res = await adminDirectionApi.reactivateUser(actionTargetUser.id, actionReason)
       } else if (actionType === 'force_logout') {
-        await adminDirectionApi.forceLogoutUser(actionTargetUser.id, actionReason)
+        res = await adminDirectionApi.forceLogoutUser(actionTargetUser.id, actionReason)
+      } else if (actionType === 'delete') {
+        res = await adminDirectionApi.deleteUser(actionTargetUser.id, actionReason)
       }
-      setActionMessage({ type: 'success', text: t('admin.direction.actionExecutedSuccess') })
+      setActionMessage({ type: 'success', text: res?.message || t('admin.direction.actionExecutedSuccess') })
       setTimeout(() => {
         setActionTargetUser(null)
         setActionType(null)
         setActionReason('')
+        setDeleteConfirmEmail('')
         setActionMessage(null)
         void loadUsers()
         void loadOverviewStats()
-      }, 1200)
+      }, 2200)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('admin.direction.actionFailed')
       setActionMessage({ type: 'error', text: msg })
@@ -576,6 +590,29 @@ export default function DirectionDashboardPage() {
                           >
                             {t('admin.direction.logout')}
                           </button>
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() => {
+                                setActionTargetUser(u)
+                                setActionType('delete')
+                                setActionReason('')
+                                setDeleteConfirmEmail('')
+                              }}
+                              style={{
+                                backgroundColor: '#450a0a',
+                                color: '#fca5a5',
+                                border: '1px solid #991b1b',
+                                borderRadius: 6,
+                                padding: '5px 10px',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                              }}
+                              title={t('admin.direction.deleteTooltip')}
+                            >
+                              {t('admin.direction.delete')}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -746,7 +783,7 @@ export default function DirectionDashboardPage() {
             padding: 28,
             boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)'
           }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px', color: actionType === 'suspend' ? '#ef4444' : '#60a5fa' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px', color: actionType === 'suspend' || actionType === 'delete' ? '#ef4444' : '#60a5fa' }}>
               {t('admin.direction.confirmActionTitle', { action: actionType.toUpperCase().replace('_', ' ') })}
             </h3>
             <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', lineHeight: 1.5 }}>
@@ -764,6 +801,34 @@ export default function DirectionDashboardPage() {
                 color: actionMessage.type === 'error' ? '#fca5a5' : '#a7f3d0'
               }}>
                 {actionMessage.text}
+              </div>
+            )}
+
+            {actionType === 'delete' && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ backgroundColor: '#450a0a', border: '1px solid #991b1b', borderRadius: 8, padding: '12px 14px', marginBottom: 14, fontSize: 12, color: '#fca5a5', lineHeight: 1.6 }}>
+                  {t('admin.direction.deleteWarning')}
+                  <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                    <li>{t('admin.direction.deleteWarningOrders')}</li>
+                    <li>{t('admin.direction.deleteWarningBusiness', { biz: actionTargetUser.business_count, shops: actionTargetUser.shop_count })}</li>
+                    <li>{t('admin.direction.deleteWarningIrreversible')}</li>
+                  </ul>
+                </div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>
+                  {t('admin.direction.deleteConfirmLabel', { email: actionTargetUser.email })}
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmEmail}
+                  onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                  placeholder={actionTargetUser.email}
+                  autoComplete="off"
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8,
+                    backgroundColor: '#1e293b', border: '1px solid #991b1b',
+                    color: '#ffffff', fontSize: 13, boxSizing: 'border-box'
+                  }}
+                />
               </div>
             )}
 
@@ -796,6 +861,7 @@ export default function DirectionDashboardPage() {
                   setActionTargetUser(null)
                   setActionType(null)
                   setActionReason('')
+                  setDeleteConfirmEmail('')
                   setActionMessage(null)
                 }}
                 disabled={actionSubmitting}
@@ -816,7 +882,7 @@ export default function DirectionDashboardPage() {
                 onClick={handleExecuteUserAction}
                 disabled={actionSubmitting}
                 style={{
-                  backgroundColor: actionType === 'suspend' ? '#dc2626' : '#2563eb',
+                  backgroundColor: actionType === 'suspend' || actionType === 'delete' ? '#dc2626' : '#2563eb',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: 8,
