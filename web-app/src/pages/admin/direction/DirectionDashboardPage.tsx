@@ -783,12 +783,12 @@ export default function DirectionDashboardPage() {
             padding: 28,
             boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)'
           }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px', color: actionType === 'suspend' || actionType === 'delete' ? '#ef4444' : '#60a5fa' }}>
-              {t('admin.direction.confirmActionTitle', { action: actionType.toUpperCase().replace('_', ' ') })}
+            <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 6px', color: '#f8fafc' }}>
+              {t(`admin.direction.confirmTitle.${actionType}`)}
             </h3>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', lineHeight: 1.5 }}>
-              {t('admin.direction.targetUserLabel')} <strong>{actionTargetUser.first_name} {actionTargetUser.last_name}</strong> ({actionTargetUser.email}).
-              {' '}{t('admin.direction.mutatesLiveStateNotice')}
+            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 18px', lineHeight: 1.5 }}>
+              <strong style={{ color: '#e2e8f0' }}>{actionTargetUser.first_name} {actionTargetUser.last_name}</strong>
+              {' · '}{actionTargetUser.email}
             </p>
 
             {actionMessage && (
@@ -805,42 +805,65 @@ export default function DirectionDashboardPage() {
             )}
 
             {actionType === 'delete' && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ backgroundColor: '#450a0a', border: '1px solid #991b1b', borderRadius: 8, padding: '12px 14px', marginBottom: 14, fontSize: 12, color: '#fca5a5', lineHeight: 1.6 }}>
-                  {t('admin.direction.deleteWarning')}
-                  <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
-                    <li>{t('admin.direction.deleteWarningOrders')}</li>
-                    <li>{t('admin.direction.deleteWarningBusiness', { biz: actionTargetUser.business_count, shops: actionTargetUser.shop_count })}</li>
-                    <li>{t('admin.direction.deleteWarningIrreversible')}</li>
-                  </ul>
+              <div style={{ marginBottom: 18 }}>
+                {/* One line of consequence, with the scope shown as counts. */}
+                <div style={{
+                  borderLeft: '3px solid #ef4444',
+                  paddingLeft: 12,
+                  marginBottom: 16,
+                  fontSize: 12.5,
+                  color: '#cbd5e1',
+                  lineHeight: 1.6
+                }}>
+                  {t('admin.direction.deleteWarning', {
+                    orders: actionTargetUser.order_count,
+                    biz: actionTargetUser.business_count,
+                    shops: actionTargetUser.shop_count
+                  })}
                 </div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>
-                  {t('admin.direction.deleteConfirmLabel', { email: actionTargetUser.email })}
+
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>
+                  {t('admin.direction.deleteConfirmLabel')}
                 </label>
+                <div style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 12.5,
+                  color: '#f8fafc',
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  marginBottom: 8,
+                  overflowX: 'auto',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {actionTargetUser.email}
+                </div>
                 <input
                   type="text"
                   value={deleteConfirmEmail}
                   onChange={(e) => setDeleteConfirmEmail(e.target.value)}
-                  placeholder={actionTargetUser.email}
                   autoComplete="off"
                   style={{
                     width: '100%', padding: '10px 12px', borderRadius: 8,
-                    backgroundColor: '#1e293b', border: '1px solid #991b1b',
-                    color: '#ffffff', fontSize: 13, boxSizing: 'border-box'
+                    backgroundColor: '#1e293b',
+                    border: `1px solid ${deleteConfirmEmail && deleteConfirmEmail.trim().toLowerCase() === actionTargetUser.email.toLowerCase() ? '#10b981' : '#334155'}`,
+                    color: '#ffffff', fontSize: 13, boxSizing: 'border-box',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace'
                   }}
                 />
               </div>
             )}
 
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>
                 {t('admin.direction.mandatoryJustificationLabel')}
               </label>
               <textarea
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}
                 placeholder={t('admin.direction.justificationPlaceholder')}
-                rows={4}
+                rows={3}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -893,7 +916,7 @@ export default function DirectionDashboardPage() {
                   opacity: actionSubmitting ? 0.7 : 1
                 }}
               >
-                {actionSubmitting ? t('admin.direction.executing') : t('admin.direction.confirmAndCommitAudit')}
+                {actionSubmitting ? t('admin.direction.executing') : t(`admin.direction.confirmBtn.${actionType}`)}
               </button>
             </div>
           </div>
