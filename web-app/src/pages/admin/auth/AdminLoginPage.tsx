@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
+import { defaultRouteForRole } from '@/components/admin/AdminLayout'
 
 export default function AdminLoginPage() {
   const { login } = useAdminAuth()
@@ -26,21 +27,7 @@ export default function AdminLoginPage() {
       if (from && from !== '/admin/login') {
         navigate(from, { replace: true })
       } else {
-        // Direct to appropriate dashboard
-        switch (admin.role) {
-          case 'COMMERCE_ADMIN':
-            navigate('/admin/commerce', { replace: true })
-            break
-          case 'FINANCE_SUPPORT_ADMIN':
-            navigate('/admin/finance', { replace: true })
-            break
-          case 'TECHNICAL_ADMIN':
-            navigate('/admin/technical', { replace: true })
-            break
-          default:
-            navigate('/admin/direction', { replace: true })
-            break
-        }
+        navigate(defaultRouteForRole(admin.role), { replace: true })
       }
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : ''

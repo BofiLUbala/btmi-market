@@ -10,6 +10,7 @@ import { PublicOnly, RequireAuth, RequireBuyer, RequireSeller, RequireEmployee, 
 import { Button } from '@/components/ui/Button'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { RequireAdminAuth, RequireAdminRole, AdminPublicOnly } from '@/components/admin/AdminGuards'
+import { AdminHomeRedirect } from '@/components/admin/AdminHomeRedirect'
 import AdminLoginPage from '@/pages/admin/auth/AdminLoginPage'
 import AdminActivatePage from '@/pages/admin/auth/AdminActivatePage'
 import DirectionDashboardPage from '@/pages/admin/direction/DirectionDashboardPage'
@@ -223,7 +224,7 @@ export default function App() {
 
               <Route element={<RequireAdminAuth />}>
                 <Route element={<AdminLayout />}>
-                  <Route path="/admin" element={<Navigate to="/admin/direction" replace />} />
+                  <Route path="/admin" element={<AdminHomeRedirect />} />
                   <Route element={<RequireAdminRole allowedRoles={['DIRECTION_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/direction" element={<DirectionDashboardPage />} />
                   </Route>

@@ -40,7 +40,7 @@ export function RequireAdminRole({ allowedRoles }: { allowedRoles: AdminRole[] }
         <div style={{ fontSize: 48, marginBottom: 16 }}>🛡️</div>
         <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: '#dc2626' }}>{t('admin.guards.accessDenied')}</h2>
         <p style={{ color: 'var(--color-muted, #64748b)', fontSize: 15, marginBottom: 24, lineHeight: 1.6 }}>
-          {t('admin.guards.accessDeniedPrefix')} <strong>{role || t('admin.guards.unknownRole')}</strong> {t('admin.guards.accessDeniedSuffix')}
+          {t('admin.guards.accessDeniedPrefix')} <strong>{role ? t(`admin.layout.role.${role}`) : t('admin.guards.unknownRole')}</strong> {t('admin.guards.accessDeniedSuffix')}
         </p>
         <a
           href="/admin"
