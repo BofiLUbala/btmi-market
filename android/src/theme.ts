@@ -53,6 +53,18 @@ export const lightColors = {
   dangerSoft: '#FEECEB',
   success: '#167647',
 
+  /* Soft/strong feedback pairs mirroring the web's --color-*-soft tokens, used
+     by the seller stat-card icon badges and order status pills so both apps
+     tint the same metric the same way. */
+  successSoft: '#E7F7EE',
+  info: '#2F6F9F',
+  infoSoft: '#E0F2FE',
+  warning: '#B7791F',
+  warningSoft: '#FFF7DF',
+  purple: '#7C3AED',
+  magenta: '#A21CAF',
+  surface2: '#F0EDE6',
+
   /* Foreground for text/icons sitting ON a filled brand colour. Flips with the
      theme: in dark mode `green` becomes light, so white text on it would be
      unreadable. Never hardcode '#fff' on a themed fill — use this. */
@@ -93,6 +105,15 @@ export const darkColors: Colors = {
   danger: '#F87171',
   dangerSoft: '#33191A',
   success: '#4ADE80',
+
+  successSoft: '#14301F',
+  info: '#60A5FA',
+  infoSoft: '#16283D',
+  warning: '#FBBF24',
+  warningSoft: '#332612',
+  purple: '#A78BFA',
+  magenta: '#E879F9',
+  surface2: '#26262C',
 
   onGreen: '#16161A',
   onGold: '#16161A',

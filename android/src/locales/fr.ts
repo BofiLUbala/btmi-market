@@ -473,6 +473,7 @@ export const fr = {
   'orders.cashReceived': '✓ Espèces reçues',
   'orders.waitingSeller': 'En attente du vendeur',
   'orders.status': 'Statut',
+  'orders.refresh': 'Actualiser',
   'orders.paid': 'J’ai payé',
   'orders.paymentNote': 'Votre déclaration est enregistrée. Le vendeur doit confirmer la réception des espèces.',
   'orders.prepareCashPayment': 'Préparer le paiement en espèces',
@@ -649,6 +650,7 @@ export const fr = {
   'seller.reject': 'Refuser',
   'seller.selectActiveShop': 'Sélectionner la boutique active',
   'seller.addNewBusiness': '+ Ajouter une entreprise',
+  'seller.manageBusiness': 'Gérer cette entreprise →',
 
   /* ── Vendeur : Entreprise ────────────────────────────────── */
   'seller.business': 'Entreprise',

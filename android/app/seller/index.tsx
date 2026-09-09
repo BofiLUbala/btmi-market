@@ -1,22 +1,33 @@
 import { useMemo, useState } from 'react'
 import { router } from 'expo-router'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
 import { useAuth } from '../../src/store/auth'
-import { Button, Card, Loading, SectionTitle } from '../../src/components/ui'
+import { Button, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import { canSell, canOnboardSeller, type Business, type Shop } from '../../src/types'
 
-// This screen mirrors web-app/src/pages/seller/dashboard/SellerDashboardPage.tsx
-// section-for-section (same 6 stat cards, Recent Orders, the same 6 Quick
-// Actions, the same 5-item Setup Checklist) -- it is not an invented mobile
-// layout. The web sidebar's full section list (Business/Shops/Employees/...)
-// lives in SellerDrawer.tsx instead, since a phone can't keep a sidebar
-// permanently on-screen; the business/shop switcher below stands in for the
-// same switcher in web's top header.
+// Port of web-app/src/pages/seller/dashboard/SellerDashboardPage.tsx at its
+// narrow-screen layout: same context pills, same six stat cards (uppercase
+// label + tinted icon badge + value + divider + footer link), same orders
+// table, quick actions and setup checklist. Style values come from the web's
+// tokens/`pages.css` rules for `.seller-stat-card`, `.quick-action-btn`,
+// `.checklist-item` and `.seller-data-table`, so the two stay in step.
+type StatKey = 'shops' | 'products' | 'orders' | 'employees' | 'cash' | 'growth'
+
+const STAT_ICONS: Record<StatKey, keyof typeof Ionicons.glyphMap> = {
+  shops: 'storefront-outline',
+  products: 'cube-outline',
+  orders: 'receipt-outline',
+  employees: 'people-outline',
+  cash: 'cash-outline',
+  growth: 'trending-up-outline',
+}
+
 export default function SellerHome() {
   const { t } = useI18n()
   const colors = useColors()
@@ -28,7 +39,9 @@ export default function SellerHome() {
   const activeShop = useAuth((s) => s.activeShop)
   const setActiveBusiness = useAuth((s) => s.setActiveBusiness)
   const setActiveShop = useAuth((s) => s.setActiveShop)
-  const [switcherOpen, setSwitcherOpen] = useState(false)
+  // Two separate dropdowns on web (business pill, shop pill), so the overlay
+  // opens on whichever pill was tapped rather than showing both lists at once.
+  const [switcher, setSwitcher] = useState<'business' | 'shop' | null>(null)
 
   const shops = useQuery({ queryKey: ['seller', 'shops', activeBusiness?.id], queryFn: () => sellerApi.shops(activeBusiness!.id), enabled: Boolean(activeBusiness) })
   const products = useQuery({ queryKey: ['seller', 'products', activeBusiness?.id], queryFn: () => sellerApi.products(activeBusiness!.id), enabled: Boolean(activeBusiness) })
@@ -38,12 +51,9 @@ export default function SellerHome() {
   const growth = useQuery({ queryKey: ['seller', 'growth', activeBusiness?.id], queryFn: () => sellerApi.growthLevel(activeBusiness!.id), enabled: Boolean(activeBusiness) })
 
   const refreshAll = () => {
-    void queryClient.invalidateQueries({ queryKey: ['seller', 'shops'] })
-    void queryClient.invalidateQueries({ queryKey: ['seller', 'products'] })
-    void queryClient.invalidateQueries({ queryKey: ['seller', 'orders'] })
-    void queryClient.invalidateQueries({ queryKey: ['seller', 'employees'] })
-    void queryClient.invalidateQueries({ queryKey: ['seller', 'cashSummary'] })
-    void queryClient.invalidateQueries({ queryKey: ['seller', 'growth'] })
+    for (const key of ['shops', 'products', 'orders', 'employees', 'cashSummary', 'growth']) {
+      void queryClient.invalidateQueries({ queryKey: ['seller', key] })
+    }
   }
 
   if (!user) return <View style={styles.center}><Text style={styles.title}>{t('seller.workspace')}</Text><Button title={t('seller.signInAsSeller')} onPress={() => router.push('/auth/login')} /></View>
@@ -54,14 +64,12 @@ export default function SellerHome() {
     <SectionTitle title={t('seller.dashboard.welcomeTitle')} />
     <Text style={styles.muted}>{t('seller.dashboard.welcomeSubtitle')}</Text>
     <Button title={t('seller.startOnboarding')} onPress={() => router.push('/seller/onboarding')} />
-    <SectionTitle title={t('seller.dashboard.howToStart')} />
-    <Card>
-      <Step n={1} title={t('seller.createBusiness')} desc={t('seller.dashboard.stepCreateBusinessDesc')} styles={styles} />
-      <Step n={2} title={t('seller.dashboard.stepCreateShop')} desc={t('seller.dashboard.stepCreateShopDesc')} styles={styles} />
-      <Step n={3} title={t('seller.dashboard.stepAddProducts')} desc={t('seller.dashboard.stepAddProductsDesc')} styles={styles} />
-      <Step n={4} title={t('seller.dashboard.stepAddStock')} desc={t('seller.dashboard.stepAddStockDesc')} styles={styles} />
-      <Step n={5} title={t('seller.dashboard.stepReceiveOrders')} desc={t('seller.dashboard.stepReceiveOrdersDesc')} styles={styles} />
-    </Card>
+    <Text style={styles.h3}>{t('seller.dashboard.howToStart')}</Text>
+    <Step n={1} title={t('seller.createBusiness')} desc={t('seller.dashboard.stepCreateBusinessDesc')} styles={styles} />
+    <Step n={2} title={t('seller.dashboard.stepCreateShop')} desc={t('seller.dashboard.stepCreateShopDesc')} styles={styles} />
+    <Step n={3} title={t('seller.dashboard.stepAddProducts')} desc={t('seller.dashboard.stepAddProductsDesc')} styles={styles} />
+    <Step n={4} title={t('seller.dashboard.stepAddStock')} desc={t('seller.dashboard.stepAddStockDesc')} styles={styles} />
+    <Step n={5} title={t('seller.dashboard.stepReceiveOrders')} desc={t('seller.dashboard.stepReceiveOrdersDesc')} styles={styles} />
     <Button variant="outline" title={t('common.backToMarketplace')} onPress={() => router.replace('/(buyer)')} />
   </ScrollView>
 
@@ -70,10 +78,14 @@ export default function SellerHome() {
     <SectionTitle title={t('seller.dashboard.selectBusiness')} />
     <Text style={styles.muted}>{t('seller.dashboard.selectBusinessHint')}</Text>
     {sellerBusinesses.map((business) => (
-      <Card key={business.id} onPress={() => setActiveBusiness(business)}>
-        <Text style={styles.switcherName}>{business.name}</Text>
-        <Text style={styles.muted}>{t('seller.dashboard.registeredBusiness')}</Text>
-      </Card>
+      <Pressable key={business.id} accessibilityRole="button" style={styles.choiceCard} onPress={() => setActiveBusiness(business)}>
+        <View style={styles.qaIcon}><Ionicons name="business-outline" size={18} color={colors.green} /></View>
+        <View style={styles.flex1}>
+          <Text style={styles.qaTitle}>{business.name}</Text>
+          <Text style={styles.small}>{t('seller.dashboard.registeredBusiness')}</Text>
+        </View>
+        <Ionicons name="arrow-forward" size={16} color={colors.muted} />
+      </Pressable>
     ))}
     <Button variant="outline" title={t('seller.dashboard.addAnotherBusiness')} onPress={() => router.push('/seller/onboarding')} />
   </ScrollView>
@@ -95,110 +107,129 @@ export default function SellerHome() {
 
   return <>
   <ScrollView contentContainerStyle={styles.page}>
-    <Pressable accessibilityRole="button" onPress={() => setSwitcherOpen(true)} style={styles.switcher}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.eyebrow}>{t('seller.currentBusiness')}</Text>
-        <Text style={styles.switcherName}>{activeBusiness.name}</Text>
-        <Text style={styles.switcherShop}>{currentShop ? currentShop.name : t('seller.allShops')}</Text>
-      </View>
-      <Text style={styles.switcherChevron}>⇅</Text>
-    </Pressable>
+    {/* ── Context pills: web renders the business and shop switchers as two
+        equal-width pills side by side on narrow screens ── */}
+    <View style={styles.contextRow}>
+      <Pressable accessibilityRole="button" style={styles.contextBtn} onPress={() => setSwitcher('business')}>
+        <Ionicons name="business-outline" size={16} color={colors.green} />
+        <Text numberOfLines={1} style={styles.contextLabel}>{activeBusiness.name}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" style={styles.contextBtn} onPress={() => setSwitcher('shop')}>
+        <Ionicons name="storefront-outline" size={16} color={colors.green} />
+        <Text numberOfLines={1} style={styles.contextLabel}>{currentShop ? currentShop.name : t('seller.allShops')}</Text>
+      </Pressable>
+    </View>
 
-    <View style={styles.headRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.h1}>{t('seller.dashboard')}</Text>
-        <Text style={styles.muted}>{t('seller.dashboard.overviewFor', { name: activeBusiness.name })}</Text>
-      </View>
+    <View>
+      <Text style={styles.h1}>{t('seller.dashboard')}</Text>
+      <Text style={styles.muted}>{t('seller.dashboard.overviewFor', { name: activeBusiness.name })}</Text>
     </View>
     <View style={styles.headActions}>
-      <Button dense variant="outline" title={t('common.retry')} onPress={refreshAll} />
+      <Button dense variant="outline" title={t('orders.refresh')} onPress={refreshAll} />
       <Button dense title={t('seller.dashboard.addProduct')} onPress={() => router.push('/seller/products/create')} />
     </View>
 
     {loadingMetrics && <Loading label={t('seller.dashboard.loadingMetrics')} />}
 
-    {/* ── Metrics: same 6 cards as web, same order ── */}
-    <View style={styles.grid}>
-      <Stat label={t('seller.shops')} value={String(shopsCount)} footer={t('seller.dashboard.manageShops')} onPress={() => router.push('/seller/shops')} styles={styles} />
-      <Stat label={t('seller.products')} value={String(productsCount)} sub={t('seller.dashboard.publishedCount', { count: publishedProducts })} footer={t('common.viewAll')} onPress={() => router.push('/seller/products')} styles={styles} />
-    </View>
-    <View style={styles.grid}>
-      <Stat label={t('seller.orders')} value={String(ordersCount)} sub={`${totalRevenue.toLocaleString()} FC`} footer={t('seller.dashboard.viewOrders')} onPress={() => router.push('/seller/orders')} styles={styles} />
-      <Stat label={t('seller.employees')} value={String(employeesCount)} footer={t('seller.dashboard.manageTeam')} onPress={() => router.push('/seller/employees')} styles={styles} />
-    </View>
-    <View style={styles.grid}>
-      <Stat label={t('seller.dashboard.cashSales')} value={`${cashTotal.toLocaleString()} FC`} footer={t('seller.dashboard.cashSessions')} onPress={() => router.push('/seller/cash')} styles={styles} />
-      <Stat label={t('seller.dashboard.sellerLevel')} value={sellerLevel} sub={`${t(`seller.growth.trust.${trustStatus}` as any)} (${sellerPoints} pts)`} footer={t('seller.growth')} onPress={() => router.push('/seller/growth')} styles={styles} />
-    </View>
+    {/* ── Metrics: same six cards, same order as web ── */}
+    <Stat stat="shops" label={t('seller.shops')} value={String(shopsCount)} link={t('seller.dashboard.manageShops')} onPress={() => router.push('/seller/shops')} colors={colors} styles={styles} />
+    <Stat stat="products" label={t('seller.products')} value={String(productsCount)} sub={t('seller.dashboard.publishedCount', { count: publishedProducts })} link={t('common.viewAll')} onPress={() => router.push('/seller/products')} colors={colors} styles={styles} />
+    <Stat stat="orders" label={t('seller.orders')} value={String(ordersCount)} sub={`${totalRevenue.toLocaleString()} FC`} link={t('seller.dashboard.viewOrders')} onPress={() => router.push('/seller/orders')} colors={colors} styles={styles} />
+    <Stat stat="employees" label={t('seller.employees')} value={String(employeesCount)} link={t('seller.dashboard.manageTeam')} onPress={() => router.push('/seller/employees')} colors={colors} styles={styles} />
+    <Stat stat="cash" label={t('seller.dashboard.cashSales')} value={cashTotal.toLocaleString()} unit="FC" link={t('seller.dashboard.cashSessions')} onPress={() => router.push('/seller/cash')} colors={colors} styles={styles} />
+    <Stat stat="growth" label={t('seller.dashboard.sellerLevel')} value={sellerLevel} tier sub={`${t(`seller.growth.trust.${trustStatus}` as any)} (${sellerPoints} pts)`} link={t('seller.growth')} onPress={() => router.push('/seller/growth')} colors={colors} styles={styles} />
 
     {/* ── Recent Orders ── */}
-    <SectionTitle title={t('seller.dashboard.recentOrders')} action={<Pressable accessibilityRole="button" onPress={() => router.push('/seller/orders')}><Text style={styles.link}>{t('seller.dashboard.viewAllOrders')}</Text></Pressable>} />
-    <Text style={styles.muted}>{t('seller.dashboard.recentOrdersHint')}</Text>
-    {recentOrders.length === 0 ? <Card><Text style={styles.muted}>{t('seller.dashboard.noOrdersYet')}</Text><Text style={styles.mutedSmall}>{t('seller.dashboard.noOrdersYetHint')}</Text></Card> : recentOrders.map((order) => (
-      <Card key={order.id}>
-        <View style={styles.row}>
-          <Text style={styles.orderNumber}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text>
-          <Text style={styles.badge}>{order.status.replaceAll('_', ' ')}</Text>
+    <View style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.flex1}>
+          <Text style={styles.h3}>{t('seller.dashboard.recentOrders')}</Text>
+          <Text style={styles.small}>{t('seller.dashboard.recentOrdersHint')}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.mutedSmall}>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}</Text>
-          <Text style={styles.orderTotal}>{(order.final_total ?? 0).toLocaleString()} FC</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/seller/orders')}><Text style={styles.headerLink}>{t('seller.dashboard.viewAllOrders')}</Text></Pressable>
+      </View>
+      {recentOrders.length === 0 ? <View style={styles.emptyBlock}>
+        <Ionicons name="receipt-outline" size={40} color={colors.mutedLight} />
+        <Text style={styles.emptyTitle}>{t('seller.dashboard.noOrdersYet')}</Text>
+        <Text style={styles.small}>{t('seller.dashboard.noOrdersYetHint')}</Text>
+      </View> : <>
+        <View style={styles.tableHead}>
+          <Text style={[styles.th, styles.colOrder]}>{t('seller.dashboard.orderNumberHeader')}</Text>
+          <Text style={[styles.th, styles.colStatus]}>{t('common.status')}</Text>
+          <Text style={[styles.th, styles.colTotal]}>{t('common.total')}</Text>
         </View>
-      </Card>
-    ))}
-
-    {/* ── Quick Actions: same 6 items as web, same order ── */}
-    <SectionTitle title={t('seller.dashboard.quickActions')} />
-    <Text style={styles.muted}>{t('seller.dashboard.quickActionsHint')}</Text>
-    <View style={styles.actionsGrid}>
-      <QuickAction title={t('seller.dashboard.addProduct')} desc={t('seller.dashboard.addProductDesc')} onPress={() => router.push('/seller/products/create')} styles={styles} />
-      <QuickAction title={t('seller.dashboard.manageStock')} desc={t('seller.dashboard.manageStockDesc')} onPress={() => router.push('/seller/stock')} styles={styles} />
-      <QuickAction title={t('seller.dashboard.processOrders')} desc={t('seller.dashboard.processOrdersDesc')} onPress={() => router.push('/seller/orders')} styles={styles} />
-      <QuickAction title={t('seller.dashboard.manageShops')} desc={t('seller.dashboard.manageShopsDesc')} onPress={() => router.push('/seller/shops')} styles={styles} />
-      <QuickAction title={t('seller.dashboard.teamAndStaff')} desc={t('seller.dashboard.teamAndStaffDesc')} onPress={() => router.push('/seller/employees')} styles={styles} />
-      <QuickAction title={t('seller.dashboard.cashSessions')} desc={t('seller.dashboard.cashSessionsDesc')} onPress={() => router.push('/seller/cash')} styles={styles} />
+        {recentOrders.map((order) => {
+          const tint = statusTint(order.status, colors)
+          return <Pressable key={order.id} accessibilityRole="button" style={styles.tableRow} onPress={() => router.push('/seller/orders')}>
+            <View style={styles.colOrder}>
+              <Text style={styles.orderCode}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text>
+              <Text style={styles.small}>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}</Text>
+            </View>
+            <View style={styles.colStatus}>
+              <Text numberOfLines={1} style={[styles.statusBadge, { backgroundColor: tint.bg, color: tint.color }]}>{order.status.replaceAll('_', ' ')}</Text>
+            </View>
+            <Text style={[styles.tdStrong, styles.colTotal]}>{(order.final_total ?? 0).toLocaleString()} FC</Text>
+          </Pressable>
+        })}
+      </>}
     </View>
 
-    {/* ── Setup Checklist: same 5 items as web, same order ── */}
-    <SectionTitle title={t('seller.dashboard.setupChecklist')} />
-    <Text style={styles.muted}>{t('seller.dashboard.setupChecklistHint')}</Text>
-    <Card>
-      <Check done title={t('seller.dashboard.checkBusinessRegistered')} sub={activeBusiness.name} styles={styles} />
-      <Check done={shopsCount > 0} title={t('seller.dashboard.checkCreateShop')} sub={shopsCount > 0 ? t('seller.dashboard.shopsActiveCount', { count: shopsCount }) : undefined} linkLabel={shopsCount > 0 ? undefined : t('seller.dashboard.checkCreateShopLink')} onLinkPress={() => router.push('/seller/shops')} styles={styles} />
-      <Check done={productsCount > 0} title={t('seller.dashboard.checkAddProducts')} sub={productsCount > 0 ? t('seller.dashboard.productsInCatalogCount', { count: productsCount }) : undefined} linkLabel={productsCount > 0 ? undefined : t('seller.dashboard.addProductLink')} onLinkPress={() => router.push('/seller/products/create')} styles={styles} />
-      <Check done={publishedProducts > 0} title={t('seller.dashboard.checkPublishProducts')} sub={publishedProducts > 0 ? t('seller.dashboard.publishedMarketplaceCount', { count: publishedProducts }) : undefined} linkLabel={publishedProducts > 0 ? undefined : t('seller.dashboard.publishLink')} onLinkPress={() => router.push('/seller/products')} styles={styles} />
-      <Check done={ordersCount > 0} title={t('seller.dashboard.checkReceiveFirstOrder')} sub={ordersCount > 0 ? t('seller.dashboard.ordersProcessedCount', { count: ordersCount }) : t('seller.dashboard.ordersAppearHint')} styles={styles} last />
-    </Card>
+    {/* ── Quick Actions: same six entries as web ── */}
+    <View style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.flex1}>
+          <Text style={styles.h3}>{t('seller.dashboard.quickActions')}</Text>
+          <Text style={styles.small}>{t('seller.dashboard.quickActionsHint')}</Text>
+        </View>
+      </View>
+      <QuickAction icon="add" title={t('seller.dashboard.addProduct')} desc={t('seller.dashboard.addProductDesc')} onPress={() => router.push('/seller/products/create')} colors={colors} styles={styles} />
+      <QuickAction icon="cube-outline" title={t('seller.dashboard.manageStock')} desc={t('seller.dashboard.manageStockDesc')} onPress={() => router.push('/seller/stock')} colors={colors} styles={styles} />
+      <QuickAction icon="receipt-outline" title={t('seller.dashboard.processOrders')} desc={t('seller.dashboard.processOrdersDesc')} onPress={() => router.push('/seller/orders')} colors={colors} styles={styles} />
+      <QuickAction icon="storefront-outline" title={t('seller.dashboard.manageShops')} desc={t('seller.dashboard.manageShopsDesc')} onPress={() => router.push('/seller/shops')} colors={colors} styles={styles} />
+      <QuickAction icon="people-outline" title={t('seller.dashboard.teamAndStaff')} desc={t('seller.dashboard.teamAndStaffDesc')} onPress={() => router.push('/seller/employees')} colors={colors} styles={styles} />
+      <QuickAction icon="cash-outline" title={t('seller.dashboard.cashSessions')} desc={t('seller.dashboard.cashSessionsDesc')} onPress={() => router.push('/seller/cash')} colors={colors} styles={styles} />
+    </View>
+
+    {/* ── Setup Checklist: same five items as web ── */}
+    <View style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.flex1}>
+          <Text style={styles.h3}>{t('seller.dashboard.setupChecklist')}</Text>
+          <Text style={styles.small}>{t('seller.dashboard.setupChecklistHint')}</Text>
+        </View>
+      </View>
+      <Check done title={t('seller.dashboard.checkBusinessRegistered')} sub={activeBusiness.name} colors={colors} styles={styles} />
+      <Check done={shopsCount > 0} title={t('seller.dashboard.checkCreateShop')} sub={shopsCount > 0 ? t('seller.dashboard.shopsActiveCount', { count: shopsCount }) : undefined} linkLabel={shopsCount > 0 ? undefined : t('seller.dashboard.checkCreateShopLink')} onLinkPress={() => router.push('/seller/shops')} colors={colors} styles={styles} />
+      <Check done={productsCount > 0} title={t('seller.dashboard.checkAddProducts')} sub={productsCount > 0 ? t('seller.dashboard.productsInCatalogCount', { count: productsCount }) : undefined} linkLabel={productsCount > 0 ? undefined : t('seller.dashboard.addProductLink')} onLinkPress={() => router.push('/seller/products/create')} colors={colors} styles={styles} />
+      <Check done={publishedProducts > 0} title={t('seller.dashboard.checkPublishProducts')} sub={publishedProducts > 0 ? t('seller.dashboard.publishedMarketplaceCount', { count: publishedProducts }) : undefined} linkLabel={publishedProducts > 0 ? undefined : t('seller.dashboard.publishLink')} onLinkPress={() => router.push('/seller/products')} colors={colors} styles={styles} />
+      <Check done={ordersCount > 0} title={t('seller.dashboard.checkReceiveFirstOrder')} sub={ordersCount > 0 ? t('seller.dashboard.ordersProcessedCount', { count: ordersCount }) : t('seller.dashboard.ordersAppearHint')} colors={colors} styles={styles} />
+    </View>
 
     <Button variant="outline" title={t('common.backToMarketplace')} onPress={() => router.replace('/(buyer)')} />
   </ScrollView>
 
-  {/* Plain conditional overlay instead of RN's <Modal>: on web, toggling a
-   *  Modal's `visible` prop back to false reliably fails to hide the portal
-   *  (confirmed live -- the onPress fires and state updates, but the modal
-   *  stays on screen), so closing it that way is unusable both in this web
-   *  preview and, since it's the same component, a real risk on-device too. */}
-  {switcherOpen && <Pressable style={styles.modalBackdrop} onPress={() => setSwitcherOpen(false)}>
-    <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-      <Text style={styles.modalTitle}>{t('seller.currentBusiness')}</Text>
-      {sellerBusinesses.map((business: Business) => (
-        <Pressable key={business.id} accessibilityRole="button" style={styles.modalRow} onPress={() => { setActiveBusiness(business); setSwitcherOpen(false) }}>
-          <Text style={[styles.modalRowText, business.id === activeBusiness.id && styles.modalRowActive]}>{business.name}</Text>
-          {business.id === activeBusiness.id && <Text style={styles.modalCheck}>✓</Text>}
-        </Pressable>
-      ))}
-      <Pressable accessibilityRole="button" onPress={() => { setSwitcherOpen(false); router.push('/seller/onboarding') }}><Text style={styles.modalAdd}>{t('seller.addNewBusiness')}</Text></Pressable>
-
-      {(shops.data?.length ?? 0) > 0 && <>
-        <Text style={[styles.modalTitle, { marginTop: spacing.md }]}>{t('seller.selectActiveShop')}</Text>
-        {(shops.data as Shop[]).map((shop) => (
-          <Pressable key={shop.id} accessibilityRole="button" style={styles.modalRow} onPress={() => { setActiveShop(shop.id); setSwitcherOpen(false) }}>
-            <Text style={[styles.modalRowText, shop.id === activeShop && styles.modalRowActive]}>{shop.name}</Text>
-            {shop.id === activeShop && <Text style={styles.modalCheck}>✓</Text>}
+  {switcher && <Pressable style={styles.overlayBackdrop} onPress={() => setSwitcher(null)}>
+    <Pressable style={styles.overlayCard} onPress={(e) => e.stopPropagation()}>
+      {switcher === 'business' ? <>
+        <Text style={styles.overlayTitle}>{t('seller.currentBusiness')}</Text>
+        {sellerBusinesses.map((business: Business) => (
+          <Pressable key={business.id} accessibilityRole="button" style={styles.overlayRow} onPress={() => { setActiveBusiness(business); setSwitcher(null) }}>
+            <Text style={[styles.overlayRowText, business.id === activeBusiness.id && styles.overlayRowActive]}>{business.name}</Text>
+            {business.id === activeBusiness.id && <Ionicons name="checkmark" size={18} color={colors.green} />}
+          </Pressable>
+        ))}
+        <Pressable accessibilityRole="button" onPress={() => { setSwitcher(null); router.push('/seller/onboarding') }}><Text style={styles.overlayAdd}>{t('seller.addNewBusiness')}</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => { setSwitcher(null); router.push('/seller/business') }}><Text style={styles.overlayAdd}>{t('seller.manageBusiness')}</Text></Pressable>
+      </> : <>
+        <Text style={styles.overlayTitle}>{t('seller.selectActiveShop')}</Text>
+        {(shops.data as Shop[] ?? []).map((shop) => (
+          <Pressable key={shop.id} accessibilityRole="button" style={styles.overlayRow} onPress={() => { setActiveShop(shop.id); setSwitcher(null) }}>
+            <Text style={[styles.overlayRowText, shop.id === activeShop && styles.overlayRowActive]}>{shop.name}</Text>
+            {shop.id === activeShop && <Ionicons name="checkmark" size={18} color={colors.green} />}
           </Pressable>
         ))}
       </>}
-      <Button variant="outline" title={t('common.cancel')} onPress={() => setSwitcherOpen(false)} />
+      <Button variant="outline" title={t('common.cancel')} onPress={() => setSwitcher(null)} />
     </Pressable>
   </Pressable>}
   </>
@@ -206,80 +237,133 @@ export default function SellerHome() {
 
 type S = ReturnType<typeof makeStyles>
 
-function Step({ n, title, desc, styles }: { n: number; title: string; desc: string; styles: S }) {
-  return <View style={styles.stepRow}>
-    <View style={styles.stepNum}><Text style={styles.stepNumText}>{n}</Text></View>
-    <View style={{ flex: 1 }}><Text style={styles.stepTitle}>{title}</Text><Text style={styles.mutedSmall}>{desc}</Text></View>
-  </View>
+/** Same tint pairs as web's `.status-*` badge rules. */
+function statusTint(status: string, colors: Colors) {
+  if (status === 'PENDING' || status === 'READY' || status === 'READY_FOR_PICKUP') return { bg: colors.warningSoft, color: colors.warning }
+  if (status === 'ACCEPTED' || status === 'PREPARING') return { bg: colors.infoSoft, color: colors.info }
+  if (status === 'DELIVERED' || status === 'COMPLETED' || status === 'RECEIVED') return { bg: colors.successSoft, color: colors.success }
+  if (status === 'CANCELLED' || status === 'REJECTED') return { bg: colors.dangerSoft, color: colors.danger }
+  return { bg: colors.surface2, color: colors.muted }
 }
 
-function Stat({ label, value, sub, footer, onPress, styles }: { label: string; value: string; sub?: string; footer: string; onPress: () => void; styles: S }) {
-  return <Card onPress={onPress}>
-    <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.metric}>{value}</Text>
-    {sub && <Text style={styles.mutedSmall}>{sub}</Text>}
-    <Text style={styles.link}>{footer} ›</Text>
-  </Card>
+/** Icon badge tints from web's `.stat-icon--*` rules. */
+function statTint(stat: StatKey, colors: Colors) {
+  switch (stat) {
+    case 'shops': return { bg: colors.infoSoft, color: colors.info }
+    case 'products': return { bg: colors.warningSoft, color: colors.warning }
+    case 'orders': return { bg: colors.successSoft, color: colors.success }
+    case 'employees': return { bg: colors.infoSoft, color: colors.purple }
+    case 'cash': return { bg: colors.warningSoft, color: colors.warning }
+    case 'growth': return { bg: colors.goldSoft, color: colors.magenta }
+  }
 }
 
-function QuickAction({ title, desc, onPress, styles }: { title: string; desc: string; onPress: () => void; styles: S }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={styles.qaCard}>
-    <Text style={styles.qaTitle}>{title}</Text>
-    <Text style={styles.mutedSmall}>{desc}</Text>
+function Stat({ stat, label, value, unit, sub, link, tier, onPress, colors, styles }: { stat: StatKey; label: string; value: string; unit?: string; sub?: string; link: string; tier?: boolean; onPress: () => void; colors: Colors; styles: S }) {
+  const tint = statTint(stat, colors)
+  return <Pressable accessibilityRole="button" style={styles.statCard} onPress={onPress}>
+    <View style={styles.statHeader}>
+      <Text style={styles.statLabel}>{label.toUpperCase()}</Text>
+      <View style={[styles.statIcon, { backgroundColor: tint.bg }]}><Ionicons name={STAT_ICONS[stat]} size={18} color={tint.color} /></View>
+    </View>
+    <Text style={[styles.statValue, tier && styles.statValueTier]}>{value}{unit ? <Text style={styles.currencyUnit}> {unit}</Text> : null}</Text>
+    <View style={styles.statFooter}>
+      {sub ? <Text numberOfLines={1} style={styles.small}>{sub}</Text> : null}
+      <Text style={styles.statLink}>{link} →</Text>
+    </View>
   </Pressable>
 }
 
-function Check({ done, title, sub, linkLabel, onLinkPress, styles, last }: { done: boolean; title: string; sub?: string; linkLabel?: string; onLinkPress?: () => void; styles: S; last?: boolean }) {
-  return <View style={[styles.checkRow, !last && styles.checkRowBorder]}>
-    <Text style={[styles.checkMark, done && styles.checkMarkDone]}>{done ? '✓' : '○'}</Text>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.checkTitle}>{title}</Text>
-      {sub && <Text style={styles.mutedSmall}>{sub}</Text>}
-      {linkLabel && <Pressable accessibilityRole="button" onPress={onLinkPress}><Text style={styles.link}>{linkLabel}</Text></Pressable>}
+function QuickAction({ icon, title, desc, onPress, colors, styles }: { icon: keyof typeof Ionicons.glyphMap; title: string; desc: string; onPress: () => void; colors: Colors; styles: S }) {
+  return <Pressable accessibilityRole="button" onPress={onPress} style={styles.qaCard}>
+    <View style={styles.qaIcon}><Ionicons name={icon} size={18} color={colors.green} /></View>
+    <View style={styles.flex1}>
+      <Text style={styles.qaTitle}>{title}</Text>
+      <Text style={styles.small}>{desc}</Text>
+    </View>
+  </Pressable>
+}
+
+function Check({ done, title, sub, linkLabel, onLinkPress, colors, styles }: { done: boolean; title: string; sub?: string; linkLabel?: string; onLinkPress?: () => void; colors: Colors; styles: S }) {
+  return <View style={styles.checkItem}>
+    <Ionicons name={done ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={done ? colors.success : colors.mutedLight} />
+    <View style={styles.flex1}>
+      <Text style={styles.qaTitle}>{title}</Text>
+      {sub ? <Text style={styles.small}>{sub}</Text> : null}
+      {linkLabel ? <Pressable accessibilityRole="button" onPress={onLinkPress}><Text style={styles.checkLink}>{linkLabel}</Text></Pressable> : null}
     </View>
   </View>
 }
 
+function Step({ n, title, desc, styles }: { n: number; title: string; desc: string; styles: S }) {
+  return <View style={styles.checkItem}>
+    <View style={styles.stepNum}><Text style={styles.stepNumText}>{n}</Text></View>
+    <View style={styles.flex1}><Text style={styles.qaTitle}>{title}</Text><Text style={styles.small}>{desc}</Text></View>
+  </View>
+}
+
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+  // web: .seller-content-area { padding: 14px 12px 28px }
+  page: { padding: 12, paddingTop: 14, paddingBottom: 28, gap: 14 },
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
+  flex1: { flex: 1 },
   title: { fontSize: 25, fontWeight: '900', color: colors.ink, textAlign: 'center' },
-  h1: { fontSize: 24, fontWeight: '900', color: colors.ink },
+  h1: { fontSize: 24, fontWeight: '800', color: colors.green, marginBottom: 2 },
+  h3: { fontSize: 18, fontWeight: '800', color: colors.ink, marginBottom: 2 },
   muted: { color: colors.muted },
-  mutedSmall: { color: colors.muted, fontSize: 12 },
-  switcher: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.greenSoft, borderRadius: radius.md, padding: spacing.md },
-  eyebrow: { fontSize: 12, fontWeight: '900', color: colors.gold },
-  switcherName: { fontSize: 20, fontWeight: '900', color: colors.ink },
-  switcherShop: { color: colors.muted, fontWeight: '700' },
-  switcherChevron: { fontSize: 22, color: colors.green },
-  headRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  headActions: { flexDirection: 'row', gap: spacing.sm },
-  grid: { flexDirection: 'row', gap: spacing.sm },
-  statLabel: { color: colors.muted, fontWeight: '700', fontSize: 12 },
-  metric: { fontSize: 24, fontWeight: '900', color: colors.green },
-  link: { color: colors.green, fontWeight: '800', fontSize: 13 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  orderNumber: { fontWeight: '900', color: colors.ink },
-  orderTotal: { fontWeight: '900', color: colors.ink },
-  badge: { color: colors.green, fontWeight: '900', fontSize: 12, textTransform: 'capitalize' },
-  stepRow: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.xs },
+  small: { color: colors.muted, fontSize: 12 },
+  headActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+
+  // web: .seller-header-left { grid, 2 equal columns, gap 8 } + .seller-context-btn
+  contextRow: { flexDirection: 'row', gap: 8 },
+  contextBtn: { flex: 1, minWidth: 0, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 9, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },
+  contextLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.ink },
+
+  // web: .seller-stat-card
+  statCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 16 },
+  statHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  statLabel: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6 },
+  statIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  statValue: { fontSize: 22, fontWeight: '800', color: colors.ink, marginBottom: 12 },
+  statValueTier: { fontSize: 19, color: colors.goldDark },
+  currencyUnit: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  statFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  statLink: { fontSize: 12, fontWeight: '700', color: colors.green },
+
+  // web: .seller-section-card / .section-card-header
+  sectionCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 16, gap: 12 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  headerLink: { fontSize: 12, fontWeight: '700', color: colors.green },
+  emptyBlock: { alignItems: 'center', paddingVertical: spacing.lg, gap: 2 },
+  emptyTitle: { fontWeight: '700', color: colors.ink },
+
+  // web: .seller-data-table
+  tableHead: { flexDirection: 'row', backgroundColor: colors.surface2, paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  th: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  colOrder: { flex: 1.2 },
+  colStatus: { flex: 1.1, alignItems: 'flex-start' },
+  colTotal: { flex: 1, textAlign: 'right' },
+  orderCode: { fontWeight: '700', color: colors.green, fontSize: 13 },
+  tdStrong: { fontWeight: '700', color: colors.ink, fontSize: 13 },
+  statusBadge: { fontSize: 10, fontWeight: '700', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, overflow: 'hidden' },
+
+  // web: .quick-action-btn / .qa-icon
+  qaCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },
+  qaIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  qaTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
+
+  // web: .checklist-item
+  checkItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: radius.sm, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
+  checkLink: { color: colors.green, fontWeight: '700', fontSize: 12, marginTop: 2 },
+  choiceCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: radius.sm, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
   stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
   stepNumText: { color: colors.onGreen, fontWeight: '900' },
-  stepTitle: { fontWeight: '800', color: colors.ink },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  qaCard: { width: '48%', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, gap: 2 },
-  qaTitle: { fontWeight: '800', color: colors.ink },
-  checkRow: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm },
-  checkRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
-  checkMark: { fontSize: 18, fontWeight: '900', color: colors.muted, width: 22 },
-  checkMarkDone: { color: colors.success },
-  checkTitle: { fontWeight: '800', color: colors.ink },
-  modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: colors.white, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, gap: spacing.xs, maxHeight: '80%' },
-  modalTitle: { fontSize: 15, fontWeight: '900', color: colors.muted },
-  modalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  modalRowText: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  modalRowActive: { color: colors.green },
-  modalCheck: { color: colors.green, fontWeight: '900' },
-  modalAdd: { color: colors.gold, fontWeight: '800', paddingVertical: spacing.sm },
+
+  overlayBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  overlayCard: { backgroundColor: colors.white, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, gap: spacing.xs, maxHeight: '80%' },
+  overlayTitle: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6 },
+  overlayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  overlayRowText: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  overlayRowActive: { color: colors.green },
+  overlayAdd: { color: colors.gold, fontWeight: '800', paddingVertical: spacing.sm },
 })

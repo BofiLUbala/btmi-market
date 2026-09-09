@@ -465,6 +465,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'orders.cashReceived': '✓ Cash received',
   'orders.waitingSeller': 'Waiting for the seller',
   'orders.status': 'Status',
+  'orders.refresh': 'Refresh',
   'orders.paid': 'I paid',
   'orders.paymentNote': 'Your declaration is recorded. The seller must confirm receipt of the cash.',
   'orders.prepareCashPayment': 'Prepare the cash payment',
@@ -641,6 +642,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.reject': 'Reject',
   'seller.selectActiveShop': 'Select active shop',
   'seller.addNewBusiness': '+ Add a new business',
+  'seller.manageBusiness': 'Manage Current Business →',
 
   /* ── Seller: Business ───────────────────────────────────── */
   'seller.business': 'Business',
