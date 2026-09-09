@@ -34,7 +34,7 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && staticStyles.pressed]} accessibilityRole="button">
       <View style={styles.media}>
-        {image ? <Image source={image} style={staticStyles.image} contentFit="cover" transition={180} /> : <Text style={styles.placeholder}>TBK</Text>}
+        {image ? <Image source={image} style={staticStyles.image} contentFit="contain" transition={180} /> : <Text style={styles.placeholder}>TBK</Text>}
         {onSale && (
           <View style={styles.discountBadge}>
             <Text style={styles.discountBadgeText}>-{promotion.discountPercent}%</Text>
@@ -67,7 +67,10 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     card: { flex: 1, maxWidth: '48.5%', borderRadius: radius.md, backgroundColor: c.white, borderWidth: 1, borderColor: c.border, overflow: 'hidden', shadowColor: c.green, shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-    media: { height: 150, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
+    // 4:3 and `contain`, same as the web card: a listing thumbnail that
+    // centre-crops shows a different photo than the product page it opens,
+    // and portrait shots lose their subject entirely.
+    media: { aspectRatio: 4 / 3, backgroundColor: c.greenSoft, padding: spacing.xs, alignItems: 'center', justifyContent: 'center' },
     placeholder: { color: c.green, fontWeight: '900', fontSize: 19 },
     name: { color: c.ink, fontWeight: '800', minHeight: 40, lineHeight: 19 },
     shop: { color: c.muted, fontSize: 12 },

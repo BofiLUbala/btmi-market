@@ -1,4 +1,4 @@
-import { del, get, patch, post, postForm } from './client'
+import { del, get, patch, post, postForm, uploadFile } from './client'
 import type { UploadFile } from '../lib/imageUpload'
 import type {
   AcceptEmployeeInvitationRequest, AddStockRequest, ArchiveBusinessResponse, AssignEmployeeRequest,
@@ -45,11 +45,7 @@ export const authApi = {
   me: () => get<User>('/auth/me'),
   logout: (refresh_token: string) => post('/auth/logout', { refresh_token }),
   becomeSeller: () => post<User>('/auth/become-seller'),
-  uploadAvatar: (file: UploadFile) => {
-    const form = new FormData()
-    form.append('file', file as unknown as Blob)
-    return postForm<{ avatar_url: string }>('/auth/me/avatar', form)
-  },
+  uploadAvatar: (file: UploadFile) => uploadFile<{ avatar_url: string }>('/auth/me/avatar', file),
 }
 export const marketplaceApi = {
   products: async () => list<PublicProduct>(await get<unknown>('/marketplace/products?page=1&limit=20')),

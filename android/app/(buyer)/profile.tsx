@@ -40,10 +40,14 @@ function AvatarPicker() {
       await refresh()
     } catch (error) {
       const apiError = error instanceof ApiError ? error : undefined
-      if (__DEV__) console.warn('[TBK] avatar upload failed', apiError ? `${apiError.status} ${apiError.code}` : error)
       // TEMP diagnostic: surfaces the raw error while we track down a
-      // production-only upload failure. Remove once resolved.
-      const debugDetail = apiError ? `${apiError.status} ${apiError.code}` : error instanceof Error ? error.message : String(error)
+      // production-only upload failure. `status` is 0 on a transport failure,
+      // so it is stringified before the empty parts are dropped. Remove once
+      // resolved.
+      const debugDetail = apiError
+        ? [String(apiError.status), apiError.code, apiError.detail].filter(Boolean).join(' ')
+        : error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      if (__DEV__) console.warn('[TBK] avatar upload failed', debugDetail)
       Alert.alert(t('profile.uploadFailed'), `${t(avatarErrorKey(apiError))}\n\n[debug] ${debugDetail}`)
     } finally {
       setUploading(false)

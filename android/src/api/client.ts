@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
+import { File, UploadType } from 'expo-file-system'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { tokenStore } from './tokenStore'
 import { fr } from '../locales/fr'
@@ -83,7 +84,10 @@ const REQUEST_TIMEOUT_MS = 10_000
 const UPLOAD_TIMEOUT_MS = 60_000
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) { super(message) }
+  /** `detail` carries the raw underlying failure (an OkHttp message, an
+   *  unreadable file path, an abort) for a transport error, whose `message` is
+   *  a generic localized line. Diagnostics only -- never shown on its own. */
+  constructor(public status: number, public code: string, message: string, public detail?: string) { super(message) }
 }
 
 let refreshPromise: Promise<boolean> | null = null
@@ -129,8 +133,8 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   const timeout = setTimeout(() => controller.abort(), init.body instanceof FormData ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
   try {
     response = await fetch(`${API_URL}${path}`, { cache: 'no-store', ...init, headers, signal: controller.signal })
-  } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', await localized('errors.network'))
+  } catch (cause) {
+    throw new ApiError(0, 'NETWORK_ERROR', await localized('errors.network'), describeCause(cause))
   } finally {
     clearTimeout(timeout)
   }
@@ -145,6 +149,74 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   }
   const body = await response.json()
   return (body.data ?? body) as T
+}
+
+function describeCause(cause: unknown) {
+  if (cause instanceof Error) return cause.name === 'AbortError' ? 'TIMEOUT' : `${cause.name}: ${cause.message}`
+  return String(cause)
+}
+
+/** Parses the API envelope of a response body already read as text. */
+async function unwrap<T>(status: number, text: string): Promise<T> {
+  let body: { data?: unknown; error?: { code?: string; message?: string } }
+  try { body = JSON.parse(text) } catch {
+    throw new ApiError(status, 'REQUEST_FAILED', await localized('errors.generic'), `non-JSON body: ${text.slice(0, 200)}`)
+  }
+  if (status < 200 || status >= 300) {
+    throw new ApiError(status, body?.error?.code || 'REQUEST_FAILED', body?.error?.message || await localized('errors.generic'))
+  }
+  return (body.data ?? body) as T
+}
+
+/** Uploads one picked photo as multipart/form-data through the native
+ *  uploader instead of `fetch` + `FormData`.
+ *
+ *  React Native streams a FormData file part from an InputStream of unknown
+ *  length, so the body goes out with `Transfer-Encoding: chunked` and no
+ *  `Content-Length`, and a failure anywhere in that path collapses into a bare
+ *  `0 NETWORK_ERROR` -- which is all the production avatar upload ever
+ *  reported, with no matching request in the API log. This path instead reads
+ *  the file natively, sends a measured `Content-Length`, and resolves with the
+ *  real status and body even for a 4xx, so a rejected image says why rather
+ *  than looking like a dead connection.
+ *
+ *  Note that the multipart `filename` is the name of the file on disk -- the
+ *  native uploader has no way to override it -- so the caller controls it by
+ *  choosing where it writes the temporary copy. */
+export async function uploadFile<T>(
+  path: string,
+  file: { uri: string; type: string },
+  options: { fieldName?: string; parameters?: Record<string, string> } = {},
+  retry = true,
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  const token = await tokenStore.getAccess()
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
+  let result: { status: number; body: string }
+  try {
+    result = await new File(file.uri).upload(`${API_URL}${path}`, {
+      httpMethod: 'POST',
+      uploadType: UploadType.MULTIPART,
+      fieldName: options.fieldName ?? 'file',
+      mimeType: file.type,
+      parameters: options.parameters,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (cause) {
+    throw new ApiError(0, 'NETWORK_ERROR', await localized('errors.network'), describeCause(cause))
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  if (result.status === 401 && retry) {
+    refreshPromise ??= refreshSession().finally(() => { refreshPromise = null })
+    if (await refreshPromise) return uploadFile<T>(path, file, options, false)
+  }
+  return unwrap<T>(result.status, result.body)
 }
 
 export const get = <T>(path: string) => request<T>(path)
