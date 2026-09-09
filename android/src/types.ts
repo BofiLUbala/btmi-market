@@ -142,6 +142,12 @@ export interface UpdateShopRequest {
   supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
   delivery_city?: string; delivery_address?: string
 }
+export interface CreateShopRequest {
+  name: string; type: 'PHYSICAL' | 'ONLINE'; city: string; address: string; phone: string
+  supports_shop_delivery?: boolean; shop_delivery_fee?: number
+  supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
+  delivery_city?: string; delivery_address?: string
+}
 export interface BuyerProfile {
   id: string; first_name: string; last_name: string; email: string; phone: string
   backup_phone?: string; address?: string; city?: string; commune?: string

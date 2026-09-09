@@ -4,7 +4,7 @@ import type {
   AcceptEmployeeInvitationRequest, AddStockRequest, ArchiveBusinessResponse, AssignEmployeeRequest,
   Business, BusinessLifecycleSummary, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse,
   CashPayment, CashSession, CashSummary, Category, Customer, CreateCustomerRequest, CreateEmployeeInvitationRequest,
-  CreateEmployeeRequest, CreateProductRequest, CreateStockReceiptRequest, CreateVariantRequest,
+  CreateEmployeeRequest, CreateProductRequest, CreateShopRequest, CreateStockReceiptRequest, CreateVariantRequest,
   DeliveryOptionsResponse, DeliveryPointsPreview, DeliverySelectResponse, Employee, EmployeeInvitationResponse,
   EmployeeShopAssignment, InventoryItem, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines,
   PointRedemptionPreview, Product, ProductDetail, ProductImageResponse, ProductReviewsResponse, ProductVariant,
@@ -112,7 +112,7 @@ export const sellerApi = {
 
   /* Shops */
   shops: async (businessId: string) => list<Shop>(await get<unknown>(`/businesses/${businessId}/shops`)),
-  createShop: (businessId: string, body: { name: string; type: 'PHYSICAL' | 'ONLINE'; city: string; address: string; phone: string }) =>
+  createShop: (businessId: string, body: CreateShopRequest) =>
     post<Shop>(`/businesses/${businessId}/shops`, body),
   shop: (id: string) => get<Shop>(`/shops/${id}`),
   updateShop: (id: string, body: UpdateShopRequest) => patch<Shop>(`/shops/${id}`, body),
