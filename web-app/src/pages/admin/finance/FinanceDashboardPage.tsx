@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   adminFinanceApi,
   AdminFinancialSummary,
@@ -18,12 +19,36 @@ import { useAdminAuth } from '@/store/adminAuth'
 
 type ActiveTab = 'overview' | 'payments' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'risk'
 
+/** URL slug -> feature. The sidebar links to these, so a refresh or a deep link
+ *  reopens the same view instead of dropping back to the summary. */
+const FEATURE_BY_SLUG: Record<string, ActiveTab> = {
+  payments: 'payments',
+  points: 'points',
+  growth: 'growth',
+  'reviews-product': 'reviews_product',
+  'reviews-shop': 'reviews_shop',
+  cases: 'cases',
+  risk: 'risk'
+}
+
+const FEATURE_TITLE_KEY: Record<ActiveTab, string> = {
+  overview: 'admin.layout.itemOverview',
+  payments: 'admin.layout.itemCashPayments',
+  points: 'admin.layout.itemBuyerPoints',
+  growth: 'admin.layout.itemSellerGrowth',
+  reviews_product: 'admin.layout.itemProductReviews',
+  reviews_shop: 'admin.layout.itemShopReviews',
+  cases: 'admin.layout.itemCases',
+  risk: 'admin.layout.itemRisk'
+}
+
 const PAGE_SIZE = 25
 
 export default function FinanceDashboardPage() {
   const t = useT()
   const { admin } = useAdminAuth()
-  const [tab, setTab] = useState<ActiveTab>('overview')
+  const { feature } = useParams<{ feature?: string }>()
+  const tab: ActiveTab = (feature && FEATURE_BY_SLUG[feature]) || 'overview'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -100,6 +125,12 @@ export default function FinanceDashboardPage() {
     }, 400)
     return () => clearTimeout(timer)
   }, [searchInput])
+
+  // Switching feature must not carry the previous page and filters into a
+  // different dataset, which would ask for a page that does not exist there.
+  useEffect(() => {
+    setPage(1); setSearchInput(''); setSearch(''); setStatusFilter('')
+  }, [tab])
 
   useEffect(() => {
     loadTabContent()
@@ -304,14 +335,18 @@ export default function FinanceDashboardPage() {
 
   return (
     <div style={{ color: '#f8fafc' }}>
-      {/* Page Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span>💰</span> {t('admin.finance.title')}
-        </h1>
-        <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>
-          {t('admin.finance.subtitle')}
-        </p>
+      {/* Page Header — section above, active feature as the title. */}
+      <div className="admin-page-head">
+        <div>
+          <p className="admin-page-eyebrow">{t('admin.layout.navFinance')}</p>
+          <h1>{t(FEATURE_TITLE_KEY[tab])}</h1>
+          <p>{t('admin.finance.subtitle')}</p>
+        </div>
+        <div className="admin-page-actions">
+          <button className="admin-button" onClick={() => void loadTabContent()} disabled={loading}>
+            {t('admin.finance.refresh')}
+          </button>
+        </div>
       </div>
 
       {actionSuccess && (
@@ -326,38 +361,6 @@ export default function FinanceDashboardPage() {
           ⚠️ {error}
         </div>
       )}
-
-      {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: '1px solid #1e293b', paddingBottom: 12, marginBottom: 20 }}>
-        {[
-          { id: 'overview', label: t('admin.finance.tabOverview') },
-          { id: 'payments', label: t('admin.finance.tabPayments') },
-          { id: 'points', label: t('admin.finance.tabPoints') },
-          { id: 'growth', label: t('admin.finance.tabGrowth') },
-          { id: 'reviews_product', label: t('admin.finance.tabReviewsProduct') },
-          { id: 'reviews_shop', label: t('admin.finance.tabReviewsShop') },
-          { id: 'cases', label: t('admin.finance.tabCases') },
-          { id: 'risk', label: t('admin.finance.tabRisk') },
-        ].map((tabItem) => (
-          <button
-            key={tabItem.id}
-            onClick={() => setTab(tabItem.id as ActiveTab)}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 6,
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: 700,
-              backgroundColor: tab === tabItem.id ? '#2563eb' : '#0f172a',
-              color: tab === tabItem.id ? '#ffffff' : '#94a3b8',
-              transition: 'all 0.2s',
-            }}
-          >
-            {tabItem.label}
-          </button>
-        ))}
-      </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>

@@ -14,7 +14,7 @@ export default function ShopPerformancePage() {
     setLoading(true)
     try {
       const res = await adminCommerceApi.getShopPerformance({ limit, offset: page })
-      setPerformance(res.performance)
+      setPerformance(Array.isArray(res.performance) ? res.performance : [])
       setTotal(res.total)
     } catch (err) {
       console.error('Failed to load shop performance', err)

@@ -1,0 +1,564 @@
+/* Admin Control Center shell.
+ *
+ * The admin pages are styled inline, which cannot express media queries, hover
+ * or active states, so the shell chrome lives here. Page-level primitives at
+ * the bottom are opted into by class name from those inline-styled pages. */
+
+.admin-shell {
+  --sidebar-width: 258px;
+  --sidebar-collapsed-width: 62px;
+  --topbar-height: 46px;
+
+  min-height: 100vh;
+  display: flex;
+  background-color: var(--admin-bg, #090d16);
+  color: var(--admin-text, #f8fafc);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.admin-shell[data-collapsed='true'] {
+  --sidebar-width: var(--sidebar-collapsed-width);
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+
+.admin-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--admin-surface, #0f172a);
+  border-right: 1px solid var(--admin-border-soft, #1e293b);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  transition: width 0.18s ease;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 15px 14px;
+  border-bottom: 1px solid var(--admin-border-soft, #1e293b);
+  min-height: var(--topbar-height);
+  box-sizing: border-box;
+}
+
+.admin-brand-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.admin-brand-text { min-width: 0; }
+
+.admin-brand-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--admin-text, #f8fafc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-brand-subtitle {
+  margin-top: 2px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--admin-text-faint, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Navigation ────────────────────────────────────────────────────────── */
+
+.admin-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-nav-heading {
+  padding: 0 9px 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--admin-text-faint, #64748b);
+  white-space: nowrap;
+}
+
+.admin-nav-row {
+  --row-accent: #94a3b8;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-text-muted, #94a3b8);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.admin-nav-row:hover {
+  background-color: var(--admin-surface-2, #1e293b);
+  color: var(--admin-text, #f8fafc);
+}
+
+.admin-nav-row:focus-visible {
+  outline: 2px solid var(--row-accent);
+  outline-offset: -2px;
+}
+
+.admin-nav-section {
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+/* A section is highlighted while any of its features is open, so the active
+ * dashboard stays readable even when its children are collapsed. */
+.admin-nav-section[data-active='true'],
+.admin-nav-section.active {
+  color: var(--row-accent);
+  background-color: rgba(148, 163, 184, 0.08);
+}
+
+.admin-nav-section svg { color: var(--row-accent); }
+
+.admin-nav-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-nav-chevron {
+  display: flex;
+  color: var(--admin-text-faint, #64748b);
+  transition: transform 0.16s ease;
+}
+
+.admin-nav-chevron[data-open='true'] { transform: rotate(90deg); }
+
+.admin-nav-children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px 19px;
+  padding-left: 9px;
+  border-left: 1px solid var(--admin-border-soft, #1e293b);
+}
+
+.admin-nav-children[data-flat='true'] {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
+.admin-nav-item {
+  padding: 6px 9px;
+  font-size: 12.5px;
+}
+
+.admin-nav-item.active {
+  background-color: var(--admin-surface-2, #1e293b);
+  color: var(--row-accent);
+  font-weight: 700;
+  box-shadow: inset 2px 0 0 var(--row-accent);
+}
+
+/* ── Account block ─────────────────────────────────────────────────────── */
+
+.admin-account {
+  border-top: 1px solid var(--admin-border-soft, #1e293b);
+  padding: 10px 9px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-account-heading { padding-bottom: 0; }
+
+.admin-account-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 5px;
+  min-width: 0;
+}
+
+.admin-account-avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background-color: var(--admin-surface-2, #1e293b);
+  border: 1px solid var(--admin-border, #334155);
+  font-size: 12px;
+  font-weight: 800;
+  color: #e2e8f0;
+}
+
+.admin-account-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-account-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--admin-text, #f8fafc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-account-role {
+  align-self: flex-start;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.admin-signout {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border, #334155);
+  background-color: var(--admin-surface-2, #1e293b);
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.admin-signout:hover { background-color: #334155; color: #f8fafc; }
+
+/* ── Collapsed rail ────────────────────────────────────────────────────── */
+
+.admin-shell[data-collapsed='true'] .admin-brand-text,
+.admin-shell[data-collapsed='true'] .admin-nav-heading,
+.admin-shell[data-collapsed='true'] .admin-nav-chevron,
+.admin-shell[data-collapsed='true'] .admin-nav-label,
+.admin-shell[data-collapsed='true'] .admin-account-text {
+  display: none;
+}
+
+.admin-shell[data-collapsed='true'] .admin-brand { justify-content: center; padding: 15px 8px; }
+.admin-shell[data-collapsed='true'] .admin-nav { padding: 12px 8px; }
+.admin-shell[data-collapsed='true'] .admin-nav-row,
+.admin-shell[data-collapsed='true'] .admin-signout { justify-content: center; padding: 8px 0; }
+.admin-shell[data-collapsed='true'] .admin-account-identity { justify-content: center; padding: 0; }
+
+/* Feature rows carry no icon, so a collapsed rail has nothing to show for
+ * them; the section icon links straight to the dashboard instead. */
+.admin-shell[data-collapsed='true'] .admin-nav-children { display: none; }
+
+/* Tooltips replace the labels a collapsed rail hides. */
+.admin-shell[data-collapsed='true'] [data-tip] { position: relative; }
+
+.admin-shell[data-collapsed='true'] [data-tip]:hover::after,
+.admin-shell[data-collapsed='true'] [data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 300;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background-color: #1e293b;
+  border: 1px solid var(--admin-border, #334155);
+  color: #f1f5f9;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Main column ───────────────────────────────────────────────────────── */
+
+.admin-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: var(--topbar-height);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 20px;
+  background-color: #0b1120;
+  border-bottom: 1px solid var(--admin-border-soft, #1e293b);
+}
+
+.admin-drawer-button,
+.admin-collapse-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  border: 1px solid var(--admin-border, #334155);
+  background-color: var(--admin-surface-2, #1e293b);
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.admin-drawer-button:hover,
+.admin-collapse-button:hover { color: #f8fafc; background-color: #334155; }
+
+/* The drawer button is for small screens; the collapse toggle is for large. */
+.admin-drawer-button { display: none; }
+
+.admin-breadcrumb {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--admin-text-faint, #64748b);
+}
+
+.admin-crumb { display: inline-flex; align-items: center; gap: 6px; }
+.admin-crumb-sep { color: #334155; margin-right: 4px; }
+.admin-crumb[data-current='true'] { color: var(--admin-text, #f8fafc); font-weight: 700; }
+
+.admin-topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--admin-text-muted, #94a3b8);
+}
+
+.admin-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--admin-success, #10b981);
+  box-shadow: 0 0 8px var(--admin-success, #10b981);
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 22px 24px 40px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+/* Rail vs drawer is decided in AdminLayout (matchMedia) rather than here: the
+ * section rows have to *behave* differently in a rail — the icon navigates
+ * instead of expanding children — so JS needs the same answer the CSS uses. */
+
+.admin-sidebar-backdrop { display: none; }
+
+.admin-shell[data-mobile='true'] {
+  --sidebar-width: 0px;
+}
+
+.admin-shell[data-mobile='true'] .admin-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 258px;
+  height: 100dvh;
+  z-index: 200;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+.admin-shell[data-mobile='true'] .admin-sidebar[data-open='true'] {
+  transform: translateX(0);
+}
+
+.admin-sidebar-backdrop[data-open='true'] {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.admin-shell[data-mobile='true'] .admin-drawer-button { display: inline-flex; }
+.admin-shell[data-mobile='true'] .admin-collapse-button { display: none; }
+.admin-shell[data-mobile='true'] .admin-topbar { padding: 7px 14px; }
+.admin-shell[data-mobile='true'] .admin-topbar-status { display: none; }
+.admin-shell[data-mobile='true'] .admin-content { padding: 16px 14px 32px; }
+
+/* Between phone and desktop the rail is forced on, so the toggle would lie. */
+.admin-shell[data-forced-rail='true'] .admin-collapse-button { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar { transition: none; }
+  .admin-nav-chevron { transition: none; }
+}
+
+/* ── Page primitives ───────────────────────────────────────────────────── */
+
+/* A title and its action buttons should stack rather than collide. */
+.admin-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.admin-page-eyebrow {
+  margin: 0 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--admin-text-faint, #64748b);
+}
+
+.admin-page-head h1 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 5px;
+  color: var(--admin-text, #f8fafc);
+}
+
+.admin-page-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--admin-text-muted, #94a3b8);
+}
+
+.admin-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border, #334155);
+  background-color: var(--admin-surface-2, #1e293b);
+  color: #cbd5e1;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.admin-button:hover:not(:disabled) { background-color: #334155; color: #f8fafc; }
+.admin-button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .admin-page-head h1 { font-size: 19px; }
+}
+
+/* Fixed column counts overflow long before a phone width; let the cards pack.
+ * 4-up on a desktop content column, 2-up on a tablet, 1-up on a phone. */
+.admin-kpi-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.admin-card-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* Wide tables scroll inside their own box instead of widening the page. */
+.admin-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 10px;
+  border: 1px solid var(--admin-border-soft, #1e293b);
+}
+
+.admin-table-scroll > table {
+  min-width: 640px;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Header stays put while a long result set scrolls under it. */
+.admin-table-scroll > table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--admin-surface, #0f172a);
+}
+
+/* Card headers wrap instead of overlapping their trailing value. */
+.admin-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}

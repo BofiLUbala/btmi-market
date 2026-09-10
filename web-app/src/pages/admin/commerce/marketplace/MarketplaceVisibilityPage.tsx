@@ -128,14 +128,14 @@ export default function MarketplaceVisibilityPage() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 12 }}>
+          <div className="admin-kpi-grid" style={{ marginTop: 12 }}>
             <Field label={t('admin.marketplace.productStatus')} value={visibility.product_status} />
             <Field label={t('admin.marketplace.publication')} value={visibility.publication_status} />
             <Field label={t('admin.marketplace.shopStatus')} value={visibility.shop_status} />
             <Field label={t('admin.marketplace.businessStatus')} value={visibility.business_status} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 8 }}>
+          <div className="admin-kpi-grid" style={{ marginTop: 8 }}>
             <Field label={t('admin.marketplace.stockAvailable')} value={visibility.stock_available} color={visibility.stock_available > 0 ? '#34d399' : '#ef4444'} />
             <Field label={t('admin.marketplace.shopOfferStatus')} value={visibility.shop_offer_status || 'ACTIVE'} />
             <Field label={t('admin.marketplace.policyStatus')} value={visibility.policy_status || 'PASS'} />
@@ -159,7 +159,7 @@ export default function MarketplaceVisibilityPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          <div className="admin-kpi-grid">
             <Field label={t('admin.marketplace.productsPubTotal')} value={`${shopControl.published_products} / ${shopControl.product_count}`} />
             <Field label={t('admin.marketplace.rating')} value={`★ ${shopControl.rating.toFixed(1)} (${shopControl.review_count})`} color="#fbbf24" />
             <Field label={t('admin.marketplace.location')} value={shopControl.location || t('admin.marketplace.notSet')} />

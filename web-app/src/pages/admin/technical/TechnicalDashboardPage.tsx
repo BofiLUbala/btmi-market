@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   adminTechnicalApi,
   type TechnicalOverviewKPIs,
@@ -111,6 +112,23 @@ function DataTable({ columns, rows }: { columns: string[]; rows: (string | React
   )
 }
 
+type TechnicalFeature = 'overview' | 'health' | 'database' | 'redis' | 'workers' | 'email' | 'security' | 'sessions' | 'migrations' | 'versions'
+
+const FEATURES: TechnicalFeature[] = ['overview', 'health', 'database', 'redis', 'workers', 'email', 'security', 'sessions', 'migrations', 'versions']
+
+const FEATURE_TITLE_KEY: Record<TechnicalFeature, string> = {
+  overview: 'admin.layout.itemOverview',
+  health: 'admin.layout.itemSystemHealth',
+  database: 'admin.layout.itemPostgres',
+  redis: 'admin.layout.itemRedis',
+  workers: 'admin.layout.itemWorkers',
+  email: 'admin.layout.itemEmailHealth',
+  security: 'admin.layout.itemSecurityEvents',
+  sessions: 'admin.layout.itemSessions',
+  migrations: 'admin.layout.itemMigrations',
+  versions: 'admin.layout.itemAppVersions'
+}
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function TechnicalDashboardPage() {
@@ -126,7 +144,10 @@ export default function TechnicalDashboardPage() {
   const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>([])
   const [versions, setVersions] = useState<AppVersionItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'database' | 'redis' | 'workers' | 'security' | 'sessions' | 'versions'>('overview')
+  // Feature = route. The old Overview tab bundled four unrelated panels; each
+  // is now its own sidebar entry, addressable and refresh-safe.
+  const { feature } = useParams<{ feature?: string }>()
+  const activeTab: TechnicalFeature = (feature && FEATURES.includes(feature as TechnicalFeature) ? feature : 'overview') as TechnicalFeature
   const [editingVersion, setEditingVersion] = useState<AppVersionItem | null>(null)
   const [versionForm, setVersionForm] = useState({ current_version: '', min_supported_version: '', recommended_version: '', reason: '' })
   const [savingVersion, setSavingVersion] = useState(false)
@@ -219,124 +240,110 @@ export default function TechnicalDashboardPage() {
     }
   }
 
-  const tabs = [
-    { key: 'overview', label: t('admin.technical.tabOverview') },
-    { key: 'database', label: t('admin.technical.tabDatabase') },
-    { key: 'redis', label: t('admin.technical.tabRedis') },
-    { key: 'workers', label: t('admin.technical.tabWorkers') },
-    { key: 'security', label: t('admin.technical.tabSecurity') },
-    { key: 'sessions', label: t('admin.technical.tabSessions') },
-    { key: 'versions', label: t('admin.technical.tabVersions') },
-  ]
-
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 6px', color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
-          {t('admin.technical.title')}
-        </h1>
-        <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>
-          {t('admin.technical.subtitle')}
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-        {tabs.map((tabItem) => (
-          <button
-            key={tabItem.key}
-            onClick={() => setActiveTab(tabItem.key as typeof activeTab)}
-            style={{
-              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              border: '1px solid',
-              background: activeTab === tabItem.key ? '#2dd4bf' : '#0f172a',
-              color: activeTab === tabItem.key ? '#0f172a' : '#94a3b8',
-              borderColor: activeTab === tabItem.key ? '#2dd4bf' : '#1e293b',
-            }}
-          >
-            {tabItem.label}
+      <div className="admin-page-head">
+        <div>
+          <p className="admin-page-eyebrow">{t('admin.layout.navTechnical')}</p>
+          <h1>{t(FEATURE_TITLE_KEY[activeTab])}</h1>
+          <p>{t('admin.technical.subtitle')}</p>
+        </div>
+        <div className="admin-page-actions">
+          <button className="admin-button" onClick={loadAll} disabled={loading}>
+            {loading ? t('admin.technical.loadingEllipsis') : t('admin.technical.refreshAll')}
           </button>
-        ))}
-        <button onClick={loadAll} disabled={loading} style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid #334155', background: '#1e293b', color: '#94a3b8', marginLeft: 'auto' }}>
-          {loading ? t('admin.technical.loadingEllipsis') : t('admin.technical.refreshAll')}
-        </button>
+        </div>
       </div>
 
-      {/* ── OVERVIEW TAB ────────────────────────────────────────────────── */}
+      {/* ── OVERVIEW ─────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
         <>
-          {/* KPI Grid */}
-          {kpis && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
-              <KPICard label={t('admin.technical.kpiApi')} value={kpis.api_status} status={kpis.api_status} icon="🌐" />
-              <KPICard label={t('admin.technical.kpiPostgresql')} value={kpis.db_status} status={kpis.db_status} icon="🗄️" />
-              <KPICard label={t('admin.technical.kpiRedis')} value={kpis.redis_status} status={kpis.redis_status} icon="⚡" />
-              <KPICard label={t('admin.technical.kpiWorkers')} value={kpis.worker_status} status={kpis.worker_status} icon="⚙️" />
-              <KPICard label={t('admin.technical.kpiFailedJobs')} value={kpis.failed_jobs_count} icon="❌" />
-              <KPICard label={t('admin.technical.kpiSecurityAlerts')} value={kpis.security_alerts_count} icon="🚨" />
-              <KPICard label={t('admin.technical.kpiActiveSessions')} value={kpis.active_sessions_count} icon="🔑" />
-              <KPICard label={t('admin.technical.kpiBackup')} value={kpis.backup_status} status={kpis.backup_status === 'OK' ? 'HEALTHY' : 'NOT_CONFIGURED'} icon="💾" />
-              <KPICard label={t('admin.technical.kpiMigrations')} value={kpis.migration_status} status={kpis.migration_status === 'UP_TO_DATE' ? 'HEALTHY' : 'WARNING'} icon="🔄" />
-              <KPICard label={t('admin.technical.kpiWebVersion')} value={kpis.web_version || '—'} icon="🌐" />
-              <KPICard label={t('admin.technical.kpiAndroidVersion')} value={kpis.android_version || '—'} icon="📱" />
+        {/* KPI Grid */}
+        {kpis && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+            <KPICard label={t('admin.technical.kpiApi')} value={kpis.api_status} status={kpis.api_status} icon="🌐" />
+            <KPICard label={t('admin.technical.kpiPostgresql')} value={kpis.db_status} status={kpis.db_status} icon="🗄️" />
+            <KPICard label={t('admin.technical.kpiRedis')} value={kpis.redis_status} status={kpis.redis_status} icon="⚡" />
+            <KPICard label={t('admin.technical.kpiWorkers')} value={kpis.worker_status} status={kpis.worker_status} icon="⚙️" />
+            <KPICard label={t('admin.technical.kpiFailedJobs')} value={kpis.failed_jobs_count} icon="❌" />
+            <KPICard label={t('admin.technical.kpiSecurityAlerts')} value={kpis.security_alerts_count} icon="🚨" />
+            <KPICard label={t('admin.technical.kpiActiveSessions')} value={kpis.active_sessions_count} icon="🔑" />
+            <KPICard label={t('admin.technical.kpiBackup')} value={kpis.backup_status} status={kpis.backup_status === 'OK' ? 'HEALTHY' : 'NOT_CONFIGURED'} icon="💾" />
+            <KPICard label={t('admin.technical.kpiMigrations')} value={kpis.migration_status} status={kpis.migration_status === 'UP_TO_DATE' ? 'HEALTHY' : 'WARNING'} icon="🔄" />
+            <KPICard label={t('admin.technical.kpiWebVersion')} value={kpis.web_version || '—'} icon="🌐" />
+            <KPICard label={t('admin.technical.kpiAndroidVersion')} value={kpis.android_version || '—'} icon="📱" />
+          </div>
+        )}
+        </>
+      )}
+
+      {/* ── SYSTEM HEALTH ────────────────────────────────────────────── */}
+      {activeTab === 'health' && (
+        <>
+        {/* Services Health Grid */}
+        {health && (
+          <SectionCard title={t('admin.technical.serviceHealthTitle')} icon="🏥" onRefresh={loadAll}>
+            <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <StatusBadge status={health.overall_status} />
+              <span style={{ fontSize: 12, color: '#64748b' }}>{t('admin.technical.checkedAt', { time: new Date(health.checked_at).toLocaleTimeString() })}</span>
             </div>
-          )}
-
-          {/* Services Health Grid */}
-          {health && (
-            <SectionCard title={t('admin.technical.serviceHealthTitle')} icon="🏥" onRefresh={loadAll}>
-              <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <StatusBadge status={health.overall_status} />
-                <span style={{ fontSize: 12, color: '#64748b' }}>{t('admin.technical.checkedAt', { time: new Date(health.checked_at).toLocaleTimeString() })}</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
-                {health.services.map((svc) => (
-                  <div key={svc.service_name} style={{ background: '#1e293b', borderRadius: 10, padding: 14, border: `1px solid ${svc.status === 'DOWN' ? '#7f1d1d' : svc.status === 'HEALTHY' ? '#134e4a' : '#374151'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>{svc.service_name}</span>
-                      <StatusBadge status={svc.status} />
-                    </div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>{t('admin.technical.latency', { ms: svc.latency_ms })}</div>
-                    {svc.error_message_summary && (
-                      <div style={{ fontSize: 11, color: '#f87171', marginTop: 4, wordBreak: 'break-word' }}>{svc.error_message_summary}</div>
-                    )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+              {health.services.map((svc) => (
+                <div key={svc.service_name} style={{ background: '#1e293b', borderRadius: 10, padding: 14, border: `1px solid ${svc.status === 'DOWN' ? '#7f1d1d' : svc.status === 'HEALTHY' ? '#134e4a' : '#374151'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, color: '#e2e8f0', fontSize: 13 }}>{svc.service_name}</span>
+                    <StatusBadge status={svc.status} />
                   </div>
-                ))}
-              </div>
-            </SectionCard>
-          )}
+                  <div style={{ fontSize: 11, color: '#64748b' }}>{t('admin.technical.latency', { ms: svc.latency_ms })}</div>
+                  {svc.error_message_summary && (
+                    <div style={{ fontSize: 11, color: '#f87171', marginTop: 4, wordBreak: 'break-word' }}>{svc.error_message_summary}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        )}
+        </>
+      )}
 
-          {/* Migrations overview */}
-          {migrations && (
-            <SectionCard title={t('admin.technical.migrationsTitle')} icon="🔄">
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelCurrent')} <strong style={{ color: '#f1f5f9' }}>{migrations.current_version}</strong></div>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelApplied')} <strong style={{ color: '#4ade80' }}>{migrations.applied_count}</strong></div>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelPending')} <strong style={{ color: migrations.pending_count > 0 ? '#fb923c' : '#4ade80' }}>{migrations.pending_count}</strong></div>
-              </div>
-              <DataTable
-                columns={[t('admin.technical.colVersion'), t('common.name'), t('common.status'), t('admin.technical.colAppliedAt')]}
-                rows={(migrations.applied_migrations ?? []).slice(-5).reverse().map((m) => [
-                  m.version,
-                  m.name,
-                  <StatusBadge key={m.version} status={m.status} />,
-                  new Date(m.applied_at).toLocaleString()
-                ])}
-              />
-            </SectionCard>
-          )}
+      {/* ── MIGRATIONS ───────────────────────────────────────────────── */}
+      {activeTab === 'migrations' && (
+        <>
+        {/* Migrations overview */}
+        {migrations && (
+          <SectionCard title={t('admin.technical.migrationsTitle')} icon="🔄">
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelCurrent')} <strong style={{ color: '#f1f5f9' }}>{migrations.current_version}</strong></div>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelApplied')} <strong style={{ color: '#4ade80' }}>{migrations.applied_count}</strong></div>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelPending')} <strong style={{ color: migrations.pending_count > 0 ? '#fb923c' : '#4ade80' }}>{migrations.pending_count}</strong></div>
+            </div>
+            <DataTable
+              columns={[t('admin.technical.colVersion'), t('common.name'), t('common.status'), t('admin.technical.colAppliedAt')]}
+              rows={(migrations.applied_migrations ?? []).slice(-5).reverse().map((m) => [
+                m.version,
+                m.name,
+                <StatusBadge key={m.version} status={m.status} />,
+                new Date(m.applied_at).toLocaleString()
+              ])}
+            />
+          </SectionCard>
+        )}
+        </>
+      )}
 
-          {/* Email health */}
-          {email && (
-            <SectionCard title={t('admin.technical.emailHealthTitle')} icon="📧">
-              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelSmtp')} <StatusBadge status={email.smtp_reachable ? 'HEALTHY' : 'DOWN'} /></div>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelQueued')} <strong style={{ color: '#f1f5f9' }}>{email.queued_emails}</strong></div>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelRecentFailures')} <strong style={{ color: email.recent_failures_count > 0 ? '#f87171' : '#4ade80' }}>{email.recent_failures_count}</strong></div>
-              </div>
-            </SectionCard>
-          )}
+      {/* ── EMAIL HEALTH ─────────────────────────────────────────────── */}
+      {activeTab === 'email' && (
+        <>
+        {/* Email health */}
+        {email && (
+          <SectionCard title={t('admin.technical.emailHealthTitle')} icon="📧">
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelSmtp')} <StatusBadge status={email.smtp_reachable ? 'HEALTHY' : 'DOWN'} /></div>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelQueued')} <strong style={{ color: '#f1f5f9' }}>{email.queued_emails}</strong></div>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('admin.technical.labelRecentFailures')} <strong style={{ color: email.recent_failures_count > 0 ? '#f87171' : '#4ade80' }}>{email.recent_failures_count}</strong></div>
+            </div>
+          </SectionCard>
+        )}
         </>
       )}
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   adminDirectionApi,
   type DirectionOverviewStats,
@@ -12,7 +13,12 @@ export default function DirectionDashboardPage() {
   const t = useT()
   const { role } = useAdminAuth()
   const isSuperAdmin = role === 'SUPER_ADMIN'
-  const [activeTab, setActiveTab] = useState<'kpis' | 'users' | 'audit'>('kpis')
+  // The feature is the route, not local state: the sidebar marks it active and
+  // a browser refresh lands back on the same view. An unknown slug falls back
+  // to the overview rather than rendering nothing.
+  const { feature } = useParams<{ feature?: string }>()
+  const activeTab: 'kpis' | 'users' | 'audit' =
+    feature === 'users' ? 'users' : feature === 'audit' ? 'audit' : 'kpis'
   const [stats, setStats] = useState<DirectionOverviewStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
   const [statsError, setStatsError] = useState<string | null>(null)
@@ -161,88 +167,39 @@ export default function DirectionDashboardPage() {
 
   return (
     <div>
-      {/* View Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      {/* View Header — the section name sits above the feature title, so the
+          page says where it is without repeating the sidebar. */}
+      <div className="admin-page-head">
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>🧭</span> {t('admin.direction.pageTitle')}
+          <p className="admin-page-eyebrow">{t('admin.layout.navDirection')}</p>
+          <h1>
+            {activeTab === 'users'
+              ? t('admin.layout.itemUserManagement')
+              : activeTab === 'audit'
+                ? t('admin.layout.itemAuditLedger')
+                : t('admin.layout.itemOverview')}
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>
-            {t('admin.direction.pageSubtitle')}
+          <p>
+            {activeTab === 'users'
+              ? t('admin.direction.usersSubtitle', { count: totalUsers > 0 ? totalUsers : stats?.total_users || 0 })
+              : activeTab === 'audit'
+                ? t('admin.direction.auditSubtitle', { count: totalLogs })
+                : t('admin.direction.pageSubtitle')}
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            void loadOverviewStats()
-            if (activeTab === 'users') void loadUsers()
-            if (activeTab === 'audit') void loadAuditLogs()
-          }}
-          style={{
-            backgroundColor: '#1e293b',
-            color: '#94a3b8',
-            border: '1px solid #334155',
-            borderRadius: 8,
-            padding: '8px 14px',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-        >
-          <span>🔄</span> {t('admin.direction.refreshState')}
-        </button>
-      </div>
-
-      {/* Sub-tabs */}
-      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid #1e293b', paddingBottom: 12, marginBottom: 24 }}>
-        <button
-          onClick={() => setActiveTab('kpis')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            border: 'none',
-            backgroundColor: activeTab === 'kpis' ? '#2563eb' : '#1e293b',
-            color: activeTab === 'kpis' ? '#ffffff' : '#94a3b8'
-          }}
-        >
-          📊 {t('admin.direction.tabKpis')}
-        </button>
-        <button
-          onClick={() => setActiveTab('users')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            border: 'none',
-            backgroundColor: activeTab === 'users' ? '#2563eb' : '#1e293b',
-            color: activeTab === 'users' ? '#ffffff' : '#94a3b8'
-          }}
-        >
-          👥 {t('admin.direction.tabUserManagement', { count: totalUsers > 0 ? totalUsers : stats?.total_users || 0 })}
-        </button>
-        <button
-          onClick={() => setActiveTab('audit')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            border: 'none',
-            backgroundColor: activeTab === 'audit' ? '#2563eb' : '#1e293b',
-            color: activeTab === 'audit' ? '#ffffff' : '#94a3b8'
-          }}
-        >
-          📜 {t('admin.direction.tabAuditLedger', { count: totalLogs })}
-        </button>
+        <div className="admin-page-actions">
+          <button
+            className="admin-button"
+            onClick={() => {
+              void loadOverviewStats()
+              if (activeTab === 'users') void loadUsers()
+              if (activeTab === 'audit') void loadAuditLogs()
+            }}
+          >
+            {t('admin.direction.refreshState')}
+          </button>
+        </div>
       </div>
 
       {/* TAB 1: STRATEGIC KPIS */}
@@ -267,7 +224,7 @@ export default function DirectionDashboardPage() {
           ) : stats ? (
             <div>
               {/* Top Banner with Health */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+              <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.platformHealth')}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -299,10 +256,10 @@ export default function DirectionDashboardPage() {
               </div>
 
               {/* Multi-Domain Metric Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+              <div className="admin-kpi-grid">
                 {/* Users & Accounts */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
+                  <div className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>👥 {t('admin.direction.accountsBreakdown')}</h3>
                     <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.totalCount', { count: stats.total_users })}</span>
                   </div>
@@ -324,7 +281,7 @@ export default function DirectionDashboardPage() {
 
                 {/* Businesses & Shops */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
+                  <div className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>🏪 {t('admin.direction.merchantsAndOutlets')}</h3>
                     <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.businessesCount', { count: stats.total_businesses })}</span>
                   </div>
@@ -346,7 +303,7 @@ export default function DirectionDashboardPage() {
 
                 {/* Catalog & Inventory */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
+                  <div className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>📦 {t('admin.direction.catalogAndStock')}</h3>
                     <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.productsCount', { count: stats.total_products })}</span>
                   </div>

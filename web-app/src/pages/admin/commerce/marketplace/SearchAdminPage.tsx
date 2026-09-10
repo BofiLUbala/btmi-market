@@ -50,7 +50,7 @@ export default function SearchAdminPage() {
 
       {tab === 'analytics' && analytics && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+          <div className="admin-kpi-grid" style={{ marginBottom: 16 }}>
             {[
               { label: t('common.status'), value: analytics.available ? t('admin.searchAdmin.online') : t('admin.searchAdmin.offline'), color: analytics.available ? '#34d399' : '#ef4444' },
               { label: t('admin.searchAdmin.totalQueries'), value: analytics.total_queries?.toLocaleString() ?? '0' },

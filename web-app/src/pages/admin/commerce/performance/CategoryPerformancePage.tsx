@@ -10,7 +10,8 @@ export default function CategoryPerformancePage() {
   useEffect(() => {
     setLoading(true)
     adminCommerceApi.getCategoryPerformance()
-      .then(setPerformance)
+      // An empty result arrives as null, which would break the length check below.
+      .then((res) => setPerformance(Array.isArray(res) ? res : []))
       .catch(() => setPerformance([]))
       .finally(() => setLoading(false))
   }, [])

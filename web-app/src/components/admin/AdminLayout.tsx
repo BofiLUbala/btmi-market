@@ -1,88 +1,13 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
-import type { AdminRole } from '@/api/admin'
+import { AdminIcon } from './AdminIcon'
+import { ADMINISTRATION, matchLocation, sectionsForRole, type NavSection } from './adminNav'
 
-type NavItem = { to: string; labelKey: string; end?: boolean }
-type NavGroup = { key: string; labelKey: string; icon: string; accent: string; items: NavItem[] }
+export { defaultRouteForRole } from './adminNav'
 
-// Every dashboard group and the pages that belong to it. A role only ever sees
-// the groups it owns, so this doubles as the role-to-feature map.
-const GROUPS: Record<string, NavGroup> = {
-  direction: {
-    key: 'direction',
-    labelKey: 'admin.layout.navDirection',
-    icon: '🧭',
-    accent: '#60a5fa',
-    items: [{ to: '/admin/direction', labelKey: 'admin.layout.itemOverview', end: true }]
-  },
-  commerce: {
-    key: 'commerce',
-    labelKey: 'admin.layout.navCommerce',
-    icon: '📦',
-    accent: '#34d399',
-    items: [
-      { to: '/admin/commerce', labelKey: 'admin.layout.itemOverview', end: true },
-      { to: '/admin/commerce/products', labelKey: 'admin.layout.itemProducts' },
-      { to: '/admin/commerce/categories', labelKey: 'admin.layout.itemCategories' },
-      { to: '/admin/commerce/inventory', labelKey: 'admin.layout.itemInventory', end: true },
-      { to: '/admin/commerce/inventory/history', labelKey: 'admin.layout.itemStockHistory' },
-      { to: '/admin/commerce/orders', labelKey: 'admin.layout.itemOrders' },
-      { to: '/admin/commerce/employees', labelKey: 'admin.layout.itemEmployees' },
-      { to: '/admin/commerce/marketplace/visibility', labelKey: 'admin.layout.itemVisibility' },
-      { to: '/admin/commerce/marketplace/search', labelKey: 'admin.layout.itemSearch' },
-      { to: '/admin/commerce/marketplace/ranking', labelKey: 'admin.layout.itemRanking' },
-      { to: '/admin/commerce/marketplace/quality', labelKey: 'admin.layout.itemQuality' },
-      { to: '/admin/commerce/marketplace/promotions', labelKey: 'admin.layout.itemPromotions' },
-      { to: '/admin/commerce/performance/sellers', labelKey: 'admin.layout.itemSellerPerf' },
-      { to: '/admin/commerce/performance/shops', labelKey: 'admin.layout.itemShopPerf' },
-      { to: '/admin/commerce/performance/categories', labelKey: 'admin.layout.itemCategoryPerf' }
-    ]
-  },
-  finance: {
-    key: 'finance',
-    labelKey: 'admin.layout.navFinance',
-    icon: '💰',
-    accent: '#fbbf24',
-    items: [{ to: '/admin/finance', labelKey: 'admin.layout.itemOverview', end: true }]
-  },
-  technical: {
-    key: 'technical',
-    labelKey: 'admin.layout.navTechnical',
-    icon: '🛡️',
-    accent: '#2dd4bf',
-    items: [{ to: '/admin/technical', labelKey: 'admin.layout.itemOverview', end: true }]
-  }
-}
-
-// Platform-wide administration, reserved for SUPER_ADMIN.
-const SUPER_GROUP: NavGroup = {
-  key: 'platform',
-  labelKey: 'admin.layout.navPlatform',
-  icon: '🔐',
-  accent: '#c084fc',
-  items: [
-    { to: '/admin/admin-users', labelKey: 'admin.layout.navAdminUsers' },
-    { to: '/admin/platform/feature-flags', labelKey: 'admin.layout.navFlags' },
-    { to: '/admin/platform/advanced', labelKey: 'admin.layout.navAdvanced' }
-  ]
-}
-
-// The dashboard a role owns. SUPER_ADMIN owns the whole centre instead.
-const ROLE_GROUP: Record<string, string> = {
-  DIRECTION_ADMIN: 'direction',
-  COMMERCE_ADMIN: 'commerce',
-  FINANCE_SUPPORT_ADMIN: 'finance',
-  TECHNICAL_ADMIN: 'technical'
-}
-
-/** Landing route for a role, so nobody is sent to a dashboard they cannot open. */
-export function defaultRouteForRole(role: AdminRole | null): string {
-  if (!role) return '/admin/login'
-  if (role === 'SUPER_ADMIN') return '/admin/direction'
-  const group = ROLE_GROUP[role]
-  return group ? GROUPS[group].items[0].to : '/admin/login'
-}
+const COLLAPSE_KEY = 'tbk.admin.sidebarCollapsed'
 
 const ROLE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   SUPER_ADMIN: { bg: '#581c87', text: '#e9d5ff', border: '#7e22ce' },
@@ -92,25 +17,68 @@ const ROLE_COLORS: Record<string, { bg: string; text: string; border: string }> 
   TECHNICAL_ADMIN: { bg: '#134e4a', text: '#99f6e4', border: '#14b8a6' }
 }
 
+function readCollapsed() {
+  try { return window.localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
+}
+
+/** Tracks a media query. The rail/drawer decision cannot live in CSS alone:
+ *  a section row has to *behave* differently in a rail — its icon navigates
+ *  instead of expanding children — so JS needs the same answer the CSS uses. */
+function useMediaFlag(query: string) {
+  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches)
+  useEffect(() => {
+    const list = window.matchMedia(query)
+    const onChange = () => setMatches(list.matches)
+    onChange()
+    list.addEventListener('change', onChange)
+    return () => list.removeEventListener('change', onChange)
+  }, [query])
+  return matches
+}
+
 export function AdminLayout() {
   const { admin, role, logout } = useAdminAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const t = useT()
 
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(readCollapsed)
+  const [expanded, setExpanded] = useState<string[]>([])
+
+  const isMobile = useMediaFlag('(max-width: 860px)')
+  const isNarrow = useMediaFlag('(max-width: 1100px)')
+  // A drawer has room for full labels, so only the in-between widths force the
+  // rail; above 1100px it is the operator's stored preference.
+  const forcedRail = isNarrow && !isMobile
+  const rail = !isMobile && (collapsed || forcedRail)
+
+  const sections = useMemo(() => sectionsForRole(role), [role])
   const isSuper = role === 'SUPER_ADMIN'
-  const ownGroup = role ? ROLE_GROUP[role] : undefined
+  const active = useMemo(() => matchLocation(location.pathname, role), [location.pathname, role])
+  const activeSectionKey = active.section?.key
 
-  // SUPER_ADMIN carries the control-centre identity; an operational admin is
-  // shown the name of the single dashboard they administer.
-  const title = isSuper ? t('admin.layout.brand') : t(GROUPS[ownGroup ?? 'direction'].labelKey)
-  const subtitle = isSuper ? t('admin.layout.tagline') : t('admin.layout.taglineSingle')
+  // On a phone the sidebar covers the page, so navigating must close it.
+  useEffect(() => { setDrawerOpen(false) }, [location.pathname])
 
-  // Hidden, not disabled: a role never sees a group it cannot open.
-  const groups: NavGroup[] = isSuper
-    ? [...Object.values(GROUPS), SUPER_GROUP]
-    : ownGroup
-      ? [GROUPS[ownGroup]]
-      : []
+  // The section holding the current route is always open, so the active feature
+  // stays visible after a deep link or a browser refresh.
+  useEffect(() => {
+    if (activeSectionKey) setExpanded((prev) => (prev.includes(activeSectionKey) ? prev : [...prev, activeSectionKey]))
+  }, [activeSectionKey])
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev
+      try { window.localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch { /* storage blocked */ }
+      return next
+    })
+  }, [])
+
+  // A single-dashboard admin gets their dashboard name as the sidebar title;
+  // only SUPER_ADMIN sees the control-centre identity and the switcher below it.
+  const brandTitle = isSuper || !sections[0] ? t('admin.layout.brand') : t(sections[0].labelKey)
+  const brandSubtitle = isSuper ? t('admin.layout.tagline') : t('admin.layout.taglineSingle')
 
   const roleStyle = (role && ROLE_COLORS[role]) || { bg: '#334155', text: '#f1f5f9', border: '#64748b' }
 
@@ -119,135 +87,179 @@ export function AdminLayout() {
     navigate('/admin/login')
   }
 
+  const crumbs: string[] = []
+  if (isSuper) crumbs.push(t('admin.layout.brand'))
+  if (active.section) crumbs.push(t(active.section.labelKey))
+  if (active.admin) crumbs.push(t(active.admin.labelKey))
+  if (active.item) crumbs.push(t(active.item.labelKey))
+
+  const renderItem = (to: string, label: string, end: boolean | undefined, accent: string) => (
+    <NavLink
+      key={to}
+      to={to}
+      end={end}
+      className="admin-nav-row admin-nav-item"
+      data-tip={label}
+      style={{ ['--row-accent' as string]: accent }}
+    >
+      <span className="admin-nav-label">{label}</span>
+    </NavLink>
+  )
+
+  const renderSection = (section: NavSection) => {
+    // One dashboard, no switcher: its name is already the sidebar title, so the
+    // features are listed flat rather than nested under a redundant header.
+    if (!isSuper) {
+      return (
+        <div key={section.key} className="admin-nav-children" data-flat="true">
+          {section.items.map((item) => renderItem(item.to, t(item.labelKey), item.end, section.accent))}
+        </div>
+      )
+    }
+
+    const isOpen = expanded.includes(section.key)
+
+    return (
+      <div key={section.key}>
+        <button
+          type="button"
+          className="admin-nav-row admin-nav-section"
+          data-active={activeSectionKey === section.key}
+          aria-expanded={rail ? undefined : isOpen}
+          aria-label={t(section.labelKey)}
+          data-tip={t(section.labelKey)}
+          style={{ ['--row-accent' as string]: section.accent }}
+          onClick={() => {
+            // Collapsed to icons there is nowhere to show children, so the icon
+            // becomes a direct link to the dashboard it represents.
+            if (rail) { navigate(section.root); return }
+            setExpanded((prev) => prev.includes(section.key) ? prev.filter((k) => k !== section.key) : [...prev, section.key])
+          }}
+        >
+          <AdminIcon name={section.icon} />
+          <span className="admin-nav-label">{t(section.labelKey)}</span>
+          <span className="admin-nav-chevron" data-open={isOpen} aria-hidden="true">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+          </span>
+        </button>
+
+        {!rail && isOpen && (
+          <div className="admin-nav-children">
+            {section.items.map((item) => renderItem(item.to, t(item.labelKey), item.end, section.accent))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', backgroundColor: '#090d16', color: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <aside style={{
-        width: 250,
-        flexShrink: 0,
-        backgroundColor: '#0f172a',
-        borderRight: '1px solid #1e293b',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
-        overflowY: 'auto'
-      }}>
-        {/* Identity */}
-        <div style={{ padding: '18px 16px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: 11 }}>
-          <img
-            src="/tbk-admin-logo.png"
-            alt="TBK"
-            style={{ width: 34, height: 34, objectFit: 'contain', borderRadius: 8, flexShrink: 0 }}
-          />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: '#f8fafc', lineHeight: 1.25 }}>
-              {title}
-            </div>
-            <div style={{ fontSize: 10, color: '#64748b', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: 2 }}>
-              {subtitle}
-            </div>
+    <div className="admin-shell" data-collapsed={rail} data-mobile={isMobile} data-forced-rail={forcedRail}>
+      <div className="admin-sidebar-backdrop" data-open={drawerOpen} onClick={() => setDrawerOpen(false)} />
+
+      <aside className="admin-sidebar" data-open={drawerOpen}>
+        <div className="admin-brand">
+          <img src="/tbk-admin-logo.png" alt="TBK" className="admin-brand-logo" />
+          <div className="admin-brand-text">
+            <div className="admin-brand-title">{brandTitle}</div>
+            <div className="admin-brand-subtitle">{brandSubtitle}</div>
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {groups.map((group) => (
-            <div key={group.key}>
-              {/* A single-dashboard admin already has the name in the header. */}
-              {isSuper && (
-                <div style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.07em',
-                  textTransform: 'uppercase',
-                  color: '#64748b',
-                  padding: '0 8px 6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}>
-                  <span>{group.icon}</span> {t(group.labelKey)}
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    style={({ isActive }) => ({
-                      display: 'block',
-                      padding: '7px 10px',
-                      borderRadius: 7,
-                      fontSize: 12.5,
-                      fontWeight: isActive ? 700 : 500,
-                      textDecoration: 'none',
-                      backgroundColor: isActive ? '#1e293b' : 'transparent',
-                      color: isActive ? group.accent : '#94a3b8',
-                      borderLeft: `2px solid ${isActive ? group.accent : 'transparent'}`
-                    })}
-                  >
-                    {t(item.labelKey)}
-                  </NavLink>
-                ))}
-              </div>
+        <nav className="admin-nav" aria-label={t('admin.layout.primaryNav')}>
+          {sections.length > 0 && (
+            <div className="admin-nav-group">
+              {isSuper && <div className="admin-nav-heading">{t('admin.layout.groupDashboards')}</div>}
+              {sections.map(renderSection)}
             </div>
-          ))}
+          )}
+
+          {isSuper && (
+            <div className="admin-nav-group">
+              <div className="admin-nav-heading">{t('admin.layout.groupAdministration')}</div>
+              {ADMINISTRATION.map((entry) => (
+                <NavLink
+                  key={entry.to}
+                  to={entry.to}
+                  className="admin-nav-row admin-nav-section"
+                  data-tip={t(entry.labelKey)}
+                  aria-label={t(entry.labelKey)}
+                  style={{ ['--row-accent' as string]: '#c084fc' }}
+                >
+                  <AdminIcon name={entry.icon} />
+                  <span className="admin-nav-label">{t(entry.labelKey)}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
         </nav>
 
-        {/* Operator */}
-        <div style={{ padding: '12px 14px', borderTop: '1px solid #1e293b' }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#f8fafc' }}>
-            {admin?.first_name} {admin?.last_name}
+        {/* The only place the operator's identity appears, so the role is stated
+            once instead of being echoed in the header as well. */}
+        <div className="admin-account">
+          <div className="admin-nav-heading admin-account-heading">{t('admin.layout.groupAccount')}</div>
+          <div className="admin-account-identity" data-tip={`${admin?.first_name ?? ''} ${admin?.last_name ?? ''}`.trim()}>
+            <span className="admin-account-avatar" aria-hidden="true">{(admin?.first_name?.[0] ?? 'A').toUpperCase()}</span>
+            <span className="admin-account-text">
+              <span className="admin-account-name">{admin?.first_name} {admin?.last_name}</span>
+              <span
+                className="admin-account-role"
+                style={{ backgroundColor: roleStyle.bg, color: roleStyle.text, borderColor: roleStyle.border }}
+              >
+                {role ? t(`admin.layout.role.${role}`) : ''}
+              </span>
+            </span>
           </div>
-          <span style={{
-            display: 'inline-block',
-            marginTop: 4,
-            fontSize: 9.5,
-            fontWeight: 700,
-            letterSpacing: '0.05em',
-            padding: '2px 7px',
-            borderRadius: 5,
-            backgroundColor: roleStyle.bg,
-            color: roleStyle.text,
-            border: `1px solid ${roleStyle.border}`,
-            textTransform: 'uppercase'
-          }}>
-            {role ? t(`admin.layout.role.${role}`) : ''}
-          </span>
           <button
+            type="button"
             onClick={handleLogout}
-            style={{
-              display: 'block',
-              width: '100%',
-              marginTop: 10,
-              backgroundColor: '#1e293b',
-              color: '#cbd5e1',
-              border: '1px solid #334155',
-              borderRadius: 7,
-              padding: '7px 10px',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
+            className="admin-signout"
+            data-tip={t('admin.layout.signOut')}
+            aria-label={t('admin.layout.signOut')}
             title={t('admin.layout.signOutTitle')}
           >
-            {t('admin.layout.signOut')}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 17l5-5-5-5m5 5H9M12 21H6a2 2 0 01-2-2V5a2 2 0 012-2h6" /></svg>
+            <span className="admin-nav-label">{t('admin.layout.signOut')}</span>
           </button>
         </div>
       </aside>
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ backgroundColor: '#0b1120', borderBottom: '1px solid #1e293b', padding: '7px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 6, fontSize: 11.5 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, color: '#94a3b8' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <button
+            type="button"
+            className="admin-drawer-button"
+            onClick={() => setDrawerOpen((v) => !v)}
+            aria-label={t('admin.layout.toggleMenu')}
+            aria-expanded={drawerOpen}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </button>
+          <button
+            type="button"
+            className="admin-collapse-button"
+            onClick={toggleCollapsed}
+            aria-label={t(collapsed ? 'admin.layout.expandSidebar' : 'admin.layout.collapseSidebar')}
+            aria-pressed={collapsed}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM10 5v14" /></svg>
+          </button>
+
+          <nav className="admin-breadcrumb" aria-label={t('admin.layout.breadcrumb')}>
+            {crumbs.map((crumb, index) => (
+              <span key={`${crumb}-${index}`} className="admin-crumb" data-current={index === crumbs.length - 1}>
+                {index > 0 && <span className="admin-crumb-sep" aria-hidden="true">/</span>}
+                {crumb}
+              </span>
+            ))}
+          </nav>
+
+          <div className="admin-topbar-status">
+            <span className="admin-status-dot" aria-hidden="true" />
             <span>{t('admin.layout.sourceOfTruthLabel')} <strong>{t('admin.layout.sourceOfTruthValue')}</strong></span>
           </div>
-          <div style={{ color: '#64748b', fontSize: 11 }}>{t('admin.layout.footer')}</div>
-        </div>
+        </header>
 
-        <main style={{ flex: 1, width: '100%', padding: '22px 20px', minWidth: 0 }}>
+        <main className="admin-content">
           <Outlet />
         </main>
       </div>

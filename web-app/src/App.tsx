@@ -227,6 +227,9 @@ export default function App() {
                   <Route path="/admin" element={<AdminHomeRedirect />} />
                   <Route element={<RequireAdminRole allowedRoles={['DIRECTION_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/direction" element={<DirectionDashboardPage />} />
+                    {/* Features are routes, not local tab state, so the sidebar
+                        can mark one active and a refresh lands back on it. */}
+                    <Route path="/admin/direction/:feature" element={<DirectionDashboardPage />} />
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['SUPER_ADMIN']} />}>
                     <Route path="/admin/admin-users" element={<AdminUsersPage />} />
@@ -253,9 +256,11 @@ export default function App() {
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['FINANCE_SUPPORT_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/finance" element={<FinanceDashboardPage />} />
+                    <Route path="/admin/finance/:feature" element={<FinanceDashboardPage />} />
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['TECHNICAL_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/technical" element={<TechnicalDashboardPage />} />
+                    <Route path="/admin/technical/:feature" element={<TechnicalDashboardPage />} />
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['SUPER_ADMIN']} />}>
                     <Route path="/admin/platform/feature-flags" element={<FeatureFlagsPage />} />

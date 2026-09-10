@@ -1579,7 +1579,7 @@ func (r *AdminCommerceRepository) GetSellerPerformance(limit, offset int) ([]*mo
 	}
 	defer rows.Close()
 
-	var perf []*models.AdminSellerPerformance
+	perf := make([]*models.AdminSellerPerformance, 0)
 	for rows.Next() {
 		p := &models.AdminSellerPerformance{}
 		err := rows.Scan(
@@ -1645,7 +1645,7 @@ func (r *AdminCommerceRepository) GetProductPerformance(limit, offset int) ([]*m
 	}
 	defer rows.Close()
 
-	var perf []*models.AdminProductPerformance
+	perf := make([]*models.AdminProductPerformance, 0)
 	for rows.Next() {
 		p := &models.AdminProductPerformance{}
 		err := rows.Scan(
@@ -1693,7 +1693,7 @@ func (r *AdminCommerceRepository) GetCategoryPerformance() ([]*models.AdminCateg
 	}
 	defer rows.Close()
 
-	var perf []*models.AdminCategoryPerformance
+	perf := make([]*models.AdminCategoryPerformance, 0)
 	for rows.Next() {
 		p := &models.AdminCategoryPerformance{}
 		err := rows.Scan(
@@ -1749,7 +1749,7 @@ func (r *AdminCommerceRepository) GetShopPerformance(limit, offset int) ([]*mode
 	}
 	defer rows.Close()
 
-	var perf []*models.AdminShopPerformance
+	perf := make([]*models.AdminShopPerformance, 0)
 	for rows.Next() {
 		p := &models.AdminShopPerformance{}
 		err := rows.Scan(

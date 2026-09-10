@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAdminAuth } from '@/store/adminAuth'
-import { defaultRouteForRole } from './AdminLayout'
+import { defaultRouteForRole } from './adminNav'
 
 /** Sends each role to the dashboard it actually owns, instead of assuming Direction. */
 export function AdminHomeRedirect() {

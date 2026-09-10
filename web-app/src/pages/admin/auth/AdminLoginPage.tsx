@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
-import { defaultRouteForRole } from '@/components/admin/AdminLayout'
+import { defaultRouteForRole } from '@/components/admin/adminNav'
 
 export default function AdminLoginPage() {
   const { login } = useAdminAuth()

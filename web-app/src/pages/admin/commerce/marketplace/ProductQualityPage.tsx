@@ -115,7 +115,7 @@ export default function ProductQualityPage() {
 
           {/* Checklist */}
           <Section title={t('admin.quality.checklistTitle')}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+            <div className="admin-kpi-grid">
               {[
                 { label: t('admin.quality.criteriaPrimaryImage'), passed: quality.has_primary_image },
                 { label: t('admin.quality.criteriaEffectivePrice'), passed: quality.has_effective_price },
@@ -139,7 +139,7 @@ export default function ProductQualityPage() {
 
           {/* Pricing & Media Details */}
           <Section title={t('admin.quality.cardAttributes')}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <div className="admin-kpi-grid">
               <Field label={t('admin.quality.effectivePrice')} value={`$${quality.effective_price.toFixed(2)}`} />
               <Field label={t('admin.quality.regularPrice')} value={`$${quality.regular_price.toFixed(2)}`} />
               <Field label={t('admin.quality.discount')} value={quality.has_off_badge ? t('admin.quality.percentOff', { percent: quality.discount_percent.toFixed(1) }) : t('admin.common.none')} color={quality.has_off_badge ? '#34d399' : undefined} />
