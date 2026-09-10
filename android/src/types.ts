@@ -290,6 +290,10 @@ export interface CreateProductRequest {
   discount_active?: boolean; discount_type?: string; discount_value?: number
   discount_start?: string | null; discount_end?: string | null
   self_rating: number
+  /** Optional client-generated key, unique per business. Replaying a create
+   *  call with the same key returns the product the first one made instead of
+   *  creating a second, so a retry after a timeout cannot duplicate it. */
+  idempotency_key?: string
 }
 export interface UpdateProductRequest {
   name?: string; description?: string; sku?: string; unit_price?: number; cost_price?: number; unit?: string

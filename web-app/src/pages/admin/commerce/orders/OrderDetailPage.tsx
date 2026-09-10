@@ -1,23 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderDetail } from '@/api/admin'
+import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import { useT } from '@/store/i18n'
-
-const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
-  PENDING: { bg: '#78350f', fg: '#fde68a' },
-  CONFIRMED: { bg: '#1e3a5f', fg: '#93c5fd' },
-  PROCESSING: { bg: '#1e3a5f', fg: '#93c5fd' },
-  SHIPPED: { bg: '#064e3b', fg: '#a7f3d0' },
-  DELIVERED: { bg: '#064e3b', fg: '#a7f3d0' },
-  COMPLETED: { bg: '#064e3b', fg: '#a7f3d0' },
-  CANCELLED: { bg: '#7f1d1d', fg: '#fca5a5' },
-  REFUNDED: { bg: '#78350f', fg: '#fde68a' },
-}
-
-function Badge({ status }: { status: string }) {
-  const c = STATUS_COLORS[status] || { bg: '#334155', fg: '#f1f5f9' }
-  return <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: c.bg, color: c.fg }}>{status}</span>
-}
+import { BoxIcon } from '@/components/ui/Icons'
+import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -92,8 +79,8 @@ export default function OrderDetailPage() {
           <div style={{ color: '#64748b', fontSize: 12 }}>{t('admin.orders.placedAt', { date: new Date(order.order.created_at).toLocaleString() })}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Badge status={order.order.status} />
-          <Badge status={order.order.payment_status} />
+          <StatusBadge status={order.order.status} />
+          <StatusBadge status={order.order.payment_status} />
         </div>
       </div>
 
@@ -106,13 +93,13 @@ export default function OrderDetailPage() {
             <Field label={t('admin.orders.fieldDeliveryFee')} value={`$${order.order.delivery_fee.toFixed(2)}`} />
             <Field label={t('admin.orders.fieldPointsDiscount')} value={order.order.points_discount > 0 ? `-$${order.order.points_discount.toFixed(2)}` : '$0.00'} />
             {order.payment && <Field label={t('admin.orders.fieldPaymentMethod')} value={order.payment.payment_method} />}
-            <Field label={t('admin.orders.fieldPaymentStatus')} value={<Badge status={order.order.payment_status} />} />
+            <Field label={t('admin.orders.fieldPaymentStatus')} value={<StatusBadge status={order.order.payment_status} />} />
             <Field label={t('admin.orders.fieldDeliveryMethod')} value={order.order.delivery_method || t('admin.common.notAvailable')} />
             {order.order.is_stuck && <Field label={t('admin.orders.fieldStuckReason')} value={order.order.stuck_reason || t('admin.orders.stuckReasonDefault')} />}
           </Section>
 
           <Section title={t('admin.orders.deliveryTitle')}>
-            <Field label={t('admin.orders.deliveryStatus')} value={<Badge status={order.order.delivery_status || 'PENDING_TBK_ASSIGNMENT'} />} />
+            <Field label={t('admin.orders.deliveryStatus')} value={<StatusBadge status={order.order.delivery_status || 'PENDING_TBK_ASSIGNMENT'} />} />
             <Field label={t('admin.orders.deliveryMethodLabel')} value={order.order.delivery_method || 'TBK_STANDARD'} />
             <Field label={t('admin.orders.deliveryContact')} value={order.order.delivery_contact_name || order.order.buyer_name} />
             <Field label={t('admin.orders.deliveryPhone')} value={order.order.delivery_phone || order.order.buyer_phone} />
@@ -202,7 +189,7 @@ export default function OrderDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {(order.lines ?? []).map((item) => (
                 <div key={item.id} style={{ display: 'flex', gap: 12, padding: 10, backgroundColor: '#1e293b', borderRadius: 8, alignItems: 'center' }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#64748b', flexShrink: 0 }}>📦</div>
+                  <div style={{ width: 48, height: 48, borderRadius: 6, backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#64748b', flexShrink: 0 }}><BoxIcon style={{ width: 24, height: 24 }} /></div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc' }}>{item.product_name || t('admin.common.notAvailable')}</div>
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('admin.orders.qty', { count: item.quantity })}</div>
@@ -233,6 +220,14 @@ export default function OrderDetailPage() {
             </Section>
           )}
         </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <Section title="💬 Supervision Dialogue (Buyer ↔ Seller ↔ Admin)">
+          <div style={{ height: 500 }}>
+            <OrderChatFeed orderId={id!} role="ADMIN" showHeader={false} />
+          </div>
+        </Section>
       </div>
     </div>
   )

@@ -45,6 +45,7 @@ export default function CartPage() {
   const [profileBlocked, setProfileBlocked] = useState(false)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
+  const [recentlyRemoved, setRecentlyRemoved] = useState<typeof cart.lines[0] | null>(null)
 
   // Amazon-style guard: browsing and the cart itself stay open to everyone,
   // but checkout is blocked until the buyer has a phone number on file so
@@ -129,6 +130,61 @@ export default function CartPage() {
       {error && <div className="checkout-inline-error"><strong>{t('cart.needsAttention')}</strong><span>{error}</span>{profileBlocked && <button onClick={() => setProfileModalOpen(true)}>{t('cart.completeProfile')}</button>}</div>}
       {profileSaved && <div className="checkout-inline-success" role="status">Your buyer profile is complete. You can continue checkout.</div>}
 
+      {recentlyRemoved && (
+        <div
+          role="status"
+          className="fade-in"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 16px',
+            marginBottom: 16,
+            borderRadius: 'var(--radius)',
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'var(--shadow-sm)'
+          }}
+        >
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
+            {t('cart.itemRemoved', { name: recentlyRemoved.name })}
+          </span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              style={{ color: 'var(--color-accent)', fontWeight: 700 }}
+              onClick={() => {
+                cart.add({
+                  variantId: recentlyRemoved.variantId,
+                  productId: recentlyRemoved.productId,
+                  name: recentlyRemoved.name,
+                  variantName: recentlyRemoved.variantName,
+                  unitPrice: recentlyRemoved.unitPrice,
+                  currency: recentlyRemoved.currency,
+                  shopId: recentlyRemoved.shopId,
+                  shopName: recentlyRemoved.shopName,
+                  image: recentlyRemoved.image,
+                  unit: recentlyRemoved.unit,
+                  quantity: recentlyRemoved.quantity
+                })
+                setRecentlyRemoved(null)
+              }}
+            >
+              {t('common.undo')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setRecentlyRemoved(null)}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="checkout-layout">
         <div className="checkout-content">
         <section className="checkout-card cart-products">
@@ -168,7 +224,15 @@ export default function CartPage() {
                     +
                   </button>
                 </div>
-                <button className="cart-remove" onClick={() => cart.remove(l.variantId)}>{t('common.remove')}</button>
+                <button
+                  className="cart-remove"
+                  onClick={() => {
+                    setRecentlyRemoved({ ...l })
+                    cart.remove(l.variantId)
+                  }}
+                >
+                  {t('common.remove')}
+                </button>
               </div>
               <div className="cart-product-total"><span>{t('common.subtotal')}</span><strong>{formatMoney(l.unitPrice * l.quantity)}</strong></div>
             </article>

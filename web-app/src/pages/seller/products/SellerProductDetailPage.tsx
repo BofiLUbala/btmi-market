@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { PlusIcon } from '@/components/ui/Icons'
+import { PlusIcon, BoxIcon } from '@/components/ui/Icons'
 import { extractSpecifications } from '@/lib/variants'
 import type { TranslationKey } from '@/locales/fr'
 import { useEffect, useState, useMemo } from 'react'
@@ -485,7 +485,7 @@ export default function SellerProductDetailPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>📦</div>
+        <div className="empty-icon" style={{ fontSize: 64 }}><BoxIcon style={{ width: 64, height: 64 }} /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
       </div>
     )

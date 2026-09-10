@@ -16,6 +16,8 @@ const NAV: { key: TranslationKey; path: string }[] = [
   { key: 'seller.products', path: '/seller/products' },
   { key: 'seller.stock', path: '/seller/stock' },
   { key: 'seller.orders', path: '/seller/orders' },
+  { key: 'seller.messages', path: '/seller/messages' },
+  { key: 'seller.notifications', path: '/seller/notifications' },
   { key: 'seller.customers', path: '/seller/customers' },
   { key: 'seller.cash', path: '/seller/cash' },
   { key: 'seller.growth', path: '/seller/growth' },

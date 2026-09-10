@@ -3,6 +3,7 @@ import { orderApi, shopApi } from '@/api/seller'
 import type { BuyerPayment, OrderStatus, OrderWithLines, Shop } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
@@ -55,11 +56,13 @@ function orderStatusLabel(status: string, t: ReturnType<typeof useT>): string {
 
 export default function SellerOrdersPage() {
   const t = useT()
+  const [searchParams] = useSearchParams()
+  const orderIdParam = searchParams.get('orderId')
   const { activeBusiness } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(orderIdParam)
   const [actionError, setActionError] = useState('')
   const [actingId, setActingId] = useState<string | null>(null)
   const [payments, setPayments] = useState<Record<string, BuyerPayment | null>>({})

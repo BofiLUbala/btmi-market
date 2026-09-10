@@ -2,6 +2,7 @@ import { useAuth } from '@/store/auth'
 import { inventoryApi } from '@/api/seller'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { BoxIcon } from '@/components/ui/Icons'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
@@ -140,7 +141,7 @@ export default function SellerStockPage() {
           {rows.length === 0 ? (
             <Card>
               <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
-                <div className="empty-icon" style={{ fontSize: 48 }}>📦</div>
+                <div className="empty-icon" style={{ fontSize: 48 }}><BoxIcon style={{ width: 48, height: 48 }} /></div>
                 <h3>{t('seller.stockPage.noInventoryTitle')}</h3>
                 <p className="muted">{t('seller.stockPage.noInventoryDesc')}</p>
               </div>

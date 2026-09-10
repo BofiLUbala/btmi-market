@@ -2,27 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
-
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  PUBLISHED: { bg: '#064e3b', text: '#a7f3d0' },
-  DRAFT: { bg: '#78350f', text: '#fde68a' },
-  ARCHIVED: { bg: '#334155', text: '#94a3b8' },
-  ACTIVE: { bg: '#064e3b', text: '#a7f3d0' },
-  LOW_STOCK: { bg: '#78350f', text: '#fde68a' },
-  OUT_OF_STOCK: { bg: '#7f1d1d', text: '#fca5a5' },
-  IN_STOCK: { bg: '#064e3b', text: '#a7f3d0' },
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors = STATUS_COLORS[status] || { bg: '#334155', text: '#f1f5f9' }
-  return (
-    <span style={{
-      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-      backgroundColor: colors.bg, color: colors.text, display: 'inline-block',
-      letterSpacing: '0.03em'
-    }}>{status}</span>
-  )
-}
+import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
+import { BoxIcon } from '@/components/ui/Icons'
 
 export default function CommerceProductsPage() {
   const t = useT()
@@ -69,6 +50,7 @@ export default function CommerceProductsPage() {
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           type="text"
+          aria-label={t('admin.products.searchPlaceholder')}
           placeholder={t('admin.products.searchPlaceholder')}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
@@ -78,6 +60,7 @@ export default function CommerceProductsPage() {
           }}
         />
         <select
+          aria-label={t('admin.products.filterAllStatus')}
           value={publicationStatus}
           onChange={(e) => { setPublicationStatus(e.target.value); setPage(0) }}
           style={{
@@ -91,6 +74,7 @@ export default function CommerceProductsPage() {
           <option value="ARCHIVED">{t('admin.products.statusArchived')}</option>
         </select>
         <select
+          aria-label={t('admin.products.filterAllStock')}
           value={stockStatus}
           onChange={(e) => { setStockStatus(e.target.value); setPage(0) }}
           style={{
@@ -129,7 +113,7 @@ export default function CommerceProductsPage() {
                       {p.primary_image ? (
                         <img src={p.primary_image} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover' }} />
                       ) : (
-                        <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#64748b' }}>📦</div>
+                        <div style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#64748b' }}><BoxIcon style={{ width: 16, height: 16 }} /></div>
                       )}
                       <div>
                         <Link to={`/admin/commerce/products/${p.id}`} style={{ color: '#f8fafc', fontWeight: 600, textDecoration: 'none' }}>{p.name}</Link>

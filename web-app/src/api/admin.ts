@@ -672,6 +672,34 @@ export const adminUsersApi = {
       method: 'POST',
       body: JSON.stringify({ role, reason })
     })
+  },
+  /**
+   * Permanently removes an admin account. The server re-checks `confirmEmail`
+   * against the target, so the retype is a real gate rather than a UI courtesy,
+   * and it decides whether the row can be erased outright (an invitation that
+   * was never activated) or must be retired to preserve its audit history. The
+   * returned message says which happened.
+   */
+  remove: async (id: string, confirmEmail: string, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/admin-users/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirm_email: confirmEmail, reason })
+    })
+  }
+}
+
+export const adminProfileApi = {
+  /**
+   * Renames the signed-in admin. The console shows this name as the operator's
+   * identity, and a bootstrapped account starts with whatever placeholder its
+   * environment variables gave it, so this is how that gets corrected. Only the
+   * name: role, status and address stay with the SUPER_ADMIN endpoints.
+   */
+  updateName: async (firstName: string, lastName: string) => {
+    return adminApi<AdminUser>('/admin/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ first_name: firstName, last_name: lastName })
+    })
   }
 }
 

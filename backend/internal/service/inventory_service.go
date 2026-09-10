@@ -823,6 +823,24 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 		return nil, err
 	}
 
+	// A client whose create call timed out cannot tell whether the Product was
+	// committed. Replaying the same key hands back the Product the first call
+	// made -- and its default variant already exists -- so the caller resumes
+	// its pipeline instead of creating a duplicate.
+	idempotencyKey := ""
+	if req.IdempotencyKey != nil {
+		idempotencyKey = strings.TrimSpace(*req.IdempotencyKey)
+	}
+	if idempotencyKey != "" {
+		existing, err := s.productRepo.GetByBusinessAndIdempotencyKey(businessID, idempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil {
+			return existing, nil
+		}
+	}
+
 	selfRating := req.SelfRating
 	product := &models.Product{
 		BusinessID:  businessID,
@@ -834,6 +852,9 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 		Unit:        req.Unit,
 		Status:      models.ProductStatusActive,
 		SelfRating:  &selfRating,
+	}
+	if idempotencyKey != "" {
+		product.IdempotencyKey = &idempotencyKey
 	}
 
 	if product.Unit == "" {

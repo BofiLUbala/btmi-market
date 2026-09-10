@@ -39,7 +39,14 @@ const PATHS: Record<IconName, string> = {
   lock: 'M6 11h12a1 1 0 011 1v7a1 1 0 01-1 1H6a1 1 0 01-1-1v-7a1 1 0 011-1zm2 0V8a4 4 0 018 0v3',
   key: 'M15 4a5 5 0 11-4.6 7L4 17.4V20h3v-2h2v-2h2l1.4-1.4A5 5 0 0115 4zm1.5 4h.01',
   branch: 'M7 4v11m0 0a3 3 0 103 3m-3-3a3 3 0 013 3m7-14a3 3 0 100 6 3 3 0 000-6zm0 6v2a4 4 0 01-4 4h-3',
-  phone: 'M8 3h8a1 1 0 011 1v16a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zm3 15h2'
+  phone: 'M8 3h8a1 1 0 011 1v16a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zm3 15h2',
+  truck: 'M1 3h15v13H1zM16 8h4l3 3v5h-7V8zM5.5 19a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm13 0a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
+  building: 'M3 21h18M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16M9 7h2m-2 4h2m-2 4h2m4-8h2m-2 4h2m-2 4h2',
+  eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 100-6 3 3 0 000 6z',
+  activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  clipboard: 'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M9 2h6a1 1 0 011 1v2a1 1 0 01-1 1H9a1 1 0 01-1-1V3a1 1 0 011-1zm3 9h4m-4 4h4',
+  alertOctagon: 'M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86L7.86 2zM12 8v4m0 4h.01',
+  shieldCheck: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zm-3-10l2 2 4-4'
 }
 
 export function AdminIcon({ name, size = 17 }: { name: IconName; size?: number }) {

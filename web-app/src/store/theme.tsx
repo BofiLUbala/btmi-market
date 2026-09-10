@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-export type ThemeMode = 'light' | 'dark'
+export type ThemeMode = 'light' | 'dark' | 'system'
 
 const STORAGE_KEY = 'btmi.theme'
 
@@ -8,6 +8,7 @@ interface ThemeState {
   theme: ThemeMode
   toggleTheme: () => void
   setTheme: (theme: ThemeMode) => void
+  resolvedTheme: 'light' | 'dark'
 }
 
 const ThemeContext = createContext<ThemeState | null>(null)
@@ -20,7 +21,7 @@ const ThemeContext = createContext<ThemeState | null>(null)
 function readInitialTheme(): ThemeMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark') return stored
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored as ThemeMode
   } catch {
     /* private mode / storage disabled: fall through to the system preference */
   }
@@ -33,8 +34,28 @@ function readInitialTheme(): ThemeMode {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(readInitialTheme)
 
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
+    if (theme === 'system') {
+      if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark'
+      return 'light'
+    }
+    return theme
+  })
+
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
+    const active = theme === 'system' ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme
+    setResolvedTheme(active)
+    document.documentElement.setAttribute('data-theme', active)
+    
+    // Also set classes for Tailwind or other class-based utilities if any exist
+    if (active === 'dark') {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+    } else {
+      document.documentElement.classList.add('light')
+      document.documentElement.classList.remove('dark')
+    }
+
     try {
       localStorage.setItem(STORAGE_KEY, theme)
     } catch {
@@ -42,27 +63,35 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme])
 
-  // Follow the OS while the user has never picked a theme themselves. Once
-  // they toggle, their choice is stored and this listener stops overriding it.
   useEffect(() => {
     const media = window.matchMedia?.('(prefers-color-scheme: dark)')
     if (!media) return
     const onChange = (event: MediaQueryListEvent) => {
-      try {
-        if (localStorage.getItem(STORAGE_KEY)) return
-      } catch {
-        /* storage unreadable: treat as "no explicit choice" and follow the OS */
+      if (theme === 'system') {
+        const active = event.matches ? 'dark' : 'light'
+        setResolvedTheme(active)
+        document.documentElement.setAttribute('data-theme', active)
+        if (active === 'dark') {
+          document.documentElement.classList.add('dark')
+          document.documentElement.classList.remove('light')
+        } else {
+          document.documentElement.classList.add('light')
+          document.documentElement.classList.remove('dark')
+        }
       }
-      setThemeState(event.matches ? 'dark' : 'light')
     }
     media.addEventListener('change', onChange)
     return () => media.removeEventListener('change', onChange)
-  }, [])
+  }, [theme])
 
   const setTheme = useCallback((next: ThemeMode) => setThemeState(next), [])
-  const toggleTheme = useCallback(() => setThemeState((t) => (t === 'dark' ? 'light' : 'dark')), [])
+  const toggleTheme = useCallback(() => setThemeState((t) => {
+    if (t === 'light') return 'dark'
+    if (t === 'dark') return 'system'
+    return 'light'
+  }), [])
 
-  const value = useMemo(() => ({ theme, toggleTheme, setTheme }), [theme, toggleTheme, setTheme])
+  const value = useMemo(() => ({ theme, toggleTheme, setTheme, resolvedTheme }), [theme, toggleTheme, setTheme, resolvedTheme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

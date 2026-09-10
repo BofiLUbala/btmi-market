@@ -43,7 +43,8 @@
     "tunnel:api": "ngrok http 8080",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
   },
   "private": true
 }

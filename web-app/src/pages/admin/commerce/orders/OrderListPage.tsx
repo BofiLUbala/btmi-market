@@ -2,22 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
-
-const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
-  PENDING: { bg: '#78350f', fg: '#fde68a' },
-  CONFIRMED: { bg: '#1e3a5f', fg: '#93c5fd' },
-  PROCESSING: { bg: '#1e3a5f', fg: '#93c5fd' },
-  SHIPPED: { bg: '#064e3b', fg: '#a7f3d0' },
-  DELIVERED: { bg: '#064e3b', fg: '#a7f3d0' },
-  COMPLETED: { bg: '#064e3b', fg: '#a7f3d0' },
-  CANCELLED: { bg: '#7f1d1d', fg: '#fca5a5' },
-  REFUNDED: { bg: '#78350f', fg: '#fde68a' },
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const c = STATUS_COLORS[status] || { bg: '#334155', fg: '#f1f5f9' }
-  return <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: c.bg, color: c.fg }}>{status}</span>
-}
+import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
 export default function OrderListPage() {
   const t = useT()
@@ -63,9 +48,9 @@ export default function OrderListPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input placeholder={t('admin.orders.searchPlaceholder')} value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+        <input aria-label={t('admin.orders.searchPlaceholder')} placeholder={t('admin.orders.searchPlaceholder')} value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           style={{ flex: '1 1 200px', padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13 }} />
-        <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
+        <select aria-label={t('admin.orders.filterAllStatus')} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, minWidth: 130 }}>
           <option value="">{t('admin.orders.filterAllStatus')}</option>
           <option value="PENDING">{t('admin.orders.statusPending')}</option>
@@ -77,14 +62,14 @@ export default function OrderListPage() {
           <option value="CANCELLED">{t('admin.orders.statusCancelled')}</option>
           <option value="REFUNDED">{t('admin.orders.statusRefunded')}</option>
         </select>
-        <select value={deliveryMethod} onChange={(e) => { setDeliveryMethod(e.target.value); setPage(0) }}
+        <select aria-label={t('admin.orders.filterAllDelivery')} value={deliveryMethod} onChange={(e) => { setDeliveryMethod(e.target.value); setPage(0) }}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, minWidth: 150 }}>
           <option value="">{t('admin.orders.filterAllDelivery')}</option>
           <option value="PICKUP">{t('admin.orders.deliveryPickup')}</option>
           <option value="SCHEDULED_DELIVERY">{t('admin.orders.deliveryScheduled')}</option>
           <option value="DIGITAL">{t('admin.orders.deliveryDigital')}</option>
         </select>
-        <input placeholder={t('admin.common.shopIdPlaceholder')} value={shopId} onChange={(e) => { setShopId(e.target.value); setPage(0) }}
+        <input aria-label={t('admin.common.shopIdPlaceholder')} placeholder={t('admin.common.shopIdPlaceholder')} value={shopId} onChange={(e) => { setShopId(e.target.value); setPage(0) }}
           style={{ width: 140, padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13 }} />
         <span style={{ color: '#64748b', fontSize: 12 }}>{t('admin.orders.orderCount', { count: total })}</span>
       </div>

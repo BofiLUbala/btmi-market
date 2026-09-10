@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import type { BuyerPayment, OrderLine, OrderWithLines } from '@/api/types'
-import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { LoadingBlock, ErrorBox, EmptyState } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
+import { BoxIcon } from '@/components/ui/Icons'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
 import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { RequireAuth } from '@/components/auth/Guards'
@@ -130,7 +131,7 @@ function OrdersInner() {
 
   if (loading) return <LoadingBlock label={t('orders.loading')} />
   if (error) return <ErrorBox error={error} onRetry={() => void load()} />
-  if (items.length === 0) return <EmptyState icon="📦" title={t('orders.emptyTitle')} description={t('orders.emptyDesc')} action={<Link to="/" className="btn btn-primary">{t('orders.browse')}</Link>} />
+  if (items.length === 0) return <EmptyState icon={<BoxIcon style={{ width: 48, height: 48 }} />} title={t('orders.emptyTitle')} description={t('orders.emptyDesc')} action={<Link to="/" className="btn btn-primary">{t('orders.browse')}</Link>} />
 
   return <div className="fade-in">
     <div className="page-header"><div><div className="eyebrow">{t('account.eyebrow')}</div><h1>{t('account.myOrders')}</h1><p className="muted">{t('orders.subtitle')}</p></div></div>

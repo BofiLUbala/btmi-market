@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type CommerceOverviewStats } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { BoxIcon } from '@/components/ui/Icons'
 
 // Route is set when a real admin page exists for this domain; otherwise the
 // card is shown but disabled instead of linking to a page that doesn't exist.
@@ -81,7 +82,7 @@ export default function CommerceDashboardPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span>📦</span> {t('admin.commerceDash.title')}
+          <BoxIcon style={{ width: 24, height: 24, marginRight: 8 }} /> {t('admin.commerceDash.title')}
         </h1>
         <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
           {t('admin.commerceDash.subtitle')}

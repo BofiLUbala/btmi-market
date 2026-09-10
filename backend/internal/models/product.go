@@ -33,8 +33,12 @@ type Product struct {
 	DiscountStart     *time.Time        `json:"discount_start" db:"discount_start"`
 	DiscountEnd       *time.Time        `json:"discount_end" db:"discount_end"`
 	SelfRating        *int              `json:"self_rating" db:"self_rating"`
-	CreatedAt         time.Time         `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time         `json:"updated_at" db:"updated_at"`
+	// IdempotencyKey is the client-generated key of the create call that made
+	// this Product, unique within the business. It lets a client that timed
+	// out mid-create retry without producing a duplicate.
+	IdempotencyKey *string   `json:"-" db:"idempotency_key"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type CreateProductRequest struct {
@@ -55,6 +59,10 @@ type CreateProductRequest struct {
 	// SelfRating is the seller's own 1-5 star claim about this Product, set
 	// once at creation and required — distinct from the buyer-review average.
 	SelfRating int `json:"self_rating" binding:"required,min=1,max=5"`
+	// IdempotencyKey is optional. When present, a repeat of the same create
+	// call returns the Product the first one made rather than a second one —
+	// what a mobile client needs after a request times out mid-flight.
+	IdempotencyKey *string `json:"idempotency_key"`
 }
 
 type UpdateProductRequest struct {

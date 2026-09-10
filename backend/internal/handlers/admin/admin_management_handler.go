@@ -160,6 +160,67 @@ func (h *AdminManagementHandler) ForceLogoutAdmin(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{Message: "All sessions revoked for admin"})
 }
 
+// UpdateOwnProfile edits the signed-in admin, so it takes no :id — an admin
+// cannot rename anyone but themselves through it.
+func (h *AdminManagementHandler) UpdateOwnProfile(c *gin.Context) {
+	var req models.UpdateAdminProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errResp("INVALID_INPUT", "A first name and a last name are required"))
+		return
+	}
+
+	actorID := c.MustGet("admin_id").(uuid.UUID)
+	actorRole := c.MustGet("admin_role").(models.AdminRole)
+
+	admin, err := h.managementService.UpdateOwnProfile(actorID, actorRole, &req, c.ClientIP(), c.GetHeader("User-Agent"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errResp("ACTION_FAILED", err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Profile updated", Data: admin})
+}
+
+// DeleteAdmin is the most destructive action on this resource, so it demands
+// the target's own address back on top of the reason: an operator who mistypes
+// a row cannot delete the wrong account by clicking through.
+func (h *AdminManagementHandler) DeleteAdmin(c *gin.Context) {
+	targetID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errResp("INVALID_ID", "Invalid admin UUID"))
+		return
+	}
+	var req models.DeleteAdminRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, errResp("INVALID_INPUT", "A reason (minimum 5 characters) and the target's email confirmation are required"))
+		return
+	}
+
+	actorID := c.MustGet("admin_id").(uuid.UUID)
+	actorRole := c.MustGet("admin_role").(models.AdminRole)
+
+	result, err := h.managementService.DeleteAdmin(actorID, actorRole, targetID, req.ConfirmEmail, req.Reason, c.ClientIP(), c.GetHeader("User-Agent"))
+	if err != nil {
+		switch err.Error() {
+		case "ADMIN_NOT_FOUND":
+			c.JSON(http.StatusNotFound, errResp("ADMIN_NOT_FOUND", "Admin account not found"))
+		case "CANNOT_DELETE_YOURSELF":
+			c.JSON(http.StatusBadRequest, errResp("CANNOT_DELETE_YOURSELF", "You cannot delete the account you are signed in with"))
+		case "EMAIL_CONFIRMATION_MISMATCH":
+			c.JSON(http.StatusBadRequest, errResp("EMAIL_CONFIRMATION_MISMATCH", "The confirmation address does not match this account"))
+		default:
+			c.JSON(http.StatusBadRequest, errResp("ACTION_FAILED", err.Error()))
+		}
+		return
+	}
+
+	message := "Admin account permanently revoked: it can no longer sign in and its address has been released. Its audit history is preserved."
+	if result.HardDeleted {
+		message = "Admin invitation deleted: the account never activated, so its record was removed entirely."
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: message})
+}
+
 func (h *AdminManagementHandler) ChangeAdminRole(c *gin.Context) {
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

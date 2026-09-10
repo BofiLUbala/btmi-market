@@ -23,9 +23,9 @@ func (r *ProductRepository) Create(product *models.Product) error {
 	query := `
 		INSERT INTO products (
 			id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
-			discount_active, discount_type, discount_value, discount_start, discount_end, self_rating
+			discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, idempotency_key
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING created_at, updated_at
 	`
 
@@ -40,7 +40,38 @@ func (r *ProductRepository) Create(product *models.Product) error {
 		product.CategoryID, product.SubcategoryID,
 		product.DiscountActive, product.DiscountType, product.DiscountValue,
 		product.DiscountStart, product.DiscountEnd, product.SelfRating,
+		product.IdempotencyKey,
 	).Scan(&product.CreatedAt, &product.UpdatedAt)
+}
+
+// GetByBusinessAndIdempotencyKey finds the Product a previous create call with
+// the same client-generated key already committed, so a retry after a timeout
+// resumes on that Product instead of creating a second one. A key that was
+// never used returns (nil, nil).
+func (r *ProductRepository) GetByBusinessAndIdempotencyKey(businessID uuid.UUID, key string) (*models.Product, error) {
+	query := `
+		SELECT id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
+		       discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, created_at, updated_at
+		FROM products WHERE business_id = $1 AND idempotency_key = $2
+	`
+
+	product := &models.Product{}
+	err := r.db.QueryRow(query, businessID, key).Scan(
+		&product.ID, &product.BusinessID, &product.Name, &product.SKU,
+		&product.Description, &product.UnitPrice, &product.CostPrice,
+		&product.Unit, &product.Status, &product.PublicationStatus,
+		&product.CategoryID, &product.SubcategoryID,
+		&product.DiscountActive, &product.DiscountType, &product.DiscountValue,
+		&product.DiscountStart, &product.DiscountEnd, &product.SelfRating,
+		&product.CreatedAt, &product.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return product, nil
 }
 
 func (r *ProductRepository) GetByID(id uuid.UUID) (*models.Product, error) {

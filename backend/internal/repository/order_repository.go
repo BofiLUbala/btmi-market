@@ -245,6 +245,12 @@ func (r *OrderRepository) AssignCourier(id uuid.UUID, courierID uuid.UUID, notes
 	return err
 }
 
+func (r *OrderRepository) UpdateDeliveryStatus(id uuid.UUID, status string) error {
+	query := `UPDATE orders SET delivery_status = $2, updated_at = NOW() WHERE id = $1`
+	_, err := r.db.Exec(query, id, status)
+	return err
+}
+
 func (r *OrderRepository) SetPointsFinalized(id uuid.UUID) error {
 	query := `UPDATE orders SET points_finalized = TRUE, updated_at = NOW() WHERE id = $1`
 	_, err := r.db.Exec(query, id)

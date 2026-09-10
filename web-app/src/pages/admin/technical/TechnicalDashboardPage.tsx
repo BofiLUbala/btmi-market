@@ -12,39 +12,10 @@ import {
   type SecurityEventItem,
   type AdminSessionItem,
   type AppVersionItem,
+  type WorkerJobItem,
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
-
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const color: Record<string, { bg: string; text: string; dot: string }> = {
-    HEALTHY:      { bg: '#052e16', text: '#4ade80', dot: '#4ade80' },
-    UP_TO_DATE:   { bg: '#052e16', text: '#4ade80', dot: '#4ade80' },
-    OK:           { bg: '#052e16', text: '#4ade80', dot: '#4ade80' },
-    DEGRADED:     { bg: '#451a03', text: '#fb923c', dot: '#fb923c' },
-    DOWN:         { bg: '#3f0a0a', text: '#f87171', dot: '#f87171' },
-    UNKNOWN:      { bg: '#1e1b4b', text: '#a5b4fc', dot: '#a5b4fc' },
-    NOT_DEPLOYED: { bg: '#1c1917', text: '#a8a29e', dot: '#a8a29e' },
-    NOT_CONFIGURED: { bg: '#1c1917', text: '#a8a29e', dot: '#a8a29e' },
-    CRITICAL:     { bg: '#3f0a0a', text: '#f87171', dot: '#f87171' },
-    WARNING:      { bg: '#451a03', text: '#fb923c', dot: '#fb923c' },
-    HIGH:         { bg: '#3f0a0a', text: '#f87171', dot: '#f87171' },
-    INFO:         { bg: '#0c1a2e', text: '#60a5fa', dot: '#60a5fa' },
-    NEW:          { bg: '#0c1a2e', text: '#60a5fa', dot: '#60a5fa' },
-    ACKNOWLEDGED: { bg: '#1e1b4b', text: '#a5b4fc', dot: '#a5b4fc' },
-    RESOLVED:     { bg: '#052e16', text: '#4ade80', dot: '#4ade80' },
-    IGNORED:      { bg: '#1c1917', text: '#a8a29e', dot: '#a8a29e' },
-    APPLIED:      { bg: '#052e16', text: '#4ade80', dot: '#4ade80' },
-  }
-  const c = color[status] ?? { bg: '#1c1917', text: '#a8a29e', dot: '#a8a29e' }
-  return (
-    <span style={{ background: c.bg, color: c.text, padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, display: 'inline-block' }} />
-      {status}
-    </span>
-  )
-}
+import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
 // ─── Section Card ─────────────────────────────────────────────────────────────
 
@@ -112,9 +83,9 @@ function DataTable({ columns, rows }: { columns: string[]; rows: (string | React
   )
 }
 
-type TechnicalFeature = 'overview' | 'health' | 'database' | 'redis' | 'workers' | 'email' | 'security' | 'sessions' | 'migrations' | 'versions'
+type TechnicalFeature = 'overview' | 'health' | 'database' | 'redis' | 'workers' | 'failed-jobs' | 'email' | 'security' | 'sessions' | 'migrations' | 'versions'
 
-const FEATURES: TechnicalFeature[] = ['overview', 'health', 'database', 'redis', 'workers', 'email', 'security', 'sessions', 'migrations', 'versions']
+const FEATURES: TechnicalFeature[] = ['overview', 'health', 'database', 'redis', 'workers', 'failed-jobs', 'email', 'security', 'sessions', 'migrations', 'versions']
 
 const FEATURE_TITLE_KEY: Record<TechnicalFeature, string> = {
   overview: 'admin.layout.itemOverview',
@@ -122,6 +93,7 @@ const FEATURE_TITLE_KEY: Record<TechnicalFeature, string> = {
   database: 'admin.layout.itemPostgres',
   redis: 'admin.layout.itemRedis',
   workers: 'admin.layout.itemWorkers',
+  'failed-jobs': 'admin.layout.itemFailedJobs',
   email: 'admin.layout.itemEmailHealth',
   security: 'admin.layout.itemSecurityEvents',
   sessions: 'admin.layout.itemSessions',
@@ -138,6 +110,7 @@ export default function TechnicalDashboardPage() {
   const [db, setDb] = useState<PostgresHealth | null>(null)
   const [redis, setRedis] = useState<RedisHealth | null>(null)
   const [workers, setWorkers] = useState<WorkerMetrics | null>(null)
+  const [failedJobs, setFailedJobs] = useState<WorkerJobItem[]>([])
   const [email, setEmail] = useState<EmailHealth | null>(null)
   const [migrations, setMigrations] = useState<MigrationSummary | null>(null)
   const [sessions, setSessions] = useState<AdminSessionItem[]>([])
@@ -166,12 +139,13 @@ export default function TechnicalDashboardPage() {
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [kpisRes, healthRes, dbRes, redisRes, workersRes, emailRes, migrRes, sessRes, secRes, versRes] = await Promise.allSettled([
+      const [kpisRes, healthRes, dbRes, redisRes, workersRes, failedRes, emailRes, migrRes, sessRes, secRes, versRes] = await Promise.allSettled([
         adminTechnicalApi.getOverview(),
         adminTechnicalApi.getSystemHealth(),
         adminTechnicalApi.getPostgresHealth(),
         adminTechnicalApi.getRedisHealth(),
         adminTechnicalApi.getWorkerMetrics(),
+        adminTechnicalApi.listFailedJobs('default', 20, 0),
         adminTechnicalApi.getEmailHealth(),
         adminTechnicalApi.getMigrationSummary(),
         adminTechnicalApi.getAdminSessions(),
@@ -183,6 +157,7 @@ export default function TechnicalDashboardPage() {
       if (dbRes.status === 'fulfilled') setDb(dbRes.value)
       if (redisRes.status === 'fulfilled') setRedis(redisRes.value)
       if (workersRes.status === 'fulfilled') setWorkers(workersRes.value)
+      if (failedRes.status === 'fulfilled') setFailedJobs(failedRes.value.items ?? [])
       if (emailRes.status === 'fulfilled') setEmail(emailRes.value)
       if (migrRes.status === 'fulfilled') setMigrations(migrRes.value)
       if (sessRes.status === 'fulfilled') setSessions(sessRes.value.sessions ?? [])
@@ -225,6 +200,19 @@ export default function TechnicalDashboardPage() {
       alert(err?.message || t('admin.technical.actionFailed'))
     } finally {
       setSavingVersion(false)
+    }
+  }
+
+  const handleRetryJob = async (jobId: string) => {
+    const reason = window.prompt(t('admin.technical.retryJobPrompt') || 'Reason for re-queuing this job:')
+    if (!reason || !reason.trim()) return
+    try {
+      await adminTechnicalApi.retryJob(jobId, reason.trim())
+      const res = await adminTechnicalApi.listFailedJobs('default', 20, 0)
+      setFailedJobs(res.items ?? [])
+      alert(t('admin.technical.jobRetriedSuccess') || 'Job re-queued successfully')
+    } catch (err: any) {
+      alert(err?.message || 'Retry failed')
     }
   }
 
@@ -393,31 +381,58 @@ export default function TechnicalDashboardPage() {
         </SectionCard>
       )}
 
-      {/* ── WORKERS TAB ──────────────────────────────────────────────────── */}
-      {activeTab === 'workers' && workers && (
-        <SectionCard title={t('admin.technical.workersTitle')} icon="⚙️" onRefresh={() => adminTechnicalApi.getWorkerMetrics().then(setWorkers)}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
-            <KPICard label={t('admin.technical.kpiQueued')} value={workers.queued_jobs} icon="📋" />
-            <KPICard label={t('admin.technical.kpiActive')} value={workers.active_jobs} icon="▶️" />
-            <KPICard label={t('admin.technical.kpiFailed')} value={workers.failed_jobs} icon="❌" />
-            <KPICard label={t('admin.technical.kpiRetrying')} value={workers.retrying_jobs} icon="🔄" />
-            <KPICard label={t('admin.technical.kpiDead')} value={workers.dead_jobs} icon="☠️" />
-          </div>
-          {workers.queue_stats && workers.queue_stats.length > 0 && (
+      {/* ── WORKERS & FAILED JOBS TAB ──────────────────────────────────── */}
+      {(activeTab === 'workers' || activeTab === 'failed-jobs') && (
+        <>
+          {workers && (
+            <SectionCard title={t('admin.technical.workersTitle')} icon="⚙️" onRefresh={() => adminTechnicalApi.getWorkerMetrics().then(setWorkers)}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+                <KPICard label={t('admin.technical.kpiQueued')} value={workers.queued_jobs} icon="📋" />
+                <KPICard label={t('admin.technical.kpiActive')} value={workers.active_jobs} icon="▶️" />
+                <KPICard label={t('admin.technical.kpiFailed')} value={workers.failed_jobs} icon="❌" />
+                <KPICard label={t('admin.technical.kpiRetrying')} value={workers.retrying_jobs} icon="🔄" />
+                <KPICard label={t('admin.technical.kpiDead')} value={workers.dead_jobs} icon="☠️" />
+              </div>
+              {workers.queue_stats && workers.queue_stats.length > 0 && (
+                <DataTable
+                  columns={[t('admin.technical.colQueue'), t('admin.technical.colPending'), t('admin.technical.colProcessing'), t('admin.technical.colFailed')]}
+                  rows={workers.queue_stats.map((q) => [
+                    q.queue_name,
+                    String(q.pending_count),
+                    String(q.processing_count),
+                    <span key={q.queue_name} style={{ color: q.failed_count > 0 ? '#f87171' : '#4ade80' }}>{q.failed_count}</span>
+                  ])}
+                />
+              )}
+              {(!workers.queue_stats || workers.queue_stats.length === 0) && (
+                <div style={{ color: '#4ade80', fontSize: 13 }}>{t('admin.technical.allQueuesIdle')}</div>
+              )}
+            </SectionCard>
+          )}
+
+          <SectionCard title={t('admin.layout.itemFailedJobs') || 'Failed Jobs Queue'} icon="❌" onRefresh={() => adminTechnicalApi.listFailedJobs('default', 20, 0).then((r) => setFailedJobs(r.items ?? []))}>
             <DataTable
-              columns={[t('admin.technical.colQueue'), t('admin.technical.colPending'), t('admin.technical.colProcessing'), t('admin.technical.colFailed')]}
-              rows={workers.queue_stats.map((q) => [
-                q.queue_name,
-                String(q.pending_count),
-                String(q.processing_count),
-                <span key={q.queue_name} style={{ color: q.failed_count > 0 ? '#f87171' : '#4ade80' }}>{q.failed_count}</span>
+              columns={['Job ID', 'Job Type', 'Queue', 'Retries', 'Last Error', t('admin.common.actions') || 'Actions']}
+              rows={failedJobs.map((j) => [
+                <code key={j.job_id} style={{ fontSize: 11, color: '#94a3b8' }}>{j.job_id.slice(0, 8)}...</code>,
+                j.job_type,
+                j.queue,
+                String(j.retry_count),
+                <span key={`err-${j.job_id}`} style={{ color: '#f87171', fontSize: 11 }}>{j.last_error || 'Execution failed'}</span>,
+                <button
+                  key={`btn-${j.job_id}`}
+                  onClick={() => handleRetryJob(j.job_id)}
+                  style={{ padding: '4px 10px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                >
+                  🔄 Retry Job
+                </button>
               ])}
             />
-          )}
-          {(!workers.queue_stats || workers.queue_stats.length === 0) && (
-            <div style={{ color: '#4ade80', fontSize: 13 }}>{t('admin.technical.allQueuesIdle')}</div>
-          )}
-        </SectionCard>
+            {failedJobs.length === 0 && (
+              <div style={{ color: '#4ade80', fontSize: 13, marginTop: 8 }}>✅ No failed background jobs in queue.</div>
+            )}
+          </SectionCard>
+        </>
       )}
 
       {/* ── SECURITY TAB ─────────────────────────────────────────────────── */}

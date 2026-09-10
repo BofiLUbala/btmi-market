@@ -51,6 +51,7 @@ function RootNavigator() {
         <Stack.Screen name="checkout/payment" options={{ title: t('checkout.payment') }} />
         <Stack.Screen name="orders/index" options={{ title: t('profile.myOrders') }} />
         <Stack.Screen name="orders/[id]" options={{ title: t('orders.detailTitle') }} />
+        <Stack.Screen name="notifications" options={{ title: t('notifications.title') }} />
         <Stack.Screen name="reviews/index" options={{ title: t('profile.myReviews') }} />
         <Stack.Screen name="reviews/write" options={{ title: t('review.publish') }} />
         <Stack.Screen name="seller" options={{ headerShown: false }} />

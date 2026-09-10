@@ -26,14 +26,26 @@
       (function () {
         try {
           var t = localStorage.getItem('btmi.theme');
-          if (t !== 'light' && t !== 'dark') {
-            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          var active = t;
+          if (t !== 'light' && t !== 'dark' && t !== 'system') {
+            t = 'system';
           }
-          document.documentElement.setAttribute('data-theme', t);
+          if (t === 'system') {
+            active = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', active);
+          if (active === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          } else {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+          }
           var l = localStorage.getItem('btmi.lang');
           document.documentElement.lang = l === 'en' || l === 'fr' ? l : 'fr';
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.classList.add('light');
         }
       })();
     </script>

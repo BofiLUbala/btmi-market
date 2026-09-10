@@ -68,6 +68,22 @@ type AdminActionRequest struct {
 	Reason string `json:"reason" binding:"required,min=5"`
 }
 
+// UpdateAdminProfileRequest is what an admin may change about themselves.
+// Deliberately just the name: the console shows it as the operator's identity,
+// and a bootstrapped account starts with a placeholder like "Super Admin".
+type UpdateAdminProfileRequest struct {
+	FirstName string `json:"first_name" binding:"required,min=1,max=100"`
+	LastName  string `json:"last_name" binding:"required,min=1,max=100"`
+}
+
+// DeleteAdminRequest carries the extra confirmation deletion demands.
+// ConfirmEmail must repeat the target's own address; it is checked on the
+// server, not only in the console, so calling the API directly cannot skip it.
+type DeleteAdminRequest struct {
+	Reason       string `json:"reason" binding:"required,min=5"`
+	ConfirmEmail string `json:"confirm_email" binding:"required,email"`
+}
+
 type AdminUserListResponse struct {
 	ID               uuid.UUID              `json:"id"`
 	FirstName        string                 `json:"first_name"`

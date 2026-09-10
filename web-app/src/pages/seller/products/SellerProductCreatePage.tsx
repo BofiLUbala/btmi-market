@@ -113,6 +113,14 @@ export default function SellerProductCreatePage() {
     stockDone: false,
     published: false,
   })
+  /* One key per visit to this page. Retrying a create that the server already
+     committed -- but whose response never arrived -- replays onto the same
+     product instead of making a second one. */
+  const idempotencyKeyRef = useRef<string>(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `pc-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  )
   const [partialFailure, setPartialFailure] = useState<{ stage: string; message: string } | null>(null)
   const [summary, setSummary] = useState<null | {
     productId: string
@@ -421,6 +429,7 @@ export default function SellerProductCreatePage() {
           subcategory_id: subcategoryId || undefined,
           publication_status: 'DRAFT',
           self_rating: selfRating,
+          idempotency_key: idempotencyKeyRef.current,
           discount_active: form.discount_active,
           discount_type: form.discount_type,
           discount_value: form.discount_active ? parseFloat(form.discount_value) : 0,

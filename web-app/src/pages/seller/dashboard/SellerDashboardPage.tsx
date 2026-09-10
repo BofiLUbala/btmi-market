@@ -390,7 +390,7 @@ export default function SellerDashboardPage() {
                   {recentOrders.slice(0, 5).map((order) => (
                     <tr key={order.id}>
                       <td>
-                        <Link to={`/seller/orders`} className="order-code-link">
+                        <Link to={`/seller/orders?orderId=${order.id}`} className="order-code-link">
                           {order.order_number || `#${order.id.slice(0, 8)}`}
                         </Link>
                       </td>

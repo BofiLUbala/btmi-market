@@ -16,30 +16,37 @@ import {
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
 import { useAdminAuth } from '@/store/adminAuth'
+import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
-type ActiveTab = 'overview' | 'payments' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'risk'
+type ActiveTab = 'overview' | 'payments' | 'confirmation' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'support' | 'risk' | 'trust'
 
 /** URL slug -> feature. The sidebar links to these, so a refresh or a deep link
  *  reopens the same view instead of dropping back to the summary. */
 const FEATURE_BY_SLUG: Record<string, ActiveTab> = {
   payments: 'payments',
+  confirmation: 'confirmation',
   points: 'points',
   growth: 'growth',
   'reviews-product': 'reviews_product',
   'reviews-shop': 'reviews_shop',
   cases: 'cases',
-  risk: 'risk'
+  support: 'support',
+  risk: 'risk',
+  trust: 'trust'
 }
 
 const FEATURE_TITLE_KEY: Record<ActiveTab, string> = {
   overview: 'admin.layout.itemOverview',
   payments: 'admin.layout.itemCashPayments',
+  confirmation: 'admin.layout.itemCashConfirmation',
   points: 'admin.layout.itemBuyerPoints',
   growth: 'admin.layout.itemSellerGrowth',
   reviews_product: 'admin.layout.itemProductReviews',
   reviews_shop: 'admin.layout.itemShopReviews',
   cases: 'admin.layout.itemCases',
-  risk: 'admin.layout.itemRisk'
+  support: 'admin.layout.itemSupport',
+  risk: 'admin.layout.itemRisk',
+  trust: 'admin.layout.itemTrust'
 }
 
 const PAGE_SIZE = 25
@@ -151,11 +158,19 @@ export default function FinanceDashboardPage() {
         })
         setPayments(res.items || [])
         setTotal(res.total || 0)
+      } else if (tab === 'confirmation') {
+        const res = await adminFinanceApi.listPayments({
+          page, limit: PAGE_SIZE,
+          payment_status: statusFilter || 'PENDING',
+          order_number: search || undefined
+        })
+        setPayments(res.items || [])
+        setTotal(res.total || 0)
       } else if (tab === 'points') {
         const res = await adminFinanceApi.listBuyerPoints({ page, limit: PAGE_SIZE, search: search || undefined })
         setBuyerPoints(res.items || [])
         setTotal(res.total || 0)
-      } else if (tab === 'growth') {
+      } else if (tab === 'growth' || tab === 'trust') {
         const res = await adminFinanceApi.listSellerGrowth({ page, limit: PAGE_SIZE, search: search || undefined })
         setSellerGrowth(res.items || [])
         setTotal(res.total || 0)
@@ -167,7 +182,7 @@ export default function FinanceDashboardPage() {
         const res = await adminFinanceApi.listShopReviews({ page, limit: PAGE_SIZE, status: statusFilter || undefined })
         setShopReviews(res.items || [])
         setTotal(res.total || 0)
-      } else if (tab === 'cases') {
+      } else if (tab === 'cases' || tab === 'support') {
         const res = await adminFinanceApi.listCases({ page, limit: PAGE_SIZE, status: statusFilter || undefined })
         setCases(res.items || [])
         setTotal(res.total || 0)
@@ -386,10 +401,12 @@ export default function FinanceDashboardPage() {
       )}
 
       {/* TAB 2: CASH PAYMENTS */}
-      {!loading && tab === 'payments' && (
+      {!loading && (tab === 'payments' || tab === 'confirmation') && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.paymentsTitle')}</h3>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+              {tab === 'confirmation' ? t('admin.layout.itemCashConfirmation') : t('admin.finance.paymentsTitle')}
+            </h3>
             <span style={{ fontSize: 12, color: '#94a3b8' }}>{t('admin.finance.paymentsCount', { count: total })}</span>
           </div>
 
@@ -525,9 +542,11 @@ export default function FinanceDashboardPage() {
       )}
 
       {/* TAB 4: SELLER GROWTH */}
-      {!loading && tab === 'growth' && (
+      {!loading && (tab === 'growth' || tab === 'trust') && (
         <div>
-          <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.growthTitle')}</h3>
+          <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>
+            {tab === 'trust' ? t('admin.layout.itemTrust') : t('admin.finance.growthTitle')}
+          </h3>
           <FilterBar
             searchValue={searchInput}
             onSearchChange={setSearchInput}
@@ -677,10 +696,12 @@ export default function FinanceDashboardPage() {
       )}
 
       {/* TAB 7: CASES & DISPUTES */}
-      {!loading && tab === 'cases' && (
+      {!loading && (tab === 'cases' || tab === 'support') && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.casesTitle')}</h3>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+              {tab === 'support' ? t('admin.layout.itemSupport') : t('admin.finance.casesTitle')}
+            </h3>
             <button onClick={() => setShowCreateCaseModal(true)} style={{ padding: '8px 14px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
               {t('admin.finance.openNewCase')}
             </button>
@@ -1239,17 +1260,5 @@ function MetricCard({ title, value, sub, color }: { title: string; value: string
       <div style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 4 }}>{value}</div>
       <div style={{ fontSize: 11, color: '#64748b' }}>{sub}</div>
     </div>
-  )
-}
-
-function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span style={{
-      padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
-      backgroundColor: ok ? '#064e3b' : '#78350f',
-      color: ok ? '#34d399' : '#fcd34d'
-    }}>
-      {label}
-    </span>
   )
 }

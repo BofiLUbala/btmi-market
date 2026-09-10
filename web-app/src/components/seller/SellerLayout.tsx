@@ -24,9 +24,12 @@ import {
   UsersIcon,
   ChevronDownIcon,
   CheckIcon,
+  ChatIcon,
+  BellIcon,
 } from '@/components/ui/Icons'
+import { fetchSellerUnreadCounts, type UnreadCounts } from '@/api/communication'
 
-const SELLER_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon }[] = [
+const SELLER_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon; badgeKey?: 'messages' | 'notifications' }[] = [
   { to: '/seller/dashboard', key: 'seller.dashboard', Icon: DashboardIcon },
   { to: '/seller/business', key: 'seller.business', Icon: BusinessIcon },
   { to: '/seller/shops', key: 'seller.shops', Icon: StoreIcon },
@@ -34,13 +37,15 @@ const SELLER_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon 
   { to: '/seller/products', key: 'seller.products', Icon: BoxIcon },
   { to: '/seller/stock', key: 'seller.stock', Icon: StockIcon },
   { to: '/seller/orders', key: 'seller.orders', Icon: OrdersIcon },
+  { to: '/seller/messages', key: 'seller.messages', Icon: ChatIcon, badgeKey: 'messages' },
+  { to: '/seller/notifications', key: 'seller.notifications', Icon: BellIcon, badgeKey: 'notifications' },
   { to: '/seller/customers', key: 'seller.customers', Icon: CustomerIcon },
   { to: '/seller/cash', key: 'seller.cash', Icon: CashIcon },
   { to: '/seller/growth', key: 'seller.growth', Icon: GrowthIcon },
   { to: '/seller/reviews', key: 'seller.reviews', Icon: ReviewIcon },
 ]
 
-const EMPLOYEE_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon }[] = [
+const EMPLOYEE_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon; badgeKey?: 'messages' | 'notifications' }[] = [
   { to: '/employee/dashboard', key: 'seller.dashboard', Icon: DashboardIcon },
 ]
 
@@ -62,8 +67,24 @@ export function SellerLayout() {
   const [bizDropdown, setBizDropdown] = useState(false)
   const [shopDropdown, setShopDropdown] = useState(false)
   const [shops, setShops] = useState<Array<{ id: string; name: string }>>([])
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({ unread_messages: 0, unread_notifications: 0 })
   const bizRef = useRef<HTMLDivElement>(null)
   const shopRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!user) return
+    const check = () => {
+      fetchSellerUnreadCounts({
+        shop_id: activeShop || undefined,
+        business_id: activeBusiness?.id || undefined,
+      })
+        .then(setUnreadCounts)
+        .catch(() => null)
+    }
+    check()
+    const timer = setInterval(check, 20_000)
+    return () => clearInterval(timer)
+  }, [user, activeShop, activeBusiness?.id])
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -140,19 +161,45 @@ export function SellerLayout() {
 
         <nav className="seller-sidebar-nav" aria-label={t('seller.navigation')}>
           <div className="seller-nav-group">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === (isEmployee ? '/employee/dashboard' : '/seller/dashboard')}
-                className={({ isActive }) => `seller-sidebar-link ${isActive ? 'active' : ''}`}
-              >
-                <span className="seller-sidebar-icon">
-                  <item.Icon />
-                </span>
-                <span className="seller-sidebar-label">{t(item.key)}</span>
-              </NavLink>
-            ))}
+            {navItems.map((item) => {
+              const badgeNum =
+                item.badgeKey === 'messages'
+                  ? unreadCounts.unread_messages
+                  : item.badgeKey === 'notifications'
+                    ? unreadCounts.unread_notifications
+                    : 0
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === (isEmployee ? '/employee/dashboard' : '/seller/dashboard')}
+                  className={({ isActive }) => `seller-sidebar-link ${isActive ? 'active' : ''}`}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span className="seller-sidebar-icon">
+                      <item.Icon />
+                    </span>
+                    <span className="seller-sidebar-label">{t(item.key)}</span>
+                  </div>
+                  {badgeNum > 0 && (
+                    <span
+                      style={{
+                        background: 'var(--color-danger, #ef4444)',
+                        color: '#fff',
+                        borderRadius: 12,
+                        padding: '1px 7px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        marginLeft: 'auto',
+                      }}
+                    >
+                      {badgeNum > 99 ? '99+' : badgeNum}
+                    </span>
+                  )}
+                </NavLink>
+              )
+            })}
           </div>
 
           <div className="seller-sidebar-bottom">
@@ -300,6 +347,45 @@ export function SellerLayout() {
           </div>
 
           <div className="seller-header-right">
+            <Link
+              to="/seller/notifications"
+              className="seller-header-icon-btn"
+              aria-label={t('seller.notifications')}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px 10px',
+                color: 'inherit',
+                textDecoration: 'none'
+              }}
+            >
+              <BellIcon />
+              {unreadCounts.unread_notifications > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: 2,
+                    background: 'var(--color-danger, #ef4444)',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    minWidth: 18,
+                    height: 18,
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 4px',
+                  }}
+                >
+                  {unreadCounts.unread_notifications > 9 ? '9+' : unreadCounts.unread_notifications}
+                </span>
+              )}
+            </Link>
+
             <Link to="/" className="seller-marketplace-link">
               {t('nav.marketplace')}
             </Link>

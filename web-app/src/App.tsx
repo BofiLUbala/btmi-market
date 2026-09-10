@@ -16,6 +16,13 @@ import AdminActivatePage from '@/pages/admin/auth/AdminActivatePage'
 import DirectionDashboardPage from '@/pages/admin/direction/DirectionDashboardPage'
 import AdminUsersPage from '@/pages/admin/direction/AdminUsersPage'
 import CommerceDashboardPage from '@/pages/admin/commerce/CommerceDashboardPage'
+import CommerceSellersPage from '@/pages/admin/commerce/sellers/CommerceSellersPage'
+import CommerceBusinessesPage from '@/pages/admin/commerce/businesses/CommerceBusinessesPage'
+import CommerceShopsPage from '@/pages/admin/commerce/shops/CommerceShopsPage'
+import CommerceDeliveriesPage from '@/pages/admin/commerce/deliveries/CommerceDeliveriesPage'
+import CommerceCouriersPage from '@/pages/admin/commerce/couriers/CommerceCouriersPage'
+import CommerceDeliveryAssignmentsPage from '@/pages/admin/commerce/deliveries/CommerceDeliveryAssignmentsPage'
+import CommercePerformanceHubPage from '@/pages/admin/commerce/performance/CommercePerformanceHubPage'
 import CommerceProductsPage from '@/pages/admin/commerce/products/CommerceProductsPage'
 import CommerceProductDetailPage from '@/pages/admin/commerce/products/CommerceProductDetailPage'
 import CommerceCategoriesPage from '@/pages/admin/commerce/categories/CommerceCategoriesPage'
@@ -101,6 +108,9 @@ import SellerCashPage from '@/pages/seller/cash/SellerCashPage'
 import SellerGrowthPage from '@/pages/seller/growth/SellerGrowthPage'
 import SellerReviewsPage from '@/pages/seller/reviews/SellerReviewsPage'
 import SellerProfilePage from '@/pages/seller/profile/SellerProfilePage'
+import SellerMessagesPage from '@/pages/seller/messages/SellerMessagesPage'
+import SellerNotificationsPage from '@/pages/seller/notifications/SellerNotificationsPage'
+import CommerceOrderCommunicationsPage from '@/pages/admin/commerce/communications/CommerceOrderCommunicationsPage'
 
 function NotFound() {
   const { t } = useI18n()
@@ -203,6 +213,8 @@ export default function App() {
                   <Route path="/seller/products/:productId" element={<SellerProductDetailPage />} />
                   <Route path="/seller/stock" element={<SellerStockPage />} />
                   <Route path="/seller/orders" element={<SellerOrdersPage />} />
+                  <Route path="/seller/messages" element={<SellerMessagesPage />} />
+                  <Route path="/seller/notifications" element={<SellerNotificationsPage />} />
                   <Route path="/seller/customers" element={<SellerCustomersPage />} />
                   <Route path="/seller/cash" element={<SellerCashPage />} />
                   <Route path="/seller/growth" element={<SellerGrowthPage />} />
@@ -237,19 +249,27 @@ export default function App() {
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['COMMERCE_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/commerce" element={<CommerceDashboardPage />} />
+                    <Route path="/admin/commerce/sellers" element={<CommerceSellersPage />} />
+                    <Route path="/admin/commerce/businesses" element={<CommerceBusinessesPage />} />
+                    <Route path="/admin/commerce/shops" element={<CommerceShopsPage />} />
                     <Route path="/admin/commerce/products" element={<CommerceProductsPage />} />
                     <Route path="/admin/commerce/products/:id" element={<CommerceProductDetailPage />} />
                     <Route path="/admin/commerce/categories" element={<CommerceCategoriesPage />} />
                     <Route path="/admin/commerce/inventory" element={<InventoryListPage />} />
                     <Route path="/admin/commerce/inventory/history" element={<StockHistoryPage />} />
+                    <Route path="/admin/commerce/employees" element={<EmployeeManagementPage />} />
                     <Route path="/admin/commerce/orders" element={<OrderListPage />} />
                     <Route path="/admin/commerce/orders/:id" element={<AdminOrderDetailPage />} />
+                    <Route path="/admin/commerce/communications" element={<CommerceOrderCommunicationsPage />} />
+                    <Route path="/admin/commerce/deliveries" element={<CommerceDeliveriesPage />} />
+                    <Route path="/admin/commerce/couriers" element={<CommerceCouriersPage />} />
+                    <Route path="/admin/commerce/delivery-assignments" element={<CommerceDeliveryAssignmentsPage />} />
                     <Route path="/admin/commerce/marketplace/visibility" element={<MarketplaceVisibilityPage />} />
                     <Route path="/admin/commerce/marketplace/ranking" element={<MarketplaceRankingPage />} />
                     <Route path="/admin/commerce/marketplace/search" element={<SearchAdminPage />} />
                     <Route path="/admin/commerce/marketplace/quality" element={<ProductQualityPage />} />
                     <Route path="/admin/commerce/marketplace/promotions" element={<PromotionVisibilityPage />} />
-                    <Route path="/admin/commerce/employees" element={<EmployeeManagementPage />} />
+                    <Route path="/admin/commerce/performance" element={<CommercePerformanceHubPage />} />
                     <Route path="/admin/commerce/performance/sellers" element={<SellerPerformancePage />} />
                     <Route path="/admin/commerce/performance/categories" element={<CategoryPerformancePage />} />
                     <Route path="/admin/commerce/performance/shops" element={<ShopPerformancePage />} />

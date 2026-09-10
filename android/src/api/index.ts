@@ -139,12 +139,18 @@ export const sellerApi = {
   createVariant: (businessId: string, productId: string, body: CreateVariantRequest) => post<ProductVariant>(`/businesses/${businessId}/products/${productId}/variants`, body),
   updateVariant: (id: string, body: UpdateVariantRequest) => patch<ProductVariant>(`/variants/${id}`, body),
   productImages: async (businessId: string, productId: string) => list<ProductImageResponse>(await get<unknown>(`/businesses/${businessId}/products/${productId}/images`)),
-  uploadProductImage: (businessId: string, productId: string, asset: { uri: string; fileName?: string | null; mimeType?: string | null }, isPrimary = false) => {
-    const form = new FormData()
-    form.append('file', { uri: asset.uri, name: asset.fileName || `produit-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' } as unknown as Blob)
-    if (isPrimary) form.append('is_primary', 'true')
-    return postForm<ProductImageResponse>(`/businesses/${businessId}/products/${productId}/images`, form)
-  },
+  /** Goes through the native uploader for the same reason the avatar does: a
+   *  React Native `FormData` file part streams chunked with no Content-Length,
+   *  and any failure along that path collapses into a bare `0 NETWORK_ERROR`
+   *  with no request reaching the API. Callers pass a file already normalised
+   *  by `prepareProductImageUpload`, so the API always receives a JPEG inside
+   *  its size cap. */
+  uploadProductImage: (businessId: string, productId: string, file: UploadFile, isPrimary = false) =>
+    uploadFile<ProductImageResponse>(
+      `/businesses/${businessId}/products/${productId}/images`,
+      file,
+      { fieldName: 'file', ...(isPrimary ? { parameters: { is_primary: 'true' } } : {}) },
+    ),
   deleteProductImage: (businessId: string, productId: string, imageId: string) => del<void>(`/businesses/${businessId}/products/${productId}/images/${imageId}`),
 
   /* Inventory & stock */

@@ -5,6 +5,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { buyerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
+import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
@@ -43,6 +44,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const { id } = useLocalSearchParams<{id:string}>()
   const queryClient = useQueryClient()
   const [actionError, setActionError] = useState('')
+  const [showChat, setShowChat] = useState(false)
 
   const order = useQuery({
     queryKey: ['buyer','order',id],
@@ -104,52 +106,73 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
     ])
   }
 
-  return <ScrollView contentContainerStyle={styles.page}>
-    <SectionTitle title={o.order_number||t('orders.detailFallback')}/>
-    <Text style={styles.shop}>{order.data.shop_name} · {deliveryMethod ? deliveryMethod.replaceAll('_',' ').toLowerCase() : t('orders.deliveryToChoose')}</Text>
-    <Card>
-      <Text style={styles.status}>{(t2?.current_status || o.status).replaceAll('_',' ')}</Text>
-      <Text style={styles.total}>{o.final_total.toLocaleString()} FC</Text>
-      {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
-      {!isTerminal(o.status) && tracking.isFetching && <Text style={styles.hint}>{t('orders.updating')}</Text>}
-    </Card>
+  return <View style={{ flex: 1, backgroundColor: colors.cream }}>
+    <ScrollView contentContainerStyle={styles.page}>
+      <SectionTitle title={o.order_number||t('orders.detailFallback')}/>
+      <Text style={styles.shop}>{order.data.shop_name} · {deliveryMethod ? deliveryMethod.replaceAll('_',' ').toLowerCase() : t('orders.deliveryToChoose')}</Text>
+      <Card>
+        <Text style={styles.status}>{(t2?.current_status || o.status).replaceAll('_',' ')}</Text>
+        <Text style={styles.total}>{o.final_total.toLocaleString()} FC</Text>
+        {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
+        {!isTerminal(o.status) && tracking.isFetching && <Text style={styles.hint}>{t('orders.updating')}</Text>}
+      </Card>
 
-    {actionError ? <Card><Text style={styles.error}>{actionError}</Text></Card> : null}
+      <Card>
+        <Button
+          variant="outline"
+          title={`💬 ${t('communication.contactSeller')}`}
+          onPress={() => setShowChat(true)}
+        />
+      </Card>
 
-    {(canCancel || canReceive) && <Card>
-      {canReceive && <Button title={t('orders.received')} loading={receiveMutation.isPending} onPress={()=>{ setActionError(''); receiveMutation.mutate() }}/>}
-      {canCancel && <Button variant="outline" title={t('orders.cancel')} loading={cancelMutation.isPending} onPress={confirmCancel}/>}
-    </Card>}
+      {actionError ? <Card><Text style={styles.error}>{actionError}</Text></Card> : null}
 
-    {deliveryMethod ? <SectionTitle title={t('orders.liveTracking')}/> : null}
-    <Card>{timeline.length ? timeline.map((step,i)=>(
-      <View key={`${step.status}-${i}`} style={styles.timelineRow}>
-        <View style={[styles.dot, step.event && styles.dotDone]}/>
-        <View style={{flex:1}}>
-          <Text style={[styles.stepStatus, step.event && styles.stepDone]}>{step.status.replaceAll('_',' ').toLowerCase().replace(/\b\w/,c=>c.toUpperCase())}</Text>
-          {step.event ? <>
-            {step.event.notes ? <Text style={styles.muted}>{step.event.notes}</Text> : null}
-            <Text style={styles.time}>{t(ACTOR_KEYS[step.event.actor_type || ''] ?? 'orders.actorSystem')} · {formatDateTime(step.event.created_at, lang)}</Text>
-          </> : <Text style={styles.time}>{t('orders.upcoming')}</Text>}
+      {(canCancel || canReceive) && <Card>
+        {canReceive && <Button title={t('orders.received')} loading={receiveMutation.isPending} onPress={()=>{ setActionError(''); receiveMutation.mutate() }}/>}
+        {canCancel && <Button variant="outline" title={t('orders.cancel')} loading={cancelMutation.isPending} onPress={confirmCancel}/>}
+      </Card>}
+
+      {deliveryMethod ? <SectionTitle title={t('orders.liveTracking')}/> : null}
+      <Card>{timeline.length ? timeline.map((step,i)=>(
+        <View key={`${step.status}-${i}`} style={styles.timelineRow}>
+          <View style={[styles.dot, step.event && styles.dotDone]}/>
+          <View style={{flex:1}}>
+            <Text style={[styles.stepStatus, step.event && styles.stepDone]}>{step.status.replaceAll('_',' ').toLowerCase().replace(/\b\w/,c=>c.toUpperCase())}</Text>
+            {step.event ? <>
+              {step.event.notes ? <Text style={styles.muted}>{step.event.notes}</Text> : null}
+              <Text style={styles.time}>{t(ACTOR_KEYS[step.event.actor_type || ''] ?? 'orders.actorSystem')} · {formatDateTime(step.event.created_at, lang)}</Text>
+            </> : <Text style={styles.time}>{t('orders.upcoming')}</Text>}
+          </View>
         </View>
+      )) : <Text style={styles.muted}>{t('orders.historyUnavailable')}</Text>}</Card>
+
+      {deliveryMethod ? <Card>
+        <Text style={styles.name}>{t('orders.cashPayment')}</Text>
+        {p ? <>
+          <Text style={styles.muted}>{t('orders.amountDue', { amount: `${p.cash_due.toLocaleString()} ${p.currency}` })}</Text>
+          <Text style={styles.muted}>{t('orders.you')} : {p.buyer_confirmed ? t('orders.paymentDeclared') : t('orders.notConfirmed')}</Text>
+          <Text style={styles.muted}>{t('orders.actorSeller')} : {p.seller_confirmed ? t('orders.cashReceived') : t('orders.waitingSeller')}</Text>
+          <Text style={[styles.muted,{fontWeight:'800'}]}>{t('orders.status')} : {p.status}</Text>
+          {!p.buyer_confirmed && <Button title={t('orders.paid')} loading={confirmPaidMutation.isPending} onPress={()=>{ setActionError(''); confirmPaidMutation.mutate() }}/>}
+          {p.buyer_confirmed && !p.seller_confirmed && <Text style={styles.hint}>{t('orders.paymentNote')}</Text>}
+        </> : <Button variant="outline" title={t('orders.prepareCashPayment')} loading={createPaymentMutation.isPending} onPress={()=>{ setActionError(''); createPaymentMutation.mutate() }}/>}
+      </Card> : null}
+
+      <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=>{const e=eligibility[i].data;return <Card key={line.id}><Text style={styles.name}>{line.product_name}</Text><Text style={styles.muted}>{line.variant_name||t('orders.standardOption')} · {t('orders.qty', { count: line.quantity })} · {(line.final_unit_price*line.quantity).toLocaleString()} FC</Text>{e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? t(REASON_KEYS[e.reason] ?? 'orders.reviewUnavailable') : t('orders.reviewUnavailable')}</Text>}</Card>})}
+      <SectionTitle title={t('orders.deliveryService')}/><Card><Text style={styles.muted}>{t('orders.deliveryServiceBody')}</Text>{service.data?.eligible?<Button variant="outline" title={t('orders.rateService')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,type:'service',productName:order.data.shop_name}})}/>:<Text style={styles.hint}>{service.data?.reason ? t(REASON_KEYS[service.data.reason] ?? 'orders.serviceReviewUnavailable') : t('orders.serviceReviewUnavailable')}</Text>}</Card>
+    </ScrollView>
+
+    {showChat && (
+      <View style={StyleSheet.absoluteFill}>
+        <OrderChatFeed
+          orderId={id!}
+          role="BUYER"
+          onClose={() => setShowChat(false)}
+          showHeader={true}
+        />
       </View>
-    )) : <Text style={styles.muted}>{t('orders.historyUnavailable')}</Text>}</Card>
-
-    {deliveryMethod ? <Card>
-      <Text style={styles.name}>{t('orders.cashPayment')}</Text>
-      {p ? <>
-        <Text style={styles.muted}>{t('orders.amountDue', { amount: `${p.cash_due.toLocaleString()} ${p.currency}` })}</Text>
-        <Text style={styles.muted}>{t('orders.you')} : {p.buyer_confirmed ? t('orders.paymentDeclared') : t('orders.notConfirmed')}</Text>
-        <Text style={styles.muted}>{t('orders.actorSeller')} : {p.seller_confirmed ? t('orders.cashReceived') : t('orders.waitingSeller')}</Text>
-        <Text style={[styles.muted,{fontWeight:'800'}]}>{t('orders.status')} : {p.status}</Text>
-        {!p.buyer_confirmed && <Button title={t('orders.paid')} loading={confirmPaidMutation.isPending} onPress={()=>{ setActionError(''); confirmPaidMutation.mutate() }}/>}
-        {p.buyer_confirmed && !p.seller_confirmed && <Text style={styles.hint}>{t('orders.paymentNote')}</Text>}
-      </> : <Button variant="outline" title={t('orders.prepareCashPayment')} loading={createPaymentMutation.isPending} onPress={()=>{ setActionError(''); createPaymentMutation.mutate() }}/>}
-    </Card> : null}
-
-    <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=>{const e=eligibility[i].data;return <Card key={line.id}><Text style={styles.name}>{line.product_name}</Text><Text style={styles.muted}>{line.variant_name||t('orders.standardOption')} · {t('orders.qty', { count: line.quantity })} · {(line.final_unit_price*line.quantity).toLocaleString()} FC</Text>{e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? t(REASON_KEYS[e.reason] ?? 'orders.reviewUnavailable') : t('orders.reviewUnavailable')}</Text>}</Card>})}
-    <SectionTitle title={t('orders.deliveryService')}/><Card><Text style={styles.muted}>{t('orders.deliveryServiceBody')}</Text>{service.data?.eligible?<Button variant="outline" title={t('orders.rateService')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,type:'service',productName:order.data.shop_name}})}/>:<Text style={styles.hint}>{service.data?.reason ? t(REASON_KEYS[service.data.reason] ?? 'orders.serviceReviewUnavailable') : t('orders.serviceReviewUnavailable')}</Text>}</Card>
-  </ScrollView>
+    )}
+  </View>
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12}})

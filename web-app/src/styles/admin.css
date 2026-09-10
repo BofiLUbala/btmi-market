@@ -207,13 +207,114 @@
 
 .admin-account-heading { padding-bottom: 0; }
 
+/* Now a button (it opens the rename dialog), so it has to shed the browser's
+   button chrome and keep the row layout it had as a div. */
 .admin-account-identity {
   display: flex;
   align-items: center;
   gap: 9px;
   padding: 0 5px;
   min-width: 0;
+  width: 100%;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+
+.admin-account-identity:hover { background-color: var(--admin-surface-2, #1e293b); }
+
+.admin-account-identity:focus-visible {
+  outline: 2px solid var(--admin-accent, #6366f1);
+  outline-offset: 2px;
+}
+
+/* Rename-yourself dialog */
+.admin-rename-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.75);
+}
+
+.admin-rename-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 26px;
+  border-radius: 16px;
+  background-color: var(--admin-surface, #0f172a);
+  border: 1px solid var(--admin-border, #334155);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+}
+
+.admin-rename-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; color: #ffffff; }
+.admin-rename-note { margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #94a3b8; }
+
+.admin-rename-error {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  background-color: #450a0a;
+  color: #fca5a5;
+}
+
+.admin-rename-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.admin-rename-input {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border, #334155);
+  background-color: var(--admin-surface-2, #1e293b);
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.admin-rename-input:focus-visible {
+  outline: 2px solid var(--admin-accent, #6366f1);
+  outline-offset: 1px;
+}
+
+.admin-rename-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+
+.admin-rename-cancel,
+.admin-rename-save {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-rename-cancel {
+  background-color: var(--admin-surface-2, #1e293b);
+  color: #cbd5e1;
+  border: 1px solid var(--admin-border, #334155);
+}
+
+.admin-rename-save {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: 0;
+}
+
+.admin-rename-cancel:disabled,
+.admin-rename-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .admin-account-avatar {
   display: grid;

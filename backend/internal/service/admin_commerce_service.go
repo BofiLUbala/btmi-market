@@ -20,6 +20,7 @@ type AdminCommerceService struct {
 	inventoryRepo *repository.InventoryRepository
 	movementRepo  *repository.StockMovementRepository
 	auditRepo     *repository.AuditRepository
+	commSvc       *CommunicationService
 }
 
 func NewAdminCommerceService(
@@ -38,6 +39,10 @@ func NewAdminCommerceService(
 		movementRepo:  movementRepo,
 		auditRepo:     auditRepo,
 	}
+}
+
+func (s *AdminCommerceService) SetCommunicationService(commSvc *CommunicationService) {
+	s.commSvc = commSvc
 }
 
 // 1. Overview
@@ -333,6 +338,13 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 		IPAddress:    &ip,
 		UserAgent:    &userAgent,
 	})
+
+	if s.commSvc != nil {
+		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierAssigned, map[string]interface{}{
+			"assigned_courier_id": courierID.String(),
+			"notes":               notes,
+		})
+	}
 
 	return nil
 }

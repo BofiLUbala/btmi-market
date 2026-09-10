@@ -3,6 +3,7 @@ import type { InventoryItem, Product, ProductVariant, PublicationStatus } from '
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
+import { BoxIcon } from '@/components/ui/Icons'
 import { useAuth } from '@/store/auth'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -156,7 +157,7 @@ export default function SellerProductsPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state seller-products-empty">
-        <div className="empty-icon">📦</div>
+        <div className="empty-icon"><BoxIcon style={{ width: 48, height: 48 }} /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
         <p className="muted">{t('seller.productList.noBusinessSubtitle')}</p>
       </div>

@@ -27,6 +27,7 @@ export type IconName =
   | 'badge' | 'search' | 'trending' | 'sparkle' | 'percent' | 'store' | 'chart'
   | 'coins' | 'gift' | 'growth' | 'star' | 'storefront' | 'case' | 'alert'
   | 'heart' | 'database' | 'bolt' | 'cog' | 'mail' | 'lock' | 'key' | 'branch' | 'phone'
+  | 'truck' | 'building' | 'eye' | 'activity' | 'clipboard' | 'alertOctagon' | 'shieldCheck'
 
 /** The four operational dashboards, each with the features it owns.
  *
@@ -43,7 +44,12 @@ export const SECTIONS: NavSection[] = [
     root: '/admin/direction',
     items: [
       { to: '/admin/direction', labelKey: 'admin.layout.itemOverview', end: true },
+      { to: '/admin/direction/kpis', labelKey: 'admin.layout.itemStrategicKpis' },
       { to: '/admin/direction/users', labelKey: 'admin.layout.itemUserManagement' },
+      { to: '/admin/direction/accounts', labelKey: 'admin.layout.itemAccountSupervision' },
+      { to: '/admin/direction/merchants', labelKey: 'admin.layout.itemMerchantsOverview' },
+      { to: '/admin/direction/catalog', labelKey: 'admin.layout.itemCatalogOverview' },
+      { to: '/admin/direction/disputes', labelKey: 'admin.layout.itemDisputesOverview' },
       { to: '/admin/direction/audit', labelKey: 'admin.layout.itemAuditLedger' }
     ]
   },
@@ -56,20 +62,23 @@ export const SECTIONS: NavSection[] = [
     root: '/admin/commerce',
     items: [
       { to: '/admin/commerce', labelKey: 'admin.layout.itemOverview', end: true },
-      { to: '/admin/commerce/orders', labelKey: 'admin.layout.itemOrders' },
+      { to: '/admin/commerce/sellers', labelKey: 'admin.layout.itemSellers' },
+      { to: '/admin/commerce/businesses', labelKey: 'admin.layout.itemBusinesses' },
+      { to: '/admin/commerce/shops', labelKey: 'admin.layout.itemShops' },
       { to: '/admin/commerce/products', labelKey: 'admin.layout.itemProducts' },
       { to: '/admin/commerce/categories', labelKey: 'admin.layout.itemCategories' },
       { to: '/admin/commerce/inventory', labelKey: 'admin.layout.itemInventory', end: true },
       { to: '/admin/commerce/inventory/history', labelKey: 'admin.layout.itemStockHistory' },
       { to: '/admin/commerce/employees', labelKey: 'admin.layout.itemEmployees' },
+      { to: '/admin/commerce/orders', labelKey: 'admin.layout.itemOrders' },
+      { to: '/admin/commerce/communications', labelKey: 'admin.layout.itemCommunications' },
+      { to: '/admin/commerce/deliveries', labelKey: 'admin.layout.itemDeliveries' },
+      { to: '/admin/commerce/couriers', labelKey: 'admin.layout.itemCouriers' },
+      { to: '/admin/commerce/delivery-assignments', labelKey: 'admin.layout.itemDeliveryAssignments' },
       { to: '/admin/commerce/marketplace/visibility', labelKey: 'admin.layout.itemVisibility' },
-      { to: '/admin/commerce/marketplace/search', labelKey: 'admin.layout.itemSearch' },
-      { to: '/admin/commerce/marketplace/ranking', labelKey: 'admin.layout.itemRanking' },
-      { to: '/admin/commerce/marketplace/quality', labelKey: 'admin.layout.itemQuality' },
       { to: '/admin/commerce/marketplace/promotions', labelKey: 'admin.layout.itemPromotions' },
-      { to: '/admin/commerce/performance/sellers', labelKey: 'admin.layout.itemSellerPerf' },
-      { to: '/admin/commerce/performance/shops', labelKey: 'admin.layout.itemShopPerf' },
-      { to: '/admin/commerce/performance/categories', labelKey: 'admin.layout.itemCategoryPerf' }
+      { to: '/admin/commerce/marketplace/search', labelKey: 'admin.layout.itemSearch' },
+      { to: '/admin/commerce/performance', labelKey: 'admin.layout.itemPerformance' }
     ]
   },
   {
@@ -82,12 +91,15 @@ export const SECTIONS: NavSection[] = [
     items: [
       { to: '/admin/finance', labelKey: 'admin.layout.itemOverview', end: true },
       { to: '/admin/finance/payments', labelKey: 'admin.layout.itemCashPayments' },
+      { to: '/admin/finance/confirmation', labelKey: 'admin.layout.itemCashConfirmation' },
       { to: '/admin/finance/points', labelKey: 'admin.layout.itemBuyerPoints' },
       { to: '/admin/finance/growth', labelKey: 'admin.layout.itemSellerGrowth' },
       { to: '/admin/finance/reviews-product', labelKey: 'admin.layout.itemProductReviews' },
       { to: '/admin/finance/reviews-shop', labelKey: 'admin.layout.itemShopReviews' },
       { to: '/admin/finance/cases', labelKey: 'admin.layout.itemCases' },
-      { to: '/admin/finance/risk', labelKey: 'admin.layout.itemRisk' }
+      { to: '/admin/finance/support', labelKey: 'admin.layout.itemSupport' },
+      { to: '/admin/finance/risk', labelKey: 'admin.layout.itemRisk' },
+      { to: '/admin/finance/trust', labelKey: 'admin.layout.itemTrust' }
     ]
   },
   {
@@ -103,6 +115,7 @@ export const SECTIONS: NavSection[] = [
       { to: '/admin/technical/database', labelKey: 'admin.layout.itemPostgres' },
       { to: '/admin/technical/redis', labelKey: 'admin.layout.itemRedis' },
       { to: '/admin/technical/workers', labelKey: 'admin.layout.itemWorkers' },
+      { to: '/admin/technical/failed-jobs', labelKey: 'admin.layout.itemFailedJobs' },
       { to: '/admin/technical/email', labelKey: 'admin.layout.itemEmailHealth' },
       { to: '/admin/technical/security', labelKey: 'admin.layout.itemSecurityEvents' },
       { to: '/admin/technical/sessions', labelKey: 'admin.layout.itemSessions' },

@@ -23,6 +23,9 @@ interface AdminAuthState {
   logout: () => Promise<void>
   hasRole: (roles: AdminRole[]) => boolean
   canAccessDashboard: (dashboard: 'direction' | 'commerce' | 'finance' | 'technical') => boolean
+  /** Replaces the cached admin after a self-service edit, so the sidebar shows
+   *  the new value without a full reload. */
+  applyAdmin: (next: AdminUser) => void
 }
 
 const AdminAuthContext = createContext<AdminAuthState | null>(null)
@@ -76,6 +79,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
   }, [resetState])
 
+  const applyAdmin = useCallback((next: AdminUser) => {
+    setAdmin(next)
+  }, [])
+
   const role = admin?.role ?? null
   const isAuthenticated = Boolean(admin)
 
@@ -111,7 +118,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     logout,
     hasRole,
     canAccessDashboard,
-  }), [admin, role, loading, isAuthenticated, login, logout, hasRole, canAccessDashboard])
+    applyAdmin,
+  }), [admin, role, loading, isAuthenticated, login, logout, hasRole, canAccessDashboard, applyAdmin])
 
   return (
     <AdminAuthContext.Provider value={value}>

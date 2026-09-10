@@ -44,6 +44,7 @@ type OrderService struct {
 	buyerRepo          *repository.BuyerProfileRepository
 	paymentRepo        *repository.BuyerPaymentRepository
 	pointRedemptionSvc *PointRedemptionService
+	commSvc            *CommunicationService
 	db                 *database.DB
 	orderEvents        []models.OrderEvent
 	eventsMutex        sync.RWMutex
@@ -84,6 +85,36 @@ func NewOrderService(
 		db:                 db,
 		orderEvents:        make([]models.OrderEvent, 0),
 	}
+}
+
+func (s *OrderService) SetCommunicationService(commSvc *CommunicationService) {
+	s.commSvc = commSvc
+}
+
+func (s *OrderService) triggerStatusNotification(orderID uuid.UUID, status models.OrderStatus) {
+	if s.commSvc == nil {
+		return
+	}
+	var eventType models.NotificationType
+	switch status {
+	case models.OrderStatusAccepted:
+		eventType = models.NotificationTypeOrderAccepted
+	case models.OrderStatusRejected:
+		eventType = models.NotificationTypeOrderRejected
+	case models.OrderStatusPreparing:
+		eventType = models.NotificationTypeOrderPreparing
+	case models.OrderStatusReady, models.OrderStatusReadyForPickup:
+		eventType = models.NotificationTypeOrderReady
+	case models.OrderStatusDelivered:
+		eventType = models.NotificationTypeOrderDelivered
+	case models.OrderStatusReceived, models.OrderStatusCompleted:
+		eventType = models.NotificationTypeOrderCompleted
+	case models.OrderStatusCancelled:
+		eventType = models.NotificationTypeOrderCancelled
+	default:
+		return
+	}
+	_ = s.commSvc.TriggerOrderEventNotification(orderID, eventType, nil)
 }
 
 func (s *OrderService) requireOwnerOrAdmin(userID, businessID uuid.UUID) error {
@@ -270,6 +301,8 @@ func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus mode
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+
+	s.triggerStatusNotification(orderID, newStatus)
 
 	return s.orderRepo.GetByID(orderID)
 }
@@ -523,6 +556,11 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 		return nil, err
 	}
 
+	if s.commSvc != nil {
+		_, _ = s.commSvc.EnsureOrderConversation(order.ID)
+		_ = s.commSvc.TriggerOrderEventNotification(order.ID, models.NotificationTypeNewOrder, nil)
+	}
+
 	order.TotalItems = totalItems
 
 	lineResponses := make([]models.OrderLineResponse, len(lines))
@@ -749,6 +787,11 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+
+	if s.commSvc != nil {
+		_, _ = s.commSvc.EnsureOrderConversation(order.ID)
+		_ = s.commSvc.TriggerOrderEventNotification(order.ID, models.NotificationTypeNewOrder, nil)
 	}
 
 	order.TotalItems = totalItems
@@ -1188,6 +1231,8 @@ func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, er
 		return nil, err
 	}
 
+	s.triggerStatusNotification(orderID, models.OrderStatusAccepted)
+
 	return updatedOrder, nil
 }
 
@@ -1263,6 +1308,8 @@ func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, er
 		return nil, err
 	}
 
+	s.triggerStatusNotification(orderID, models.OrderStatusRejected)
+
 	return updatedOrder, nil
 }
 
@@ -1300,6 +1347,8 @@ func (s *OrderService) PrepareOrder(userID, orderID uuid.UUID) (*models.Order, e
 	if err != nil {
 		return nil, err
 	}
+
+	s.triggerStatusNotification(orderID, models.OrderStatusPreparing)
 
 	return updatedOrder, nil
 }
@@ -1410,6 +1459,7 @@ func (s *OrderService) CompleteOrder(userID, orderID uuid.UUID) (*models.Order, 
 	}
 
 	s.createCashPaymentFromOrder(order, lines, employeeID)
+	s.triggerStatusNotification(orderID, models.OrderStatusCompleted)
 
 	return updatedOrder, nil
 }
@@ -1531,6 +1581,8 @@ func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, er
 		return nil, err
 	}
 
+	s.triggerStatusNotification(orderID, models.OrderStatusCancelled)
+
 	return updatedOrder, nil
 }
 
@@ -1592,6 +1644,8 @@ func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*mod
 	if err != nil {
 		return nil, err
 	}
+
+	s.triggerStatusNotification(orderID, models.OrderStatusCancelled)
 
 	return updatedOrder, nil
 }

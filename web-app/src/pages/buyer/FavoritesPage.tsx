@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/ui/Feedback'
 import { formatMoney, initials, formatDate } from '@/lib/format'
 import { useFavorites } from '@/store/favorites'
 import { useI18n } from '@/store/i18n'
+import { HeartIcon } from '@/components/ui/Icons'
 
 export default function FavoritesPage() {
   const { items, remove, clear } = useFavorites()
@@ -12,7 +13,7 @@ export default function FavoritesPage() {
   if (items.length === 0) {
     return (
       <EmptyState
-        icon="❤️"
+        icon={<HeartIcon style={{ width: 48, height: 48 }} />}
         title={t('favorites.title')}
         description={t('favorites.empty.description')}
         action={

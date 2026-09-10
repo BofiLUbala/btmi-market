@@ -255,25 +255,40 @@ export default function RegisterPage() {
         <h1>{t('auth.register.title')}</h1>
         <p className="muted small">{t('auth.register.subtitle')}</p>
 
-        {/* Wizard progress tabs */}
-        <div className="registration-steps" style={{ marginBottom: '1.25rem' }}>
-          <div className={`reg-step${step > 1 ? ' reg-step--done' : ''}${step === 1 ? ' reg-step--active' : ''}`} onClick={() => step > 1 && setStep(1)} style={{ cursor: step > 1 ? 'pointer' : 'default' }}>
-            <span className="reg-step-icon">{step > 1 ? '✓' : '1'}</span>
-            <span>{t('auth.register.stepAccount')}</span>
+        {/* Wizard progress stepper with visual progress bar */}
+        <nav className="wizard-stepper-wrap" aria-label={t('auth.register.progressLabel') || 'Registration progress'}>
+          <div className="wizard-stepper-track">
+            <div className="wizard-stepper-fill" style={{ width: `${((step - 1) / 3) * 100}%` }} />
           </div>
-          <div className={`reg-step${step > 2 ? ' reg-step--done' : ''}${step === 2 ? ' reg-step--active' : ''}`} onClick={() => step > 2 && setStep(2)} style={{ cursor: step > 2 ? 'pointer' : 'default' }}>
-            <span className="reg-step-icon">{step > 2 ? '✓' : '2'}</span>
-            <span>{t('auth.register.stepPersonal')}</span>
-          </div>
-          <div className={`reg-step${step > 3 ? ' reg-step--done' : ''}${step === 3 ? ' reg-step--active' : ''}`} onClick={() => step > 3 && setStep(3)} style={{ cursor: step > 3 ? 'pointer' : 'default' }}>
-            <span className="reg-step-icon">{step > 3 ? '✓' : '3'}</span>
-            <span>{t('auth.register.stepAddress')}</span>
-          </div>
-          <div className={`reg-step${step === 4 ? ' reg-step--active' : ''}`}>
-            <span className="reg-step-icon">4</span>
-            <span>{t('auth.register.stepReview')}</span>
-          </div>
-        </div>
+          <ol className="wizard-stepper-list">
+            {([
+              { num: 1, label: t('auth.register.stepAccount') },
+              { num: 2, label: t('auth.register.stepPersonal') },
+              { num: 3, label: t('auth.register.stepAddress') },
+              { num: 4, label: t('auth.register.stepReview') }
+            ] as const).map(({ num, label }) => {
+              const done = step > num
+              const active = step === num
+              const clickable = done
+              return (
+                <li key={num}>
+                  <button
+                    type="button"
+                    className={`wizard-step-node${active ? ' wizard-step-node--active' : ''}${done ? ' wizard-step-node--done' : ''}${clickable ? ' wizard-step-node--clickable' : ''}`}
+                    onClick={() => clickable && setStep(num as 1 | 2 | 3 | 4)}
+                    aria-current={active ? 'step' : undefined}
+                    tabIndex={clickable ? 0 : -1}
+                    disabled={!clickable && !active}
+                  >
+                    <span className="wizard-step-badge">{done ? '✓' : num}</span>
+                    <span>{label}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
+        </nav>
+
 
         {error && <ErrorBox error={error} />}
 

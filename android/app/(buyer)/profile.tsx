@@ -204,6 +204,7 @@ export default function ProfileScreen() {
       <Button variant="outline" title={t('profile.editProfile')} onPress={() => router.push('/profile-edit')} />
 
       <Card>
+        <Pressable onPress={() => router.push('/notifications')}><Text style={themed.item}>{t('notifications.title')}  ›</Text></Pressable>
         <Pressable onPress={() => router.push('/orders')}><Text style={themed.item}>{t('profile.myOrders')}  ›</Text></Pressable>
         <Text style={themed.item}>{t('profile.myPoints')}</Text>
         <Pressable onPress={() => router.push('/reviews')}><Text style={themed.item}>{t('profile.myReviews')}  ›</Text></Pressable>

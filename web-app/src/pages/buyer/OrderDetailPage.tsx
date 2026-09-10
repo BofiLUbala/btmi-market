@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/Badges'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
 import { RequireAuth } from '@/components/auth/Guards'
+import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
@@ -34,6 +35,7 @@ function OrderInner() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [statusFlash, setStatusFlash] = useState(false)
+  const [showChat, setShowChat] = useState(false)
   const prevStatusRef = useRef<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [, setTick] = useState(0)
@@ -271,6 +273,9 @@ function OrderInner() {
                 {t('orders.viewTracking')}
               </Button>
             </Link>
+            <Button variant="outline" block onClick={() => setShowChat(true)}>
+              💬 {t('communication.contactSeller')}
+            </Button>
             {o.status === 'COMPLETED' && (
               <>
                 <a href="#purchased-products"><Button variant="accent" block>{t('orders.reviewPurchasedProducts')}</Button></a>
@@ -298,6 +303,31 @@ function OrderInner() {
         </div>
       </div>
 
+      {showChat && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowChat(false)
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: 640, maxHeight: '85vh', height: 600 }}>
+            <OrderChatFeed
+              orderId={orderId}
+              role="BUYER"
+              onClose={() => setShowChat(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

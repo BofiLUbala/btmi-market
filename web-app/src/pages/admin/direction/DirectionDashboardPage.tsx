@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import {
   adminDirectionApi,
   type DirectionOverviewStats,
@@ -8,17 +8,42 @@ import {
 } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { useAdminAuth } from '@/store/adminAuth'
+import { BoxIcon } from '@/components/ui/Icons'
+
+type DirectionFeature =
+  | 'overview'
+  | 'kpis'
+  | 'users'
+  | 'accounts'
+  | 'merchants'
+  | 'catalog'
+  | 'disputes'
+  | 'audit'
+
+const VALID_FEATURES: DirectionFeature[] = [
+  'overview',
+  'kpis',
+  'users',
+  'accounts',
+  'merchants',
+  'catalog',
+  'disputes',
+  'audit'
+]
 
 export default function DirectionDashboardPage() {
   const t = useT()
   const { role } = useAdminAuth()
   const isSuperAdmin = role === 'SUPER_ADMIN'
-  // The feature is the route, not local state: the sidebar marks it active and
-  // a browser refresh lands back on the same view. An unknown slug falls back
-  // to the overview rather than rendering nothing.
   const { feature } = useParams<{ feature?: string }>()
-  const activeTab: 'kpis' | 'users' | 'audit' =
-    feature === 'users' ? 'users' : feature === 'audit' ? 'audit' : 'kpis'
+
+  const activeTab: DirectionFeature = useMemo(() => {
+    if (feature && VALID_FEATURES.includes(feature as DirectionFeature)) {
+      return feature as DirectionFeature
+    }
+    return 'overview'
+  }, [feature])
+
   const [stats, setStats] = useState<DirectionOverviewStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
   const [statsError, setStatsError] = useState<string | null>(null)
@@ -31,6 +56,9 @@ export default function DirectionDashboardPage() {
   const [userStatusFilter, setUserStatusFilter] = useState('')
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState<string | null>(null)
+
+  // Account Supervision detail modal
+  const [inspectedUser, setInspectedUser] = useState<AdminUserListItem | null>(null)
 
   // User Action Modal State
   const [actionTargetUser, setActionTargetUser] = useState<AdminUserListItem | null>(null)
@@ -72,7 +100,7 @@ export default function DirectionDashboardPage() {
         search: userSearch || undefined,
         account_type: accountTypeFilter || undefined,
         status: userStatusFilter || undefined,
-        limit: 30,
+        limit: 50,
         offset: 0
       })
       setUsers(Array.isArray(res.users) ? res.users : [])
@@ -92,7 +120,7 @@ export default function DirectionDashboardPage() {
     try {
       const res = await adminDirectionApi.listAuditLogs({
         target_type: auditTargetFilter || undefined,
-        limit: 40,
+        limit: 50,
         offset: 0
       })
       setAuditLogs(Array.isArray(res.logs) ? res.logs : [])
@@ -110,7 +138,7 @@ export default function DirectionDashboardPage() {
   }, [loadOverviewStats])
 
   useEffect(() => {
-    if (activeTab === 'users') {
+    if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') {
       void loadUsers()
     } else if (activeTab === 'audit') {
       void loadAuditLogs()
@@ -131,8 +159,6 @@ export default function DirectionDashboardPage() {
     setActionSubmitting(true)
     setActionMessage(null)
     try {
-      // Force-logout leaves the row visually unchanged, so surface what the
-      // server actually did instead of a generic acknowledgement.
       let res: { message: string } | undefined
       if (actionType === 'suspend') {
         res = await adminDirectionApi.suspendUser(actionTargetUser.id, actionReason)
@@ -152,7 +178,7 @@ export default function DirectionDashboardPage() {
         setActionMessage(null)
         void loadUsers()
         void loadOverviewStats()
-      }, 2200)
+      }, 2000)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('admin.direction.actionFailed')
       setActionMessage({ type: 'error', text: msg })
@@ -165,26 +191,50 @@ export default function DirectionDashboardPage() {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(val)
   }
 
+  const featureTitle = (() => {
+    switch (activeTab) {
+      case 'kpis':
+        return t('admin.layout.itemStrategicKpis')
+      case 'users':
+        return t('admin.layout.itemUserManagement')
+      case 'accounts':
+        return t('admin.layout.itemAccountSupervision')
+      case 'merchants':
+        return t('admin.layout.itemMerchantsOverview')
+      case 'catalog':
+        return t('admin.layout.itemCatalogOverview')
+      case 'disputes':
+        return t('admin.layout.itemDisputesOverview')
+      case 'audit':
+        return t('admin.layout.itemAuditLedger')
+      default:
+        return t('admin.layout.itemOverview')
+    }
+  })()
+
   return (
     <div>
-      {/* View Header — the section name sits above the feature title, so the
-          page says where it is without repeating the sidebar. */}
+      {/* View Header */}
       <div className="admin-page-head">
         <div>
           <p className="admin-page-eyebrow">{t('admin.layout.navDirection')}</p>
-          <h1>
-            {activeTab === 'users'
-              ? t('admin.layout.itemUserManagement')
-              : activeTab === 'audit'
-                ? t('admin.layout.itemAuditLedger')
-                : t('admin.layout.itemOverview')}
-          </h1>
+          <h1>{featureTitle}</h1>
           <p>
             {activeTab === 'users'
               ? t('admin.direction.usersSubtitle', { count: totalUsers > 0 ? totalUsers : stats?.total_users || 0 })
-              : activeTab === 'audit'
-                ? t('admin.direction.auditSubtitle', { count: totalLogs })
-                : t('admin.direction.pageSubtitle')}
+              : activeTab === 'accounts'
+                ? 'Supervision globale des comptes, statuts, entreprises et participation marketplace'
+                : activeTab === 'merchants'
+                  ? 'Aperçu stratégique des entreprises et boutiques marchandes TBK'
+                  : activeTab === 'catalog'
+                    ? 'Supervision de la publication du catalogue et alertes stock'
+                    : activeTab === 'disputes'
+                      ? 'Visibilité stratégique des litiges et alertes d’escalade'
+                      : activeTab === 'audit'
+                        ? t('admin.direction.auditSubtitle', { count: totalLogs })
+                        : activeTab === 'kpis'
+                          ? 'Indicateurs de performance stratégique, croissance et tendances'
+                          : t('admin.direction.pageSubtitle')}
           </p>
         </div>
 
@@ -193,7 +243,7 @@ export default function DirectionDashboardPage() {
             className="admin-button"
             onClick={() => {
               void loadOverviewStats()
-              if (activeTab === 'users') void loadUsers()
+              if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') void loadUsers()
               if (activeTab === 'audit') void loadAuditLogs()
             }}
           >
@@ -202,20 +252,21 @@ export default function DirectionDashboardPage() {
         </div>
       </div>
 
-      {/* TAB 1: STRATEGIC KPIS */}
-      {activeTab === 'kpis' && (
+      {statsError && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: 'var(--admin-danger-soft)', border: '1px solid var(--admin-danger)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: 'var(--admin-text)' }}>
+          <span>⚠️ {t('admin.direction.kpisLoadErrorPrefix')} {statsError}</span>
+          <button
+            onClick={() => void loadOverviewStats()}
+            style={{ backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', border: '1px solid var(--admin-border)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+          >
+            {t('admin.direction.retry')}
+          </button>
+        </div>
+      )}
+
+      {/* ─── 1. OVERVIEW ──────────────────────────────────────────────────────── */}
+      {activeTab === 'overview' && (
         <div>
-          {statsError && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: 'var(--admin-danger-soft)', border: '1px solid var(--admin-danger)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, color: 'var(--admin-text)' }}>
-              <span>⚠️ {t('admin.direction.kpisLoadErrorPrefix')} {statsError}</span>
-              <button
-                onClick={() => void loadOverviewStats()}
-                style={{ backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', border: '1px solid var(--admin-border)', borderRadius: 8, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
-              >
-                {t('admin.direction.retry')}
-              </button>
-            </div>
-          )}
           {loadingStats ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
               <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
@@ -304,7 +355,7 @@ export default function DirectionDashboardPage() {
                 {/* Catalog & Inventory */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
                   <div className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>📦 {t('admin.direction.catalogAndStock')}</h3>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}><BoxIcon style={{ width: 16, height: 16, marginRight: 8, verticalAlign: 'middle' }} />{t('admin.direction.catalogAndStock')}</h3>
                     <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.productsCount', { count: stats.total_products })}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
@@ -328,7 +379,77 @@ export default function DirectionDashboardPage() {
         </div>
       )}
 
-      {/* TAB 2: USER MANAGEMENT */}
+      {/* ─── 2. STRATEGIC KPIS ────────────────────────────────────────────────── */}
+      {activeTab === 'kpis' && (
+        <div>
+          {loadingStats ? (
+            <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
+              <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
+              {t('admin.direction.queryingAggregations')}
+            </div>
+          ) : stats ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div className="admin-kpi-grid">
+                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Croissance Marché (GMV Cash)</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{formatCurrency(stats.confirmed_cash)}</div>
+                  <div style={{ fontSize: 12, color: '#10b981', marginTop: 4 }}>Volume cash double-confirmé actif</div>
+                </div>
+                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux d’achèvement commandes</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>
+                    {stats.total_orders > 0 ? `${Math.round((stats.completed_orders / stats.total_orders) * 100)}%` : '100%'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.completed_orders} sur {stats.total_orders} commandes</div>
+                </div>
+                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux d’activation boutiques</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>
+                    {stats.total_shops > 0 ? `${Math.round((stats.active_shops / stats.total_shops) * 100)}%` : '100%'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.active_shops} actives sur {stats.total_shops}</div>
+                </div>
+                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux de litiges</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: stats.open_disputes > 0 ? '#ef4444' : '#10b981' }}>
+                    {stats.total_orders > 0 ? `${((stats.open_disputes / stats.total_orders) * 100).toFixed(1)}%` : '0%'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.open_disputes} cas ouverts</div>
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 14px', color: '#f8fafc' }}>Indicateurs d’Évolution & Ratio Acheteurs / Vendeurs</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <div style={{ backgroundColor: '#1e293b', padding: 14, borderRadius: 10 }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Ratio Acheteurs / Vendeurs</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', marginTop: 4 }}>
+                      {stats.total_sellers > 0 ? `${(stats.total_buyers / stats.total_sellers).toFixed(1)} : 1` : 'N/A'}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{stats.total_buyers} acheteurs pour {stats.total_sellers} vendeurs</div>
+                  </div>
+                  <div style={{ backgroundColor: '#1e293b', padding: 14, borderRadius: 10 }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Moyenne Boutiques par Entreprise</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', marginTop: 4 }}>
+                      {stats.total_businesses > 0 ? (stats.total_shops / stats.total_businesses).toFixed(1) : '1.0'}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{stats.total_shops} boutiques / {stats.total_businesses} entreprises</div>
+                  </div>
+                  <div style={{ backgroundColor: '#1e293b', padding: 14, borderRadius: 10 }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Produits par Boutique Active</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', marginTop: 4 }}>
+                      {stats.active_shops > 0 ? Math.round(stats.published_products / stats.active_shops) : 0}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{stats.published_products} produits en ligne</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* ─── 3. USER MANAGEMENT ──────────────────────────────────────────────── */}
       {activeTab === 'users' && (
         <div>
           {usersError && (
@@ -342,15 +463,16 @@ export default function DirectionDashboardPage() {
               </button>
             </div>
           )}
+
           {/* Filter Bar */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b', flexWrap: 'wrap' }}>
             <input
               type="text"
               placeholder={t('admin.direction.searchUsersPlaceholder')}
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
               style={{
-                flex: 1,
+                flex: '1 1 200px',
                 padding: '9px 14px',
                 borderRadius: 8,
                 backgroundColor: '#1e293b',
@@ -411,8 +533,8 @@ export default function DirectionDashboardPage() {
           </div>
 
           {/* User Table */}
-          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thUser')}</th>
@@ -485,7 +607,7 @@ export default function DirectionDashboardPage() {
                         {u.total_points}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                           {u.status === 'ACTIVE' ? (
                             <button
                               onClick={() => {
@@ -581,7 +703,192 @@ export default function DirectionDashboardPage() {
         </div>
       )}
 
-      {/* TAB 3: AUDIT LEDGER */}
+      {/* ─── 4. ACCOUNT SUPERVISION ──────────────────────────────────────────── */}
+      {activeTab === 'accounts' && (
+        <div>
+          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 8px', color: '#f8fafc' }}>🔍 Matrice de Supervision des Comptes</h3>
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
+              Visualisez le rattachement des comptes aux entreprises, boutiques et transactions, ainsi que leur statut de vérification et niveau de risque.
+            </p>
+          </div>
+
+          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+              <thead>
+                <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
+                  <th style={{ padding: '12px 16px' }}>Utilisateur</th>
+                  <th style={{ padding: '12px 16px' }}>Rôle Marché</th>
+                  <th style={{ padding: '12px 16px' }}>Entreprises / Boutiques</th>
+                  <th style={{ padding: '12px 16px' }}>Vérification Email</th>
+                  <th style={{ padding: '12px 16px' }}>Activité (Commandes)</th>
+                  <th style={{ padding: '12px 16px' }}>Points cumulés</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Détails</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingUsers ? (
+                  <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Chargement…</td></tr>
+                ) : users.map((u) => (
+                  <tr key={u.id} style={{ borderBottom: '1px solid #1e293b' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: 700, color: '#f8fafc' }}>{u.first_name} {u.last_name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{u.email}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: '#1e3a5f', color: '#93c5fd' }}>
+                        {u.account_type === 'SELLER' && u.order_count > 0 ? 'BUYER & SELLER' : u.account_type}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      {u.business_count > 0 ? (
+                        <span style={{ color: '#34d399', fontWeight: 600 }}>{u.business_count} ent. ({u.shop_count} bq.)</span>
+                      ) : (
+                        <span style={{ color: '#64748b' }}>Aucune entreprise</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ color: u.email_verified ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                        {u.email_verified ? '✓ Vérifié' : '⏳ Non vérifié'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>{u.order_count} commandes</td>
+                    <td style={{ padding: '12px 16px', fontWeight: 700, color: '#f59e0b' }}>{u.total_points} pts</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => setInspectedUser(u)}
+                        style={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#60a5fa', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
+                      >
+                        Inspecter
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 5. MERCHANTS OVERVIEW ────────────────────────────────────────────── */}
+      {activeTab === 'merchants' && (
+        <div>
+          <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Total Entreprises Marchandes</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc' }}>{stats?.total_businesses || 0}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Entités commerciales déclarées</div>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Total Boutiques / Points de Vente</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>{stats?.total_shops || 0}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats?.active_shops || 0} actives sur le marché</div>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Vendeurs Actifs (Propriétaires)</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{stats?.total_sellers || 0}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Comptes avec statut marchand</div>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Personnel de Boutique</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#c084fc' }}>{stats?.total_employees || 0}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Employés et caissiers assignés</div>
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', padding: 20 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 12px', color: '#f8fafc' }}>Direction & Gouvernance Marchande</h3>
+            <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6, margin: '0 0 16px' }}>
+              La Direction supervise le volume, l’expansion et la conformité légale des marchands. La gestion opérationnelle quotidienne des catalogues, stocks, horaires et équipes appartient au département <strong>Commerce & Opérations</strong>.
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Link to="/admin/commerce/sellers" style={{ backgroundColor: '#1e293b', color: '#34d399', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
+                Ouvrir gestion opérationnelle des Vendeurs →
+              </Link>
+              <Link to="/admin/commerce/shops" style={{ backgroundColor: '#1e293b', color: '#34d399', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
+                Ouvrir gestion opérationnelle des Boutiques →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 6. CATALOG OVERVIEW ──────────────────────────────────────────────── */}
+      {activeTab === 'catalog' && (
+        <div>
+          <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Total Produits Référencés</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc' }}>{stats?.total_products || 0}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Base globale de données</div>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>En Ligne (Publiés)</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#3b82f6' }}>{stats?.published_products || 0}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Visibles sur la marketplace</div>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Brouillons / Archivés</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#94a3b8' }}>{(stats?.total_products || 0) - (stats?.published_products || 0)}</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>En préparation ou retirés</div>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Ruptures de Stock</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: (stats?.out_of_stock_products || 0) > 0 ? '#f59e0b' : '#10b981' }}>
+                {stats?.out_of_stock_products || 0}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Articles indisponibles</div>
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', padding: 20 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 10px', color: '#f8fafc' }}>Gouvernance du Catalogue</h3>
+            <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.5, margin: '0 0 16px' }}>
+              La Direction contrôle les tendances d’offre et les anomalies de catalogue. Pour la création de catégories, l’ajustement des stocks ou la modération des fiches produits, rendez-vous dans le département <strong>Commerce & Opérations</strong>.
+            </p>
+            <Link to="/admin/commerce/products" style={{ backgroundColor: '#1e293b', color: '#34d399', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
+              Consulter le catalogue opérationnel →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 7. DISPUTES OVERVIEW ────────────────────────────────────────────── */}
+      {activeTab === 'disputes' && (
+        <div>
+          <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Litiges Actifs Ouverts</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: (stats?.open_disputes || 0) > 0 ? '#ef4444' : '#10b981' }}>
+                {stats?.open_disputes || 0}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Nécessitent une médiation</div>
+            </div>
+            <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Alertes Critiques Plateforme</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: (stats?.critical_alerts || 0) > 0 ? '#ef4444' : '#10b981' }}>
+                {stats?.critical_alerts || 0}
+              </div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Blocages ou signaux de fraude</div>
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <span style={{ fontSize: 20 }}>⚖️</span>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: '#f8fafc' }}>Supervision & Habilitation Litiges</h3>
+            </div>
+            <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6, margin: '0 0 16px' }}>
+              La Direction assure la supervision stratégique des conflits et du climat de confiance de TBK Market. L’instruction détaillée, les échanges de messages, l’attribution aux médiateurs et la résolution financière sont opérés par le département <strong>Finance / Support / Confiance</strong>.
+            </p>
+            <Link to="/admin/finance/cases" style={{ backgroundColor: '#1e293b', color: '#fbbf24', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
+              Ouvrir le centre de résolution des Litiges & Cas →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 8. AUDIT LEDGER ─────────────────────────────────────────────────── */}
       {activeTab === 'audit' && (
         <div>
           {auditError && (
@@ -595,6 +902,7 @@ export default function DirectionDashboardPage() {
               </button>
             </div>
           )}
+
           {/* Audit Filter */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b' }}>
             <select
@@ -635,8 +943,8 @@ export default function DirectionDashboardPage() {
             </button>
           </div>
 
-          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+          <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thTimestamp')}</th>
@@ -719,7 +1027,72 @@ export default function DirectionDashboardPage() {
         </div>
       )}
 
-      {/* USER ACTION MODAL (SUSPEND / REACTIVATE / LOGOUT) */}
+      {/* INSPECT USER MODAL */}
+      {inspectedUser && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: 20
+        }}>
+          <div style={{
+            maxWidth: 550,
+            width: '100%',
+            backgroundColor: '#0f172a',
+            borderRadius: 16,
+            border: '1px solid #334155',
+            padding: 24,
+            boxShadow: '0 25px 50px rgba(0,0,0,0.6)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>Fiche de Supervision Compte</h3>
+              <button onClick={() => setInspectedUser(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 18, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Nom complet</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{inspectedUser.first_name} {inspectedUser.last_name}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Identifiant UUID</div>
+                <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#cbd5e1' }}>{inspectedUser.id}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Email</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.email}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Téléphone</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.phone || 'Non renseigné'}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Entreprises rattachées</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#34d399' }}>{inspectedUser.business_count} entreprise(s)</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Boutiques rattachées</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>{inspectedUser.shop_count} boutique(s)</div>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <button
+                onClick={() => setInspectedUser(null)}
+                style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* USER ACTION MODAL (SUSPEND / REACTIVATE / LOGOUT / DELETE) */}
       {actionTargetUser && actionType && (
         <div style={{
           position: 'fixed',
@@ -763,7 +1136,6 @@ export default function DirectionDashboardPage() {
 
             {actionType === 'delete' && (
               <div style={{ marginBottom: 18 }}>
-                {/* One line of consequence, with the scope shown as counts. */}
                 <div style={{
                   borderLeft: '3px solid #ef4444',
                   paddingLeft: 12,

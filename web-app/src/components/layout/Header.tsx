@@ -1,11 +1,12 @@
 import { Link, NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/store/auth'
 import { useCart } from '@/store/cart'
 import { useI18n } from '@/store/i18n'
 import { loginWithReturnTo } from '@/lib/returnTo'
 import { SearchAutocomplete } from '@/components/search/SearchAutocomplete'
 import { PreferenceToggles } from '@/components/ui/PreferenceToggles'
+import { fetchBuyerUnreadCounts, type UnreadCounts } from '@/api/communication'
 import type { User } from '@/api/types'
 import type { TranslationKey } from '@/locales/fr'
 
@@ -29,6 +30,17 @@ export function Header() {
   const { totalQty } = useCart()
   const { t } = useI18n()
   const [drawer, setDrawer] = useState(false)
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({ unread_messages: 0, unread_notifications: 0 })
+
+  useEffect(() => {
+    if (!user) return
+    const check = () => {
+      fetchBuyerUnreadCounts().then(setUnreadCounts).catch(() => null)
+    }
+    check()
+    const timer = setInterval(check, 30_000)
+    return () => clearInterval(timer)
+  }, [user])
 
   function getNavLink(path: string) {
     if (!user) {
@@ -90,6 +102,38 @@ export function Header() {
           <Link to="/cart" className="header-link" aria-label={t('nav.cart')}>
             🛒 {totalQty > 0 ? `(${totalQty})` : ''}
           </Link>
+
+          {user && (
+            <NavLink
+              to="/notifications"
+              className={({ isActive }) => `header-link ${isActive ? 'active' : ''}`}
+              aria-label={t('notifications.title')}
+              style={{ position: 'relative' }}
+            >
+              <span>🔔</span>
+              {unreadCounts.unread_notifications > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -6,
+                    background: 'var(--color-danger, #ef4444)',
+                    color: '#fff',
+                    borderRadius: '50%',
+                    width: 18,
+                    height: 18,
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {unreadCounts.unread_notifications > 9 ? '9+' : unreadCounts.unread_notifications}
+                </span>
+              )}
+            </NavLink>
+          )}
 
           <PreferenceToggles />
 
@@ -168,6 +212,29 @@ export function Header() {
               <Link to="/cart" className="dnav-link">
                 <span className="dnav-icon">🛒</span> {t('nav.cart')}{totalQty > 0 ? ` (${totalQty})` : ''}
               </Link>
+              {user && (
+                <Link to="/notifications" className="dnav-link" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span><span className="dnav-icon">🔔</span> {t('notifications.title')}</span>
+                  {unreadCounts.unread_notifications > 0 && (
+                    <span
+                      style={{
+                        background: 'var(--color-danger, #ef4444)',
+                        color: '#fff',
+                        borderRadius: '50%',
+                        width: 20,
+                        height: 20,
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {unreadCounts.unread_notifications}
+                    </span>
+                  )}
+                </Link>
+              )}
               {user ? (
                 user.account_type === 'SELLER' ? (
                   <Link to="/seller/dashboard" className="dnav-link">

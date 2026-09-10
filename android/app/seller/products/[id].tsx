@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import { Image } from 'expo-image'
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../../src/api'
-import { ApiError } from '../../../src/api/client'
+import { ApiError, resolveMediaUrl } from '../../../src/api/client'
 import { useAuth } from '../../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../../src/components/ui'
 import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
-import { spacing, type Colors } from '../../../src/theme'
+import { spacing, radius, type Colors } from '../../../src/theme'
+import { prepareProductImageUpload } from '../../../src/lib/imageUpload'
+import type { Category, Shop } from '../../../src/types'
+
+const MAX_IMAGES = 10
 
 export default function SellerProductDetailScreen() {
   const { t } = useI18n()
@@ -18,10 +24,21 @@ export default function SellerProductDetailScreen() {
   const { id: productId = '' } = useLocalSearchParams<{ id: string }>()
   const activeBusiness = useAuth((s) => s.activeBusiness)
   const activeShop = useAuth((s) => s.activeShop)
+  const setActiveShop = useAuth((s) => s.setActiveShop)
 
   const product = useQuery({ queryKey: ['seller', 'product', productId], queryFn: () => sellerApi.product(activeBusiness!.id, productId), enabled: Boolean(activeBusiness && productId) })
   const variants = useQuery({ queryKey: ['seller', 'variants', productId], queryFn: () => sellerApi.variants(activeBusiness!.id, productId), enabled: Boolean(activeBusiness && productId) })
+  const images = useQuery({ queryKey: ['seller', 'productImages', productId], queryFn: () => sellerApi.productImages(activeBusiness!.id, productId), enabled: Boolean(activeBusiness && productId) })
   const inventory = useQuery({ queryKey: ['seller', 'inventory', activeShop], queryFn: () => sellerApi.shopInventory(activeShop!), enabled: Boolean(activeShop) })
+  const categories = useQuery({ queryKey: ['seller', 'categories'], queryFn: sellerApi.categories })
+  // Stock is always shop-scoped, so the page needs a shop before it can show
+  // or change any quantity. Offering the business's shops here means a product
+  // opened straight from a notification is still actionable.
+  const shops = useQuery({
+    queryKey: ['seller', 'shops', activeBusiness?.id],
+    queryFn: () => sellerApi.shops(activeBusiness!.id),
+    enabled: Boolean(activeBusiness),
+  })
 
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ name: '', sku: '', unit: 'PCS', unit_price: '', cost_price: '', description: '' })
@@ -29,6 +46,7 @@ export default function SellerProductDetailScreen() {
   const [variantForm, setVariantForm] = useState({ name: '', sku: '', sale_price: '', purchase_price: '', stock: '0' })
   const [stockByVariant, setStockByVariant] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     if (!product.data) return
@@ -39,7 +57,13 @@ export default function SellerProductDetailScreen() {
     })
   }, [product.data?.id])
 
-  const invalidate = () => { void queryClient.invalidateQueries({ queryKey: ['seller', 'product', productId] }); void queryClient.invalidateQueries({ queryKey: ['seller', 'variants', productId] }); void queryClient.invalidateQueries({ queryKey: ['seller', 'inventory'] }); void queryClient.invalidateQueries({ queryKey: ['seller', 'products'] }) }
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['seller', 'product', productId] })
+    void queryClient.invalidateQueries({ queryKey: ['seller', 'variants', productId] })
+    void queryClient.invalidateQueries({ queryKey: ['seller', 'productImages', productId] })
+    void queryClient.invalidateQueries({ queryKey: ['seller', 'inventory'] })
+    void queryClient.invalidateQueries({ queryKey: ['seller', 'products'] })
+  }
 
   const save = useMutation({
     mutationFn: () => sellerApi.updateProduct(activeBusiness!.id, productId, {
@@ -55,7 +79,15 @@ export default function SellerProductDetailScreen() {
   const togglePublish = useMutation({
     mutationFn: () => sellerApi.updateProduct(activeBusiness!.id, productId, { publication_status: product.data!.publication_status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED', status: product.data!.publication_status === 'PUBLISHED' ? undefined : 'ACTIVE' }),
     onSuccess: invalidate,
+    // The API explains exactly why a publish was refused (a missing category
+    // characteristic, most often); showing that beats a generic failure.
     onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.productDetail.publishFailed')),
+  })
+
+  const archive = useMutation({
+    mutationFn: () => sellerApi.updateProduct(activeBusiness!.id, productId, { status: 'INACTIVE', publication_status: 'ARCHIVED' }),
+    onSuccess: invalidate,
+    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.productList.deleteFailed')),
   })
 
   const addVariant = useMutation({
@@ -64,8 +96,15 @@ export default function SellerProductDetailScreen() {
         name: variantForm.name.trim(), sku: variantForm.sku.trim() || undefined,
         sale_price: parseFloat(variantForm.sale_price), purchase_price: variantForm.purchase_price ? parseFloat(variantForm.purchase_price) : undefined,
       })
-      const stock = Math.max(0, parseInt(variantForm.stock, 10) || 0)
-      if (activeShop && stock > 0) await sellerApi.addStock(activeShop, { variant_id: created.id, quantity: stock, notes: t('seller.productForm.initialStock') })
+      // The offer row is written even at zero, exactly as the create pipeline
+      // does: the marketplace only lists variants that have inventory in a shop.
+      if (activeShop) {
+        await sellerApi.addStock(activeShop, {
+          variant_id: created.id,
+          quantity: Math.max(0, parseInt(variantForm.stock, 10) || 0),
+          notes: t('seller.productForm.initialStock'),
+        })
+      }
       return created
     },
     onMutate: () => setError(''),
@@ -79,12 +118,59 @@ export default function SellerProductDetailScreen() {
     onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.productDetail.addStockFailed')),
   })
 
+  const deleteImage = useMutation({
+    mutationFn: (imageId: string) => sellerApi.deleteProductImage(activeBusiness!.id, productId, imageId),
+    onSuccess: invalidate,
+    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.productForm.genericError')),
+  })
+
+  async function addImage(source: 'camera' | 'library') {
+    const permission = source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!permission.granted) {
+      Alert.alert(
+        t(source === 'camera' ? 'profile.cameraNeeded' : 'profile.photosNeeded'),
+        t(source === 'camera' ? 'profile.cameraNeededBody' : 'profile.photosNeededBody'),
+      )
+      return
+    }
+    const result = source === 'camera'
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, selectionLimit: 1 })
+    if (result.canceled || !result.assets[0]) return
+
+    setUploadingImage(true)
+    try {
+      const file = await prepareProductImageUpload(result.assets[0])
+      await sellerApi.uploadProductImage(activeBusiness!.id, productId, file, (images.data?.length ?? 0) === 0)
+      invalidate()
+    } catch (e) {
+      Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.productForm.photoPrepareFailed'))
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  function pickImage() {
+    if ((images.data?.length ?? 0) >= MAX_IMAGES) { Alert.alert(t('seller.productForm.maxPhotos')); return }
+    Alert.alert(t('seller.productForm.addPhoto'), undefined, [
+      { text: t('profile.takePhoto'), onPress: () => void addImage('camera') },
+      { text: t('profile.chooseFromGallery'), onPress: () => void addImage('library') },
+      { text: t('common.cancel'), style: 'cancel' },
+    ])
+  }
+
   if (!activeBusiness) return <View style={styles.center}><Text style={styles.muted}>{t('seller.noBusinessSelected')}</Text></View>
   if (product.isLoading) return <Loading label={t('seller.productDetail.loading')} />
   if (product.isError || !product.data) return <ErrorState message={t('seller.productDetail.notFound')} retry={() => void product.refetch()} />
 
   const p = product.data
   const stockByVariantId = new Map((inventory.data ?? []).map((i) => [i.inventory.variant_id, i]))
+  const category = categories.data?.find((c: Category) => c.id === p.category_id)
+  const subcategory = category?.subcategories?.find((s: Category) => s.id === p.subcategory_id)
+  const categoryPath = [category?.name, subcategory?.name].filter(Boolean).join(' › ')
+  const currentShop = shops.data?.find((s: Shop) => s.id === activeShop)
 
   return <ScrollView contentContainerStyle={styles.page}>
     <SectionTitle title={p.name} />
@@ -98,8 +184,20 @@ export default function SellerProductDetailScreen() {
       {!editing ? <>
         <Text style={styles.muted}>{t('seller.productDetail.basePrice', { price: (p.unit_price ?? 0).toLocaleString() })}</Text>
         <Text style={styles.muted}>{t('seller.productDetail.unitLabel', { unit: p.unit || 'PCS' })}</Text>
+        <Text style={styles.muted}>{t('seller.productForm.categoryLabel')}: {categoryPath || t('seller.productList.generalCategory')}</Text>
         {p.description ? <Text style={styles.desc}>{p.description}</Text> : null}
         <Button variant="outline" dense title={t('seller.productDetail.editSettings')} onPress={() => setEditing(true)} />
+        {p.publication_status !== 'ARCHIVED' ? <Button
+          variant="outline"
+          dense
+          loading={archive.isPending}
+          title={t('seller.productList.delete')}
+          onPress={() => Alert.alert(
+            t('seller.productList.delete'),
+            t('seller.productList.archiveConfirm', { name: p.name }),
+            [{ text: t('common.cancel'), style: 'cancel' }, { text: t('seller.productList.delete'), style: 'destructive', onPress: () => archive.mutate() }],
+          )}
+        /> : null}
       </> : <>
         <Field label={t('seller.productDetail.productNameRequired')} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} autoCapitalize="words" />
         <Field label={t('seller.productDetail.salePriceRequired')} value={form.unit_price} onChangeText={(v) => setForm((f) => ({ ...f, unit_price: v }))} keyboardType="numeric" />
@@ -112,7 +210,32 @@ export default function SellerProductDetailScreen() {
       </>}
     </Card>
 
+    <Card>
+      <Text style={styles.cardTitle}>{t('seller.productForm.photosTitle')}</Text>
+      {images.isLoading ? <Loading label={t('common.loading')} /> : !images.data?.length
+        ? <Text style={styles.muted}>{t('seller.productDetail.noPhotosYet')}</Text>
+        : <View style={styles.photoGrid}>
+          {images.data.map((img) => <View key={img.id} style={styles.photoTile}>
+            <Image source={resolveMediaUrl(img.url)} style={styles.photo} contentFit="cover" />
+            {img.is_primary ? <Text style={styles.primaryTag}>{t('seller.productForm.primary')}</Text> : null}
+            <Button dense variant="outline" loading={deleteImage.isPending && deleteImage.variables === img.id} title={t('common.delete')} onPress={() => deleteImage.mutate(img.id)} />
+          </View>)}
+        </View>}
+      <Button variant="outline" loading={uploadingImage} title={t('seller.productForm.addPhoto')} onPress={pickImage} />
+    </Card>
+
+    {!activeShop && shops.data?.length ? <Card>
+      <Text style={styles.cardTitle}>{t('seller.productForm.shopTitle')}</Text>
+      <Text style={styles.muted}>{t('seller.productDetail.selectShopLocation')}</Text>
+      <View style={styles.chipRow}>
+        {shops.data.map((s: Shop) => <Pressable key={s.id} accessibilityRole="button" style={styles.chip} onPress={() => setActiveShop(s.id)}>
+          <Text style={styles.chipText}>{s.name}</Text>
+        </Pressable>)}
+      </View>
+    </Card> : null}
+
     <SectionTitle title={t('seller.productDetail.variantsInventoryDesc')} action={<Button dense title={showAddVariant ? t('common.cancel') : t('seller.productDetail.addVariant')} onPress={() => setShowAddVariant((v) => !v)} />} />
+    {currentShop ? <Text style={styles.muted}>{t('seller.productForm.stockScopedDesc', { shop: currentShop.name })}</Text> : null}
 
     {showAddVariant && <Card>
       <Field label={t('seller.productDetail.variantNameRequired')} value={variantForm.name} onChangeText={(v) => setVariantForm((f) => ({ ...f, name: v }))} autoCapitalize="words" />
@@ -124,9 +247,11 @@ export default function SellerProductDetailScreen() {
 
     {variants.isLoading ? <Loading label={t('common.loading')} /> : !variants.data?.length ? <Card><Text style={styles.muted}>{t('seller.productDetail.noVariantsFound')}</Text></Card> : variants.data.map((variant) => {
       const inv = stockByVariantId.get(variant.id)
+      const attributes = Object.entries(variant.attributes ?? {}).filter(([, v]) => v.trim())
       return <Card key={variant.id}>
         <Text style={styles.name}>{variant.name || t('seller.productDetail.defaultVariant')}</Text>
         <Text style={styles.muted}>{variant.sku || '—'} · {(variant.sale_price ?? 0).toLocaleString()} FC</Text>
+        {attributes.length > 0 ? <Text style={styles.muted}>{attributes.map(([k, v]) => `${k}: ${v}`).join(' · ')}</Text> : null}
         <Text style={styles.muted}>{activeShop ? t('seller.productList.availableLabel') + ': ' + (inv?.inventory.available ?? 0) : t('seller.productDetail.selectShopLocation')}</Text>
         {activeShop && <View style={styles.row}>
           <View style={styles.flex1}><Field label={t('seller.productDetail.qtyPlaceholder')} value={stockByVariant[variant.id] ?? ''} onChangeText={(v) => setStockByVariant((prev) => ({ ...prev, [variant.id]: v }))} keyboardType="numeric" /></View>
@@ -148,4 +273,12 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   badge: { color: colors.green, fontWeight: '900', fontSize: 12 },
   badgeMuted: { color: colors.muted },
   name: { fontSize: 16, fontWeight: '900', color: colors.ink },
+  cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  photoTile: { width: 150, gap: spacing.xs },
+  photo: { width: 150, height: 150, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt },
+  primaryTag: { color: colors.green, fontWeight: '900', fontSize: 12 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  chip: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  chipText: { color: colors.ink, fontWeight: '700' },
 })

@@ -19,6 +19,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
 	"github.com/btmi-ai-market/backend/internal/handlers/cash"
 	"github.com/btmi-ai-market/backend/internal/handlers/categories"
+	"github.com/btmi-ai-market/backend/internal/handlers/communication"
 	configapi "github.com/btmi-ai-market/backend/internal/handlers/config"
 	"github.com/btmi-ai-market/backend/internal/handlers/customers"
 	"github.com/btmi-ai-market/backend/internal/handlers/employees"
@@ -87,6 +88,8 @@ func main() {
 	passwordResetRepo := repository.NewPasswordResetTokenRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
+	orderConvRepo := repository.NewOrderConversationRepository(db)
+	notifRepo := repository.NewNotificationRepository(db)
 
 	redisClient := redislib.NewClient(cfg)
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
@@ -116,6 +119,8 @@ func main() {
 		userRepo, emailService, cfg, db)
 	inventoryService := service.NewInventoryService(inventoryRepo, stockMovementRepo, shopRepo, productRepo, variantRepo, receiptRepo, assignmentRepo, membershipRepo, employeeRepo, categoryRepo, db, asynqClient)
 	orderService := service.NewOrderService(orderRepo, inventoryRepo, stockMovementRepo, shopRepo, productRepo, variantRepo, assignmentRepo, membershipRepo, employeeRepo, customerRepo, cashRepo, buyerProfileRepo, buyerPaymentRepo, pointRedemptionService, db)
+	commService := service.NewCommunicationService(orderConvRepo, notifRepo, orderRepo, shopRepo, businessRepo, buyerProfileRepo, userRepo, membershipRepo, db)
+	orderService.SetCommunicationService(commService)
 	customerService := service.NewCustomerService(customerRepo, shopRepo, membershipRepo, db)
 	cashService := service.NewCashService(cashRepo, shopRepo, employeeRepo, assignmentRepo, membershipRepo, db)
 	buyerProfileService := service.NewBuyerProfileService(buyerProfileRepo, userRepo, pointAccountRepo, levelRepo)
@@ -156,6 +161,7 @@ func main() {
 	marketplaceReviewHandler := marketplace.NewReviewHandler(reviewService)
 	categoryHandler := categories.NewHandler(categoryService)
 	growthHandler := growth.NewHandler(sellerGrowthService, pointService, membershipRepo)
+	commHandler := communication.NewHandler(commService)
 
 	adminAuthService := service.NewAdminAuthService(adminRepo, cfg)
 	auditService := service.NewAuditService(auditRepo)
@@ -164,6 +170,7 @@ func main() {
 	adminDirectionService := service.NewAdminDirectionService(db, userRepo, refreshTokenRepo, auditService)
 	adminCommerceRepo := repository.NewAdminCommerceRepository(db)
 	adminCommerceService := service.NewAdminCommerceService(db, adminCommerceRepo, productRepo, inventoryRepo, stockMovementRepo, auditRepo)
+	adminCommerceService.SetCommunicationService(commService)
 	adminFinanceRepo := repository.NewAdminFinanceRepository(db)
 	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService)
 	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB, migrationsDir)
@@ -341,6 +348,27 @@ func main() {
 			ordersGroup.POST("/:order_id/prepare", orderHandler.PrepareOrder)
 			ordersGroup.POST("/:order_id/cancel", orderHandler.CancelOrder)
 			ordersGroup.POST("/:order_id/tracking/status", orderHandler.SellerTransitionOrder)
+			ordersGroup.POST("/:order_id/courier-arrived", commHandler.ConfirmCourierArrival)
+			ordersGroup.POST("/:order_id/courier-picked-up", commHandler.ConfirmCourierPickedUp)
+			ordersGroup.POST("/:order_id/courier-near-destination", commHandler.ConfirmCourierNearDestination)
+			ordersGroup.GET("/:order_id/conversation", commHandler.GetOrderConversation)
+			ordersGroup.POST("/:order_id/messages", commHandler.SendMessage)
+		}
+
+		sellerGroup := api.Group("/seller")
+		sellerGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			sellerGroup.GET("/conversations", commHandler.ListSellerConversations)
+			sellerGroup.GET("/unread-counts", commHandler.GetSellerUnreadCounts)
+		}
+
+		notificationsGroup := api.Group("/notifications")
+		notificationsGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			notificationsGroup.GET("", commHandler.GetUserNotifications)
+			notificationsGroup.POST("/:id/read", commHandler.MarkNotificationRead)
+			notificationsGroup.POST("/read-all", commHandler.MarkAllNotificationsRead)
+			notificationsGroup.GET("/unread-count", commHandler.GetUnreadNotificationsCount)
 		}
 
 		variantsGroup := api.Group("/variants")
@@ -424,6 +452,8 @@ func main() {
 			buyerGroup.PATCH("/reviews/:review_id", reviewHandler.UpdateReview)
 			buyerGroup.DELETE("/reviews/:review_id", reviewHandler.WithdrawReview)
 			buyerGroup.GET("/reviews", reviewHandler.ListBuyerReviews)
+			buyerGroup.GET("/conversations", commHandler.ListBuyerConversations)
+			buyerGroup.GET("/unread-counts", commHandler.GetBuyerUnreadCounts)
 		}
 
 		marketplaceGroup := api.Group("/marketplace")
@@ -478,6 +508,7 @@ func main() {
 				adminAuthGroup.POST("/refresh", adminAuthHandler.Refresh)
 				adminAuthGroup.POST("/logout", adminAuthHandler.Logout)
 				adminAuthGroup.GET("/me", middleware.AdminAuthMiddleware(adminAuthService), adminAuthHandler.Me)
+				adminAuthGroup.PATCH("/me", middleware.AdminAuthMiddleware(adminAuthService), adminManagementHandler.UpdateOwnProfile)
 			}
 
 			// Public admin invitation/activation endpoints. There is deliberately no
@@ -494,6 +525,14 @@ func main() {
 			protectedAdmin := adminGroup.Group("")
 			protectedAdmin.Use(middleware.AdminAuthMiddleware(adminAuthService))
 			{
+				adminNotifsGroup := protectedAdmin.Group("/notifications")
+				{
+					adminNotifsGroup.GET("", commHandler.GetAdminNotifications)
+					adminNotifsGroup.GET("/unread-count", commHandler.GetAdminUnreadCount)
+					adminNotifsGroup.POST("/:id/read", commHandler.MarkAdminNotificationRead)
+					adminNotifsGroup.POST("/read-all", commHandler.MarkAllAdminNotificationsRead)
+				}
+
 				adminUsersGroup := protectedAdmin.Group("/admin-users")
 				adminUsersGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
 				{
@@ -504,6 +543,7 @@ func main() {
 					adminUsersGroup.POST("/:id/reactivate", adminManagementHandler.ReactivateAdmin)
 					adminUsersGroup.POST("/:id/force-logout", adminManagementHandler.ForceLogoutAdmin)
 					adminUsersGroup.POST("/:id/change-role", adminManagementHandler.ChangeAdminRole)
+					adminUsersGroup.DELETE("/:id", adminManagementHandler.DeleteAdmin)
 				}
 
 				directionGroup := protectedAdmin.Group("/direction")
@@ -569,6 +609,9 @@ func main() {
 					commerceGroup.GET("/orders", adminCommerceHandler.ListOrders)
 					commerceGroup.GET("/orders/:id", adminCommerceHandler.GetOrder)
 					commerceGroup.POST("/orders/:id/assign-courier", adminCommerceHandler.AssignCourier)
+					commerceGroup.GET("/orders/:id/conversation", commHandler.GetAdminOrderConversation)
+					commerceGroup.POST("/orders/:id/intervene", commHandler.AdminIntervene)
+					commerceGroup.GET("/order-communications", commHandler.ListAdminOrderCommunications)
 
 					commerceGroup.GET("/employees", adminCommerceHandler.ListEmployees)
 					commerceGroup.POST("/employees/:id/revoke", adminCommerceHandler.RevokeEmployeeAccess)

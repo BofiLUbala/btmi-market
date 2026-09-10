@@ -145,10 +145,21 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   if (!response.ok) {
     let code = 'REQUEST_FAILED'; let message = await localized('errors.generic')
     try { const body = await response.json(); code = body?.error?.code || code; message = body?.error?.message || message } catch {}
-    throw new ApiError(response.status, code, message)
+    throw new ApiError(response.status, code, await friendlyMessage(code, message))
   }
   const body = await response.json()
   return (body.data ?? body) as T
+}
+
+/** Rewrites the error codes whose raw API message is a machine string into a
+ *  sentence a seller can act on. Mirrors the same mapping in the web client so
+ *  a rejected publish reads identically on both platforms. */
+async function friendlyMessage(code: string, message: string): Promise<string> {
+  if (code !== 'MISSING_REQUIRED_ATTRIBUTES') return message
+  // The API appends the missing names after the code: "MISSING_REQUIRED_ATTRIBUTES: Color, Size".
+  const names = message.replace(/^MISSING_REQUIRED_ATTRIBUTES:\s*/, '').trim()
+  if (!names || names === message) return await localized('errors.missingAttributesGeneric')
+  return (await localized('errors.missingAttributes')).replace('{names}', names)
 }
 
 function describeCause(cause: unknown) {

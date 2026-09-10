@@ -1,23 +1,36 @@
 import { useI18n } from '@/store/i18n'
 import { useTheme } from '@/store/theme'
-import { MoonIcon, SunIcon } from './Icons'
+import { MoonIcon, SunIcon, MonitorIcon } from './Icons'
 
 /** Light/dark switch. Icon shows the theme you would switch *to*, which is the
  *  convention users already know from other apps. */
 export function ThemeToggle({ className = '' }: { className?: string }) {
   const { theme, toggleTheme } = useTheme()
   const { t } = useI18n()
-  const goingDark = theme === 'light'
+  
+  let Icon = SunIcon
+  let label = t('prefs.switchToDark')
+  
+  if (theme === 'light') {
+    Icon = MoonIcon
+    label = t('prefs.switchToDark')
+  } else if (theme === 'dark') {
+    Icon = MonitorIcon
+    label = t('prefs.switchToSystem')
+  } else {
+    Icon = SunIcon
+    label = t('prefs.switchToLight')
+  }
 
   return (
     <button
       type="button"
       className={`pref-toggle ${className}`}
       onClick={toggleTheme}
-      aria-label={goingDark ? t('prefs.switchToDark') : t('prefs.switchToLight')}
-      title={goingDark ? t('prefs.switchToDark') : t('prefs.switchToLight')}
+      aria-label={label}
+      title={label}
     >
-      {goingDark ? <MoonIcon /> : <SunIcon />}
+      <Icon />
     </button>
   )
 }

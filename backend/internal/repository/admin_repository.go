@@ -198,6 +198,45 @@ func (r *AdminRepository) DeletePendingAdmin(id uuid.UUID) error {
 	return nil
 }
 
+// TombstoneAdmin retires an admin account that can never be removed outright.
+//
+// admin_audit_log.actor_admin_id is NOT NULL and ON DELETE NO ACTION, and every
+// admin who has ever acted owns entries there, so deleting the row would mean
+// deleting the ledger that records what they did. The row therefore stays and is
+// emptied instead: the password hash is blanked so no credential can ever match,
+// the status goes to DEACTIVATED (which admin login refuses), and the address is
+// replaced by a tombstone so the real one is free to be invited again. The
+// caller writes the audit entry with the original address before calling this,
+// so the ledger still names who the account belonged to.
+func (r *AdminRepository) TombstoneAdmin(id uuid.UUID, tombstoneEmail string) error {
+	query := `
+		UPDATE admin_users
+		SET status = $1, password_hash = '', email = $2, session_version = session_version + 1, updated_at = NOW()
+		WHERE id = $3
+	`
+	result, err := r.db.Exec(query, models.AdminStatusDeactivated, tombstoneEmail, id)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("admin deletion did not update exactly one account")
+	}
+	return r.RevokeAllRefreshTokensForAdmin(id)
+}
+
+// UpdateProfile changes the display name of an admin account. It is the only
+// field an admin may edit on themselves: role, status and email all carry
+// authorisation meaning and stay with the SUPER_ADMIN management endpoints.
+func (r *AdminRepository) UpdateProfile(id uuid.UUID, firstName, lastName string) error {
+	query := `UPDATE admin_users SET first_name = $1, last_name = $2, updated_at = NOW() WHERE id = $3`
+	_, err := r.db.Exec(query, firstName, lastName, id)
+	return err
+}
+
 // UpdateRole changes the role of an admin_users row.
 func (r *AdminRepository) UpdateRole(id uuid.UUID, role models.AdminRole) error {
 	query := `UPDATE admin_users SET role = $1, updated_at = NOW() WHERE id = $2`

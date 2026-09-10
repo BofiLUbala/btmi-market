@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/email"
@@ -328,6 +329,109 @@ func (s *AdminManagementService) ForceLogoutAdmin(actorID uuid.UUID, actorRole m
 		nil, map[string]interface{}{"action": "all_sessions_revoked"}, ip, userAgent,
 	)
 	return nil
+}
+
+// UpdateOwnProfile lets a signed-in admin correct the name the console shows
+// as their identity. A bootstrapped SUPER_ADMIN starts as the literal
+// placeholder its environment variables gave it, so without this the operator's
+// own name is the one thing in the console they cannot fix.
+func (s *AdminManagementService) UpdateOwnProfile(actorID uuid.UUID, actorRole models.AdminRole, req *models.UpdateAdminProfileRequest, ip, userAgent string) (*models.AdminUser, error) {
+	admin, err := s.adminRepo.GetByID(actorID)
+	if err != nil {
+		return nil, errors.New("ADMIN_NOT_FOUND")
+	}
+
+	firstName := strings.TrimSpace(req.FirstName)
+	lastName := strings.TrimSpace(req.LastName)
+	if firstName == "" || lastName == "" {
+		return nil, errors.New("INVALID_NAME")
+	}
+	if firstName == admin.FirstName && lastName == admin.LastName {
+		return admin, nil
+	}
+
+	if err := s.adminRepo.UpdateProfile(actorID, firstName, lastName); err != nil {
+		return nil, fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	_ = s.auditService.Record(
+		actorID, actorRole, "ADMIN_PROFILE_UPDATED", "admin_user", actorID.String(), "Self-service name update",
+		map[string]interface{}{"first_name": admin.FirstName, "last_name": admin.LastName},
+		map[string]interface{}{"first_name": firstName, "last_name": lastName},
+		ip, userAgent,
+	)
+
+	admin.FirstName = firstName
+	admin.LastName = lastName
+	return admin, nil
+}
+
+// DeleteAdminResult reports which of the two deletions actually happened, so
+// the console can tell the operator whether the row is gone or retired.
+type DeleteAdminResult struct {
+	HardDeleted bool
+	Email       string
+	Role        models.AdminRole
+	Status      models.AdminStatus
+}
+
+// DeleteAdmin removes an admin account permanently.
+//
+// An invited admin who never activated has produced nothing that references it
+// except its own invitation, which cascades, so its row is deleted outright.
+// Any admin who has actually acted is retired instead of erased: their entries
+// in admin_audit_log, admin_announcements, admin_approval_requests and
+// admin_export_jobs all point at the row with ON DELETE NO ACTION, and dropping
+// them to free the row would destroy the record of what the account did. Either
+// way the account can never sign in again and its address is released.
+//
+// The audit entry is written before the change so ADMIN_DELETED survives its own
+// target and keeps the address, role and status the account had.
+func (s *AdminManagementService) DeleteAdmin(actorID uuid.UUID, actorRole models.AdminRole, targetID uuid.UUID, confirmEmail, reason, ip, userAgent string) (*DeleteAdminResult, error) {
+	if actorID == targetID {
+		return nil, errors.New("CANNOT_DELETE_YOURSELF")
+	}
+
+	admin, err := s.adminRepo.GetByID(targetID)
+	if err != nil {
+		return nil, errors.New("ADMIN_NOT_FOUND")
+	}
+	// Retyping the address is what separates deleting this account from
+	// deleting the row above it in a list.
+	if !strings.EqualFold(strings.TrimSpace(confirmEmail), admin.Email) {
+		return nil, errors.New("EMAIL_CONFIRMATION_MISMATCH")
+	}
+	// Deleting is strictly more destructive than deactivating, so it inherits
+	// the same invariant: the platform must keep one active SUPER_ADMIN.
+	if err := s.adminRepo.ValidateSuperAdminProtection(targetID, admin.Role, models.AdminStatusDeactivated); err != nil {
+		return nil, err
+	}
+
+	result := &DeleteAdminResult{Email: admin.Email, Role: admin.Role, Status: admin.Status}
+	newValue := map[string]interface{}{"deleted": true}
+
+	_ = s.auditService.Record(
+		actorID, actorRole, "ADMIN_DELETED", "admin_user", targetID.String(), reason,
+		map[string]interface{}{"email": admin.Email, "role": admin.Role, "status": admin.Status},
+		newValue,
+		ip, userAgent,
+	)
+
+	if admin.Status == models.AdminStatusPending {
+		if err := s.adminRepo.DeletePendingAdmin(targetID); err != nil {
+			return nil, fmt.Errorf("failed to delete admin: %w", err)
+		}
+		result.HardDeleted = true
+		return result, nil
+	}
+
+	// uuid keeps the tombstone unique even if the same address is invited,
+	// deleted, invited and deleted again.
+	tombstone := fmt.Sprintf("deleted+%s@tbk.invalid", targetID.String())
+	if err := s.adminRepo.TombstoneAdmin(targetID, tombstone); err != nil {
+		return nil, fmt.Errorf("failed to delete admin: %w", err)
+	}
+	return result, nil
 }
 
 func (s *AdminManagementService) ChangeAdminRole(actorID uuid.UUID, actorRole models.AdminRole, targetID uuid.UUID, req *models.ChangeAdminRoleRequest, ip, userAgent string) error {

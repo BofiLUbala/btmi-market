@@ -935,6 +935,12 @@ export interface CreateProductRequest {
   discount_end?: string | null
   /** Required: seller's own 1-5 star claim for this product. */
   self_rating: number
+  /**
+   * Optional client-generated key, unique per business. Replaying a create
+   * call with the same key returns the product the first one made instead of
+   * creating a second, so a retry after a timeout cannot duplicate it.
+   */
+  idempotency_key?: string
 }
 
 export interface UpdateProductRequest {
