@@ -442,6 +442,37 @@ export interface AdminOrderItem {
   updated_at: string
 }
 
+/** One persisted scan attempt, successful or not. */
+export interface AdminDeliveryScanEvent {
+  id: string
+  scan_type: 'PICKUP' | 'DELIVERY'
+  scan_result: 'SUCCESS' | 'REJECTED' | 'DUPLICATE' | 'INVALID'
+  reason: string
+  courier_id?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  device_id?: string | null
+  created_at: string
+}
+
+/** Commerce Admin handover view. Carries no QR token by design. */
+export interface AdminDeliveryHandover {
+  order_id: string
+  package?: {
+    package_id: string
+    order_id: string
+    package_number: number
+    reference: string
+    status: string
+    operational: boolean
+    pickup_verified_at?: string | null
+    delivery_scanned_at?: string | null
+    receipt_confirmed_at?: string | null
+  } | null
+  assigned_courier_id?: string | null
+  events: AdminDeliveryScanEvent[]
+}
+
 export interface AdminOrderDetail {
   order: AdminOrderItem
   lines: Array<{
@@ -542,6 +573,24 @@ async function refreshAdminTokens(): Promise<boolean> {
   }
 }
 
+/**
+ * Fired when the server refuses a request because of the caller's role.
+ *
+ * The console decides what to show — which dashboards, which badge, which pages
+ * are reachable — from the admin it read when the session opened. A role changed
+ * while that session is open leaves the two disagreeing, and the operator keeps
+ * a Direction menu they can no longer use. A PERMISSION_DENIED is the server
+ * saying exactly that, so it is treated as a signal to re-read the account
+ * rather than as just another failed request.
+ */
+export const ADMIN_ROLE_STALE_EVENT = 'btmi:admin-role-stale'
+
+function notifyAdminRoleStale() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ADMIN_ROLE_STALE_EVENT))
+  }
+}
+
 export async function adminApi<T>(
   path: string,
   options: RequestInit = {},
@@ -591,6 +640,9 @@ export async function adminApi<T>(
     const error = new Error(message) as Error & { code?: string; status?: number }
     error.code = json?.error?.code
     error.status = res.status
+    if (res.status === 403 && error.code === 'PERMISSION_DENIED') {
+      notifyAdminRoleStale()
+    }
     throw error
   }
 
@@ -930,6 +982,14 @@ export const adminCommerceApi = {
   },
   getOrder: async (id: string) => {
     return adminApi<AdminOrderDetail>(`/admin/commerce/orders/${id}`)
+  },
+  /**
+   * Handover view for a delivery: package QR state, courier assignment and the full scan
+   * audit trail. The backend deliberately omits the QR token — admins see references and
+   * state, never the secret that would let them forge a scan.
+   */
+  getDeliveryHandover: async (id: string) => {
+    return adminApi<AdminDeliveryHandover>(`/admin/commerce/orders/${id}/delivery-handover`)
   },
   assignCourier: async (id: string, payload: { courier_id: string; notes?: string }) => {
     return adminApi<{ message: string; order: AdminOrderItem }>(`/admin/commerce/orders/${id}/assign-courier`, {

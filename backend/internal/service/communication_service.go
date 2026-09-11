@@ -84,6 +84,51 @@ func (s *CommunicationService) getBusinessUserIDs(businessID uuid.UUID) ([]uuid.
 	return userIDs, nil
 }
 
+// getOrderParticipants is the authorization source for targeted admin messages.
+// It deliberately derives participants from the order's buyer/business/shop and
+// never accepts arbitrary frontend-provided people.
+func (s *CommunicationService) getOrderParticipants(conv *models.OrderConversation) ([]models.OrderConversationParticipant, error) {
+	rows, err := s.db.Query(`
+		WITH participants AS (
+			SELECT u.id AS user_id, TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS name, 'BUYER' AS type
+			FROM users u WHERE u.id = $1
+			UNION
+			SELECT u.id, TRIM(CONCAT(u.first_name, ' ', u.last_name)), 'SELLER_OWNER'
+			FROM business_memberships bm JOIN users u ON u.id = bm.user_id
+			WHERE bm.business_id = $2 AND bm.role = 'OWNER' AND bm.status = 'ACTIVE' AND u.status = 'ACTIVE'
+			UNION
+			SELECT u.id, TRIM(CONCAT(e.first_name, ' ', e.last_name)), 'EMPLOYEE'
+			FROM employees e
+			JOIN users u ON u.id = e.linked_user_id
+			JOIN employee_shop_assignments esa ON esa.employee_id = e.id
+			WHERE e.business_id = $2 AND e.status = 'ACTIVE' AND u.status = 'ACTIVE'
+			  AND esa.shop_id = $3 AND esa.status = 'ACTIVE'
+		)
+		SELECT p.user_id, COALESCE(NULLIF(p.name, ''), u.email), p.type, r.last_read_at
+		FROM participants p JOIN users u ON u.id = p.user_id
+		LEFT JOIN order_conversation_reads r ON r.conversation_id = $4 AND r.user_id = p.user_id
+		ORDER BY CASE p.type WHEN 'BUYER' THEN 1 WHEN 'SELLER_OWNER' THEN 2 ELSE 3 END, p.name
+	`, conv.BuyerID, conv.BusinessID, conv.ShopID, conv.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	participants := []models.OrderConversationParticipant{}
+	for rows.Next() {
+		var p models.OrderConversationParticipant
+		if err := rows.Scan(&p.UserID, &p.Name, &p.Type, &p.LastReadAt); err != nil {
+			return nil, err
+		}
+		participants = append(participants, p)
+	}
+	return participants, rows.Err()
+}
+
+func (s *CommunicationService) markConversationRead(conversationID, userID uuid.UUID) {
+	_, _ = s.db.Exec(`INSERT INTO order_conversation_reads (conversation_id, user_id, last_read_at)
+		VALUES ($1,$2,NOW()) ON CONFLICT (conversation_id,user_id) DO UPDATE SET last_read_at=NOW()`, conversationID, userID)
+}
+
 // EnsureOrderConversation idempotently creates or retrieves the conversation for an order.
 func (s *CommunicationService) EnsureOrderConversation(orderID uuid.UUID) (*models.OrderConversation, error) {
 	// First check if conversation already exists
@@ -131,6 +176,9 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 	if !isBuyer && !isSeller && !isCommerceAdmin {
 		return nil, errors.New("FORBIDDEN")
 	}
+	if !isCommerceAdmin {
+		s.markConversationRead(conv.ID, callerUserID)
+	}
 
 	// Mark as read according to caller role
 	if isBuyer {
@@ -164,6 +212,10 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 			buyerName = buyerUser.Email
 		}
 	}
+	participants, err := s.getOrderParticipants(conv)
+	if err != nil {
+		return nil, err
+	}
 
 	return &models.OrderConversationDetailResponse{
 		Conversation:   *conv,
@@ -174,6 +226,7 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 		ShopName:       shopName,
 		BusinessName:   businessName,
 		BuyerName:      buyerName,
+		Participants:   participants,
 		Messages:       messages,
 	}, nil
 }
@@ -310,42 +363,6 @@ func (s *CommunicationService) SendMessage(
 					"sender_type":     string(senderType),
 				},
 			})
-		} else if isAdminIntervention {
-			// Notify both buyer and seller
-			_ = s.notifRepo.Create(&models.Notification{
-				UserID:        conv.BuyerID,
-				Type:          models.NotificationTypeNewMessage,
-				Title:         fmt.Sprintf("Intervention TBK Admin - Commande %s", orderNum),
-				Body:          fmt.Sprintf("Support TBK: %s", truncateText(body, 80)),
-				ReferenceType: "ORDER",
-				ReferenceID:   order.ID,
-				Metadata: map[string]interface{}{
-					"order_id":        order.ID.String(),
-					"order_number":    orderNum,
-					"conversation_id": conv.ID.String(),
-					"sender_type":     string(senderType),
-					"is_admin":        true,
-				},
-			})
-
-			sellerUserIDs, _ := s.getBusinessUserIDs(conv.BusinessID)
-			for _, uid := range sellerUserIDs {
-				_ = s.notifRepo.Create(&models.Notification{
-					UserID:        uid,
-					Type:          models.NotificationTypeNewMessage,
-					Title:         fmt.Sprintf("Intervention TBK Admin - Commande %s", orderNum),
-					Body:          fmt.Sprintf("Support TBK: %s", truncateText(body, 80)),
-					ReferenceType: "ORDER",
-					ReferenceID:   order.ID,
-					Metadata: map[string]interface{}{
-						"order_id":        order.ID.String(),
-						"order_number":    orderNum,
-						"conversation_id": conv.ID.String(),
-						"sender_type":     string(senderType),
-						"is_admin":        true,
-					},
-				})
-			}
 		}
 	}()
 
@@ -359,6 +376,8 @@ func (s *CommunicationService) AdminIntervene(
 	adminRole string,
 	adminName string,
 	body string,
+	recipientScope models.RecipientScope,
+	recipientUserID *uuid.UUID,
 ) (*models.OrderMessage, error) {
 	if adminRole != "COMMERCE_ADMIN" && adminRole != "SUPER_ADMIN" && adminRole != "ADMIN" {
 		return nil, errors.New("FORBIDDEN")
@@ -370,7 +389,57 @@ func (s *CommunicationService) AdminIntervene(
 		adminName = fmt.Sprintf("%s (TBK Admin)", adminName)
 	}
 
-	return s.SendMessage(orderID, adminUserID, adminRole, adminName, body)
+	conv, err := s.EnsureOrderConversation(orderID)
+	if err != nil {
+		return nil, err
+	}
+	participants, err := s.getOrderParticipants(conv)
+	if err != nil {
+		return nil, err
+	}
+	valid := recipientScope == models.RecipientScopeAll && recipientUserID == nil
+	if recipientScope != models.RecipientScopeAll && recipientUserID != nil {
+		for _, p := range participants {
+			if p.UserID == *recipientUserID && p.Type == string(recipientScope) {
+				valid = true
+				break
+			}
+		}
+	}
+	if !valid {
+		return nil, errors.New("INVALID_RECIPIENT")
+	}
+
+	msg, err := s.SendMessage(orderID, adminUserID, adminRole, adminName, body)
+	if err != nil {
+		return nil, err
+	}
+	msg.RecipientScope = recipientScope
+	msg.RecipientUserID = recipientUserID
+	_, err = s.db.Exec(`UPDATE order_messages SET recipient_scope=$1, recipient_user_id=$2 WHERE id=$3`, recipientScope, recipientUserID, msg.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	targets := []uuid.UUID{}
+	if recipientScope == models.RecipientScopeAll {
+		for _, p := range participants {
+			targets = append(targets, p.UserID)
+		}
+	} else {
+		targets = append(targets, *recipientUserID)
+	}
+	order, _ := s.orderRepo.GetByID(orderID)
+	orderNum := order.ID.String()[:8]
+	if order.OrderNumber != "" {
+		orderNum = order.OrderNumber
+	}
+	for _, uid := range targets {
+		_ = s.notifRepo.Create(&models.Notification{UserID: uid, Type: models.NotificationTypeNewMessage,
+			Title: fmt.Sprintf("Intervention TBK Admin - Commande #%s", orderNum), Body: fmt.Sprintf("TBK Commerce Operations: %s", truncateText(body, 80)),
+			ReferenceType: "ORDER", ReferenceID: orderID, Metadata: map[string]interface{}{"order_id": orderID.String(), "conversation_id": conv.ID.String(), "recipient_scope": string(recipientScope), "is_admin": true}})
+	}
+	return msg, nil
 }
 
 // ListBuyerConversations returns all conversations for the buyer.
@@ -607,6 +676,18 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		notifyBuyer = true
 		buyerTitle = fmt.Sprintf("Confirmation de réception requise: %s", orderNum)
 		buyerBody = "Merci de confirmer que vous avez bien reçu tous les articles de votre commande."
+
+	case models.NotificationTypeOrderReceived:
+		// Delivery receipt confirmed. Cash verification is a separate step and is not implied here.
+		notifyBuyer = true
+		notifySeller = true
+		notifyAdmin = true
+		buyerTitle = fmt.Sprintf("Réception confirmée: %s", orderNum)
+		buyerBody = "Vous avez confirmé la réception de votre commande. Le paiement en espèces reste à confirmer séparément."
+		sellerTitle = fmt.Sprintf("Commande reçue par le client: %s", orderNum)
+		sellerBody = fmt.Sprintf("Le client a confirmé la réception de la commande %s. La confirmation du paiement en espèces reste requise.", orderNum)
+		adminTitle = fmt.Sprintf("Réception confirmée: %s", orderNum)
+		adminBody = fmt.Sprintf("La commande %s a été reçue par le client. Paiement non encore vérifié.", orderNum)
 
 	case models.NotificationTypeOrderCompleted:
 		notifyBuyer = true

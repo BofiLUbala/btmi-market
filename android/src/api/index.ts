@@ -10,6 +10,7 @@ import type {
   PointRedemptionPreview, Product, ProductDetail, ProductImageResponse, ProductReviewsResponse, ProductVariant,
   PublicationStatus, PublicProduct, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
+  QRScanRequest, QRScanResponse,
   TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User,
 } from '../types'
 
@@ -198,4 +199,16 @@ export const sellerApi = {
 
 export const employeeAuthApi = {
   acceptInvitation: (body: AcceptEmployeeInvitationRequest) => post<{ user_id: string }>('/auth/employee/invite/accept', body),
+}
+
+/**
+ * Courier handover scanning.
+ *
+ * Both endpoints are idempotent on the server: re-scanning the same package returns a
+ * DUPLICATE result rather than recording a second handover, so a retry after a flaky
+ * network is always safe. `idempotency_key` lets the client make that guarantee explicit.
+ */
+export const courierApi = {
+  scanPickup: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/pickup', payload),
+  scanDelivery: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/delivery', payload),
 }

@@ -1,10 +1,8 @@
 package communication
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
@@ -309,7 +307,7 @@ func (h *Handler) GetAdminOrderConversation(c *gin.Context) {
 
 // AdminIntervene handles POST /api/v1/admin/commerce/orders/:id/intervene
 func (h *Handler) AdminIntervene(c *gin.Context) {
-	adminID, role, email, ok := h.extractAdmin(c)
+	adminID, role, _, ok := h.extractAdmin(c)
 	if !ok {
 		return
 	}
@@ -326,16 +324,10 @@ func (h *Handler) AdminIntervene(c *gin.Context) {
 	}
 
 	adminName := "TBK Commerce Operations"
-	if email != "" {
-		parts := strings.Split(email, "@")
-		if len(parts) > 0 && parts[0] != "" {
-			adminName = fmt.Sprintf("TBK Commerce Support (%s)", parts[0])
-		}
-	}
 
-	msg, err := h.commService.AdminIntervene(orderID, adminID, role, adminName, req.Body)
+	msg, err := h.commService.AdminIntervene(orderID, adminID, role, adminName, req.Body, req.RecipientScope, req.RecipientUserID)
 	if err != nil {
-		if err.Error() == "FORBIDDEN" {
+		if err.Error() == "FORBIDDEN" || err.Error() == "INVALID_RECIPIENT" {
 			h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "Only authorized Commerce Admins can intervene")
 			return
 		}

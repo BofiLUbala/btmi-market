@@ -6,6 +6,7 @@ import {
   adminInterveneOrder,
   type OrderConversationDetail,
   type OrderMessage,
+  type RecipientScope,
 } from '@/api/communication'
 import { formatDateTime } from '@/lib/format'
 import { Button } from '@/components/ui/Button'
@@ -32,6 +33,7 @@ export function OrderChatFeed({
   const [error, setError] = useState('')
   const [inputBody, setInputBody] = useState('')
   const [sending, setSending] = useState(false)
+  const [recipient, setRecipient] = useState('ALL_PARTICIPANTS:')
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -88,7 +90,8 @@ export function OrderChatFeed({
     setError('')
     try {
       if (role === 'ADMIN') {
-        await adminInterveneOrder(orderId, trimmed)
+        const [scope, userId] = recipient.split(':') as [RecipientScope, string]
+        await adminInterveneOrder(orderId, trimmed, scope, userId || undefined)
       } else {
         await sendOrderMessage(orderId, trimmed)
       }
@@ -152,6 +155,9 @@ export function OrderChatFeed({
               )}
               {detail?.buyer_name && role !== 'BUYER' && (
                 <span style={{ marginLeft: 8 }}>👤 {detail.buyer_name}</span>
+              )}
+              {detail?.business_name && role === 'ADMIN' && (
+                <span style={{ marginLeft: 8 }}>🏢 {detail.business_name}</span>
               )}
             </div>
           </div>
@@ -235,7 +241,7 @@ export function OrderChatFeed({
                   fontSize: '0.75rem',
                 }}
               >
-                {isAdmin && <span>🛡️ [TBK Admin / Intervention]</span>}
+                {isAdmin && <span>🛡️ TBK Commerce Operations · ADMIN</span>}
                 {!isAdmin && msg.sender_type === 'BUYER' && <span>👤 {isMe ? t('communication.you') : msg.sender_name || t('communication.buyer')}</span>}
                 {!isAdmin && (msg.sender_type === 'SELLER' || msg.sender_type === 'EMPLOYEE') && (
                   <span>🏪 {isMe ? t('communication.you') : msg.sender_name || detail?.shop_name || t('communication.seller')}</span>
@@ -290,10 +296,24 @@ export function OrderChatFeed({
           borderTop: '1px solid var(--color-border)',
           background: 'var(--color-surface-1)',
           display: 'flex',
+          flexWrap: 'wrap',
           gap: 8,
           alignItems: 'flex-end',
         }}
       >
+        {role === 'ADMIN' && (
+          <label style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700 }}>
+            Envoyer à
+            <select value={recipient} onChange={(e) => setRecipient(e.target.value)} style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>
+              <option value="ALL_PARTICIPANTS:">Tous les participants</option>
+              {(detail?.participants || []).map((p) => (
+                <option key={`${p.type}:${p.user_id}`} value={`${p.type}:${p.user_id}`}>
+                  {p.type === 'BUYER' ? 'Acheteur' : p.type === 'SELLER_OWNER' ? 'Vendeur / Propriétaire' : 'Employé'}: {p.name} {p.last_read_at ? '· lu' : '· non lu'}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <textarea
           rows={2}
           value={inputBody}

@@ -185,3 +185,12 @@ export function patch<T>(path: string, body?: unknown) {
 export function del<T>(path: string) {
   return api<T>(path, { method: 'DELETE' })
 }
+
+export async function authenticatedBlob(path: string): Promise<Blob> {
+  const headers = new Headers()
+  const access = tokenStore.getAccess()
+  if (access) headers.set('Authorization', `Bearer ${access}`)
+  const response = await fetch(`${API_BASE}${path}`, { headers, cache: 'no-store' })
+  if (!response.ok) throw new ApiError(response.status, 'DOWNLOAD_FAILED', `Download failed (${response.status})`)
+  return response.blob()
+}

@@ -21,7 +21,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -43,6 +44,12 @@
         {
           "cameraPermission": "Autorisez TBK à photographier un objet pour rechercher des produits similaires.",
           "photosPermission": "Autorisez TBK à choisir une photo pour rechercher des produits similaires."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorisez TBK à utiliser la caméra pour scanner le QR du colis et vérifier la remise."
         }
       ],
       "expo-image",

@@ -51,6 +51,8 @@ import type {
   OrderStatus,
   BuyerPayment,
   OrderWithLines,
+  QRIdentity,
+  DeliveryPackageQR,
 } from './types'
 
 async function safeList<T>(p: Promise<T[]>): Promise<T[]> {
@@ -130,6 +132,7 @@ export const productApi = {
   getVariantInventory: (variantId: string) => safeList(get<InventoryItem[]>(`/variants/${variantId}/inventory`)),
   getVariantStockHistory: (variantId: string, params?: { shop_id?: string; page?: number; limit?: number }) =>
     safeList(get<StockMovement[]>(`/variants/${variantId}/stock/history`, params)),
+  getQR: (businessId: string, productId: string) => get<QRIdentity>(`/businesses/${businessId}/products/${productId}/qr`),
 }
 
 export const productImageApi = {
@@ -187,6 +190,7 @@ export const orderApi = {
   sellerTransition: (id: string, body: { status: OrderStatus }) => post<SellerOrder>(`/orders/${id}/tracking/status`, body),
   sellerConfirmPayment: (paymentId: string) => post<any>(`/payments/${paymentId}/seller-confirm`, {}),
   getOrderPayment: (orderId: string) => get<BuyerPayment>(`/orders/${orderId}/payment`),
+  getPackageQR: (orderId: string) => get<DeliveryPackageQR>(`/orders/${orderId}/package-qr`),
 }
 
 export const customerApi = {

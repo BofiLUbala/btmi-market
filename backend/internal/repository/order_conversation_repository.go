@@ -117,13 +117,17 @@ func (r *OrderConversationRepository) CreateMessage(msg *models.OrderMessage) er
 	if msg.CreatedAt.IsZero() {
 		msg.CreatedAt = time.Now()
 	}
+	if msg.RecipientScope == "" {
+		msg.RecipientScope = models.RecipientScopeAll
+	}
 
 	query := `
 		INSERT INTO order_messages (
 			id, conversation_id, sender_user_id, sender_type, sender_name, body,
-			is_admin_intervention, read_by_buyer_at, read_by_seller_at, created_at
+			is_admin_intervention, recipient_scope, recipient_user_id,
+			read_by_buyer_at, read_by_seller_at, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING created_at
 	`
 
@@ -136,6 +140,8 @@ func (r *OrderConversationRepository) CreateMessage(msg *models.OrderMessage) er
 		msg.SenderName,
 		msg.Body,
 		msg.IsAdminIntervention,
+		msg.RecipientScope,
+		msg.RecipientUserID,
 		msg.ReadByBuyerAt,
 		msg.ReadBySellerAt,
 		msg.CreatedAt,
@@ -155,7 +161,8 @@ func (r *OrderConversationRepository) GetMessagesByConversationID(conversationID
 	query := `
 		SELECT 
 			id, conversation_id, sender_user_id, sender_type, sender_name, body,
-			is_admin_intervention, read_by_buyer_at, read_by_seller_at, created_at
+			is_admin_intervention, recipient_scope, recipient_user_id,
+			read_by_buyer_at, read_by_seller_at, created_at
 		FROM order_messages
 		WHERE conversation_id = $1
 		ORDER BY created_at ASC
@@ -180,6 +187,8 @@ func (r *OrderConversationRepository) GetMessagesByConversationID(conversationID
 			&msg.SenderName,
 			&msg.Body,
 			&msg.IsAdminIntervention,
+			&msg.RecipientScope,
+			&msg.RecipientUserID,
 			&readBuyer,
 			&readSeller,
 			&msg.CreatedAt,

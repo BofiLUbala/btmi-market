@@ -363,3 +363,23 @@ export interface SellerTrustInfo { trust_status: 'HIGH' | 'NORMAL' | 'LOW' | 'SU
 export interface LevelBenefitInfo { benefit_type: string; benefit_value: number }
 export interface SellerGrowth { points: PointAccount; level: SellerLevelInfo; trust: SellerTrustInfo; benefits: LevelBenefitInfo[]; high_value_buyer_eligible: boolean }
 export interface SellerPointsHistory { account: PointAccount; transactions: PointTransaction[]; level_name: string; next_level?: SellerLevelInfo }
+
+/** A courier handover scan. The token is the opaque value encoded in the package QR. */
+export interface QRScanRequest {
+  token: string
+  order_id?: string
+  /** Makes a retry after a network failure provably safe to repeat. */
+  idempotency_key: string
+  latitude?: number
+  longitude?: number
+  device_id?: string
+  device_metadata?: Record<string, unknown>
+}
+
+export interface QRScanResponse {
+  result: 'SUCCESS' | 'DUPLICATE'
+  order_id: string
+  package_id: string
+  delivery_status: string
+  requires_buyer_confirmation: boolean
+}

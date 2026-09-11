@@ -10,6 +10,7 @@ import {
 import {
   adminAuthApi,
   adminTokenStore,
+  ADMIN_ROLE_STALE_EVENT,
   ADMIN_SESSION_EXPIRED_EVENT,
   type AdminRole,
   type AdminUser,
@@ -70,13 +71,20 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         resetState()
       }
     }
+    // The server refusing on role means the account it sees is not the one this
+    // session is rendering. Re-reading it swaps the navigation, the badge and
+    // the route guards over to the real role, instead of leaving the operator
+    // on a dashboard that answers every request with "permission denied".
+    const resyncRole = () => { void loadSession() }
     window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, invalidateSession)
+    window.addEventListener(ADMIN_ROLE_STALE_EVENT, resyncRole)
     window.addEventListener('storage', syncRemovedTokens)
     return () => {
       window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, invalidateSession)
+      window.removeEventListener(ADMIN_ROLE_STALE_EVENT, resyncRole)
       window.removeEventListener('storage', syncRemovedTokens)
     }
-  }, [resetState])
+  }, [resetState, loadSession])
 
   const login = useCallback(async (email: string, password: string): Promise<AdminUser> => {
     const res = await adminAuthApi.login(email, password)

@@ -45,6 +45,7 @@ type OrderService struct {
 	paymentRepo        *repository.BuyerPaymentRepository
 	pointRedemptionSvc *PointRedemptionService
 	commSvc            *CommunicationService
+	qrSvc              *QRService
 	db                 *database.DB
 	orderEvents        []models.OrderEvent
 	eventsMutex        sync.RWMutex
@@ -91,6 +92,8 @@ func (s *OrderService) SetCommunicationService(commSvc *CommunicationService) {
 	s.commSvc = commSvc
 }
 
+func (s *OrderService) SetQRService(qrSvc *QRService) { s.qrSvc = qrSvc }
+
 func (s *OrderService) triggerStatusNotification(orderID uuid.UUID, status models.OrderStatus) {
 	if s.commSvc == nil {
 		return
@@ -107,7 +110,10 @@ func (s *OrderService) triggerStatusNotification(orderID uuid.UUID, status model
 		eventType = models.NotificationTypeOrderReady
 	case models.OrderStatusDelivered:
 		eventType = models.NotificationTypeOrderDelivered
-	case models.OrderStatusReceived, models.OrderStatusCompleted:
+	case models.OrderStatusReceived:
+		// Physical receipt only. Completion is announced separately, once cash is verified too.
+		eventType = models.NotificationTypeOrderReceived
+	case models.OrderStatusCompleted:
 		eventType = models.NotificationTypeOrderCompleted
 	case models.OrderStatusCancelled:
 		eventType = models.NotificationTypeOrderCancelled
@@ -235,6 +241,9 @@ func canActorSetStatus(actorType string, status models.OrderStatus) bool {
 		return status != models.OrderStatusReceived && status != models.OrderStatusCompleted
 	case "BUYER":
 		return status == models.OrderStatusReceived
+	case "COURIER":
+		// A courier drives only the two handover phases, never receipt or completion.
+		return status == models.OrderStatusOutForDelivery || status == models.OrderStatusDelivered
 	case "SYSTEM":
 		return status == models.OrderStatusCompleted
 	default:
@@ -242,34 +251,30 @@ func canActorSetStatus(actorType string, status models.OrderStatus) bool {
 	}
 }
 
-// TransitionOrder validates and applies a status transition atomically.
-func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus models.OrderStatus, notes string, actorType string) (*models.Order, error) {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	// Lock the order row.
+// applyTransitionTx locks the order, validates the transition and the actor, then writes
+// the new status plus its phase timestamp and an order_status_history row inside tx.
+// It is the single place order status changes are applied, so every caller — seller action,
+// buyer confirmation, courier QR scan — produces the same validation and the same audit trail.
+func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.OrderStatus, notes, actorType string) error {
 	var currentStatus models.OrderStatus
 	var deliveryMethodNS sql.NullString
-	err = tx.QueryRow("SELECT status, delivery_method FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethodNS)
-	if err != nil {
-		return nil, mapOrderNotFoundErr(err)
+	if err := tx.QueryRow("SELECT status, delivery_method FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethodNS); err != nil {
+		return mapOrderNotFoundErr(err)
 	}
 	deliveryMethod := deliveryMethodNS.String
 
+	if currentStatus == newStatus {
+		return nil
+	}
 	if !canTransition(currentStatus, newStatus, deliveryMethod) {
-		return nil, fmt.Errorf("INVALID_TRANSITION: %s → %s not allowed for %s", currentStatus, newStatus, deliveryMethod)
+		return fmt.Errorf("INVALID_TRANSITION: %s → %s not allowed for %s", currentStatus, newStatus, deliveryMethod)
 	}
-
 	if !canActorSetStatus(actorType, newStatus) {
-		return nil, errors.New("ACTOR_NOT_ALLOWED")
+		return errors.New("ACTOR_NOT_ALLOWED")
 	}
 
-	// Update status + timestamp.
 	now := time.Now()
-	_, err = tx.Exec(`
+	_, err := tx.Exec(`
 		UPDATE orders
 		SET status = $2::order_status, updated_at = $3,
 		    accepted_at = CASE WHEN $2 = 'ACCEPTED' THEN COALESCE(accepted_at, $3) ELSE accepted_at END,
@@ -282,10 +287,9 @@ func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus mode
 		WHERE id = $1
 	`, orderID, newStatus, now)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// Insert status history.
 	var changedBy interface{}
 	if userID != uuid.Nil {
 		changedBy = userID
@@ -294,12 +298,28 @@ func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus mode
 		`INSERT INTO order_status_history (id, order_id, status, changed_by, notes) VALUES ($1, $2, $3, $4, $5)`,
 		uuid.New(), orderID, newStatus, changedBy, notes,
 	)
+	return err
+}
+
+// TransitionOrder validates and applies a status transition atomically.
+func (s *OrderService) TransitionOrder(orderID, userID uuid.UUID, newStatus models.OrderStatus, notes string, actorType string) (*models.Order, error) {
+	tx, err := s.db.Begin()
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if err := applyTransitionTx(tx, orderID, userID, newStatus, notes, actorType); err != nil {
 		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+	if (newStatus == models.OrderStatusReady || newStatus == models.OrderStatusReadyForPickup) && s.qrSvc != nil {
+		if err := s.qrSvc.EnsurePackage(orderID); err != nil {
+			return nil, err
+		}
 	}
 
 	s.triggerStatusNotification(orderID, newStatus)

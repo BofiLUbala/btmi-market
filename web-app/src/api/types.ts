@@ -639,6 +639,24 @@ export interface BuyerPayment {
 
 /* ---------- Tracking ---------- */
 
+export interface QRIdentity {
+  reference: string
+  token?: string
+  status: 'ACTIVE' | 'REVOKED' | 'EXPIRED'
+  label_url?: string
+  created_at?: string
+}
+
+export interface DeliveryPackageQR extends QRIdentity {
+  package_id: string
+  order_id: string
+  package_number: number
+  operational: boolean
+  pickup_verified_at?: string | null
+  delivery_scanned_at?: string | null
+  receipt_confirmed_at?: string | null
+}
+
 export interface TrackingResponse {
   order_id: string
   order_number: string

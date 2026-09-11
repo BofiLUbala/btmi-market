@@ -18,6 +18,7 @@ import type {
   ReviewResponse,
   SelectDeliveryRequest,
   TrackingResponse,
+  DeliveryPackageQR,
   UpdateBuyerProfileRequest
 } from './types'
 
@@ -86,6 +87,8 @@ export const buyerApi = {
     post<BuyerOrder>(`/buyer/orders/${orderId}/received`, {}),
 
   tracking: (orderId: string) => get<TrackingResponse>(`/buyer/orders/${orderId}/tracking`),
+  deliveryQR: (orderId: string) => get<DeliveryPackageQR>(`/buyer/orders/${orderId}/delivery-qr`),
+  confirmReceipt: (orderId: string) => post<{ delivery_status: string }>(`/buyer/orders/${orderId}/confirm-receipt`, {}),
 
   /* reviews */
   reviewEligibility: (orderId: string, orderLineId?: string) =>

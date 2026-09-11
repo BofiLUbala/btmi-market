@@ -50,9 +50,20 @@ export interface OrderMessage {
   sender_name: string
   body: string
   is_admin_intervention: boolean
+  recipient_scope: RecipientScope
+  recipient_user_id?: string
   read_by_buyer_at?: string
   read_by_seller_at?: string
   created_at: string
+}
+
+export type RecipientScope = 'BUYER' | 'SELLER_OWNER' | 'EMPLOYEE' | 'ALL_PARTICIPANTS'
+
+export interface OrderConversationParticipant {
+  user_id: string
+  name: string
+  type: Exclude<RecipientScope, 'ALL_PARTICIPANTS'>
+  last_read_at?: string
 }
 
 export interface OrderConversationDetail {
@@ -64,6 +75,7 @@ export interface OrderConversationDetail {
   shop_name: string
   business_name: string
   buyer_name: string
+  participants: OrderConversationParticipant[]
   messages: OrderMessage[]
 }
 
@@ -232,10 +244,10 @@ export async function fetchAdminOrderConversation(orderId: string): Promise<Orde
   return adminApi<OrderConversationDetail>(`/admin/commerce/orders/${orderId}/conversation`)
 }
 
-export async function adminInterveneOrder(orderId: string, body: string): Promise<OrderMessage> {
+export async function adminInterveneOrder(orderId: string, body: string, recipientScope: RecipientScope, recipientUserId?: string): Promise<OrderMessage> {
   return adminApi<OrderMessage>(`/admin/commerce/orders/${orderId}/intervene`, {
     method: 'POST',
-    body: JSON.stringify({ body })
+    body: JSON.stringify({ body, recipient_scope: recipientScope, recipient_user_id: recipientUserId || null })
   })
 }
 

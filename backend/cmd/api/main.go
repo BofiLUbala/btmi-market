@@ -27,6 +27,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/inventory"
 	"github.com/btmi-ai-market/backend/internal/handlers/marketplace"
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
+	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
 	"github.com/btmi-ai-market/backend/internal/middleware"
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -121,6 +122,9 @@ func main() {
 	orderService := service.NewOrderService(orderRepo, inventoryRepo, stockMovementRepo, shopRepo, productRepo, variantRepo, assignmentRepo, membershipRepo, employeeRepo, customerRepo, cashRepo, buyerProfileRepo, buyerPaymentRepo, pointRedemptionService, db)
 	commService := service.NewCommunicationService(orderConvRepo, notifRepo, orderRepo, shopRepo, businessRepo, buyerProfileRepo, userRepo, membershipRepo, db)
 	orderService.SetCommunicationService(commService)
+	qrService := service.NewQRService(db, membershipRepo, assignmentRepo, employeeRepo, commService)
+	orderService.SetQRService(qrService)
+	qrService.SetOrderService(orderService)
 	customerService := service.NewCustomerService(customerRepo, shopRepo, membershipRepo, db)
 	cashService := service.NewCashService(cashRepo, shopRepo, employeeRepo, assignmentRepo, membershipRepo, db)
 	buyerProfileService := service.NewBuyerProfileService(buyerProfileRepo, userRepo, pointAccountRepo, levelRepo)
@@ -162,6 +166,7 @@ func main() {
 	categoryHandler := categories.NewHandler(categoryService)
 	growthHandler := growth.NewHandler(sellerGrowthService, pointService, membershipRepo)
 	commHandler := communication.NewHandler(commService)
+	qrHandler := qrhandlers.NewHandler(qrService)
 
 	adminAuthService := service.NewAdminAuthService(adminRepo, cfg)
 	auditService := service.NewAuditService(auditRepo)
@@ -274,6 +279,8 @@ func main() {
 			businessesGroup.GET("/:business_id/products", inventoryHandler.ListProducts)
 			businessesGroup.GET("/:business_id/products/:product_id", inventoryHandler.GetProduct)
 			businessesGroup.PATCH("/:business_id/products/:product_id", inventoryHandler.UpdateProduct)
+			businessesGroup.GET("/:business_id/products/:product_id/qr", qrHandler.Product)
+			businessesGroup.GET("/:business_id/products/:product_id/qr/label", qrHandler.ProductLabel)
 
 			businessesGroup.POST("/:business_id/products/:product_id/variants", inventoryHandler.CreateVariant)
 			businessesGroup.GET("/:business_id/products/:product_id/variants", inventoryHandler.ListVariants)
@@ -351,6 +358,8 @@ func main() {
 			ordersGroup.POST("/:order_id/courier-arrived", commHandler.ConfirmCourierArrival)
 			ordersGroup.POST("/:order_id/courier-picked-up", commHandler.ConfirmCourierPickedUp)
 			ordersGroup.POST("/:order_id/courier-near-destination", commHandler.ConfirmCourierNearDestination)
+			ordersGroup.GET("/:order_id/package-qr", qrHandler.SellerPackage)
+			ordersGroup.GET("/:order_id/package-qr/label", qrHandler.SellerPackageLabel)
 			ordersGroup.GET("/:order_id/conversation", commHandler.GetOrderConversation)
 			ordersGroup.POST("/:order_id/messages", commHandler.SendMessage)
 		}
@@ -445,6 +454,9 @@ func main() {
 			buyerGroup.POST("/payments/:payment_id/buyer-confirm", orderHandler.BuyerConfirmPayment)
 			buyerGroup.POST("/orders/:order_id/cancel", orderHandler.CancelBuyerOrder)
 			buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
+			buyerGroup.GET("/orders/:order_id/delivery-qr", qrHandler.BuyerPackage)
+			buyerGroup.GET("/orders/:order_id/delivery-qr/image", qrHandler.BuyerPackageImage)
+			buyerGroup.POST("/orders/:order_id/confirm-receipt", qrHandler.ConfirmReceipt)
 			buyerGroup.GET("/orders/:order_id/tracking", orderHandler.GetOrderTracking)
 			buyerGroup.GET("/orders/:order_id/review-eligibility", reviewHandler.GetReviewEligibility)
 			buyerGroup.POST("/orders/:order_id/review", reviewHandler.CreateReview)
@@ -454,6 +466,14 @@ func main() {
 			buyerGroup.GET("/reviews", reviewHandler.ListBuyerReviews)
 			buyerGroup.GET("/conversations", commHandler.ListBuyerConversations)
 			buyerGroup.GET("/unread-counts", commHandler.GetBuyerUnreadCounts)
+		}
+
+		courierGroup := api.Group("/courier")
+		courierGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			courierGroup.Use(qrHandler.RequireCourier)
+			courierGroup.POST("/scans/pickup", qrHandler.ScanPickup)
+			courierGroup.POST("/scans/delivery", qrHandler.ScanDelivery)
 		}
 
 		marketplaceGroup := api.Group("/marketplace")
@@ -609,6 +629,7 @@ func main() {
 					commerceGroup.GET("/orders", adminCommerceHandler.ListOrders)
 					commerceGroup.GET("/orders/:id", adminCommerceHandler.GetOrder)
 					commerceGroup.POST("/orders/:id/assign-courier", adminCommerceHandler.AssignCourier)
+					commerceGroup.GET("/orders/:id/delivery-handover", qrHandler.AdminDelivery)
 					commerceGroup.GET("/orders/:id/conversation", commHandler.GetAdminOrderConversation)
 					commerceGroup.POST("/orders/:id/intervene", commHandler.AdminIntervene)
 					commerceGroup.GET("/order-communications", commHandler.ListAdminOrderCommunications)

@@ -1,7 +1,8 @@
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
-import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, ProductImageResponse } from '@/api/types'
+import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, ProductImageResponse, QRIdentity } from '@/api/types'
+import { QRPanel } from '@/components/qr/QRPanel'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
@@ -29,6 +30,7 @@ export default function SellerProductDetailPage() {
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [productQR, setProductQR] = useState<QRIdentity | null>(null)
 
   // Edit Product / Category Form state
   const [showProductEditForm, setShowProductEditForm] = useState(false)
@@ -145,6 +147,7 @@ export default function SellerProductDetailPage() {
         productImageApi.list(activeBusiness.id, productId).catch(() => [] as ProductImageResponse[]),
       ])
       setProduct(p)
+      void productApi.getQR(activeBusiness.id, productId).then(setProductQR).catch(() => setProductQR(null))
       setImages(Array.isArray(imgList) ? imgList : [])
       setCategories(Array.isArray(catsData) ? catsData : [])
       if (p) {
@@ -530,6 +533,18 @@ export default function SellerProductDetailPage() {
       )}
 
       {/* ── Product Overview Card ── */}
+      {productQR && (
+        <QRPanel
+          qr={productQR}
+          title="TBK Product QR"
+          imagePath={`/businesses/${activeBusiness.id}/products/${product.id}/qr/label`}
+          fields={[
+            { label: 'Produit', value: product.name },
+            { label: 'SKU', value: product.sku || '' },
+            { label: 'Boutique', value: activeBusiness.name || '' },
+          ]}
+        />
+      )}
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>

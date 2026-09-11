@@ -12,6 +12,9 @@ import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { spacing, radius, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload } from '../../../src/lib/imageUpload'
+import {
+  getCategoryRequirements, missingRequiredAttributes,
+} from '../../../src/lib/categorySuggestions'
 import type { Category, Shop } from '../../../src/types'
 
 const MAX_IMAGES = 10
@@ -77,11 +80,27 @@ export default function SellerProductDetailScreen() {
   })
 
   const togglePublish = useMutation({
-    mutationFn: () => sellerApi.updateProduct(activeBusiness!.id, productId, { publication_status: product.data!.publication_status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED', status: product.data!.publication_status === 'PUBLISHED' ? undefined : 'ACTIVE' }),
+    mutationFn: async () => {
+      if (product.data!.publication_status !== 'PUBLISHED') {
+        const category = categories.data?.find((c: Category) => c.id === product.data!.category_id)
+        const subcategory = category?.subcategories?.find((s: Category) => s.id === product.data!.subcategory_id)
+        const categoryRequirements = getCategoryRequirements(
+          category?.slug || category?.name,
+          subcategory?.slug || subcategory?.name
+        )
+        const presentAttributes = new Set<string>()
+        variants.data?.forEach(v => Object.keys(v.attributes ?? {}).forEach(k => {
+          if (v.attributes![k]?.trim()) presentAttributes.add(k)
+        }))
+        const missing = missingRequiredAttributes(categoryRequirements, Array.from(presentAttributes), t)
+        if (missing.length > 0) {
+          throw new Error(t('seller.productForm.validation.missingAttributes', { attributes: missing.join(', ') }) + ' ' + t(missing.length > 1 ? 'seller.productForm.validation.missingThem' : 'seller.productForm.validation.missingIt'))
+        }
+      }
+      return sellerApi.updateProduct(activeBusiness!.id, productId, { publication_status: product.data!.publication_status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED', status: product.data!.publication_status === 'PUBLISHED' ? undefined : 'ACTIVE' })
+    },
     onSuccess: invalidate,
-    // The API explains exactly why a publish was refused (a missing category
-    // characteristic, most often); showing that beats a generic failure.
-    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.productDetail.publishFailed')),
+    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : e instanceof Error ? e.message : t('seller.productDetail.publishFailed')),
   })
 
   const archive = useMutation({
@@ -116,6 +135,16 @@ export default function SellerProductDetailScreen() {
     mutationFn: (variantId: string) => sellerApi.addStock(activeShop!, { variant_id: variantId, quantity: Math.max(0, parseInt(stockByVariant[variantId] ?? '0', 10) || 0), notes: t('seller.productDetail.noteRestock') }),
     onSuccess: (_r, variantId) => { setStockByVariant((prev) => ({ ...prev, [variantId]: '' })); invalidate() },
     onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.productDetail.addStockFailed')),
+  })
+
+  const [editingVariant, setEditingVariant] = useState<string | null>(null)
+  const [variantEditForm, setVariantEditForm] = useState<Record<string, string>>({})
+  const [newAttributeName, setNewAttributeName] = useState('')
+
+  const saveVariantAttributes = useMutation({
+    mutationFn: (variantId: string) => sellerApi.updateVariant(variantId, { attributes: variantEditForm }),
+    onSuccess: () => { setEditingVariant(null); invalidate() },
+    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('common.error')),
   })
 
   const deleteImage = useMutation({
@@ -249,14 +278,38 @@ export default function SellerProductDetailScreen() {
       const inv = stockByVariantId.get(variant.id)
       const attributes = Object.entries(variant.attributes ?? {}).filter(([, v]) => v.trim())
       return <Card key={variant.id}>
-        <Text style={styles.name}>{variant.name || t('seller.productDetail.defaultVariant')}</Text>
-        <Text style={styles.muted}>{variant.sku || '—'} · {(variant.sale_price ?? 0).toLocaleString()} FC</Text>
-        {attributes.length > 0 ? <Text style={styles.muted}>{attributes.map(([k, v]) => `${k}: ${v}`).join(' · ')}</Text> : null}
-        <Text style={styles.muted}>{activeShop ? t('seller.productList.availableLabel') + ': ' + (inv?.inventory.available ?? 0) : t('seller.productDetail.selectShopLocation')}</Text>
-        {activeShop && <View style={styles.row}>
-          <View style={styles.flex1}><Field label={t('seller.productDetail.qtyPlaceholder')} value={stockByVariant[variant.id] ?? ''} onChangeText={(v) => setStockByVariant((prev) => ({ ...prev, [variant.id]: v }))} keyboardType="numeric" /></View>
-          <Button dense loading={addStock.isPending && addStock.variables === variant.id} title={t('seller.stockPage.add')} onPress={() => addStock.mutate(variant.id)} />
-        </View>}
+        {editingVariant === variant.id ? (
+          <View>
+            <Text style={styles.cardTitle}>{t('seller.productList.edit')}</Text>
+            {Object.entries(variantEditForm).map(([k, v]) => (
+              <Field key={k} label={k} value={v} onChangeText={val => setVariantEditForm(f => ({ ...f, [k]: val }))} />
+            ))}
+            <View style={styles.row}>
+              <View style={styles.flex1}>
+                <Field label={t('seller.productForm.attributeName')} value={newAttributeName} onChangeText={setNewAttributeName} />
+              </View>
+              <Button dense title={t('seller.stockPage.add')} onPress={() => { if (newAttributeName.trim()) { setVariantEditForm(f => ({ ...f, [newAttributeName.trim()]: '' })); setNewAttributeName('') } }} />
+            </View>
+            <View style={[styles.row, { marginTop: spacing.md }]}>
+              <Button dense variant="outline" title={t('common.cancel')} onPress={() => setEditingVariant(null)} />
+              <Button dense title={t('common.save')} loading={saveVariantAttributes.isPending && saveVariantAttributes.variables === variant.id} onPress={() => saveVariantAttributes.mutate(variant.id)} />
+            </View>
+          </View>
+        ) : (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.name}>{variant.name || t('seller.productDetail.defaultVariant')}</Text>
+              <Button dense variant="outline" title={t('seller.productList.edit')} onPress={() => { setEditingVariant(variant.id); setVariantEditForm(variant.attributes ?? {}); setNewAttributeName('') }} />
+            </View>
+            <Text style={styles.muted}>{variant.sku || '—'} · {(variant.sale_price ?? 0).toLocaleString()} FC</Text>
+            {attributes.length > 0 ? <Text style={styles.muted}>{attributes.map(([k, v]) => `${k}: ${v}`).join(' · ')}</Text> : null}
+            <Text style={styles.muted}>{activeShop ? t('seller.productList.availableLabel') + ': ' + (inv?.inventory.available ?? 0) : t('seller.productDetail.selectShopLocation')}</Text>
+            {activeShop && <View style={styles.row}>
+              <View style={styles.flex1}><Field label={t('seller.productDetail.qtyPlaceholder')} value={stockByVariant[variant.id] ?? ''} onChangeText={(v) => setStockByVariant((prev) => ({ ...prev, [variant.id]: v }))} keyboardType="numeric" /></View>
+              <Button dense loading={addStock.isPending && addStock.variables === variant.id} title={t('seller.stockPage.add')} onPress={() => addStock.mutate(variant.id)} />
+            </View>}
+          </>
+        )}
       </Card>
     })}
   </ScrollView>

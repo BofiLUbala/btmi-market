@@ -1,6 +1,7 @@
 import { useAuth } from '@/store/auth'
 import { orderApi, shopApi } from '@/api/seller'
-import type { BuyerPayment, OrderStatus, OrderWithLines, Shop } from '@/api/types'
+import type { BuyerPayment, OrderStatus, OrderWithLines, Shop, DeliveryPackageQR } from '@/api/types'
+import { QRPanel } from '@/components/qr/QRPanel'
 import { Card } from '@/components/ui/Card'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -67,6 +68,7 @@ export default function SellerOrdersPage() {
   const [actingId, setActingId] = useState<string | null>(null)
   const [payments, setPayments] = useState<Record<string, BuyerPayment | null>>({})
   const [details, setDetails] = useState<Record<string, OrderWithLines>>({})
+  const [packageQRs, setPackageQRs] = useState<Record<string, DeliveryPackageQR>>({})
   const [shops, setShops] = useState<Shop[]>([])
   const [shopFilter, setShopFilter] = useState('ALL')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -166,6 +168,9 @@ export default function SellerOrdersPage() {
         })
       ])
       setDetails(prev => ({ ...prev, [order.id]: detail }))
+      if (['READY', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(order.status)) {
+        void orderApi.getPackageQR(order.id).then((qr) => setPackageQRs((prev) => ({ ...prev, [order.id]: qr }))).catch(() => undefined)
+      }
       setPayments(prev => ({ ...prev, [order.id]: payment }))
     }
     catch (err) {
@@ -320,6 +325,18 @@ export default function SellerOrdersPage() {
                                   {!payment.seller_confirmed && <Button size="sm" disabled={actingId === order.id} onClick={() => void confirmCash(order, payment)}>{t('seller.orders.confirmCash')}</Button>}
                                 </> : <div>{t('seller.orders.noPaymentCreated')}</div>}
                               </div>
+                              {packageQRs[order.id] && (
+                                <QRPanel
+                                  qr={packageQRs[order.id]}
+                                  title="TBK Package QR"
+                                  imagePath={`/orders/${order.id}/package-qr/label`}
+                                  fields={[
+                                    { label: 'Commande', value: order.order_number || order.id.slice(0, 8) },
+                                    { label: 'Colis', value: `#${packageQRs[order.id].package_number}` },
+                                    { label: 'Boutique', value: activeBusiness?.name || '' },
+                                  ]}
+                                />
+                              )}
                             </div>
                           )}
                         </td>

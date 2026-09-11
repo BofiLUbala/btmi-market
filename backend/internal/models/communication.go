@@ -9,6 +9,15 @@ import (
 
 type SenderType string
 
+type RecipientScope string
+
+const (
+	RecipientScopeBuyer       RecipientScope = "BUYER"
+	RecipientScopeSellerOwner RecipientScope = "SELLER_OWNER"
+	RecipientScopeEmployee    RecipientScope = "EMPLOYEE"
+	RecipientScopeAll         RecipientScope = "ALL_PARTICIPANTS"
+)
+
 const (
 	SenderTypeBuyer         SenderType = "BUYER"
 	SenderTypeSeller        SenderType = "SELLER"
@@ -22,28 +31,31 @@ type NotificationType string
 
 const (
 	// Order Phases (Buyer & Seller)
-	NotificationTypeNewOrder                 NotificationType = "NEW_ORDER"
-	NotificationTypeOrderAccepted            NotificationType = "ORDER_ACCEPTED"
-	NotificationTypeOrderRejected            NotificationType = "ORDER_REJECTED"
-	NotificationTypeOrderPreparing           NotificationType = "ORDER_PREPARING"
-	NotificationTypeOrderReady               NotificationType = "ORDER_READY_FOR_PICKUP"
-	NotificationTypeOrderReadyForPickup      NotificationType = "ORDER_READY_FOR_PICKUP"
-	NotificationTypeOrderCancelled           NotificationType = "ORDER_CANCELLED"
-	NotificationTypeOrderCompleted           NotificationType = "ORDER_COMPLETED"
-	NotificationTypeBuyerReceiptRequired     NotificationType = "BUYER_RECEIPT_REQUIRED"
+	NotificationTypeNewOrder             NotificationType = "NEW_ORDER"
+	NotificationTypeOrderAccepted        NotificationType = "ORDER_ACCEPTED"
+	NotificationTypeOrderRejected        NotificationType = "ORDER_REJECTED"
+	NotificationTypeOrderPreparing       NotificationType = "ORDER_PREPARING"
+	NotificationTypeOrderReady           NotificationType = "ORDER_READY_FOR_PICKUP"
+	NotificationTypeOrderReadyForPickup  NotificationType = "ORDER_READY_FOR_PICKUP"
+	NotificationTypeOrderCancelled       NotificationType = "ORDER_CANCELLED"
+	NotificationTypeOrderCompleted       NotificationType = "ORDER_COMPLETED"
+	NotificationTypeBuyerReceiptRequired NotificationType = "BUYER_RECEIPT_REQUIRED"
+	// NotificationTypeOrderReceived announces physical receipt only. It is deliberately
+	// distinct from ORDER_COMPLETED, which additionally requires verified cash payment.
+	NotificationTypeOrderReceived NotificationType = "ORDER_RECEIVED"
 
 	// Delivery & Courier Lifecycle
-	NotificationTypeCourierAssigned          NotificationType = "COURIER_ASSIGNED"
-	NotificationTypeCourierPickedUp          NotificationType = "COURIER_PICKED_UP"
-	NotificationTypeDeliveryInTransit        NotificationType = "DELIVERY_IN_TRANSIT"
-	NotificationTypeCourierNearDestination   NotificationType = "COURIER_NEAR_DESTINATION"
-	NotificationTypeCourierArrived           NotificationType = "COURIER_ARRIVED"
-	NotificationTypeOrderDelivered           NotificationType = "DELIVERED"
-	NotificationTypeDelivered                NotificationType = "DELIVERED"
-	NotificationTypeDeliveryAssigned         NotificationType = "DELIVERY_ASSIGNED"
-	NotificationTypeDeliveryPending          NotificationType = "DELIVERY_PENDING_ASSIGNMENT"
-	NotificationTypeDeliveryFailed           NotificationType = "DELIVERY_FAILED"
-	NotificationTypeDeliveryDelayed          NotificationType = "DELIVERY_DELAYED"
+	NotificationTypeCourierAssigned        NotificationType = "COURIER_ASSIGNED"
+	NotificationTypeCourierPickedUp        NotificationType = "COURIER_PICKED_UP"
+	NotificationTypeDeliveryInTransit      NotificationType = "DELIVERY_IN_TRANSIT"
+	NotificationTypeCourierNearDestination NotificationType = "COURIER_NEAR_DESTINATION"
+	NotificationTypeCourierArrived         NotificationType = "COURIER_ARRIVED"
+	NotificationTypeOrderDelivered         NotificationType = "DELIVERED"
+	NotificationTypeDelivered              NotificationType = "DELIVERED"
+	NotificationTypeDeliveryAssigned       NotificationType = "DELIVERY_ASSIGNED"
+	NotificationTypeDeliveryPending        NotificationType = "DELIVERY_PENDING_ASSIGNMENT"
+	NotificationTypeDeliveryFailed         NotificationType = "DELIVERY_FAILED"
+	NotificationTypeDeliveryDelayed        NotificationType = "DELIVERY_DELAYED"
 
 	// Communication, Payment & Reviews
 	NotificationTypeNewMessage               NotificationType = "NEW_MESSAGE"
@@ -63,16 +75,18 @@ type OrderConversation struct {
 }
 
 type OrderMessage struct {
-	ID                  uuid.UUID  `json:"id" db:"id"`
-	ConversationID      uuid.UUID  `json:"conversation_id" db:"conversation_id"`
-	SenderUserID        uuid.UUID  `json:"sender_user_id" db:"sender_user_id"`
-	SenderType          SenderType `json:"sender_type" db:"sender_type"`
-	SenderName          string     `json:"sender_name" db:"sender_name"`
-	Body                string     `json:"body" db:"body"`
-	IsAdminIntervention bool       `json:"is_admin_intervention" db:"is_admin_intervention"`
-	ReadByBuyerAt       *time.Time `json:"read_by_buyer_at,omitempty" db:"read_by_buyer_at"`
-	ReadBySellerAt      *time.Time `json:"read_by_seller_at,omitempty" db:"read_by_seller_at"`
-	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
+	ID                  uuid.UUID      `json:"id" db:"id"`
+	ConversationID      uuid.UUID      `json:"conversation_id" db:"conversation_id"`
+	SenderUserID        uuid.UUID      `json:"sender_user_id" db:"sender_user_id"`
+	SenderType          SenderType     `json:"sender_type" db:"sender_type"`
+	SenderName          string         `json:"sender_name" db:"sender_name"`
+	Body                string         `json:"body" db:"body"`
+	IsAdminIntervention bool           `json:"is_admin_intervention" db:"is_admin_intervention"`
+	RecipientScope      RecipientScope `json:"recipient_scope" db:"recipient_scope"`
+	RecipientUserID     *uuid.UUID     `json:"recipient_user_id,omitempty" db:"recipient_user_id"`
+	ReadByBuyerAt       *time.Time     `json:"read_by_buyer_at,omitempty" db:"read_by_buyer_at"`
+	ReadBySellerAt      *time.Time     `json:"read_by_seller_at,omitempty" db:"read_by_seller_at"`
+	CreatedAt           time.Time      `json:"created_at" db:"created_at"`
 }
 
 type Notification struct {
@@ -93,19 +107,29 @@ type SendMessageRequest struct {
 }
 
 type AdminInterveneRequest struct {
-	Body string `json:"body" binding:"required"`
+	Body            string         `json:"body" binding:"required"`
+	RecipientScope  RecipientScope `json:"recipient_scope" binding:"required"`
+	RecipientUserID *uuid.UUID     `json:"recipient_user_id"`
+}
+
+type OrderConversationParticipant struct {
+	UserID     uuid.UUID  `json:"user_id"`
+	Name       string     `json:"name"`
+	Type       string     `json:"type"`
+	LastReadAt *time.Time `json:"last_read_at,omitempty"`
 }
 
 type OrderConversationDetailResponse struct {
-	Conversation   OrderConversation `json:"conversation"`
-	OrderNumber    string            `json:"order_number"`
-	OrderStatus    string            `json:"order_status"`
-	DeliveryMethod string            `json:"delivery_method"`
-	FinalTotal     float64           `json:"final_total"`
-	ShopName       string            `json:"shop_name"`
-	BusinessName   string            `json:"business_name"`
-	BuyerName      string            `json:"buyer_name"`
-	Messages       []OrderMessage    `json:"messages"`
+	Conversation   OrderConversation              `json:"conversation"`
+	OrderNumber    string                         `json:"order_number"`
+	OrderStatus    string                         `json:"order_status"`
+	DeliveryMethod string                         `json:"delivery_method"`
+	FinalTotal     float64                        `json:"final_total"`
+	ShopName       string                         `json:"shop_name"`
+	BusinessName   string                         `json:"business_name"`
+	BuyerName      string                         `json:"buyer_name"`
+	Participants   []OrderConversationParticipant `json:"participants"`
+	Messages       []OrderMessage                 `json:"messages"`
 }
 
 type ConversationListItemResponse struct {

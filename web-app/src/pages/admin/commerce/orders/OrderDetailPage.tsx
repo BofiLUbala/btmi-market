@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { adminCommerceApi, type AdminOrderDetail } from '@/api/admin'
+import { adminCommerceApi, type AdminOrderDetail, type AdminDeliveryHandover } from '@/api/admin'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import { useT } from '@/store/i18n'
 import { BoxIcon } from '@/components/ui/Icons'
@@ -35,6 +35,7 @@ export default function OrderDetailPage() {
   const [showAssign, setShowAssign] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [assignError, setAssignError] = useState('')
+  const [handover, setHandover] = useState<AdminDeliveryHandover | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -43,6 +44,8 @@ export default function OrderDetailPage() {
       .then((res) => setOrder(res))
       .catch(() => navigate('/admin/commerce/orders'))
       .finally(() => setLoading(false))
+    // The handover view is supplementary: an order without a package yet must still render.
+    adminCommerceApi.getDeliveryHandover(id).then(setHandover).catch(() => setHandover(null))
   }, [id, navigate])
 
   async function handleAssignCourier() {
@@ -213,6 +216,71 @@ export default function OrderDetailPage() {
                       <div style={{ fontSize: 13, color: '#f8fafc' }}>{event.status}</div>
                       {event.notes && <div style={{ fontSize: 12, color: '#94a3b8' }}>{event.notes}</div>}
                       <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.created_at).toLocaleString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+          <Section title="Remise sécurisée (QR)">
+            {handover?.package ? (
+              <>
+                <Field label="Référence colis" value={handover.package.reference} />
+                <Field label="Colis n°" value={`#${handover.package.package_number}`} />
+                <Field
+                  label="État du QR"
+                  value={`${handover.package.status}${handover.package.operational ? ' · opérationnel' : ' · non opérationnel'}`}
+                />
+                <Field label="Livreur assigné" value={handover.assigned_courier_id || 'Non assigné'} />
+                <Field
+                  label="Scan de récupération"
+                  value={handover.package.pickup_verified_at ? new Date(handover.package.pickup_verified_at).toLocaleString() : 'En attente'}
+                />
+                <Field
+                  label="Scan de livraison"
+                  value={handover.package.delivery_scanned_at ? new Date(handover.package.delivery_scanned_at).toLocaleString() : 'En attente'}
+                />
+                <Field
+                  label="Réception confirmée"
+                  value={handover.package.receipt_confirmed_at ? new Date(handover.package.receipt_confirmed_at).toLocaleString() : 'En attente'}
+                />
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                  La réception de la marchandise est indépendante de la vérification du paiement en espèces.
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>Aucun colis QR généré pour cette commande.</div>
+            )}
+          </Section>
+
+          {(handover?.events ?? []).length > 0 && (
+            <Section title="Historique des scans">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(handover?.events ?? []).map((e) => (
+                  <div key={e.id} style={{ display: 'flex', gap: 10, padding: 8, backgroundColor: '#1e293b', borderRadius: 6 }}>
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        marginTop: 5,
+                        flexShrink: 0,
+                        backgroundColor:
+                          e.scan_result === 'SUCCESS' ? '#10b981' : e.scan_result === 'DUPLICATE' ? '#f59e0b' : '#ef4444',
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 13, color: '#f8fafc' }}>
+                        {e.scan_type} · {e.scan_result}
+                        {e.reason ? ` (${e.reason})` : ''}
+                      </div>
+                      {e.courier_id && <div style={{ fontSize: 12, color: '#94a3b8' }}>Livreur {e.courier_id.slice(0, 8)}</div>}
+                      {e.latitude != null && e.longitude != null && (
+                        <div style={{ fontSize: 11, color: '#64748b' }}>
+                          {e.latitude.toFixed(5)}, {e.longitude.toFixed(5)}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(e.created_at).toLocaleString()}</div>
                     </div>
                   </div>
                 ))}

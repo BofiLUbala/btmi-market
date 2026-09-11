@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import type { TrackingResponse } from '@/api/types'
+import type { TrackingResponse, DeliveryPackageQR } from '@/api/types'
+import { QRPanel } from '@/components/qr/QRPanel'
 import { StatusBadge } from '@/components/ui/Badges'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
@@ -41,6 +42,7 @@ function TrackInner() {
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [deliveryQR, setDeliveryQR] = useState<DeliveryPackageQR | null>(null)
   const [statusFlash, setStatusFlash] = useState(false)
   const prevStatusRef = useRef<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -57,6 +59,7 @@ function TrackInner() {
       }
       if (normalized) prevStatusRef.current = normalized.current_status
       setData(normalized)
+      void buyerApi.deliveryQR(orderId).then(setDeliveryQR).catch(() => setDeliveryQR(null))
       setLastUpdated(new Date())
       setError('')
     } catch (e) {
@@ -164,6 +167,8 @@ function TrackInner() {
       <p className="pay-note" style={{ marginTop: 12 }}>
         {t('tracking.note')}
       </p>
+      {deliveryQR && <QRPanel qr={deliveryQR} title="Delivery verification QR" imagePath={`/buyer/orders/${orderId}/delivery-qr/image`} />}
+      {deliveryQR?.delivery_scanned_at && !deliveryQR.receipt_confirmed_at && <button className="btn btn-primary" onClick={() => void buyerApi.confirmReceipt(orderId).then(() => fetchTracking())}>Confirmer que vous avez reçu votre commande</button>}
     </div>
   )
 }
