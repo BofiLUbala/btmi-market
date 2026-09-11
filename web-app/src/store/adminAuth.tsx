@@ -10,6 +10,7 @@ import {
 import {
   adminAuthApi,
   adminTokenStore,
+  ADMIN_SESSION_EXPIRED_EVENT,
   type AdminRole,
   type AdminUser,
 } from '@/api/admin'
@@ -61,6 +62,21 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void loadSession()
   }, [loadSession])
+
+  useEffect(() => {
+    const invalidateSession = () => resetState()
+    const syncRemovedTokens = (event: StorageEvent) => {
+      if ((event.key === 'btmi.admin.access' || event.key === 'btmi.admin.refresh') && !event.newValue) {
+        resetState()
+      }
+    }
+    window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, invalidateSession)
+    window.addEventListener('storage', syncRemovedTokens)
+    return () => {
+      window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, invalidateSession)
+      window.removeEventListener('storage', syncRemovedTokens)
+    }
+  }, [resetState])
 
   const login = useCallback(async (email: string, password: string): Promise<AdminUser> => {
     const res = await adminAuthApi.login(email, password)

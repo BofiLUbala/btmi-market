@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import {
   adminDirectionApi,
   type DirectionOverviewStats,
@@ -36,6 +36,7 @@ export default function DirectionDashboardPage() {
   const { role } = useAdminAuth()
   const isSuperAdmin = role === 'SUPER_ADMIN'
   const { feature } = useParams<{ feature?: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const activeTab: DirectionFeature = useMemo(() => {
     if (feature && VALID_FEATURES.includes(feature as DirectionFeature)) {
@@ -51,9 +52,9 @@ export default function DirectionDashboardPage() {
   // Users Tab State
   const [users, setUsers] = useState<AdminUserListItem[]>([])
   const [totalUsers, setTotalUsers] = useState(0)
-  const [userSearch, setUserSearch] = useState('')
-  const [accountTypeFilter, setAccountTypeFilter] = useState('')
-  const [userStatusFilter, setUserStatusFilter] = useState('')
+  const [userSearch, setUserSearch] = useState(() => searchParams.get('search') || '')
+  const [accountTypeFilter, setAccountTypeFilter] = useState(() => searchParams.get('account_type') || '')
+  const [userStatusFilter, setUserStatusFilter] = useState(() => searchParams.get('status') || '')
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState<string | null>(null)
 
@@ -144,6 +145,17 @@ export default function DirectionDashboardPage() {
       void loadAuditLogs()
     }
   }, [activeTab, loadUsers, loadAuditLogs])
+
+  // Keep server-side user filters in the URL so refresh/back/forward preserve
+  // the current supervision view and links can be shared between admins.
+  useEffect(() => {
+    if (activeTab !== 'users') return
+    const next = new URLSearchParams()
+    if (userSearch) next.set('search', userSearch)
+    if (accountTypeFilter) next.set('account_type', accountTypeFilter)
+    if (userStatusFilter) next.set('status', userStatusFilter)
+    setSearchParams(next, { replace: true })
+  }, [activeTab, userSearch, accountTypeFilter, userStatusFilter, setSearchParams])
 
   const handleExecuteUserAction = async () => {
     if (!actionTargetUser || !actionType) return
@@ -544,19 +556,20 @@ export default function DirectionDashboardPage() {
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thBizShops')}</th>
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thOrders')}</th>
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thPoints')}</th>
+                  <th style={{ padding: '12px 16px' }}>Created</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('admin.direction.thActions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingUsers ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
+                    <td colSpan={9} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
                       {t('admin.direction.loadingUsers')}
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
+                    <td colSpan={9} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>
                       {t('admin.direction.noUsersFound')}
                     </td>
                   </tr>
@@ -605,6 +618,9 @@ export default function DirectionDashboardPage() {
                       </td>
                       <td style={{ padding: '12px 16px', fontWeight: 700, color: '#f59e0b' }}>
                         {u.total_points}
+                      </td>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', color: '#cbd5e1' }}>
+                        {new Date(u.created_at).toLocaleDateString()}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -1071,12 +1087,28 @@ export default function DirectionDashboardPage() {
                 <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.phone || 'Non renseigné'}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Type de compte</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{inspectedUser.account_type}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Statut / vérification</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.status} · {inspectedUser.email_verified ? 'Email vérifié' : 'Email non vérifié'}</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>Entreprises rattachées</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#34d399' }}>{inspectedUser.business_count} entreprise(s)</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>Boutiques rattachées</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>{inspectedUser.shop_count} boutique(s)</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Commandes / points</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.order_count} commande(s) · {inspectedUser.total_points} point(s)</div>
+              </div>
+              <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Compte créé le</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{new Date(inspectedUser.created_at).toLocaleString()}</div>
               </div>
             </div>
 

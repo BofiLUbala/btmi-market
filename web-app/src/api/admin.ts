@@ -488,6 +488,13 @@ export interface AdminEmployeeItem {
 
 const ADMIN_ACCESS_KEY = 'btmi.admin.access'
 const ADMIN_REFRESH_KEY = 'btmi.admin.refresh'
+export const ADMIN_SESSION_EXPIRED_EVENT = 'btmi:admin-session-expired'
+
+function notifyAdminSessionExpired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ADMIN_SESSION_EXPIRED_EVENT))
+  }
+}
 
 export const adminTokenStore = {
   getAccess: () => localStorage.getItem(ADMIN_ACCESS_KEY),
@@ -570,6 +577,11 @@ export async function adminApi<T>(
         headers
       })
     }
+  }
+
+  if (res.status === 401 && allowRefresh) {
+    adminTokenStore.clear()
+    notifyAdminSessionExpired()
   }
 
   const json = await res.json().catch(() => null)
