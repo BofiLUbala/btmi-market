@@ -969,7 +969,7 @@ func (r *AdminCommerceRepository) ListStockMovementHistory(businessID, shopID, p
 		argIdx++
 	}
 	if movementType != "" {
-		conditions = append(conditions, fmt.Sprintf("sm.movement_type = $%d", argIdx))
+		conditions = append(conditions, fmt.Sprintf("sm.movement_type::text = $%d", argIdx))
 		args = append(args, movementType)
 		argIdx++
 	}

@@ -27,8 +27,8 @@ export default function StockHistoryPage() {
         limit,
         offset: page,
       })
-      setMovements(res.movements)
-      setTotal(res.total)
+      setMovements(res.movements ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load movement history', err)
     } finally {
@@ -42,11 +42,14 @@ export default function StockHistoryPage() {
 
   const typeColor = (type: string) => {
     const map: Record<string, { bg: string; fg: string }> = {
-      ADJUSTMENT: { bg: '#1e3a5f', fg: '#93c5fd' },
-      SALE: { bg: '#064e3b', fg: '#a7f3d0' },
+      INITIAL: { bg: '#4b5563', fg: '#e5e7eb' },
+      STOCK_IN: { bg: '#064e3b', fg: '#a7f3d0' },
+      SALE_PHYSICAL: { bg: '#1e3a8a', fg: '#bfdbfe' },
+      SALE_ONLINE: { bg: '#312e81', fg: '#c7d2fe' },
+      ADJUSTMENT: { bg: '#7f1d1d', fg: '#fca5a5' },
       RETURN: { bg: '#78350f', fg: '#fde68a' },
-      RESTOCK: { bg: '#064e3b', fg: '#a7f3d0' },
-      DAMAGE: { bg: '#7f1d1d', fg: '#fca5a5' },
+      TRANSFER_IN: { bg: '#065f46', fg: '#d1fae5' },
+      TRANSFER_OUT: { bg: '#9a3412', fg: '#ffedd5' },
     }
     const c = map[type] || { bg: '#334155', fg: '#f1f5f9' }
     return <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: c.bg, color: c.fg }}>{type}</span>
@@ -67,11 +70,14 @@ export default function StockHistoryPage() {
         <select value={movementType} onChange={(e) => { setMovementType(e.target.value); setPage(0) }}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, minWidth: 130 }}>
           <option value="">{t('admin.stockHistory.allTypesOption')}</option>
+          <option value="INITIAL">Initial</option>
+          <option value="STOCK_IN">Réapprovisionnement</option>
+          <option value="SALE_PHYSICAL">Vente en boutique</option>
+          <option value="SALE_ONLINE">Vente en ligne</option>
           <option value="ADJUSTMENT">{t('admin.stockHistory.adjustmentOption')}</option>
-          <option value="SALE">{t('admin.stockHistory.saleOption')}</option>
           <option value="RETURN">{t('admin.stockHistory.returnOption')}</option>
-          <option value="RESTOCK">{t('admin.stockHistory.restockOption')}</option>
-          <option value="DAMAGE">{t('admin.stockHistory.damageOption')}</option>
+          <option value="TRANSFER_IN">Transfert entrant</option>
+          <option value="TRANSFER_OUT">Transfert sortant</option>
         </select>
         <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0) }}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13 }} />
