@@ -132,9 +132,7 @@ export default function SellerProductCreateScreen() {
     if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
       return categoryAttributesQuery.data.map((def) => ({
         name: def.key,
-        label_fr: def.label_fr,
-        type: def.variant_attribute ? 'VARIANT' : 'INFO',
-        required: def.required,
+        recommendedType: (def.variant_attribute ? 'VARIANT' : 'INFO') as AttributeClassification,
       }))
     }
     if (!selectedCategory) return []

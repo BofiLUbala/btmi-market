@@ -3,7 +3,8 @@ import type { UploadFile } from '../lib/imageUpload'
 import type {
   AcceptEmployeeInvitationRequest, AddStockRequest, ArchiveBusinessResponse, AssignEmployeeRequest,
   Business, BusinessLifecycleSummary, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse,
-  CashPayment, CashSession, CashSummary, Category, Customer, CreateCustomerRequest, CreateEmployeeInvitationRequest,
+  CashPayment, CashSession, CashSummary, Category, CategoryAttributeDefinition, Customer,
+  CreateCustomerRequest, CreateEmployeeInvitationRequest,
   CreateEmployeeRequest, CreateProductRequest, CreateShopRequest, CreateStockReceiptRequest, CreateVariantRequest,
   DeliveryOptionsResponse, DeliveryPointsPreview, DeliverySelectResponse, Employee, EmployeeInvitationResponse,
   EmployeeShopAssignment, InventoryItem, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines,
