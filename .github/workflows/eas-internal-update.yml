@@ -33,6 +33,13 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
+      - name: Debug commit info
+        run: |
+          git rev-parse HEAD
+          git log -1 --oneline
+          grep -q "CategoryAttributeDefinition" src/api/index.ts && echo "CategoryAttributeDefinition import OK"
+          grep -q "recommendedType" app/seller/products/create.tsx && echo "recommendedType mapping OK"
+
       - name: Typecheck TypeScript
         run: npx tsc --noEmit
 
