@@ -66,6 +66,23 @@ func (s *AdminFinanceService) ListBuyerPoints(role models.AdminRole, page, limit
 	return s.repo.ListBuyerPoints(page, limit, search)
 }
 
+func (s *AdminFinanceService) ListPointUsers(role models.AdminRole, page, limit int, search string) ([]models.AdminPointUser, int, error) {
+	if err := s.checkFinanceAccess(role); err != nil {
+		return nil, 0, err
+	}
+	return s.repo.ListPointUsers(page, limit, search)
+}
+
+func (s *AdminFinanceService) AdjustUserPoints(adminID uuid.UUID, role models.AdminRole, userID uuid.UUID, req *models.AdminPointAdjustmentRequest, ip, userAgent string) (*models.AdminPointAdjustmentResult, error) {
+	if err := s.checkFinanceMutation(role); err != nil {
+		return nil, err
+	}
+	if len(req.Reason) < 5 {
+		return nil, fmt.Errorf("mandatory justification reason (min 5 chars) required")
+	}
+	return s.repo.AdjustUserPoints(adminID, role, userID, req, ip, userAgent)
+}
+
 func (s *AdminFinanceService) GetBuyerPointHistory(role models.AdminRole, buyerID uuid.UUID) ([]models.AdminPointTransaction, error) {
 	if err := s.checkFinanceAccess(role); err != nil {
 		return nil, err

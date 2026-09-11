@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,6 +11,162 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
 )
+
+func (r *AdminFinanceRepository) ListPointUsers(page, limit int, search string) ([]models.AdminPointUser, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	pattern := "%" + search + "%"
+	var total int
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM users WHERE ($1 = '%%' OR email ILIKE $1 OR first_name ILIKE $1 OR last_name ILIKE $1)`, pattern).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	rows, err := r.db.Query(`SELECT id, COALESCE(NULLIF(TRIM(first_name || ' ' || last_name), ''), email), email, status::text
+		FROM users WHERE ($1 = '%%' OR email ILIKE $1 OR first_name ILIKE $1 OR last_name ILIKE $1)
+		ORDER BY first_name, last_name, email LIMIT $2 OFFSET $3`, pattern, limit, (page-1)*limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	items := make([]models.AdminPointUser, 0)
+	for rows.Next() {
+		var item models.AdminPointUser
+		if err := rows.Scan(&item.UserID, &item.Name, &item.Email, &item.Status); err != nil {
+			return nil, 0, err
+		}
+		item.Accounts = make([]models.AdminUserPointAccount, 0)
+		accountRows, err := r.db.Query(`
+			SELECT pa.id, 'BUYER', NULL::uuid, '', pa.current_points, pa.reserved_points, pa.lifetime_points
+			FROM buyer_profiles bp JOIN point_accounts pa ON pa.owner_type='BUYER' AND pa.owner_id=bp.id WHERE bp.user_id=$1
+			UNION ALL
+			SELECT pa.id, 'SELLER', b.id, b.name, pa.current_points, pa.reserved_points, pa.lifetime_points
+			FROM business_memberships bm JOIN businesses b ON b.id=bm.business_id
+			JOIN point_accounts pa ON pa.owner_type='SELLER_BUSINESS' AND pa.owner_id=b.id
+			WHERE bm.user_id=$1 AND bm.status='ACTIVE' AND bm.role IN ('OWNER','ADMIN')`, item.UserID)
+		if err != nil {
+			return nil, 0, err
+		}
+		for accountRows.Next() {
+			var a models.AdminUserPointAccount
+			if err := accountRows.Scan(&a.AccountID, &a.AccountType, &a.BusinessID, &a.BusinessName, &a.CurrentPoints, &a.ReservedPoints, &a.LifetimePoints); err != nil {
+				accountRows.Close()
+				return nil, 0, err
+			}
+			item.Accounts = append(item.Accounts, a)
+		}
+		accountRows.Close()
+		// A real user may not have initialized the buyer ledger yet. Expose an
+		// explicit zero-balance choice; adjustment creates it transactionally.
+		hasBuyer := false
+		for _, a := range item.Accounts {
+			if a.AccountType == "BUYER" {
+				hasBuyer = true
+			}
+		}
+		if !hasBuyer {
+			item.Accounts = append([]models.AdminUserPointAccount{{AccountType: "BUYER"}}, item.Accounts...)
+		}
+		items = append(items, item)
+	}
+	return items, total, rows.Err()
+}
+
+func (r *AdminFinanceRepository) AdjustUserPoints(adminID uuid.UUID, role models.AdminRole, userID uuid.UUID, req *models.AdminPointAdjustmentRequest, ip, userAgent string) (*models.AdminPointAdjustmentResult, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var status string
+	if err := tx.QueryRow(`SELECT status::text FROM users WHERE id=$1`, userID).Scan(&status); err == sql.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	} else if err != nil {
+		return nil, err
+	}
+	if status != "ACTIVE" {
+		return nil, fmt.Errorf("user is inactive (%s)", status)
+	}
+	var ownerType string
+	var ownerID uuid.UUID
+	if req.AccountType == "BUYER" {
+		ownerType = "BUYER"
+		err = tx.QueryRow(`SELECT id FROM buyer_profiles WHERE user_id=$1`, userID).Scan(&ownerID)
+		if err == sql.ErrNoRows {
+			err = tx.QueryRow(`INSERT INTO buyer_profiles (user_id,first_name,last_name,phone,email,status)
+				SELECT id,first_name,last_name,phone,email,'ACTIVE' FROM users WHERE id=$1 RETURNING id`, userID).Scan(&ownerID)
+		}
+	} else if req.AccountType == "SELLER" {
+		ownerType = "SELLER_BUSINESS"
+		if req.BusinessID == nil {
+			return nil, fmt.Errorf("business_id required for seller points")
+		}
+		err = tx.QueryRow(`SELECT b.id FROM businesses b JOIN business_memberships bm ON bm.business_id=b.id
+			WHERE b.id=$1 AND bm.user_id=$2 AND bm.status='ACTIVE' AND bm.role IN ('OWNER','ADMIN')`, *req.BusinessID, userID).Scan(&ownerID)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("seller point account does not belong to user")
+		}
+	} else {
+		return nil, fmt.Errorf("invalid account type")
+	}
+	if err != nil {
+		return nil, err
+	}
+	var accountID uuid.UUID
+	if err := tx.QueryRow(`INSERT INTO point_accounts (owner_type,owner_id,current_points,lifetime_points,status)
+		VALUES ($1,$2,0,0,'ACTIVE') ON CONFLICT (owner_type,owner_id) DO UPDATE SET owner_id=EXCLUDED.owner_id RETURNING id`, ownerType, ownerID).Scan(&accountID); err != nil {
+		return nil, err
+	}
+	var oldBalance, oldLifetime int
+	if err := tx.QueryRow(`SELECT current_points,lifetime_points FROM point_accounts WHERE id=$1 AND owner_type=$2 AND owner_id=$3 FOR UPDATE`, accountID, ownerType, ownerID).Scan(&oldBalance, &oldLifetime); err != nil {
+		return nil, fmt.Errorf("point account ownership verification failed: %w", err)
+	}
+	// Check only after locking the account: concurrent retries serialize here,
+	// so the second request observes the first transaction's ledger row.
+	var priorOld, priorNew int
+	err = tx.QueryRow(`SELECT previous_points,new_points FROM point_transactions WHERE point_account_id=$1 AND reference_id=$2 AND reference_type='ADMIN_ADJUSTMENT'`, accountID, req.RequestID).Scan(&priorOld, &priorNew)
+	if err == nil {
+		return &models.AdminPointAdjustmentResult{UserID: userID, AccountID: accountID, AccountType: req.AccountType, OldBalance: priorOld, NewBalance: priorNew}, nil
+	}
+	if err != sql.ErrNoRows {
+		return nil, err
+	}
+	newBalance, newLifetime := oldBalance, oldLifetime
+	if req.Type == "ADD" {
+		newBalance += req.Amount
+		newLifetime += req.Amount
+	} else if req.Type == "REMOVE" {
+		if oldBalance < req.Amount {
+			return nil, fmt.Errorf("insufficient available points")
+		}
+		newBalance -= req.Amount
+	} else {
+		return nil, fmt.Errorf("invalid adjustment type")
+	}
+	if _, err := tx.Exec(`UPDATE point_accounts SET current_points=$1,lifetime_points=$2,updated_at=NOW() WHERE id=$3`, newBalance, newLifetime, accountID); err != nil {
+		return nil, err
+	}
+	txType := "CREDIT"
+	if req.Type == "REMOVE" {
+		txType = "DEBIT"
+	}
+	if _, err := tx.Exec(`INSERT INTO point_transactions (id,point_account_id,user_id,reference_type,reference_id,type,points_change,previous_points,new_points,reason,created_by_admin,created_at)
+		VALUES (gen_random_uuid(),$1,$2,'ADMIN_ADJUSTMENT',$3,$4,$5,$6,$7,$8,$9,NOW())`, accountID, userID, req.RequestID, txType, req.Amount, oldBalance, newBalance, req.Reason, adminID); err != nil {
+		return nil, err
+	}
+	oldJSON, _ := json.Marshal(map[string]interface{}{"user_id": userID, "account_id": accountID, "balance": oldBalance})
+	newJSON, _ := json.Marshal(map[string]interface{}{"user_id": userID, "account_id": accountID, "account_type": req.AccountType, "type": req.Type, "amount": req.Amount, "balance": newBalance})
+	if _, err := tx.Exec(`INSERT INTO admin_audit_log (actor_admin_id,actor_role,action,target_type,target_id,reason,old_value,new_value,ip_address,user_agent,created_at)
+		VALUES ($1,$2,'MANUAL_POINT_ADJUSTMENT','POINT_ACCOUNT',$3,$4,$5,$6,$7,$8,NOW())`, adminID, role, accountID.String(), req.Reason, oldJSON, newJSON, ip, userAgent); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return &models.AdminPointAdjustmentResult{UserID: userID, AccountID: accountID, AccountType: req.AccountType, OldBalance: oldBalance, NewBalance: newBalance}, nil
+}
 
 type AdminFinanceRepository struct {
 	db *database.DB

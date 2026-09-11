@@ -229,6 +229,43 @@ export const growthApi = {
 }
 
 export const reviewApi = {
-  getShopReviews: (shopId: string, params?: { page?: number; per_page?: number; rating?: number; sort?: string; type?: 'shop' | 'product' }) =>
+  getShopReviews: (shopId: string, params?: { type?: string; page?: number; limit?: number }) =>
     get<ShopReviewsResponse>(`/marketplace/shops/${shopId}/reviews`, params),
 }
+
+export interface SellerFinanceSummary {
+  gross_sales: number
+  tbk_commission_total: number
+  seller_net_revenue: number
+  commission_due: number
+  commission_collected: number
+  total_completed_sales: number
+}
+
+export interface SellerSaleCommissionItem {
+  id: string
+  order_id: string
+  order_number: string
+  payment_id?: string
+  business_id: string
+  business_name: string
+  shop_id: string
+  shop_name: string
+  gross_amount: number
+  commission_base: number
+  commission_rate: number
+  commission_amount: number
+  seller_net_amount: number
+  status: 'DUE' | 'COLLECTED' | 'WAIVED' | 'ADJUSTED'
+  calculated_at: string
+  collected_at?: string
+  notes?: string
+}
+
+export const sellerFinanceApi = {
+  getSummary: () => get<SellerFinanceSummary>('/seller/finances/summary'),
+  listSales: (params?: { status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) =>
+    get<{ sales: SellerSaleCommissionItem[]; total: number }>('/seller/finances/sales', params),
+  getSaleDetail: (orderId: string) => get<SellerSaleCommissionItem>(`/seller/finances/sales/${orderId}`),
+}
+

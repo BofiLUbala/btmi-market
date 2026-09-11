@@ -29,6 +29,7 @@ type PaymentService struct {
 	membershipRepo     *repository.MembershipRepository
 	employeeRepo       *repository.EmployeeRepository
 	assignmentRepo     *repository.AssignmentRepository
+	commService        *CommissionService
 	asynqClient        *asynq.Client
 	db                 *database.DB
 }
@@ -229,6 +230,9 @@ func (s *PaymentService) BuyerConfirm(buyerProfileID, paymentID uuid.UUID) (*mod
 	}
 	if payment.Status == models.BuyerPaymentStatusVerified {
 		s.enqueueVerified(payment)
+		if s.commService != nil {
+			_, _ = s.commService.CalculateAndRecordCommission(payment.OrderID)
+		}
 	}
 	return s.toResponse(payment), nil
 }
@@ -273,8 +277,15 @@ func (s *PaymentService) SellerConfirm(userID, paymentID uuid.UUID) (*models.Buy
 	}
 	if payment.Status == models.BuyerPaymentStatusVerified {
 		s.enqueueVerified(payment)
+		if s.commService != nil {
+			_, _ = s.commService.CalculateAndRecordCommission(payment.OrderID)
+		}
 	}
 	return s.toResponse(payment), nil
+}
+
+func (s *PaymentService) SetCommissionService(cs *CommissionService) {
+	s.commService = cs
 }
 
 func (s *PaymentService) enqueueVerified(payment *models.BuyerPayment) {

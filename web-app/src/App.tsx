@@ -40,6 +40,7 @@ import SellerPerformancePage from '@/pages/admin/commerce/performance/SellerPerf
 import CategoryPerformancePage from '@/pages/admin/commerce/performance/CategoryPerformancePage'
 import ShopPerformancePage from '@/pages/admin/commerce/performance/ShopPerformancePage'
 import FinanceDashboardPage from '@/pages/admin/finance/FinanceDashboardPage'
+import CommissionManagementPage from '@/pages/admin/finance/CommissionManagementPage'
 import TechnicalDashboardPage from '@/pages/admin/technical/TechnicalDashboardPage'
 import FeatureFlagsPage from '@/pages/admin/platform/FeatureFlagsPage'
 import GlobalConfigPage from '@/pages/admin/platform/GlobalConfigPage'
@@ -106,6 +107,7 @@ import SellerOrdersPage from '@/pages/seller/orders/SellerOrdersPage'
 import SellerCustomersPage from '@/pages/seller/customers/SellerCustomersPage'
 import SellerCashPage from '@/pages/seller/cash/SellerCashPage'
 import SellerGrowthPage from '@/pages/seller/growth/SellerGrowthPage'
+import SellerFinancesPage from '@/pages/seller/finances/SellerFinancesPage'
 import SellerReviewsPage from '@/pages/seller/reviews/SellerReviewsPage'
 import SellerProfilePage from '@/pages/seller/profile/SellerProfilePage'
 import SellerMessagesPage from '@/pages/seller/messages/SellerMessagesPage'
@@ -218,6 +220,7 @@ export default function App() {
                   <Route path="/seller/customers" element={<SellerCustomersPage />} />
                   <Route path="/seller/cash" element={<SellerCashPage />} />
                   <Route path="/seller/growth" element={<SellerGrowthPage />} />
+                  <Route path="/seller/finances" element={<SellerFinancesPage />} />
                   <Route path="/seller/reviews" element={<SellerReviewsPage />} />
                   <Route path="/seller/profile" element={<SellerProfilePage />} />
                   <Route path="/seller/settings" element={<SellerProfilePage />} />
@@ -276,6 +279,7 @@ export default function App() {
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['FINANCE_SUPPORT_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/finance" element={<FinanceDashboardPage />} />
+                    <Route path="/admin/finance/commissions" element={<CommissionManagementPage />} />
                     <Route path="/admin/finance/:feature" element={<FinanceDashboardPage />} />
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['TECHNICAL_ADMIN', 'SUPER_ADMIN']} />}>

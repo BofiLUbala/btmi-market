@@ -1122,6 +1122,74 @@ export interface AdminBuyerPointsItem {
   anomaly_reason?: string
 }
 
+export interface AdminUserPointAccount {
+  account_id?: string
+  account_type: 'BUYER' | 'SELLER'
+  business_id?: string
+  business_name?: string
+  current_points: number
+  reserved_points: number
+  lifetime_points: number
+}
+
+export interface AdminPointUser {
+  user_id: string
+  name: string
+  email: string
+  status: string
+  accounts: AdminUserPointAccount[]
+}
+
+export interface AdminCommissionConfig {
+  rate: number
+  updated_at?: string
+  updated_by?: string
+  history?: Array<{
+    id: string
+    old_rate: number
+    new_rate: number
+    changed_by?: string
+    admin_name?: string
+    reason: string
+    created_at: string
+  }>
+}
+
+export interface AdminCommissionItem {
+  id: string
+  order_id: string
+  order_number: string
+  payment_id?: string
+  business_id: string
+  business_name: string
+  shop_id: string
+  shop_name: string
+  seller_user_id?: string
+  seller_name: string
+  gross_amount: number
+  commission_base: number
+  commission_rate: number
+  commission_amount: number
+  seller_net_amount: number
+  status: 'DUE' | 'COLLECTED' | 'WAIVED' | 'ADJUSTED'
+  calculated_at: string
+  collected_at?: string
+  collected_by?: string
+  collector_name?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminCommissionSummary {
+  gross_sales: number
+  total_commission: number
+  collected_commission: number
+  due_commission: number
+  seller_net_revenue: number
+  total_verified_sales: number
+}
+
 export interface AdminPointTransaction {
   id: string
   point_account_id: string
@@ -1285,13 +1353,59 @@ export const adminFinanceApi = {
     if (params?.search) q.set('search', params.search)
     return adminApi<{ items: AdminBuyerPointsItem[]; total: number; page: number; limit: number }>(`/admin/finance/points/buyers?${q.toString()}`)
   },
+  listPointUsers: async (params?: { page?: number; limit?: number; search?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.page) q.set('page', String(params.page))
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.search) q.set('search', params.search)
+    return adminApi<{ items: AdminPointUser[]; total: number; page: number; limit: number }>(`/admin/finance/points/users?${q.toString()}`)
+  },
   getBuyerPointHistory: async (buyerId: string) => {
     return adminApi<{ history: AdminPointTransaction[] }>(`/admin/finance/points/buyers/${buyerId}/history`)
+  },
+  getCommissionConfig: async () => {
+    return adminApi<AdminCommissionConfig>('/admin/finance/commission-config')
+  },
+  updateCommissionConfig: async (payload: { rate: number; reason?: string }) => {
+    return adminApi<AdminCommissionConfig>('/admin/finance/commission-config', {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    })
+  },
+  getCommissionSummary: async (params?: { business_id?: string; shop_id?: string; date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.business_id) q.set('business_id', params.business_id)
+    if (params?.shop_id) q.set('shop_id', params.shop_id)
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    return adminApi<AdminCommissionSummary>(`/admin/finance/commissions/summary?${q.toString()}`)
+  },
+  listCommissions: async (params?: { status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.status) q.set('status', params.status)
+    if (params?.search) q.set('search', params.search)
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    return adminApi<{ commissions: AdminCommissionItem[]; total: number }>(`/admin/finance/commissions?${q.toString()}`)
+  },
+  markCommissionCollected: async (id: string, notes?: string) => {
+    return adminApi<{ id: string; status: string }>(`/admin/finance/commissions/${id}/collect`, {
+      method: 'POST',
+      body: JSON.stringify({ notes: notes || '' })
+    })
   },
   adjustBuyerPoints: async (buyerId: string, type: 'ADD' | 'REMOVE', amount: number, reason: string) => {
     return adminApi<{ message: string; old_balance: number; new_balance: number }>(`/admin/finance/points/buyers/${buyerId}/adjust`, {
       method: 'POST',
       body: JSON.stringify({ type, amount, reason })
+    })
+  },
+  adjustUserPoints: async (userId: string, account: AdminUserPointAccount, type: 'ADD' | 'REMOVE', amount: number, reason: string, requestId: string) => {
+    return adminApi<{ user_id: string; account_id: string; account_type: string; old_balance: number; new_balance: number }>(`/admin/finance/points/users/${userId}/adjust`, {
+      method: 'POST',
+      body: JSON.stringify({ account_type: account.account_type, business_id: account.business_id, type, amount, reason, request_id: requestId })
     })
   },
   listSellerGrowth: async (params?: { page?: number; limit?: number; search?: string }) => {

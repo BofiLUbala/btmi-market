@@ -9,18 +9,18 @@ import (
 
 // Phase 3A - Financial Summary & Payments
 type AdminFinancialSummary struct {
-	TotalOrderValue      float64 `json:"total_order_value"`
-	VerifiedCash         float64 `json:"verified_cash"`
-	UnverifiedCash       float64 `json:"unverified_cash"`
-	DisputedCash         float64 `json:"disputed_cash"`
-	PointsDiscountValue  float64 `json:"points_discount_value"`
-	TotalOrders          int     `json:"total_orders"`
-	PendingPaymentsCount int     `json:"pending_payments_count"`
-	VerifiedPaymentsCount int    `json:"verified_payments_count"`
-	DisputedPaymentsCount int    `json:"disputed_payments_count"`
-	OpenCasesCount       int     `json:"open_cases_count"`
-	FlaggedReviewsCount  int     `json:"flagged_reviews_count"`
-	RiskAlertsCount      int     `json:"risk_alerts_count"`
+	TotalOrderValue       float64 `json:"total_order_value"`
+	VerifiedCash          float64 `json:"verified_cash"`
+	UnverifiedCash        float64 `json:"unverified_cash"`
+	DisputedCash          float64 `json:"disputed_cash"`
+	PointsDiscountValue   float64 `json:"points_discount_value"`
+	TotalOrders           int     `json:"total_orders"`
+	PendingPaymentsCount  int     `json:"pending_payments_count"`
+	VerifiedPaymentsCount int     `json:"verified_payments_count"`
+	DisputedPaymentsCount int     `json:"disputed_payments_count"`
+	OpenCasesCount        int     `json:"open_cases_count"`
+	FlaggedReviewsCount   int     `json:"flagged_reviews_count"`
+	RiskAlertsCount       int     `json:"risk_alerts_count"`
 }
 
 type AdminPaymentFilter struct {
@@ -75,15 +75,15 @@ type AdminPaymentDetail struct {
 }
 
 type AdminOrderProductLine struct {
-	ID          uuid.UUID `json:"id"`
-	ProductID   uuid.UUID `json:"product_id"`
-	ProductName string    `json:"product_name"`
+	ID          uuid.UUID  `json:"id"`
+	ProductID   uuid.UUID  `json:"product_id"`
+	ProductName string     `json:"product_name"`
 	VariantID   *uuid.UUID `json:"variant_id,omitempty"`
-	VariantName string    `json:"variant_name,omitempty"`
-	SKU         string    `json:"sku"`
-	Quantity    int       `json:"quantity"`
-	UnitPrice   float64   `json:"unit_price"`
-	TotalPrice  float64   `json:"total_price"`
+	VariantName string     `json:"variant_name,omitempty"`
+	SKU         string     `json:"sku"`
+	Quantity    int        `json:"quantity"`
+	UnitPrice   float64    `json:"unit_price"`
+	TotalPrice  float64    `json:"total_price"`
 }
 
 type AdminOrderHistoryLog struct {
@@ -94,78 +94,110 @@ type AdminOrderHistoryLog struct {
 
 // Phase 3B - Buyer Points & Seller Growth
 type AdminBuyerPointsItem struct {
-	BuyerID         uuid.UUID  `json:"buyer_id"`
-	BuyerName       string     `json:"buyer_name"`
-	BuyerEmail      string     `json:"buyer_email"`
-	AccountID       uuid.UUID  `json:"account_id"`
-	AvailablePoints int        `json:"available_points"`
-	ReservedPoints  int        `json:"reserved_points"`
-	LifetimePoints  int        `json:"lifetime_points"`
-	CurrentLevel    string     `json:"current_level"`
-	LastUpdated     time.Time  `json:"last_updated"`
-	AnomalyFlag     bool       `json:"anomaly_flag"`
-	AnomalyReason   string     `json:"anomaly_reason,omitempty"`
+	BuyerID         uuid.UUID `json:"buyer_id"`
+	BuyerName       string    `json:"buyer_name"`
+	BuyerEmail      string    `json:"buyer_email"`
+	AccountID       uuid.UUID `json:"account_id"`
+	AvailablePoints int       `json:"available_points"`
+	ReservedPoints  int       `json:"reserved_points"`
+	LifetimePoints  int       `json:"lifetime_points"`
+	CurrentLevel    string    `json:"current_level"`
+	LastUpdated     time.Time `json:"last_updated"`
+	AnomalyFlag     bool      `json:"anomaly_flag"`
+	AnomalyReason   string    `json:"anomaly_reason,omitempty"`
 }
 
 type AdminPointTransaction struct {
-	ID              uuid.UUID  `json:"id"`
-	PointAccountID  uuid.UUID  `json:"point_account_id"`
-	Type            string     `json:"type"` // EARNED, RESERVED, RELEASED, CONSUMED, ADJUSTED
-	Amount          int        `json:"amount"`
-	BalanceAfter    int        `json:"balance_after"`
-	OrderID         *uuid.UUID `json:"order_id,omitempty"`
-	OrderNumber     string     `json:"order_number,omitempty"`
-	Reason          string     `json:"reason"`
-	CreatedAt       time.Time  `json:"created_at"`
+	ID             uuid.UUID  `json:"id"`
+	PointAccountID uuid.UUID  `json:"point_account_id"`
+	Type           string     `json:"type"` // EARNED, RESERVED, RELEASED, CONSUMED, ADJUSTED
+	Amount         int        `json:"amount"`
+	BalanceAfter   int        `json:"balance_after"`
+	OrderID        *uuid.UUID `json:"order_id,omitempty"`
+	OrderNumber    string     `json:"order_number,omitempty"`
+	Reason         string     `json:"reason"`
+	CreatedAt      time.Time  `json:"created_at"`
 }
 
 type AdminPointAdjustmentRequest struct {
-	Type   string `json:"type" binding:"required"` // ADD, REMOVE
-	Amount int    `json:"amount" binding:"required,gt=0"`
-	Reason string `json:"reason" binding:"required,min=5"`
+	Type        string     `json:"type" binding:"required,oneof=ADD REMOVE"` // ADD, REMOVE
+	AccountType string     `json:"account_type,omitempty"`
+	BusinessID  *uuid.UUID `json:"business_id,omitempty"`
+	RequestID   uuid.UUID  `json:"request_id,omitempty"`
+	Amount      int        `json:"amount" binding:"required,gt=0"`
+	Reason      string     `json:"reason" binding:"required,min=5"`
+}
+
+// AdminUserPointAccount is a user-resolved view over the existing polymorphic
+// ledger. SELLER accounts remain business-scoped because ranking is attached to
+// a business; user_id is always returned and verified through membership.
+type AdminUserPointAccount struct {
+	AccountID      *uuid.UUID `json:"account_id,omitempty"`
+	AccountType    string     `json:"account_type"`
+	BusinessID     *uuid.UUID `json:"business_id,omitempty"`
+	BusinessName   string     `json:"business_name,omitempty"`
+	CurrentPoints  int        `json:"current_points"`
+	ReservedPoints int        `json:"reserved_points"`
+	LifetimePoints int        `json:"lifetime_points"`
+}
+
+type AdminPointUser struct {
+	UserID   uuid.UUID               `json:"user_id"`
+	Name     string                  `json:"name"`
+	Email    string                  `json:"email"`
+	Status   string                  `json:"status"`
+	Accounts []AdminUserPointAccount `json:"accounts"`
+}
+
+type AdminPointAdjustmentResult struct {
+	UserID      uuid.UUID `json:"user_id"`
+	AccountID   uuid.UUID `json:"account_id"`
+	AccountType string    `json:"account_type"`
+	OldBalance  int       `json:"old_balance"`
+	NewBalance  int       `json:"new_balance"`
 }
 
 type AdminSellerGrowthItem struct {
-	SellerID               uuid.UUID `json:"seller_id"`
-	SellerName             string    `json:"seller_name"`
-	SellerEmail            string    `json:"seller_email"`
-	BusinessID             uuid.UUID `json:"business_id"`
-	BusinessName           string    `json:"business_name"`
-	ShopCount              int       `json:"shop_count"`
-	TotalOrders            int       `json:"total_orders"`
-	CompletedOrders        int       `json:"completed_orders"`
-	CancelledOrders        int       `json:"cancelled_orders"`
-	TotalGMV               float64   `json:"total_gmv"`
-	AverageRating          float64   `json:"average_rating"`
-	ReviewCount            int       `json:"review_count"`
-	DisputeCount           int       `json:"dispute_count"`
-	TrustStatus            string    `json:"trust_status"`
-	Level                  string    `json:"level"`
-	CashConfirmationRate   float64   `json:"cash_confirmation_rate"`
-	GrowthPoints           int       `json:"growth_points"`
+	SellerID             uuid.UUID `json:"seller_id"`
+	SellerName           string    `json:"seller_name"`
+	SellerEmail          string    `json:"seller_email"`
+	BusinessID           uuid.UUID `json:"business_id"`
+	BusinessName         string    `json:"business_name"`
+	ShopCount            int       `json:"shop_count"`
+	TotalOrders          int       `json:"total_orders"`
+	CompletedOrders      int       `json:"completed_orders"`
+	CancelledOrders      int       `json:"cancelled_orders"`
+	TotalGMV             float64   `json:"total_gmv"`
+	AverageRating        float64   `json:"average_rating"`
+	ReviewCount          int       `json:"review_count"`
+	DisputeCount         int       `json:"dispute_count"`
+	TrustStatus          string    `json:"trust_status"`
+	Level                string    `json:"level"`
+	CashConfirmationRate float64   `json:"cash_confirmation_rate"`
+	GrowthPoints         int       `json:"growth_points"`
 }
 
 // Phase 3C - Product & Shop Reviews Moderation
 type AdminProductReviewItem struct {
-	ReviewID          uuid.UUID  `json:"review_id"`
-	BuyerID           uuid.UUID  `json:"buyer_id"`
-	BuyerName         string     `json:"buyer_name"`
-	OrderID           uuid.UUID  `json:"order_id"`
-	OrderNumber       string     `json:"order_number"`
-	ProductID         uuid.UUID  `json:"product_id"`
-	ProductName       string     `json:"product_name"`
-	VariantID         *uuid.UUID `json:"variant_id,omitempty"`
-	VariantName       string     `json:"variant_name,omitempty"`
-	ShopID            uuid.UUID  `json:"shop_id"`
-	ShopName          string     `json:"shop_name"`
-	BusinessID        uuid.UUID  `json:"business_id"`
-	BusinessName      string     `json:"business_name"`
-	Rating            int        `json:"rating"`
-	Comment           string     `json:"comment"`
-	IsVerifiedPurchase bool      `json:"is_verified_purchase"`
-	HelpfulCount      int        `json:"helpful_count"`
-	ModerationStatus  string     `json:"moderation_status"` // VISIBLE, FLAGGED, UNDER_REVIEW, HIDDEN
-	CreatedAt         time.Time  `json:"created_at"`
+	ReviewID           uuid.UUID  `json:"review_id"`
+	BuyerID            uuid.UUID  `json:"buyer_id"`
+	BuyerName          string     `json:"buyer_name"`
+	OrderID            uuid.UUID  `json:"order_id"`
+	OrderNumber        string     `json:"order_number"`
+	ProductID          uuid.UUID  `json:"product_id"`
+	ProductName        string     `json:"product_name"`
+	VariantID          *uuid.UUID `json:"variant_id,omitempty"`
+	VariantName        string     `json:"variant_name,omitempty"`
+	ShopID             uuid.UUID  `json:"shop_id"`
+	ShopName           string     `json:"shop_name"`
+	BusinessID         uuid.UUID  `json:"business_id"`
+	BusinessName       string     `json:"business_name"`
+	Rating             int        `json:"rating"`
+	Comment            string     `json:"comment"`
+	IsVerifiedPurchase bool       `json:"is_verified_purchase"`
+	HelpfulCount       int        `json:"helpful_count"`
+	ModerationStatus   string     `json:"moderation_status"` // VISIBLE, FLAGGED, UNDER_REVIEW, HIDDEN
+	CreatedAt          time.Time  `json:"created_at"`
 }
 
 type AdminShopReviewItem struct {
@@ -190,19 +222,19 @@ type AdminReviewModerationRequest struct {
 
 // Phase 3D - Cases / Disputes / Support
 type AdminCaseFilter struct {
-	CaseType       string `form:"case_type"`
-	Status         string `form:"status"`
-	Priority       string `form:"priority"`
+	CaseType        string `form:"case_type"`
+	Status          string `form:"status"`
+	Priority        string `form:"priority"`
 	AssignedAdminID string `form:"assigned_admin_id"`
-	BuyerID        string `form:"buyer_id"`
-	SellerID       string `form:"seller_id"`
-	BusinessID     string `form:"business_id"`
-	ShopID         string `form:"shop_id"`
-	OrderID        string `form:"order_id"`
-	DateFrom       string `form:"date_from"`
-	DateTo         string `form:"date_to"`
-	Page           int    `form:"page,default=1"`
-	Limit          int    `form:"limit,default=20"`
+	BuyerID         string `form:"buyer_id"`
+	SellerID        string `form:"seller_id"`
+	BusinessID      string `form:"business_id"`
+	ShopID          string `form:"shop_id"`
+	OrderID         string `form:"order_id"`
+	DateFrom        string `form:"date_from"`
+	DateTo          string `form:"date_to"`
+	Page            int    `form:"page,default=1"`
+	Limit           int    `form:"limit,default=20"`
 }
 
 type AdminCaseListItem struct {

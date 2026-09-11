@@ -23,6 +23,7 @@ dist/
 build/
 **/build/
 *.log
+*.tsbuildinfo
 
 # Node dependencies
 node_modules/

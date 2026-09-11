@@ -28,6 +28,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/marketplace"
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
 	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
+	sellerhandlers "github.com/btmi-ai-market/backend/internal/handlers/seller"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
 	"github.com/btmi-ai-market/backend/internal/middleware"
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -140,6 +141,13 @@ func main() {
 	categoryService := service.NewCategoryService(categoryRepo)
 	sellerGrowthService := service.NewSellerGrowthService(pointAccountRepo, levelRepo, trustRepo)
 	reviewService := service.NewReviewService(reviewRepo, trustRepo, categoryRankingService, asynqClient)
+
+	commissionRepo := repository.NewCommissionRepository(db.DB)
+	commissionService := service.NewCommissionService(commissionRepo, orderRepo, buyerPaymentRepo, businessRepo)
+	paymentService.SetCommissionService(commissionService)
+
+	adminCommissionHandler := adminhandlers.NewAdminCommissionHandler(commissionService)
+	sellerFinanceHandler := sellerhandlers.NewSellerFinanceHandler(commissionService)
 
 	// Start background job to rebuild rankings on startup
 	go func() {
@@ -369,6 +377,9 @@ func main() {
 		{
 			sellerGroup.GET("/conversations", commHandler.ListSellerConversations)
 			sellerGroup.GET("/unread-counts", commHandler.GetSellerUnreadCounts)
+			sellerGroup.GET("/finances/summary", sellerFinanceHandler.GetSummary)
+			sellerGroup.GET("/finances/sales", sellerFinanceHandler.ListSales)
+			sellerGroup.GET("/finances/sales/:order_id", sellerFinanceHandler.GetSaleDetail)
 		}
 
 		notificationsGroup := api.Group("/notifications")
@@ -646,10 +657,18 @@ func main() {
 				{
 					financeGroup.GET("/summary", adminFinanceHandler.GetFinancialSummary)
 
+					financeGroup.GET("/commission-config", adminCommissionHandler.GetCommissionConfig)
+					financeGroup.PATCH("/commission-config", adminCommissionHandler.UpdateCommissionConfig)
+					financeGroup.GET("/commissions/summary", adminCommissionHandler.GetCommissionSummary)
+					financeGroup.GET("/commissions", adminCommissionHandler.ListCommissions)
+					financeGroup.POST("/commissions/:id/collect", adminCommissionHandler.MarkCommissionCollected)
+
 					financeGroup.GET("/payments", adminFinanceHandler.ListPayments)
 					financeGroup.GET("/payments/:id", adminFinanceHandler.GetPaymentDetail)
 
 					financeGroup.GET("/points/buyers", adminFinanceHandler.ListBuyerPoints)
+					financeGroup.GET("/points/users", adminFinanceHandler.ListPointUsers)
+					financeGroup.POST("/points/users/:userId/adjust", adminFinanceHandler.AdjustUserPoints)
 					financeGroup.GET("/points/buyers/:buyerId/history", adminFinanceHandler.GetBuyerPointHistory)
 					financeGroup.POST("/points/buyers/:buyerId/adjust", adminFinanceHandler.AdjustBuyerPoints)
 

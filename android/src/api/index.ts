@@ -10,6 +10,7 @@ import type {
   PointRedemptionPreview, Product, ProductDetail, ProductImageResponse, ProductReviewsResponse, ProductVariant,
   PublicationStatus, PublicProduct, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
+  SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   QRScanRequest, QRScanResponse,
   TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User,
 } from '../types'
@@ -17,7 +18,7 @@ import type {
 const list = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[]
   const object = value as Record<string, unknown> | null
-  for (const key of ['data', 'products', 'shops', 'categories', 'items', 'sessions', 'payments']) if (Array.isArray(object?.[key])) return object![key] as T[]
+  for (const key of ['data', 'products', 'shops', 'categories', 'items', 'sessions', 'payments', 'sales']) if (Array.isArray(object?.[key])) return object![key] as T[]
   return []
 }
 
@@ -195,6 +196,24 @@ export const sellerApi = {
 
   /* Reviews */
   reviews: (shopId: string) => get<ShopReviewsResponse>(`/marketplace/shops/${shopId}/reviews?page=1&per_page=50&sort=newest`),
+
+  /* Finances & Platform Commissions */
+  financeSummary: (businessId?: string, shopId?: string) => {
+    const q = new URLSearchParams()
+    if (businessId) q.set('business_id', businessId)
+    if (shopId) q.set('shop_id', shopId)
+    return get<SellerFinanceSummary>(`/seller/finances/summary?${q.toString()}`)
+  },
+  financeSales: (params?: { business_id?: string; shop_id?: string; status?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.business_id) q.set('business_id', params.business_id)
+    if (params?.shop_id) q.set('shop_id', params.shop_id)
+    if (params?.status) q.set('status', params.status)
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    return get<{ sales: SellerSaleCommissionItem[]; total: number }>(`/seller/finances/sales?${q.toString()}`)
+  },
+  financeSaleDetail: (orderId: string) => get<SellerSaleCommissionDetail>(`/seller/finances/sales/${orderId}`),
 }
 
 export const employeeAuthApi = {

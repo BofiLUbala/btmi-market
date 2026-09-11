@@ -106,6 +106,57 @@ func (h *AdminFinanceHandler) ListBuyerPoints(c *gin.Context) {
 	})
 }
 
+// GET /api/v1/admin/finance/points/users
+func (h *AdminFinanceHandler) ListPointUsers(c *gin.Context) {
+	adminRole := c.MustGet("admin_role").(models.AdminRole)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	items, total, err := h.financeService.ListPointUsers(adminRole, page, limit, c.Query("search"))
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "limit": limit})
+}
+
+// POST /api/v1/admin/finance/points/users/:userId/adjust
+func (h *AdminFinanceHandler) AdjustUserPoints(c *gin.Context) {
+	adminID := c.MustGet("admin_id").(uuid.UUID)
+	adminRole := c.MustGet("admin_role").(models.AdminRole)
+	userID, err := uuid.Parse(c.Param("userId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	var req models.AdminPointAdjustmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid amount, action, account type, or justification"})
+		return
+	}
+	if (req.AccountType != "BUYER" && req.AccountType != "SELLER") || req.RequestID == uuid.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "valid account_type and request_id are required"})
+		return
+	}
+	result, err := h.financeService.AdjustUserPoints(adminID, adminRole, userID, &req, c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		status := http.StatusInternalServerError
+		message := err.Error()
+		switch {
+		case strings.Contains(message, "forbidden"):
+			status = http.StatusForbidden
+		case strings.Contains(message, "not found"):
+			status = http.StatusNotFound
+		case strings.Contains(message, "inactive"), strings.Contains(message, "invalid"), strings.Contains(message, "required"):
+			status = http.StatusBadRequest
+		case strings.Contains(message, "insufficient"):
+			status = http.StatusConflict
+		}
+		c.JSON(status, gin.H{"error": message})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 // GET /api/v1/admin/finance/points/buyers/:buyerId/history
 func (h *AdminFinanceHandler) GetBuyerPointHistory(c *gin.Context) {
 	adminRole := c.MustGet("admin_role").(models.AdminRole)
@@ -145,9 +196,9 @@ func (h *AdminFinanceHandler) AdjustBuyerPoints(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":          "Points adjusted successfully",
-		"old_balance":      oldBalance,
-		"new_balance":      newBalance,
+		"message":         "Points adjusted successfully",
+		"old_balance":     oldBalance,
+		"new_balance":     newBalance,
 		"adjustment_type": req.Type,
 		"amount":          req.Amount,
 	})

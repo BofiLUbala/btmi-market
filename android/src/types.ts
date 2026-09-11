@@ -383,3 +383,40 @@ export interface QRScanResponse {
   delivery_status: string
   requires_buyer_confirmation: boolean
 }
+
+/* ---------- Seller: Finances & Commissions ---------- */
+export interface SellerFinanceSummary {
+  gross_sales: number
+  total_commission: number
+  net_revenue: number
+  commission_due: number
+  commission_collected: number
+  sales_count: number
+}
+
+export interface SellerSaleCommissionItem {
+  id: string
+  order_id: string
+  order_number: string
+  business_id: string
+  business_name?: string
+  shop_id: string
+  shop_name?: string
+  gross_amount: number
+  commission_base: number
+  commission_rate: number
+  commission_amount: number
+  seller_net_amount: number
+  status: 'DUE' | 'COLLECTED' | 'WAIVED' | 'ADJUSTED'
+  calculated_at: string
+  collected_at?: string
+  created_at: string
+}
+
+export interface SellerSaleCommissionDetail extends SellerSaleCommissionItem {
+  delivery_fee: number
+  points_discount: number
+  buyer_cash_due: number
+  payment_status: string
+}
+

@@ -41,6 +41,7 @@ const SELLER_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon;
   { to: '/seller/notifications', key: 'seller.notifications', Icon: BellIcon, badgeKey: 'notifications' },
   { to: '/seller/customers', key: 'seller.customers', Icon: CustomerIcon },
   { to: '/seller/cash', key: 'seller.cash', Icon: CashIcon },
+  { to: '/seller/finances', key: 'seller.finances', Icon: GrowthIcon },
   { to: '/seller/growth', key: 'seller.growth', Icon: GrowthIcon },
   { to: '/seller/reviews', key: 'seller.reviews', Icon: ReviewIcon },
 ]

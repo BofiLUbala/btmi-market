@@ -965,6 +965,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.orders': 'Orders',
   'seller.customers': 'Customers',
   'seller.cash': 'Cash',
+  'seller.finances': 'Finances',
   'seller.growth': 'Growth',
   'seller.reviews': 'Reviews',
   'seller.profile': 'Profile',

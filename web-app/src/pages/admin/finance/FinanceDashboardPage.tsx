@@ -4,14 +4,14 @@ import {
   adminFinanceApi,
   AdminFinancialSummary,
   AdminPaymentListItem,
-  AdminBuyerPointsItem,
+  AdminPointUser,
+  AdminUserPointAccount,
   AdminSellerGrowthItem,
   AdminProductReviewItem,
   AdminShopReviewItem,
   AdminCaseListItem,
   AdminCaseDetail,
   AdminPaymentDetail,
-  AdminPointTransaction,
   AdminRiskEvent
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
@@ -70,7 +70,7 @@ export default function FinanceDashboardPage() {
   // Data states
   const [summary, setSummary] = useState<AdminFinancialSummary | null>(null)
   const [payments, setPayments] = useState<AdminPaymentListItem[]>([])
-  const [buyerPoints, setBuyerPoints] = useState<AdminBuyerPointsItem[]>([])
+  const [pointUsers, setPointUsers] = useState<AdminPointUser[]>([])
   const [sellerGrowth, setSellerGrowth] = useState<AdminSellerGrowthItem[]>([])
   const [productReviews, setProductReviews] = useState<AdminProductReviewItem[]>([])
   const [shopReviews, setShopReviews] = useState<AdminShopReviewItem[]>([])
@@ -79,10 +79,13 @@ export default function FinanceDashboardPage() {
 
   // Modal / Action states
   const [selectedPayment, setSelectedPayment] = useState<AdminPaymentListItem | null>(null)
-  const [selectedBuyer, setSelectedBuyer] = useState<AdminBuyerPointsItem | null>(null)
+  const [selectedPointUser, setSelectedPointUser] = useState<AdminPointUser | null>(null)
+  const [selectedPointAccount, setSelectedPointAccount] = useState<AdminUserPointAccount | null>(null)
   const [adjustAmount, setAdjustAmount] = useState(100)
   const [adjustType, setAdjustType] = useState<'ADD' | 'REMOVE'>('ADD')
   const [adjustReason, setAdjustReason] = useState('')
+  const [adjustingPoints, setAdjustingPoints] = useState(false)
+  const [adjustError, setAdjustError] = useState<string | null>(null)
   
   const [moderationReason, setModerationReason] = useState('')
   const [moderatingReviewId, setModeratingReviewId] = useState<string | null>(null)
@@ -103,8 +106,6 @@ export default function FinanceDashboardPage() {
   const [riskResolveReason, setRiskResolveReason] = useState('')
 
   const [paymentDetail, setPaymentDetail] = useState<AdminPaymentDetail | null>(null)
-  const [historyBuyer, setHistoryBuyer] = useState<AdminBuyerPointsItem | null>(null)
-  const [pointHistory, setPointHistory] = useState<AdminPointTransaction[] | null>(null)
 
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
@@ -167,8 +168,8 @@ export default function FinanceDashboardPage() {
         setPayments(res.items || [])
         setTotal(res.total || 0)
       } else if (tab === 'points') {
-        const res = await adminFinanceApi.listBuyerPoints({ page, limit: PAGE_SIZE, search: search || undefined })
-        setBuyerPoints(res.items || [])
+        const res = await adminFinanceApi.listPointUsers({ page, limit: PAGE_SIZE, search: search || undefined })
+        setPointUsers(res.items || [])
         setTotal(res.total || 0)
       } else if (tab === 'growth' || tab === 'trust') {
         const res = await adminFinanceApi.listSellerGrowth({ page, limit: PAGE_SIZE, search: search || undefined })
@@ -199,15 +200,20 @@ export default function FinanceDashboardPage() {
   }
 
   const handleAdjustPoints = async () => {
-    if (!selectedBuyer || !adjustReason) return
+    if (!selectedPointUser || !selectedPointAccount || adjustReason.trim().length < 5 || adjustAmount <= 0) return
+    setAdjustingPoints(true)
+    setAdjustError(null)
     try {
-      await adminFinanceApi.adjustBuyerPoints(selectedBuyer.buyer_id, adjustType, adjustAmount, adjustReason)
-      setActionSuccess(t('admin.finance.pointsAdjustedSuccess', { name: selectedBuyer.buyer_name }))
-      setSelectedBuyer(null)
+      await adminFinanceApi.adjustUserPoints(selectedPointUser.user_id, selectedPointAccount, adjustType, adjustAmount, adjustReason.trim(), crypto.randomUUID())
+      setActionSuccess(t('admin.finance.pointsAdjustedSuccess', { name: selectedPointUser.name }))
+      setSelectedPointUser(null)
+      setSelectedPointAccount(null)
       setAdjustReason('')
-      loadTabContent()
+      await loadTabContent()
     } catch (err: any) {
-      alert(err?.message || t('admin.finance.adjustFailed'))
+      setAdjustError(err?.message || t('admin.finance.adjustFailed'))
+    } finally {
+      setAdjustingPoints(false)
     }
   }
 
@@ -251,18 +257,6 @@ export default function FinanceDashboardPage() {
       setPaymentDetail(await adminFinanceApi.getPaymentDetail(p.payment_id))
     } catch {
       // The modal still shows the list-row fields if the drill-down fails.
-    }
-  }
-
-  const openPointHistory = async (b: AdminBuyerPointsItem) => {
-    setHistoryBuyer(b)
-    setPointHistory(null)
-    try {
-      const res = await adminFinanceApi.getBuyerPointHistory(b.buyer_id)
-      setPointHistory(res.history || [])
-    } catch (err: any) {
-      setPointHistory([])
-      alert(err?.message || t('admin.finance.actionFailed'))
     }
   }
 
@@ -505,31 +499,28 @@ export default function FinanceDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {buyerPoints.map((b) => (
-                <tr key={b.buyer_id} style={{ borderBottom: '1px solid #1e293b', fontSize: 13 }}>
-                  <td style={{ padding: '12px 14px', fontWeight: 700 }}>{b.buyer_name}</td>
-                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{b.buyer_email}</td>
+              {pointUsers.flatMap((u) => u.accounts.map((account) => ({ u, account }))).map(({ u, account }) => (
+                <tr key={`${u.user_id}-${account.account_type}-${account.business_id || 'buyer'}`} style={{ borderBottom: '1px solid #1e293b', fontSize: 13 }}>
+                  <td style={{ padding: '12px 14px', fontWeight: 700 }}>
+                    <div>{u.name}</div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>{u.user_id}</div>
+                  </td>
+                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{u.email}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ backgroundColor: '#1e293b', color: '#fbbf24', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>
-                      {b.current_level}
+                      {account.account_type === 'BUYER' ? 'BUYER POINTS' : `SELLER POINTS — ${account.business_name}`}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#60a5fa' }}>{t('admin.finance.ptsAmount', { value: b.available_points.toLocaleString() })}</td>
-                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{t('admin.finance.ptsAmount', { value: b.reserved_points.toLocaleString() })}</td>
-                  <td style={{ padding: '12px 14px', color: '#a78bfa' }}>{t('admin.finance.ptsAmount', { value: b.lifetime_points.toLocaleString() })}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#60a5fa' }}>{t('admin.finance.ptsAmount', { value: account.current_points.toLocaleString() })}</td>
+                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{t('admin.finance.ptsAmount', { value: account.reserved_points.toLocaleString() })}</td>
+                  <td style={{ padding: '12px 14px', color: '#a78bfa' }}>{t('admin.finance.ptsAmount', { value: account.lifetime_points.toLocaleString() })}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
-                        onClick={() => setSelectedBuyer(b)}
+                        onClick={() => { setSelectedPointUser(u); setSelectedPointAccount(account); setAdjustError(null) }}
                         style={{ padding: '4px 10px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
                       >
                         {t('admin.finance.adjustPointsBtn')}
-                      </button>
-                      <button
-                        onClick={() => openPointHistory(b)}
-                        style={{ padding: '4px 10px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}
-                      >
-                        {t('admin.finance.historyBtn')}
                       </button>
                     </div>
                   </td>
@@ -852,6 +843,45 @@ export default function FinanceDashboardPage() {
               </div>
             </div>
 
+            {/* TBK PLATFORM COMMISSION BREAKDOWN */}
+            {(() => {
+              const grossBase = Math.max(0, (selectedPayment.subtotal_amount || 0) - (selectedPayment.points_discount_amount || 0))
+              const estCommission = grossBase * 0.03
+              const estNet = grossBase - estCommission
+              const isVerified = selectedPayment.payment_status === 'VERIFIED'
+              return (
+                <div style={{ backgroundColor: '#1e1b4b', border: '1px solid #4338ca', borderRadius: 8, padding: 14, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#a5b4fc' }}>COMMISSION PLATEFORME TBK</h4>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 600, backgroundColor: isVerified ? '#065f46' : '#78350f', color: isVerified ? '#6ee7b7' : '#fde68a' }}>
+                      {isVerified ? 'VERIFIÉE · À REVERSER' : 'EN ATTENTE DE VERIFICATION'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
+                    <div>
+                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Vente brute éligible</div>
+                      <div style={{ fontWeight: 700, color: '#f8fafc' }}>${grossBase.toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Taux de commission</div>
+                      <div style={{ fontWeight: 700, color: '#a5b4fc' }}>3.00%</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Commission TBK</div>
+                      <div style={{ fontWeight: 700, color: '#f87171' }}>${estCommission.toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Revenu net vendeur</div>
+                      <div style={{ fontWeight: 700, color: '#34d399' }}>${estNet.toFixed(2)}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8, borderTop: '1px solid #312e81', paddingTop: 6 }}>
+                    Frais de livraison (${selectedPayment.delivery_fee.toFixed(2)}) exclus de l'assiette de commission TBK.
+                  </div>
+                </div>
+              )
+            })()}
+
             {paymentDetail && paymentDetail.product_lines?.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#94a3b8' }}>{t('admin.finance.orderLinesTitle')}</h4>
@@ -915,11 +945,20 @@ export default function FinanceDashboardPage() {
       )}
 
       {/* ADJUST POINTS MODAL */}
-      {selectedBuyer && (
+      {selectedPointUser && selectedPointAccount && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 420 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.adjustPointsTitle', { name: selectedBuyer.buyer_name })}</h3>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 16px' }}>{t('admin.finance.currentAvailable', { points: selectedBuyer.available_points })}</p>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.adjustPointsTitle', { name: selectedPointUser.name })}</h3>
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 4px' }}>{selectedPointUser.email}</p>
+            <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 16px' }}>{selectedPointUser.user_id}</p>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Point account</label>
+              <select value={`${selectedPointAccount.account_type}:${selectedPointAccount.business_id || ''}`} onChange={(e) => { const found=selectedPointUser.accounts.find((a) => `${a.account_type}:${a.business_id || ''}`===e.target.value); if(found) setSelectedPointAccount(found) }} style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6 }}>
+                {selectedPointUser.accounts.map((a) => <option key={`${a.account_type}:${a.business_id || ''}`} value={`${a.account_type}:${a.business_id || ''}`}>{a.account_type === 'BUYER' ? 'Buyer Points' : `Seller Points — ${a.business_name}`}</option>)}
+              </select>
+            </div>
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 16px' }}>{t('admin.finance.currentAvailable', { points: selectedPointAccount.current_points })}</p>
 
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{t('admin.finance.labelAdjustAction')}</label>
@@ -939,9 +978,11 @@ export default function FinanceDashboardPage() {
               <textarea value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} rows={3} style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6 }} placeholder={t('admin.finance.justificationPlaceholder')} />
             </div>
 
+            {adjustError && <div style={{ color: '#fca5a5', background: '#7f1d1d', padding: 8, borderRadius: 6, marginBottom: 12, fontSize: 12 }}>{adjustError}</div>}
+
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setSelectedBuyer(null)} style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>{t('common.cancel')}</button>
-              <button onClick={handleAdjustPoints} style={{ padding: '8px 16px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>{t('admin.finance.confirmAudit')}</button>
+              <button onClick={() => { setSelectedPointUser(null); setSelectedPointAccount(null) }} disabled={adjustingPoints} style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>{t('common.cancel')}</button>
+              <button onClick={handleAdjustPoints} disabled={adjustingPoints || adjustAmount <= 0 || adjustReason.trim().length < 5} style={{ padding: '8px 16px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, opacity: adjustingPoints ? .6 : 1 }}>{adjustingPoints ? '…' : t('admin.finance.confirmAudit')}</button>
             </div>
           </div>
         </div>
@@ -1057,52 +1098,6 @@ export default function FinanceDashboardPage() {
                   </div>
                 )}
               </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* BUYER POINT HISTORY MODAL */}
-      {historyBuyer && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 560, maxHeight: '80vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.pointHistoryTitle', { name: historyBuyer.buyer_name })}</h3>
-              <button onClick={() => { setHistoryBuyer(null); setPointHistory(null) }} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>✕</button>
-            </div>
-
-            {pointHistory === null ? (
-              <div style={{ textAlign: 'center', padding: 30, color: '#94a3b8' }}>⏳ {t('admin.finance.fetchingData')}</div>
-            ) : pointHistory.length === 0 ? (
-              <div style={{ color: '#64748b', fontSize: 13 }}>{t('admin.finance.noPointHistory')}</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#1e293b', textAlign: 'left', color: '#94a3b8' }}>
-                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.colType')}</th>
-                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.labelAmount')}</th>
-                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.colBalanceAfter')}</th>
-                    <th style={{ padding: '8px 10px' }}>{t('admin.finance.colComment')}</th>
-                    <th style={{ padding: '8px 10px' }}>{t('admin.technical.colTime')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pointHistory.map((tx) => (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid #1e293b' }}>
-                      <td style={{ padding: '8px 10px', fontWeight: 700 }}>{tx.type}</td>
-                      {/* points_change is stored unsigned; the direction lives in `type`. */}
-                      <td style={{ padding: '8px 10px', color: tx.type === 'DEBIT' ? '#f87171' : '#34d399', fontWeight: 700 }}>
-                        {tx.type === 'DEBIT' ? '−' : '+'}{Math.abs(tx.amount)}
-                      </td>
-                      <td style={{ padding: '8px 10px', color: '#94a3b8' }}>{tx.balance_after}</td>
-                      <td style={{ padding: '8px 10px', color: '#cbd5e1' }}>
-                        {tx.reason}{tx.order_number ? ` (${tx.order_number})` : ''}
-                      </td>
-                      <td style={{ padding: '8px 10px', color: '#64748b' }}>{new Date(tx.created_at).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )}
           </div>
         </div>
