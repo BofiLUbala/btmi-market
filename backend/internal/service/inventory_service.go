@@ -1008,23 +1008,20 @@ func (s *InventoryService) requireCategoryAttributes(product *models.Product) er
 			return err
 		}
 
-		// Collect all present attribute keys (and lowercase keys) with non-empty values
-		presentKeys := make(map[string]bool)
-		for _, v := range variants {
-			for k, val := range v.Attributes {
-				if strings.TrimSpace(val) != "" {
-					presentKeys[strings.ToLower(strings.TrimSpace(k))] = true
-				}
-			}
-		}
-
 		var missing []string
 		var missingFr []string
 		for _, rd := range requiredDefs {
-			kLower := strings.ToLower(strings.TrimSpace(rd.Key))
-			enLower := strings.ToLower(strings.TrimSpace(rd.LabelEn))
-			frLower := strings.ToLower(strings.TrimSpace(rd.LabelFr))
-			if !presentKeys[kLower] && !presentKeys[enLower] && !presentKeys[frLower] {
+			// Publication is only safe when every variant carries every required
+			// characteristic. Checking the union allowed one complete variant to
+			// hide incomplete siblings from the authoritative backend guard.
+			completeOnEveryVariant := len(variants) > 0
+			for _, variant := range variants {
+				if !variantHasRequiredAttribute(variant.Attributes, rd) {
+					completeOnEveryVariant = false
+					break
+				}
+			}
+			if !completeOnEveryVariant {
 				missing = append(missing, rd.Key)
 				missingFr = append(missingFr, rd.LabelFr)
 			}
@@ -1089,6 +1086,20 @@ func (s *InventoryService) requireCategoryAttributes(product *models.Product) er
 		return fmt.Errorf("MISSING_REQUIRED_ATTRIBUTES: %s", strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+func variantHasRequiredAttribute(attributes map[string]string, definition *models.CategoryAttributeDefinition) bool {
+	acceptedKeys := map[string]bool{
+		strings.ToLower(strings.TrimSpace(definition.Key)):     true,
+		strings.ToLower(strings.TrimSpace(definition.LabelEn)): true,
+		strings.ToLower(strings.TrimSpace(definition.LabelFr)): true,
+	}
+	for key, value := range attributes {
+		if acceptedKeys[strings.ToLower(strings.TrimSpace(key))] && strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID, req *models.UpdateProductRequest) (*models.Product, error) {
