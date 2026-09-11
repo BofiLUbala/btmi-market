@@ -57,6 +57,25 @@ export interface AdminUserListItem {
   total_points: number
 }
 
+export interface AdminCourierListItem {
+  id: string
+  user_id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+  status: string
+  availability: string
+  transport_type: string
+  vehicle_info?: string
+  service_zone?: string
+  rating?: number
+  total_deliveries: number
+  successful_deliveries: number
+  is_online: boolean
+  created_at: string
+}
+
 export interface AdminAuditLog {
   id: string
   actor_admin_id: string
@@ -1011,6 +1030,40 @@ export const adminCommerceApi = {
       body: JSON.stringify({ reason })
     })
   },
+  // Courier Management APIs
+  listCouriers: async (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    return adminApi<{ couriers: AdminCourierListItem[]; total: number; limit: number; offset: number }>(
+      `/admin/commerce/couriers?${q.toString()}`
+    )
+  },
+  getCourierDetail: async (id: string) => {
+    return adminApi<AdminCourierListItem>(`/admin/commerce/couriers/${id}`)
+  },
+  inviteCourier: async (payload: {
+    first_name: string; last_name: string; email: string;
+    phone?: string; transport_type?: string; vehicle_info?: string; service_zone?: string
+  }) => {
+    return adminApi<{ message: string; invitation_token: string; invitation_url: string }>(
+      '/admin/commerce/couriers/invite', {
+        method: 'POST', body: JSON.stringify(payload)
+      })
+  },
+  suspendCourier: async (id: string, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/commerce/couriers/${id}/suspend`, {
+      method: 'POST', body: JSON.stringify({ reason })
+    })
+  },
+  reactivateCourier: async (id: string) => {
+    return adminApi<{ message: string }>(`/admin/commerce/couriers/${id}/reactivate`, {
+      method: 'POST'
+    })
+  },
+  listAvailableCouriers: async () => {
+    return adminApi<AdminCourierListItem[]>('/admin/commerce/couriers/available')
+  },
   getSellerPerformance: async (params?: { limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
     if (params?.limit) q.set('limit', String(params.limit))
@@ -1040,6 +1093,14 @@ export const adminCommerceApi = {
   },
   checkEmployeeShopAuth: async (employeeId: string, shopId: string) => {
     return adminApi<AdminEmployeeShopAuth>(`/admin/commerce/employees/${employeeId}/shop-auth/${shopId}`)
+  },
+  listOperationalUsers: async (params: { account_type: 'SELLER' | 'EMPLOYEE'; search?: string; status?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams({ account_type: params.account_type })
+    if (params.search) q.set('search', params.search)
+    if (params.status) q.set('status', params.status)
+    if (params.limit !== undefined) q.set('limit', String(params.limit))
+    if (params.offset !== undefined) q.set('offset', String(params.offset))
+    return adminApi<{ users: AdminUserListItem[]; total: number; limit: number; offset: number }>(`/admin/commerce/users?${q}`)
   }
 }
 
@@ -1718,6 +1779,7 @@ export const adminTechnicalApi = {
 
   getBackupSummary: () =>
     adminApi<BackupSummary>('/admin/technical/backups'),
+  createBackup: (reason:string) => adminApi<BackupSummary>('/admin/technical/backups',{method:'POST',body:JSON.stringify({reason})}),
 
   getMigrationSummary: () =>
     adminApi<MigrationSummary>('/admin/technical/migrations'),

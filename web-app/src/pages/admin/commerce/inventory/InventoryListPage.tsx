@@ -26,10 +26,10 @@ export default function InventoryListPage() {
         shop_id: shopId || undefined,
         stock_status: statusFilter || undefined,
         limit,
-        offset: page,
+        offset: page * limit,
       })
-      setItems(res.inventory)
-      setTotal(res.total)
+      setItems(res.inventory ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load inventory', err)
     } finally {

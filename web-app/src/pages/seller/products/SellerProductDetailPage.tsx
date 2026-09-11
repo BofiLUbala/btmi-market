@@ -1,7 +1,7 @@
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
-import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, ProductImageResponse, QRIdentity } from '@/api/types'
+import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, CategoryAttributeDefinition, ProductImageResponse, QRIdentity } from '@/api/types'
 import { QRPanel } from '@/components/qr/QRPanel'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -31,6 +31,8 @@ export default function SellerProductDetailPage() {
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState(false)
   const [productQR, setProductQR] = useState<QRIdentity | null>(null)
+  // DB-backed attribute definitions for the product's current category
+  const [categoryAttrDefs, setCategoryAttrDefs] = useState<CategoryAttributeDefinition[]>([])
 
   // Edit Product / Category Form state
   const [showProductEditForm, setShowProductEditForm] = useState(false)
@@ -124,15 +126,56 @@ export default function SellerProductDetailPage() {
     [variants]
   )
 
-  // Prefill the attribute inputs whenever the form opens.
+  // Missing attribute requirements for Draft publication against DB-backed rules
+  const missingRequirements = useMemo(() => {
+    if (!product || product.publication_status === 'PUBLISHED' || categoryAttrDefs.length === 0) {
+      return []
+    }
+    const requiredDefs = categoryAttrDefs.filter((d) => d.required)
+    if (requiredDefs.length === 0) return []
+
+    const missing: { def: CategoryAttributeDefinition; reason: string }[] = []
+
+    for (const def of requiredDefs) {
+      if (def.variant_attribute) {
+        if (variants.length === 0) {
+          missing.push({ def, reason: 'Aucune variante créée avec cette caractéristique' })
+        } else {
+          const variantsLacking = variants.filter(
+            (v) => !v.attributes || !v.attributes[def.key] || !String(v.attributes[def.key]).trim()
+          )
+          if (variantsLacking.length > 0) {
+            missing.push({
+              def,
+              reason: `Manquant sur ${variantsLacking.length} variante(s) (${variantsLacking.map((v) => v.name || v.sku || 'Variante').join(', ')})`,
+            })
+          }
+        }
+      } else {
+        const hasSpec = specifications.some((s) => s.key.toLowerCase() === def.key.toLowerCase() && s.value.trim())
+        const hasOnAllVariants =
+          variants.length > 0 &&
+          variants.every((v) => v.attributes && v.attributes[def.key] && String(v.attributes[def.key]).trim())
+        if (!hasSpec && !hasOnAllVariants) {
+          missing.push({ def, reason: 'Caractéristique obligatoire non renseignée' })
+        }
+      }
+    }
+    return missing
+  }, [product, categoryAttrDefs, variants, specifications])
+
+  // Prefill the attribute inputs from DB definitions when form opens.
+  // If DB has no definitions, fall back to keys already used by existing variants.
   useEffect(() => {
     if (!showVariantForm) return
     setVariantAttrs((prev) => {
       const next: Record<string, string> = {}
-      for (const key of knownAttributeKeys) next[key] = prev[key] ?? ''
+      const dbKeys = categoryAttrDefs.filter(d => d.variant_attribute).map(d => d.key)
+      const keysToUse = dbKeys.length > 0 ? dbKeys : knownAttributeKeys
+      for (const key of keysToUse) next[key] = prev[key] ?? ''
       return next
     })
-  }, [showVariantForm, knownAttributeKeys])
+  }, [showVariantForm, knownAttributeKeys, categoryAttrDefs])
 
   async function load() {
     if (!activeBusiness || !productId) return
@@ -150,6 +193,17 @@ export default function SellerProductDetailPage() {
       void productApi.getQR(activeBusiness.id, productId).then(setProductQR).catch(() => setProductQR(null))
       setImages(Array.isArray(imgList) ? imgList : [])
       setCategories(Array.isArray(catsData) ? catsData : [])
+      // Load DB-backed attribute definitions for the product's category
+      if (p?.category_id) {
+        try {
+          const attrDefs = await categoryApi.getAttributes(p.category_id, p.subcategory_id ?? undefined)
+          setCategoryAttrDefs(Array.isArray(attrDefs) ? attrDefs : [])
+        } catch {
+          setCategoryAttrDefs([])
+        }
+      } else {
+        setCategoryAttrDefs([])
+      }
       if (p) {
         const formatDateTimeLocal = (isoStr?: string | null) => {
           if (!isoStr) return ''
@@ -216,6 +270,13 @@ export default function SellerProductDetailPage() {
       setCategoryChangeWarning('')
     }
     setProductEditForm((prev) => ({ ...prev, category_id: newCatId, subcategory_id: '' }))
+    if (newCatId) {
+      categoryApi.getAttributes(newCatId).then((defs) => {
+        setCategoryAttrDefs(Array.isArray(defs) ? defs : [])
+      }).catch(() => setCategoryAttrDefs([]))
+    } else {
+      setCategoryAttrDefs([])
+    }
   }
 
   async function saveProductDetails(e: React.FormEvent) {
@@ -333,6 +394,23 @@ export default function SellerProductDetailPage() {
       return
     }
 
+    // Check for duplicate variant combination
+    const isDuplicate = variants.some((existing) => {
+      const existingAttrs = existing.attributes || {}
+      const existingKeys = Object.keys(existingAttrs)
+      const parsedKeys = Object.keys(parsedAttrs)
+      if (existingKeys.length !== parsedKeys.length) return false
+      return parsedKeys.every(
+        (pk) =>
+          existingAttrs[pk] !== undefined &&
+          String(existingAttrs[pk]).trim().toLowerCase() === String(parsedAttrs[pk]).trim().toLowerCase()
+      )
+    })
+    if (isDuplicate) {
+      setActionError('Une variante avec cette combinaison exacte d’attributs existe déjà pour ce produit.')
+      return
+    }
+
     setBusy(true)
     setActionError('')
     try {
@@ -445,6 +523,24 @@ export default function SellerProductDetailPage() {
       setActionError(t('seller.productDetail.enterAttrValue'))
       return
     }
+
+    const isDuplicate = variants.some((existing) => {
+      if (existing.id === variantId) return false
+      const existingAttrs = existing.attributes || {}
+      const existingKeys = Object.keys(existingAttrs)
+      const parsedKeys = Object.keys(attrs)
+      if (existingKeys.length !== parsedKeys.length) return false
+      return parsedKeys.every(
+        (pk) =>
+          existingAttrs[pk] !== undefined &&
+          String(existingAttrs[pk]).trim().toLowerCase() === String(attrs[pk]).trim().toLowerCase()
+      )
+    })
+    if (isDuplicate) {
+      setActionError('Une autre variante possède déjà cette combinaison exacte d’attributs.')
+      return
+    }
+
     setBusy(true)
     setActionError('')
     try {
@@ -531,6 +627,60 @@ export default function SellerProductDetailPage() {
           ✓ {stockMsg}
         </div>
       )}
+
+      {/* ── Proactive Draft Missing Requirements Alert Banner ── */}
+      {product.publication_status !== 'PUBLISHED' && missingRequirements.length > 0 && (
+        <div
+          className="notice notice-warning mb-4"
+          style={{
+            borderLeft: '4px solid var(--color-warning, #f59e0b)',
+            padding: '16px',
+            borderRadius: '8px',
+            backgroundColor: 'var(--color-warning-soft, rgba(245, 158, 11, 0.08))',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <strong style={{ display: 'block', marginBottom: 4, fontSize: '1rem', color: 'var(--color-text)' }}>
+                Complétez les caractéristiques obligatoires avant de publier
+              </strong>
+              <p style={{ margin: '0 0 8px', fontSize: '0.875rem' }}>
+                Ce produit est en statut <strong>BROUILLON</strong>. La catégorie{' '}
+                <strong>{categories.find((c) => c.id === product.category_id)?.name || 'sélectionnée'}</strong>{' '}
+                requiert les caractéristiques suivantes :
+              </p>
+              <ul style={{ margin: '0 0 10px', paddingLeft: '20px', fontSize: '0.85rem' }}>
+                {missingRequirements.map((req) => (
+                  <li key={req.def.key} style={{ marginBottom: 4 }}>
+                    <strong>{req.def.label_fr || req.def.label_en || req.def.key}</strong> ({req.def.key})
+                    {req.def.variant_attribute ? ' [Attribut de variante]' : ' [Spécification produit]'} :{' '}
+                    <span className="muted">{req.reason}</span>
+                  </li>
+                ))}
+              </ul>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {variants.length === 0 ? (
+                  <Button size="sm" onClick={() => setShowVariantForm(true)}>
+                    + Créer une variante avec ces attributs
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (variants.length > 0) openAttrEditor(variants[0])
+                    }}
+                  >
+                    Compléter les variantes existantes
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* ── Product Overview Card ── */}
       {productQR && (
@@ -1089,173 +1239,304 @@ export default function SellerProductDetailPage() {
         {variants.length === 0 ? (
           <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>{t('seller.productDetail.noVariantsFound')}</p>
         ) : (
-          <div className="table-responsive" style={{ marginTop: 16 }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{t('seller.productDetail.variantAttrsHeader')}</th>
-                  <th>SKU</th>
-                  <th>{t('seller.productDetail.salePriceHeader')}</th>
-                  <th>{t('seller.productDetail.availableStock')}</th>
-                  <th>{t('seller.productDetail.stockByShop')}</th>
-                  <th style={{ minWidth: 220 }}>{t('seller.productDetail.addStockHeader')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {variants.map((v) => {
-                  const invList = variantInventories[v.id] || []
-                  const variantAvailable = invList.reduce((sum, i) => sum + Math.max(0, i.quantity - (i.reserved_quantity || 0)), 0)
-                  const variantTotal = invList.reduce((sum, i) => sum + (i.quantity || 0), 0)
-                  const variantReserved = invList.reduce((sum, i) => sum + (i.reserved_quantity || 0), 0)
-                  const targetShop = scopedShopId || targetShopByVariant[v.id] || activeShop || (shops.length > 0 ? shops[0].id : '')
-                  const attrs = v.attributes || {}
-                  const attrEntries = Object.entries(attrs)
+          <>
+            {/* Desktop Table View */}
+            <div className="table-responsive desktop-table-view" style={{ marginTop: 16 }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('seller.productDetail.variantAttrsHeader')}</th>
+                    <th>SKU</th>
+                    <th>{t('seller.productDetail.salePriceHeader')}</th>
+                    <th>{t('seller.productDetail.availableStock')}</th>
+                    <th>{t('seller.productDetail.stockByShop')}</th>
+                    <th style={{ minWidth: 220 }}>{t('seller.productDetail.addStockHeader')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variants.map((v) => {
+                    const invList = variantInventories[v.id] || []
+                    const variantAvailable = invList.reduce((sum, i) => sum + Math.max(0, i.quantity - (i.reserved_quantity || 0)), 0)
+                    const variantTotal = invList.reduce((sum, i) => sum + (i.quantity || 0), 0)
+                    const variantReserved = invList.reduce((sum, i) => sum + (i.reserved_quantity || 0), 0)
+                    const targetShop = scopedShopId || targetShopByVariant[v.id] || activeShop || (shops.length > 0 ? shops[0].id : '')
+                    const attrs = v.attributes || {}
+                    const attrEntries = Object.entries(attrs)
 
-                  return (
-                    <tr key={v.id}>
-                      <td>
-                        <strong>{v.name || t('seller.productDetail.defaultVariant')}</strong>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, alignItems: 'center' }}>
+                    return (
+                      <tr key={v.id}>
+                        <td>
+                          <strong>{v.name || t('seller.productDetail.defaultVariant')}</strong>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, alignItems: 'center' }}>
+                            <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
+                              {v.status}
+                            </span>
+                            {attrEntries.map(([k, val]) => (
+                              <span key={k} className="attr-chip">
+                                <strong>{k}:</strong> {val}
+                              </span>
+                            ))}
+                            {attrEntries.length === 0 && (
+                              <span className="small" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }}>
+                                No attributes — not selectable by buyers
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: '0.72rem', padding: '2px 6px' }}
+                              onClick={() => (editingAttrsFor === v.id ? setEditingAttrsFor(null) : openAttrEditor(v))}
+                            >
+                              {editingAttrsFor === v.id ? t('common.cancel') : attrEntries.length === 0 ? t('seller.productDetail.setAttributes') : t('seller.productDetail.editAttributes')}
+                            </button>
+                          </div>
+
+                          {editingAttrsFor === v.id && (
+                            <div style={{ marginTop: 8, padding: 10, background: 'var(--color-surface-2)', borderRadius: 6, display: 'grid', gap: 6 }}>
+                              {Object.keys(editAttrs).length === 0 && (
+                                <span className="small muted">
+                                  This product has no attribute names yet. Add one below.
+                                </span>
+                              )}
+                              {Object.keys(editAttrs).map((key) => (
+                                <div key={key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 6, alignItems: 'center' }}>
+                                  <label className="small bold" htmlFor={`edit-${v.id}-${key}`}>{key}</label>
+                                  <input
+                                    id={`edit-${v.id}-${key}`}
+                                    className="input input-sm"
+                                    value={editAttrs[key]}
+                                    onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
+                                    placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : t('seller.productDetail.attrValue') })}
+                                  />
+                                </div>
+                              ))}
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <input
+                                  className="input input-sm"
+                                  placeholder={t('seller.productDetail.newAttrNamePlaceholder')}
+                                  value={newAttrName}
+                                  onChange={(e) => setNewAttrName(e.target.value)}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!newAttrName.trim() || newAttrName.trim() in editAttrs}
+                                  onClick={() => {
+                                    const name = newAttrName.trim()
+                                    if (name && !(name in editAttrs)) {
+                                      setEditAttrs((prev) => ({ ...prev, [name]: '' }))
+                                      setNewAttrName('')
+                                    }
+                                  }}
+                                >
+                                  + Add
+                                </Button>
+                                <Button size="sm" disabled={busy} onClick={() => saveVariantAttributes(v.id)}>
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="mono small">{v.sku || '—'}</td>
+                        <td><strong>{Number(v.sale_price || 0).toLocaleString()} FC</strong></td>
+                        <td>
+                          <div>
+                            <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
+                              {variantAvailable} available
+                            </span>
+                            {variantReserved > 0 && (
+                              <span className="small muted" style={{ display: 'block' }}>
+                                ({variantTotal} total · {variantReserved} reserved)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          {invList.length === 0 ? (
+                            <span className="small muted">0 in all shops</span>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              {invList.map((inv) => {
+                                const sObj = shops.find((s) => s.id === inv.shop_id)
+                                const avail = Math.max(0, inv.quantity - (inv.reserved_quantity || 0))
+                                const res = inv.reserved_quantity || 0
+                                return (
+                                  <span key={inv.id} className="small muted">
+                                    🏪 {t('seller.productDetail.shopAvail', { shop: sObj ? sObj.name : t('seller.shopProducts.shopFallback'), avail })}
+                                    {res > 0 && ` (${inv.quantity} total · ${res} res)`}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            {!scopedShopId && shops.length > 1 && (
+                              <select
+                                className="input input-sm"
+                                value={targetShop}
+                                onChange={(e) => setTargetShopByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                                style={{ width: 110, fontSize: '0.8rem' }}
+                              >
+                                {shops.map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.name}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            <input
+                              className="input input-sm"
+                              type="number"
+                              min="1"
+                              placeholder={t('seller.productDetail.qtyPlaceholder')}
+                              value={stockByVariant[v.id] ?? ''}
+                              onChange={(e) => setStockByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                              style={{ width: 65 }}
+                            />
+                            <Button size="sm" disabled={busy} onClick={() => addStock(v.id)}>
+                              + Add
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View (<= 768px) */}
+            <div className="mobile-card-list">
+              {variants.map((v) => {
+                const invList = variantInventories[v.id] || []
+                const variantAvailable = invList.reduce((sum, i) => sum + Math.max(0, i.quantity - (i.reserved_quantity || 0)), 0)
+                const variantTotal = invList.reduce((sum, i) => sum + (i.quantity || 0), 0)
+                const variantReserved = invList.reduce((sum, i) => sum + (i.reserved_quantity || 0), 0)
+                const targetShop = scopedShopId || targetShopByVariant[v.id] || activeShop || (shops.length > 0 ? shops[0].id : '')
+                const attrs = v.attributes || {}
+                const attrEntries = Object.entries(attrs)
+
+                return (
+                  <div key={v.id} className="mobile-data-card">
+                    <div className="mobile-data-card-header">
+                      <div>
+                        <h4 className="mobile-data-card-title">{v.name || t('seller.productDetail.defaultVariant')}</h4>
+                        {v.sku && <span className="mono small muted">SKU: {v.sku}</span>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span className="mobile-data-card-price">{Number(v.sale_price || 0).toLocaleString()} FC</span>
+                        <div style={{ marginTop: 4 }}>
                           <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
                             {v.status}
                           </span>
-                          {attrEntries.map(([k, val]) => (
-                            <span key={k} className="attr-chip">
-                              <strong>{k}:</strong> {val}
-                            </span>
-                          ))}
-                          {attrEntries.length === 0 && (
-                            <span className="small" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }}>
-                              No attributes — not selectable by buyers
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            style={{ fontSize: '0.72rem', padding: '2px 6px' }}
-                            onClick={() => (editingAttrsFor === v.id ? setEditingAttrsFor(null) : openAttrEditor(v))}
-                          >
-                            {editingAttrsFor === v.id ? t('common.cancel') : attrEntries.length === 0 ? t('seller.productDetail.setAttributes') : t('seller.productDetail.editAttributes')}
-                          </button>
                         </div>
+                      </div>
+                    </div>
 
-                        {editingAttrsFor === v.id && (
-                          <div style={{ marginTop: 8, padding: 10, background: 'var(--color-surface-2)', borderRadius: 6, display: 'grid', gap: 6 }}>
-                            {Object.keys(editAttrs).length === 0 && (
-                              <span className="small muted">
-                                This product has no attribute names yet. Add one below.
-                              </span>
-                            )}
-                            {Object.keys(editAttrs).map((key) => (
-                              <div key={key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 6, alignItems: 'center' }}>
-                                <label className="small bold" htmlFor={`edit-${v.id}-${key}`}>{key}</label>
-                                <input
-                                  id={`edit-${v.id}-${key}`}
-                                  className="input input-sm"
-                                  value={editAttrs[key]}
-                                  onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
-                                  placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : t('seller.productDetail.attrValue') })}
-                                />
-                              </div>
-                            ))}
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                              <input
-                                className="input input-sm"
-                                placeholder={t('seller.productDetail.newAttrNamePlaceholder')}
-                                value={newAttrName}
-                                onChange={(e) => setNewAttrName(e.target.value)}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={!newAttrName.trim() || newAttrName.trim() in editAttrs}
-                                onClick={() => {
-                                  const name = newAttrName.trim()
-                                  if (name && !(name in editAttrs)) {
-                                    setEditAttrs((prev) => ({ ...prev, [name]: '' }))
-                                    setNewAttrName('')
-                                  }
-                                }}
-                              >
-                                + Add
-                              </Button>
-                              <Button size="sm" disabled={busy} onClick={() => saveVariantAttributes(v.id)}>
-                                Save
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td className="mono small">{v.sku || '—'}</td>
-                      <td><strong>{Number(v.sale_price || 0).toLocaleString()} FC</strong></td>
-                      <td>
-                        <div>
-                          <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
-                            {variantAvailable} available
+                    <div className="mobile-data-card-section">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="small bold">{t('seller.productDetail.variantAttrsHeader')}</span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: '0.72rem', padding: '2px 6px' }}
+                          onClick={() => (editingAttrsFor === v.id ? setEditingAttrsFor(null) : openAttrEditor(v))}
+                        >
+                          {editingAttrsFor === v.id ? t('common.cancel') : attrEntries.length === 0 ? t('seller.productDetail.setAttributes') : t('seller.productDetail.editAttributes')}
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {attrEntries.map(([k, val]) => (
+                          <span key={k} className="attr-chip">
+                            <strong>{k}:</strong> {val}
                           </span>
-                          {variantReserved > 0 && (
-                            <span className="small muted" style={{ display: 'block' }}>
-                              ({variantTotal} total · {variantReserved} reserved)
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        {invList.length === 0 ? (
-                          <span className="small muted">0 in all shops</span>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            {invList.map((inv) => {
-                              const sObj = shops.find((s) => s.id === inv.shop_id)
-                              const avail = Math.max(0, inv.quantity - (inv.reserved_quantity || 0))
-                              const res = inv.reserved_quantity || 0
-                              return (
-                                <span key={inv.id} className="small muted">
-                                  🏪 {t('seller.productDetail.shopAvail', { shop: sObj ? sObj.name : t('seller.shopProducts.shopFallback'), avail })}
-                                  {res > 0 && ` (${inv.quantity} total · ${res} res)`}
-                                </span>
-                              )
-                            })}
-                          </div>
+                        ))}
+                        {attrEntries.length === 0 && (
+                          <span className="small" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }}>
+                            Aucun attribut — non sélectionnable par les acheteurs
+                          </span>
                         )}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          {!scopedShopId && shops.length > 1 && (
-                            <select
-                              className="input input-sm"
-                              value={targetShop}
-                              onChange={(e) => setTargetShopByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                              style={{ width: 110, fontSize: '0.8rem' }}
-                            >
-                              {shops.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.name}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                          <input
-                            className="input input-sm"
-                            type="number"
-                            min="1"
-                            placeholder={t('seller.productDetail.qtyPlaceholder')}
-                            value={stockByVariant[v.id] ?? ''}
-                            onChange={(e) => setStockByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
-                            style={{ width: 65 }}
-                          />
-                          <Button size="sm" disabled={busy} onClick={() => addStock(v.id)}>
-                            + Add
+                      </div>
+
+                      {editingAttrsFor === v.id && (
+                        <div style={{ marginTop: 8, padding: 8, background: 'var(--color-surface)', borderRadius: 6, display: 'grid', gap: 6, border: '1px solid var(--color-border)' }}>
+                          {Object.keys(editAttrs).map((key) => (
+                            <div key={key} style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 6, alignItems: 'center' }}>
+                              <label className="small bold" htmlFor={`m-edit-${v.id}-${key}`}>{key}</label>
+                              <input
+                                id={`m-edit-${v.id}-${key}`}
+                                className="input input-sm"
+                                value={editAttrs[key]}
+                                onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
+                              />
+                            </div>
+                          ))}
+                          <Button size="sm" disabled={busy} onClick={() => saveVariantAttributes(v.id)}>
+                            Enregistrer
                           </Button>
                         </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                      )}
+                    </div>
+
+                    <div className="mobile-data-card-row">
+                      <span className="small muted">{t('seller.productDetail.availableStock')}</span>
+                      <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
+                        {variantAvailable} dispo {variantReserved > 0 && `(${variantTotal} tot · ${variantReserved} rés)`}
+                      </span>
+                    </div>
+
+                    {invList.length > 0 && (
+                      <div className="small muted" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {invList.map((inv) => {
+                          const sObj = shops.find((s) => s.id === inv.shop_id)
+                          const avail = Math.max(0, inv.quantity - (inv.reserved_quantity || 0))
+                          return (
+                            <span key={inv.id}>
+                              🏪 {sObj ? sObj.name : 'Boutique'}: <strong>{avail}</strong> dispo
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                      {!scopedShopId && shops.length > 1 && (
+                        <select
+                          className="input input-sm"
+                          value={targetShop}
+                          onChange={(e) => setTargetShopByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                          style={{ flex: '1 1 120px', fontSize: '0.8rem' }}
+                        >
+                          {shops.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <input
+                        className="input input-sm"
+                        type="number"
+                        min="1"
+                        placeholder={t('seller.productDetail.qtyPlaceholder')}
+                        value={stockByVariant[v.id] ?? ''}
+                        onChange={(e) => setStockByVariant((prev) => ({ ...prev, [v.id]: e.target.value }))}
+                        style={{ width: 65 }}
+                      />
+                      <Button size="sm" disabled={busy} onClick={() => addStock(v.id)}>
+                        + Stock
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
       </Card>
 

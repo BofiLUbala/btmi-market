@@ -101,10 +101,43 @@ export async function api<T>(
         : res.status === 403
           ? 'You do not have permission to access this resource.'
           : `Request failed (${res.status})`
+    let extraData: Record<string, unknown> | undefined
     try {
-      const body = (await res.json()) as { error?: { code?: string; message?: string } }
+      const body = (await res.json()) as {
+        error?: {
+          code?: string
+          message?: string
+          missing_keys?: string[]
+          missing_labels_fr?: string[]
+          category_id?: string
+          category_slug?: string
+          subcategory_slug?: string
+        }
+      }
       if (body?.error?.code) code = body.error.code
       if (body?.error?.message && res.status !== 403) message = body.error.message
+      // Capture structured MISSING_REQUIRED_ATTRIBUTES payload
+      if (code === 'MISSING_REQUIRED_ATTRIBUTES' && body?.error) {
+        extraData = {
+          missing_keys: body.error.missing_keys ?? [],
+          missing_labels_fr: body.error.missing_labels_fr ?? [],
+          category_id: body.error.category_id,
+          category_slug: body.error.category_slug,
+          subcategory_slug: body.error.subcategory_slug,
+        }
+        // Build French message if labels are available
+        if (body.error.missing_labels_fr && body.error.missing_labels_fr.length > 0) {
+          message = `Complétez les caractéristiques obligatoires avant de publier : ${body.error.missing_labels_fr.join(', ')}.`
+        } else if (body.error.missing_keys && body.error.missing_keys.length > 0) {
+          const keys = body.error.missing_keys.join(', ')
+          message = `Ce produit requiert ${keys}. Complétez les caractéristiques manquantes avant de publier.`
+        } else if (message.startsWith('MISSING_REQUIRED_ATTRIBUTES:')) {
+          const names = message.replace(/^MISSING_REQUIRED_ATTRIBUTES:\s*/, '')
+          message = names
+            ? `Ce produit requiert ${names}. Complétez les caractéristiques manquantes avant de publier.`
+            : 'Certaines caractéristiques requises sont manquantes. Complétez-les avant de publier.'
+        }
+      }
     } catch {
       /* non-JSON error body */
     }
@@ -131,15 +164,12 @@ export async function api<T>(
       message = 'The email or password is incorrect.'
     } else if (code === 'BUYER_PROFILE_INCOMPLETE') {
       message = 'Add a phone number to your profile before placing an order.'
-    } else if (code === 'MISSING_REQUIRED_ATTRIBUTES') {
-      // The backend appends the missing names after the code; surface those
-      // rather than the raw error string.
-      const names = message.replace(/^MISSING_REQUIRED_ATTRIBUTES:\s*/, '')
-      message = names
-        ? `This category requires ${names}. Complete the missing characteristics before publishing, or keep the product as a draft.`
-        : 'Some characteristics required by this category are missing. Complete them before publishing.'
+    } else if (code === 'DUPLICATE_VARIANT_COMBINATION') {
+      message = 'Cette combinaison de caractéristiques existe déjà pour ce produit. Utilisez une combinaison différente.'
     }
-    throw new ApiError(res.status, code, message)
+    const err = new ApiError(res.status, code, message)
+    if (extraData) (err as ApiError & { data?: unknown }).data = extraData
+    throw err
   }
 
   const json = (await res.json()) as unknown

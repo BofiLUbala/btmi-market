@@ -47,7 +47,7 @@ export function OrderChatFeed({
         } else {
           res = await fetchOrderConversation(orderId)
         }
-        setDetail(res)
+        setDetail({ ...(res || {}), messages: (res as any)?.messages || [] })
         setError('')
       } catch (err) {
         if (!silent) {

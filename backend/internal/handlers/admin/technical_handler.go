@@ -148,6 +148,22 @@ func (h *AdminTechnicalHandler) GetBackupSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, summary)
 }
 
+func (h *AdminTechnicalHandler) CreateBackup(c *gin.Context) {
+	adminID := c.MustGet("admin_id").(uuid.UUID)
+	role := c.MustGet("admin_role").(models.AdminRole)
+	var req models.RevokeSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.Reason) < 5 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "reason required"})
+		return
+	}
+	result, err := h.technicalService.CreateBackup(c.Request.Context(), adminID, role, req.Reason)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 // ─── MIGRATIONS ───────────────────────────────────────────────────────────────
 
 // GET /api/v1/admin/technical/migrations

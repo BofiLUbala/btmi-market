@@ -8,6 +8,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRepository struct {
@@ -155,4 +156,23 @@ func (r *UserRepository) UpdatePassword(id uuid.UUID, passwordHash string) error
 	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
 	_, err := r.db.Exec(query, passwordHash, id)
 	return err
+}
+
+// CreateWithPassword creates a new user with a hashed password (bcrypt)
+func (r *UserRepository) CreateWithPassword(user *models.User, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	user.PasswordHash = string(hash)
+	return r.Create(user)
+}
+
+// SetPassword sets a new password for an existing user (bcrypt)
+func (r *UserRepository) SetPassword(id uuid.UUID, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return r.UpdatePassword(id, string(hash))
 }

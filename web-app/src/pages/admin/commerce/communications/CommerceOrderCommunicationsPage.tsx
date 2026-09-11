@@ -32,12 +32,12 @@ export default function CommerceOrderCommunicationsPage() {
           limit: 50,
           offset: 0,
         })
-        setItems(res.items || [])
-        setTotal(res.total || 0)
+        setItems((res?.items) || [])
+        setTotal((res?.total) || 0)
         setError('')
 
         // Auto-select first item if none selected
-        if (!selectedOrderId && res.items?.length > 0) {
+        if (!selectedOrderId && (res?.items?.length ?? 0) > 0) {
           setSearchParams({ order_id: res.items[0].order_id }, { replace: true })
         }
       } catch (err) {

@@ -113,6 +113,9 @@ import SellerProfilePage from '@/pages/seller/profile/SellerProfilePage'
 import SellerMessagesPage from '@/pages/seller/messages/SellerMessagesPage'
 import SellerNotificationsPage from '@/pages/seller/notifications/SellerNotificationsPage'
 import CommerceOrderCommunicationsPage from '@/pages/admin/commerce/communications/CommerceOrderCommunicationsPage'
+import CourierActivationPage from '@/pages/courier/CourierActivationPage'
+import CourierDashboardPage from '@/pages/courier/CourierDashboardPage'
+import CourierInvitePage from '@/pages/admin/commerce/couriers/CourierInvitePage'
 
 function NotFound() {
   const { t } = useI18n()
@@ -231,6 +234,12 @@ export default function App() {
                 </Route>
               </Route>
 
+              {/* Courier Routes */}
+              <Route path="/courier/activate" element={<CourierActivationPage />} />
+              <Route element={<RequireAuth />}>
+                <Route path="/courier/dashboard" element={<CourierDashboardPage />} />
+              </Route>
+
               {/* Admin Control Center Routes */}
               <Route element={<AdminPublicOnly />}>
                 <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -266,6 +275,7 @@ export default function App() {
                     <Route path="/admin/commerce/communications" element={<CommerceOrderCommunicationsPage />} />
                     <Route path="/admin/commerce/deliveries" element={<CommerceDeliveriesPage />} />
                     <Route path="/admin/commerce/couriers" element={<CommerceCouriersPage />} />
+                    <Route path="/admin/commerce/couriers/invite" element={<CourierInvitePage />} />
                     <Route path="/admin/commerce/delivery-assignments" element={<CommerceDeliveryAssignmentsPage />} />
                     <Route path="/admin/commerce/marketplace/visibility" element={<MarketplaceVisibilityPage />} />
                     <Route path="/admin/commerce/marketplace/ranking" element={<MarketplaceRankingPage />} />

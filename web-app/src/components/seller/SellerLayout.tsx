@@ -80,7 +80,7 @@ export function SellerLayout() {
         business_id: activeBusiness?.id || undefined,
       })
         .then(setUnreadCounts)
-        .catch(() => null)
+        .catch(() => setUnreadCounts({ unread_messages: 0, unread_notifications: 0 }))
     }
     check()
     const timer = setInterval(check, 20_000)

@@ -88,6 +88,7 @@ export const fr = {
   'prefs.themeDark': 'Sombre',
   'prefs.switchToDark': 'Passer en mode sombre',
   'prefs.switchToLight': 'Passer en mode clair',
+  'prefs.switchToSystem': 'Passer au thème système',
   'prefs.language': 'Langue',
   'prefs.switchToEnglish': 'Switch to English',
   'prefs.switchToFrench': 'Passer en français',

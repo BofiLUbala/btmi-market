@@ -35,7 +35,9 @@ export function Header() {
   useEffect(() => {
     if (!user) return
     const check = () => {
-      fetchBuyerUnreadCounts().then(setUnreadCounts).catch(() => null)
+      fetchBuyerUnreadCounts()
+        .then(setUnreadCounts)
+        .catch(() => setUnreadCounts({ unread_messages: 0, unread_notifications: 0 }))
     }
     check()
     const timer = setInterval(check, 30_000)

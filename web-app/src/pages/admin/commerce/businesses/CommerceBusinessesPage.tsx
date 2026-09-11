@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { adminDirectionApi, type AdminUserListItem } from '@/api/admin'
+import { adminCommerceApi, type AdminUserListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { BoxIcon } from '@/components/ui/Icons'
 
@@ -16,15 +16,15 @@ export default function CommerceBusinessesPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await adminDirectionApi.listUsers({
+      const res = await adminCommerceApi.listOperationalUsers({
         search: search || undefined,
         account_type: 'SELLER',
         limit,
-        offset: page,
+        offset: page * limit,
       })
       // Filter or sort sellers who have at least one business registered
-      setOwners(res.users)
-      setTotal(res.total)
+      setOwners(res.users ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load businesses', err)
     } finally {

@@ -119,6 +119,31 @@ export interface CategoryResponse {
   subcategories?: SubcategoryResponse[]
 }
 
+export interface CategoryAttributeDefinition {
+  id: string
+  category_id: string
+  subcategory_id?: string
+  key: string
+  label_en: string
+  label_fr: string
+  required: boolean
+  variant_attribute: boolean
+  input_type: string
+  allowed_values: string[]
+  display_order: number
+}
+
+export interface MissingAttributesApiError {
+  code: 'MISSING_REQUIRED_ATTRIBUTES'
+  message: string
+  missing_keys: string[]
+  missing_labels_fr: string[]
+  category_id: string
+  category_slug: string
+  subcategory_slug?: string
+}
+
+
 /* ---------- Marketplace ---------- */
 
 export interface PublicVariant {

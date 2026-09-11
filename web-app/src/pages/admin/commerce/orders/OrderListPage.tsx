@@ -25,10 +25,10 @@ export default function OrderListPage() {
         shop_id: shopId || undefined,
         search: search || undefined,
         limit,
-        offset: page,
+        offset: page * limit,
       })
-      setOrders(res.orders)
-      setTotal(res.total)
+      setOrders(res.orders ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load orders', err)
     } finally {

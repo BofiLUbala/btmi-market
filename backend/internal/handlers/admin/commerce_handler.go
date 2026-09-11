@@ -40,6 +40,18 @@ func (h *CommerceHandler) Overview(c *gin.Context) {
 	})
 }
 
+// GET /api/v1/admin/commerce/users?account_type=SELLER|EMPLOYEE
+func (h *CommerceHandler) ListOperationalUsers(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	items, total, err := h.commerceService.ListOperationalUsers(c.Query("search"), c.Query("account_type"), c.Query("status"), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"users": items, "total": total, "limit": limit, "offset": offset})
+}
+
 // GET /api/v1/admin/commerce/products
 func (h *CommerceHandler) ListProducts(c *gin.Context) {
 	search := c.Query("search")

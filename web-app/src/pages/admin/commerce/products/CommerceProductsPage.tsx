@@ -26,8 +26,8 @@ export default function CommerceProductsPage() {
         limit,
         offset: page
       })
-      setProducts(res.products)
-      setTotal(res.total)
+      setProducts(res.products ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load products', err)
     } finally {

@@ -988,6 +988,71 @@ func (s *InventoryService) requireCategoryAttributes(product *models.Product) er
 		// publishing by a rule we cannot even resolve.
 		return nil
 	}
+
+	// 1. Primary Source of Truth: DB definitions
+	defs, err := s.categoryRepo.GetEffectiveAttributes(*product.CategoryID, product.SubcategoryID)
+	if err == nil && len(defs) > 0 {
+		var requiredDefs []*models.CategoryAttributeDefinition
+		for _, d := range defs {
+			if d.Required && d.Status == "ACTIVE" {
+				requiredDefs = append(requiredDefs, d)
+			}
+		}
+
+		if len(requiredDefs) == 0 {
+			return nil
+		}
+
+		variants, err := s.variantRepo.GetByProductID(product.ID)
+		if err != nil {
+			return err
+		}
+
+		// Collect all present attribute keys (and lowercase keys) with non-empty values
+		presentKeys := make(map[string]bool)
+		for _, v := range variants {
+			for k, val := range v.Attributes {
+				if strings.TrimSpace(val) != "" {
+					presentKeys[strings.ToLower(strings.TrimSpace(k))] = true
+				}
+			}
+		}
+
+		var missing []string
+		var missingFr []string
+		for _, rd := range requiredDefs {
+			kLower := strings.ToLower(strings.TrimSpace(rd.Key))
+			enLower := strings.ToLower(strings.TrimSpace(rd.LabelEn))
+			frLower := strings.ToLower(strings.TrimSpace(rd.LabelFr))
+			if !presentKeys[kLower] && !presentKeys[enLower] && !presentKeys[frLower] {
+				missing = append(missing, rd.Key)
+				missingFr = append(missingFr, rd.LabelFr)
+			}
+		}
+
+		if len(missing) > 0 {
+			categorySlug := category.Slug
+			if categorySlug == "" {
+				categorySlug = category.Name
+			}
+			subSlug := ""
+			if product.SubcategoryID != nil {
+				if sub, err := s.categoryRepo.GetSubcategoryByID(*product.SubcategoryID); err == nil {
+					subSlug = sub.Slug
+				}
+			}
+			return &models.MissingAttributesError{
+				CategoryID:      product.CategoryID.String(),
+				CategorySlug:    categorySlug,
+				SubcategorySlug: subSlug,
+				MissingKeys:     missing,
+				MissingLabelsFr: missingFr,
+			}
+		}
+		return nil
+	}
+
+	// 2. Migration safety fallback: hardcoded requirements
 	categoryKey := category.Slug
 	if categoryKey == "" {
 		categoryKey = category.Name
@@ -1224,6 +1289,37 @@ func (s *InventoryService) triggerSimilarityJob(productID uuid.UUID, reason stri
 	}
 }
 
+func areAttributeMapsEqual(a, b map[string]string) bool {
+	cleanA := make(map[string]string)
+	for k, v := range a {
+		kClean := strings.ToLower(strings.TrimSpace(k))
+		vClean := strings.ToLower(strings.TrimSpace(v))
+		if kClean != "" && vClean != "" {
+			cleanA[kClean] = vClean
+		}
+	}
+	cleanB := make(map[string]string)
+	for k, v := range b {
+		kClean := strings.ToLower(strings.TrimSpace(k))
+		vClean := strings.ToLower(strings.TrimSpace(v))
+		if kClean != "" && vClean != "" {
+			cleanB[kClean] = vClean
+		}
+	}
+	if len(cleanA) == 0 && len(cleanB) == 0 {
+		return false
+	}
+	if len(cleanA) != len(cleanB) {
+		return false
+	}
+	for k, v := range cleanA {
+		if bv, ok := cleanB[k]; !ok || bv != v {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *InventoryService) CreateVariant(userID, productID uuid.UUID, req *models.CreateVariantRequest) (*models.ProductVariant, error) {
 	product, err := s.productRepo.GetByID(productID)
 	if err != nil {
@@ -1236,6 +1332,18 @@ func (s *InventoryService) CreateVariant(userID, productID uuid.UUID, req *model
 
 	if req.Attributes == nil {
 		req.Attributes = make(map[string]string)
+	}
+
+	// Variant Deduplication check
+	if len(req.Attributes) > 0 {
+		existingVariants, err := s.variantRepo.GetByProductID(productID)
+		if err == nil {
+			for _, ev := range existingVariants {
+				if ev.Status != models.VariantStatusDiscontinued && ev.Status != models.VariantStatusInactive && areAttributeMapsEqual(req.Attributes, ev.Attributes) {
+					return nil, errors.New("DUPLICATE_VARIANT_COMBINATION")
+				}
+			}
+		}
 	}
 
 	variant := &models.ProductVariant{
@@ -1305,6 +1413,18 @@ func (s *InventoryService) UpdateVariant(userID, variantID uuid.UUID, req *model
 
 	if err := s.requireOwnerOrAdmin(userID, product.BusinessID); err != nil {
 		return nil, err
+	}
+
+	// Variant Deduplication check
+	if req.Attributes != nil && len(req.Attributes) > 0 {
+		existingVariants, err := s.variantRepo.GetByProductID(variant.ProductID)
+		if err == nil {
+			for _, ev := range existingVariants {
+				if ev.ID != variantID && ev.Status != models.VariantStatusDiscontinued && ev.Status != models.VariantStatusInactive && areAttributeMapsEqual(req.Attributes, ev.Attributes) {
+					return nil, errors.New("DUPLICATE_VARIANT_COMBINATION")
+				}
+			}
+		}
 	}
 
 	if req.SKU != nil {

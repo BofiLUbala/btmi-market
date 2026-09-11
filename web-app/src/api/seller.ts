@@ -12,6 +12,7 @@ import type {
   ArchiveBusinessResponse,
   Shop,
   CategoryResponse,
+  CategoryAttributeDefinition,
   CreateBusinessRequest,
   CreateShopRequest,
   UpdateShopRequest,
@@ -157,6 +158,14 @@ export const productImageApi = {
 export const categoryApi = {
   // Global TBK taxonomy with embedded subcategories (used by the create form).
   list: () => safeList(get<CategoryResponse[]>('/categories', { with_subcategories: true })),
+  // DB-backed attribute definitions for a category (primary source of truth).
+  getAttributes: (categoryId: string, subcategoryId?: string): Promise<CategoryAttributeDefinition[]> =>
+    safeList(
+      get<CategoryAttributeDefinition[]>(
+        `/categories/${categoryId}/attributes`,
+        subcategoryId ? { subcategory_id: subcategoryId } : undefined,
+      ),
+    ),
 }
 
 export const inventoryApi = {

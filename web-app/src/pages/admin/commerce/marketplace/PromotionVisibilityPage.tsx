@@ -14,8 +14,8 @@ export default function PromotionVisibilityPage() {
     setLoading(true)
     try {
       const res = await adminCommerceApi.listPromotionVisibility({ limit, offset: page })
-      setPromotions(res.promotions)
-      setTotal(res.total)
+      setPromotions(res.promotions ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load promotions', err)
     } finally {

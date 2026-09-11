@@ -494,8 +494,22 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 			errorCode = err.Error()
 		}
 
-		// This one carries the missing field names after the code, so it is
-		// matched by prefix rather than by equality.
+		if missingErr, ok := err.(*models.MissingAttributesError); ok {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"code":              "MISSING_REQUIRED_ATTRIBUTES",
+					"message":           missingErr.Error(),
+					"missing_keys":      missingErr.MissingKeys,
+					"missing_labels_fr": missingErr.MissingLabelsFr,
+					"category_id":       missingErr.CategoryID,
+					"category_slug":     missingErr.CategorySlug,
+					"subcategory_slug":  missingErr.SubcategorySlug,
+				},
+			})
+			return
+		}
+
+		// Fallback string matching for string errors
 		if strings.HasPrefix(err.Error(), "MISSING_REQUIRED_ATTRIBUTES") {
 			statusCode = http.StatusBadRequest
 			errorCode = "MISSING_REQUIRED_ATTRIBUTES"
@@ -644,6 +658,9 @@ func (h *Handler) CreateVariant(c *gin.Context) {
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
+		case "DUPLICATE_VARIANT_COMBINATION":
+			statusCode = http.StatusConflict
+			errorCode = "DUPLICATE_VARIANT_COMBINATION"
 		}
 
 		h.errResponse(c, statusCode, errorCode, err.Error())
@@ -760,6 +777,9 @@ func (h *Handler) UpdateVariant(c *gin.Context) {
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
+		case "DUPLICATE_VARIANT_COMBINATION":
+			statusCode = http.StatusConflict
+			errorCode = "DUPLICATE_VARIANT_COMBINATION"
 		}
 
 		h.errResponse(c, statusCode, errorCode, err.Error())

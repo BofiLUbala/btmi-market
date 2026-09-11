@@ -32,6 +32,8 @@ services:
       - SUPER_ADMIN_EMAIL=${SUPER_ADMIN_EMAIL:-}
       - SUPER_ADMIN_PASSWORD=${SUPER_ADMIN_PASSWORD:-}
       - E2E_TEST_MODE=${E2E_TEST_MODE:-}
+      - APP_COMMIT_SHA=${APP_COMMIT_SHA:-unknown}
+      - BUILD_TIME=${BUILD_TIME:-unknown}
     volumes:
       - ./migrations:/migrations:ro
       - uploads_data:/app/uploads

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
-import type { CategoryResponse, SubcategoryResponse, Shop } from '@/api/types'
+import type { CategoryResponse, SubcategoryResponse, Shop, CategoryAttributeDefinition } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
@@ -48,9 +48,13 @@ interface PipelineProgress {
 /* ── Helpers ── */
 
 function cartesian(attrs: Array<{ name: string; values: string[] }>): Array<Record<string, string>> {
-  return attrs.reduce<Array<Record<string, string>>>(
+  const cleaned = attrs.map((a) => ({
+    name: a.name.trim(),
+    values: Array.from(new Set(a.values.map((v) => v.trim()).filter(Boolean))),
+  }))
+  return cleaned.reduce<Array<Record<string, string>>>(
     (acc, attr) =>
-      acc.flatMap((combo) => attr.values.map((v) => ({ ...combo, [attr.name]: v.trim() }))),
+      acc.flatMap((combo) => attr.values.map((v) => ({ ...combo, [attr.name]: v }))),
     [{}]
   )
 }
@@ -68,6 +72,7 @@ export default function SellerProductCreatePage() {
 
   /* Category-first data */
   const [categories, setCategories] = useState<CategoryResponse[]>([])
+  const [dbAttrDefs, setDbAttrDefs] = useState<CategoryAttributeDefinition[]>([])
 
   /* Form state */
   const [categoryId, setCategoryId] = useState('')
@@ -169,6 +174,25 @@ export default function SellerProductCreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /* Fetch DB-backed attribute definitions whenever category or subcategory changes */
+  useEffect(() => {
+    if (!categoryId) {
+      setDbAttrDefs([])
+      return
+    }
+    let active = true
+    categoryApi.getAttributes(categoryId, subcategoryId || undefined)
+      .then((defs) => {
+        if (active) setDbAttrDefs(Array.isArray(defs) ? defs : [])
+      })
+      .catch(() => {
+        if (active) setDbAttrDefs([])
+      })
+    return () => {
+      active = false
+    }
+  }, [categoryId, subcategoryId])
+
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === categoryId),
     [categories, categoryId]
@@ -180,17 +204,23 @@ export default function SellerProductCreatePage() {
   )
 
   const categorySuggestions = useMemo(() => {
+    if (dbAttrDefs.length > 0) {
+      return dbAttrDefs.map((d) => ({
+        name: d.label_fr || d.label_en || d.key,
+        recommendedType: (d.variant_attribute ? 'VARIANT' : 'INFO') as AttributeClassification,
+        placeholder: d.allowed_values && d.allowed_values.length > 0
+          ? d.allowed_values.join(', ')
+          : d.key,
+      }))
+    }
     if (!selectedCategory) return []
-    // A subcategory can be more specific than its parent (e.g. Fashion › Shoes
-    // should suggest shoe attributes, not generic fashion ones). Prefer the
-    // subcategory's own suggestions when they resolve to something; otherwise
-    // fall back to the parent category.
+    // Fallback to static suggestions if DB rules not yet loaded
     if (selectedSubcategory) {
       const subSuggestions = getCategorySuggestions(selectedSubcategory.slug || selectedSubcategory.name)
       if (subSuggestions.length > 0) return subSuggestions
     }
     return getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
-  }, [selectedCategory, selectedSubcategory])
+  }, [dbAttrDefs, selectedCategory, selectedSubcategory])
 
   const categoryRequirements = useMemo(
     () =>
@@ -201,10 +231,21 @@ export default function SellerProductCreatePage() {
     [selectedCategory, selectedSubcategory]
   )
 
-  const requiredAttributeNames = useMemo(() => new Set([
-    ...(categoryRequirements.allOf ?? []),
-    ...(categoryRequirements.anyOf ?? []).flat(),
-  ].map((name) => name.toLowerCase())), [categoryRequirements])
+  const requiredAttributeNames = useMemo(() => {
+    if (dbAttrDefs.length > 0) {
+      const set = new Set<string>()
+      for (const d of dbAttrDefs.filter((x) => x.required)) {
+        if (d.key) set.add(d.key.toLowerCase())
+        if (d.label_fr) set.add(d.label_fr.toLowerCase())
+        if (d.label_en) set.add(d.label_en.toLowerCase())
+      }
+      return set
+    }
+    return new Set([
+      ...(categoryRequirements.allOf ?? []),
+      ...(categoryRequirements.anyOf ?? []).flat(),
+    ].map((name) => name.toLowerCase()))
+  }, [dbAttrDefs, categoryRequirements])
 
   function handleCategoryChange(newCatId: string) {
     if (categoryId && newCatId !== categoryId && characteristics.length > 0) {
@@ -1173,7 +1214,8 @@ export default function SellerProductCreatePage() {
                     </div>
                   </div>
 
-                  <div className="table-responsive">
+                  {/* Desktop Table View */}
+                  <div className="table-responsive desktop-table-view">
                     <table className="data-table">
                       <thead>
                         <tr>
@@ -1222,6 +1264,44 @@ export default function SellerProductCreatePage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Mobile Card View (<= 768px) */}
+                  <div className="mobile-card-list">
+                    {activeCombos.map((combo) => (
+                      <div key={combo.key} className="mobile-data-card">
+                        <div className="mobile-data-card-header">
+                          <strong className="mobile-data-card-title">{combo.label}</strong>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+                          <Field
+                            label="SKU"
+                            name={`sku-${combo.key}`}
+                            value={combo.sku || ''}
+                            onChange={(e) => updateCombo(combo.key, 'sku', e.target.value)}
+                            placeholder="SKU"
+                          />
+                          <Field
+                            label={t('seller.productForm.salePriceFc')}
+                            name={`price-${combo.key}`}
+                            type="number"
+                            min="1"
+                            step="any"
+                            value={combo.price}
+                            onChange={(e) => updateCombo(combo.key, 'price', e.target.value)}
+                          />
+                          <Field
+                            label={t('seller.productForm.initialStock')}
+                            name={`stock-${combo.key}`}
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={combo.stock}
+                            onChange={(e) => updateCombo(combo.key, 'stock', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

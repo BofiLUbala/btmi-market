@@ -101,3 +101,42 @@ func (h *Handler) ListSubcategories(c *gin.Context) {
 		Data:    subs,
 	})
 }
+
+func (h *Handler) GetCategoryAttributes(c *gin.Context) {
+	categoryParam := c.Param("category_id")
+	subIDParam := c.Query("subcategory_id")
+	subSlugParam := c.Query("subcategory_slug")
+
+	var defs []*models.CategoryAttributeDefinition
+	categoryID, err := uuid.Parse(categoryParam)
+	if err == nil {
+		var subcategoryID *uuid.UUID
+		if subIDParam != "" {
+			if sid, parseErr := uuid.Parse(subIDParam); parseErr == nil {
+				subcategoryID = &sid
+			}
+		} else if subSlugParam != "" {
+			if sub, subErr := h.categoryService.GetSubcategoryBySlug(categoryID, subSlugParam); subErr == nil && sub != nil {
+				subcategoryID = &sub.ID
+			}
+		}
+		defs, err = h.categoryService.GetCategoryAttributes(categoryID, subcategoryID)
+	} else {
+		// Try slug
+		defs, err = h.categoryService.GetCategoryAttributesBySlug(categoryParam, subSlugParam)
+	}
+
+	if err != nil {
+		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+
+	if defs == nil {
+		defs = []*models.CategoryAttributeDefinition{}
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Category attributes retrieved successfully",
+		Data:    defs,
+	})
+}

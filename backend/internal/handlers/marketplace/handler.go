@@ -320,6 +320,27 @@ func (h *Handler) ListProductsByCategory(c *gin.Context) {
 	})
 }
 
+// GET /api/v1/marketplace/categories/:category_slug/attributes
+func (h *Handler) GetCategoryAttributes(c *gin.Context) {
+	categorySlug := c.Param("category_slug")
+	subcategorySlug := c.Query("subcategory")
+
+	defs, err := h.categoryService.GetCategoryAttributesBySlug(categorySlug, subcategorySlug)
+	if err != nil {
+		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		return
+	}
+
+	if defs == nil {
+		defs = []*models.CategoryAttributeDefinition{}
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Category attributes retrieved successfully",
+		Data:    defs,
+	})
+}
+
 // GET /api/v1/marketplace/categories/:category_slug/shops
 func (h *Handler) ListCategoryTopShops(c *gin.Context) {
 	categorySlug := c.Param("category_slug")

@@ -674,6 +674,14 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 	}, nil
 }
 
+func (r *MarketplaceRepository) LogSearch(query string, resultsCount int, searchType string, searchErr error) {
+	var errText interface{}
+	if searchErr != nil {
+		errText = searchErr.Error()
+	}
+	_, _ = r.db.Exec(`INSERT INTO search_query_log (query,results_count,search_type,error,created_at) VALUES ($1,$2,$3,$4,NOW())`, query, resultsCount, searchType, errText)
+}
+
 func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID uuid.UUID, city string, page, limit int) ([]*models.PublicProductResponse, int, error) {
 	where := []string{"p.publication_status = 'PUBLISHED'", "p.status = 'ACTIVE'", "s.status = 'ACTIVE'"}
 	args := []interface{}{}

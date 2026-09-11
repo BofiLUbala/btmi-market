@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/smtp"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -23,6 +26,7 @@ type AdminTechnicalService struct {
 	db           *sql.DB
 	redisClient  *redis.Client
 	auditService *AuditService
+	inspector    *asynq.Inspector
 }
 
 func NewAdminTechnicalService(
@@ -30,12 +34,14 @@ func NewAdminTechnicalService(
 	db *sql.DB,
 	redisClient *redis.Client,
 	auditService *AuditService,
+	inspector *asynq.Inspector,
 ) *AdminTechnicalService {
 	return &AdminTechnicalService{
 		repo:         repo,
 		db:           db,
 		redisClient:  redisClient,
 		auditService: auditService,
+		inspector:    inspector,
 	}
 }
 
@@ -300,8 +306,29 @@ func (s *AdminTechnicalService) ListFailedJobs(ctx context.Context, role models.
 	if err := s.checkTechnicalAccess(role); err != nil {
 		return nil, err
 	}
-	// Return empty list if no Redis
-	return []models.WorkerJobItem{}, nil
+	if s.inspector == nil {
+		return nil, errors.New("Asynq inspector not configured")
+	}
+	if queue == "" {
+		queue = "default"
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	page := int(offset/limit) + 1
+	tasks, err := s.inspector.ListRetryTasks(queue, asynq.Page(page), asynq.PageSize(int(limit)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect retry queue: %w", err)
+	}
+	items := make([]models.WorkerJobItem, 0, len(tasks))
+	for _, task := range tasks {
+		created := task.LastFailedAt
+		items = append(items, models.WorkerJobItem{JobID: task.ID, JobType: task.Type, Queue: task.Queue, CreatedAt: created, RetryCount: task.Retried, Status: "FAILED", LastError: sanitizeError(errors.New(task.LastErr))})
+	}
+	return items, nil
 }
 
 func (s *AdminTechnicalService) RetryFailedJob(ctx context.Context, actorID uuid.UUID, role models.AdminRole, jobID, reason string) error {
@@ -311,8 +338,18 @@ func (s *AdminTechnicalService) RetryFailedJob(ctx context.Context, actorID uuid
 	if reason == "" {
 		return errors.New("reason required for job retry")
 	}
-	// Record audit
-	_ = s.auditService.Record(
+	if s.inspector == nil {
+		return errors.New("Asynq inspector not configured")
+	}
+	queue := "default"
+	if parts := strings.SplitN(jobID, ":", 2); len(parts) == 2 {
+		queue = parts[0]
+		jobID = parts[1]
+	}
+	if err := s.inspector.RunTask(queue, jobID); err != nil {
+		return fmt.Errorf("failed to retry job: %w", err)
+	}
+	return s.auditService.Record(
 		actorID,
 		role,
 		"WORKER_JOB_RETRY",
@@ -323,7 +360,6 @@ func (s *AdminTechnicalService) RetryFailedJob(ctx context.Context, actorID uuid
 		map[string]interface{}{"status": "retrying"},
 		"", "",
 	)
-	return nil
 }
 
 // ─── VISUAL SEARCH ───────────────────────────────────────────────────────────
@@ -347,11 +383,73 @@ func (s *AdminTechnicalService) GetBackupSummary(ctx context.Context, role model
 	if err := s.checkTechnicalAccess(role); err != nil {
 		return nil, err
 	}
-	// No automated backup system configured yet
-	return &models.BackupSummary{
-		BackupStatus:    "NOT_CONFIGURED",
-		RetentionPolicy: "NOT_CONFIGURED",
-	}, nil
+	dir := backupDirectory()
+	entries, err := os.ReadDir(dir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	var newest time.Time
+	var size int64
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		info, err := e.Info()
+		if err == nil && (strings.HasSuffix(e.Name(), ".dump") || strings.HasSuffix(e.Name(), ".sql")) && info.ModTime().After(newest) {
+			newest = info.ModTime()
+			size = info.Size()
+		}
+	}
+	result := &models.BackupSummary{RetentionPolicy: "30 daily backups", BackupStatus: "OVERDUE"}
+	if !newest.IsZero() {
+		result.LastSuccessfulBackup = &newest
+		result.BackupSizeBytes = size
+		result.BackupSizeFormatted = fmt.Sprintf("%.2f MB", float64(size)/(1024*1024))
+		next := newest.Add(24 * time.Hour)
+		result.NextScheduledBackup = &next
+		if time.Since(newest) < 25*time.Hour {
+			result.BackupStatus = "OK"
+		}
+	}
+	return result, nil
+}
+
+func backupDirectory() string {
+	if d := os.Getenv("BACKUP_DIR"); d != "" {
+		return d
+	}
+	return "./backups"
+}
+
+func (s *AdminTechnicalService) CreateBackup(ctx context.Context, actorID uuid.UUID, role models.AdminRole, reason string) (*models.BackupSummary, error) {
+	if err := s.checkMutationAccess(role); err != nil {
+		return nil, err
+	}
+	if len(strings.TrimSpace(reason)) < 5 {
+		return nil, errors.New("reason required")
+	}
+	dir := backupDirectory()
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return nil, err
+	}
+	name := "btmi_market_" + time.Now().UTC().Format("20060102_150405") + ".dump"
+	target := filepath.Join(dir, name)
+	cmd := exec.CommandContext(ctx, "pg_dump", "--format=custom", "--no-owner", "--file", target)
+	cmd.Env = append(os.Environ(), "PGHOST="+envOr("DB_HOST", "localhost"), "PGPORT="+envOr("DB_PORT", "5432"), "PGDATABASE="+envOr("DB_NAME", "btmi_market"), "PGUSER="+envOr("DB_USER", "btmi_user"), "PGPASSWORD="+os.Getenv("DB_PASSWORD"))
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("pg_dump failed: %s", sanitizeError(fmt.Errorf("%s: %w", string(out), err)))
+	}
+	if err := s.auditService.Record(actorID, role, "DATABASE_BACKUP_CREATED", "DATABASE", name, reason, nil, map[string]interface{}{"file": name}, "", ""); err != nil {
+		return nil, err
+	}
+	return s.GetBackupSummary(ctx, role)
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 // ─── MIGRATIONS ───────────────────────────────────────────────────────────────

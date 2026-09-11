@@ -91,27 +91,35 @@ export function QRPanel({
   }
 
   return (
-    <div className="card" style={{ marginTop: 16, textAlign: 'center' }}>
-      <h3>{title}</h3>
-      {src && <img src={src} alt={`${title} ${qr.reference}`} width={220} height={220} />}
+    <div className="card" style={{ marginTop: 16, textAlign: 'center', maxWidth: '100%', boxSizing: 'border-box' }}>
+      <h3 style={{ margin: '0 0 10px', fontSize: 'clamp(1rem, 4vw, 1.25rem)' }}>{title}</h3>
+      {src && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '8px 0' }}>
+          <img
+            src={src}
+            alt={`${title} ${qr.reference}`}
+            style={{ maxWidth: '100%', height: 'auto', maxHeight: 220, width: 'auto' }}
+          />
+        </div>
+      )}
       {error && (
         <p className="small" role="alert">
           {error}
         </p>
       )}
-      <div>
+      <div style={{ marginTop: 6, overflowWrap: 'anywhere' }}>
         <strong>{qr.reference}</strong> · {qr.status}
       </div>
       {fields.filter((f) => f.value).length > 0 && (
-        <div className="small muted" style={{ marginTop: 4 }}>
+        <div className="small muted" style={{ marginTop: 4, overflowWrap: 'anywhere' }}>
           {fields.filter((f) => f.value).map((f) => `${f.label}: ${f.value}`).join(' · ')}
         </div>
       )}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-        <button className="btn btn-outline" onClick={download} disabled={!src}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <button className="btn btn-outline" style={{ minWidth: 120, flex: '1 1 120px', maxWidth: 200 }} onClick={download} disabled={!src}>
           Download QR
         </button>
-        <button className="btn btn-outline" onClick={print} disabled={!src}>
+        <button className="btn btn-outline" style={{ minWidth: 120, flex: '1 1 120px', maxWidth: 200 }} onClick={print} disabled={!src}>
           Print QR
         </button>
       </div>

@@ -18,7 +18,7 @@ export default function CommerceShopsPage() {
     try {
       const res = await adminCommerceApi.getShopPerformance({
         limit,
-        offset: page,
+        offset: page * limit,
       })
       const list = Array.isArray(res.performance) ? res.performance : []
       if (search) {

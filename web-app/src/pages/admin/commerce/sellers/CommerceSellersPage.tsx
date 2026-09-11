@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { adminCommerceApi, adminDirectionApi, type AdminSellerPerformance, type AdminUserListItem } from '@/api/admin'
+import { adminCommerceApi, type AdminSellerPerformance, type AdminUserListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { BarChartIcon } from '@/components/ui/Icons'
 
@@ -19,18 +19,18 @@ export default function CommerceSellersPage() {
     setLoading(true)
     try {
       const [usersRes, perfRes] = await Promise.all([
-        adminDirectionApi.listUsers({
+        adminCommerceApi.listOperationalUsers({
           search: search || undefined,
           account_type: 'SELLER',
           status: statusFilter || undefined,
           limit,
-          offset: page,
+          offset: page * limit,
         }),
         adminCommerceApi.getSellerPerformance({ limit: 100, offset: 0 }).catch(() => ({ performance: [] })),
       ])
 
-      setSellers(usersRes.users)
-      setTotal(usersRes.total)
+      setSellers(usersRes.users ?? [])
+      setTotal(usersRes.total ?? 0)
 
       const perfMap: Record<string, AdminSellerPerformance> = {}
       if (Array.isArray(perfRes.performance)) {

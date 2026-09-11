@@ -108,7 +108,92 @@ export default function ShopProductsPage() {
     {loading ? <LoadingBlock label={t('seller.shopProducts.loading')} /> : visibleRows.length === 0 ? <div className="card empty-state"><h3>{t('seller.shopProducts.emptyTitle')}</h3><p className="muted">{t('seller.shopProducts.emptyBody')}</p></div> : <div className="shop-inventory-grid">{visibleRows.map(row => {
       const open = expanded.has(row.product.id); const status = stockStatus(row.available)
       return <article className="card shop-inventory-card" key={row.product.id}><div className="shop-product-main"><div className="shop-product-thumb">{row.image ? <img src={row.image.url} alt="" /> : <span>{row.product.name.slice(0,2).toUpperCase()}</span>}</div><div><div className="row-between"><div><h2>{row.product.name}</h2><p className="small muted">{row.product.category_name || t('seller.shopProducts.uncategorized')} · SKU {row.product.sku || '—'}</p></div><span className={`badge badge-${row.product.publication_status === 'PUBLISHED' ? 'success' : 'warning'}`}>{t(`seller.publicationStatus.${row.product.publication_status}` as TranslationKey)}</span></div><div className="stock-metrics"><span><small>{t('seller.shopProducts.total')}</small><strong>{row.total}</strong></span><span><small>{t('seller.shopProducts.reserved')}</small><strong>{row.reserved}</strong></span><span><small>{t('seller.shopProducts.available')}</small><strong>{row.available}</strong></span><span className={`stock-state ${STOCK_STATE_CLASS[status]}`}>{t(`stock.state.${status}` as TranslationKey)}</span></div><div className="row-between"><span className="small muted">{t(row.variants.length === 1 ? 'seller.shopProducts.variantCount' : 'seller.shopProducts.variantCountPlural', { count: row.variants.length })}</span><div className="row"><Button size="sm" variant="outline" onClick={() => setExpanded(prev => { const next=new Set(prev); next.has(row.product.id)?next.delete(row.product.id):next.add(row.product.id); return next })}>{open ? t('seller.shopProducts.hideVariants') : t('seller.shopProducts.viewVariants')}</Button><Link to={`/seller/products/${row.product.id}?shop=${shopId}`}><Button size="sm" variant="ghost">{t('seller.shopProducts.productDetail')}</Button></Link></div></div></div></div>
-        {open && <div className="table-responsive variant-stock-table"><table className="data-table"><thead><tr><th>{t('seller.shopProducts.colVariant')}</th><th>SKU</th><th>{t('seller.shopProducts.total')}</th><th>{t('seller.shopProducts.reserved')}</th><th>{t('seller.shopProducts.available')}</th><th>{t('seller.shopProducts.colStatus')}</th><th>{t('seller.shopProducts.colAddStock')}</th></tr></thead><tbody>{row.variants.map(item => { const av=availableOf(item.inventory); const state=stockStatus(av); return <tr key={item.variant.id}><td><strong>{variantLabel(item.variant)}</strong></td><td className="mono small">{item.variant.sku}</td><td>{item.inventory.quantity}</td><td>{item.inventory.reserved_quantity}</td><td><strong>{av}</strong></td><td><span className={`stock-state ${STOCK_STATE_CLASS[state]}`}>{t(`stock.state.${state}` as TranslationKey)}</span></td><td><div className="row"><input className="input input-sm" type="number" min="1" placeholder={t('seller.shopProducts.qtyPlaceholder')} value={restock[item.variant.id] ?? ''} onChange={e => setRestock(prev => ({...prev,[item.variant.id]:e.target.value}))}/><Button size="sm" disabled={busyVariant===item.variant.id} onClick={() => void addStock(item)}>{t('seller.shopProducts.add')}</Button></div></td></tr>})}</tbody></table></div>}
+        {open && (
+          <>
+            <div className="table-responsive variant-stock-table desktop-table-view">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{t('seller.shopProducts.colVariant')}</th>
+                    <th>SKU</th>
+                    <th>{t('seller.shopProducts.total')}</th>
+                    <th>{t('seller.shopProducts.reserved')}</th>
+                    <th>{t('seller.shopProducts.available')}</th>
+                    <th>{t('seller.shopProducts.colStatus')}</th>
+                    <th>{t('seller.shopProducts.colAddStock')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {row.variants.map((item) => {
+                    const av = availableOf(item.inventory)
+                    const state = stockStatus(av)
+                    return (
+                      <tr key={item.variant.id}>
+                        <td><strong>{variantLabel(item.variant)}</strong></td>
+                        <td className="mono small">{item.variant.sku}</td>
+                        <td>{item.inventory.quantity}</td>
+                        <td>{item.inventory.reserved_quantity}</td>
+                        <td><strong>{av}</strong></td>
+                        <td><span className={`stock-state ${STOCK_STATE_CLASS[state]}`}>{t(`stock.state.${state}` as TranslationKey)}</span></td>
+                        <td>
+                          <div className="row">
+                            <input
+                              className="input input-sm"
+                              type="number"
+                              min="1"
+                              placeholder={t('seller.shopProducts.qtyPlaceholder')}
+                              value={restock[item.variant.id] ?? ''}
+                              onChange={(e) => setRestock((prev) => ({ ...prev, [item.variant.id]: e.target.value }))}
+                            />
+                            <Button size="sm" disabled={busyVariant === item.variant.id} onClick={() => void addStock(item)}>
+                              {t('seller.shopProducts.add')}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mobile-card-list">
+              {row.variants.map((item) => {
+                const av = availableOf(item.inventory)
+                const state = stockStatus(av)
+                return (
+                  <div key={item.variant.id} className="mobile-data-card" style={{ padding: '12px', gap: '8px' }}>
+                    <div className="mobile-data-card-header">
+                      <div>
+                        <strong style={{ fontSize: '0.95rem' }}>{variantLabel(item.variant)}</strong>
+                        {item.variant.sku && <span className="mono small muted" style={{ display: 'block' }}>SKU: {item.variant.sku}</span>}
+                      </div>
+                      <span className={`stock-state ${STOCK_STATE_CLASS[state]}`}>{t(`stock.state.${state}` as TranslationKey)}</span>
+                    </div>
+                    <div className="mobile-data-card-row">
+                      <span className="small muted">{t('seller.shopProducts.available')}: <strong>{av}</strong></span>
+                      <span className="small muted">({item.inventory.quantity} tot · {item.inventory.reserved_quantity} rés)</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
+                      <input
+                        className="input input-sm"
+                        type="number"
+                        min="1"
+                        placeholder={t('seller.shopProducts.qtyPlaceholder')}
+                        value={restock[item.variant.id] ?? ''}
+                        onChange={(e) => setRestock((prev) => ({ ...prev, [item.variant.id]: e.target.value }))}
+                        style={{ flex: '1 1 80px' }}
+                      />
+                      <Button size="sm" disabled={busyVariant === item.variant.id} onClick={() => void addStock(item)}>
+                        + {t('seller.shopProducts.add')}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </article>
     })}</div>}
   </div>

@@ -14,6 +14,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/email"
 	adminhandlers "github.com/btmi-ai-market/backend/internal/handlers/admin"
+	courierhandlers "github.com/btmi-ai-market/backend/internal/handlers/courier"
 	"github.com/btmi-ai-market/backend/internal/handlers/auth"
 	"github.com/btmi-ai-market/backend/internal/handlers/businesses"
 	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
@@ -92,6 +93,7 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	orderConvRepo := repository.NewOrderConversationRepository(db)
 	notifRepo := repository.NewNotificationRepository(db)
+	courierRepo := repository.NewCourierRepository(db)
 
 	redisClient := redislib.NewClient(cfg)
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
@@ -100,6 +102,8 @@ func main() {
 		DB:       cfg.RedisDB,
 	})
 	defer asynqClient.Close()
+	asynqInspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: cfg.RedisAddr, Password: cfg.RedisPassword, DB: cfg.RedisDB})
+	defer asynqInspector.Close()
 
 	rankRepo := repository.NewRankingRepository(redisClient, marketplaceRepo)
 	categoryRankingService := service.NewCategoryRankingService(redisClient, rankRepo, marketplaceRepo, categoryRepo, pointAccountRepo, levelRepo, trustRepo)
@@ -146,6 +150,9 @@ func main() {
 	commissionService := service.NewCommissionService(commissionRepo, orderRepo, buyerPaymentRepo, businessRepo)
 	paymentService.SetCommissionService(commissionService)
 
+	courierService := service.NewCourierService(courierRepo, userRepo, shopRepo, auditRepo, db)
+	courierService.SetCommunicationService(commService)
+
 	adminCommissionHandler := adminhandlers.NewAdminCommissionHandler(commissionService)
 	sellerFinanceHandler := sellerhandlers.NewSellerFinanceHandler(commissionService)
 
@@ -187,7 +194,7 @@ func main() {
 	adminFinanceRepo := repository.NewAdminFinanceRepository(db)
 	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService)
 	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB, migrationsDir)
-	adminTechnicalService := service.NewAdminTechnicalService(adminTechnicalRepo, db.DB, redisClient.GetRedis(), auditService)
+	adminTechnicalService := service.NewAdminTechnicalService(adminTechnicalRepo, db.DB, redisClient.GetRedis(), auditService, asynqInspector)
 	adminPlatformService := service.NewAdminPlatformService(adminPlatformRepo, auditService)
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
 
@@ -200,6 +207,7 @@ func main() {
 	adminPlatformHandler := adminhandlers.NewAdminPlatformHandler(adminPlatformService)
 	adminPhase5Handler := adminhandlers.NewAdminPhase5Handler(adminPhase5Service)
 	configHandler := configapi.NewHandler(adminPlatformRepo)
+	courierHandler := courierhandlers.NewHandler(courierService)
 
 	router := gin.Default()
 
@@ -230,7 +238,7 @@ func main() {
 	router.Static("/uploads", cfg.UploadDir)
 
 	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		c.JSON(200, gin.H{"status": "ok", "commit_sha": cfg.AppCommitSHA, "build_time": cfg.BuildTime})
 	})
 
 	router.GET("/swagger/doc.json", func(c *gin.Context) {
@@ -479,12 +487,31 @@ func main() {
 			buyerGroup.GET("/unread-counts", commHandler.GetBuyerUnreadCounts)
 		}
 
+		// Public courier activation/verification (no auth required)
 		courierGroup := api.Group("/courier")
-		courierGroup.Use(middleware.AuthMiddleware(authService))
 		{
-			courierGroup.Use(qrHandler.RequireCourier)
-			courierGroup.POST("/scans/pickup", qrHandler.ScanPickup)
-			courierGroup.POST("/scans/delivery", qrHandler.ScanDelivery)
+			courierGroup.POST("/activate", courierHandler.Activate)
+			courierGroup.GET("/verify/:token", courierHandler.VerifyInvitation)
+		}
+
+		// Protected courier routes (require auth + active courier profile)
+		courierProtected := api.Group("/courier")
+		courierProtected.Use(middleware.AuthMiddleware(authService))
+		courierProtected.Use(middleware.RequireCourier(courierService))
+		{
+			courierProtected.GET("/profile", courierHandler.GetProfile)
+			courierProtected.PATCH("/availability", courierHandler.UpdateAvailability)
+			courierProtected.GET("/dashboard", courierHandler.GetDashboard)
+			courierProtected.GET("/missions", courierHandler.GetMissions)
+			courierProtected.GET("/missions/:id", courierHandler.GetMission)
+			courierProtected.POST("/missions/:id/accept", courierHandler.AcceptMission)
+			courierProtected.POST("/missions/:id/reject", courierHandler.RejectMission)
+			courierProtected.POST("/missions/:id/start", courierHandler.StartDelivery)
+			courierProtected.POST("/missions/:id/arrive", courierHandler.ArriveAtDestination)
+			courierProtected.POST("/missions/:id/fail", courierHandler.FailDelivery)
+			courierProtected.GET("/history", courierHandler.GetHistory)
+			courierProtected.POST("/scans/pickup", qrHandler.ScanPickup)
+			courierProtected.POST("/scans/delivery", qrHandler.ScanDelivery)
 		}
 
 		marketplaceGroup := api.Group("/marketplace")
@@ -503,6 +530,7 @@ func main() {
 			marketplaceGroup.POST("/search/image", marketplaceHandler.SearchProductsByImage)
 			marketplaceGroup.GET("/categories", marketplaceHandler.ListCategories)
 			marketplaceGroup.GET("/categories/:category_slug/subcategories", marketplaceHandler.ListSubcategories)
+			marketplaceGroup.GET("/categories/:category_slug/attributes", marketplaceHandler.GetCategoryAttributes)
 			marketplaceGroup.GET("/categories/:category_slug/products", marketplaceHandler.ListProductsByCategory)
 			marketplaceGroup.GET("/categories/:category_slug/shops", marketplaceHandler.ListCategoryTopShops)
 			marketplaceGroup.GET("/shops/:shop_id/reviews", marketplaceReviewHandler.GetShopReviews)
@@ -523,6 +551,7 @@ func main() {
 		{
 			categoriesGroup.GET("", categoryHandler.ListCategories)
 			categoriesGroup.GET("/:category_id/subcategories", categoryHandler.ListSubcategories)
+			categoriesGroup.GET("/:category_id/attributes", categoryHandler.GetCategoryAttributes)
 		}
 
 		eventsGroup := api.Group("/events")
@@ -603,6 +632,7 @@ func main() {
 				))
 				{
 					commerceGroup.GET("/overview", adminCommerceHandler.Overview)
+					commerceGroup.GET("/users", adminCommerceHandler.ListOperationalUsers)
 					commerceGroup.GET("/products", adminCommerceHandler.ListProducts)
 					commerceGroup.GET("/products/:id", adminCommerceHandler.GetProduct)
 					commerceGroup.POST("/products/:id/unpublish", adminCommerceHandler.UnpublishProduct)
@@ -647,6 +677,13 @@ func main() {
 
 					commerceGroup.GET("/employees", adminCommerceHandler.ListEmployees)
 					commerceGroup.POST("/employees/:id/revoke", adminCommerceHandler.RevokeEmployeeAccess)
+
+					commerceGroup.GET("/couriers", courierHandler.ListCouriers)
+					commerceGroup.GET("/couriers/available", courierHandler.ListAvailableCouriers)
+					commerceGroup.GET("/couriers/:id", courierHandler.GetCourierDetail)
+					commerceGroup.POST("/couriers/invite", courierHandler.InviteCourier)
+					commerceGroup.POST("/couriers/:id/suspend", courierHandler.SuspendCourier)
+					commerceGroup.POST("/couriers/:id/reactivate", courierHandler.ReactivateCourier)
 				}
 
 				financeGroup := protectedAdmin.Group("/finance")
@@ -708,6 +745,7 @@ func main() {
 					technicalGroup.POST("/workers/:id/retry", adminTechnicalHandler.RetryFailedJob)
 					technicalGroup.GET("/visual-search", adminTechnicalHandler.GetVisualSearchHealth)
 					technicalGroup.GET("/backups", adminTechnicalHandler.GetBackupSummary)
+					technicalGroup.POST("/backups", adminTechnicalHandler.CreateBackup)
 					technicalGroup.GET("/migrations", adminTechnicalHandler.GetMigrationSummary)
 					technicalGroup.GET("/email/health", adminTechnicalHandler.GetEmailHealth)
 					technicalGroup.GET("/sessions", adminTechnicalHandler.GetAdminSessions)

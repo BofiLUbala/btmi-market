@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -219,3 +220,90 @@ func (r *CategoryRepository) ListCategoriesWithSubs() ([]*models.CategoryRespons
 	}
 	return result, rows.Err()
 }
+
+// GetEffectiveAttributes retrieves the attribute definitions for a category,
+// taking subcategory-specific overrides into account if subcategoryID is provided.
+func (r *CategoryRepository) GetEffectiveAttributes(categoryID uuid.UUID, subcategoryID *uuid.UUID) ([]*models.CategoryAttributeDefinition, error) {
+	if subcategoryID != nil && *subcategoryID != uuid.Nil {
+		// Check for subcategory-specific overrides
+		subQuery := `
+			SELECT id, category_id, subcategory_id, key, label_en, label_fr, required, variant_attribute,
+			       input_type, allowed_values, display_order, status, created_at, updated_at
+			FROM category_attribute_definitions
+			WHERE category_id = $1 AND subcategory_id = $2 AND status = 'ACTIVE'
+			ORDER BY display_order ASC, key ASC
+		`
+		subRows, err := r.db.Query(subQuery, categoryID, *subcategoryID)
+		if err == nil {
+			defer subRows.Close()
+			var subDefs []*models.CategoryAttributeDefinition
+			for subRows.Next() {
+				def := &models.CategoryAttributeDefinition{}
+				var allowedValsJSON []byte
+				if err := subRows.Scan(
+					&def.ID, &def.CategoryID, &def.SubcategoryID, &def.Key, &def.LabelEn, &def.LabelFr,
+					&def.Required, &def.VariantAttribute, &def.InputType, &allowedValsJSON,
+					&def.DisplayOrder, &def.Status, &def.CreatedAt, &def.UpdatedAt,
+				); err == nil {
+					def.AllowedValues = []string{}
+					if len(allowedValsJSON) > 0 {
+						_ = json.Unmarshal(allowedValsJSON, &def.AllowedValues)
+					}
+					subDefs = append(subDefs, def)
+				}
+			}
+			if len(subDefs) > 0 {
+				return subDefs, nil
+			}
+		}
+	}
+
+	// Fallback to base category attributes (where subcategory_id IS NULL)
+	catQuery := `
+		SELECT id, category_id, subcategory_id, key, label_en, label_fr, required, variant_attribute,
+		       input_type, allowed_values, display_order, status, created_at, updated_at
+		FROM category_attribute_definitions
+		WHERE category_id = $1 AND subcategory_id IS NULL AND status = 'ACTIVE'
+		ORDER BY display_order ASC, key ASC
+	`
+	rows, err := r.db.Query(catQuery, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var defs []*models.CategoryAttributeDefinition
+	for rows.Next() {
+		def := &models.CategoryAttributeDefinition{}
+		var allowedValsJSON []byte
+		if err := rows.Scan(
+			&def.ID, &def.CategoryID, &def.SubcategoryID, &def.Key, &def.LabelEn, &def.LabelFr,
+			&def.Required, &def.VariantAttribute, &def.InputType, &allowedValsJSON,
+			&def.DisplayOrder, &def.Status, &def.CreatedAt, &def.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		def.AllowedValues = []string{}
+		if len(allowedValsJSON) > 0 {
+			_ = json.Unmarshal(allowedValsJSON, &def.AllowedValues)
+		}
+		defs = append(defs, def)
+	}
+	return defs, rows.Err()
+}
+
+// GetEffectiveAttributesBySlug retrieves the attribute definitions by category and subcategory slugs.
+func (r *CategoryRepository) GetEffectiveAttributesBySlug(categorySlug string, subcategorySlug string) ([]*models.CategoryAttributeDefinition, error) {
+	cat, err := r.GetBySlug(categorySlug)
+	if err != nil {
+		return nil, err
+	}
+	var subID *uuid.UUID
+	if subcategorySlug != "" {
+		if sub, err := r.GetSubcategoryBySlug(cat.ID, subcategorySlug); err == nil && sub != nil {
+			subID = &sub.ID
+		}
+	}
+	return r.GetEffectiveAttributes(cat.ID, subID)
+}
+

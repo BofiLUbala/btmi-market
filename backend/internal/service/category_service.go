@@ -97,3 +97,11 @@ func (s *CategoryService) GetCategoryDetailsBySlug(slug string) (*models.Categor
 func (s *CategoryService) GetSubcategoryBySlug(categoryID uuid.UUID, slug string) (*models.Subcategory, error) {
 	return s.categoryRepo.GetSubcategoryBySlug(categoryID, slug)
 }
+
+func (s *CategoryService) GetCategoryAttributes(categoryID uuid.UUID, subcategoryID *uuid.UUID) ([]*models.CategoryAttributeDefinition, error) {
+	return s.categoryRepo.GetEffectiveAttributes(categoryID, subcategoryID)
+}
+
+func (s *CategoryService) GetCategoryAttributesBySlug(categorySlug string, subcategorySlug string) ([]*models.CategoryAttributeDefinition, error) {
+	return s.categoryRepo.GetEffectiveAttributesBySlug(categorySlug, subcategorySlug)
+}

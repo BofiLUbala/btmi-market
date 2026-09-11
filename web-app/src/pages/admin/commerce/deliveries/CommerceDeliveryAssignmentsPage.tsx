@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   adminCommerceApi,
-  adminDirectionApi,
   type AdminOrderItem,
   type AdminUserListItem,
   type AdminOrderDetail,
@@ -44,7 +43,7 @@ export default function CommerceDeliveryAssignmentsPage() {
         adminCommerceApi.listOrders({
           limit: 100,
         }),
-        adminDirectionApi.listUsers({
+        adminCommerceApi.listOperationalUsers({
           account_type: 'EMPLOYEE',
           status: 'ACTIVE',
           limit: 100,

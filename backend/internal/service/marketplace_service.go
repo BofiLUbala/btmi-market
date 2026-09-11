@@ -130,6 +130,11 @@ func (s *MarketplaceService) SearchProducts(params *models.MarketplaceSearchPara
 		params.Limit = 20
 	}
 	res, err := s.marketplaceRepo.SearchProducts(params)
+	count := 0
+	if res != nil {
+		count = res.Pagination.Total
+	}
+	s.marketplaceRepo.LogSearch(params.Query, count, "TEXT", err)
 	if err == nil && res != nil {
 		s.attachImages(res.Products)
 	}

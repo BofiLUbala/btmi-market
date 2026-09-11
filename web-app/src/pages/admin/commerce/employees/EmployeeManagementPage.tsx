@@ -30,8 +30,8 @@ export default function EmployeeManagementPage() {
     setLoading(true)
     try {
       const res = await adminCommerceApi.listEmployees({ limit, offset: page })
-      setEmployees(res.employees)
-      setTotal(res.total)
+      setEmployees(res.employees ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load employees', err)
     } finally {

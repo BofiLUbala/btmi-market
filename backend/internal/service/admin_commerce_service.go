@@ -50,6 +50,13 @@ func (s *AdminCommerceService) GetOverview(ctx context.Context) (*models.Commerc
 	return s.commerceRepo.GetOverview()
 }
 
+func (s *AdminCommerceService) ListOperationalUsers(search, accountType, status string, limit, offset int) ([]*models.AdminUserListItem, int, error) {
+	if accountType != "SELLER" && accountType != "EMPLOYEE" {
+		return nil, 0, errors.New("account_type must be SELLER or EMPLOYEE")
+	}
+	return s.commerceRepo.ListOperationalUsers(search, accountType, status, limit, offset)
+}
+
 // 2. Products
 func (s *AdminCommerceService) ListProducts(search, businessID, categoryID, subcategoryID, publicationStatus, stockStatus string, limit, offset int) ([]*models.AdminProductListItem, int, error) {
 	return s.commerceRepo.ListProducts(search, businessID, categoryID, subcategoryID, publicationStatus, stockStatus, limit, offset)
@@ -313,7 +320,15 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 	if err != nil {
 		return err
 	}
-	if err := orderRepo.AssignCourier(orderID, courierID, notes); err != nil {
+
+	// The orders table FK references users(id), so resolve courier_id -> user_id
+	courierRepo := repository.NewCourierRepository(s.db)
+	courier, err := courierRepo.GetByID(courierID)
+	if err != nil {
+		return errors.New("COURIER_NOT_FOUND")
+	}
+
+	if err := orderRepo.AssignCourier(orderID, courier.UserID, notes); err != nil {
 		return err
 	}
 

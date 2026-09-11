@@ -28,6 +28,8 @@ type Config struct {
 	SMTPFrom        string
 	UploadDir       string
 	VisualSearchURL string
+	AppCommitSHA    string
+	BuildTime       string
 }
 
 func Load() *Config {
@@ -54,6 +56,8 @@ func Load() *Config {
 		SMTPFrom:        getEnv("SMTP_FROM", "noreply@btmi-market.com"),
 		UploadDir:       getEnv("UPLOAD_DIR", "./uploads"),
 		VisualSearchURL: getEnv("VISUAL_SEARCH_URL", "http://visual-search:8090"),
+		AppCommitSHA:    getEnv("APP_COMMIT_SHA", "unknown"),
+		BuildTime:       getEnv("BUILD_TIME", "unknown"),
 	}
 }
 

@@ -42,7 +42,25 @@ export interface RegisterInput {
   longitude?: number | null
 }
 
+
 export interface Category { id: string; name: string; slug: string; sort_order?: number; subcategories?: Category[] }
+
+/** Mirrors backend models.CategoryAttributeDefinition and web-app CategoryAttributeDefinition. */
+export interface CategoryAttributeDefinition {
+  id: string
+  category_id: string
+  subcategory_id?: string | null
+  key: string
+  label_en: string
+  label_fr: string
+  required: boolean
+  variant_attribute: boolean
+  input_type: 'TEXT' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN'
+  allowed_values?: string[]
+  display_order: number
+  status: string
+}
+
 export interface PublicImage { id?: string; url?: string; image_url?: string; is_primary?: boolean }
 export interface PublicVariant {
   id: string

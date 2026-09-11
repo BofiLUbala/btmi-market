@@ -78,63 +78,65 @@ export function SearchAutocomplete({
     return () => window.removeEventListener('keydown', onKey)
   }, [cameraOpen, stopCamera])
 
-  useEffect(() => {
-    const trimmed = query.trim()
-    if (trimmed.length < 2) {
-      setSuggestions([])
-      setStatus('idle')
-      setOpen(false)
-      return
-    }
+useEffect(() => {
+     const trimmed = query.trim()
+     if (trimmed.length < 2) {
+       setSuggestions([])
+       setStatus('idle')
+       setOpen(false)
+       return
+     }
 
-    const controller = new AbortController()
-    const timer = window.setTimeout(async () => {
-      setStatus('loading')
-      setOpen(true)
-      try {
-        const [products, shops, categories] = await Promise.all([
-          marketplaceApi.search({ q: trimmed, sort: 'relevance', page: 1, limit: 4 }, controller.signal),
-          marketplaceApi.shops({ q: trimmed, page: 1, limit: 3 }, controller.signal),
-          loadTaxonomy()
-        ])
-        if (controller.signal.aborted) return
-        const needle = trimmed.toLocaleLowerCase()
-        const categoryItems: Suggestion[] = []
-        const subcategoryItems: Suggestion[] = []
-        for (const category of categories) {
-          const catLabel = categoryLabel(t, category.slug, category.name)
-          if (category.name.toLocaleLowerCase().includes(needle) || catLabel.toLocaleLowerCase().includes(needle)) {
-            categoryItems.push({ kind: 'category', id: category.id, label: catLabel, detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
-          }
-          for (const subcategory of category.subcategories ?? []) {
-            const subLabel = subcategoryLabel(t, subcategory.slug, subcategory.name)
-            if (subcategory.name.toLocaleLowerCase().includes(needle) || subLabel.toLocaleLowerCase().includes(needle)) {
-              subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subLabel, detail: t('search.kind.inCategory', { category: catLabel }), href: `/categories/${category.slug}`, category, subcategory })
-            }
-          }
-        }
-        const uniqueProducts = (products.products ?? []).filter((product, index, all) => all.findIndex((candidate) => candidate.id === product.id) === index)
-        const uniqueShops = (shops.shops ?? []).filter((shop, index, all) => all.findIndex((candidate) => candidate.id === shop.id) === index)
-        const next: Suggestion[] = [
-          ...uniqueProducts.slice(0, 3).map((product): Suggestion => ({ kind: 'product', id: product.id, label: product.name, detail: `${product.shop_name} · ${formatMoney(product.variants?.[0]?.unit_price ?? product.base_price)}`, href: `/products/${product.id}`, product })),
-          ...uniqueShops.slice(0, 2).map((shop): Suggestion => ({ kind: 'shop', id: shop.id, label: shop.name, detail: shop.city || shop.business_name, href: `/shops/${shop.id}`, shop })),
-          ...categoryItems.slice(0, 2),
-          ...subcategoryItems.slice(0, 1)
-        ].slice(0, 8)
-        setSuggestions(next)
-        setActiveIndex(-1)
-        setStatus('ready')
-      } catch (error) {
-        if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return
-        setSuggestions([])
-        setStatus('error')
-      }
-    }, 300)
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [query, t])
+     const controller = new AbortController()
+     const timer = window.setTimeout(async () => {
+       setStatus('loading')
+       setOpen(true)
+       try {
+         const [productsRes, shopsRes, categories] = await Promise.all([
+           marketplaceApi.search({ q: trimmed, sort: 'relevance', page: 1, limit: 4 }, controller.signal),
+           marketplaceApi.shops({ q: trimmed, page: 1, limit: 3 }, controller.signal),
+           loadTaxonomy()
+         ])
+         if (controller.signal.aborted) return
+         const needle = trimmed.toLocaleLowerCase()
+         const categoryItems: Suggestion[] = []
+         const subcategoryItems: Suggestion[] = []
+         for (const category of categories ?? []) {
+           const catLabel = categoryLabel(t, category.slug, category.name)
+           if (category.name.toLocaleLowerCase().includes(needle) || catLabel.toLocaleLowerCase().includes(needle)) {
+             categoryItems.push({ kind: 'category', id: category.id, label: catLabel, detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
+           }
+           for (const subcategory of category.subcategories ?? []) {
+             const subLabel = subcategoryLabel(t, subcategory.slug, subcategory.name)
+             if (subcategory.name.toLocaleLowerCase().includes(needle) || subLabel.toLocaleLowerCase().includes(needle)) {
+               subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subLabel, detail: t('search.kind.inCategory', { category: catLabel }), href: `/categories/${category.slug}`, category, subcategory })
+             }
+           }
+         }
+         const productList = productsRes?.products ?? []
+         const shopList = shopsRes?.shops ?? []
+         const uniqueProducts = productList.filter((product, index, all) => all.findIndex((candidate) => candidate.id === product.id) === index)
+         const uniqueShops = shopList.filter((shop, index, all) => all.findIndex((candidate) => candidate.id === shop.id) === index)
+         const next: Suggestion[] = [
+           ...uniqueProducts.slice(0, 3).map((product): Suggestion => ({ kind: 'product', id: product.id, label: product.name, detail: `${product.shop_name} · ${formatMoney(product.variants?.[0]?.unit_price ?? product.base_price)}`, href: `/products/${product.id}`, product })),
+           ...uniqueShops.slice(0, 2).map((shop): Suggestion => ({ kind: 'shop', id: shop.id, label: shop.name, detail: shop.city || shop.business_name, href: `/shops/${shop.id}`, shop })),
+           ...categoryItems.slice(0, 2),
+           ...subcategoryItems.slice(0, 1)
+         ].slice(0, 8)
+         setSuggestions(next)
+         setActiveIndex(-1)
+         setStatus('ready')
+       } catch (error) {
+         if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return
+         setSuggestions([])
+         setStatus('error')
+       }
+     }, 300)
+     return () => {
+       window.clearTimeout(timer)
+       controller.abort()
+     }
+   }, [query, t])
 
   useEffect(() => {
     const close = (event: MouseEvent) => {

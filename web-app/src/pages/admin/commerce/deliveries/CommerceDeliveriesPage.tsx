@@ -23,10 +23,10 @@ export default function CommerceDeliveriesPage() {
         delivery_method: deliveryFilter || undefined,
         search: search || undefined,
         limit,
-        offset: page,
+        offset: page * limit,
       })
-      setOrders(res.orders)
-      setTotal(res.total)
+      setOrders(res.orders ?? [])
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load deliveries', err)
     } finally {

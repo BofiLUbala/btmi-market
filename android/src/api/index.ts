@@ -128,6 +128,12 @@ export const sellerApi = {
 
   /* Categories */
   categories: async () => list<Category>(await get<unknown>('/categories?with_subcategories=true')),
+  /** DB-backed attribute definitions — primary source of truth, matches web-app and backend. */
+  categoryAttributes: async (categoryId: string, subcategoryId?: string): Promise<CategoryAttributeDefinition[]> => {
+    const query = subcategoryId ? `?subcategory_id=${encodeURIComponent(subcategoryId)}` : ''
+    return list<CategoryAttributeDefinition>(await get<unknown>(`/categories/${encodeURIComponent(categoryId)}/attributes${query}`))
+  },
+
 
   /* Products & variants */
   products: async (businessId: string, params?: { category_id?: string; publication_status?: PublicationStatus; search?: string }) => {

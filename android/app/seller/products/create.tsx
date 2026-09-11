@@ -121,16 +121,29 @@ export default function SellerProductCreateScreen() {
   const subcategories = selectedCategory?.subcategories ?? []
   const selectedSubcategory = subcategories.find((s: Category) => s.id === subcategoryId)
 
-  /* A subcategory can be more specific than its parent (Fashion > Shoes wants
-     shoe attributes), so it wins whenever it resolves to anything. */
+  const categoryAttributesQuery = useQuery({
+    queryKey: ['categoryAttributes', categoryId, subcategoryId],
+    queryFn: () => sellerApi.categoryAttributes(categoryId, subcategoryId),
+    enabled: Boolean(categoryId),
+  })
+
+  /* DB API is the primary source of truth. Fallback to static client map only if offline or pending. */
   const categorySuggestions = useMemo<AttributeSuggestion[]>(() => {
+    if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
+      return categoryAttributesQuery.data.map((def) => ({
+        name: def.key,
+        label_fr: def.label_fr,
+        type: def.variant_attribute ? 'VARIANT' : 'INFO',
+        required: def.required,
+      }))
+    }
     if (!selectedCategory) return []
     if (selectedSubcategory) {
       const subs = getCategorySuggestions(selectedSubcategory.slug || selectedSubcategory.name)
       if (subs.length > 0) return subs
     }
     return getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
-  }, [selectedCategory, selectedSubcategory])
+  }, [categoryAttributesQuery.data, selectedCategory, selectedSubcategory])
 
   const categoryRequirements = useMemo(
     () => getCategoryRequirements(
@@ -140,13 +153,23 @@ export default function SellerProductCreateScreen() {
     [selectedCategory, selectedSubcategory],
   )
 
-  const requiredAttributeNames = useMemo(
-    () => new Set([
+  const requiredAttributeNames = useMemo(() => {
+    if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
+      const reqs = new Set<string>()
+      for (const def of categoryAttributesQuery.data) {
+        if (def.required) {
+          reqs.add(def.key.toLowerCase())
+          if (def.label_en) reqs.add(def.label_en.toLowerCase())
+          if (def.label_fr) reqs.add(def.label_fr.toLowerCase())
+        }
+      }
+      return reqs
+    }
+    return new Set([
       ...(categoryRequirements.allOf ?? []),
       ...(categoryRequirements.anyOf ?? []).flat(),
-    ].map((n) => n.toLowerCase())),
-    [categoryRequirements],
-  )
+    ].map((n) => n.toLowerCase()))
+  }, [categoryAttributesQuery.data, categoryRequirements])
 
   /* Combinations derived from VARIANT characteristics; INFO ones ride along on
      every combination as specifications. */

@@ -19,6 +19,61 @@ func NewAdminCommerceRepository(db *database.DB) *AdminCommerceRepository {
 	return &AdminCommerceRepository{db: db}
 }
 
+// ListOperationalUsers gives Commerce its own role-authorized view of sellers
+// and employees instead of leaking through Direction's restricted API.
+func (r *AdminCommerceRepository) ListOperationalUsers(search, accountType, status string, limit, offset int) ([]*models.AdminUserListItem, int, error) {
+	conditions := []string{"1=1"}
+	args := []interface{}{}
+	n := 1
+	if search != "" {
+		conditions = append(conditions, fmt.Sprintf("(u.email ILIKE $%d OR u.first_name ILIKE $%d OR u.last_name ILIKE $%d OR u.phone ILIKE $%d)", n, n, n, n))
+		args = append(args, "%"+search+"%")
+		n++
+	}
+	if accountType != "" {
+		conditions = append(conditions, fmt.Sprintf("u.account_type::text=$%d", n))
+		args = append(args, accountType)
+		n++
+	}
+	if status != "" {
+		conditions = append(conditions, fmt.Sprintf("u.status::text=$%d", n))
+		args = append(args, status)
+		n++
+	}
+	where := strings.Join(conditions, " AND ")
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var total int
+	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM users u WHERE %s", where), args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	q := fmt.Sprintf(`SELECT u.id,u.first_name,u.middle_name,u.last_name,u.phone,u.email,u.status,u.email_verified,u.account_type,u.created_at,
+		COUNT(DISTINCT bm.business_id),COUNT(DISTINCT s.id),COUNT(DISTINCT o.id),COALESCE(MAX(pa.current_points),0)
+		FROM users u LEFT JOIN business_memberships bm ON bm.user_id=u.id AND bm.status='ACTIVE'
+		LEFT JOIN shops s ON s.business_id=bm.business_id LEFT JOIN buyer_profiles bp ON bp.user_id=u.id
+		LEFT JOIN orders o ON o.buyer_profile_id=bp.id LEFT JOIN point_accounts pa ON pa.owner_type='BUYER' AND pa.owner_id=bp.id
+		WHERE %s GROUP BY u.id ORDER BY u.created_at DESC LIMIT $%d OFFSET $%d`, where, n, n+1)
+	args = append(args, limit, offset)
+	rows, err := r.db.Query(q, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	items := make([]*models.AdminUserListItem, 0)
+	for rows.Next() {
+		x := &models.AdminUserListItem{}
+		if err := rows.Scan(&x.ID, &x.FirstName, &x.MiddleName, &x.LastName, &x.Phone, &x.Email, &x.Status, &x.EmailVerified, &x.AccountType, &x.CreatedAt, &x.BusinessCount, &x.ShopCount, &x.OrderCount, &x.TotalPoints); err != nil {
+			return nil, 0, err
+		}
+		items = append(items, x)
+	}
+	return items, total, rows.Err()
+}
+
 // 1. Overview KPIs
 func (r *AdminCommerceRepository) GetOverview() (*models.CommerceOverviewStats, error) {
 	stats := &models.CommerceOverviewStats{}
