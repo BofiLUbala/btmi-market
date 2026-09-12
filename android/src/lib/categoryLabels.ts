@@ -17,6 +17,7 @@ const CATEGORY_KEYS: Record<string, TranslationKey> = {
   sport: 'categories.slug.sport',
   automotive: 'categories.slug.automotive',
   services: 'categories.slug.services',
+  shoes: 'categories.slug.shoes',
 }
 
 const SUBCATEGORY_KEYS: Record<string, TranslationKey> = {
@@ -52,11 +53,11 @@ const SUBCATEGORY_KEYS: Record<string, TranslationKey> = {
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 
 export function categoryLabel(t: Translate, slug: string | null | undefined, fallbackName: string | null | undefined): string {
-  const key = slug ? CATEGORY_KEYS[slug.toLowerCase()] : undefined
+  const key = CATEGORY_KEYS[(slug || fallbackName || '').trim().toLowerCase().replace(/\s+/g, '-')]
   return key ? t(key) : fallbackName ?? slug ?? ''
 }
 
 export function subcategoryLabel(t: Translate, slug: string | null | undefined, fallbackName: string | null | undefined): string {
-  const key = slug ? SUBCATEGORY_KEYS[slug.toLowerCase()] : undefined
+  const key = SUBCATEGORY_KEYS[(slug || fallbackName || '').trim().toLowerCase().replace(/\s+/g, '-')]
   return key ? t(key) : fallbackName ?? slug ?? ''
 }

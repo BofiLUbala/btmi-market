@@ -8,6 +8,8 @@ import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import type { BuyerPayment, SellerOrder } from '../../src/types'
+import { statusLabel } from '../../src/lib/statusLabels'
+import { deliveryLabel } from '../../src/lib/deliveryLabels'
 
 const POLL_INTERVAL = 30_000
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
@@ -150,8 +152,8 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
   })
 
   return <Card>
-    <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{order.status.replaceAll('_', ' ')}</Text></View>
-    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {(order.delivery_method || '—').replaceAll('_',' ').toLowerCase()}</Text><Text style={styles.total}>{order.final_total.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} FC</Text></View>
+    <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text></View>
+    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{order.final_total.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} FC</Text></View>
     <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
     {actions.length ? actions.map((action) => (
       <Button key={action.status} variant={action.destructive ? 'outline' : 'primary'} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
@@ -163,7 +165,7 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
         <Text style={styles.muted}>{t('orders.amountDue', { amount: `${payment.data.cash_due.toLocaleString()} ${payment.data.currency}` })}</Text>
         <Text style={styles.muted}>{t('orders.actorBuyer')} : {payment.data.buyer_confirmed ? t('orders.paymentDeclared') : t('orders.notConfirmed')}</Text>
         <Text style={styles.muted}>{t('seller.seller')} : {payment.data.seller_confirmed ? t('orders.cashReceived') : t('orders.notConfirmed')}</Text>
-        <Text style={styles.muted}>{t('orders.status')} : {payment.data.status}</Text>
+        <Text style={styles.muted}>{t('orders.status')} : {statusLabel(t, payment.data.status)}</Text>
         {!payment.data.seller_confirmed && <Button title={t('seller.confirmCash')} loading={confirmCash.isPending} onPress={() => confirmCash.mutate()}/>}
       </> : <Text style={styles.muted}>{t('seller.noPayment')}</Text>}
     </View>}

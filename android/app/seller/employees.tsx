@@ -9,6 +9,7 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import type { Employee } from '../../src/types'
+import { statusLabel } from '../../src/lib/statusLabels'
 
 const emptyForm = { first_name: '', middle_name: '', last_name: '', phone: '', email: '', job_title: '' }
 
@@ -97,7 +98,7 @@ export default function SellerEmployeesScreen() {
       return <Card key={employee.id}>
         <View style={styles.row}>
           <Text style={styles.name}>{employee.first_name} {employee.last_name}</Text>
-          <Text style={[styles.badge, employee.status !== 'ACTIVE' && styles.badgeMuted]}>{employee.status}</Text>
+          <Text style={[styles.badge, employee.status !== 'ACTIVE' && styles.badgeMuted]}>{statusLabel(t, employee.status)}</Text>
         </View>
         <Text style={styles.muted}>{employee.job_title}</Text>
         <Text style={styles.muted}>{employee.phone} · {employee.email}</Text>

@@ -5,6 +5,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import NetInfo from '@react-native-community/netinfo'
 import { courierApi } from '../../src/api'
 import { useColors } from '../../src/store/theme'
+import { useI18n } from '../../src/store/i18n'
+import { statusLabel } from '../../src/lib/statusLabels'
 import type { QRScanResponse } from '../../src/types'
 
 type ScanType = 'PICKUP' | 'DELIVERY'
@@ -28,6 +30,7 @@ type Outcome =
  */
 export default function CourierScanScreen() {
   const c = useColors()
+  const { t } = useI18n()
   const styles = useMemo(() => makeStyles(c), [c])
   const router = useRouter()
   const params = useLocalSearchParams<{ type?: string; order_id?: string }>()
@@ -57,15 +60,15 @@ export default function CourierScanScreen() {
         // Say so honestly and let the courier retry under the same idempotency key.
         const online = (await NetInfo.fetch()).isConnected
         if (!online) {
-          setOutcome({ kind: 'pending', token, message: 'Scan capturé, en attente du réseau.' })
+          setOutcome({ kind: 'pending', token, message: t('courier.scan.offline') })
           return
         }
-        setOutcome({ kind: 'error', message: e instanceof Error ? e.message : 'Scan refusé.' })
+        setOutcome({ kind: 'error', message: e instanceof Error ? e.message : t('courier.scan.rejected') })
       } finally {
         busy.current = false
       }
     },
-    [params.order_id, scanType]
+    [params.order_id, scanType, t]
   )
 
   const onScanned = useCallback(
@@ -95,12 +98,10 @@ export default function CourierScanScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>Accès caméra requis</Text>
-        <Text style={styles.body}>
-          TBK a besoin de la caméra pour scanner le QR du colis et vérifier la remise.
-        </Text>
+        <Text style={styles.title}>{t('courier.scan.cameraRequired')}</Text>
+        <Text style={styles.body}>{t('courier.scan.cameraBody')}</Text>
         <Pressable style={styles.primary} onPress={() => void requestPermission()}>
-          <Text style={styles.primaryText}>Autoriser la caméra</Text>
+          <Text style={styles.primaryText}>{t('courier.scan.allowCamera')}</Text>
         </Pressable>
       </View>
     )
@@ -122,7 +123,7 @@ export default function CourierScanScreen() {
 
       <View style={styles.overlay} pointerEvents="box-none">
         <Text style={styles.heading}>
-          {scanType === 'PICKUP' ? 'Scanner le QR de récupération' : 'Vérifier la livraison'}
+          {t(scanType === 'PICKUP' ? 'courier.scan.pickupTitle' : 'courier.scan.deliveryTitle')}
         </Text>
 
         {scanning && <View style={styles.reticle} />}
@@ -130,18 +131,16 @@ export default function CourierScanScreen() {
         {outcome.kind === 'sending' && (
           <View style={styles.panel}>
             <ActivityIndicator color={c.green} />
-            <Text style={styles.body}>Vérification en cours…</Text>
+            <Text style={styles.body}>{t('courier.scan.verifying')}</Text>
           </View>
         )}
 
         {outcome.kind === 'pending' && (
           <View style={styles.panel}>
             <Text style={styles.pending}>{outcome.message}</Text>
-            <Text style={styles.body}>
-              La remise ne sera confirmée qu&apos;après validation par le serveur.
-            </Text>
+            <Text style={styles.body}>{t('courier.scan.pendingBody')}</Text>
             <Pressable style={styles.primary} onPress={() => void submit(outcome.token, idempotencyKey.current)}>
-              <Text style={styles.primaryText}>Réessayer</Text>
+              <Text style={styles.primaryText}>{t('courier.scan.retry')}</Text>
             </Pressable>
           </View>
         )}
@@ -149,14 +148,14 @@ export default function CourierScanScreen() {
         {outcome.kind === 'done' && (
           <View style={styles.panel}>
             <Text style={styles.success}>
-              {outcome.response.result === 'DUPLICATE' ? 'Déjà enregistré' : 'Scan validé'}
+              {t(outcome.response.result === 'DUPLICATE' ? 'courier.scan.duplicate' : 'courier.scan.valid')}
             </Text>
-            <Text style={styles.body}>Statut: {outcome.response.delivery_status}</Text>
+            <Text style={styles.body}>{t('common.status')}: {statusLabel(t, outcome.response.delivery_status)}</Text>
             {outcome.response.requires_buyer_confirmation && (
-              <Text style={styles.body}>En attente de la confirmation de réception par le client.</Text>
+              <Text style={styles.body}>{t('courier.scan.waitingBuyer')}</Text>
             )}
             <Pressable style={styles.primary} onPress={() => router.back()}>
-              <Text style={styles.primaryText}>Terminer</Text>
+              <Text style={styles.primaryText}>{t('courier.scan.finish')}</Text>
             </Pressable>
           </View>
         )}
@@ -165,7 +164,7 @@ export default function CourierScanScreen() {
           <View style={styles.panel}>
             <Text style={styles.error}>{outcome.message}</Text>
             <Pressable style={styles.primary} onPress={reset}>
-              <Text style={styles.primaryText}>Scanner à nouveau</Text>
+              <Text style={styles.primaryText}>{t('courier.scan.scanAgain')}</Text>
             </Pressable>
           </View>
         )}

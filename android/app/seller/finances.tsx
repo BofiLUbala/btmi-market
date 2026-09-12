@@ -49,11 +49,11 @@ export default function SellerFinancesScreen() {
   }
 
   if (summary.isLoading || (sales.isLoading && !sales.data)) {
-    return <Loading label="Chargement des finances..." />
+    return <Loading label={t('seller.finances.loading')} />
   }
 
   if (summary.isError || !summary.data) {
-    return <ErrorState message="Impossible de charger les données financières" retry={() => { void summary.refetch(); void sales.refetch() }} />
+    return <ErrorState message={t('seller.finances.loadFailed')} retry={() => { void summary.refetch(); void sales.refetch() }} />
   }
 
   const s = summary.data
@@ -61,35 +61,33 @@ export default function SellerFinancesScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <SectionTitle title="Finances & Commissions TBK" />
-      <Text style={styles.subtitle}>
-        Suivi financier en temps réel de vos ventes vérifiées et commissions de la plateforme.
-      </Text>
+      <SectionTitle title={t('seller.finances.title')} />
+      <Text style={styles.subtitle}>{t('seller.finances.subtitle')}</Text>
 
       {/* KPI Cards */}
       <View style={styles.kpiGrid}>
         <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>CHIFFRE D'AFFAIRES BRUT</Text>
+          <Text style={styles.kpiLabel}>{t('seller.finances.grossSales')}</Text>
           <Text style={styles.kpiValue}>${(s.gross_sales || 0).toFixed(2)}</Text>
-          <Text style={styles.kpiSub}>{s.sales_count || 0} vente(s) vérifiée(s)</Text>
+          <Text style={styles.kpiSub}>{t('seller.finances.verifiedSales', { count: s.sales_count || 0 })}</Text>
         </View>
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiLabel, { color: '#f87171' }]}>COMMISSION TBK</Text>
+          <Text style={[styles.kpiLabel, { color: '#f87171' }]}>{t('seller.finances.commission')}</Text>
           <Text style={[styles.kpiValue, { color: '#f87171' }]}>-${(s.total_commission || 0).toFixed(2)}</Text>
-          <Text style={styles.kpiSub}>Taux standard ~3%</Text>
+          <Text style={styles.kpiSub}>{t('seller.finances.standardRate')}</Text>
         </View>
       </View>
 
       <View style={styles.kpiGrid}>
         <View style={[styles.kpiCard, styles.kpiHighlight]}>
-          <Text style={[styles.kpiLabel, { color: '#34d399' }]}>REVENU NET VENDEUR</Text>
+          <Text style={[styles.kpiLabel, { color: '#34d399' }]}>{t('seller.finances.netRevenue')}</Text>
           <Text style={[styles.kpiValue, { color: '#34d399' }]}>${(s.net_revenue || 0).toFixed(2)}</Text>
-          <Text style={styles.kpiSub}>Votre part économique</Text>
+          <Text style={styles.kpiSub}>{t('seller.finances.yourShare')}</Text>
         </View>
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiLabel, { color: '#fbbf24' }]}>À REVERSER À TBK</Text>
+          <Text style={[styles.kpiLabel, { color: '#fbbf24' }]}>{t('seller.finances.due')}</Text>
           <Text style={[styles.kpiValue, { color: '#fbbf24' }]}>${(s.commission_due || 0).toFixed(2)}</Text>
-          <Text style={styles.kpiSub}>${(s.commission_collected || 0).toFixed(2)} déjà réglée(s)</Text>
+          <Text style={styles.kpiSub}>{t('seller.finances.alreadySettled', { amount: (s.commission_collected || 0).toFixed(2) })}</Text>
         </View>
       </View>
 
@@ -100,32 +98,32 @@ export default function SellerFinancesScreen() {
           style={[styles.filterTab, statusFilter === 'ALL' && styles.filterTabActive]}
           onPress={() => setStatusFilter('ALL')}
         >
-          <Text style={[styles.filterTabText, statusFilter === 'ALL' && styles.filterTabTextActive]}>Toutes</Text>
+          <Text style={[styles.filterTabText, statusFilter === 'ALL' && styles.filterTabTextActive]}>{t('seller.finances.all')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           style={[styles.filterTab, statusFilter === 'DUE' && styles.filterTabActive]}
           onPress={() => setStatusFilter('DUE')}
         >
-          <Text style={[styles.filterTabText, statusFilter === 'DUE' && styles.filterTabTextActive]}>À reverser</Text>
+          <Text style={[styles.filterTabText, statusFilter === 'DUE' && styles.filterTabTextActive]}>{t('status.due')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           style={[styles.filterTab, statusFilter === 'COLLECTED' && styles.filterTabActive]}
           onPress={() => setStatusFilter('COLLECTED')}
         >
-          <Text style={[styles.filterTabText, statusFilter === 'COLLECTED' && styles.filterTabTextActive]}>Réglées</Text>
+          <Text style={[styles.filterTabText, statusFilter === 'COLLECTED' && styles.filterTabTextActive]}>{t('seller.finances.settled')}</Text>
         </Pressable>
       </View>
 
       {/* Sales List */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitleText}>Historique des Ventes & Commissions</Text>
+        <Text style={styles.sectionTitleText}>{t('seller.finances.history')}</Text>
       </View>
 
       {salesList.length === 0 ? (
         <Card>
-          <Text style={styles.emptyText}>Aucune vente vérifiée trouvée pour ce filtre.</Text>
+          <Text style={styles.emptyText}>{t('seller.finances.empty')}</Text>
         </Card>
       ) : (
         salesList.map((sale) => (
@@ -142,22 +140,22 @@ export default function SellerFinancesScreen() {
               </View>
               <View style={[styles.badge, sale.status === 'COLLECTED' ? styles.badgeCollected : styles.badgeDue]}>
                 <Text style={[styles.badgeText, sale.status === 'COLLECTED' ? styles.badgeTextCollected : styles.badgeTextDue]}>
-                  {sale.status === 'COLLECTED' ? 'Réglée' : 'À reverser'}
+                  {t(sale.status === 'COLLECTED' ? 'status.collected' : 'status.due')}
                 </Text>
               </View>
             </View>
 
             <View style={styles.saleMetrics}>
               <View style={styles.saleMetricItem}>
-                <Text style={styles.metricLabel}>Vente brute</Text>
+                <Text style={styles.metricLabel}>{t('seller.finances.grossSale')}</Text>
                 <Text style={styles.metricVal}>${(sale.gross_amount || 0).toFixed(2)}</Text>
               </View>
               <View style={styles.saleMetricItem}>
-                <Text style={styles.metricLabel}>Commission ({sale.commission_rate}%)</Text>
+                <Text style={styles.metricLabel}>{t('seller.finances.commission')} ({sale.commission_rate}%)</Text>
                 <Text style={[styles.metricVal, { color: '#f87171' }]}>-${(sale.commission_amount || 0).toFixed(2)}</Text>
               </View>
               <View style={styles.saleMetricItem}>
-                <Text style={styles.metricLabel}>Net vendeur</Text>
+                <Text style={styles.metricLabel}>{t('seller.finances.netSeller')}</Text>
                 <Text style={[styles.metricVal, { color: '#34d399', fontWeight: '800' }]}>${(sale.seller_net_amount || 0).toFixed(2)}</Text>
               </View>
             </View>
@@ -175,71 +173,71 @@ export default function SellerFinancesScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Détail Financier de la Vente</Text>
+              <Text style={styles.modalTitle}>{t('seller.finances.detailTitle')}</Text>
               <Pressable accessibilityRole="button" onPress={() => setSelectedOrderId(null)}>
                 <Ionicons name="close" size={24} color={colors.ink} />
               </Pressable>
             </View>
 
             {saleDetail.isLoading ? (
-              <Loading label="Chargement du détail..." />
+              <Loading label={t('seller.finances.loadingDetail')} />
             ) : saleDetail.data ? (
               <View style={styles.detailBody}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Numéro de commande</Text>
+                  <Text style={styles.detailLabel}>{t('seller.finances.orderNumber')}</Text>
                   <Text style={styles.detailValueBold}>{saleDetail.data.order_number}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Date de calcul</Text>
+                  <Text style={styles.detailLabel}>{t('seller.finances.calculatedAt')}</Text>
                   <Text style={styles.detailValue}>{new Date(saleDetail.data.calculated_at).toLocaleString()}</Text>
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Montant des produits</Text>
+                  <Text style={styles.detailLabel}>{t('seller.finances.productAmount')}</Text>
                   <Text style={styles.detailValue}>${(saleDetail.data.gross_amount || 0).toFixed(2)}</Text>
                 </View>
                 {Boolean(saleDetail.data.points_discount) && (
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Réduction points acheteur</Text>
+                    <Text style={styles.detailLabel}>{t('seller.finances.pointsDiscount')}</Text>
                     <Text style={[styles.detailValue, { color: '#a78bfa' }]}>-${(saleDetail.data.points_discount || 0).toFixed(2)}</Text>
                   </View>
                 )}
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Assiette éligible commission</Text>
+                  <Text style={styles.detailLabel}>{t('seller.finances.commissionBase')}</Text>
                   <Text style={styles.detailValueBold}>${(saleDetail.data.commission_base || 0).toFixed(2)}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Taux appliqué</Text>
+                  <Text style={styles.detailLabel}>{t('seller.finances.appliedRate')}</Text>
                   <Text style={styles.detailValue}>{saleDetail.data.commission_rate}%</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Commission TBK calculée</Text>
+                  <Text style={styles.detailLabel}>{t('seller.finances.calculatedCommission')}</Text>
                   <Text style={[styles.detailValueBold, { color: '#f87171' }]}>-${(saleDetail.data.commission_amount || 0).toFixed(2)}</Text>
                 </View>
                 <View style={[styles.detailRow, styles.detailRowHighlight]}>
-                  <Text style={[styles.detailLabel, { fontWeight: '800', color: '#34d399' }]}>Revenu net vendeur</Text>
+                  <Text style={[styles.detailLabel, { fontWeight: '800', color: '#34d399' }]}>{t('seller.finances.netSeller')}</Text>
                   <Text style={[styles.detailValueBold, { color: '#34d399', fontSize: 16 }]}>${(saleDetail.data.seller_net_amount || 0).toFixed(2)}</Text>
                 </View>
                 <View style={styles.divider} />
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Statut de la commission</Text>
+                  <Text style={styles.detailLabel}>{t('seller.finances.commissionStatus')}</Text>
                   <Text style={[styles.detailValueBold, saleDetail.data.status === 'COLLECTED' ? { color: '#34d399' } : { color: '#fbbf24' }]}>
-                    {saleDetail.data.status === 'COLLECTED' ? 'Réglée' : 'À reverser à TBK'}
+                    {t(saleDetail.data.status === 'COLLECTED' ? 'status.collected' : 'status.due')}
                   </Text>
                 </View>
                 {Boolean(saleDetail.data.delivery_fee) && (
                   <Text style={styles.detailNote}>
-                    Note : Les frais de livraison (${(saleDetail.data.delivery_fee || 0).toFixed(2)}) sont collectés pour le coursier et exclus de l'assiette de commission TBK.
+                    {t('seller.finances.deliveryNote', { amount: (saleDetail.data.delivery_fee || 0).toFixed(2) })}
                   </Text>
                 )}
                 <Button
-                  title="Fermer"
+                  title={t('common.close')}
                   variant="outline"
                   onPress={() => setSelectedOrderId(null)}
                 />
               </View>
             ) : (
-              <Text style={styles.emptyText}>Impossible de charger les détails.</Text>
+              <Text style={styles.emptyText}>{t('seller.finances.detailFailed')}</Text>
             )}
           </View>
         </View>

@@ -113,11 +113,11 @@ export function OrderChatFeed({
         <View style={styles.adminMessageContainer}>
           <View style={styles.adminBadgeRow}>
             <Ionicons name="shield-checkmark" size={14} color="#D97706" />
-            <Text style={styles.adminBadgeText}>Intervention Officielle TBK Admin</Text>
+            <Text style={styles.adminBadgeText}>{t('communication.adminIntervention')}</Text>
           </View>
           <Text style={styles.adminMessageBody}>{item.body}</Text>
           <Text style={styles.adminMessageTime}>
-            {item.sender_name || 'Admin TBK'} • {formatTime(item.created_at)}
+            {item.sender_name || t('communication.adminName')} • {formatTime(item.created_at)}
           </Text>
         </View>
       )

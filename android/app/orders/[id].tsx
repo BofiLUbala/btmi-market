@@ -10,6 +10,8 @@ import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import type { OrderStatusHistory } from '../../src/types'
+import { statusLabel } from '../../src/lib/statusLabels'
+import { deliveryLabel } from '../../src/lib/deliveryLabels'
 
 const POLL_INTERVAL = 15_000
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
@@ -109,9 +111,9 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   return <View style={{ flex: 1, backgroundColor: colors.cream }}>
     <ScrollView contentContainerStyle={styles.page}>
       <SectionTitle title={o.order_number||t('orders.detailFallback')}/>
-      <Text style={styles.shop}>{order.data.shop_name} · {deliveryMethod ? deliveryMethod.replaceAll('_',' ').toLowerCase() : t('orders.deliveryToChoose')}</Text>
+      <Text style={styles.shop}>{order.data.shop_name} · {deliveryMethod ? deliveryLabel(t, deliveryMethod) : t('orders.deliveryToChoose')}</Text>
       <Card>
-        <Text style={styles.status}>{(t2?.current_status || o.status).replaceAll('_',' ')}</Text>
+        <Text style={styles.status}>{statusLabel(t, t2?.current_status || o.status)}</Text>
         <Text style={styles.total}>{o.final_total.toLocaleString()} FC</Text>
         {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
         {!isTerminal(o.status) && tracking.isFetching && <Text style={styles.hint}>{t('orders.updating')}</Text>}
@@ -137,7 +139,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         <View key={`${step.status}-${i}`} style={styles.timelineRow}>
           <View style={[styles.dot, step.event && styles.dotDone]}/>
           <View style={{flex:1}}>
-            <Text style={[styles.stepStatus, step.event && styles.stepDone]}>{step.status.replaceAll('_',' ').toLowerCase().replace(/\b\w/,c=>c.toUpperCase())}</Text>
+            <Text style={[styles.stepStatus, step.event && styles.stepDone]}>{statusLabel(t, step.status)}</Text>
             {step.event ? <>
               {step.event.notes ? <Text style={styles.muted}>{step.event.notes}</Text> : null}
               <Text style={styles.time}>{t(ACTOR_KEYS[step.event.actor_type || ''] ?? 'orders.actorSystem')} · {formatDateTime(step.event.created_at, lang)}</Text>
@@ -152,7 +154,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
           <Text style={styles.muted}>{t('orders.amountDue', { amount: `${p.cash_due.toLocaleString()} ${p.currency}` })}</Text>
           <Text style={styles.muted}>{t('orders.you')} : {p.buyer_confirmed ? t('orders.paymentDeclared') : t('orders.notConfirmed')}</Text>
           <Text style={styles.muted}>{t('orders.actorSeller')} : {p.seller_confirmed ? t('orders.cashReceived') : t('orders.waitingSeller')}</Text>
-          <Text style={[styles.muted,{fontWeight:'800'}]}>{t('orders.status')} : {p.status}</Text>
+          <Text style={[styles.muted,{fontWeight:'800'}]}>{t('orders.status')} : {statusLabel(t, p.status)}</Text>
           {!p.buyer_confirmed && <Button title={t('orders.paid')} loading={confirmPaidMutation.isPending} onPress={()=>{ setActionError(''); confirmPaidMutation.mutate() }}/>}
           {p.buyer_confirmed && !p.seller_confirmed && <Text style={styles.hint}>{t('orders.paymentNote')}</Text>}
         </> : <Button variant="outline" title={t('orders.prepareCashPayment')} loading={createPaymentMutation.isPending} onPress={()=>{ setActionError(''); createPaymentMutation.mutate() }}/>}

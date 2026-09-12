@@ -14,6 +14,7 @@ import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { spacing, radius, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload, type UploadFile } from '../../../src/lib/imageUpload'
+import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
 import {
   getCategoryRequirements, getCategorySuggestions, missingRequiredAttributes,
   POPULAR_CUSTOM_CHARACTERISTICS,
@@ -68,7 +69,7 @@ const newRowId = () => `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6
 
 export default function SellerProductCreateScreen() {
   const queryClient = useQueryClient()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
   const activeBusiness = useAuth((s) => s.activeBusiness)
@@ -132,7 +133,9 @@ export default function SellerProductCreateScreen() {
   const categorySuggestions = useMemo<AttributeSuggestion[]>(() => {
     if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
       return categoryAttributesQuery.data.map((def) => ({
-        name: def.key,
+        name: lang === 'fr'
+          ? (def.label_fr || def.label_en || def.key)
+          : (def.label_en || def.label_fr || def.key),
         recommendedType: (def.variant_attribute ? 'VARIANT' : 'INFO') as AttributeClassification,
       }))
     }
@@ -142,7 +145,7 @@ export default function SellerProductCreateScreen() {
       if (subs.length > 0) return subs
     }
     return getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
-  }, [categoryAttributesQuery.data, selectedCategory, selectedSubcategory])
+  }, [categoryAttributesQuery.data, selectedCategory, selectedSubcategory, lang])
 
   const categoryRequirements = useMemo(
     () => getCategoryRequirements(
@@ -530,7 +533,7 @@ export default function SellerProductCreateScreen() {
             style={[styles.chip, categoryId === c.id && styles.chipActive]}
             onPress={() => { setCategoryId(c.id); setSubcategoryId(''); setCharacteristics([]) }}
           >
-            <Text style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}>{c.name}</Text>
+            <Text style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}>{categoryLabel(t, c.slug, c.name)}</Text>
           </Pressable>)}
         </View>
         {subcategories.length > 0 && <>
@@ -542,7 +545,7 @@ export default function SellerProductCreateScreen() {
               style={[styles.chip, subcategoryId === s.id && styles.chipActive]}
               onPress={() => setSubcategoryId(subcategoryId === s.id ? '' : s.id)}
             >
-              <Text style={[styles.chipText, subcategoryId === s.id && styles.chipTextActive]}>{s.name}</Text>
+              <Text style={[styles.chipText, subcategoryId === s.id && styles.chipTextActive]}>{subcategoryLabel(t, s.slug, s.name)}</Text>
             </Pressable>)}
           </View>
         </>}
@@ -706,7 +709,10 @@ export default function SellerProductCreateScreen() {
       {step === 7 && <Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.reviewTitle')}</Text>
         <SummaryRow styles={styles} label={t('seller.productForm.productName')} value={form.name.trim() || '—'} />
-        <SummaryRow styles={styles} label={t('seller.productForm.categoryLabel')} value={[selectedCategory?.name, selectedSubcategory?.name].filter(Boolean).join(' › ') || '—'} />
+        <SummaryRow styles={styles} label={t('seller.productForm.categoryLabel')} value={[
+          selectedCategory ? categoryLabel(t, selectedCategory.slug, selectedCategory.name) : '',
+          selectedSubcategory ? subcategoryLabel(t, selectedSubcategory.slug, selectedSubcategory.name) : '',
+        ].filter(Boolean).join(' › ') || '—'} />
         <SummaryRow styles={styles} label={t('seller.productForm.salePrice')} value={`${price.toLocaleString()} FC`} />
         <SummaryRow styles={styles} label={t('seller.productForm.summaryImages')} value={String(images.length)} />
         <SummaryRow styles={styles} label={t('seller.productForm.summaryVariants')} value={String(isVariantMode ? activeCombos.length : 1)} />

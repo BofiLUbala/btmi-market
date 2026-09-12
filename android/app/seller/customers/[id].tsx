@@ -8,6 +8,7 @@ import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../..
 import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { spacing, type Colors } from '../../../src/theme'
+import { statusLabel } from '../../../src/lib/statusLabels'
 
 export default function SellerCustomerDetailScreen() {
   const { t } = useI18n()
@@ -46,7 +47,7 @@ export default function SellerCustomerDetailScreen() {
     <Card>
       {!editing ? <>
         <Text style={styles.muted}>{c.phone || '—'}{c.email ? ` · ${c.email}` : ''}</Text>
-        <Text style={styles.muted}>{t('common.status')}: {c.status}</Text>
+        <Text style={styles.muted}>{t('common.status')}: {statusLabel(t, c.status)}</Text>
         <Text style={styles.muted}>{t('seller.customers.joined')}: {new Date(c.created_at).toLocaleDateString()}</Text>
         <Button variant="outline" dense title={t('seller.customers.edit')} onPress={() => setEditing(true)} />
       </> : <>
@@ -63,7 +64,7 @@ export default function SellerCustomerDetailScreen() {
     {orders.isLoading ? <Loading label={t('common.loading')} /> : orders.isError ? <ErrorState message={t('orders.loadFailed')} /> : !orders.data?.length ? <Card><Text style={styles.muted}>{t('seller.customers.noOrdersYet')}</Text></Card> : orders.data.map((order) => <Card key={order.id}>
       <View style={styles.row}>
         <Text style={styles.name}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text>
-        <Text style={styles.muted}>{order.status}</Text>
+        <Text style={styles.muted}>{statusLabel(t, order.status)}</Text>
       </View>
       <Text style={styles.muted}>{order.total_items} · {order.final_total.toLocaleString()} FC</Text>
       <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString()}</Text>

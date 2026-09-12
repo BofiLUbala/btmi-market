@@ -12,6 +12,7 @@ import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/compo
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import { resolvePromotion } from '../../src/lib/promotion'
+import { attributeLabel } from '../../src/lib/attributeLabels'
 import { useI18n } from '../../src/store/i18n'
 import type { ProductReviewSummary } from '../../src/types'
 import {
@@ -114,7 +115,7 @@ export default function ProductScreen() {
 
   /** Choices still owed by the buyer — named in the hint above the buy bar. */
   const missingOptions = useMemo(() => {
-    if (hasAttributeGroups) return attributeGroups.filter((g) => !selection[g.key]).map((g) => g.label)
+    if (hasAttributeGroups) return attributeGroups.filter((g) => !selection[g.key]).map((g) => attributeLabel(t, g.label))
     if (variants.length > 1 && !variantId) return [t('product.option')]
     return []
   }, [attributeGroups, hasAttributeGroups, selection, variants.length, variantId, t])
@@ -263,7 +264,7 @@ export default function ProductScreen() {
                 return (
                   <View key={g.key} style={styles.attrGroup}>
                     <Text style={styles.attrLabel}>
-                      {g.label}:{' '}
+                      {attributeLabel(t, g.label)}:{' '}
                       <Text style={{ fontWeight: '900', color: activeVal ? colors.green : colors.muted }}>
                         {activeVal ?? t('product.toChoose')}
                       </Text>
@@ -336,7 +337,7 @@ export default function ProductScreen() {
               <View style={styles.specsTable}>
                 {specifications.map((spec) => (
                   <View key={spec.key} style={styles.specRow}>
-                    <Text style={styles.specKey}>{spec.label}</Text>
+                    <Text style={styles.specKey}>{attributeLabel(t, spec.label)}</Text>
                     <Text style={styles.specVal}>{spec.value}</Text>
                   </View>
                 ))}

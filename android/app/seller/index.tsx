@@ -10,6 +10,7 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import { canSell, canOnboardSeller } from '../../src/types'
+import { statusLabel } from '../../src/lib/statusLabels'
 
 // Port of web-app/src/pages/seller/dashboard/SellerDashboardPage.tsx at its
 // narrow-screen layout: same context pills, same six stat cards (uppercase
@@ -146,7 +147,7 @@ export default function SellerHome() {
               <Text style={styles.small}>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}</Text>
             </View>
             <View style={styles.colStatus}>
-              <Text numberOfLines={1} style={[styles.statusBadge, { backgroundColor: tint.bg, color: tint.color }]}>{order.status.replaceAll('_', ' ')}</Text>
+              <Text numberOfLines={1} style={[styles.statusBadge, { backgroundColor: tint.bg, color: tint.color }]}>{statusLabel(t, order.status)}</Text>
             </View>
             <Text style={[styles.tdStrong, styles.colTotal]}>{(order.final_total ?? 0).toLocaleString()} FC</Text>
           </Pressable>
