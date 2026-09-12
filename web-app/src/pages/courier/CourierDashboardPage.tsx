@@ -31,7 +31,7 @@ export default function CourierDashboardPage(){
  const reject=(m:Mission)=>{const reason=window.prompt(t('courier.dashboard.rejectReason'));if(reason?.trim())void act(`/courier/missions/${m.order_id}/reject`,{reason:reason.trim()},t('courier.dashboard.rejected'))}
  const availability=async(v:Availability)=>{setBusy('availability');try{await request('/courier/availability',{method:'PATCH',body:JSON.stringify({availability:v})});await load()}catch{setError(t('courier.dashboard.actionError'))}finally{setBusy('')}}
  const scan=(type:'PICKUP'|'DELIVERY',m:Mission)=>navigate(`/courier/scan?type=${type}&order_id=${m.order_id}`)
- const choose=(next:View)=>{setView(next);setSuccess('');window.scrollTo({top:0,behavior:'smooth'})}
+ const choose=(next:View)=>{setView(next);setSuccess('');(document.querySelector('.courier-content') as HTMLElement|null)?.scrollTo({top:0,behavior:'smooth'})}
  if(loading&&!profile)return <main className="courier-page courier-loading"><div className="courier-glass courier-skeleton courier-skeleton-side"/><div className="courier-glass courier-skeleton courier-skeleton-main"/></main>
  const title=view==='detail'?'Détails de la mission':nav.find(n=>n.id===view)?.label||'Tableau de bord',initials=`${profile?.first_name?.[0]||''}${profile?.last_name?.[0]||''}`.toUpperCase()
  return <main className="courier-page"><div className="courier-orb courier-orb-one"/><div className="courier-orb courier-orb-two"/><div className="courier-workspace">

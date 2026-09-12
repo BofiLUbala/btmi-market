@@ -11,3 +11,30 @@
 @media(max-width:560px){.courier-presence{font-size:9px;padding:8px 10px}.courier-welcome{padding:20px}.courier-welcome h2{font-size:21px}.courier-stats{grid-template-columns:1fr}.courier-stat{min-height:76px}.courier-mission-facts,.courier-profile-grid,.courier-scanner-grid{grid-template-columns:1fr}.courier-section{padding:15px}.courier-mission{padding:15px}.courier-actions{display:grid}.courier-actions .courier-btn{width:100%}.courier-history-list article,.courier-notices button{grid-template-columns:auto minmax(0,1fr)}.courier-history-list article>div:last-child{grid-column:2;text-align:left}.courier-scan-card{padding:23px}.courier-empty-wide{grid-column:auto}}
 @media(max-width:340px){.courier-page{padding-inline:7px}.courier-content-header{padding-inline:4px}.courier-content-header h1{font-size:22px}.courier-presence{display:none}.courier-mobile-nav{right:6px;bottom:6px;left:6px}.courier-mobile-nav button{font-size:7px}.courier-welcome .courier-avatar{display:none}}
 @media(prefers-reduced-motion:reduce){.courier-page *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Independent desktop workspace scrolling + dark premium navigation */
+@media(min-width:821px){
+  .courier-page{--glass:rgba(255,255,255,.62);--glass-border:rgba(255,255,255,.76);--glass-shadow:0 24px 70px rgba(45,37,27,.1),inset 0 1px rgba(255,255,255,.72);--color-text:#25231f;--color-text-muted:#6f6b64;--color-text-faint:#aaa49b;box-sizing:border-box;width:100%;height:100vh;height:100dvh;min-height:0;overflow:hidden;background:linear-gradient(145deg,#f5f1e9,#ebe8e1 52%,#f7f3ec);color:var(--color-text)}
+  .courier-workspace{height:100%;min-height:0;overflow:hidden}
+  .courier-glass.courier-sidebar{position:relative;top:auto;display:flex;height:100%;min-height:0;overflow:hidden;border-color:rgba(255,255,255,.09);background:linear-gradient(165deg,rgba(27,27,31,.94),rgba(10,10,12,.9));color:#f7f7f8;box-shadow:0 0 42px rgba(180,83,27,.12),0 24px 64px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.1),inset -1px 0 rgba(255,255,255,.035);backdrop-filter:blur(22px) saturate(145%);-webkit-backdrop-filter:blur(22px) saturate(145%)}
+  .courier-brand{flex:none;border-bottom:1px solid rgba(255,255,255,.07)}
+  .courier-brand strong{color:#fff}
+  .courier-brand span,.courier-sidebar-user span{color:rgba(235,235,245,.5)}
+  .courier-sidebar nav{display:grid;flex:1;min-height:0;align-content:start;margin:10px -5px 0;padding:0 5px 10px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+  .courier-sidebar nav button,.courier-logout{color:rgba(235,235,245,.56)}
+  .courier-sidebar nav button:hover{background:rgba(255,255,255,.055);color:rgba(255,255,255,.92)}
+  .courier-sidebar nav button.is-selected{background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(180,83,27,.13));color:#fff;box-shadow:0 0 22px rgba(180,83,27,.16),inset 0 1px rgba(255,255,255,.16),inset 3px 0 rgba(216,122,66,.75)}
+  .courier-sidebar nav button.is-selected .courier-icon{color:#f1a06e;filter:drop-shadow(0 0 7px rgba(224,124,68,.4))}
+  .courier-sidebar-user{flex:none;margin-top:auto;border-top-color:rgba(255,255,255,.08)}
+  .courier-sidebar-user strong{color:#fff}
+  .courier-logout{flex:none;color:#ef8d85}
+  .courier-logout:hover{background:rgba(239,141,133,.08);color:#ffaaa3}
+  .courier-content{height:100%;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-bottom:28px;scrollbar-width:thin;scrollbar-color:rgba(75,70,63,.22) transparent}
+  .courier-sidebar nav::-webkit-scrollbar,.courier-content::-webkit-scrollbar{width:7px}
+  .courier-sidebar nav::-webkit-scrollbar-track,.courier-content::-webkit-scrollbar-track{background:transparent}
+  .courier-sidebar nav::-webkit-scrollbar-thumb,.courier-content::-webkit-scrollbar-thumb{border:2px solid transparent;border-radius:99px;background-clip:padding-box}
+  .courier-sidebar nav::-webkit-scrollbar-thumb{background-color:rgba(255,255,255,.16)}
+  .courier-content::-webkit-scrollbar-thumb{background-color:rgba(75,70,63,.2)}
+}
+
+@media(min-width:821px) and (max-width:1040px){.courier-workspace{grid-template-columns:220px minmax(0,1fr)}}
