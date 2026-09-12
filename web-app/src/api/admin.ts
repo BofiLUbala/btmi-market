@@ -471,6 +471,8 @@ export interface AdminDeliveryScanEvent {
   latitude?: number | null
   longitude?: number | null
   device_id?: string | null
+  status_before?: string
+  status_after?: string
   created_at: string
 }
 

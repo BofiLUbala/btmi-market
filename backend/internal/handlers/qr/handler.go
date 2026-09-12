@@ -158,6 +158,11 @@ func (h *Handler) scan(c *gin.Context, typ string) {
 		fail(c, service.ErrQRInvalid)
 		return
 	}
+	if req.DeviceMetadata == nil {
+		req.DeviceMetadata = map[string]interface{}{}
+	}
+	req.DeviceMetadata["ip"] = c.ClientIP()
+	req.DeviceMetadata["user_agent"] = c.Request.UserAgent()
 	v, e := h.svc.Scan(u, typ, req)
 	if e != nil {
 		fail(c, e)
@@ -180,6 +185,7 @@ func (h *Handler) ConfirmReceipt(c *gin.Context) {
 	}
 	c.JSON(200, gin.H{"message": "Receipt confirmed; cash verification remains separate", "delivery_status": "RECEIVED"})
 }
+
 // AdminDelivery serves the Commerce Admin handover view. It is mounted under the admin
 // commerce group, whose order param is ":id", and returns no QR token.
 func (h *Handler) AdminDelivery(c *gin.Context) {

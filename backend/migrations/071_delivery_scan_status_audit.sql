@@ -1,0 +1,3 @@
+ALTER TABLE delivery_scan_events
+    ADD COLUMN IF NOT EXISTS status_before VARCHAR(40) NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS status_after VARCHAR(40) NOT NULL DEFAULT '';

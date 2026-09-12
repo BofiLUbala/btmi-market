@@ -131,6 +131,7 @@ type CourierMissionResponse struct {
 	DeliveryAddress string     `json:"delivery_address"`
 	DeliveryContact string     `json:"delivery_contact"`
 	DeliveryPhone   string     `json:"delivery_phone"`
+	DeliveryNotes   string     `json:"delivery_notes"`
 	TotalAmount     float64    `json:"total_amount"`
 	AssignedAt      *time.Time `json:"assigned_at"`
 	AcceptedAt      *time.Time `json:"accepted_at"`

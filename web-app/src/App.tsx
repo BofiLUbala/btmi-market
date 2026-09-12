@@ -115,6 +115,7 @@ import SellerNotificationsPage from '@/pages/seller/notifications/SellerNotifica
 import CommerceOrderCommunicationsPage from '@/pages/admin/commerce/communications/CommerceOrderCommunicationsPage'
 import CourierActivationPage from '@/pages/courier/CourierActivationPage'
 import CourierDashboardPage from '@/pages/courier/CourierDashboardPage'
+import CourierScanPage from '@/pages/courier/CourierScanPage'
 import CourierInvitePage from '@/pages/admin/commerce/couriers/CourierInvitePage'
 
 function NotFound() {
@@ -238,6 +239,7 @@ export default function App() {
               <Route path="/courier/activate" element={<CourierActivationPage />} />
               <Route element={<RequireAuth />}>
                 <Route path="/courier/dashboard" element={<CourierDashboardPage />} />
+                <Route path="/courier/scan" element={<CourierScanPage />} />
               </Route>
 
               {/* Admin Control Center Routes */}

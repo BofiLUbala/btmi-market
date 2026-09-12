@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import NetInfo from '@react-native-community/netinfo'
 import { courierApi } from '../../src/api'
+import { ApiError } from '../../src/api/client'
 import { useColors } from '../../src/store/theme'
 import { useI18n } from '../../src/store/i18n'
 import { statusLabel } from '../../src/lib/statusLabels'
@@ -63,7 +64,15 @@ export default function CourierScanScreen() {
           setOutcome({ kind: 'pending', token, message: t('courier.scan.offline') })
           return
         }
-        setOutcome({ kind: 'error', message: e instanceof Error ? e.message : t('courier.scan.rejected') })
+        const code = e instanceof ApiError ? e.code : ''
+        const message = code === 'QR_WRONG_COURIER'
+          ? t('courier.scan.wrongCourier')
+          : code === 'QR_NOT_OPERATIONAL'
+            ? t('courier.scan.wrongStatus')
+            : code === 'QR_INVALID'
+              ? t('courier.scan.invalid')
+              : t('courier.scan.rejected')
+        setOutcome({ kind: 'error', message })
       } finally {
         busy.current = false
       }
@@ -148,7 +157,9 @@ export default function CourierScanScreen() {
         {outcome.kind === 'done' && (
           <View style={styles.panel}>
             <Text style={styles.success}>
-              {t(outcome.response.result === 'DUPLICATE' ? 'courier.scan.duplicate' : 'courier.scan.valid')}
+              {t(outcome.response.result === 'DUPLICATE'
+                ? 'courier.scan.duplicate'
+                : scanType === 'PICKUP' ? 'courier.scan.pickupSuccess' : 'courier.scan.deliverySuccess')}
             </Text>
             <Text style={styles.body}>{t('common.status')}: {statusLabel(t, outcome.response.delivery_status)}</Text>
             {outcome.response.requires_buyer_confirmation && (

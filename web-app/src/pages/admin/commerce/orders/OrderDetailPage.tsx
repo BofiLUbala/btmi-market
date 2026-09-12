@@ -275,6 +275,7 @@ export default function OrderDetailPage() {
                         {e.reason ? ` (${e.reason})` : ''}
                       </div>
                       {e.courier_id && <div style={{ fontSize: 12, color: '#94a3b8' }}>Livreur {e.courier_id.slice(0, 8)}</div>}
+                      {e.status_before && <div style={{ fontSize: 12, color: '#94a3b8' }}>{e.status_before} → {e.status_after || e.status_before}</div>}
                       {e.latitude != null && e.longitude != null && (
                         <div style={{ fontSize: 11, color: '#64748b' }}>
                           {e.latitude.toFixed(5)}, {e.longitude.toFixed(5)}

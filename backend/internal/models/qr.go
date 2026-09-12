@@ -45,15 +45,17 @@ type QRScanResponse struct {
 }
 
 type DeliveryScanEvent struct {
-	ID         uuid.UUID  `json:"id"`
-	ScanType   string     `json:"scan_type"`
-	ScanResult string     `json:"scan_result"`
-	Reason     string     `json:"reason"`
-	CourierID  *uuid.UUID `json:"courier_id,omitempty"`
-	Latitude   *float64   `json:"latitude,omitempty"`
-	Longitude  *float64   `json:"longitude,omitempty"`
-	DeviceID   string     `json:"device_id,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID           uuid.UUID  `json:"id"`
+	ScanType     string     `json:"scan_type"`
+	ScanResult   string     `json:"scan_result"`
+	Reason       string     `json:"reason"`
+	CourierID    *uuid.UUID `json:"courier_id,omitempty"`
+	Latitude     *float64   `json:"latitude,omitempty"`
+	Longitude    *float64   `json:"longitude,omitempty"`
+	DeviceID     string     `json:"device_id,omitempty"`
+	StatusBefore string     `json:"status_before,omitempty"`
+	StatusAfter  string     `json:"status_after,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 // AdminDeliveryOverview is the Commerce Admin view of a handover: package state, courier

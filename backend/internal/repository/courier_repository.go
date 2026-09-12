@@ -185,7 +185,7 @@ func (r *CourierRepository) CountActiveMissions(courierUserID uuid.UUID) (int, e
 	err := r.db.QueryRow(`
 		SELECT COUNT(*) FROM orders 
 		WHERE assigned_courier_id = $1 
-		AND delivery_status IN ('COURIER_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT')
+		AND delivery_status IN ('COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION')
 		AND status NOT IN ('CANCELLED', 'RECEIVED', 'COMPLETED')`, courierUserID).Scan(&count)
 	return count, err
 }
@@ -225,8 +225,9 @@ func (r *CourierRepository) CountTotalDeliveries(courierUserID uuid.UUID) (int, 
 // GetMissions returns all missions for a courier
 func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.CourierMissionResponse, error) {
 	rows, err := r.db.Query(`
-		SELECT o.id, o.order_number, o.status, o.delivery_status, 
-		       s.name AS shop_name, o.delivery_address, o.delivery_contact_name, o.delivery_phone,
+		SELECT o.id, o.order_number, o.status, o.delivery_status,
+		       s.name AS shop_name, COALESCE(s.address,''), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
+		       COALESCE(o.delivery_notes,''),
 		       o.final_total, o.courier_assigned_at, o.courier_accepted_at, 
 		       o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
@@ -243,7 +244,7 @@ func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.Cour
 	for rows.Next() {
 		var m models.CourierMissionResponse
 		if err := rows.Scan(&m.OrderID, &m.OrderNumber, &m.Status, &m.DeliveryStatus,
-			&m.ShopName, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone,
+			&m.ShopName, &m.ShopAddress, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
 			&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt,
 			&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt); err != nil {
 			return nil, err
@@ -258,14 +259,15 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 	var m models.CourierMissionResponse
 	err := r.db.QueryRow(`
 		SELECT o.id, o.order_number, o.status, o.delivery_status,
-		       s.name AS shop_name, o.delivery_address, o.delivery_contact_name, o.delivery_phone,
+		       s.name AS shop_name, COALESCE(s.address,''), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
+		       COALESCE(o.delivery_notes,''),
 		       o.final_total, o.courier_assigned_at, o.courier_accepted_at,
 		       o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
 		WHERE o.assigned_courier_id = $1 AND o.id = $2`, courierUserID, orderID).Scan(
 		&m.OrderID, &m.OrderNumber, &m.Status, &m.DeliveryStatus,
-		&m.ShopName, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone,
+		&m.ShopName, &m.ShopAddress, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
 		&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt,
 		&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt)
 	if err == sql.ErrNoRows {
@@ -407,15 +409,15 @@ func (r *CourierRepository) GetOrderByIDForCourier(courierUserID, orderID uuid.U
 // UpdateMissionStatus updates mission status fields on orders
 func (r *CourierRepository) UpdateMissionStatus(orderID uuid.UUID, field string, value interface{}) error {
 	validFields := map[string]bool{
-		"courier_accepted_at":  true,
-		"courier_rejected_at":  true,
+		"courier_accepted_at":      true,
+		"courier_rejected_at":      true,
 		"courier_rejection_reason": true,
-		"courier_started_at":   true,
-		"courier_arrived_at":   true,
-		"failed_delivery_reason": true,
-		"failed_delivery_notes":  true,
-		"delivery_status":      true,
-		"assigned_courier_id":  true,
+		"courier_started_at":       true,
+		"courier_arrived_at":       true,
+		"failed_delivery_reason":   true,
+		"failed_delivery_notes":    true,
+		"delivery_status":          true,
+		"assigned_courier_id":      true,
 	}
 	if !validFields[field] {
 		return fmt.Errorf("invalid field: %s", field)

@@ -332,7 +332,7 @@ func (s *CourierService) GetDashboard(userID uuid.UUID) (*models.CourierDashboar
 	missions, _ := s.courierRepo.GetMissions(userID)
 	var currentMission *models.CourierMissionResponse
 	for _, m := range missions {
-		if m.DeliveryStatus == "COURIER_ASSIGNED" || m.DeliveryStatus == "PICKED_UP" || m.DeliveryStatus == "IN_TRANSIT" {
+		if m.DeliveryStatus == "COURIER_ASSIGNED" || m.DeliveryStatus == "COURIER_ACCEPTED" || m.DeliveryStatus == "READY_FOR_PICKUP" || m.DeliveryStatus == "PICKED_UP" || m.DeliveryStatus == "IN_TRANSIT" || m.DeliveryStatus == "COURIER_ARRIVED" {
 			currentMission = m
 			break
 		}
@@ -485,7 +485,7 @@ func (s *CourierService) StartDelivery(userID, orderID uuid.UUID) error {
 	if err != nil || order == nil {
 		return ErrMissionNotFound
 	}
-	if order.DeliveryStatus != "COURIER_ACCEPTED" && order.DeliveryStatus != "READY_FOR_PICKUP" {
+	if order.DeliveryStatus != "PICKED_UP" {
 		return ErrInvalidStatusTransition
 	}
 

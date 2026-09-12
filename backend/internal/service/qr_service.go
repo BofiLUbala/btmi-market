@@ -176,7 +176,25 @@ func (s *QRService) BuyerPackageQR(userID, orderID uuid.UUID) (*models.DeliveryP
 
 func (s *QRService) recordScan(tx *sql.Tx, pkgID, orderID uuid.UUID, courierID *uuid.UUID, typ, result, reason string, req models.QRScanRequest) {
 	meta, _ := json.Marshal(req.DeviceMetadata)
-	_, _ = tx.Exec(`INSERT INTO delivery_scan_events(id,idempotency_key,delivery_id,package_id,order_id,courier_id,scan_type,scan_result,reason,latitude,longitude,device_id,device_metadata) VALUES($1,NULLIF($2,''),$3,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT DO NOTHING`, uuid.New(), req.IdempotencyKey, pkgID, orderID, courierID, typ, result, reason, req.Latitude, req.Longitude, req.DeviceID, meta)
+	key := req.IdempotencyKey
+	if len(key) > 100 {
+		sum := sha256.Sum256([]byte(key))
+		key = "sha256:" + fmt.Sprintf("%x", sum[:])
+	}
+	_, _ = tx.Exec(`INSERT INTO delivery_scan_events(id,idempotency_key,delivery_id,package_id,order_id,courier_id,scan_type,scan_result,reason,latitude,longitude,device_id,device_metadata,status_before,status_after) VALUES($1,NULLIF($2,''),$3,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT DO NOTHING`, uuid.New(), key, pkgID, orderID, courierID, typ, result, reason, req.Latitude, req.Longitude, req.DeviceID, meta, currentDeliveryStatusFromMetadata(req), resultStatusFromMetadata(req))
+}
+
+func currentDeliveryStatusFromMetadata(req models.QRScanRequest) string {
+	if v, ok := req.DeviceMetadata["status_before"].(string); ok {
+		return v
+	}
+	return ""
+}
+func resultStatusFromMetadata(req models.QRScanRequest) string {
+	if v, ok := req.DeviceMetadata["status_after"].(string); ok {
+		return v
+	}
+	return ""
 }
 
 func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanRequest) (*models.QRScanResponse, error) {
@@ -191,13 +209,13 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 	defer tx.Rollback()
 
 	var pkgID, orderID uuid.UUID
-	var qrStatus string
+	var qrStatus, orderStatus, currentDeliveryStatus string
 	var operational bool
 	var assigned *uuid.UUID
 	var pickup, delivery, receipt *time.Time
-	err = tx.QueryRow(`SELECT p.id,p.order_id,p.qr_status,p.operational,o.assigned_courier_id,p.pickup_verified_at,p.delivery_scanned_at,p.receipt_confirmed_at
+	err = tx.QueryRow(`SELECT p.id,p.order_id,p.qr_status,p.operational,o.assigned_courier_id,p.pickup_verified_at,p.delivery_scanned_at,p.receipt_confirmed_at,o.status::text,COALESCE(o.delivery_status,'')
 	FROM delivery_packages p JOIN orders o ON o.id=p.order_id WHERE p.public_reference=$1 FOR UPDATE`, ref).Scan(
-		&pkgID, &orderID, &qrStatus, &operational, &assigned, &pickup, &delivery, &receipt)
+		&pkgID, &orderID, &qrStatus, &operational, &assigned, &pickup, &delivery, &receipt, &orderStatus, &currentDeliveryStatus)
 	if err != nil {
 		return nil, ErrQRInvalid
 	}
@@ -205,6 +223,11 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 	// reject records the failed scan, commits it so the attempt survives, and returns err.
 	// Every rejection path is persisted: a failed scan is exactly what audit needs to see.
 	reject := func(result, reason string, out error) (*models.QRScanResponse, error) {
+		if req.DeviceMetadata == nil {
+			req.DeviceMetadata = map[string]interface{}{}
+		}
+		req.DeviceMetadata["status_before"] = currentDeliveryStatus
+		req.DeviceMetadata["status_after"] = currentDeliveryStatus
 		s.recordScan(tx, pkgID, orderID, &courierID, typ, result, reason, req)
 		_ = tx.Commit()
 		return nil, out
@@ -222,6 +245,10 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 	if assigned == nil || *assigned != courierID {
 		return reject("REJECTED", "WRONG_COURIER", ErrQRWrongCourier)
 	}
+	var courierActive bool
+	if err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM couriers WHERE user_id=$1 AND status='ACTIVE')`, courierID).Scan(&courierActive); err != nil || !courierActive {
+		return reject("REJECTED", "COURIER_NOT_ACTIVE", ErrQRForbidden)
+	}
 	if receipt != nil {
 		return reject("DUPLICATE", "ALREADY_COMPLETED", ErrQRAlreadyCompleted)
 	}
@@ -230,6 +257,10 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 	var target models.OrderStatus
 	var deliveryStatus, resultStatus string
 	requiresBuyerConfirmation := false
+	if req.DeviceMetadata == nil {
+		req.DeviceMetadata = map[string]interface{}{}
+	}
+	req.DeviceMetadata["status_before"] = currentDeliveryStatus
 
 	switch typ {
 	case "PICKUP":
@@ -239,9 +270,12 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 			if err = tx.Commit(); err != nil {
 				return nil, err
 			}
-			return &models.QRScanResponse{Result: "DUPLICATE", OrderID: orderID, PackageID: pkgID, DeliveryStatus: "IN_TRANSIT"}, nil
+			return &models.QRScanResponse{Result: "DUPLICATE", OrderID: orderID, PackageID: pkgID, DeliveryStatus: "PICKED_UP"}, nil
 		}
-		column, target, deliveryStatus, resultStatus = "pickup_verified_at", models.OrderStatusOutForDelivery, "IN_TRANSIT", "PICKED_UP"
+		if orderStatus != string(models.OrderStatusReady) || (currentDeliveryStatus != "COURIER_ACCEPTED" && currentDeliveryStatus != "READY_FOR_PICKUP") {
+			return reject("REJECTED", "INVALID_ORDER_STATE", ErrQRNotOperational)
+		}
+		column, target, deliveryStatus, resultStatus = "pickup_verified_at", models.OrderStatusOutForDelivery, "PICKED_UP", "PICKED_UP"
 	case "DELIVERY":
 		if pickup == nil {
 			return reject("REJECTED", "PICKUP_NOT_VERIFIED", ErrQRNotOperational)
@@ -252,6 +286,9 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 				return nil, err
 			}
 			return &models.QRScanResponse{Result: "DUPLICATE", OrderID: orderID, PackageID: pkgID, DeliveryStatus: "AWAITING_BUYER_CONFIRMATION", RequiresBuyerConfirmation: true}, nil
+		}
+		if currentDeliveryStatus != "IN_TRANSIT" && currentDeliveryStatus != "COURIER_ARRIVED" {
+			return reject("REJECTED", "INVALID_ORDER_STATE", ErrQRNotOperational)
 		}
 		column, target, deliveryStatus, resultStatus = "delivery_scanned_at", models.OrderStatusDelivered, "DELIVERY_SCAN_SUCCESS", "AWAITING_BUYER_CONFIRMATION"
 		requiresBuyerConfirmation = true
@@ -273,6 +310,7 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 	if _, err = tx.Exec(`UPDATE orders SET delivery_status=$2,updated_at=NOW() WHERE id=$1`, orderID, deliveryStatus); err != nil {
 		return nil, err
 	}
+	req.DeviceMetadata["status_after"] = deliveryStatus
 	s.recordScan(tx, pkgID, orderID, &courierID, typ, "SUCCESS", "", req)
 	if err = tx.Commit(); err != nil {
 		return nil, err
