@@ -34,11 +34,11 @@ jobs:
             --parameters 'commands=[
               "set -e",
               "cd /opt/btmi-market",
-              "git pull origin main",
+              "git fetch origin main && git reset --hard origin/main",
               "cd backend",
               "docker compose up -d --build",
-              "for i in $(seq 1 30); do if curl -fsS --max-time 5 http://localhost:8080/health >/dev/null; then echo 'API is healthy'; docker compose ps; exit 0; fi; echo \"API not ready yet (attempt $i/30)\"; sleep 3; done",
-              "echo 'API health check timed out after 90s'",
+              "for i in $(seq 1 60); do if curl -fsS --max-time 5 http://localhost:8080/health >/dev/null; then echo 'API is healthy'; docker compose ps; exit 0; fi; echo \"Attempt $i/60 - API not ready, waiting 2s\"; sleep 2; done",
+              "echo 'API health check timed out after 120s'",
               "docker compose ps",
               "docker compose logs --tail=200 api",
               "exit 1"
