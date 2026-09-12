@@ -12,6 +12,7 @@ import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { spacing, radius, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload } from '../../../src/lib/imageUpload'
+import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
 import {
   getCategoryRequirements, missingRequiredAttributes,
 } from '../../../src/lib/categorySuggestions'
@@ -199,7 +200,10 @@ export default function SellerProductDetailScreen() {
   const stockByVariantId = new Map((inventory.data ?? []).map((i) => [i.inventory.variant_id, i]))
   const category = categories.data?.find((c: Category) => c.id === p.category_id)
   const subcategory = category?.subcategories?.find((s: Category) => s.id === p.subcategory_id)
-  const categoryPath = [category?.name, subcategory?.name].filter(Boolean).join(' › ')
+  const categoryPath = [
+    category ? categoryLabel(t, category.slug, category.name) : '',
+    subcategory ? subcategoryLabel(t, subcategory.slug, subcategory.name) : '',
+  ].filter(Boolean).join(' › ')
   const currentShop = shops.data?.find((s: Shop) => s.id === activeShop)
 
   return <ScrollView contentContainerStyle={styles.page}>

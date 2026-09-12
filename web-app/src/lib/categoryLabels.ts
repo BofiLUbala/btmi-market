@@ -51,12 +51,36 @@ const SUBCATEGORY_KEYS: Record<string, TranslationKey> = {
 
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 
+const TAXONOMY_ALIASES: Record<string, string> = {
+  mode: 'fashion', enfants: 'children', enfant: 'children', electronique: 'electronics',
+  maison: 'home', beaute: 'beauty', alimentation: 'food', automobile: 'automotive',
+  chaussures: 'shoes', vetements: 'clothing', vetement: 'clothing', sacs: 'bags',
+  accessoires: 'accessories', telephones: 'phones', telephone: 'phones',
+  ordinateurs: 'computers', ordinateur: 'computers', televiseurs: 'tvs', meubles: 'furniture',
+  cuisine: 'kitchen', decoration: 'decoration', jouets: 'toys', ecole: 'school',
+  'produits-pour-bebe': 'baby-products', 'plein-air': 'outdoor',
+  'sports-d-equipe': 'team-sports', 'soins-de-la-peau': 'skincare', maquillage: 'makeup',
+  'soins-capillaires': 'haircare', boissons: 'beverages', collations: 'snacks',
+  boulangerie: 'bakery', 'pieces-detachees': 'parts', pneus: 'tires',
+  reparation: 'repair', conseil: 'consulting', livraison: 'delivery',
+}
+
+function normalizeTaxonomyValue(value: string | null | undefined): string {
+  const normalized = (value || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  return TAXONOMY_ALIASES[normalized] || normalized
+}
+
+function resolveKey(keys: Record<string, TranslationKey>, slug?: string | null, fallbackName?: string | null) {
+  return keys[normalizeTaxonomyValue(slug)] || keys[normalizeTaxonomyValue(fallbackName)]
+}
+
 export function categoryLabel(t: Translate, slug: string | null | undefined, fallbackName: string | null | undefined): string {
-  const key = slug ? CATEGORY_KEYS[slug.toLowerCase()] : undefined
+  const key = resolveKey(CATEGORY_KEYS, slug, fallbackName)
   return key ? t(key) : fallbackName ?? slug ?? ''
 }
 
 export function subcategoryLabel(t: Translate, slug: string | null | undefined, fallbackName: string | null | undefined): string {
-  const key = slug ? SUBCATEGORY_KEYS[slug.toLowerCase()] : undefined
+  const key = resolveKey(SUBCATEGORY_KEYS, slug, fallbackName)
   return key ? t(key) : fallbackName ?? slug ?? ''
 }

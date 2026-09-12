@@ -15,6 +15,7 @@ import { useColors } from '../../../src/store/theme'
 import { spacing, radius, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload, type UploadFile } from '../../../src/lib/imageUpload'
 import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
+import { attributeLabel } from '../../../src/lib/attributeLabels'
 import {
   getCategoryRequirements, getCategorySuggestions, missingRequiredAttributes,
   POPULAR_CUSTOM_CHARACTERISTICS,
@@ -155,7 +156,7 @@ export default function SellerProductCreateScreen() {
     [selectedCategory, selectedSubcategory],
   )
 
-  const requiredAttributeNames = useMemo(() => {
+  const requiredAttributeAliases = useMemo(() => {
     if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
       const reqs = new Set<string>()
       for (const def of categoryAttributesQuery.data) {
@@ -172,6 +173,20 @@ export default function SellerProductCreateScreen() {
       ...(categoryRequirements.anyOf ?? []).flat(),
     ].map((n) => n.toLowerCase()))
   }, [categoryAttributesQuery.data, categoryRequirements])
+
+  const requiredAttributeLabels = useMemo(() => {
+    if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
+      return categoryAttributesQuery.data
+        .filter((def) => def.required)
+        .map((def) => lang === 'fr'
+          ? (def.label_fr || def.label_en || def.key)
+          : (def.label_en || def.label_fr || def.key))
+    }
+    return [
+      ...(categoryRequirements.allOf ?? []),
+      ...(categoryRequirements.anyOf ?? []).flat(),
+    ].map((name) => attributeLabel(t, name))
+  }, [categoryAttributesQuery.data, categoryRequirements, lang, t])
 
   /* Combinations derived from VARIANT characteristics; INFO ones ride along on
      every combination as specifications. */
@@ -549,8 +564,8 @@ export default function SellerProductCreateScreen() {
             </Pressable>)}
           </View>
         </>}
-        {requiredAttributeNames.size > 0 && <Text style={styles.notice}>
-          {t('seller.productForm.categoryRequiresNotice', { attributes: Array.from(requiredAttributeNames).join(', ') })}
+        {requiredAttributeLabels.length > 0 && <Text style={styles.notice}>
+          {t('seller.productForm.categoryRequiresNotice', { attributes: requiredAttributeLabels.join(', ') })}
         </Text>}
       </Card>}
 
@@ -631,7 +646,7 @@ export default function SellerProductCreateScreen() {
             <View style={styles.chipRow}>
               {categorySuggestions.map((s) => {
                 const used = characteristics.some((c) => c.name.trim().toLowerCase() === s.name.toLowerCase())
-                const required = requiredAttributeNames.has(s.name.toLowerCase())
+                const required = requiredAttributeAliases.has(s.name.toLowerCase())
                 return <Pressable key={s.name} accessibilityRole="button" disabled={used} style={[styles.chip, used && styles.chipUsed, required && !used && styles.chipRequired]} onPress={() => addSuggestion(s)}>
                   <Text style={[styles.chipText, used && styles.chipTextUsed]}>{required ? `${s.name} *` : s.name}</Text>
                 </Pressable>
@@ -641,8 +656,8 @@ export default function SellerProductCreateScreen() {
 
           <Text style={styles.subLabel}>{t('seller.productForm.popularCharacteristics')}</Text>
           <View style={styles.chipRow}>
-            {POPULAR_CUSTOM_CHARACTERISTICS.map((name) => <Pressable key={name} accessibilityRole="button" style={styles.chip} onPress={() => addCustomCharacteristic(name)}>
-              <Text style={styles.chipText}>{name}</Text>
+            {POPULAR_CUSTOM_CHARACTERISTICS.map((name) => <Pressable key={name} accessibilityRole="button" style={styles.chip} onPress={() => addCustomCharacteristic(attributeLabel(t, name))}>
+              <Text style={styles.chipText}>{attributeLabel(t, name)}</Text>
             </Pressable>)}
           </View>
           <Button variant="outline" dense title={t('seller.productForm.addCustomCharacteristic')} onPress={() => addCustomCharacteristic()} />

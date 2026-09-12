@@ -169,7 +169,7 @@ export default function SellerHome() {
       <QuickAction icon="storefront-outline" title={t('seller.dashboard.manageShops')} desc={t('seller.dashboard.manageShopsDesc')} onPress={() => router.push('/seller/shops')} colors={colors} styles={styles} />
       <QuickAction icon="people-outline" title={t('seller.dashboard.teamAndStaff')} desc={t('seller.dashboard.teamAndStaffDesc')} onPress={() => router.push('/seller/employees')} colors={colors} styles={styles} />
       <QuickAction icon="cash-outline" title={t('seller.dashboard.cashSessions')} desc={t('seller.dashboard.cashSessionsDesc')} onPress={() => router.push('/seller/cash')} colors={colors} styles={styles} />
-      <QuickAction icon="wallet-outline" title="Finances & Commissions" desc="Suivre vos ventes vérifiées, commissions TBK et revenu net" onPress={() => router.push('/seller/finances')} colors={colors} styles={styles} />
+      <QuickAction icon="wallet-outline" title={t('seller.finances.title')} desc={t('seller.finances.subtitle')} onPress={() => router.push('/seller/finances')} colors={colors} styles={styles} />
     </View>
 
     {/* ── Setup Checklist: same five items as web ── */}

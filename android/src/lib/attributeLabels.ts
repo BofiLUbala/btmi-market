@@ -25,6 +25,14 @@ const ATTRIBUTE_KEYS: Record<string, TranslationKey> = {
   scent: 'attributes.scent',
   'skin type': 'attributes.skinType',
   compatibility: 'attributes.compatibility',
+  'heel height': 'attributes.heelHeight',
+  'battery capacity': 'attributes.batteryCapacity',
+  'water resistance': 'attributes.waterResistance',
+  processor: 'attributes.processor',
+  fragrance: 'attributes.fragrance',
+  pattern: 'attributes.pattern',
+  warranty: 'attributes.warranty',
+  voltage: 'attributes.voltage',
 }
 
 export function attributeLabel(t: Translate, value: string): string {
