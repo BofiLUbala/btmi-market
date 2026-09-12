@@ -5,11 +5,13 @@ export interface ApiErrorBody {
 export class ApiError extends Error {
   status: number
   code: string
-  constructor(status: number, code: string, message: string) {
+  data?: Record<string, unknown>
+  constructor(status: number, code: string, message: string, data?: Record<string, unknown>) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.data = data
   }
 }
 

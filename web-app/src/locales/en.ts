@@ -1423,6 +1423,20 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.maxPhotos': 'Maximum of 10 photos reached.',
   'seller.productForm.characteristicsTitle':
     'Product characteristics & variant settings',
+  'seller.productForm.characteristicsTitleProduct': 'Product characteristics',
+  'seller.productForm.characteristicsDescProduct':
+    'Information shared by every variant (material, gender, etc.). Color and shoe size belong on each variant.',
+  'seller.productForm.variantsTitle': 'Variants',
+  'seller.productForm.variantsDesc':
+    'Each sellable variant needs its own values (Color, Shoe Size, and so on). Those values are stored on the variant.',
+  'seller.productForm.variantN': 'Variant {n}',
+  'seller.productForm.addVariant': '+ Add a variant',
+  'seller.productForm.removeVariant': 'Remove',
+  'seller.productForm.missingOn': 'Missing on:',
+  'seller.productForm.completeAttribute': 'Complete {label}',
+  'seller.productForm.completeVariants': 'Complete variants',
+  'seller.productForm.validation.completeVariantAttrs':
+    'Fill in the missing variant characteristics before publishing.',
   'seller.productForm.characteristicsDesc':
     'Select the attributes that apply to this product. You decide whether an attribute creates purchasable variants (e.g. Color, Size, Scent) or serves as product information (e.g. Material, Expiry date).',
   'seller.productForm.suggestedFor':

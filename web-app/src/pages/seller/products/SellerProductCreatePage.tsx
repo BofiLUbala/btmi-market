@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
-import type { CategoryResponse, SubcategoryResponse, Shop, CategoryAttributeDefinition } from '@/api/types'
+import { ApiError, type CategoryResponse, type SubcategoryResponse, type Shop, type CategoryAttributeDefinition } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
@@ -17,6 +17,14 @@ import {
   type AttributeClassification,
   type AttributeSuggestion,
 } from '@/lib/categorySuggestions'
+import {
+  attributeLabel,
+  canonicalizeAttributes,
+  getAttributeValue,
+  matchesAttributeName,
+  variantDisplayLabel,
+  variantHasAttribute,
+} from '@/lib/categoryAttributes'
 
 /* ── Types ── */
 
@@ -26,15 +34,23 @@ interface CharacteristicRow {
   type: AttributeClassification
   values: string
   placeholder?: string
+  definitionKey?: string
+  inputType?: string
+  allowedValues?: string[]
 }
 
-interface ComboRow {
-  key: string
-  label: string
-  sku?: string
+interface VariantDraft {
+  clientId: string
+  sku: string
   attributes: Record<string, string>
   price: string
   stock: string
+}
+
+interface MissingVariantIssue {
+  key: string
+  label: string
+  variants: Array<{ clientId: string; label: string }>
 }
 
 interface PipelineProgress {
@@ -47,16 +63,14 @@ interface PipelineProgress {
 
 /* ── Helpers ── */
 
-function cartesian(attrs: Array<{ name: string; values: string[] }>): Array<Record<string, string>> {
-  const cleaned = attrs.map((a) => ({
-    name: a.name.trim(),
-    values: Array.from(new Set(a.values.map((v) => v.trim()).filter(Boolean))),
-  }))
-  return cleaned.reduce<Array<Record<string, string>>>(
-    (acc, attr) =>
-      acc.flatMap((combo) => attr.values.map((v) => ({ ...combo, [attr.name]: v }))),
-    [{}]
-  )
+function newDraftId() {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `vd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function emptyVariantDraft(price = ''): VariantDraft {
+  return { clientId: newDraftId(), sku: '', attributes: {}, price, stock: '0' }
 }
 
 
@@ -98,8 +112,14 @@ export default function SellerProductCreatePage() {
   /* Category change notification */
   const [categoryNotice, setCategoryNotice] = useState('')
 
-  /* Optional characteristics */
+  /* Product-level (non-variant) characteristics */
   const [characteristics, setCharacteristics] = useState<CharacteristicRow[]>([])
+
+  /* One card per purchasable variant — required variant attributes live here */
+  const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([emptyVariantDraft()])
+  const [focusTarget, setFocusTarget] = useState<{ clientId: string; key: string } | null>(null)
+  const [missingIssues, setMissingIssues] = useState<MissingVariantIssue[]>([])
+  const [missingProductKeys, setMissingProductKeys] = useState<string[]>([])
 
   /* Simple-product initial stock */
   const [simpleStock, setSimpleStock] = useState('0')
@@ -203,24 +223,35 @@ export default function SellerProductCreatePage() {
     [subcategories, subcategoryId]
   )
 
+  const variantAttrDefs = useMemo(
+    () => dbAttrDefs.filter((d) => d.variant_attribute),
+    [dbAttrDefs]
+  )
+  const productAttrDefs = useMemo(
+    () => dbAttrDefs.filter((d) => !d.variant_attribute),
+    [dbAttrDefs]
+  )
+
   const categorySuggestions = useMemo(() => {
-    if (dbAttrDefs.length > 0) {
-      return dbAttrDefs.map((d) => ({
+    if (productAttrDefs.length > 0) {
+      return productAttrDefs.map((d) => ({
         name: d.label_fr || d.label_en || d.key,
-        recommendedType: (d.variant_attribute ? 'VARIANT' : 'INFO') as AttributeClassification,
+        recommendedType: 'INFO' as AttributeClassification,
         placeholder: d.allowed_values && d.allowed_values.length > 0
           ? d.allowed_values.join(', ')
           : d.key,
+        definitionKey: d.key,
       }))
     }
-    if (!selectedCategory) return []
-    // Fallback to static suggestions if DB rules not yet loaded
-    if (selectedSubcategory) {
-      const subSuggestions = getCategorySuggestions(selectedSubcategory.slug || selectedSubcategory.name)
-      if (subSuggestions.length > 0) return subSuggestions
-    }
-    return getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
-  }, [dbAttrDefs, selectedCategory, selectedSubcategory])
+    if (!selectedCategory) return [] as Array<AttributeSuggestion & { definitionKey?: string }>
+    const staticSuggestions = selectedSubcategory
+      ? getCategorySuggestions(selectedSubcategory.slug || selectedSubcategory.name)
+      : []
+    const fallback = staticSuggestions.length > 0
+      ? staticSuggestions
+      : getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
+    return fallback.filter((s) => s.recommendedType === 'INFO')
+  }, [productAttrDefs, selectedCategory, selectedSubcategory])
 
   const categoryRequirements = useMemo(
     () =>
@@ -231,25 +262,106 @@ export default function SellerProductCreatePage() {
     [selectedCategory, selectedSubcategory]
   )
 
-  const requiredAttributeNames = useMemo(() => {
-    if (dbAttrDefs.length > 0) {
-      const set = new Set<string>()
-      for (const d of dbAttrDefs.filter((x) => x.required)) {
-        if (d.key) set.add(d.key.toLowerCase())
-        if (d.label_fr) set.add(d.label_fr.toLowerCase())
-        if (d.label_en) set.add(d.label_en.toLowerCase())
-      }
-      return set
+  const requiredProductAttrNames = useMemo(() => {
+    const set = new Set<string>()
+    for (const d of productAttrDefs.filter((x) => x.required)) {
+      if (d.key) set.add(d.key.toLowerCase())
+      if (d.label_fr) set.add(d.label_fr.toLowerCase())
+      if (d.label_en) set.add(d.label_en.toLowerCase())
     }
-    return new Set([
-      ...(categoryRequirements.allOf ?? []),
-      ...(categoryRequirements.anyOf ?? []).flat(),
-    ].map((name) => name.toLowerCase()))
-  }, [dbAttrDefs, categoryRequirements])
+    return set
+  }, [productAttrDefs])
+
+  useEffect(() => {
+    setCharacteristics((prev) => {
+      // Keep seller-defined custom rows and DB-backed rows that still belong to
+      // the newly selected category.  Definitions from the previous category
+      // must not remain visible or satisfy the new category's requirements.
+      const next = prev.filter((row) => {
+        if (!row.definitionKey) {
+          return !variantAttrDefs.some((def) => matchesAttributeName(row.name, def))
+        }
+        return productAttrDefs.some(
+          (def) => row.definitionKey === def.key || matchesAttributeName(row.name, def),
+        )
+      })
+      // Every active non-variant definition is a product-level field. Optional
+      // definitions are rendered too; `required` only controls validation.
+      for (const def of productAttrDefs) {
+        const exists = next.some((row) => matchesAttributeName(row.name, def) || row.definitionKey === def.key)
+        if (exists) continue
+        next.push({
+          id: `ch-${def.key}`,
+          name: attributeLabel(def),
+          type: 'INFO',
+          values: '',
+          placeholder: def.allowed_values?.join(', ') || def.key,
+          definitionKey: def.key,
+          inputType: def.input_type,
+          allowedValues: def.allowed_values,
+        })
+      }
+      return next
+    })
+  }, [productAttrDefs, variantAttrDefs])
+
+  useEffect(() => {
+    setVariantDrafts((prev) => {
+      const source = prev.length > 0 ? prev : [emptyVariantDraft(form.unit_price)]
+      return source.map((draft) => ({
+        ...draft,
+        price: draft.price || form.unit_price,
+        attributes: Object.fromEntries(
+          variantAttrDefs.map((def) => [def.key, getAttributeValue(draft.attributes, def)])
+        ),
+      }))
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variantAttrDefs.map((d) => d.key).join('|')])
+
+  useEffect(() => {
+    if (!focusTarget) return
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById(`variant-${focusTarget.clientId}-${focusTarget.key}`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [focusTarget])
+
+  const liveMissingIssues = useMemo((): MissingVariantIssue[] => {
+    const requiredVariantDefs = variantAttrDefs.filter((d) => d.required)
+    if (requiredVariantDefs.length === 0) return []
+    const issues: MissingVariantIssue[] = []
+    for (const def of requiredVariantDefs) {
+      const lacking = variantDrafts.filter((draft) => !variantHasAttribute(draft.attributes, def))
+      if (lacking.length === 0) continue
+      issues.push({
+        key: def.key,
+        label: attributeLabel(def),
+        variants: lacking.map((draft, index) => ({
+          clientId: draft.clientId,
+          label: (() => {
+            const position = variantDrafts.indexOf(draft) + 1 || index + 1
+            const base = t('seller.productForm.variantN', { n: position })
+            const details = variantDisplayLabel(draft.attributes, variantAttrDefs, base)
+            return details === base ? base : `${base} — ${details}`
+          })(),
+        })),
+      })
+    }
+    return issues
+  }, [variantAttrDefs, variantDrafts, t])
+
+  useEffect(() => {
+    setMissingIssues((prev) => (prev.length === 0 ? prev : liveMissingIssues))
+    if (liveMissingIssues.length === 0) setError((current) => current === t('seller.productForm.validation.completeVariantAttrs') ? '' : current)
+  }, [liveMissingIssues, t])
 
   function handleCategoryChange(newCatId: string) {
-    if (categoryId && newCatId !== categoryId && characteristics.length > 0) {
+    if (categoryId && newCatId !== categoryId && (characteristics.length > 0 || variantDrafts.some((d) => Object.values(d.attributes).some(Boolean)))) {
       const hasValues = characteristics.some((c) => c.name.trim() || c.values.trim())
+        || variantDrafts.some((d) => Object.values(d.attributes).some((v) => String(v).trim()))
       if (hasValues) {
         const confirmed = window.confirm(t('seller.productForm.categoryChangePrompt'))
         if (!confirmed) return
@@ -267,61 +379,65 @@ export default function SellerProductCreatePage() {
     }
     setCategoryId(newCatId)
     setSubcategoryId('')
+    setVariantDrafts([emptyVariantDraft(form.unit_price)])
+    setMissingIssues([])
+    setMissingProductKeys([])
+    setFocusTarget(null)
   }
 
-  /* Derived variant combos (generated only from VARIANT characteristics) */
-  const combos: ComboRow[] = useMemo(() => {
-    const variantAttrs = characteristics
-      .filter((c) => c.type === 'VARIANT')
-      .map((c) => ({
-        name: c.name.trim(),
-        values: c.values.split(',').map((v) => v.trim()).filter(Boolean),
-      }))
-      .filter((c) => c.name && c.values.length > 0)
-
-    const infoAttrs: Record<string, string> = {}
-    characteristics
-      .filter((c) => c.type === 'INFO')
-      .forEach((c) => {
-        const n = c.name.trim()
-        const v = c.values.trim()
-        if (n && v) infoAttrs[n] = v
-      })
-
-    if (variantAttrs.length === 0) return []
-
-    const attributeSets = cartesian(variantAttrs)
-    return attributeSets.map((attrSet, idx) => {
-      const label = Object.values(attrSet).join(' / ')
-      const skuVal = form.sku.trim() ? `${form.sku.trim()}-${idx + 1}` : ''
-      return {
-        key: label,
-        label,
-        sku: skuVal,
-        attributes: { ...infoAttrs, ...attrSet },
-        price: form.unit_price,
-        stock: '0',
-      }
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characteristics, form.sku, form.unit_price])
-
-  function updateCombo(key: string, field: 'price' | 'stock' | 'sku', value: string) {
-    setCombosState((prev) => prev.map((c) => (c.key === key ? { ...c, [field]: value } : c)))
-  }
-
-  // Local editable copy of combos once rendered.
-  const [combosState, setCombosState] = useState<ComboRow[]>([])
-  useEffect(() => {
-    setCombosState(combos)
-  }, [combos])
-  const activeCombos = combosState.length > 0 ? combosState : combos
-
-  const isVariantMode = activeCombos.length > 0
+  const isVariantMode = variantAttrDefs.length > 0 || variantDrafts.length > 1
 
   const totalUnits = isVariantMode
-    ? activeCombos.reduce((sum, c) => sum + Math.max(0, parseInt(c.stock, 10) || 0), 0)
+    ? variantDrafts.reduce((sum, c) => sum + Math.max(0, parseInt(c.stock, 10) || 0), 0)
     : Math.max(0, parseInt(simpleStock, 10) || 0)
+
+  function infoAttributesPayload(): Record<string, string> {
+    const attrs: Record<string, string> = {}
+    for (const c of characteristics) {
+      const name = c.definitionKey || c.name.trim()
+      const value = c.values.trim()
+      if (name && value) attrs[name] = value
+    }
+    return canonicalizeAttributes(attrs, dbAttrDefs)
+  }
+
+  function variantPayload(draft: VariantDraft, index: number) {
+    const merged = canonicalizeAttributes(
+      { ...infoAttributesPayload(), ...draft.attributes },
+      dbAttrDefs
+    )
+    const label = variantDisplayLabel(merged, variantAttrDefs, t('seller.productForm.variantN', { n: index + 1 }))
+    return {
+      name: form.name.trim() ? `${form.name.trim()} — ${label}` : label,
+      sku: draft.sku.trim() || (form.sku.trim() ? `${form.sku.trim()}-${index + 1}` : undefined),
+      attributes: merged,
+      sale_price: parseFloat(draft.price || form.unit_price),
+      purchase_price: form.cost_price ? parseFloat(form.cost_price) : undefined,
+      unit: form.unit.trim() || 'PCS',
+    }
+  }
+
+  function updateVariantDraft(clientId: string, patch: Partial<VariantDraft>) {
+    setVariantDrafts((prev) => prev.map((d) => (d.clientId === clientId ? { ...d, ...patch } : d)))
+  }
+
+  function updateVariantAttribute(clientId: string, key: string, value: string) {
+    setVariantDrafts((prev) =>
+      prev.map((d) => (d.clientId === clientId ? { ...d, attributes: { ...d.attributes, [key]: value } } : d))
+    )
+  }
+
+  function addVariantDraft() {
+    setVariantDrafts((prev) => [...prev, emptyVariantDraft(form.unit_price)])
+  }
+
+  function removeVariantDraft(clientId: string) {
+    setVariantDrafts((prev) => (prev.length <= 1 ? prev : prev.filter((d) => d.clientId !== clientId)))
+  }
+
+  function focusVariantField(clientId: string, key: string) {
+    setFocusTarget({ clientId, key })
+  }
 
   /* ── Image handlers ── */
   function addImages(files: FileList | null) {
@@ -352,9 +468,9 @@ export default function SellerProductCreatePage() {
   }
 
   /* ── Characteristics handlers ── */
-  function addSuggestion(s: AttributeSuggestion) {
+  function addSuggestion(s: AttributeSuggestion & { definitionKey?: string }) {
     const exists = characteristics.some(
-      (c) => c.name.trim().toLowerCase() === s.name.toLowerCase()
+      (c) => c.name.trim().toLowerCase() === s.name.toLowerCase() || (s.definitionKey && c.definitionKey === s.definitionKey)
     )
     if (exists) return
     setCharacteristics((prev) => [
@@ -362,9 +478,10 @@ export default function SellerProductCreatePage() {
       {
         id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name: s.name,
-        type: s.recommendedType,
+        type: 'INFO',
         values: '',
         placeholder: s.placeholder,
+        definitionKey: s.definitionKey,
       },
     ])
   }
@@ -375,9 +492,9 @@ export default function SellerProductCreatePage() {
       {
         id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name: '',
-        type: 'VARIANT',
+        type: 'INFO',
         values: '',
-        placeholder: 'e.g. Value 1, Value 2',
+        placeholder: 'e.g. Genuine Leather, 2026-12-31',
       },
     ])
   }
@@ -417,15 +534,29 @@ export default function SellerProductCreatePage() {
 
     // A draft is a work in progress, so category rules only gate publication.
     if (intent === 'PUBLISHED') {
+      if (liveMissingIssues.length > 0) {
+        setMissingIssues(liveMissingIssues)
+        const first = liveMissingIssues[0]
+        focusVariantField(first.variants[0].clientId, first.key)
+        return t('seller.productForm.validation.completeVariantAttrs')
+      }
+
       const completed = characteristics
         .filter((c) => c.name.trim() && c.values.trim())
-        .map((c) => c.name)
-      const missing = missingRequiredAttributes(categoryRequirements, completed)
-      if (missing.length > 0) {
+        .flatMap((c) => [c.name, c.definitionKey || ''].filter(Boolean))
+      const missingProduct = dbAttrDefs.length > 0
+        ? productAttrDefs.filter((d) => d.required && !characteristics.some((c) => c.values.trim() && (matchesAttributeName(c.name, d) || c.definitionKey === d.key))).map((d) => attributeLabel(d))
+        : missingRequiredAttributes(categoryRequirements, completed)
+      if (missingProduct.length > 0) {
+        const keys = productAttrDefs
+          .filter((d) => d.required && !characteristics.some((c) => c.values.trim() && (matchesAttributeName(c.name, d) || c.definitionKey === d.key)))
+          .map((d) => d.key)
+        setMissingProductKeys(keys)
+        window.setTimeout(() => document.getElementById(`ch-${keys[0]}-values`)?.focus(), 0)
         return (
-          t('seller.productForm.validation.missingAttributes', { attributes: missing.join(', ') }) +
+          t('seller.productForm.validation.missingAttributes', { attributes: missingProduct.join(', ') }) +
           ' ' +
-          t(missing.length > 1
+          t(missingProduct.length > 1
             ? 'seller.productForm.validation.missingThem'
             : 'seller.productForm.validation.missingIt')
         )
@@ -433,11 +564,12 @@ export default function SellerProductCreatePage() {
     }
 
     if (isVariantMode) {
-      for (const combo of activeCombos) {
-        const p = parseFloat(combo.price || form.unit_price)
-        if (isNaN(p) || p <= 0) return `Variant "${combo.label}" needs a valid Price (> 0 FC).`
-        const s = parseInt(combo.stock, 10)
-        if (isNaN(s) || s < 0) return `Variant "${combo.label}" stock must be 0 or more.`
+      for (const [index, draft] of variantDrafts.entries()) {
+        const p = parseFloat(draft.price || form.unit_price)
+        const label = variantDisplayLabel(draft.attributes, variantAttrDefs, t('seller.productForm.variantN', { n: index + 1 }))
+        if (isNaN(p) || p <= 0) return `Variant "${label}" needs a valid Price (> 0 FC).`
+        const s = parseInt(draft.stock, 10)
+        if (isNaN(s) || s < 0) return `Variant "${label}" stock must be 0 or more.`
       }
     } else {
       const s = parseInt(simpleStock, 10)
@@ -496,12 +628,7 @@ export default function SellerProductCreatePage() {
         }
 
         if (!isVariantMode) {
-          const attrs: Record<string, string> = {}
-          for (const c of characteristics) {
-            const name = c.name.trim()
-            const value = c.values.split(',')[0]?.trim()
-            if (name && value) attrs[name] = value
-          }
+          const attrs = infoAttributesPayload()
           const updated = await productApi.updateVariant(defaultVariant.id, {
             sale_price: parseFloat(form.unit_price),
             purchase_price: form.cost_price ? parseFloat(form.cost_price) : undefined,
@@ -512,16 +639,8 @@ export default function SellerProductCreatePage() {
             stock: Math.max(0, parseInt(simpleStock, 10) || 0),
           })
         } else {
-          for (let i = 0; i < activeCombos.length; i++) {
-            const combo = activeCombos[i]
-            const payload = {
-              name: `${form.name.trim()} — ${combo.label}`,
-              sku: form.sku.trim() ? `${form.sku.trim()}-${i + 1}` : undefined,
-              attributes: combo.attributes,
-              sale_price: parseFloat(combo.price || form.unit_price),
-              purchase_price: form.cost_price ? parseFloat(form.cost_price) : undefined,
-              unit: form.unit.trim() || 'PCS',
-            }
+          for (let i = 0; i < variantDrafts.length; i++) {
+            const payload = variantPayload(variantDrafts[i], i)
             let variantId: string
             if (i === 0 && defaultVariant) {
               const updated = await productApi.updateVariant(defaultVariant.id, payload)
@@ -532,7 +651,7 @@ export default function SellerProductCreatePage() {
             }
             progress.resolvedVariants.push({
               variantId,
-              stock: Math.max(0, parseInt(combo.stock, 10) || 0),
+              stock: Math.max(0, parseInt(variantDrafts[i].stock, 10) || 0),
             })
           }
         }
@@ -562,7 +681,23 @@ export default function SellerProductCreatePage() {
         progress.stockDone = true
       }
 
-      /* Step 5 — Publish (product stays consistent before it goes live) */
+      /* Step 5 — Keep variant attributes in sync (covers retries after the
+         seller fills missing Couleur / Pointure values). */
+      if (isVariantMode && progress.resolvedVariants.length > 0) {
+        for (let i = 0; i < Math.min(variantDrafts.length, progress.resolvedVariants.length); i++) {
+          const payload = variantPayload(variantDrafts[i], i)
+          await productApi.updateVariant(progress.resolvedVariants[i].variantId, {
+            name: payload.name,
+            sku: payload.sku,
+            attributes: payload.attributes,
+            sale_price: payload.sale_price,
+            purchase_price: payload.purchase_price,
+            unit: payload.unit,
+          })
+        }
+      }
+
+      /* Step 6 — Publish (product stays consistent before it goes live) */
       if (publishIntentRef.current === 'PUBLISHED' && !progress.published) {
         setStepLabel(t('seller.productForm.stepPublishing'))
         await productApi.update(activeBusiness.id, productId!, {
@@ -584,6 +719,12 @@ export default function SellerProductCreatePage() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : t('seller.productForm.genericError')
+      if (err instanceof ApiError && err.code === 'MISSING_REQUIRED_ATTRIBUTES') {
+        setMissingIssues(liveMissingIssues)
+        if (liveMissingIssues[0]) {
+          focusVariantField(liveMissingIssues[0].variants[0].clientId, liveMissingIssues[0].key)
+        }
+      }
       setPartialFailure({ stage: stepLabel || t('seller.productForm.processing'), message })
     } finally {
       setBusy(false)
@@ -598,7 +739,9 @@ export default function SellerProductCreatePage() {
     const validationError = validate(intent)
     if (validationError) {
       setError(validationError)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      if (intent !== 'PUBLISHED' || liveMissingIssues.length === 0) {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
       return
     }
     setError('')
@@ -634,7 +777,9 @@ export default function SellerProductCreatePage() {
     setImagePreviews([])
     setCharacteristics([])
     setSimpleStock('0')
-    setCombosState([])
+    setVariantDrafts([emptyVariantDraft()])
+    setMissingIssues([])
+    setFocusTarget(null)
     setSelfRating(0)
   }
 
@@ -767,7 +912,59 @@ export default function SellerProductCreatePage() {
         </div>
       </div>
 
-      {error && <ErrorBox error={error} />}
+      {error && liveMissingIssues.length === 0 && <ErrorBox error={error} />}
+      {missingIssues.length > 0 && (
+        <div className="missing-requirements notice notice-warning mb-4" role="alert">
+          {missingIssues.map((issue) => (
+            <section key={issue.key} className="missing-requirement-item">
+              <div>
+                <strong>{issue.label} manquante</strong>
+                <div className="missing-variant-summary">
+                  <span>{t('seller.productForm.missingOn')}</span>
+                  {issue.variants.map((variant) => (
+                    <span key={variant.clientId}>• {variant.label}</span>
+                  ))}
+                </div>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => focusVariantField(issue.variants[0].clientId, issue.key)}
+              >
+                {issue.variants.length > 1
+                  ? t('seller.productForm.completeVariants')
+                  : t('seller.productForm.completeAttribute', { label: issue.label })}
+              </Button>
+            </section>
+          ))}
+        </div>
+      )}
+      {missingProductKeys.length > 0 && (
+        <div className="missing-requirements notice notice-warning mb-4" role="alert">
+          {missingProductKeys.map((key) => {
+            const def = productAttrDefs.find((item) => item.key === key)
+            const label = def ? attributeLabel(def) : key
+            return (
+              <section key={key} className="missing-requirement-item">
+                <strong>{label} manquante</strong>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const el = document.getElementById(`ch-${key}-values`)
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    el?.focus()
+                  }}
+                >
+                  {t('seller.productForm.completeAttribute', { label })}
+                </Button>
+              </section>
+            )
+          })}
+        </div>
+      )}
 
       <form className="card-stack" onSubmit={(e) => handleSubmit(e, publishIntentRef.current)}>
         {/* STEP 1 — Category */}
@@ -814,7 +1011,7 @@ export default function SellerProductCreatePage() {
           </div>
 
           {categoryNotice && (
-            <div className="notice notice-warning mt-4">ℹ️ {categoryNotice}</div>
+            <div className="notice notice-warning mt-4">{categoryNotice}</div>
           )}
         </Card>
 
@@ -1044,29 +1241,127 @@ export default function SellerProductCreatePage() {
               )}
             </Card>
 
-            {/* Variant Attributes & Product Specifications */}
+            {variantAttrDefs.length > 0 && (
+              <Card className="reveal-section">
+                <div id="variant-editor">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <h3 style={{ margin: 0 }}>{t('seller.productForm.variantsTitle')}</h3>
+                    <p className="muted small" style={{ margin: '4px 0 0' }}>
+                      {t('seller.productForm.variantsDesc')}
+                    </p>
+                  </div>
+                  <div className="badge badge-primary" style={{ padding: '6px 12px' }}>
+                    {t('seller.productForm.totalStock')} <strong>{totalUnits} {t('seller.productForm.unitsPlural')}</strong>
+                  </div>
+                </div>
+
+                <div className="variant-draft-list">
+                  {variantDrafts.map((draft, index) => {
+                    const title = variantDisplayLabel(
+                      draft.attributes,
+                      variantAttrDefs,
+                      t('seller.productForm.variantN', { n: index + 1 })
+                    )
+                    return (
+                      <section
+                        key={draft.clientId}
+                        id={`variant-draft-${draft.clientId}`}
+                        className={`variant-draft-card${focusTarget?.clientId === draft.clientId ? ' variant-draft-card-focus' : ''}`}
+                      >
+                        <div className="variant-draft-header">
+                          <h4>{t('seller.productForm.variantN', { n: index + 1 })}{title !== t('seller.productForm.variantN', { n: index + 1 }) ? ` — ${title}` : ''}</h4>
+                          {variantDrafts.length > 1 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeVariantDraft(draft.clientId)}>
+                              {t('seller.productForm.removeVariant')}
+                            </Button>
+                          )}
+                        </div>
+                        <div className="variant-draft-fields">
+                          {variantAttrDefs.map((def) => {
+                            const label = attributeLabel(def)
+                            const focused = focusTarget?.clientId === draft.clientId && focusTarget.key === def.key
+                            const missing = def.required && !getAttributeValue(draft.attributes, def)
+                            return (
+                              <Field
+                                key={def.key}
+                                id={`variant-${draft.clientId}-${def.key}`}
+                                label={`${label}${def.required ? ' *' : ''}`}
+                                name={`variant-${draft.clientId}-${def.key}`}
+                                value={draft.attributes[def.key] || ''}
+                                className={focused || (missing && missingIssues.some((issue) => issue.key === def.key)) ? 'completion-input-focus' : ''}
+                                placeholder={def.allowed_values?.[0] || label}
+                                as={def.input_type === 'SELECT' || def.input_type === 'BOOLEAN' ? 'select' : 'input'}
+                                type={def.input_type === 'DATE' ? 'date' : def.input_type === 'NUMBER' ? 'number' : undefined}
+                                options={def.input_type === 'SELECT'
+                                  ? [{ value: '', label: `— ${label} —` }, ...(def.allowed_values || []).map((value) => ({ value, label: value }))]
+                                  : def.input_type === 'BOOLEAN'
+                                    ? [{ value: '', label: `— ${label} —` }, { value: 'true', label: 'Oui' }, { value: 'false', label: 'Non' }]
+                                    : undefined}
+                                onFocus={() => setFocusTarget({ clientId: draft.clientId, key: def.key })}
+                                onChange={(e) => updateVariantAttribute(draft.clientId, def.key, e.target.value)}
+                              />
+                            )
+                          })}
+                          <Field
+                            label={t('seller.productForm.salePriceFc')}
+                            name={`price-${draft.clientId}`}
+                            type="number"
+                            min="1"
+                            step="any"
+                            value={draft.price}
+                            onChange={(e) => updateVariantDraft(draft.clientId, { price: e.target.value })}
+                          />
+                          <Field
+                            label={t('seller.productForm.initialStock')}
+                            name={`stock-${draft.clientId}`}
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={draft.stock}
+                            onChange={(e) => updateVariantDraft(draft.clientId, { stock: e.target.value })}
+                          />
+                          <Field
+                            label="SKU"
+                            name={`sku-${draft.clientId}`}
+                            value={draft.sku}
+                            placeholder="SKU"
+                            onChange={(e) => updateVariantDraft(draft.clientId, { sku: e.target.value })}
+                          />
+                        </div>
+                      </section>
+                    )
+                  })}
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addVariantDraft}>
+                  {t('seller.productForm.addVariant')}
+                </Button>
+                </div>
+              </Card>
+            )}
+
+            {/* Product-level characteristics only (not Couleur / Pointure) */}
             <Card className="reveal-section">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <h3 style={{ margin: 0 }}>{t('seller.productForm.characteristicsTitle')}</h3>
+                  <h3 style={{ margin: 0 }}>{t('seller.productForm.characteristicsTitleProduct')}</h3>
                   <p className="muted small" style={{ margin: '4px 0 0' }}>
-                    Select which attributes apply to this Product. You decide whether an attribute creates purchasable Variants (e.g. Color, Size, Flavor) or acts as Product Information (e.g. Material, Expiration Date).
+                    {t('seller.productForm.characteristicsDescProduct')}
                   </p>
                 </div>
               </div>
 
-              {/* Category-relevant suggestion chips */}
               {categorySuggestions.length > 0 && (
                 <div style={{ margin: '16px 0 20px', padding: 14, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
                   <div className="small bold" style={{ marginBottom: 8, color: 'var(--color-text)' }}>
-                    💡 Suggested for {selectedSubcategory?.name || selectedCategory?.name || 'this category'} (click to add):
+                    💡 {t('seller.productForm.suggestedFor', { name: selectedSubcategory?.name || selectedCategory?.name || t('seller.productForm.thisCategory') })}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {categorySuggestions.map((sug) => {
                       const alreadyAdded = characteristics.some(
-                        (c) => c.name.trim().toLowerCase() === sug.name.toLowerCase()
+                        (c) => c.name.trim().toLowerCase() === sug.name.toLowerCase() || ('definitionKey' in sug && sug.definitionKey && c.definitionKey === sug.definitionKey)
                       )
-                      const isRequired = requiredAttributeNames.has(sug.name.toLowerCase())
+                      const isRequired = requiredProductAttrNames.has(sug.name.toLowerCase())
                       return (
                         <button
                           key={sug.name}
@@ -1091,18 +1386,6 @@ export default function SellerProductCreatePage() {
                           <span>{alreadyAdded ? '✓' : '+'}</span>
                           <span>{sug.name}</span>
                           {isRequired && <span className="badge badge-warning" style={{ fontSize: '0.68rem' }}>{t('seller.productForm.requiredBadge')}</span>}
-                          <span
-                            style={{
-                              fontSize: '0.72rem',
-                              padding: '1px 6px',
-                              borderRadius: 10,
-                              background: sug.recommendedType === 'VARIANT' ? 'var(--color-info-soft)' : 'var(--color-surface-2)',
-                              color: sug.recommendedType === 'VARIANT' ? 'var(--color-info)' : 'var(--color-text-muted)',
-                              fontWeight: 700,
-                            }}
-                          >
-                            {sug.recommendedType === 'VARIANT' ? 'Variant' : 'Info'}
-                          </span>
                         </button>
                       )
                     })}
@@ -1110,7 +1393,6 @@ export default function SellerProductCreatePage() {
                 </div>
               )}
 
-              {/* Characteristics Configuration List */}
               {characteristics.length > 0 && (
                 <div style={{ display: 'grid', gap: 14, marginBottom: 16 }}>
                   {characteristics.map((ch) => (
@@ -1118,18 +1400,18 @@ export default function SellerProductCreatePage() {
                       key={ch.id}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: 'minmax(140px, 180px) minmax(180px, 220px) 1fr auto',
+                        gridTemplateColumns: 'minmax(140px, 220px) 1fr auto',
                         gap: 12,
                         alignItems: 'end',
                         padding: 12,
-                        background: ch.type === 'VARIANT' ? 'rgba(30, 64, 175, 0.03)' : 'rgba(0,0,0,0.02)',
-                        border: `1px solid ${ch.type === 'VARIANT' ? 'rgba(30, 64, 175, 0.2)' : 'var(--color-border)'}`,
+                        background: 'rgba(0,0,0,0.02)',
+                        border: '1px solid var(--color-border)',
                         borderRadius: 'var(--radius)',
                       }}
                     >
                       <div>
                         <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-name`}>
-                          Attribute Name
+                          {t('seller.productForm.attributeName')}
                         </label>
                         <input
                           id={`${ch.id}-name`}
@@ -1141,30 +1423,36 @@ export default function SellerProductCreatePage() {
                         />
                       </div>
                       <div>
-                        <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-type`}>
-                          Classification
-                        </label>
-                        <select
-                          id={`${ch.id}-type`}
-                          className="input"
-                          value={ch.type}
-                          onChange={(e) => updateCharacteristic(ch.id, 'type', e.target.value as AttributeClassification)}
-                        >
-                          <option value="VARIANT">{t('seller.productForm.variantAttribute')}</option>
-                          <option value="INFO">{t('seller.productForm.infoAttribute')}</option>
-                        </select>
-                      </div>
-                      <div>
                         <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-values`}>
-                          {ch.type === 'VARIANT' ? t('seller.productForm.valuesCommaSeparated') : t('seller.productForm.specValueLabel')}
+                          {t('seller.productForm.specValueLabel')}
                         </label>
+                        {ch.inputType === 'SELECT' || ch.inputType === 'BOOLEAN' ? (
+                          <select
+                            id={`${ch.id}-values`}
+                            className={`select ${missingProductKeys.includes(ch.definitionKey || '') ? 'completion-input-focus' : ''}`}
+                            value={ch.values}
+                            onChange={(e) => updateCharacteristic(ch.id, 'values', e.target.value)}
+                          >
+                            <option value="">— {ch.name} —</option>
+                            {(ch.inputType === 'BOOLEAN' ? ['true', 'false'] : ch.allowedValues || []).map((value) => (
+                              <option key={value} value={value}>{value}</option>
+                            ))}
+                          </select>
+                        ) : (
                         <input
                           id={`${ch.id}-values`}
-                          className="input"
-                          placeholder={ch.type === 'VARIANT' ? (ch.placeholder || 'e.g. Black, White, Red') : (ch.placeholder || 'e.g. Genuine Leather, 2026-12-31')}
+                          className={`input ${missingProductKeys.includes(ch.definitionKey || '') ? 'completion-input-focus' : ''}`}
+                          type={ch.inputType === 'DATE' ? 'date' : ch.inputType === 'NUMBER' ? 'number' : 'text'}
+                          placeholder={ch.placeholder || t('seller.productForm.valuesPlaceholderInfo')}
                           value={ch.values}
-                          onChange={(e) => updateCharacteristic(ch.id, 'values', e.target.value)}
+                          onChange={(e) => {
+                            updateCharacteristic(ch.id, 'values', e.target.value)
+                            if (ch.definitionKey && e.target.value.trim()) {
+                              setMissingProductKeys((prev) => prev.filter((key) => key !== ch.definitionKey))
+                            }
+                          }}
                         />
+                        )}
                       </div>
                       <Button
                         type="button"
@@ -1191,133 +1479,9 @@ export default function SellerProductCreatePage() {
                   {t('seller.productForm.addCustomCharacteristic')}
                 </Button>
                 {characteristics.length === 0 && (
-                  <span className="small muted">
-                    {requiredAttributeNames.size > 0
-                      ? t('seller.productForm.charHintRequired')
-                      : t('seller.productForm.charHintOptional')}
-                  </span>
+                  <span className="small muted">{t('seller.productForm.charHintOptional')}</span>
                 )}
               </div>
-
-              {/* Generated Variants Table */}
-              {isVariantMode && activeCombos.length > 0 && (
-                <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                    <div>
-                      <h4 style={{ margin: 0 }}>{t('seller.productForm.generatedVariants', { count: activeCombos.length })}</h4>
-                      <p className="muted small" style={{ margin: '2px 0 0' }}>
-                        Review individual price, SKU, and initial stock at <strong>{shop.name}</strong> before publishing.
-                      </p>
-                    </div>
-                    <div className="badge badge-primary" style={{ padding: '6px 12px' }}>
-                      Total Stock: <strong>{totalUnits} units</strong>
-                    </div>
-                  </div>
-
-                  {/* Desktop Table View */}
-                  <div className="table-responsive desktop-table-view">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>{t('seller.productForm.combination')}</th>
-                          <th style={{ minWidth: 140 }}>SKU</th>
-                          <th style={{ minWidth: 130 }}>{t('seller.productForm.salePriceFc')}</th>
-                          <th style={{ minWidth: 110 }}>{t('seller.productForm.initialStock')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeCombos.map((combo) => (
-                          <tr key={combo.key}>
-                            <td>
-                              <strong>{combo.label}</strong>
-                            </td>
-                            <td>
-                              <input
-                                className="input input-sm"
-                                type="text"
-                                placeholder="SKU"
-                                value={combo.sku || ''}
-                                onChange={(e) => updateCombo(combo.key, 'sku', e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                className="input input-sm"
-                                type="number"
-                                min="1"
-                                step="any"
-                                value={combo.price}
-                                onChange={(e) => updateCombo(combo.key, 'price', e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                className="input input-sm"
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={combo.stock}
-                                onChange={(e) => updateCombo(combo.key, 'stock', e.target.value)}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile Card View (<= 768px) */}
-                  <div className="mobile-card-list">
-                    {activeCombos.map((combo) => (
-                      <div key={combo.key} className="mobile-data-card">
-                        <div className="mobile-data-card-header">
-                          <strong className="mobile-data-card-title">{combo.label}</strong>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
-                          <Field
-                            label="SKU"
-                            name={`sku-${combo.key}`}
-                            value={combo.sku || ''}
-                            onChange={(e) => updateCombo(combo.key, 'sku', e.target.value)}
-                            placeholder="SKU"
-                          />
-                          <Field
-                            label={t('seller.productForm.salePriceFc')}
-                            name={`price-${combo.key}`}
-                            type="number"
-                            min="1"
-                            step="any"
-                            value={combo.price}
-                            onChange={(e) => updateCombo(combo.key, 'price', e.target.value)}
-                          />
-                          <Field
-                            label={t('seller.productForm.initialStock')}
-                            name={`stock-${combo.key}`}
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={combo.stock}
-                            onChange={(e) => updateCombo(combo.key, 'stock', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!isVariantMode && characteristics.some((c) => c.type === 'INFO' && c.name.trim() && c.values.trim()) && (
-                <div style={{ marginTop: 16, padding: 12, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
-                  <span className="small bold" style={{ display: 'block', marginBottom: 6 }}>{t('seller.productForm.infoSpecsTitle')}</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                    {characteristics.filter((c) => c.type === 'INFO' && c.name.trim() && c.values.trim()).map((c) => (
-                      <span key={c.id} className="small" style={{ background: 'var(--color-surface)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--color-border)' }}>
-                        <strong>{c.name.trim()}:</strong> {c.values.trim()}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </Card>
 
 

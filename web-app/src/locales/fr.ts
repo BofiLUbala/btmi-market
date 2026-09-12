@@ -1413,6 +1413,20 @@ export const fr = {
   'seller.productForm.addPhoto': '+ Ajouter une photo',
   'seller.productForm.maxPhotos': 'Maximum de 10 photos atteint.',
   'seller.productForm.characteristicsTitle': 'Caractéristiques produit & paramètres de variantes',
+  'seller.productForm.characteristicsTitleProduct': 'Caractéristiques produit',
+  'seller.productForm.characteristicsDescProduct':
+    'Informations communes à toutes les variantes (matière, genre, etc.). La couleur et la pointure se renseignent sur chaque variante.',
+  'seller.productForm.variantsTitle': 'Variantes',
+  'seller.productForm.variantsDesc':
+    'Chaque variante vendable doit avoir ses propres valeurs (Couleur, Pointure, etc.). Ce sont ces valeurs qui sont enregistrées sur la variante.',
+  'seller.productForm.variantN': 'Variante {n}',
+  'seller.productForm.addVariant': '+ Ajouter une variante',
+  'seller.productForm.removeVariant': 'Retirer',
+  'seller.productForm.missingOn': 'Manquante sur :',
+  'seller.productForm.completeAttribute': 'Compléter {label}',
+  'seller.productForm.completeVariants': 'Compléter les variantes',
+  'seller.productForm.validation.completeVariantAttrs':
+    'Renseignez les caractéristiques de variante manquantes avant de publier.',
   'seller.productForm.characteristicsDesc':
     'Sélectionnez les attributs qui s’appliquent à ce produit. Vous décidez si un attribut crée des variantes achetables (ex. Couleur, Taille, Parfum) ou sert d’information produit (ex. Matériau, Date de péremption).',
   'seller.productForm.suggestedFor': '💡 Suggéré pour {name} (cliquez pour ajouter) :',

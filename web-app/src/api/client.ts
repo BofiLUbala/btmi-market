@@ -167,8 +167,7 @@ export async function api<T>(
     } else if (code === 'DUPLICATE_VARIANT_COMBINATION') {
       message = 'Cette combinaison de caractéristiques existe déjà pour ce produit. Utilisez une combinaison différente.'
     }
-    const err = new ApiError(res.status, code, message)
-    if (extraData) (err as ApiError & { data?: unknown }).data = extraData
+    const err = new ApiError(res.status, code, message, extraData)
     throw err
   }
 

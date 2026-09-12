@@ -1102,6 +1102,69 @@ func variantHasRequiredAttribute(attributes map[string]string, definition *model
 	return false
 }
 
+// canonicalizeVariantAttributes rewrites localized labels (Couleur, Pointure)
+// onto the definition's canonical key so product_variants.attributes stays
+// consistent for publication checks and marketplace selectors.
+func canonicalizeVariantAttributes(attrs map[string]string, defs []*models.CategoryAttributeDefinition) map[string]string {
+	if attrs == nil {
+		return map[string]string{}
+	}
+	normalized := make(map[string]string, len(attrs))
+	for key, value := range attrs {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		normalized[key] = value
+	}
+	if len(defs) == 0 {
+		return normalized
+	}
+
+	for _, def := range defs {
+		if def == nil || strings.TrimSpace(def.Key) == "" {
+			continue
+		}
+		aliases := map[string]bool{
+			strings.ToLower(strings.TrimSpace(def.Key)):     true,
+			strings.ToLower(strings.TrimSpace(def.LabelEn)): true,
+			strings.ToLower(strings.TrimSpace(def.LabelFr)): true,
+		}
+		value := ""
+		var matched []string
+		for key, raw := range normalized {
+			if !aliases[strings.ToLower(strings.TrimSpace(key))] {
+				continue
+			}
+			matched = append(matched, key)
+			trimmed := strings.TrimSpace(raw)
+			if trimmed == "" {
+				continue
+			}
+			if strings.TrimSpace(key) == def.Key || value == "" {
+				value = trimmed
+			}
+		}
+		for _, key := range matched {
+			delete(normalized, key)
+		}
+		if value != "" {
+			normalized[def.Key] = value
+		}
+	}
+	return normalized
+}
+
+func (s *InventoryService) canonicalizeProductVariantAttributes(product *models.Product, attrs map[string]string) map[string]string {
+	if product == nil || product.CategoryID == nil {
+		return canonicalizeVariantAttributes(attrs, nil)
+	}
+	defs, err := s.categoryRepo.GetEffectiveAttributes(*product.CategoryID, product.SubcategoryID)
+	if err != nil {
+		return canonicalizeVariantAttributes(attrs, nil)
+	}
+	return canonicalizeVariantAttributes(attrs, defs)
+}
+
 func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID, req *models.UpdateProductRequest) (*models.Product, error) {
 	if err := s.requireOwnerOrAdmin(userID, businessID); err != nil {
 		return nil, err
@@ -1344,6 +1407,7 @@ func (s *InventoryService) CreateVariant(userID, productID uuid.UUID, req *model
 	if req.Attributes == nil {
 		req.Attributes = make(map[string]string)
 	}
+	req.Attributes = s.canonicalizeProductVariantAttributes(product, req.Attributes)
 
 	// Variant Deduplication check
 	if len(req.Attributes) > 0 {
@@ -1424,6 +1488,10 @@ func (s *InventoryService) UpdateVariant(userID, variantID uuid.UUID, req *model
 
 	if err := s.requireOwnerOrAdmin(userID, product.BusinessID); err != nil {
 		return nil, err
+	}
+
+	if req.Attributes != nil {
+		req.Attributes = s.canonicalizeProductVariantAttributes(product, req.Attributes)
 	}
 
 	// Variant Deduplication check

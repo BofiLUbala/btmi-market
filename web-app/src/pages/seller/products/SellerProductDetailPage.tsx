@@ -9,8 +9,15 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { PlusIcon, BoxIcon } from '@/components/ui/Icons'
 import { extractSpecifications } from '@/lib/variants'
+import {
+  attributeLabel,
+  canonicalizeAttributes,
+  getAttributeValue,
+  variantDisplayLabel,
+  variantHasAttribute,
+} from '@/lib/categoryAttributes'
 import type { TranslationKey } from '@/locales/fr'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 
 
@@ -78,6 +85,10 @@ export default function SellerProductDetailPage() {
   // Inline attribute repair for a single existing variant
   const [editingAttrsFor, setEditingAttrsFor] = useState<string | null>(null)
   const [editAttrs, setEditAttrs] = useState<Record<string, string>>({})
+  const [showCompletionEditor, setShowCompletionEditor] = useState(false)
+  const [completionAttrs, setCompletionAttrs] = useState<Record<string, Record<string, string>>>({})
+  const [focusAttributeKey, setFocusAttributeKey] = useState<string | null>(null)
+  const completionDialogRef = useRef<HTMLDivElement>(null)
 
   // Quick stock addition per variant
   const [stockByVariant, setStockByVariant] = useState<Record<string, string>>({})
@@ -134,20 +145,19 @@ export default function SellerProductDetailPage() {
     const requiredDefs = categoryAttrDefs.filter((d) => d.required)
     if (requiredDefs.length === 0) return []
 
-    const missing: { def: CategoryAttributeDefinition; reason: string }[] = []
+    const missing: { def: CategoryAttributeDefinition; reason: string; variants: ProductVariant[] }[] = []
 
     for (const def of requiredDefs) {
       if (def.variant_attribute) {
         if (variants.length === 0) {
-          missing.push({ def, reason: 'Aucune variante créée avec cette caractéristique' })
+          missing.push({ def, reason: 'Aucune variante créée avec cette caractéristique', variants: [] })
         } else {
-          const variantsLacking = variants.filter(
-            (v) => !v.attributes || !v.attributes[def.key] || !String(v.attributes[def.key]).trim()
-          )
+          const variantsLacking = variants.filter((v) => !variantHasAttribute(v.attributes, def))
           if (variantsLacking.length > 0) {
             missing.push({
               def,
-              reason: `Manquant sur ${variantsLacking.length} variante(s) (${variantsLacking.map((v) => v.name || v.sku || 'Variante').join(', ')})`,
+              reason: `Manquant sur ${variantsLacking.length} variante(s)`,
+              variants: variantsLacking,
             })
           }
         }
@@ -155,14 +165,62 @@ export default function SellerProductDetailPage() {
         const hasSpec = specifications.some((s) => s.key.toLowerCase() === def.key.toLowerCase() && s.value.trim())
         const hasOnAllVariants =
           variants.length > 0 &&
-          variants.every((v) => v.attributes && v.attributes[def.key] && String(v.attributes[def.key]).trim())
+          variants.every((v) => variantHasAttribute(v.attributes, def))
         if (!hasSpec && !hasOnAllVariants) {
-          missing.push({ def, reason: 'Caractéristique obligatoire non renseignée' })
+          const variantsLacking = variants.filter((v) => !variantHasAttribute(v.attributes, def))
+          missing.push({ def, reason: 'Caractéristique obligatoire non renseignée', variants: variantsLacking })
         }
       }
     }
     return missing
   }, [product, categoryAttrDefs, variants, specifications])
+
+  function openCompletionEditor(attributeKey?: string) {
+    if (variants.length === 0) {
+      setShowVariantForm(true)
+      window.setTimeout(() => document.getElementById(`vattr-${attributeKey || ''}`)?.focus(), 0)
+      return
+    }
+    const requiredKeys = categoryAttrDefs.filter((def) => def.required).map((def) => def.key)
+    const seeded: Record<string, Record<string, string>> = {}
+    for (const variant of variants) {
+      const current = canonicalizeAttributes((variant.attributes || {}) as Record<string, string>, categoryAttrDefs)
+      seeded[variant.id] = { ...current }
+      for (const key of requiredKeys) {
+        const def = categoryAttrDefs.find((item) => item.key === key)
+        seeded[variant.id][key] = def ? getAttributeValue(current, def) : (current[key] ?? '')
+      }
+    }
+    setCompletionAttrs(seeded)
+    setFocusAttributeKey(attributeKey || missingRequirements[0]?.def.key || null)
+    setShowCompletionEditor(true)
+    if (attributeKey) window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#variant-attributes`)
+  }
+
+  function closeCompletionEditor() {
+    setShowCompletionEditor(false)
+    if (window.location.hash === '#variant-attributes') {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+    }
+  }
+
+  useEffect(() => {
+    if (!showCompletionEditor || !focusAttributeKey) return
+    const timer = window.setTimeout(() => {
+      const input = completionDialogRef.current?.querySelector<HTMLElement>(`[data-attribute-key="${CSS.escape(focusAttributeKey)}"]`)
+      input?.focus()
+      input?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [showCompletionEditor, focusAttributeKey])
+
+  useEffect(() => {
+    if (!loading && window.location.hash === '#variant-attributes' && missingRequirements.length > 0) {
+      openCompletionEditor(searchParams.get('focusAttribute') || missingRequirements[0].def.key)
+    }
+    // The deep link is intentionally consumed only after the product requirements load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   // Prefill the attribute inputs from DB definitions when form opens.
   // If DB has no definitions, fall back to keys already used by existing variants.
@@ -170,9 +228,12 @@ export default function SellerProductDetailPage() {
     if (!showVariantForm) return
     setVariantAttrs((prev) => {
       const next: Record<string, string> = {}
-      const dbKeys = categoryAttrDefs.filter(d => d.variant_attribute).map(d => d.key)
-      const keysToUse = dbKeys.length > 0 ? dbKeys : knownAttributeKeys
-      for (const key of keysToUse) next[key] = prev[key] ?? ''
+      const dbKeys = categoryAttrDefs.filter(d => d.variant_attribute)
+      const keysToUse = dbKeys.length > 0 ? dbKeys.map((d) => d.key) : knownAttributeKeys
+      for (const def of dbKeys) next[def.key] = getAttributeValue(prev, def) || prev[def.key] || ''
+      if (dbKeys.length === 0) {
+        for (const key of keysToUse) next[key] = prev[key] ?? ''
+      }
       return next
     })
   }, [showVariantForm, knownAttributeKeys, categoryAttrDefs])
@@ -370,12 +431,14 @@ export default function SellerProductDetailPage() {
   async function createVariant(e: React.FormEvent) {
     e.preventDefault()
     if (!activeBusiness || !productId) return
-    const parsedAttrs: Record<string, string> = {}
-    for (const [key, value] of Object.entries(variantAttrs)) {
-      const k = key.trim()
-      const v = value.trim()
-      if (k && v) parsedAttrs[k] = v
-    }
+    const parsedAttrs: Record<string, string> = canonicalizeAttributes(
+      Object.fromEntries(
+        Object.entries(variantAttrs)
+          .map(([key, value]) => [key.trim(), value.trim()])
+          .filter(([key, value]) => key && value)
+      ),
+      categoryAttrDefs
+    )
 
     // Without attributes a Variant cannot be selected by Buyers — it falls back
     // to a raw name in the Marketplace. Refuse rather than silently create one.
@@ -503,22 +566,25 @@ export default function SellerProductDetailPage() {
   }
 
   function openAttrEditor(variant: ProductVariant) {
-    const current = (variant.attributes ?? {}) as Record<string, string>
-    const seeded: Record<string, string> = {}
-    // Offer every attribute this Product already uses, prefilled where set.
-    for (const key of knownAttributeKeys) seeded[key] = current[key] ?? ''
-    for (const [key, value] of Object.entries(current)) seeded[key] = value
+    const current = canonicalizeAttributes((variant.attributes ?? {}) as Record<string, string>, categoryAttrDefs)
+    const seeded: Record<string, string> = { ...current }
+    for (const def of categoryAttrDefs.filter((item) => item.variant_attribute)) {
+      seeded[def.key] = getAttributeValue(current, def)
+    }
+    for (const key of knownAttributeKeys) if (seeded[key] === undefined) seeded[key] = current[key] ?? ''
     setEditAttrs(seeded)
     setEditingAttrsFor(variant.id)
   }
 
   async function saveVariantAttributes(variantId: string) {
-    const attrs: Record<string, string> = {}
-    for (const [key, value] of Object.entries(editAttrs)) {
-      const k = key.trim()
-      const v = value.trim()
-      if (k && v) attrs[k] = v
-    }
+    const attrs = canonicalizeAttributes(
+      Object.fromEntries(
+        Object.entries(editAttrs)
+          .map(([key, value]) => [key.trim(), value.trim()])
+          .filter(([key, value]) => key && value)
+      ),
+      categoryAttrDefs
+    )
     if (Object.keys(attrs).length === 0) {
       setActionError(t('seller.productDetail.enterAttrValue'))
       return
@@ -548,6 +614,50 @@ export default function SellerProductDetailPage() {
       setEditingAttrsFor(null)
       setStockMsg(t('seller.productDetail.attrsUpdated'))
       await load()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('seller.productDetail.updateAttrsFailed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveCompletionVariants(variantIds: string[], closeAfterSave = false) {
+    const requiredDefs = categoryAttrDefs.filter((def) => def.required)
+    for (const variantId of variantIds) {
+      const values = completionAttrs[variantId] || {}
+      const empty = requiredDefs.find((def) => !getAttributeValue(values, def))
+      if (empty) {
+        setFocusAttributeKey(empty.key)
+        setActionError(`Renseignez ${empty.label_fr || empty.label_en || empty.key} avant d’enregistrer.`)
+        return
+      }
+    }
+
+    setBusy(true)
+    setActionError('')
+    try {
+      await Promise.all(
+        variantIds.map((variantId) => {
+          const attrs = canonicalizeAttributes(
+            Object.fromEntries(
+              Object.entries(completionAttrs[variantId] || {})
+                .map(([key, value]) => [key.trim(), String(value).trim()])
+                .filter(([key, value]) => key && value)
+            ),
+            categoryAttrDefs
+          )
+          return productApi.updateVariant(variantId, { attributes: attrs })
+        })
+      )
+      const savedLabels = requiredDefs
+        .filter((def) => variantIds.some((id) => {
+          const original = variants.find((variant) => variant.id === id)
+          return !variantHasAttribute(original?.attributes, def) && String(completionAttrs[id]?.[def.key] || '').trim()
+        }))
+        .map((def) => def.label_fr || def.label_en || def.key)
+      setStockMsg(`${savedLabels.join(', ')} ${savedLabels.length > 1 ? 'enregistrées' : 'enregistrée'}`)
+      await load()
+      if (closeAfterSave) closeCompletionEditor()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('seller.productDetail.updateAttrsFailed'))
     } finally {
@@ -628,54 +738,102 @@ export default function SellerProductDetailPage() {
         </div>
       )}
 
-      {/* ── Proactive Draft Missing Requirements Alert Banner ── */}
+      {/* ── Actionable draft requirements ── */}
       {product.publication_status !== 'PUBLISHED' && missingRequirements.length > 0 && (
-        <div
-          className="notice notice-warning mb-4"
-          style={{
-            borderLeft: '4px solid var(--color-warning, #f59e0b)',
-            padding: '16px',
-            borderRadius: '8px',
-            backgroundColor: 'var(--color-warning-soft, rgba(245, 158, 11, 0.08))',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>⚠️</span>
-            <div style={{ flex: 1 }}>
-              <strong style={{ display: 'block', marginBottom: 4, fontSize: '1rem', color: 'var(--color-text)' }}>
-                Complétez les caractéristiques obligatoires avant de publier
-              </strong>
-              <p style={{ margin: '0 0 8px', fontSize: '0.875rem' }}>
-                Ce produit est en statut <strong>BROUILLON</strong>. La catégorie{' '}
-                <strong>{categories.find((c) => c.id === product.category_id)?.name || 'sélectionnée'}</strong>{' '}
-                requiert les caractéristiques suivantes :
-              </p>
-              <ul style={{ margin: '0 0 10px', paddingLeft: '20px', fontSize: '0.85rem' }}>
-                {missingRequirements.map((req) => (
-                  <li key={req.def.key} style={{ marginBottom: 4 }}>
-                    <strong>{req.def.label_fr || req.def.label_en || req.def.key}</strong> ({req.def.key})
-                    {req.def.variant_attribute ? ' [Attribut de variante]' : ' [Spécification produit]'} :{' '}
-                    <span className="muted">{req.reason}</span>
-                  </li>
-                ))}
-              </ul>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {variants.length === 0 ? (
-                  <Button size="sm" onClick={() => setShowVariantForm(true)}>
-                    + Créer une variante avec ces attributs
+        <div className="missing-requirements notice notice-warning mb-4" role="alert">
+          <h2>⚠ {missingRequirements.length} caractéristique{missingRequirements.length > 1 ? 's' : ''} obligatoire{missingRequirements.length > 1 ? 's' : ''} manquante{missingRequirements.length > 1 ? 's' : ''}</h2>
+          <div className="missing-requirements-list">
+            {missingRequirements.map((req) => {
+              const label = attributeLabel(req.def)
+              return (
+                <section key={req.def.key} className="missing-requirement-item">
+                  <div>
+                    <strong>{label} manquante</strong>
+                    {req.variants.length > 0 && (
+                      <div className="missing-variant-summary">
+                        <span>Manquante sur :</span>
+                        {req.variants.map((variant) => (
+                          <span key={variant.id}>
+                            • {variantDisplayLabel(variant.attributes, categoryAttrDefs, variant.name || variant.sku || 'Variante')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => openCompletionEditor(req.def.key)}>
+                    Compléter {label}
                   </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (variants.length > 0) openAttrEditor(variants[0])
-                    }}
-                  >
-                    Compléter les variantes existantes
-                  </Button>
-                )}
+                </section>
+              )
+            })}
+          </div>
+          <Button size="sm" onClick={() => openCompletionEditor()}>
+            {variants.length === 0 ? 'Créer une variante' : 'Compléter toutes les variantes'}
+          </Button>
+        </div>
+      )}
+
+      {product.publication_status !== 'PUBLISHED' && categoryAttrDefs.some((def) => def.required) && missingRequirements.length === 0 && (
+        <div className="notice notice-success mb-4" role="status">
+          ✓ Toutes les caractéristiques obligatoires sont complètes.
+        </div>
+      )}
+
+      {showCompletionEditor && (
+        <div className="completion-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeCompletionEditor()}>
+          <div ref={completionDialogRef} className="completion-modal" role="dialog" aria-modal="true" aria-labelledby="completion-title">
+            <div className="completion-modal-header">
+              <div>
+                <h2 id="completion-title">Compléter les variantes</h2>
+                <p>Seules les caractéristiques obligatoires à compléter sont affichées.</p>
               </div>
+              <button type="button" className="completion-modal-close" aria-label="Fermer" onClick={closeCompletionEditor}>×</button>
+            </div>
+            <div className="completion-variants">
+              {variants.filter((variant) => categoryAttrDefs.some((def) => def.required && !variantHasAttribute(variant.attributes, def))).map((variant, index) => {
+                const missingDefs = categoryAttrDefs.filter((def) => def.required && !variantHasAttribute(variant.attributes, def))
+                return (
+                  <section key={variant.id} className="completion-variant-card">
+                    <div className="completion-variant-title">
+                      <div>
+                        <strong>{variantDisplayLabel(variant.attributes, categoryAttrDefs, variant.name || `Variante ${index + 1}`)}</strong>
+                        <span>SKU : {variant.sku || '—'} · Prix : {Number(variant.sale_price || 0).toLocaleString()} FC</span>
+                      </div>
+                    </div>
+                    <div className="completion-fields">
+                      {missingDefs.map((def) => {
+                        const label = attributeLabel(def)
+                        const value = completionAttrs[variant.id]?.[def.key] || getAttributeValue(variant.attributes, def)
+                        const commonProps = {
+                          id: `complete-${variant.id}-${def.key}`,
+                          'data-attribute-key': def.key,
+                          className: `input completion-input${focusAttributeKey === def.key ? ' completion-input-focus' : ''}`,
+                          value,
+                          onFocus: () => setFocusAttributeKey(def.key),
+                          onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setCompletionAttrs((prev) => ({ ...prev, [variant.id]: { ...prev[variant.id], [def.key]: event.target.value } })),
+                        }
+                        return (
+                          <label key={def.key} htmlFor={commonProps.id} className="completion-field">
+                            <span>{label} *</span>
+                            {def.allowed_values?.length > 0 || def.input_type === 'select' ? (
+                              <select {...commonProps}><option value="">Sélectionner</option>{def.allowed_values.map((option) => <option key={option} value={option}>{option}</option>)}</select>
+                            ) : (
+                              <input {...commonProps} type={def.input_type === 'number' ? 'number' : def.input_type === 'date' ? 'date' : 'text'} />
+                            )}
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => saveCompletionVariants([variant.id])}>Enregistrer cette variante</Button>
+                  </section>
+                )
+              })}
+            </div>
+            <div className="completion-modal-actions">
+              <Button variant="ghost" onClick={closeCompletionEditor}>Annuler</Button>
+              <Button disabled={busy} onClick={() => saveCompletionVariants(variants.filter((variant) => categoryAttrDefs.some((def) => def.required && !variantHasAttribute(variant.attributes, def))).map((variant) => variant.id), true)}>
+                Enregistrer toutes les modifications
+              </Button>
             </div>
           </div>
         </div>
@@ -738,7 +896,7 @@ export default function SellerProductDetailPage() {
             <Button
               variant={product.publication_status === 'PUBLISHED' ? 'outline' : 'primary'}
               onClick={togglePublish}
-              disabled={busy}
+              disabled={busy || (product.publication_status !== 'PUBLISHED' && missingRequirements.length > 0)}
             >
               {product.publication_status === 'PUBLISHED' ? t('seller.productDetail.unpublish') : t('seller.productDetail.publishToMarketplace')}
             </Button>
@@ -1090,7 +1248,9 @@ export default function SellerProductDetailPage() {
             <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
               {Object.keys(variantAttrs).map((key) => (
                 <div key={key} style={{ display: 'grid', gridTemplateColumns: '160px 1fr auto', gap: 8, alignItems: 'center' }}>
-                  <label className="small bold" htmlFor={`vattr-${key}`}>{key}</label>
+                  <label className="small bold" htmlFor={`vattr-${key}`}>
+                    {attributeLabel(categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key })}
+                  </label>
                   <input
                     id={`vattr-${key}`}
                     className="input"
