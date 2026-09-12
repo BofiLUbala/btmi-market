@@ -658,6 +658,7 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 
 	case models.NotificationTypeCourierArrived:
 		notifyBuyer = true
+		notifyAdmin = true
 		buyerTitle = fmt.Sprintf("Le livreur est arrivé: %s", orderNum)
 		buyerBody = "Votre livreur TBK est arrivé à votre adresse de livraison !"
 

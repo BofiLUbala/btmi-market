@@ -495,12 +495,17 @@ func main() {
 			courierGroup.GET("/verify/:token", courierHandler.VerifyInvitation)
 		}
 
+		// Courier profile remains readable while suspended so the UI can explain the
+		// restriction and offer logout. Every operational route still requires ACTIVE.
+		courierProfile := api.Group("/courier")
+		courierProfile.Use(middleware.AuthMiddleware(authService))
+		courierProfile.GET("/profile", courierHandler.GetProfile)
+
 		// Protected courier routes (require auth + active courier profile)
 		courierProtected := api.Group("/courier")
 		courierProtected.Use(middleware.AuthMiddleware(authService))
 		courierProtected.Use(middleware.RequireCourier(courierService))
 		{
-			courierProtected.GET("/profile", courierHandler.GetProfile)
 			courierProtected.PATCH("/availability", courierHandler.UpdateAvailability)
 			courierProtected.GET("/dashboard", courierHandler.GetDashboard)
 			courierProtected.GET("/missions", courierHandler.GetMissions)

@@ -226,12 +226,16 @@ func (r *CourierRepository) CountTotalDeliveries(courierUserID uuid.UUID) (int, 
 func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.CourierMissionResponse, error) {
 	rows, err := r.db.Query(`
 		SELECT o.id, o.order_number, o.status, o.delivery_status,
-		       s.name AS shop_name, COALESCE(s.address,''), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
+		       s.name AS shop_name, b.name, COALESCE(s.address,''), COALESCE(c.service_zone,''),
+		       (SELECT COUNT(*) FROM delivery_packages dp WHERE dp.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
 		       o.final_total, o.courier_assigned_at, o.courier_accepted_at, 
-		       o.courier_started_at, o.courier_arrived_at, o.delivered_at
+		       o.ready_at, dp.pickup_verified_at, o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
+		JOIN businesses b ON b.id = o.business_id
+		JOIN couriers c ON c.user_id = o.assigned_courier_id
+		LEFT JOIN LATERAL (SELECT pickup_verified_at FROM delivery_packages WHERE order_id=o.id ORDER BY package_number LIMIT 1) dp ON TRUE
 		WHERE o.assigned_courier_id = $1
 		AND o.status NOT IN ('CANCELLED')
 		ORDER BY o.courier_assigned_at DESC`, courierUserID)
@@ -244,8 +248,8 @@ func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.Cour
 	for rows.Next() {
 		var m models.CourierMissionResponse
 		if err := rows.Scan(&m.OrderID, &m.OrderNumber, &m.Status, &m.DeliveryStatus,
-			&m.ShopName, &m.ShopAddress, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
-			&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt,
+			&m.ShopName, &m.BusinessName, &m.ShopAddress, &m.ServiceZone, &m.PackageCount, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
+			&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
 			&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt); err != nil {
 			return nil, err
 		}
@@ -259,16 +263,20 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 	var m models.CourierMissionResponse
 	err := r.db.QueryRow(`
 		SELECT o.id, o.order_number, o.status, o.delivery_status,
-		       s.name AS shop_name, COALESCE(s.address,''), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
+		       s.name AS shop_name, b.name, COALESCE(s.address,''), COALESCE(c.service_zone,''),
+		       (SELECT COUNT(*) FROM delivery_packages dp2 WHERE dp2.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
 		       o.final_total, o.courier_assigned_at, o.courier_accepted_at,
-		       o.courier_started_at, o.courier_arrived_at, o.delivered_at
+		       o.ready_at, dp.pickup_verified_at, o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
+		JOIN businesses b ON b.id = o.business_id
+		JOIN couriers c ON c.user_id = o.assigned_courier_id
+		LEFT JOIN LATERAL (SELECT pickup_verified_at FROM delivery_packages WHERE order_id=o.id ORDER BY package_number LIMIT 1) dp ON TRUE
 		WHERE o.assigned_courier_id = $1 AND o.id = $2`, courierUserID, orderID).Scan(
 		&m.OrderID, &m.OrderNumber, &m.Status, &m.DeliveryStatus,
-		&m.ShopName, &m.ShopAddress, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
-		&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt,
+		&m.ShopName, &m.BusinessName, &m.ShopAddress, &m.ServiceZone, &m.PackageCount, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
+		&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
 		&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt)
 	if err == sql.ErrNoRows {
 		return nil, nil

@@ -324,8 +324,11 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 	// The orders table FK references users(id), so resolve courier_id -> user_id
 	courierRepo := repository.NewCourierRepository(s.db)
 	courier, err := courierRepo.GetByID(courierID)
-	if err != nil {
+	if err != nil || courier == nil {
 		return errors.New("COURIER_NOT_FOUND")
+	}
+	if courier.Status != models.CourierStatusActive || courier.Availability == models.CourierAvailabilityUnavailable {
+		return errors.New("COURIER_NOT_AVAILABLE")
 	}
 
 	if err := orderRepo.AssignCourier(orderID, courier.UserID, notes); err != nil {

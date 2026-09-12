@@ -495,10 +495,13 @@ func (s *CourierService) StartDelivery(userID, orderID uuid.UUID) error {
 	if err := s.courierRepo.UpdateMissionStatus(orderID, "delivery_status", "IN_TRANSIT"); err != nil {
 		return err
 	}
+	if s.auditRepo != nil {
+		_ = s.auditRepo.Record(&models.AdminAuditLog{ActorAdminID: userID, ActorRole: "COURIER", Action: "DELIVERY_STARTED", TargetType: "ORDER", TargetID: orderID.String(), Reason: "Courier started delivery after verified pickup"})
+	}
 
 	// Notify buyer
 	if s.commSvc != nil {
-		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierPickedUp, map[string]interface{}{
+		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeDeliveryInTransit, map[string]interface{}{
 			"courier_user_id": userID.String(),
 		})
 	}
@@ -526,6 +529,9 @@ func (s *CourierService) ArriveAtDestination(userID, orderID uuid.UUID) error {
 	}
 	if err := s.courierRepo.UpdateMissionStatus(orderID, "delivery_status", "COURIER_ARRIVED"); err != nil {
 		return err
+	}
+	if s.auditRepo != nil {
+		_ = s.auditRepo.Record(&models.AdminAuditLog{ActorAdminID: userID, ActorRole: "COURIER", Action: "COURIER_ARRIVED", TargetType: "ORDER", TargetID: orderID.String(), Reason: "Courier explicitly confirmed arrival"})
 	}
 
 	// Notify buyer

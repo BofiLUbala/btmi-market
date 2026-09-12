@@ -127,7 +127,10 @@ type CourierMissionResponse struct {
 	Status          string     `json:"status"`
 	DeliveryStatus  string     `json:"delivery_status"`
 	ShopName        string     `json:"shop_name"`
+	BusinessName    string     `json:"business_name"`
 	ShopAddress     string     `json:"shop_address"`
+	ServiceZone     string     `json:"service_zone"`
+	PackageCount    int        `json:"package_count"`
 	DeliveryAddress string     `json:"delivery_address"`
 	DeliveryContact string     `json:"delivery_contact"`
 	DeliveryPhone   string     `json:"delivery_phone"`
@@ -135,6 +138,8 @@ type CourierMissionResponse struct {
 	TotalAmount     float64    `json:"total_amount"`
 	AssignedAt      *time.Time `json:"assigned_at"`
 	AcceptedAt      *time.Time `json:"accepted_at"`
+	ReadyAt         *time.Time `json:"ready_at"`
+	PickedUpAt      *time.Time `json:"picked_up_at"`
 	StartedAt       *time.Time `json:"started_at"`
 	ArrivedAt       *time.Time `json:"arrived_at"`
 	DeliveredAt     *time.Time `json:"delivered_at"`

@@ -1,0 +1,8 @@
+.courier-page { min-height: 100vh; background: var(--background); padding: 24px; color: var(--text); }
+.courier-shell { max-width: 1180px; margin: auto; }
+.courier-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.courier-status { display: inline-block; padding: 5px 9px; border-radius: 99px; background: var(--warning-soft); color: var(--warning); font-weight: 800; }
+.courier-details { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+.courier-detail label { display: block; font-size: 11px; color: var(--text-muted); }
+.courier-muted { color: var(--text-muted); font-size: 13px; }
+@media (max-width: 600px) { .courier-page { padding: 12px; } .courier-details { grid-template-columns: 1fr; } }

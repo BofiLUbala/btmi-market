@@ -322,9 +322,15 @@ func TestTBKCentralizedDeliveryFlow(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create courier user: %v", err)
 		}
+		courierID := uuid.New()
+		_, err = db.Exec(`INSERT INTO couriers (id, user_id, status, availability, transport_type, service_zone)
+			VALUES ($1, $2, 'ACTIVE', 'AVAILABLE', 'MOTORCYCLE', 'Kinshasa')`, courierID, courierUserID)
+		if err != nil {
+			t.Fatalf("failed to create courier profile: %v", err)
+		}
 
 		assignPayload := models.AssignCourierRequest{
-			CourierID: courierUserID,
+			CourierID: courierID,
 			Notes:     "Assigned to TBK Courier Express",
 		}
 		body, _ := json.Marshal(assignPayload)
