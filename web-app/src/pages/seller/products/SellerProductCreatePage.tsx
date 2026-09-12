@@ -580,13 +580,16 @@ export default function SellerProductCreatePage() {
 
   /* ── Submission pipeline (resumable — never duplicates the Product) ── */
   async function runPipeline() {
-    if (!activeBusiness || !shop) return
     const progress = progressRef.current
     setError('')
 
     let createdProduct: { id: string; name: string } | null = null
 
     try {
+      if (!activeBusiness || !shop) {
+        throw new Error('Business or shop information is unavailable. Reload the page and try again.')
+      }
+
       /* Step 1 — Create Product (always as DRAFT first) */
       let productId = progress.productId
       if (!productId) {

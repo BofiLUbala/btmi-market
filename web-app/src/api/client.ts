@@ -33,6 +33,8 @@ function invalidateSession() {
 
 let refreshPromise: Promise<boolean> | null = null
 
+const REQUEST_TIMEOUT_MS = 45_000
+
 async function refreshTokens(): Promise<boolean> {
   const refresh = tokenStore.getRefresh()
   if (!refresh) return false
@@ -70,15 +72,35 @@ export async function api<T>(
   if (access) headers.set('Authorization', `Bearer ${access}`)
 
   let res: Response
+  const timeoutController = options.signal ? null : new AbortController()
+  const timeoutId = timeoutController
+    ? window.setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS)
+    : null
   try {
-    res = await fetch(`${API_BASE}${path}`, { cache: 'no-store', ...options, headers })
+    res = await fetch(`${API_BASE}${path}`, {
+      cache: 'no-store',
+      ...options,
+      headers,
+      signal: options.signal ?? timeoutController?.signal,
+    })
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') throw error
+    if (error instanceof Error && error.name === 'AbortError') {
+      if (timeoutController?.signal.aborted) {
+        throw new ApiError(
+          0,
+          'REQUEST_TIMEOUT',
+          'TBK took too long to respond. You can safely retry the operation.'
+        )
+      }
+      throw error
+    }
     throw new ApiError(
       0,
       'NETWORK_ERROR',
       'Cannot reach TBK right now. Check your connection and try again.'
     )
+  } finally {
+    if (timeoutId !== null) window.clearTimeout(timeoutId)
   }
 
   if (res.status === 401 && allowRefresh) {
