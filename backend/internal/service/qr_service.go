@@ -287,7 +287,7 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 			}
 			return &models.QRScanResponse{Result: "DUPLICATE", OrderID: orderID, PackageID: pkgID, DeliveryStatus: "AWAITING_BUYER_CONFIRMATION", RequiresBuyerConfirmation: true}, nil
 		}
-		if currentDeliveryStatus != "IN_TRANSIT" && currentDeliveryStatus != "COURIER_ARRIVED" {
+		if currentDeliveryStatus != "COURIER_ARRIVED" {
 			return reject("REJECTED", "INVALID_ORDER_STATE", ErrQRNotOperational)
 		}
 		column, target, deliveryStatus, resultStatus = "delivery_scanned_at", models.OrderStatusDelivered, "DELIVERY_SCAN_SUCCESS", "AWAITING_BUYER_CONFIRMATION"
