@@ -66,6 +66,7 @@ export default function SellerProductDetailScreen() {
     void queryClient.invalidateQueries({ queryKey: ['seller', 'productImages', productId] })
     void queryClient.invalidateQueries({ queryKey: ['seller', 'inventory'] })
     void queryClient.invalidateQueries({ queryKey: ['seller', 'products'] })
+    void queryClient.invalidateQueries({ queryKey: ['marketplace'] })
   }
 
   const save = useMutation({

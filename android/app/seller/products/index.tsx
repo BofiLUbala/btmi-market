@@ -33,7 +33,12 @@ export default function SellerProductsScreen() {
     enabled: Boolean(activeBusiness),
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['seller', 'products'] })
+  const invalidate = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['seller', 'products'] }),
+      queryClient.invalidateQueries({ queryKey: ['marketplace'] }),
+    ])
+  }
 
   const togglePublish = useMutation({
     mutationFn: (product: Product) => sellerApi.updateProduct(activeBusiness!.id, product.id, { publication_status: product.publication_status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED' }),

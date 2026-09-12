@@ -5,7 +5,7 @@ import { Image } from 'expo-image'
 import {
   Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View,
 } from 'react-native'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../../src/api'
 import { ApiError } from '../../../src/api/client'
 import { useAuth } from '../../../src/store/auth'
@@ -67,6 +67,7 @@ const newRowId = () => `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6
 /* ── Screen ─────────────────────────────────────────────── */
 
 export default function SellerProductCreateScreen() {
+  const queryClient = useQueryClient()
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -444,6 +445,13 @@ export default function SellerProductCreateScreen() {
         setStepLabel(t('seller.productForm.stepPublishing'))
         await sellerApi.updateProduct(activeBusiness.id, productId!, { status: 'ACTIVE', publication_status: 'PUBLISHED' })
         progress.published = true
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['seller', 'products'] })
+      if (progress.published) {
+        // The buyer tab remains mounted while the seller creates a product.
+        // Force its cached catalog to reload when the seller returns to Market.
+        await queryClient.invalidateQueries({ queryKey: ['marketplace'] })
       }
 
       setActiveShop(shopId)
