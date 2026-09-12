@@ -291,12 +291,14 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 func (r *CourierRepository) GetHistory(courierUserID uuid.UUID, limit, offset int) ([]*models.CourierHistoryResponse, error) {
 	rows, err := r.db.Query(`
 		SELECT o.id, o.order_number, s.name AS shop_name, o.delivery_address,
-		       o.courier_assigned_at, o.delivered_at, o.status,
+		       o.courier_assigned_at, o.delivered_at,
+		       CASE WHEN o.rejected_by_courier_id = $1
+		            THEN 'COURIER_REJECTED' ELSE o.status::text END,
 		       COALESCE(o.failed_delivery_reason, '') AS incident_status
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
-		WHERE o.assigned_courier_id = $1
-		AND o.status IN ('RECEIVED', 'COMPLETED', 'CANCELLED')
+		WHERE (o.assigned_courier_id = $1 OR o.rejected_by_courier_id = $1)
+		AND (o.status IN ('RECEIVED', 'COMPLETED', 'CANCELLED') OR o.rejected_by_courier_id = $1)
 		ORDER BY o.delivered_at DESC NULLS LAST
 		LIMIT $2 OFFSET $3`, courierUserID, limit, offset)
 	if err != nil {
@@ -420,6 +422,7 @@ func (r *CourierRepository) UpdateMissionStatus(orderID uuid.UUID, field string,
 		"courier_accepted_at":      true,
 		"courier_rejected_at":      true,
 		"courier_rejection_reason": true,
+		"rejected_by_courier_id":   true,
 		"courier_started_at":       true,
 		"courier_arrived_at":       true,
 		"failed_delivery_reason":   true,

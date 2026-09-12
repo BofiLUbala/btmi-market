@@ -446,6 +446,9 @@ func (s *CourierService) RejectMission(userID, orderID uuid.UUID, reason string)
 	if err := s.courierRepo.UpdateMissionStatus(orderID, "delivery_status", "COURIER_REJECTED"); err != nil {
 		return err
 	}
+	if err := s.courierRepo.UpdateMissionStatus(orderID, "rejected_by_courier_id", userID); err != nil {
+		return err
+	}
 	if err := s.courierRepo.UpdateMissionStatus(orderID, "assigned_courier_id", nil); err != nil {
 		return err
 	}

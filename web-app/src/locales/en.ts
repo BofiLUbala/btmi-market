@@ -2986,6 +2986,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'courier.availability.AVAILABLE': 'Available',
   'courier.availability.UNAVAILABLE': 'Unavailable',
   'courier.status.COURIER_ASSIGNED': 'Assigned',
+  'courier.status.COURIER_REJECTED': 'Rejected',
   'courier.status.COURIER_ACCEPTED': 'Accepted',
   'courier.status.READY_FOR_PICKUP': 'Ready for pickup',
   'courier.status.PICKED_UP': 'Picked up',

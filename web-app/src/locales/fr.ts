@@ -2914,6 +2914,7 @@ export const fr = {
   'courier.availability.AVAILABLE': 'Disponible',
   'courier.availability.UNAVAILABLE': 'Indisponible',
   'courier.status.COURIER_ASSIGNED': 'Assignée',
+  'courier.status.COURIER_REJECTED': 'Refusée',
   'courier.status.COURIER_ACCEPTED': 'Acceptée',
   'courier.status.READY_FOR_PICKUP': 'Prête au retrait',
   'courier.status.PICKED_UP': 'Récupérée',
