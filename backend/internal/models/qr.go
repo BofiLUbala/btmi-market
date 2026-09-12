@@ -6,11 +6,13 @@ import (
 )
 
 type QRIdentity struct {
-	Reference string    `json:"reference"`
-	Token     string    `json:"token,omitempty"`
-	Status    string    `json:"status"`
-	LabelURL  string    `json:"label_url,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	Reference string     `json:"reference"`
+	Token     string     `json:"token,omitempty"`
+	ProductID uuid.UUID  `json:"product_id"`
+	VariantID *uuid.UUID `json:"variant_id,omitempty"`
+	Status    string     `json:"status"`
+	LabelURL  string     `json:"label_url,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 type DeliveryPackageQR struct {

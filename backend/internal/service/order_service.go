@@ -804,6 +804,12 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 	if err := txOrderRepo.UpdateTotalItems(order.ID, totalItems); err != nil {
 		return nil, err
 	}
+	// The QR contains only the signed package reference; all buyer, seller,
+	// product, price, payment and address data remains linked through the order.
+	if _, err := tx.Exec(`INSERT INTO delivery_packages(order_id,shop_id,buyer_profile_id,operational)
+		VALUES($1,$2,$3,FALSE) ON CONFLICT(order_id,package_number) DO NOTHING`, order.ID, order.ShopID, buyerProfileID); err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, err

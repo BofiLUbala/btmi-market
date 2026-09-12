@@ -58,12 +58,26 @@ func (h *Handler) Product(c *gin.Context) {
 	if !ok {
 		return
 	}
-	v, e := h.svc.ProductQR(u, p)
+	var v *models.QRIdentity
+	var e error
+	if raw := strings.TrimSpace(c.Query("variant_id")); raw != "" {
+		variantID, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			c.JSON(400, gin.H{"error": gin.H{"code": "INVALID_VARIANT_ID", "message": "Invalid variant identifier"}})
+			return
+		}
+		v, e = h.svc.ProductVariantQR(u, p, variantID)
+	} else {
+		v, e = h.svc.ProductQR(u, p)
+	}
 	if e != nil {
 		fail(c, e)
 		return
 	}
 	v.LabelURL = fmt.Sprintf("/api/v1/businesses/%s/products/%s/qr/label", c.Param("business_id"), p)
+	if v.VariantID != nil {
+		v.LabelURL += "?variant_id=" + v.VariantID.String()
+	}
 	c.JSON(200, gin.H{"data": v})
 }
 func (h *Handler) ProductLabel(c *gin.Context) {
@@ -75,7 +89,18 @@ func (h *Handler) ProductLabel(c *gin.Context) {
 	if !ok {
 		return
 	}
-	v, e := h.svc.ProductQR(u, p)
+	var v *models.QRIdentity
+	var e error
+	if raw := strings.TrimSpace(c.Query("variant_id")); raw != "" {
+		variantID, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			c.JSON(400, gin.H{"error": gin.H{"code": "INVALID_VARIANT_ID", "message": "Invalid variant identifier"}})
+			return
+		}
+		v, e = h.svc.ProductVariantQR(u, p, variantID)
+	} else {
+		v, e = h.svc.ProductQR(u, p)
+	}
 	if e != nil {
 		fail(c, e)
 		return

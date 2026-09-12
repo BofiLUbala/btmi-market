@@ -106,6 +106,10 @@ func (s *QRService) ProductQR(userID, productID uuid.UUID) (*models.QRIdentity, 
 	if err := s.sellerProductAccess(userID, productID); err != nil {
 		return nil, err
 	}
+	var published bool
+	if err := s.db.QueryRow(`SELECT publication_status='PUBLISHED' FROM products WHERE id=$1`, productID).Scan(&published); err != nil || !published {
+		return nil, ErrQRNotReady
+	}
 	var ref uuid.UUID
 	var status string
 	var created time.Time
@@ -116,7 +120,27 @@ func (s *QRService) ProductQR(userID, productID uuid.UUID) (*models.QRIdentity, 
 	if err != nil {
 		return nil, err
 	}
-	return &models.QRIdentity{Reference: "PRD-" + strings.ToUpper(ref.String()[:8]), Token: s.token("p", ref.String()), Status: status, CreatedAt: created}, nil
+	return &models.QRIdentity{Reference: "PRD-" + strings.ToUpper(ref.String()[:8]), Token: s.token("p", ref.String()), ProductID: productID, Status: status, CreatedAt: created}, nil
+}
+
+func (s *QRService) ProductVariantQR(userID, productID, variantID uuid.UUID) (*models.QRIdentity, error) {
+	if err := s.sellerProductAccess(userID, productID); err != nil {
+		return nil, err
+	}
+	var ref uuid.UUID
+	var status string
+	var created time.Time
+	err := s.db.QueryRow(`SELECT q.public_reference,q.status,q.created_at
+		FROM product_qr_codes q JOIN products p ON p.id=q.product_id
+		JOIN product_variants v ON v.id=q.variant_id AND v.product_id=q.product_id
+		WHERE q.product_id=$1 AND q.variant_id=$2 AND p.publication_status='PUBLISHED' AND v.status='ACTIVE'`, productID, variantID).Scan(&ref, &status, &created)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrQRNotReady
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &models.QRIdentity{Reference: "VAR-" + strings.ToUpper(ref.String()[:8]), Token: s.token("p", ref.String()), ProductID: productID, VariantID: &variantID, Status: status, CreatedAt: created}, nil
 }
 
 func (s *QRService) EnsurePackage(orderID uuid.UUID) error {
