@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/smtp"
+	"net/url"
 	"os"
 	"strings"
 
@@ -89,6 +90,33 @@ func (s *Service) BuildActivationURL(token string, accountType models.AccountTyp
 
 func (s *Service) BuildEmployeeInvitationURL(token string) string {
 	return fmt.Sprintf("%s/employee/invite/accept?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+}
+
+func (s *Service) BuildCourierInvitationURL(token string) string {
+	return s.BuildCourierInvitationURLForBase(s.config.FrontendURL, token)
+}
+
+func (s *Service) BuildCourierInvitationURLForBase(baseURL, token string) string {
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		baseURL = s.config.FrontendURL
+	}
+	return fmt.Sprintf("%s/courier/activate?token=%s", strings.TrimRight(baseURL, "/"), url.QueryEscape(token))
+}
+
+func (s *Service) SendCourierInvitationEmail(to, firstName, invitationURL string) error {
+	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
+		log.Printf("[DEV MODE] Courier Invitation URL for %s (%s): %s", to, firstName, invitationURL)
+		return nil
+	}
+
+	subject := "Activate Your TBK Courier Account"
+	body := fmt.Sprintf(`<h2>Hello %s,</h2>
+<p>You have been invited to join TBK Market as a courier.</p>
+<p><a href="%s" style="background-color:#146c43;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Activate courier account</a></p>
+<p>Or copy and paste this link into your browser:</p><p>%s</p>
+<p>This private link expires in 7 days and can only be used once.</p>`, firstName, invitationURL, invitationURL)
+	return s.sendEmail(to, subject, body)
 }
 
 func (s *Service) BuildPasswordResetURL(token string) string {

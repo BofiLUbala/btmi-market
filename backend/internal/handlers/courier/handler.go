@@ -109,7 +109,7 @@ func (h *Handler) VerifyInvitation(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Invitation verified",
 		Data: gin.H{
-			"email":     inv.Email,
+			"email":      inv.Email,
 			"first_name": inv.FirstName,
 			"last_name":  inv.LastName,
 			"expires_at": inv.ExpiresAt,
@@ -512,7 +512,7 @@ func (h *Handler) InviteCourier(c *gin.Context) {
 		Message: "Courier invitation sent",
 		Data: gin.H{
 			"invitation_token": token,
-			"invitation_url":   "/courier/activate?token=" + token,
+			"invitation_url":   h.courierService.CourierInvitationURL(token, req.FrontendURL),
 		},
 	})
 }

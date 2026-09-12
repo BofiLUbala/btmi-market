@@ -14,12 +14,8 @@ export default function CourierActivationPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [transportType, setTransportType] = useState('MOTORBIKE')
-  const [vehicleInfo, setVehicleInfo] = useState('')
-  const [serviceZone, setServiceZone] = useState('')
 
   useEffect(() => {
     if (!token) {
@@ -27,7 +23,24 @@ export default function CourierActivationPage() {
       setLoading(false)
       return
     }
-    setLoading(false)
+
+    let cancelled = false
+    fetch(`${API_BASE}/courier/verify/${encodeURIComponent(token)}`)
+      .then(async (response) => {
+        const payload = await response.json()
+        if (!response.ok) throw new Error(payload.error?.message || 'Invalid or expired invitation')
+        if (cancelled) return
+        setFirstName(payload.data?.first_name ?? '')
+        setLastName(payload.data?.last_name ?? '')
+        setEmail(payload.data?.email ?? '')
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Invalid or expired invitation')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
   }, [token])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,19 +60,13 @@ export default function CourierActivationPage() {
     setError('')
     
     try {
-      const response = await fetch(`${API_BASE}/auth/courier/activate`, {
+      const response = await fetch(`${API_BASE}/courier/activate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           token,
-          first_name: firstName,
-          last_name: lastName,
-          email,
-          phone: phone || undefined,
           password,
-          transport_type: transportType,
-          vehicle_info: vehicleInfo || undefined,
-          service_zone: serviceZone || undefined,
+          password_confirmation: confirmPassword,
         })
       })
       
@@ -70,7 +77,7 @@ export default function CourierActivationPage() {
       }
       
       setSuccess('Account activated successfully! Redirecting to login...')
-      setTimeout(() => navigate('/login'), 2000)
+      setTimeout(() => navigate('/login?returnTo=/courier/dashboard'), 2000)
     } catch (err: any) {
       setError(err.message || 'Failed to activate account')
     } finally {
@@ -173,6 +180,7 @@ export default function CourierActivationPage() {
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 required
+                readOnly
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -193,6 +201,7 @@ export default function CourierActivationPage() {
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 required
+                readOnly
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -215,26 +224,7 @@ export default function CourierActivationPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--background)',
-                color: 'var(--text)',
-                fontSize: 14
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-              Phone (Optional)
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              readOnly
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -278,74 +268,6 @@ export default function CourierActivationPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--background)',
-                color: 'var(--text)',
-                fontSize: 14
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-              Transport Type *
-            </label>
-            <select
-              value={transportType}
-              onChange={(e) => setTransportType(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--background)',
-                color: 'var(--text)',
-                fontSize: 14
-              }}
-            >
-              <option value="MOTORBIKE">Motorbike</option>
-              <option value="BICYCLE">Bicycle</option>
-              <option value="CAR">Car</option>
-              <option value="VAN">Van</option>
-              <option value="WALKING">Walking</option>
-            </select>
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-              Vehicle Info (Optional)
-            </label>
-            <input
-              type="text"
-              value={vehicleInfo}
-              onChange={(e) => setVehicleInfo(e.target.value)}
-              placeholder="e.g., Honda Dio 2023"
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--background)',
-                color: 'var(--text)',
-                fontSize: 14
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-              Service Zone (Optional)
-            </label>
-            <input
-              type="text"
-              value={serviceZone}
-              onChange={(e) => setServiceZone(e.target.value)}
-              placeholder="e.g., Downtown, North District"
               style={{
                 width: '100%',
                 padding: '10px 14px',

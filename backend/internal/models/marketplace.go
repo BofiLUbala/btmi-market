@@ -37,6 +37,7 @@ type PublicProductResponse struct {
 	// Rating aggregate, so listings can show stars without a per-row AVG().
 	AverageRating float64   `json:"average_rating"`
 	TotalReviews  int       `json:"total_reviews"`
+	SelfRating    *int      `json:"self_rating,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -142,42 +143,42 @@ type CategorySummary struct {
 }
 
 type PublicProductDetailResponse struct {
-	ID               uuid.UUID                     `json:"id"`
-	ShopID           uuid.UUID                     `json:"shop_id"`
-	ShopName         string                        `json:"shop_name"`
-	BusinessID       uuid.UUID                     `json:"business_id"`
-	BusinessName     string                        `json:"business_name"`
-	Name             string                        `json:"name"`
-	SKU              string                        `json:"sku"`
-	Description      string                        `json:"description"`
-	Unit             string                        `json:"unit"`
-	BasePrice        float64                       `json:"base_price"` // Regular unit_price
-	CategoryID       *uuid.UUID                    `json:"category_id,omitempty"`
-	SubcategoryID    *uuid.UUID                    `json:"subcategory_id,omitempty"`
-	Category         *CategorySummary              `json:"category,omitempty"`
-	Subcategory      *CategorySummary              `json:"subcategory,omitempty"`
-	Variants         []PublicVariantDetailResponse `json:"variants"`
-	Images           []ProductImageResponse        `json:"images,omitempty"`
-	SellerLevel      string                        `json:"seller_level"`
-	SellerTrust      string                        `json:"seller_trust"`
-	Availability     string                        `json:"availability"`
-	DiscountActive   bool                          `json:"discount_active"`
-	DiscountType     string                        `json:"discount_type"`
-	DiscountValue    float64                       `json:"discount_value"`
-	DiscountStart    *time.Time                    `json:"discount_start,omitempty"`
-	DiscountEnd      *time.Time                    `json:"discount_end,omitempty"`
-	SellerSalePrice  float64                       `json:"seller_sale_price"` // Calculated sale price
+	ID              uuid.UUID                     `json:"id"`
+	ShopID          uuid.UUID                     `json:"shop_id"`
+	ShopName        string                        `json:"shop_name"`
+	BusinessID      uuid.UUID                     `json:"business_id"`
+	BusinessName    string                        `json:"business_name"`
+	Name            string                        `json:"name"`
+	SKU             string                        `json:"sku"`
+	Description     string                        `json:"description"`
+	Unit            string                        `json:"unit"`
+	BasePrice       float64                       `json:"base_price"` // Regular unit_price
+	CategoryID      *uuid.UUID                    `json:"category_id,omitempty"`
+	SubcategoryID   *uuid.UUID                    `json:"subcategory_id,omitempty"`
+	Category        *CategorySummary              `json:"category,omitempty"`
+	Subcategory     *CategorySummary              `json:"subcategory,omitempty"`
+	Variants        []PublicVariantDetailResponse `json:"variants"`
+	Images          []ProductImageResponse        `json:"images,omitempty"`
+	SellerLevel     string                        `json:"seller_level"`
+	SellerTrust     string                        `json:"seller_trust"`
+	Availability    string                        `json:"availability"`
+	DiscountActive  bool                          `json:"discount_active"`
+	DiscountType    string                        `json:"discount_type"`
+	DiscountValue   float64                       `json:"discount_value"`
+	DiscountStart   *time.Time                    `json:"discount_start,omitempty"`
+	DiscountEnd     *time.Time                    `json:"discount_end,omitempty"`
+	SellerSalePrice float64                       `json:"seller_sale_price"` // Calculated sale price
 	// SelfRating is the seller's own 1-5 star claim, set at creation. It is
 	// never mixed into AverageRating/TotalReviews (the verified buyer-review
 	// aggregate) — the frontend must label it separately.
-	SelfRating       *int                          `json:"self_rating,omitempty"`
-	CreatedAt        time.Time                     `json:"created_at"`
-	BuyerLevel       string                        `json:"buyer_level,omitempty"`
-	DiscountPercent  float64                       `json:"discount_percent,omitempty"`
-	DiscountAmount   float64                       `json:"discount_amount,omitempty"`
-	FinalPrice       float64                       `json:"final_price,omitempty"`
-	FreeDelivery     bool                          `json:"free_delivery,omitempty"`
-	DeliveryDiscount float64                       `json:"delivery_discount_percent,omitempty"`
+	SelfRating       *int      `json:"self_rating,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	BuyerLevel       string    `json:"buyer_level,omitempty"`
+	DiscountPercent  float64   `json:"discount_percent,omitempty"`
+	DiscountAmount   float64   `json:"discount_amount,omitempty"`
+	FinalPrice       float64   `json:"final_price,omitempty"`
+	FreeDelivery     bool      `json:"free_delivery,omitempty"`
+	DeliveryDiscount float64   `json:"delivery_discount_percent,omitempty"`
 }
 
 type PublicVariantDetailResponse struct {

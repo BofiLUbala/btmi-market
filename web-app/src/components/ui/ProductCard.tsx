@@ -69,10 +69,7 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const availability = product.availability ?? first?.stock ?? 'AVAILABLE'
 
   const reviewCount = product.total_reviews ?? 0
-  const rating = product.average_rating ?? 0
-  // A product nobody has reviewed shows nothing rather than an empty 0-star row,
-  // which would read as a bad score instead of "not rated yet".
-  const hasRating = reviewCount > 0
+  const rating = reviewCount > 0 ? (product.average_rating ?? 0) : (product.self_rating ?? 0)
 
   return (
     <Link to={link} className="product-card">
@@ -114,10 +111,8 @@ export function ProductCard({ product }: { product: PublicProduct }) {
           <span className="product-category-chip">{categoryLabel(t, product.category_slug, product.category_name)}</span>
         )}
         <span className="product-name">{product.name}</span>
+        <Rating value={rating} count={reviewCount > 0 ? reviewCount : undefined} size="sm" />
         {product.shop_name && <span className="product-shop">{product.shop_name}</span>}
-        {hasRating && (
-          <Rating value={rating} count={reviewCount} size="sm" />
-        )}
         <StockChip stock={availability} />
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
           {hasDiscount ? (

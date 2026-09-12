@@ -18,24 +18,24 @@ const (
 type CourierAvailability string
 
 const (
-	CourierAvailabilityAvailable CourierAvailability = "AVAILABLE"
+	CourierAvailabilityAvailable   CourierAvailability = "AVAILABLE"
 	CourierAvailabilityUnavailable CourierAvailability = "UNAVAILABLE"
-	CourierAvailabilityBusy       CourierAvailability = "BUSY"
+	CourierAvailabilityBusy        CourierAvailability = "BUSY"
 )
 
 type Courier struct {
-	ID                uuid.UUID            `json:"id" db:"id"`
-	UserID            uuid.UUID            `json:"user_id" db:"user_id"`
-	Status            CourierStatus        `json:"status" db:"status"`
-	Availability      CourierAvailability  `json:"availability" db:"availability"`
-	TransportType     string               `json:"transport_type" db:"transport_type"`
-	VehicleInfo       *string              `json:"vehicle_info" db:"vehicle_info"`
-	ServiceZone       *string              `json:"service_zone" db:"service_zone"`
-	ActivatedAt       *time.Time           `json:"activated_at" db:"activated_at"`
-	SuspendedAt       *time.Time           `json:"suspended_at" db:"suspended_at"`
-	SuspensionReason  *string              `json:"suspension_reason" db:"suspension_reason"`
-	CreatedAt         time.Time            `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time            `json:"updated_at" db:"updated_at"`
+	ID               uuid.UUID           `json:"id" db:"id"`
+	UserID           uuid.UUID           `json:"user_id" db:"user_id"`
+	Status           CourierStatus       `json:"status" db:"status"`
+	Availability     CourierAvailability `json:"availability" db:"availability"`
+	TransportType    string              `json:"transport_type" db:"transport_type"`
+	VehicleInfo      *string             `json:"vehicle_info" db:"vehicle_info"`
+	ServiceZone      *string             `json:"service_zone" db:"service_zone"`
+	ActivatedAt      *time.Time          `json:"activated_at" db:"activated_at"`
+	SuspendedAt      *time.Time          `json:"suspended_at" db:"suspended_at"`
+	SuspensionReason *string             `json:"suspension_reason" db:"suspension_reason"`
+	CreatedAt        time.Time           `json:"created_at" db:"created_at"`
+	UpdatedAt        time.Time           `json:"updated_at" db:"updated_at"`
 }
 
 type CourierInvitation struct {
@@ -87,6 +87,7 @@ type InviteCourierRequest struct {
 	TransportType string `json:"transport_type"`
 	VehicleInfo   string `json:"vehicle_info"`
 	ServiceZone   string `json:"service_zone"`
+	FrontendURL   string `json:"frontend_url"`
 }
 
 // AcceptCourierInvitationRequest is the request body for accepting an invitation
@@ -140,13 +141,13 @@ type CourierMissionResponse struct {
 
 // CourierDashboardResponse contains overview stats for the courier dashboard
 type CourierDashboardResponse struct {
-	Availability       CourierAvailability    `json:"availability"`
-	PendingMissions    int                    `json:"pending_missions"`
-	ActiveMissions     int                    `json:"active_missions"`
-	DeliveriesToday    int                    `json:"deliveries_today"`
-	CompletedToday     int                    `json:"completed_today"`
-	FailedToday        int                    `json:"failed_today"`
-	CurrentMission     *CourierMissionResponse `json:"current_mission"`
+	Availability    CourierAvailability     `json:"availability"`
+	PendingMissions int                     `json:"pending_missions"`
+	ActiveMissions  int                     `json:"active_missions"`
+	DeliveriesToday int                     `json:"deliveries_today"`
+	CompletedToday  int                     `json:"completed_today"`
+	FailedToday     int                     `json:"failed_today"`
+	CurrentMission  *CourierMissionResponse `json:"current_mission"`
 }
 
 // CourierHistoryResponse is a single item in courier delivery history

@@ -93,8 +93,10 @@ export default function CourierInvitePage() {
         transport_type: transportType,
         vehicle_info:   vehicleInfo  || undefined,
         service_zone:   serviceZone  || undefined,
+        frontend_url:   window.location.origin,
       })
-      setInvitationUrl(result.invitation_url ?? '')
+      const invitationUrl = result.invitation_url ?? ''
+      setInvitationUrl(invitationUrl ? new URL(invitationUrl, window.location.origin).toString() : '')
       setSuccess(true)
     } catch (err: any) {
       setError(err.message || "Une erreur s'est produite. Veuillez réessayer.")
@@ -107,7 +109,7 @@ export default function CourierInvitePage() {
     navigator.clipboard.writeText(invitationUrl).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
-    })
+    }).catch(() => setError("Impossible de copier le lien. Sélectionnez-le manuellement."))
   }
 
   const resetForm = () => {

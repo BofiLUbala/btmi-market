@@ -14,7 +14,6 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/email"
 	adminhandlers "github.com/btmi-ai-market/backend/internal/handlers/admin"
-	courierhandlers "github.com/btmi-ai-market/backend/internal/handlers/courier"
 	"github.com/btmi-ai-market/backend/internal/handlers/auth"
 	"github.com/btmi-ai-market/backend/internal/handlers/businesses"
 	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
@@ -22,6 +21,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/categories"
 	"github.com/btmi-ai-market/backend/internal/handlers/communication"
 	configapi "github.com/btmi-ai-market/backend/internal/handlers/config"
+	courierhandlers "github.com/btmi-ai-market/backend/internal/handlers/courier"
 	"github.com/btmi-ai-market/backend/internal/handlers/customers"
 	"github.com/btmi-ai-market/backend/internal/handlers/employees"
 	"github.com/btmi-ai-market/backend/internal/handlers/growth"
@@ -152,6 +152,7 @@ func main() {
 
 	courierService := service.NewCourierService(courierRepo, userRepo, shopRepo, auditRepo, db)
 	courierService.SetCommunicationService(commService)
+	courierService.SetEmailService(emailService)
 
 	adminCommissionHandler := adminhandlers.NewAdminCommissionHandler(commissionService)
 	sellerFinanceHandler := sellerhandlers.NewSellerFinanceHandler(commissionService)

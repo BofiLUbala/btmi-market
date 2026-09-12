@@ -9,36 +9,38 @@ import (
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
+	"github.com/btmi-ai-market/backend/internal/email"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
 )
 
 var (
-	ErrCourierNotFound          = errors.New("COURIER_NOT_FOUND")
-	ErrCourierNotActive         = errors.New("COURIER_NOT_ACTIVE")
-	ErrCourierSuspended         = errors.New("COURIER_SUSPENDED")
-	ErrCourierAlreadyExists     = errors.New("COURIER_ALREADY_EXISTS")
-	ErrInvitationNotFound       = errors.New("INVITATION_NOT_FOUND")
-	ErrInvitationExpired        = errors.New("INVITATION_EXPIRED")
-	ErrInvitationAlreadyUsed    = errors.New("INVITATION_ALREADY_USED")
-	ErrMissionNotFound          = errors.New("MISSION_NOT_FOUND")
-	ErrMissionAlreadyAccepted   = errors.New("MISSION_ALREADY_ACCEPTED")
-	ErrMissionAlreadyRejected   = errors.New("MISSION_ALREADY_REJECTED")
-	ErrNotYourMission           = errors.New("NOT_YOUR_MISSION")
-	ErrInvalidStatusTransition  = errors.New("INVALID_STATUS_TRANSITION")
-	ErrPasswordMismatch         = errors.New("PASSWORD_MISMATCH")
-	ErrEmailAlreadyExists       = errors.New("EMAIL_ALREADY_EXISTS")
+	ErrCourierNotFound            = errors.New("COURIER_NOT_FOUND")
+	ErrCourierNotActive           = errors.New("COURIER_NOT_ACTIVE")
+	ErrCourierSuspended           = errors.New("COURIER_SUSPENDED")
+	ErrCourierAlreadyExists       = errors.New("COURIER_ALREADY_EXISTS")
+	ErrInvitationNotFound         = errors.New("INVITATION_NOT_FOUND")
+	ErrInvitationExpired          = errors.New("INVITATION_EXPIRED")
+	ErrInvitationAlreadyUsed      = errors.New("INVITATION_ALREADY_USED")
+	ErrMissionNotFound            = errors.New("MISSION_NOT_FOUND")
+	ErrMissionAlreadyAccepted     = errors.New("MISSION_ALREADY_ACCEPTED")
+	ErrMissionAlreadyRejected     = errors.New("MISSION_ALREADY_REJECTED")
+	ErrNotYourMission             = errors.New("NOT_YOUR_MISSION")
+	ErrInvalidStatusTransition    = errors.New("INVALID_STATUS_TRANSITION")
+	ErrPasswordMismatch           = errors.New("PASSWORD_MISMATCH")
+	ErrEmailAlreadyExists         = errors.New("EMAIL_ALREADY_EXISTS")
 	ErrCourierManagementForbidden = errors.New("FORBIDDEN")
 )
 
 type CourierService struct {
-	courierRepo *repository.CourierRepository
-	userRepo    *repository.UserRepository
-	shopRepo    *repository.ShopRepository
-	commSvc     *CommunicationService
-	auditRepo   *repository.AuditRepository
-	db          *database.DB
+	courierRepo  *repository.CourierRepository
+	userRepo     *repository.UserRepository
+	shopRepo     *repository.ShopRepository
+	commSvc      *CommunicationService
+	auditRepo    *repository.AuditRepository
+	db           *database.DB
+	emailService *email.Service
 }
 
 func NewCourierService(
@@ -59,6 +61,17 @@ func NewCourierService(
 
 func (s *CourierService) SetCommunicationService(commSvc *CommunicationService) {
 	s.commSvc = commSvc
+}
+
+func (s *CourierService) SetEmailService(emailService *email.Service) {
+	s.emailService = emailService
+}
+
+func (s *CourierService) CourierInvitationURL(token, frontendURL string) string {
+	if s.emailService == nil {
+		return "/courier/activate?token=" + token
+	}
+	return s.emailService.BuildCourierInvitationURLForBase(frontendURL, token)
 }
 
 // hashToken creates a SHA-256 hash of the token for secure storage
@@ -100,11 +113,11 @@ func (s *CourierService) InviteCourier(
 	}
 
 	inv := &models.CourierInvitation{
-		ID:        uuid.New(),
-		Email:     req.Email,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Phone:     &req.Phone,
+		ID:            uuid.New(),
+		Email:         req.Email,
+		FirstName:     req.FirstName,
+		LastName:      req.LastName,
+		Phone:         &req.Phone,
 		TransportType: &req.TransportType,
 		VehicleInfo:   &req.VehicleInfo,
 		ServiceZone:   &req.ServiceZone,
@@ -116,6 +129,13 @@ func (s *CourierService) InviteCourier(
 
 	if err := s.courierRepo.InvitationCreate(inv); err != nil {
 		return "", err
+	}
+
+	if s.emailService != nil {
+		invitationURL := s.emailService.BuildCourierInvitationURLForBase(req.FrontendURL, token)
+		if err := s.emailService.SendCourierInvitationEmail(inv.Email, inv.FirstName, invitationURL); err != nil {
+			return "", fmt.Errorf("send courier invitation email: %w", err)
+		}
 	}
 
 	// Record audit event
@@ -193,8 +213,13 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 			return err
 		}
 	} else {
-		// User exists, set password
+		// A courier invitation is an activation authority. Existing accounts may
+		// have been created but left pending, so activate them as well as setting
+		// the new password; otherwise login still rejects the courier afterwards.
 		if err := s.userRepo.SetPassword(user.ID, password); err != nil {
+			return err
+		}
+		if err := s.userRepo.UpdateStatus(user.ID, models.UserStatusActive); err != nil {
 			return err
 		}
 	}
@@ -258,25 +283,25 @@ func (s *CourierService) GetCourierProfile(userID uuid.UUID) (*models.CourierRes
 	totalDeliveries, _ := s.courierRepo.CountTotalDeliveries(userID)
 
 	return &models.CourierResponse{
-		ID:              courier.ID,
-		UserID:          courier.UserID,
-		FirstName:       user.FirstName,
-		LastName:        user.LastName,
-		Email:           user.Email,
-		Phone:           user.Phone,
-		Status:          courier.Status,
-		Availability:    courier.Availability,
-		TransportType:   courier.TransportType,
-		VehicleInfo:     courier.VehicleInfo,
-		ServiceZone:     courier.ServiceZone,
-		ActiveMissions:  activeMissions,
-		CompletedToday:  completedToday,
-		TotalDeliveries: totalDeliveries,
-		ActivatedAt:     courier.ActivatedAt,
-		SuspendedAt:     courier.SuspendedAt,
+		ID:               courier.ID,
+		UserID:           courier.UserID,
+		FirstName:        user.FirstName,
+		LastName:         user.LastName,
+		Email:            user.Email,
+		Phone:            user.Phone,
+		Status:           courier.Status,
+		Availability:     courier.Availability,
+		TransportType:    courier.TransportType,
+		VehicleInfo:      courier.VehicleInfo,
+		ServiceZone:      courier.ServiceZone,
+		ActiveMissions:   activeMissions,
+		CompletedToday:   completedToday,
+		TotalDeliveries:  totalDeliveries,
+		ActivatedAt:      courier.ActivatedAt,
+		SuspendedAt:      courier.SuspendedAt,
 		SuspensionReason: courier.SuspensionReason,
-		CreatedAt:       courier.CreatedAt,
-		UpdatedAt:       courier.UpdatedAt,
+		CreatedAt:        courier.CreatedAt,
+		UpdatedAt:        courier.UpdatedAt,
 	}, nil
 }
 
@@ -592,25 +617,25 @@ func (s *CourierService) ListAllCouriers(limit, offset int) ([]*models.CourierRe
 		totalDeliveries, _ := s.courierRepo.CountTotalDeliveries(c.UserID)
 
 		responses = append(responses, &models.CourierResponse{
-			ID:              c.ID,
-			UserID:          c.UserID,
-			FirstName:       user.FirstName,
-			LastName:        user.LastName,
-			Email:           user.Email,
-			Phone:           user.Phone,
-			Status:          c.Status,
-			Availability:    c.Availability,
-			TransportType:   c.TransportType,
-			VehicleInfo:     c.VehicleInfo,
-			ServiceZone:     c.ServiceZone,
-			ActiveMissions:  activeMissions,
-			CompletedToday:  completedToday,
-			TotalDeliveries: totalDeliveries,
-			ActivatedAt:     c.ActivatedAt,
-			SuspendedAt:     c.SuspendedAt,
+			ID:               c.ID,
+			UserID:           c.UserID,
+			FirstName:        user.FirstName,
+			LastName:         user.LastName,
+			Email:            user.Email,
+			Phone:            user.Phone,
+			Status:           c.Status,
+			Availability:     c.Availability,
+			TransportType:    c.TransportType,
+			VehicleInfo:      c.VehicleInfo,
+			ServiceZone:      c.ServiceZone,
+			ActiveMissions:   activeMissions,
+			CompletedToday:   completedToday,
+			TotalDeliveries:  totalDeliveries,
+			ActivatedAt:      c.ActivatedAt,
+			SuspendedAt:      c.SuspendedAt,
 			SuspensionReason: c.SuspensionReason,
-			CreatedAt:       c.CreatedAt,
-			UpdatedAt:       c.UpdatedAt,
+			CreatedAt:        c.CreatedAt,
+			UpdatedAt:        c.UpdatedAt,
 		})
 	}
 
@@ -633,21 +658,21 @@ func (s *CourierService) GetAvailableCouriers() ([]*models.CourierResponse, erro
 		activeMissions, _ := s.courierRepo.CountActiveMissions(c.UserID)
 
 		responses = append(responses, &models.CourierResponse{
-			ID:              c.ID,
-			UserID:          c.UserID,
-			FirstName:       user.FirstName,
-			LastName:        user.LastName,
-			Email:           user.Email,
-			Phone:           user.Phone,
-			Status:          c.Status,
-			Availability:    c.Availability,
-			TransportType:   c.TransportType,
-			VehicleInfo:     c.VehicleInfo,
-			ServiceZone:     c.ServiceZone,
-			ActiveMissions:  activeMissions,
-			ActivatedAt:     c.ActivatedAt,
-			CreatedAt:       c.CreatedAt,
-			UpdatedAt:       c.UpdatedAt,
+			ID:             c.ID,
+			UserID:         c.UserID,
+			FirstName:      user.FirstName,
+			LastName:       user.LastName,
+			Email:          user.Email,
+			Phone:          user.Phone,
+			Status:         c.Status,
+			Availability:   c.Availability,
+			TransportType:  c.TransportType,
+			VehicleInfo:    c.VehicleInfo,
+			ServiceZone:    c.ServiceZone,
+			ActiveMissions: activeMissions,
+			ActivatedAt:    c.ActivatedAt,
+			CreatedAt:      c.CreatedAt,
+			UpdatedAt:      c.UpdatedAt,
 		})
 	}
 
@@ -751,24 +776,24 @@ func (s *CourierService) GetCourierDetailForAdmin(courierID uuid.UUID) (*models.
 	totalDeliveries, _ := s.courierRepo.CountTotalDeliveries(courier.UserID)
 
 	return &models.CourierResponse{
-		ID:              courier.ID,
-		UserID:          courier.UserID,
-		FirstName:       user.FirstName,
-		LastName:        user.LastName,
-		Email:           user.Email,
-		Phone:           user.Phone,
-		Status:          courier.Status,
-		Availability:    courier.Availability,
-		TransportType:   courier.TransportType,
-		VehicleInfo:     courier.VehicleInfo,
-		ServiceZone:     courier.ServiceZone,
-		ActiveMissions:  activeMissions,
-		CompletedToday:  completedToday,
-		TotalDeliveries: totalDeliveries,
-		ActivatedAt:     courier.ActivatedAt,
-		SuspendedAt:     courier.SuspendedAt,
+		ID:               courier.ID,
+		UserID:           courier.UserID,
+		FirstName:        user.FirstName,
+		LastName:         user.LastName,
+		Email:            user.Email,
+		Phone:            user.Phone,
+		Status:           courier.Status,
+		Availability:     courier.Availability,
+		TransportType:    courier.TransportType,
+		VehicleInfo:      courier.VehicleInfo,
+		ServiceZone:      courier.ServiceZone,
+		ActiveMissions:   activeMissions,
+		CompletedToday:   completedToday,
+		TotalDeliveries:  totalDeliveries,
+		ActivatedAt:      courier.ActivatedAt,
+		SuspendedAt:      courier.SuspendedAt,
 		SuspensionReason: courier.SuspensionReason,
-		CreatedAt:       courier.CreatedAt,
-		UpdatedAt:       courier.UpdatedAt,
+		CreatedAt:        courier.CreatedAt,
+		UpdatedAt:        courier.UpdatedAt,
 	}, nil
 }

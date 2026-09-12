@@ -26,9 +26,7 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
   const onSale = promotion.phase === 'active' && promotion.discountPercent > 0
 
   const reviews = product.total_reviews ?? 0
-  const rating = product.average_rating ?? 0
-  // An unrated product shows nothing: an empty star row would read as a bad
-  // score rather than "not rated yet".
+  const rating = reviews > 0 ? (product.average_rating ?? 0) : (product.self_rating ?? 0)
   const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(Math.max(0, 5 - Math.round(rating)))
 
   return (
@@ -48,12 +46,10 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
       </View>
       <View style={staticStyles.body}>
         <Text numberOfLines={2} style={styles.name}>{product.name}</Text>
+        <Text style={staticStyles.rating} accessibilityLabel={`${rating.toFixed(1)} / 5, ${reviews}`}>
+          <Text style={styles.stars}>{stars}</Text>{reviews > 0 && <Text style={styles.reviewCount}> ({reviews})</Text>}
+        </Text>
         <Text numberOfLines={1} style={styles.shop}>{product.shop_name || t('product.aSeller')}</Text>
-        {reviews > 0 && (
-          <Text style={staticStyles.rating} accessibilityLabel={`${rating.toFixed(1)} / 5, ${reviews}`}>
-            <Text style={styles.stars}>{stars}</Text> <Text style={styles.reviewCount}>({reviews})</Text>
-          </Text>
-        )}
         <View style={staticStyles.priceRow}>
           <Text style={styles.price}>{money(price, product.currency)}</Text>
           {onSale && <Text style={styles.strikePrice}>{money(promotion.originalPrice, product.currency)}</Text>}

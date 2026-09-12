@@ -303,9 +303,12 @@ func (r *MarketplaceRepository) attachProductRatings(products []*models.PublicPr
 	}
 
 	rows, err := r.db.Query(`
-		SELECT product_id, average_rating::float8, total_reviews
-		FROM product_review_aggregates
-		WHERE product_id = ANY($1)
+		SELECT p.id, p.self_rating,
+		       COALESCE(pra.average_rating, 0)::float8,
+		       COALESCE(pra.total_reviews, 0)
+		FROM products p
+		LEFT JOIN product_review_aggregates pra ON pra.product_id = p.id
+		WHERE p.id = ANY($1)
 	`, pq.Array(ids))
 	if err != nil {
 		return err
@@ -319,11 +322,21 @@ func (r *MarketplaceRepository) attachProductRatings(products []*models.PublicPr
 	byProduct := make(map[uuid.UUID]rating, len(products))
 	for rows.Next() {
 		var id uuid.UUID
+		var selfRating sql.NullInt64
 		var rt rating
-		if err := rows.Scan(&id, &rt.avg, &rt.total); err != nil {
+		if err := rows.Scan(&id, &selfRating, &rt.avg, &rt.total); err != nil {
 			continue
 		}
 		byProduct[id] = rt
+		if selfRating.Valid {
+			value := int(selfRating.Int64)
+			for _, product := range products {
+				if product.ID == id {
+					product.SelfRating = &value
+					break
+				}
+			}
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return err

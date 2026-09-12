@@ -188,6 +188,8 @@ export interface PublicProduct {
   /** Rating aggregate, maintained on review write. 0 reviews = never rated. */
   average_rating?: number
   total_reviews?: number
+  /** Seller rating is the fallback until a verified buyer review exists. */
+  self_rating?: number | null
   created_at: string
 }
 
