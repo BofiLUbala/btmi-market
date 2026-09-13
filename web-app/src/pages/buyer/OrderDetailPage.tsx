@@ -7,6 +7,14 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
+import {
+  paymentStatusKey,
+  paymentMethodKey,
+  isPaymentConfirmed,
+  isPaymentCancelled,
+  isPaymentFailed,
+  isPaymentPending
+} from '@/lib/paymentStatus'
 import { RequireAuth } from '@/components/auth/Guards'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import { useI18n } from '@/store/i18n'
@@ -14,12 +22,214 @@ import type { TranslationKey } from '@/locales/fr'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
+const ORDER_STAGES = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+const CASH = 'CASH'
+const MOBILE_ON_DELIVERY = 'MOBILE_ON_DELIVERY'
+
 function timeAgo(date: Date, t: (key: TranslationKey, vars?: Record<string, string | number>) => string): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
   if (seconds < 5) return t('time.justNow')
   if (seconds < 60) return t('time.secondsAgo', { count: seconds })
   const minutes = Math.floor(seconds / 60)
   return t('time.minutesAgo', { count: minutes })
+}
+
+interface TimelineStep {
+  key: string
+  labelKey: TranslationKey
+  done: (o: OrderWithLines['order'], payment: BuyerPayment | null) => boolean
+}
+
+const TIMELINE_STEPS: TimelineStep[] = [
+  {
+    key: 'cart',
+    labelKey: 'nav.cart',
+    done: () => true
+  },
+  {
+    key: 'checkout',
+    labelKey: 'orders.checkoutStarted',
+    done: () => true
+  },
+  {
+    key: 'address',
+    labelKey: 'orders.addressConfirmed',
+    done: (o) => !!o.delivery_method
+  },
+  {
+    key: 'method',
+    labelKey: 'orders.paymentMethodChosen',
+    done: (_, p) => !!p
+  },
+  {
+    key: 'created',
+    labelKey: 'orders.orderCreated',
+    done: () => true
+  },
+  {
+    key: 'payment',
+    labelKey: 'orders.paymentStep',
+    done: (_, p) => isPaymentConfirmed(p)
+  },
+  {
+    key: 'preparing',
+    labelKey: 'orders.sellerPreparing',
+    done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('ACCEPTED')
+  },
+  {
+    key: 'delivery',
+    labelKey: 'orders.inDelivery',
+    done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('OUT_FOR_DELIVERY')
+  },
+  {
+    key: 'arrived',
+    labelKey: 'orders.arrived',
+    done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('DELIVERED')
+  },
+  {
+    key: 'received',
+    labelKey: 'orders.received',
+    done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('RECEIVED')
+  }
+]
+
+function OrderTimeline({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
+  const { t } = useI18n()
+  const steps = TIMELINE_STEPS.map((step) => step.done(o, payment))
+  const currentIndex = steps.findIndex((done) => !done)
+  return (
+    <div className="card">
+      <h2 style={{ fontSize: '1.1rem', marginBottom: 12 }}>{t('orders.lifecycle')}</h2>
+      <ul className="timeline" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {TIMELINE_STEPS.map((step, i) => {
+          const done = steps[i]
+          const active = i === currentIndex
+          return (
+            <li key={step.key} className={done ? 'done' : active ? 'current' : ''} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0' }}>
+              <span
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  border: '2px solid var(--color-border)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: done || active ? 'var(--color-accent)' : 'var(--color-muted)'
+                }}
+              >
+                {done ? '✓' : ''}
+              </span>
+              <span>
+                {t(step.labelKey)}
+                {step.key === 'payment' && (
+                  <span className="muted small" style={{ marginLeft: 8 }}>
+                    {t(paymentStatusKey(payment) as TranslationKey)}
+                  </span>
+                )}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      <p className="small muted" style={{ marginTop: 8, marginBottom: 0 }}>
+        {t('tracking.note')}
+      </p>
+    </div>
+  )
+}
+
+function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
+  const { t } = useI18n()
+  if (!payment) return null
+  const markup = payment.products_final_total + payment.delivery_fee_final - payment.cash_due
+  const refundStatus = (payment as BuyerPayment & { refund_status?: string | null }).refund_status
+  return (
+    <div className="card stack">
+      <h2 style={{ fontSize: '1.1rem' }}>{t('orders.paymentDetail')}</h2>
+      <div className="info-row"><span className="k">{t('orders.orderNumber', { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</span><span className="v">{formatDateTime(o.created_at)}</span></div>
+      <div className="info-row"><span className="k">{t('orders.paymentMethod')}</span><span className="v">{t(paymentMethodKey(payment.payment_method))}</span></div>
+      <div className="info-row"><span className="k">{t('orders.amountDue')}</span><span className="v bold">{formatMoney(payment.cash_due, payment.currency)}</span></div>
+      <div className="info-row"><span className="k">{t('orders.paymentMarkup')}</span><span className="v">{formatMoney(Math.max(markup, 0), payment.currency)}</span></div>
+      <div className="info-row"><span className="k">{t('orders.totalDue')}</span><span className="v bold">{formatMoney(payment.cash_due, payment.currency)}</span></div>
+      <div className="info-row"><span className="k">{t('orders.paymentStatus')}</span><span className="v">{t(paymentStatusKey(payment) as TranslationKey)}</span></div>
+      <div className="info-row"><span className="k">{t('orders.createdAtLabel')}</span><span className="v">{formatDateTime(payment.created_at)}</span></div>
+      <div className="info-row"><span className="k">{t('orders.reference')}</span><span className="v small">{payment.id.slice(0, 8).toUpperCase()}</span></div>
+      <div className="info-row"><span className="k">{t('orders.lastUpdate')}</span><span className="v">{formatDateTime(payment.updated_at)}</span></div>
+      {refundStatus && (
+        <div className="info-row">
+          <span className="k">{t('orders.paymentStatus')}</span>
+          <span className="v">
+            {refundStatus === 'IN_PROGRESS' ? t('orders.refundInProgress') : refundStatus === 'REFUNDED' ? t('orders.refunded') : refundStatus === 'FAILED' ? t('orders.refundFailed') : refundStatus}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PaymentAttempts({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
+  const { t } = useI18n()
+  const attempts: Array<{ label: string; at: string; ok: boolean; stepKey: TranslationKey }> = []
+  const method = payment?.payment_method || 'CASH'
+  const methodLabel = method === CASH ? t('orders.attemptCash') : t('orders.attemptMobile')
+  if (payment) {
+    attempts.push({
+      label: t('orders.orderCreated'),
+      at: formatDateTime(o.created_at),
+      ok: true,
+      stepKey: 'orders.orderCreated'
+    })
+    attempts.push({
+      label: methodLabel,
+      at: formatDateTime(payment.created_at),
+      ok: !isPaymentCancelled(payment) && !isPaymentFailed(payment) && !isPaymentConfirmed(payment),
+      stepKey: 'orders.createdAtLabel'
+    })
+  }
+  if (payment?.buyer_confirmed_at) {
+    attempts.push({
+      label: `${t('orders.attemptDeclared')} · ${methodLabel}`,
+      at: formatDateTime(payment.buyer_confirmed_at),
+      ok: true,
+      stepKey: 'orders.attemptDeclared'
+    })
+  }
+  if (payment?.seller_confirmed_at) {
+    attempts.push({
+      label: `${t('orders.attemptConfirmed')} · ${methodLabel}`,
+      at: formatDateTime(payment.seller_confirmed_at),
+      ok: true,
+      stepKey: 'orders.attemptConfirmed'
+    })
+  }
+  if (payment?.verified_at) {
+    attempts.push({
+      label: `${t('orders.attemptConfirmed')} · ${methodLabel}`,
+      at: formatDateTime(payment.verified_at),
+      ok: true,
+      stepKey: 'orders.attemptConfirmed'
+    })
+  }
+  if (attempts.length === 0) return null
+  return (
+    <div className="card">
+      <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>{t('orders.attempts')}</h2>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} className="stack">
+        {attempts.map((a, i) => (
+          <li key={i} className="small" style={{ display: 'flex', gap: 8, justifyContent: 'space-between', borderBottom: '1px dashed var(--color-border)', paddingBottom: 4 }}>
+            <span>
+              {a.ok ? '✓' : '✕'} {a.label}
+            </span>
+            <span className="muted">{a.at}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 function OrderInner() {
@@ -103,18 +313,28 @@ function OrderInner() {
     return () => clearInterval(id)
   }, [])
 
+  // After any payment/order mutation, refetch everything so the UI never relies on a frontend-only "paid" flag.
+  async function refreshAll() {
+    await load()
+  }
+
   async function ensurePayment() {
     setBusy(true); setPaymentError('')
-    try { setPayment(await buyerApi.createPayment(orderId)) }
-    catch (e) { setPaymentError(e instanceof Error ? e.message : t('orders.paymentConfirmFailed')) }
+    try {
+      const p = await buyerApi.createPayment(orderId)
+      setPayment(p)
+      await refreshAll()
+    } catch (e) { setPaymentError(e instanceof Error ? e.message : t('orders.paymentConfirmFailed')) }
     finally { setBusy(false) }
   }
 
   async function confirmPaid() {
     if (!payment) return
     setBusy(true); setPaymentError('')
-    try { setPayment(await buyerApi.buyerConfirmPayment(payment.id)) }
-    catch (e) { setPaymentError(e instanceof Error ? e.message : t('orders.paymentConfirmFailed')) }
+    try {
+      setPayment(await buyerApi.buyerConfirmPayment(payment.id))
+      await refreshAll()
+    } catch (e) { setPaymentError(e instanceof Error ? e.message : t('orders.paymentConfirmFailed')) }
     finally { setBusy(false) }
   }
 
@@ -124,7 +344,7 @@ function OrderInner() {
     setError('')
     try {
       await buyerApi.cancelOrder(orderId)
-      void load()
+      await refreshAll()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('orders.cancelFailed'))
     } finally {
@@ -139,6 +359,18 @@ function OrderInner() {
   const productsTotal = o.final_total + o.points_discount_amount
   const total = o.final_total + o.delivery_fee_final
   const needsDelivery = !o.delivery_method
+  const method = payment?.payment_method || CASH
+  const payBtnVisible =
+    !!payment &&
+    !isPaymentConfirmed(payment) &&
+    !isPaymentCancelled(payment) &&
+    !isPaymentFailed(payment) &&
+    method === CASH
+  const mobilePayReady =
+    !!payment &&
+    method === MOBILE_ON_DELIVERY &&
+    !isPaymentConfirmed(payment) &&
+    (o.status === 'DELIVERED' || o.status === 'RECEIVED')
 
   return (
     <div className="fade-in">
@@ -163,6 +395,9 @@ function OrderInner() {
       <div className="small" style={{ marginTop: 6 }}><span className="muted">{t('orders.shop')}:</span> <strong>{data.shop_name || t('orders.shopUnavailable')}</strong></div>
 
       {error && <ErrorBox error={error} />}
+
+      {/* Lifecycle timeline (Req #39 + #51) */}
+      <OrderTimeline o={o} payment={payment} />
 
       <div className="order-summary-grid" style={{ marginTop: 16 }}>
         <div className="card stack" id="purchased-products">
@@ -230,22 +465,52 @@ function OrderInner() {
             <h2 style={{ fontSize: '1.1rem' }}>{t('orders.payment')}</h2>
             {paymentError && <ErrorBox error={paymentError} />}
             {payment ? <>
-              <div className="info-row"><span className="k">{t('orders.paymentMethod')}</span><span className="v">{t('orders.cash')}</span></div>
+              <div className="info-row"><span className="k">{t('orders.paymentMethod')}</span><span className="v">{t(paymentMethodKey(payment.payment_method))}</span></div>
+              {/* Payment breakdown (Req #40) */}
+              <div className="total-row"><span>{t('orders.productsAmount')}</span><span>{formatMoney(payment.products_final_total, payment.currency)}</span></div>
+              <div className="total-row"><span>{t('orders.deliveryFee')}</span><span>{formatMoney(payment.delivery_fee_final, payment.currency)}</span></div>
+              <div className="total-row"><span>{t('orders.paymentMarkup')}</span><span>{formatMoney(Math.max(payment.cash_due - payment.products_final_total - payment.delivery_fee_final, 0), payment.currency)}</span></div>
+              <div className="total-row"><span>{t('orders.pointsDiscount')}</span><span className="pd-discount">−{formatMoney(payment.products_points_discount + payment.delivery_points_discount, payment.currency)}</span></div>
+              <div className="total-row total"><span>{t('orders.finalTotal')}</span><span>{formatMoney(payment.cash_due, payment.currency)}</span></div>
               <div className="info-row"><span className="k">{t('orders.amountDue')}</span><span className="v bold">{formatMoney(payment.cash_due, payment.currency)}</span></div>
+              <div className="info-row"><span className="k">{t('orders.paymentStatus')}</span><span className="v">{t(paymentStatusKey(payment) as TranslationKey)}</span></div>
               <div className="info-row"><span className="k">{t('orders.buyerConfirmation')}</span><span className="v">{payment.buyer_confirmed ? `✓ ${t('orders.paymentDeclared')}` : t('orders.notConfirmed')}</span></div>
               <div className="info-row"><span className="k">{t('orders.sellerConfirmation')}</span><span className="v">{payment.seller_confirmed ? `✓ ${t('orders.cashReceived')}` : t('orders.waitingForSeller')}</span></div>
-              <div className="info-row"><span className="k">{t('orders.paymentStatus')}</span><span className="v"><StatusBadge status={payment.status} /></span></div>
-              {!payment.buyer_confirmed && <Button loading={busy} onClick={confirmPaid}>{t('orders.iHavePaid')}</Button>}
+
+              {/* Payment action rules (Req #52) */}
+              {payBtnVisible && (
+                <Button loading={busy} onClick={confirmPaid}>{t('orders.iHavePaid')}</Button>
+              )}
               {payment.buyer_confirmed && !payment.seller_confirmed && <p className="small muted">{t('orders.declarationSaved')}</p>}
+              {method === CASH && !payment.buyer_confirmed && isPaymentPending(payment) && (
+                <p className="small muted">{t('orders.payAtDelivery')}</p>
+              )}
+              {payment && isPaymentConfirmed(payment) && <p className="small muted">✓ {t('orders.paymentConfirmed')}</p>}
+              {(method === 'PAY_NOW' || method === 'MOBILE_PAY') && !isPaymentConfirmed(payment) && !isPaymentCancelled(payment) && !isPaymentFailed(payment) && (
+                <Button loading={busy} onClick={confirmPaid}>{t('orders.continuePayment')}</Button>
+              )}
+              {isPaymentFailed(payment) && (
+                <Button loading={busy} onClick={refreshAll}>{t('orders.retryPayment')}</Button>
+              )}
+              {mobilePayReady && (
+                <Button loading={busy} onClick={confirmPaid}>{t('orders.payNow')}</Button>
+              )}
+              {method === MOBILE_ON_DELIVERY && !mobilePayReady && !isPaymentConfirmed(payment) && (
+                <p className="small muted">{t('orders.mobileToPayAtDelivery')}</p>
+              )}
             </> : o.delivery_method ? <Button loading={busy} onClick={ensurePayment}>{t('orders.prepareCashPayment')}</Button> : <p className="small muted">{t('orders.selectDeliveryFirst')}</p>}
           </div>
+
+          <PaymentDetailCard o={o} payment={payment} />
+          <PaymentAttempts o={o} payment={payment} />
+
           <div className="card stack">
             <h2 style={{ fontSize: '1.1rem' }}>{t('orders.actions')}</h2>
             {o.status === 'PENDING' && (
               <>
                 {needsDelivery && (
                   <Button onClick={() => navigate('/checkout/delivery', { state: { orderId } })}>
-                    {t('orders.selectDelivery')}
+                    {t('orders.continueCheckout')}
                   </Button>
                 )}
                 <Button variant="danger" onClick={cancel} loading={busy}>
@@ -262,7 +527,7 @@ function OrderInner() {
               <Button
                 onClick={async () => {
                   await buyerApi.confirmReceived(orderId)
-                  void load()
+                  await refreshAll()
                 }}
               >
                 {t('orders.iReceivedOrder')}

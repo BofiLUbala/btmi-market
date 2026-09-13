@@ -218,6 +218,7 @@ export interface BuyerPayment {
   buyer_confirmed: boolean; buyer_confirmed_at?: string | null
   seller_confirmed: boolean; seller_confirmed_at?: string | null
   status: string; verified_at?: string | null; created_at: string
+  updated_at?: string
 }
 export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: OrderStatusHistory[]; shop_name: string }
 

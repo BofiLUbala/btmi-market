@@ -6,7 +6,8 @@ import { LoadingBlock, ErrorBox, EmptyState } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
 import { BoxIcon } from '@/components/ui/Icons'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
-import { hasActiveOrderStatus } from '@/lib/orderStatus'
+import { isTerminalOrderStatus } from '@/lib/orderStatus'
+import { paymentStatusKey } from '@/lib/paymentStatus'
 import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
@@ -26,6 +27,28 @@ function timeAgo(date: Date, t: (key: TranslationKey, vars?: Record<string, stri
   if (seconds < 60) return t('time.secondsAgo', { count: seconds })
   const minutes = Math.floor(seconds / 60)
   return t('time.minutesAgo', { count: minutes })
+}
+
+function isOrderStatus(status: string | null | undefined, filter: string): boolean {
+  if (!status) return false
+  switch (filter) {
+    case 'toutes':
+      return true
+    case 'a_payer':
+      return status === 'PENDING' || status === 'ACCEPTED' || status === 'PREPARING'
+    case 'payees':
+      return status === 'COMPLETED' || status === 'RECEIVED'
+    case 'en_preparation':
+      return status === 'PREPARING'
+    case 'en_livraison':
+      return status === 'OUT_FOR_DELIVERY' || status === 'DELIVERED'
+    case 'terminees':
+      return status === 'COMPLETED'
+    case 'annulees':
+      return status === 'CANCELLED'
+    default:
+      return true
+  }
 }
 
 function ReviewAction({ orderId, lineId, completed }: { orderId: string; lineId: string; completed: boolean }) {
@@ -69,6 +92,7 @@ function OrdersInner() {
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [filter, setFilter] = useState<'toutes' | 'a_payer' | 'payees' | 'en_preparation' | 'en_livraison' | 'terminees' | 'annulees'>('toutes')
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [, setTick] = useState(0)
 
@@ -98,7 +122,7 @@ function OrdersInner() {
   useEffect(() => { void load() }, [load])
 
   // Auto-polling with tab visibility — pauses when every Order is in a final state
-  const hasActive = hasActiveOrderStatus(items.map((item) => item.detail?.order?.status))
+  const hasActive = items.some((item) => item.detail?.order && !isTerminalOrderStatus(item.detail.order.status))
   useEffect(() => {
     function startPolling() {
       stopPolling()
@@ -110,7 +134,7 @@ function OrdersInner() {
     function onVisibility() {
       if (document.visibilityState === 'visible') {
         void load(true)
-        if (hasActiveOrderStatus(items.map((item) => item.detail?.order?.status))) startPolling()
+        if (hasActive) startPolling()
       } else {
         stopPolling()
       }
@@ -131,10 +155,23 @@ function OrdersInner() {
 
   if (loading) return <LoadingBlock label={t('orders.loading')} />
   if (error) return <ErrorBox error={error} onRetry={() => void load()} />
-  if (items.length === 0) return <EmptyState icon={<BoxIcon style={{ width: 48, height: 48 }} />} title={t('orders.emptyTitle')} description={t('orders.emptyDesc')} action={<Link to="/" className="btn btn-primary">{t('orders.browse')}</Link>} />
+  const filteredItems = items.filter((item) => isOrderStatus(item.detail?.order?.status, filter))
+
+  if (filteredItems.length === 0) return <EmptyState icon={<BoxIcon style={{ width: 48, height: 48 }} />} title={t('orders.emptyTitle')} description={t('orders.emptyDesc')} action={<Link to="/" className="btn btn-primary">{t('orders.browse')}</Link>} />
 
   return <div className="fade-in">
-    <div className="page-header"><div><div className="eyebrow">{t('account.eyebrow')}</div><h1>{t('account.myOrders')}</h1><p className="muted">{t('orders.subtitle')}</p></div></div>
+    <div className="page-header"><div><div className="eyebrow">{t('orders.eyebrow')}</div><h1>{t('account.myOrders')}</h1><p className="muted">{t('orders.subtitle')}</p></div></div>
+
+    {/* Filter tabs */}
+    <div className="filter-tabs">
+      <button className={filter === 'toutes' ? 'active' : ''} onClick={() => setFilter('toutes')}>{t('orders.filterAll')}</button>
+      <button className={filter === 'a_payer' ? 'active' : ''} onClick={() => setFilter('a_payer')}>{t('orders.filterToPay')}</button>
+      <button className={filter === 'payees' ? 'active' : ''} onClick={() => setFilter('payees')}>{t('orders.filterPaid')}</button>
+      <button className={filter === 'en_preparation' ? 'active' : ''} onClick={() => setFilter('en_preparation')}>{t('orders.filterPreparing')}</button>
+      <button className={filter === 'en_livraison' ? 'active' : ''} onClick={() => setFilter('en_livraison')}>{t('orders.filterInDelivery')}</button>
+      <button className={filter === 'terminees' ? 'active' : ''} onClick={() => setFilter('terminees')}>{t('orders.filterCompleted')}</button>
+      <button className={filter === 'annulees' ? 'active' : ''} onClick={() => setFilter('annulees')}>{t('orders.filterCancelled')}</button>
+    </div>
 
     {/* Live sync bar */}
     <div className="live-bar">
@@ -146,7 +183,7 @@ function OrdersInner() {
     </div>
 
     <div className="stack buyer-order-list">
-      {items.map(({ detail, payment }) => {
+      {filteredItems.map(({ detail, payment }) => {
         const order = detail.order
         const total = order.final_total + order.delivery_fee_final
         return <article key={order.id} className="card buyer-order-card">
@@ -168,7 +205,7 @@ function OrdersInner() {
             })}
           </div>
           <div className="buyer-order-footer">
-            <div className="small"><span className="muted">{t('orders.payment')}</span><br /><strong>{payment ? payment.status : t('orders.notPrepared')}</strong>{payment?.buyer_confirmed ? ` ${t('orders.buyerConfirmed')}` : ''}{payment?.seller_confirmed ? ` ${t('orders.sellerConfirmed')}` : ''}</div>
+            <div className="small"><span className="muted">{t('orders.payment')}</span><br /><strong>{payment ? t(paymentStatusKey(payment) as TranslationKey) : t('orders.notPrepared')}</strong>{payment?.buyer_confirmed ? ` ${t('orders.buyerConfirmed')}` : ''}{payment?.seller_confirmed ? ` ${t('orders.sellerConfirmed')}` : ''}</div>
             <div className="small"><span className="muted">{t('orders.deliveryLabel')}</span><br /><strong>{order.delivery_method ? order.delivery_method.replace(/_/g, ' ') : t('orders.notSelected')}</strong></div>
             <div><span className="muted small">{t('common.total')}</span><br /><strong>{formatMoney(total)}</strong></div>
             <Link to={`/orders/${order.id}`} className="btn btn-primary">{t('orders.viewOrder')}</Link>

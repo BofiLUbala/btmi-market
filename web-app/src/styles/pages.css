@@ -573,6 +573,19 @@
 .account-points-grid strong { color: var(--color-primary); font-size: 1.05rem; }
 .buyer-order-list { max-width: 980px; }
 .buyer-order-card { padding: 0; overflow: hidden; }
+.filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; max-width: 980px; }
+.filter-tabs button {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.filter-tabs button:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.filter-tabs button.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); font-weight: 700; }
 .buyer-order-head { padding: 20px 22px 14px; }
 .buyer-order-head h2 { margin: 3px 0; font-size: 1.15rem; }
 .buyer-order-shop { display: flex; gap: 10px; align-items: baseline; padding: 11px 22px; background: var(--color-surface-2); border-block: 1px solid var(--color-border); }
