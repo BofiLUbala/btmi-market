@@ -110,27 +110,35 @@ type StockAnomaly struct {
 }
 
 type AdminOrderItem struct {
-	ID             uuid.UUID  `json:"id"`
-	OrderNumber    string     `json:"order_number"`
-	BusinessID     uuid.UUID  `json:"business_id"`
-	BusinessName   string     `json:"business_name"`
-	ShopID         uuid.UUID  `json:"shop_id"`
-	ShopName       string     `json:"shop_name"`
-	BuyerID        *uuid.UUID `json:"buyer_id"`
-	BuyerName      string     `json:"buyer_name"`
-	BuyerPhone     string     `json:"buyer_phone"`
-	Status         string     `json:"status"`
-	TotalItems     int        `json:"total_items"`
-	BaseTotal      float64    `json:"base_total"`
-	PointsDiscount float64    `json:"points_discount"`
-	DeliveryFee    float64    `json:"delivery_fee"`
-	FinalTotal     float64    `json:"final_total"`
-	DeliveryMethod string     `json:"delivery_method"`
-	PaymentStatus  string     `json:"payment_status"`
-	IsStuck        bool       `json:"is_stuck"`
-	StuckReason    string     `json:"stuck_reason,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID                  uuid.UUID  `json:"id"`
+	OrderNumber         string     `json:"order_number"`
+	BusinessID          uuid.UUID  `json:"business_id"`
+	BusinessName        string     `json:"business_name"`
+	ShopID              uuid.UUID  `json:"shop_id"`
+	ShopName            string     `json:"shop_name"`
+	BuyerID             *uuid.UUID `json:"buyer_id"`
+	BuyerName           string     `json:"buyer_name"`
+	BuyerPhone          string     `json:"buyer_phone"`
+	Status              string     `json:"status"`
+	TotalItems          int        `json:"total_items"`
+	BaseTotal           float64    `json:"base_total"`
+	PointsDiscount      float64    `json:"points_discount"`
+	DeliveryFee         float64    `json:"delivery_fee"`
+	FinalTotal          float64    `json:"final_total"`
+	DeliveryMethod      string     `json:"delivery_method"`
+	DeliveryStatus      string     `json:"delivery_status,omitempty"`
+	AssignedCourierID   *uuid.UUID `json:"assigned_courier_id,omitempty"`
+	DeliveryContactName string     `json:"delivery_contact_name,omitempty"`
+	DeliveryPhone       string     `json:"delivery_phone,omitempty"`
+	DeliveryAddress     string     `json:"delivery_address,omitempty"`
+	DeliveryNotes       string     `json:"delivery_notes,omitempty"`
+	CourierAssignedAt   *time.Time `json:"courier_assigned_at,omitempty"`
+	CourierNotes        string     `json:"courier_notes,omitempty"`
+	PaymentStatus       string     `json:"payment_status"`
+	IsStuck             bool       `json:"is_stuck"`
+	StuckReason         string     `json:"stuck_reason,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type AdminOrderDetail struct {

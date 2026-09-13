@@ -604,6 +604,10 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 			COALESCE(bp.phone, o.delivery_phone),
 			o.status, o.total_items, o.base_total, o.points_discount_amount, o.delivery_fee_final, o.final_total,
 			COALESCE(o.delivery_method, 'PICKUP'),
+			COALESCE(o.delivery_status, ''), o.assigned_courier_id,
+			COALESCE(o.delivery_contact_name, ''), COALESCE(o.delivery_phone, ''),
+			COALESCE(o.delivery_address, ''), COALESCE(o.delivery_notes, ''),
+			o.courier_assigned_at, COALESCE(o.courier_notes, ''),
 			COALESCE(pay.status, 'UNPAID') AS payment_status,
 			o.created_at, o.updated_at,
 			CASE 
@@ -647,7 +651,9 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 			&item.ShopID, &item.ShopName,
 			&item.BuyerID, &item.BuyerName, &item.BuyerPhone,
 			&item.Status, &item.TotalItems, &item.BaseTotal, &item.PointsDiscount, &item.DeliveryFee, &item.FinalTotal,
-			&item.DeliveryMethod, &item.PaymentStatus,
+			&item.DeliveryMethod, &item.DeliveryStatus, &item.AssignedCourierID,
+			&item.DeliveryContactName, &item.DeliveryPhone, &item.DeliveryAddress, &item.DeliveryNotes,
+			&item.CourierAssignedAt, &item.CourierNotes, &item.PaymentStatus,
 			&item.CreatedAt, &item.UpdatedAt,
 			&item.IsStuck, &stuckReason,
 		)
