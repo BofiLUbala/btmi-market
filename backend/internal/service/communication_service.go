@@ -637,8 +637,12 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		buyerBody = "Un livreur TBK a été assigné pour acheminer votre commande."
 		sellerTitle = fmt.Sprintf("Livreur assigné: %s", orderNum)
 		sellerBody = fmt.Sprintf("Un livreur a été assigné pour récupérer la commande %s.", orderNum)
-		courierTitle = fmt.Sprintf("Nouvelle livraison assignée: %s", orderNum)
-		courierBody = fmt.Sprintf("Une commande vous a été assignée pour livraison (Boutique: %s).", shopName)
+		courierTitle = "Nouvelle mission assignée"
+		deliveryArea := order.DeliveryAddress
+		if deliveryArea == "" {
+			deliveryArea = "non renseignée"
+		}
+		courierBody = fmt.Sprintf("Commande %s — Boutique: %s — Zone de livraison: %s.", orderNum, shopName, deliveryArea)
 
 	case models.NotificationTypeCourierPickedUp, models.NotificationTypeDeliveryInTransit:
 		notifyBuyer = true

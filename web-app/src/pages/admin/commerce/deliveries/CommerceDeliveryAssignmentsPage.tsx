@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   adminCommerceApi,
   type AdminOrderItem,
-  type AdminUserListItem,
+  type AdminCourierListItem,
   type AdminOrderDetail,
   type AdminDeliveryHandover
 } from '@/api/admin'
@@ -17,7 +17,7 @@ export default function CommerceDeliveryAssignmentsPage() {
   const initialCourierId = searchParams.get('courier_id') || ''
 
   const [orders, setOrders] = useState<AdminOrderItem[]>([])
-  const [couriers, setCouriers] = useState<AdminUserListItem[]>([])
+  const [couriers, setCouriers] = useState<AdminCourierListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -43,14 +43,12 @@ export default function CommerceDeliveryAssignmentsPage() {
         adminCommerceApi.listOrders({
           limit: 100,
         }),
-        adminCommerceApi.listOperationalUsers({
-          account_type: 'EMPLOYEE',
-          status: 'ACTIVE',
+        adminCommerceApi.listCouriers({
           limit: 100,
         }),
       ])
       setOrders(orderRes.orders || [])
-      setCouriers(courierRes.users || [])
+      setCouriers((courierRes.couriers || []).filter(c => c.status === 'ACTIVE'))
     } catch (err) {
       console.error('Failed to load dispatch queue data', err)
     } finally {
@@ -336,7 +334,9 @@ export default function CommerceDeliveryAssignmentsPage() {
             </thead>
             <tbody>
               {filteredOrders.map((o) => {
-                const assignedCourier = couriers.find(c => c.id === o.assigned_courier_id)
+                // orders.assigned_courier_id references users.id; assignment requests use
+                // couriers.id, which the backend resolves to the associated user_id.
+                const assignedCourier = couriers.find(c => c.user_id === o.assigned_courier_id)
                 return (
                   <tr key={o.id} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
                     <td style={{ padding: '12px 14px' }}>
@@ -401,7 +401,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                         <button
                           onClick={() => {
                             setAssigningOrder(o)
-                            setSelectedCourierId(o.assigned_courier_id || (couriers[0]?.id || ''))
+                            setSelectedCourierId(assignedCourier?.id || (couriers[0]?.id || ''))
                             setNotes(o.courier_notes || '')
                           }}
                           style={{

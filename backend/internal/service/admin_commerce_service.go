@@ -325,6 +325,11 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 	courierRepo := repository.NewCourierRepository(s.db)
 	courier, err := courierRepo.GetByID(courierID)
 	if err != nil || courier == nil {
+		// Older admin clients listed operational users and therefore sent users.id.
+		// Accept that identity during rolling deployments, but always persist users.id.
+		courier, err = courierRepo.GetByUserID(courierID)
+	}
+	if err != nil || courier == nil {
 		return errors.New("COURIER_NOT_FOUND")
 	}
 	if courier.Status != models.CourierStatusActive || courier.Availability == models.CourierAvailabilityUnavailable {
@@ -340,7 +345,11 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 		oldCourier = order.AssignedCourierID.String()
 	}
 	oldRaw, _ := json.Marshal(map[string]string{"assigned_courier_id": oldCourier, "delivery_status": order.DeliveryStatus})
-	newRaw, _ := json.Marshal(map[string]string{"assigned_courier_id": courierID.String(), "delivery_status": "COURIER_ASSIGNED"})
+	newRaw, _ := json.Marshal(map[string]string{
+		"assigned_courier_id": courier.UserID.String(),
+		"courier_profile_id":  courier.ID.String(),
+		"delivery_status":     models.DeliveryStatusCourierAssigned,
+	})
 	oldJson := json.RawMessage(oldRaw)
 	newJson := json.RawMessage(newRaw)
 
@@ -359,7 +368,8 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 
 	if s.commSvc != nil {
 		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierAssigned, map[string]interface{}{
-			"assigned_courier_id": courierID.String(),
+			"assigned_courier_id": courier.UserID.String(),
+			"courier_profile_id":  courier.ID.String(),
 			"notes":               notes,
 		})
 	}

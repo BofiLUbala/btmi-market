@@ -672,6 +672,12 @@ func (h *CommerceHandler) AssignCourier(c *gin.Context) {
 		if err.Error() == "ORDER_NOT_FOUND" {
 			status = http.StatusNotFound
 			code = "ORDER_NOT_FOUND"
+		} else if err.Error() == "COURIER_NOT_FOUND" {
+			status = http.StatusNotFound
+			code = "COURIER_NOT_FOUND"
+		} else if err.Error() == "COURIER_NOT_AVAILABLE" {
+			status = http.StatusConflict
+			code = "COURIER_NOT_AVAILABLE"
 		}
 		c.JSON(status, models.ErrorResponse{
 			Error: struct {
