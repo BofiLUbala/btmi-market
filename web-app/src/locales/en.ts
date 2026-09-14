@@ -881,6 +881,12 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'orders.sellerConfirmation': 'Seller confirmation',
   'orders.cashReceived': 'Cash received',
   'orders.waitingForSeller': 'Waiting for Seller',
+  'orders.payNowTitle': "Pay now",
+  'orders.payNowAction': "Pay now",
+  'orders.payNowStarted': "Payment started. Follow the instructions sent to your phone.",
+  'orders.payNowFailed': "The payment could not be started.",
+  'orders.payNowWaitingDelivery': "Mobile payment unlocks once the courier is on the way.",
+  'orders.payNowNoProvider': "No payment provider is configured yet.",
   'orders.paymentStatus': 'Payment status',
   'orders.iHavePaid': 'I have paid',
   'orders.declarationSaved':

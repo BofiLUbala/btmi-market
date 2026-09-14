@@ -889,6 +889,12 @@ export const fr = {
   'orders.sellerConfirmation': 'Confirmation vendeur',
   'orders.cashReceived': 'Espèces reçues',
   'orders.waitingForSeller': 'En attente du vendeur',
+  'orders.payNowTitle': "Payer maintenant",
+  'orders.payNowAction': "Payer maintenant",
+  'orders.payNowStarted': "Paiement lancé. Suivez les instructions reçues sur votre téléphone.",
+  'orders.payNowFailed': "Le paiement n'a pas pu être lancé.",
+  'orders.payNowWaitingDelivery': "Le paiement mobile sera disponible dès que le livreur sera en route.",
+  'orders.payNowNoProvider': "Aucun prestataire de paiement n'est configuré pour le moment.",
   'orders.paymentStatus': 'Statut du paiement',
   'orders.iHavePaid': 'J’ai payé',
   'orders.declarationSaved':

@@ -3,6 +3,7 @@ import type {
   BuyerOrder,
   BuyerPayment,
   CheckoutQuote,
+  PaymentInitiation,
   BuyerProfile,
   BuyerPointsSummary,
   BuyerReviewsResponse,
@@ -84,6 +85,9 @@ export const buyerApi = {
   createPayment: (orderId: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${orderId}/payment`, { payment_method: paymentMethod }),
 
   getPayment: (orderId: string) => get<BuyerPayment>(`/buyer/orders/${orderId}/payment`),
+
+  /** Asks the provider to charge the buyer. Only its webhook can settle it. */
+  initiatePayment: (orderId: string) => post<PaymentInitiation>(`/buyer/orders/${orderId}/payment/initiate`, {}),
 
   buyerConfirmPayment: (paymentId: string) =>
     post<BuyerPayment>(`/buyer/payments/${paymentId}/buyer-confirm`, {}),

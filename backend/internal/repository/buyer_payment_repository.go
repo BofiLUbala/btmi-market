@@ -92,6 +92,35 @@ func (r *BuyerPaymentRepository) GetByOrderID(orderID uuid.UUID) (*models.BuyerP
 	return scanBuyerPayment(r.db.QueryRow(buyerPaymentSelect+` WHERE order_id = $1`, orderID))
 }
 
+// MarkProviderOutcome moves an online payment between provider-driven states.
+// It is guarded on the statuses a provider may still act on, so a late or
+// replayed webhook cannot resurrect a settled payment; it reports whether the
+// row actually changed.
+func (r *BuyerPaymentRepository) MarkProviderOutcome(id uuid.UUID, status models.BuyerPaymentStatus, reference, failureReason string, verifiedAt *time.Time) (bool, error) {
+	result, err := r.db.Exec(`
+		UPDATE buyer_payments
+		SET status=$2, provider_reference=COALESCE(NULLIF($3,''), provider_reference),
+		    payment_failure_reason=$4, verified_at=COALESCE($5, verified_at), updated_at=NOW()
+		WHERE id=$1 AND status IN ('DUE','PROCESSING','PENDING')
+	`, id, status, reference, failureReason, verifiedAt)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	return affected > 0, err
+}
+
+// MarkInitiated records that the buyer asked the provider to charge them.
+func (r *BuyerPaymentRepository) MarkInitiated(id uuid.UUID, reference string) error {
+	_, err := r.db.Exec(`
+		UPDATE buyer_payments
+		SET status='PROCESSING', provider_reference=COALESCE(NULLIF($2,''), provider_reference),
+		    payment_initiated_at=COALESCE(payment_initiated_at, NOW()), updated_at=NOW()
+		WHERE id=$1 AND status IN ('DUE','PENDING','PROCESSING')
+	`, id, reference)
+	return err
+}
+
 func (r *BuyerPaymentRepository) Update(p *models.BuyerPayment) error {
 	query := `
 		UPDATE buyer_payments SET

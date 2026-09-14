@@ -695,7 +695,11 @@ export interface BuyerPayment {
   delivery_fee_final: number
   cash_due: number
   payment_markup: number; final_total: number; provider?: string
+  payment_markup_type?: 'NONE' | 'PERCENTAGE' | 'FIXED'; payment_markup_value?: number
   provider_reference?: string; payment_timing: 'NOW' | 'DELIVERY'
+  /** Server-decided: may the buyer start paying this right now, and if not why. */
+  payable?: boolean
+  payable_reason?: string
   buyer_confirmed: boolean
   buyer_confirmed_at?: string | null
   seller_confirmed: boolean
@@ -705,6 +709,16 @@ export interface BuyerPayment {
   verified_at?: string | null
   created_at: string
   updated_at: string
+}
+export interface PaymentInitiation {
+  payment_id: string
+  status: string
+  provider: string
+  reference: string
+  amount: number
+  currency: string
+  redirect_url?: string
+  instructions?: string
 }
 export interface PaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_amount: number; quoted_total: number; provider?: string }
 export interface CheckoutQuote { order_id: string; currency: string; subtotal: number; discount: number; points_discount: number; delivery_fee: number; payment_markup: number; final_total: number; selected_payment_method: string; payment_methods: PaymentMethodConfig[] }

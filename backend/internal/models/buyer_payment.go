@@ -85,6 +85,8 @@ type BuyerPaymentResponse struct {
 	DeliveryFeeFinal       float64    `json:"delivery_fee_final"`
 	CashDue                float64    `json:"cash_due"`
 	PaymentMarkup          float64    `json:"payment_markup"`
+	Payable                bool       `json:"payable"`
+	PayableReason          string     `json:"payable_reason,omitempty"`
 	PaymentMarkupType      string     `json:"payment_markup_type"`
 	PaymentMarkupValue     float64    `json:"payment_markup_value"`
 	FinalTotal             float64    `json:"final_total"`

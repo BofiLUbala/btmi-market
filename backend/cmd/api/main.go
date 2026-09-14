@@ -88,6 +88,7 @@ func main() {
 	buyerPaymentRepo := repository.NewBuyerPaymentRepository(db)
 	paymentConfigRepo := repository.NewPaymentConfigRepository(db)
 	locationRepo := repository.NewLocationRepository(db)
+	paymentWebhookRepo := repository.NewPaymentWebhookRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 	employeeInvitationRepo := repository.NewEmployeeInvitationRepository(db)
 	employeeActivationTokenRepo := repository.NewEmployeeActivationTokenRepository(db)
@@ -142,6 +143,7 @@ func main() {
 	pointService := service.NewPointService(pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, adminPlatformRepo)
 	purchaseConfirmationService := service.NewPurchaseConfirmationService(confirmRepo, verifiedTxnRepo, orderRepo, shopRepo, cashRepo, pointService, trustRepo, asynqClient)
 	paymentService := service.NewPaymentService(buyerPaymentRepo, paymentConfigRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
+	paymentService.SetWebhookDependencies(paymentWebhookRepo, cfg.PaymentWebhookSecret)
 	marketplaceService := service.NewMarketplaceService(marketplaceRepo, pointService)
 	productImageRepo := repository.NewProductImageRepository(db)
 	marketplaceService.SetProductImageRepo(productImageRepo)
@@ -478,6 +480,7 @@ func main() {
 			buyerGroup.POST("/orders/:order_id/payment", orderHandler.CreateBuyerPayment)
 			buyerGroup.GET("/orders/:order_id/checkout-quote", orderHandler.GetCheckoutQuote)
 			buyerGroup.GET("/orders/:order_id/payment", orderHandler.GetBuyerPayment)
+			buyerGroup.POST("/orders/:order_id/payment/initiate", orderHandler.InitiateBuyerPayment)
 			buyerGroup.POST("/payments/:payment_id/buyer-confirm", orderHandler.BuyerConfirmPayment)
 			buyerGroup.POST("/orders/:order_id/cancel", orderHandler.CancelBuyerOrder)
 			buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
@@ -567,6 +570,11 @@ courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 			categoriesGroup.GET("/:category_id/subcategories", categoryHandler.ListSubcategories)
 			categoriesGroup.GET("/:category_id/attributes", categoryHandler.GetCategoryAttributes)
 		}
+
+		// Payment provider callbacks. Deliberately outside every auth middleware:
+		// the HMAC signature over the raw body is the credential, and this is the
+		// only path that may mark an online payment paid.
+		api.POST("/webhooks/payments/:provider", orderHandler.HandlePaymentWebhook)
 
 		// RDC administrative hierarchy, read-only and public: every address form
 		// (checkout, buyer profile, shop onboarding) selects from these.

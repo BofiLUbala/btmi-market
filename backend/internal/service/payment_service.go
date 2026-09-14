@@ -31,6 +31,8 @@ type PaymentService struct {
 	employeeRepo       *repository.EmployeeRepository
 	assignmentRepo     *repository.AssignmentRepository
 	commService        *CommissionService
+	webhookRepo        *repository.PaymentWebhookRepository
+	webhookSecret      string
 	asynqClient        *asynq.Client
 	db                 *database.DB
 }
@@ -262,7 +264,12 @@ func (s *PaymentService) GetPaymentByOrder(buyerProfileID, orderID uuid.UUID) (*
 	if payment == nil {
 		return nil, errors.New("PAYMENT_NOT_FOUND")
 	}
-	return s.toResponse(payment), nil
+	// The client needs to know whether to offer "Pay now" - and, when it should
+	// not, why - so the answer travels with the payment itself.
+	response := s.toResponse(payment)
+	payability := s.Payability(payment, order)
+	response.Payable, response.PayableReason = payability.Payable, payability.Reason
+	return response, nil
 }
 
 // GetPaymentByOrderForSeller returns the same authoritative payment snapshot
@@ -291,6 +298,11 @@ func (s *PaymentService) BuyerConfirm(buyerProfileID, paymentID uuid.UUID) (*mod
 	}
 	if payment.BuyerProfileID != buyerProfileID {
 		return nil, errors.New("FORBIDDEN")
+	}
+	// Buyer/seller confirmation is the cash-handover ritual. An online payment is
+	// settled by its provider alone, so neither party may nudge it along.
+	if payment.PaymentMethod != models.PaymentMethodCashOnDelivery {
+		return nil, errors.New("PROVIDER_CONFIRMATION_REQUIRED")
 	}
 
 	if payment.Status == models.BuyerPaymentStatusVerified || payment.BuyerConfirmed {
@@ -331,6 +343,11 @@ func (s *PaymentService) SellerConfirm(userID, paymentID uuid.UUID) (*models.Buy
 
 	if err := s.requireShopAccess(userID, payment.ShopID); err != nil {
 		return nil, err
+	}
+	// Buyer/seller confirmation is the cash-handover ritual. An online payment is
+	// settled by its provider alone, so neither party may nudge it along.
+	if payment.PaymentMethod != models.PaymentMethodCashOnDelivery {
+		return nil, errors.New("PROVIDER_CONFIRMATION_REQUIRED")
 	}
 
 	if payment.Status == models.BuyerPaymentStatusVerified || payment.SellerConfirmed {

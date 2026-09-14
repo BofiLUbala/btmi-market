@@ -171,6 +171,54 @@ function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment
   )
 }
 
+/**
+ * "Pay now" for the mobile-money methods. The server decides whether this is
+ * offerable (payment.payable) - notably, pay-on-delivery only becomes payable
+ * once the courier is actually on the way - and a real provider settles it via
+ * its webhook. Nothing here can mark the order paid.
+ */
+function PayNowCard({ orderId, payment, onDone }: { orderId: string; payment: BuyerPayment | null; onDone: () => void }) {
+  const { t } = useI18n()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [instructions, setInstructions] = useState('')
+
+  if (!payment || payment.payment_method === 'CASH_ON_DELIVERY') return null
+  if (payment.payable_reason === 'ALREADY_PAID' || payment.payable_reason === 'PAYMENT_CLOSED') return null
+
+  const waiting = payment.payable_reason === 'AWAITING_DELIVERY_STAGE'
+  const noProvider = payment.payable_reason === 'PAYMENT_PROVIDER_NOT_CONFIGURED'
+
+  async function payNow() {
+    setBusy(true); setError(''); setInstructions('')
+    try {
+      const started = await buyerApi.initiatePayment(orderId)
+      if (started.redirect_url) { window.location.href = started.redirect_url; return }
+      setInstructions(started.instructions || t('orders.payNowStarted'))
+      onDone()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('orders.payNowFailed'))
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="card stack">
+      <h2 style={{ fontSize: '1.1rem' }}>{t('orders.payNowTitle')}</h2>
+      <div className="info-row">
+        <span className="k">{t('orders.totalDue')}</span>
+        <span className="v bold">{formatMoney(payment.final_total, payment.currency)}</span>
+      </div>
+      {error && <ErrorBox error={error} />}
+      {instructions && <p className="small">{instructions}</p>}
+      {waiting && <p className="small muted">{t('orders.payNowWaitingDelivery')}</p>}
+      {noProvider && <p className="small muted">{t('orders.payNowNoProvider')}</p>}
+      <Button size="lg" block loading={busy} disabled={!payment.payable} onClick={payNow}>
+        {t('orders.payNowAction')}
+      </Button>
+    </div>
+  )
+}
+
 function PaymentAttempts({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
   const { t } = useI18n()
   const attempts: Array<{ label: string; at: string; ok: boolean; stepKey: TranslationKey }> = []
@@ -501,6 +549,7 @@ function OrderInner() {
             </> : o.delivery_method ? <Button loading={busy} onClick={ensurePayment}>{t('orders.prepareCashPayment')}</Button> : <p className="small muted">{t('orders.selectDeliveryFirst')}</p>}
           </div>
 
+          <PayNowCard orderId={o.id} payment={payment} onDone={() => load(true)} />
           <PaymentDetailCard o={o} payment={payment} />
           <PaymentAttempts o={o} payment={payment} />
 

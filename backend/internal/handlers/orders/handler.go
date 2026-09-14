@@ -1,6 +1,7 @@
 package orders
 
 import (
+	"io"
 	"net/http"
 	"strings"
 
@@ -1010,6 +1011,9 @@ func (h *Handler) GetBuyerPayment(c *gin.Context) {
 		case "PAYMENT_NOT_FOUND":
 			statusCode = http.StatusNotFound
 			errorCode = "PAYMENT_NOT_FOUND"
+		case "PROVIDER_CONFIRMATION_REQUIRED":
+			statusCode = http.StatusConflict
+			errorCode = "PROVIDER_CONFIRMATION_REQUIRED"
 		}
 		h.errResponse(c, statusCode, errorCode, err.Error())
 		return
@@ -1040,6 +1044,9 @@ func (h *Handler) BuyerConfirmPayment(c *gin.Context) {
 		case "PAYMENT_NOT_FOUND":
 			statusCode = http.StatusNotFound
 			errorCode = "PAYMENT_NOT_FOUND"
+		case "PROVIDER_CONFIRMATION_REQUIRED":
+			statusCode = http.StatusConflict
+			errorCode = "PROVIDER_CONFIRMATION_REQUIRED"
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
@@ -1076,6 +1083,9 @@ func (h *Handler) SellerConfirmPayment(c *gin.Context) {
 		case "PAYMENT_NOT_FOUND":
 			statusCode = http.StatusNotFound
 			errorCode = "PAYMENT_NOT_FOUND"
+		case "PROVIDER_CONFIRMATION_REQUIRED":
+			statusCode = http.StatusConflict
+			errorCode = "PROVIDER_CONFIRMATION_REQUIRED"
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
@@ -1157,4 +1167,66 @@ func (h *Handler) CancelBuyerOrder(c *gin.Context) {
 		Message: "Order cancelled successfully",
 		Data:    toOrderResponse(order),
 	})
+}
+
+// InitiateBuyerPayment asks the configured provider to charge the buyer for an
+// online payment. It can only ever start a charge - the provider webhook is
+// what settles it.
+func (h *Handler) InitiateBuyerPayment(c *gin.Context) {
+	buyerProfileID, ok := h.extractBuyerProfileID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "order_id")
+	if !ok {
+		return
+	}
+
+	result, err := h.paymentService.InitiatePayment(buyerProfileID, orderID)
+	if err != nil {
+		status := http.StatusBadRequest
+		switch err.Error() {
+		case "ORDER_NOT_FOUND", "PAYMENT_NOT_FOUND":
+			status = http.StatusNotFound
+		case "FORBIDDEN":
+			status = http.StatusForbidden
+		case "PAYMENT_PROVIDER_NOT_CONFIGURED":
+			status = http.StatusServiceUnavailable
+		case "AWAITING_DELIVERY_STAGE", "ALREADY_PAID", "CASH_ON_DELIVERY", "PAYMENT_CLOSED":
+			status = http.StatusConflict
+		}
+		h.errResponse(c, status, err.Error(), err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Payment initiated", Data: result})
+}
+
+// HandlePaymentWebhook is the provider callback. It is unauthenticated by
+// design - the HMAC signature over the raw body is the credential - and is
+// mounted outside every auth middleware.
+func (h *Handler) HandlePaymentWebhook(c *gin.Context) {
+	rawBody, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_WEBHOOK_PAYLOAD", "Could not read request body")
+		return
+	}
+
+	provider := c.Param("provider")
+	signature := c.GetHeader("X-TBK-Signature")
+	if err := h.paymentService.HandleProviderWebhook(provider, rawBody, signature); err != nil {
+		status := http.StatusBadRequest
+		switch err.Error() {
+		case "INVALID_WEBHOOK_SIGNATURE":
+			status = http.StatusUnauthorized
+		case "PAYMENT_WEBHOOK_NOT_CONFIGURED":
+			status = http.StatusServiceUnavailable
+		case "PAYMENT_NOT_FOUND":
+			status = http.StatusNotFound
+		}
+		h.errResponse(c, status, err.Error(), err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"received": true})
 }
