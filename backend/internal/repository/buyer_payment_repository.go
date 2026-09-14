@@ -69,7 +69,7 @@ func (r *BuyerPaymentRepository) Create(p *models.BuyerPayment) error {
 		p.PaymentMethod = models.BuyerPaymentMethodCash
 	}
 	if p.Currency == "" {
-		p.Currency = "CDF"
+		p.Currency = models.CurrencyUSD
 	}
 	p.CreatedAt = time.Now()
 	p.UpdatedAt = time.Now()

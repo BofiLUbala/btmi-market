@@ -207,7 +207,6 @@ export default function SellerOnboardingPage() {
             <StructuredAddressFields value={{ province: businessForm.province, city: businessForm.city, commune: businessForm.commune, province_id: businessForm.province_id, city_id: businessForm.city_id, commune_id: businessForm.commune_id, street: businessForm.street, building_number: businessForm.building_number, landmark: businessForm.landmark }} onChange={(address) => setBusinessForm((current) => ({ ...current, ...address }))} />
             <Field label={t('seller.onboarding.defaultCurrency')} name="default_currency" required value={businessForm.default_currency} onChange={(e) => updateBusiness('default_currency', e.target.value)} as="select" options={[
               { value: 'USD', label: 'USD' },
-              { value: 'CDF', label: 'CDF' },
             ]} />
             <Field label={t('seller.onboarding.descriptionOptional')} name="description" value={businessForm.description} onChange={(e) => updateBusiness('description', e.target.value)} rows={3} />
             <Field label={t('seller.onboarding.registrationNumberOptional')} name="registration_number" value={businessForm.registration_number} onChange={(e) => updateBusiness('registration_number', e.target.value)} />

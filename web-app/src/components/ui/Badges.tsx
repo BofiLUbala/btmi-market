@@ -36,7 +36,7 @@ export function StockChip({ stock, quantity }: { stock: string; quantity?: numbe
 
 export function Money({
   amount,
-  currency = 'FC',
+  currency = 'USD',
   className = ''
 }: {
   amount: number

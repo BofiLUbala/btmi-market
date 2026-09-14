@@ -21,7 +21,7 @@ export default function SellerBusinessPage() {
   const [saved, setSaved] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
   const [confirmName, setConfirmName] = useState('')
-  const [form, setForm] = useState({ name: '', business_type: 'RETAIL', category: '', phone: '', whatsapp: '', email: '', province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', default_currency: 'CDF' })
+  const [form, setForm] = useState({ name: '', business_type: 'RETAIL', category: '', phone: '', whatsapp: '', email: '', province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', default_currency: 'USD' })
 
   useEffect(() => {
     if (!activeBusiness) return
@@ -35,7 +35,7 @@ export default function SellerBusinessPage() {
       email: activeBusiness.email ?? '',
       province: activeBusiness.province ?? '', commune: activeBusiness.commune ?? '', street: activeBusiness.street ?? '', building_number: activeBusiness.building_number ?? '', landmark: activeBusiness.landmark ?? '',
       city: activeBusiness.city ?? '',
-      default_currency: activeBusiness.default_currency ?? 'CDF',
+      default_currency: activeBusiness.default_currency ?? 'USD',
     })
     setLoading(true); setError(''); setShowArchive(false); setConfirmName('')
     businessApi.lifecycleSummary(activeBusiness.id).then(setSummary).catch(e => setError(e instanceof Error ? e.message : t('seller.business.loadSummaryFailed'))).finally(() => setLoading(false))
@@ -91,7 +91,7 @@ export default function SellerBusinessPage() {
         <Field label="WhatsApp" name="whatsapp" value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} />
         <Field label={t('common.email')} name="email" type="email" required value={form.email} onChange={e => set('email', e.target.value)} />
         <StructuredAddressFields value={{ province: form.province, city: form.city, commune: form.commune, province_id: form.province_id, city_id: form.city_id, commune_id: form.commune_id, street: form.street, building_number: form.building_number, landmark: form.landmark }} onChange={(address) => setForm((current) => ({ ...current, ...address }))} />
-        <Field label={t('seller.business.currency')} name="default_currency" as="select" value={form.default_currency} options={[{value:'CDF',label:'CDF'},{value:'USD',label:'USD'}]} onChange={e => set('default_currency', e.target.value)} />
+        <Field label={t('seller.business.currency')} name="default_currency" as="select" value={form.default_currency} options={[{value:'USD',label:'USD'},{value:'CDF',label:'CDF (héritage)'}]} onChange={e => set('default_currency', e.target.value)} />
       </div>
       <Button type="submit" loading={busy}>{t('common.saveChanges')}</Button>
     </form>

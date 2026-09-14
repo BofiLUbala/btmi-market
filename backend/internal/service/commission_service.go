@@ -94,15 +94,19 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 		return nil, err
 	}
 
-	// Commission base is merchandise total after discounts (EXCLUDES delivery fees!)
-	grossAmount := order.FinalTotal
-	commissionBase := order.BaseTotal - order.PointsDiscountAmount
+	// Commission base is merchandise total after discounts (EXCLUDES delivery fees!).
+	// gross_amount is kept equal to that base so the reporting invariant
+	// GROSS - COMMISSION = SELLER NET always holds; the delivery fee is the
+	// seller's to keep and reported separately in buyer_payments.cash_due.
+	grossAmount := models.RoundMoney(order.BaseTotal - order.PointsDiscountAmount)
+	commissionBase := grossAmount
 	if payment != nil {
-		grossAmount = payment.CashDue
-		commissionBase = payment.ProductsFinalTotal
+		grossAmount = payment.ProductsFinalTotal
+		commissionBase = grossAmount
 	}
 	if commissionBase < 0 {
 		commissionBase = 0
+		grossAmount = 0
 	}
 
 	// Fetch current rate
@@ -112,8 +116,8 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 	}
 
 	// Calculate commission amount and seller net
-	commissionAmount := math.Round(commissionBase*(rate/100.0)*100) / 100
-	sellerNet := math.Round((commissionBase-commissionAmount)*100) / 100
+	commissionAmount := models.PercentOf(commissionBase, rate)
+	sellerNet := models.RoundMoney(commissionBase - commissionAmount)
 	if sellerNet < 0 {
 		sellerNet = 0
 	}
@@ -136,8 +140,11 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 		CommissionRate:   rate,
 		CommissionAmount: commissionAmount,
 		SellerNetAmount:  sellerNet,
-		Status:           models.CommissionStatusDue,
-		CalculatedAt:     time.Now(),
+		// The commission is a slice of this order, so it is in the order's
+		// currency - never re-labelled by whoever reads the report later.
+		Currency:     orderCurrency(order),
+		Status:       models.CommissionStatusDue,
+		CalculatedAt: time.Now(),
 	}
 
 	if err := s.commRepo.CreateCommission(comm); err != nil {
@@ -150,6 +157,18 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 // GetSummary returns Finance Admin aggregate KPI statistics.
 func (s *CommissionService) GetSummary(filter *models.CommissionFilter) (*models.CommissionSummary, error) {
 	return s.commRepo.GetSummary(filter)
+}
+
+// GetDashboardReport returns the real-totals finance dashboard (gross,
+// commission, seller net, collected/due/waived, cash collected, pipeline).
+func (s *CommissionService) GetDashboardReport(filter *models.FinanceReportFilter) (*models.FinanceDashboardReport, error) {
+	return s.commRepo.GetDashboardReport(filter)
+}
+
+// GetBreakdownReport returns the finance dashboard grouped by shop, product,
+// seller or business for the same filter.
+func (s *CommissionService) GetBreakdownReport(group models.FinanceBreakdownGroup, filter *models.FinanceReportFilter) ([]models.FinanceBreakdownItem, error) {
+	return s.commRepo.GetBreakdownReport(group, filter)
 }
 
 // ListCommissions lists per-sale commission records for Finance Admin.
@@ -165,6 +184,12 @@ func (s *CommissionService) MarkCollected(adminID uuid.UUID, adminRole models.Ad
 	return s.commRepo.MarkCollected(commissionID, adminID, notes)
 }
 
+// VoidForRefund waives the commission attached to a refunded order so refunded
+// sales never count as revenue. Safe to call whether or not a snapshot exists.
+func (s *CommissionService) VoidForRefund(orderID uuid.UUID, notes string) error {
+	return s.commRepo.VoidCommissionForRefund(orderID, notes)
+}
+
 // GetSellerSummary computes aggregate financial summary for a seller user.
 func (s *CommissionService) GetSellerSummary(userID uuid.UUID) (*models.SellerFinanceSummary, error) {
 	businessIDs, err := s.getSellerBusinessIDs(userID)
@@ -172,6 +197,34 @@ func (s *CommissionService) GetSellerSummary(userID uuid.UUID) (*models.SellerFi
 		return nil, err
 	}
 	return s.commRepo.GetSellerSummary(businessIDs)
+}
+
+// GetSellerDashboardReport returns the real-totals dashboard scoped to the
+// businesses the seller belongs to.
+func (s *CommissionService) GetSellerDashboardReport(userID uuid.UUID, filter *models.FinanceReportFilter) (*models.FinanceDashboardReport, error) {
+	businessIDs, err := s.getSellerBusinessIDs(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(businessIDs) == 0 {
+		return &models.FinanceDashboardReport{}, nil
+	}
+	filter.BusinessID = businessIDs[0].String()
+	return s.commRepo.GetDashboardReport(filter)
+}
+
+// GetSellerBreakdownReport returns the grouped report scoped to the seller's
+// businesses.
+func (s *CommissionService) GetSellerBreakdownReport(userID uuid.UUID, group models.FinanceBreakdownGroup, filter *models.FinanceReportFilter) ([]models.FinanceBreakdownItem, error) {
+	businessIDs, err := s.getSellerBusinessIDs(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(businessIDs) == 0 {
+		return []models.FinanceBreakdownItem{}, nil
+	}
+	filter.BusinessID = businessIDs[0].String()
+	return s.commRepo.GetBreakdownReport(group, filter)
 }
 
 // ListSellerSales lists per-sale financial records for a seller user.

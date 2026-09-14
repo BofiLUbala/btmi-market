@@ -17,6 +17,7 @@ type PublicProductResponse struct {
 	Description     string                  `json:"description"`
 	Unit            string                  `json:"unit"`
 	BasePrice       float64                 `json:"base_price"` // Regular unit_price
+	Currency        string                  `json:"currency"`
 	CategoryID      *uuid.UUID              `json:"category_id,omitempty"`
 	CategoryName    string                  `json:"category_name,omitempty"`
 	CategorySlug    string                  `json:"category_slug,omitempty"`
@@ -153,6 +154,7 @@ type PublicProductDetailResponse struct {
 	Description     string                        `json:"description"`
 	Unit            string                        `json:"unit"`
 	BasePrice       float64                       `json:"base_price"` // Regular unit_price
+	Currency        string                        `json:"currency"`
 	CategoryID      *uuid.UUID                    `json:"category_id,omitempty"`
 	SubcategoryID   *uuid.UUID                    `json:"subcategory_id,omitempty"`
 	Category        *CategorySummary              `json:"category,omitempty"`

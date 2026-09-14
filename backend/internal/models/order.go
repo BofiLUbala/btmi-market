@@ -24,56 +24,58 @@ const (
 )
 
 type Order struct {
-	ID                     uuid.UUID   `json:"id" db:"id"`
-	BusinessID             uuid.UUID   `json:"business_id" db:"business_id"`
-	ShopID                 uuid.UUID   `json:"shop_id" db:"shop_id"`
-	CustomerID             *uuid.UUID  `json:"customer_id" db:"customer_id"`
-	BuyerProfileID         *uuid.UUID  `json:"buyer_profile_id" db:"buyer_profile_id"`
-	Status                 OrderStatus `json:"status" db:"status"`
-	TotalItems             int         `json:"total_items" db:"total_items"`
-	Notes                  string      `json:"notes" db:"notes"`
-	CreatedBy              *uuid.UUID  `json:"created_by" db:"created_by"`
-	BaseTotal              float64     `json:"base_total" db:"base_total"`
-	PointsUsed             int         `json:"points_used" db:"points_used"`
-	PointsDiscountAmount   float64     `json:"points_discount_amount" db:"points_discount_amount"`
-	FinalTotal             float64     `json:"final_total" db:"final_total"`
-	IdempotencyKey         *string     `json:"idempotency_key" db:"idempotency_key"`
-	OrderNumber            string      `json:"order_number" db:"order_number"`
-	DeliveryMethod         string      `json:"delivery_method" db:"delivery_method"`
-	DeliveryFeeBase        float64     `json:"delivery_fee_base" db:"delivery_fee_base"`
-	DeliveryPointsUsed     int         `json:"delivery_points_used" db:"delivery_points_used"`
-	DeliveryPointsDiscount float64     `json:"delivery_points_discount" db:"delivery_points_discount"`
-	DeliveryFeeFinal       float64     `json:"delivery_fee_final" db:"delivery_fee_final"`
-	DeliveryContactName    string      `json:"delivery_contact_name" db:"delivery_contact_name"`
-	DeliveryPhone          string      `json:"delivery_phone" db:"delivery_phone"`
-	DeliveryAddress        string      `json:"delivery_address" db:"delivery_address"`
-	DeliveryNotes          string      `json:"delivery_notes" db:"delivery_notes"`
-	DeliveryProvince       string      `json:"delivery_province" db:"delivery_province"`
-	DeliveryCity           string      `json:"delivery_city" db:"delivery_city"`
-	DeliveryCommune        string      `json:"delivery_commune" db:"delivery_commune"`
-	DeliveryStreet         string      `json:"delivery_street" db:"delivery_street"`
-	DeliveryBuildingNumber string      `json:"delivery_building_number" db:"delivery_building_number"`
-	DeliveryLandmark       string      `json:"delivery_landmark" db:"delivery_landmark"`
-	DeliveryProvinceID     *uuid.UUID  `json:"delivery_province_id" db:"delivery_province_id"`
-	DeliveryCityID         *uuid.UUID  `json:"delivery_city_id" db:"delivery_city_id"`
-	DeliveryCommuneID      *uuid.UUID  `json:"delivery_commune_id" db:"delivery_commune_id"`
-	DeliveryStatus         string      `json:"delivery_status" db:"delivery_status"`
-	AssignedCourierID      *uuid.UUID  `json:"assigned_courier_id" db:"assigned_courier_id"`
-	DeliveryLatitude       *float64    `json:"delivery_latitude" db:"delivery_latitude"`
-	DeliveryLongitude      *float64    `json:"delivery_longitude" db:"delivery_longitude"`
-	CourierAssignedAt      *time.Time  `json:"courier_assigned_at" db:"courier_assigned_at"`
-	CourierNotes           string      `json:"courier_notes" db:"courier_notes"`
-	PointsFinalized        bool        `json:"points_finalized" db:"points_finalized"`
-	InventoryClaimed       bool        `json:"inventory_claimed" db:"inventory_claimed"`
-	AcceptedAt             *time.Time  `json:"accepted_at" db:"accepted_at"`
-	PreparingAt            *time.Time  `json:"preparing_at" db:"preparing_at"`
-	ReadyAt                *time.Time  `json:"ready_at" db:"ready_at"`
-	OutForDeliveryAt       *time.Time  `json:"out_for_delivery_at" db:"out_for_delivery_at"`
-	DeliveredAt            *time.Time  `json:"delivered_at" db:"delivered_at"`
-	ReceivedAt             *time.Time  `json:"received_at" db:"received_at"`
-	CompletedAt            *time.Time  `json:"completed_at" db:"completed_at"`
-	CreatedAt              time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt              time.Time   `json:"updated_at" db:"updated_at"`
+	ID                   uuid.UUID   `json:"id" db:"id"`
+	BusinessID           uuid.UUID   `json:"business_id" db:"business_id"`
+	ShopID               uuid.UUID   `json:"shop_id" db:"shop_id"`
+	CustomerID           *uuid.UUID  `json:"customer_id" db:"customer_id"`
+	BuyerProfileID       *uuid.UUID  `json:"buyer_profile_id" db:"buyer_profile_id"`
+	Status               OrderStatus `json:"status" db:"status"`
+	TotalItems           int         `json:"total_items" db:"total_items"`
+	Notes                string      `json:"notes" db:"notes"`
+	CreatedBy            *uuid.UUID  `json:"created_by" db:"created_by"`
+	BaseTotal            float64     `json:"base_total" db:"base_total"`
+	PointsUsed           int         `json:"points_used" db:"points_used"`
+	PointsDiscountAmount float64     `json:"points_discount_amount" db:"points_discount_amount"`
+	FinalTotal           float64     `json:"final_total" db:"final_total"`
+	IdempotencyKey       *string     `json:"idempotency_key" db:"idempotency_key"`
+	OrderNumber          string      `json:"order_number" db:"order_number"`
+	// Currency snapshot: what this order was priced in, kept for its lifetime.
+	Currency               string     `json:"currency" db:"currency"`
+	DeliveryMethod         string     `json:"delivery_method" db:"delivery_method"`
+	DeliveryFeeBase        float64    `json:"delivery_fee_base" db:"delivery_fee_base"`
+	DeliveryPointsUsed     int        `json:"delivery_points_used" db:"delivery_points_used"`
+	DeliveryPointsDiscount float64    `json:"delivery_points_discount" db:"delivery_points_discount"`
+	DeliveryFeeFinal       float64    `json:"delivery_fee_final" db:"delivery_fee_final"`
+	DeliveryContactName    string     `json:"delivery_contact_name" db:"delivery_contact_name"`
+	DeliveryPhone          string     `json:"delivery_phone" db:"delivery_phone"`
+	DeliveryAddress        string     `json:"delivery_address" db:"delivery_address"`
+	DeliveryNotes          string     `json:"delivery_notes" db:"delivery_notes"`
+	DeliveryProvince       string     `json:"delivery_province" db:"delivery_province"`
+	DeliveryCity           string     `json:"delivery_city" db:"delivery_city"`
+	DeliveryCommune        string     `json:"delivery_commune" db:"delivery_commune"`
+	DeliveryStreet         string     `json:"delivery_street" db:"delivery_street"`
+	DeliveryBuildingNumber string     `json:"delivery_building_number" db:"delivery_building_number"`
+	DeliveryLandmark       string     `json:"delivery_landmark" db:"delivery_landmark"`
+	DeliveryProvinceID     *uuid.UUID `json:"delivery_province_id" db:"delivery_province_id"`
+	DeliveryCityID         *uuid.UUID `json:"delivery_city_id" db:"delivery_city_id"`
+	DeliveryCommuneID      *uuid.UUID `json:"delivery_commune_id" db:"delivery_commune_id"`
+	DeliveryStatus         string     `json:"delivery_status" db:"delivery_status"`
+	AssignedCourierID      *uuid.UUID `json:"assigned_courier_id" db:"assigned_courier_id"`
+	DeliveryLatitude       *float64   `json:"delivery_latitude" db:"delivery_latitude"`
+	DeliveryLongitude      *float64   `json:"delivery_longitude" db:"delivery_longitude"`
+	CourierAssignedAt      *time.Time `json:"courier_assigned_at" db:"courier_assigned_at"`
+	CourierNotes           string     `json:"courier_notes" db:"courier_notes"`
+	PointsFinalized        bool       `json:"points_finalized" db:"points_finalized"`
+	InventoryClaimed       bool       `json:"inventory_claimed" db:"inventory_claimed"`
+	AcceptedAt             *time.Time `json:"accepted_at" db:"accepted_at"`
+	PreparingAt            *time.Time `json:"preparing_at" db:"preparing_at"`
+	ReadyAt                *time.Time `json:"ready_at" db:"ready_at"`
+	OutForDeliveryAt       *time.Time `json:"out_for_delivery_at" db:"out_for_delivery_at"`
+	DeliveredAt            *time.Time `json:"delivered_at" db:"delivered_at"`
+	ReceivedAt             *time.Time `json:"received_at" db:"received_at"`
+	CompletedAt            *time.Time `json:"completed_at" db:"completed_at"`
+	CreatedAt              time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type OrderLine struct {
@@ -143,6 +145,7 @@ type OrderResponse struct {
 	FinalTotal             float64             `json:"final_total"`
 	IdempotencyKey         *string             `json:"idempotency_key"`
 	OrderNumber            string              `json:"order_number"`
+	Currency               string              `json:"currency"`
 	DeliveryMethod         string              `json:"delivery_method"`
 	DeliveryFeeBase        float64             `json:"delivery_fee_base"`
 	DeliveryPointsUsed     int                 `json:"delivery_points_used"`
@@ -210,10 +213,12 @@ type OrderStatusHistoryResponse struct {
 }
 
 type OrderWithLinesResponse struct {
-	Order    OrderResponse                `json:"order"`
-	Lines    []OrderLineResponse          `json:"lines"`
-	History  []OrderStatusHistoryResponse `json:"history,omitempty"`
-	ShopName string                       `json:"shop_name"`
+	Order        OrderResponse                `json:"order"`
+	Lines        []OrderLineResponse          `json:"lines"`
+	History      []OrderStatusHistoryResponse `json:"history,omitempty"`
+	ShopName     string                       `json:"shop_name"`
+	BusinessName string                       `json:"business_name,omitempty"`
+	SellerName   string                       `json:"seller_name,omitempty"`
 }
 
 type OrderEvent struct {

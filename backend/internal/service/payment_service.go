@@ -79,6 +79,35 @@ func NewPaymentService(
 	}
 }
 
+// markupFor prices a Finance-configured markup against an order. A percentage
+// is currency-free; a fixed amount only applies to an order in the currency
+// Finance entered it in, so a 2.00 USD fee can never be charged as 2 CDF.
+func markupFor(config *models.PaymentMethodConfig, baseDue float64, currency string) (float64, error) {
+	switch config.MarkupType {
+	case "PERCENTAGE":
+		return models.PercentOf(baseDue, config.MarkupValue), nil
+	case "FIXED":
+		configured := config.MarkupCurrency
+		if configured == "" {
+			configured = models.CurrencyUSD
+		}
+		if configured != currency {
+			return 0, errors.New("MARKUP_CURRENCY_MISMATCH")
+		}
+		return models.RoundMoney(config.MarkupValue), nil
+	}
+	return 0, nil
+}
+
+// orderCurrency is the order's own snapshot, falling back to USD for rows
+// written before orders carried a currency.
+func orderCurrency(order *models.Order) string {
+	if order == nil || order.Currency == "" {
+		return models.CurrencyUSD
+	}
+	return order.Currency
+}
+
 func (s *PaymentService) requireShopAccess(userID, shopID uuid.UUID) error {
 	shop, err := s.shopRepo.GetByID(shopID)
 	if err != nil {
@@ -154,15 +183,12 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, reques
 		return nil, errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
 	}
 
-	baseDue := order.FinalTotal + order.DeliveryFeeFinal
-	markup := 0.0
-	switch config.MarkupType {
-	case "PERCENTAGE":
-		markup = baseDue * config.MarkupValue / 100
-	case "FIXED":
-		markup = config.MarkupValue
+	baseDue := models.RoundMoney(order.FinalTotal + order.DeliveryFeeFinal)
+	markup, err := markupFor(config, baseDue, orderCurrency(order))
+	if err != nil {
+		return nil, err
 	}
-	cashDue := baseDue + markup
+	cashDue := models.RoundMoney(baseDue + markup)
 	if cashDue < 0 {
 		cashDue = 0
 	}
@@ -173,7 +199,7 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, reques
 		ShopID:                 order.ShopID,
 		BuyerProfileID:         buyerProfileID,
 		PaymentMethod:          config.Code,
-		Currency:               "CDF",
+		Currency:               orderCurrency(order),
 		ProductsBaseTotal:      order.BaseTotal,
 		ProductsPointsUsed:     order.PointsUsed,
 		ProductsPointsDiscount: order.PointsDiscountAmount,
@@ -217,21 +243,26 @@ func (s *PaymentService) Quote(buyerProfileID, orderID uuid.UUID, selectedMethod
 	if err != nil {
 		return nil, err
 	}
-	baseDue := order.FinalTotal + order.DeliveryFeeFinal
+	baseDue := models.RoundMoney(order.FinalTotal + order.DeliveryFeeFinal)
+	currency := orderCurrency(order)
+	priceable := methods[:0]
 	for index := range methods {
-		switch methods[index].MarkupType {
-		case "PERCENTAGE":
-			methods[index].MarkupAmount = baseDue * methods[index].MarkupValue / 100
-		case "FIXED":
-			methods[index].MarkupAmount = methods[index].MarkupValue
+		markup, err := markupFor(&methods[index], baseDue, currency)
+		if err != nil {
+			// A method Finance priced in another currency cannot be quoted for
+			// this order; hiding it beats showing a total we cannot honour.
+			continue
 		}
-		methods[index].QuotedTotal = baseDue + methods[index].MarkupAmount
+		methods[index].MarkupAmount = markup
+		methods[index].QuotedTotal = models.RoundMoney(baseDue + markup)
+		priceable = append(priceable, methods[index])
 	}
+	methods = priceable
 	selected := ""
 	if len(selectedMethod) > 0 {
 		selected = strings.TrimSpace(selectedMethod[0])
 	}
-	quote := &models.CheckoutQuote{OrderID: order.ID.String(), Currency: "CDF", Subtotal: order.BaseTotal, Discount: 0,
+	quote := &models.CheckoutQuote{OrderID: order.ID.String(), Currency: orderCurrency(order), Subtotal: order.BaseTotal, Discount: 0,
 		PointsDiscount: order.PointsDiscountAmount + order.DeliveryPointsDiscount, DeliveryFee: order.DeliveryFeeFinal,
 		FinalTotal: baseDue, PaymentMethods: methods}
 	for _, method := range methods {

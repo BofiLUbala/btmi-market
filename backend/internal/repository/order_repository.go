@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -30,6 +31,7 @@ var ErrOrderNotFound = fmt.Errorf("order not found")
 // causes Scan() to error out.
 type nullOrderScanFields struct {
 	notes               sql.NullString
+	currency            sql.NullString
 	orderNumber         sql.NullString
 	deliveryMethod      sql.NullString
 	deliveryContactName sql.NullString
@@ -57,6 +59,10 @@ type nullOrderScanFields struct {
 func (f *nullOrderScanFields) applyTo(order *models.Order) {
 	order.Notes = f.notes.String
 	order.OrderNumber = f.orderNumber.String
+	order.Currency = f.currency.String
+	if order.Currency == "" {
+		order.Currency = models.CurrencyUSD
+	}
 	order.DeliveryMethod = f.deliveryMethod.String
 	order.DeliveryContactName = f.deliveryContactName.String
 	order.DeliveryPhone = f.deliveryPhone.String
@@ -116,13 +122,18 @@ func scanOrderErr(err error) error {
 
 func (r *OrderRepository) Create(order *models.Order) error {
 	query := `
-		INSERT INTO orders (id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key, order_number)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'BTMI-' || nextval('order_number_seq')::text)
+		INSERT INTO orders (id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key, currency, order_number)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'BTMI-' || nextval('order_number_seq')::text)
 		RETURNING created_at, updated_at, order_number
 	`
 
 	if order.ID == uuid.Nil {
 		order.ID = uuid.New()
+	}
+	// Every order says what it is priced in. A caller that did not resolve one
+	// gets the platform currency rather than a blank the CHECK would reject.
+	if order.Currency == "" {
+		order.Currency = models.CurrencyUSD
 	}
 	order.CreatedAt = time.Now()
 	order.UpdatedAt = time.Now()
@@ -131,13 +142,15 @@ func (r *OrderRepository) Create(order *models.Order) error {
 		order.ID, order.BusinessID, order.ShopID, order.CustomerID, order.BuyerProfileID,
 		order.Status, order.TotalItems, order.Notes, order.CreatedBy,
 		order.BaseTotal, order.PointsUsed, order.PointsDiscountAmount, order.FinalTotal, order.IdempotencyKey,
+		order.Currency,
 	).Scan(&order.CreatedAt, &order.UpdatedAt, &order.OrderNumber)
 }
 
 func (r *OrderRepository) CreateLine(line *models.OrderLine) error {
 	query := `
-		INSERT INTO order_lines (id, order_id, product_id, variant_id, quantity, unit_price, base_unit_price, points_discount_per_unit, final_unit_price)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO order_lines (id, order_id, product_id, variant_id, quantity, unit_price, base_unit_price, points_discount_per_unit, final_unit_price,
+		       product_name, product_sku, variant_name, variant_sku, variant_attributes, image_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING created_at
 	`
 
@@ -146,9 +159,15 @@ func (r *OrderRepository) CreateLine(line *models.OrderLine) error {
 	}
 	line.CreatedAt = time.Now()
 
+	attrs, err := json.Marshal(line.VariantAttributes)
+	if err != nil {
+		return fmt.Errorf("serialize variant attributes: %w", err)
+	}
+
 	return r.db.QueryRow(query,
 		line.ID, line.OrderID, line.ProductID, line.VariantID,
 		line.Quantity, line.UnitPrice, line.BaseUnitPrice, line.PointsDiscountPerUnit, line.FinalUnitPrice,
+		line.ProductName, line.ProductSKU, line.VariantName, line.VariantSKU, attrs, line.ImageURL,
 	).Scan(&line.CreatedAt)
 }
 
@@ -172,7 +191,7 @@ func (r *OrderRepository) CreateStatusHistory(history *models.OrderStatusHistory
 func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
-		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
+		       currency, order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
 		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
 		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
@@ -191,7 +210,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&nf.orderNumber,
+		&nf.currency, &nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
 		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
@@ -213,7 +232,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
-		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
+		       currency, order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
 		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
 		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
@@ -233,7 +252,7 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&nf.orderNumber,
+		&nf.currency, &nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
 		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
@@ -305,8 +324,9 @@ func (r *OrderRepository) GetLinesByOrderID(orderID uuid.UUID) ([]*models.OrderL
 	query := `
 		SELECT ol.id, ol.order_id, ol.product_id, ol.variant_id, ol.quantity, ol.unit_price,
 		       ol.base_unit_price, ol.points_discount_per_unit, ol.final_unit_price, ol.created_at,
-		       COALESCE(p.name, ''), COALESCE(p.sku, ''), COALESCE(v.name, ''), COALESCE(v.sku, ''),
-		       COALESCE(v.attributes, '{}'::jsonb), COALESCE(img.url, '')
+		       COALESCE(NULLIF(ol.product_name, ''), COALESCE(p.name, '')), COALESCE(NULLIF(ol.product_sku, ''), COALESCE(p.sku, '')),
+		       COALESCE(NULLIF(ol.variant_name, ''), COALESCE(v.name, '')), COALESCE(NULLIF(ol.variant_sku, ''), COALESCE(v.sku, '')),
+		       COALESCE(ol.variant_attributes, v.attributes, '{}'::jsonb), COALESCE(NULLIF(ol.image_url, ''), COALESCE(img.url, ''))
 		FROM order_lines ol
 		LEFT JOIN products p ON p.id = ol.product_id
 		LEFT JOIN product_variants v ON v.id = ol.variant_id
@@ -527,7 +547,7 @@ func (r *OrderRepository) GetByShopIDAndStatus(shopID uuid.UUID, status models.O
 func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
-		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
+		       currency, order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
 		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
 		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
@@ -554,7 +574,7 @@ func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*mode
 			&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 			&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 			&order.IdempotencyKey,
-			&nf.orderNumber,
+			&nf.currency, &nf.orderNumber,
 			&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
 			&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
 			&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
@@ -577,7 +597,7 @@ func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*mode
 func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, idempotencyKey string) (*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
-		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
+		       currency, order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
 		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
 		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
@@ -595,7 +615,7 @@ func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, 
 		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&nf.orderNumber,
+		&nf.currency, &nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
 		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
@@ -631,7 +651,7 @@ func (r *OrderRepository) UpdateTrackingStatus(id uuid.UUID, status models.Order
 		WHERE id = $1
 		RETURNING id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by,
 		          base_total, points_used, points_discount_amount, final_total, idempotency_key,
-		          order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount,
+		          currency, order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount,
 		          delivery_fee_final, delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
 		          delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		          delivery_province_id, delivery_city_id, delivery_commune_id,
@@ -648,7 +668,7 @@ func (r *OrderRepository) UpdateTrackingStatus(id uuid.UUID, status models.Order
 		&order.Status, &order.TotalItems, &nf.notes, &order.CreatedBy,
 		&order.BaseTotal, &order.PointsUsed, &order.PointsDiscountAmount, &order.FinalTotal,
 		&order.IdempotencyKey,
-		&nf.orderNumber,
+		&nf.currency, &nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
 		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,

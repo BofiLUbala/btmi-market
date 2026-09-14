@@ -31,6 +31,7 @@ type SaleCommission struct {
 	CommissionBase   float64          `json:"commission_base" db:"commission_base"`
 	CommissionRate   float64          `json:"commission_rate" db:"commission_rate"`
 	CommissionAmount float64          `json:"commission_amount" db:"commission_amount"`
+	Currency         string           `json:"currency" db:"currency"`
 	SellerNetAmount  float64          `json:"seller_net_amount" db:"seller_net_amount"`
 	Status           CommissionStatus `json:"status" db:"status"`
 	CalculatedAt     time.Time        `json:"calculated_at" db:"calculated_at"`
@@ -63,22 +64,22 @@ type CommissionHistory struct {
 
 // CommissionSummary represents aggregate financial metrics for Finance Admin.
 type CommissionSummary struct {
-	GrossSales           float64 `json:"gross_sales"`
-	TotalCommission      float64 `json:"total_commission"`
-	CollectedCommission  float64 `json:"collected_commission"`
-	DueCommission        float64 `json:"due_commission"`
-	SellerNetRevenue     float64 `json:"seller_net_revenue"`
-	TotalVerifiedSales   int     `json:"total_verified_sales"`
+	GrossSales          float64 `json:"gross_sales"`
+	TotalCommission     float64 `json:"total_commission"`
+	CollectedCommission float64 `json:"collected_commission"`
+	DueCommission       float64 `json:"due_commission"`
+	SellerNetRevenue    float64 `json:"seller_net_revenue"`
+	TotalVerifiedSales  int     `json:"total_verified_sales"`
 }
 
 // SellerFinanceSummary represents aggregate financial metrics for a specific Seller.
 type SellerFinanceSummary struct {
-	GrossSales           float64 `json:"gross_sales"`
-	TBKCommissionTotal   float64 `json:"tbk_commission_total"`
-	SellerNetRevenue     float64 `json:"seller_net_revenue"`
-	CommissionDue        float64 `json:"commission_due"`
-	CommissionCollected  float64 `json:"commission_collected"`
-	TotalCompletedSales  int     `json:"total_completed_sales"`
+	GrossSales          float64 `json:"gross_sales"`
+	TBKCommissionTotal  float64 `json:"tbk_commission_total"`
+	SellerNetRevenue    float64 `json:"seller_net_revenue"`
+	CommissionDue       float64 `json:"commission_due"`
+	CommissionCollected float64 `json:"commission_collected"`
+	TotalCompletedSales int     `json:"total_completed_sales"`
 }
 
 // Requests
@@ -92,13 +93,13 @@ type MarkCommissionCollectedRequest struct {
 }
 
 type CommissionFilter struct {
-	Status     string    `form:"status"`
-	BusinessID string    `form:"business_id"`
-	ShopID     string    `form:"shop_id"`
-	SellerID   string    `form:"seller_id"`
-	DateFrom   string    `form:"date_from"`
-	DateTo     string    `form:"date_to"`
-	Search     string    `form:"search"`
-	Limit      int       `form:"limit"`
-	Offset     int       `form:"offset"`
+	Status     string `form:"status"`
+	BusinessID string `form:"business_id"`
+	ShopID     string `form:"shop_id"`
+	SellerID   string `form:"seller_id"`
+	DateFrom   string `form:"date_from"`
+	DateTo     string `form:"date_to"`
+	Search     string `form:"search"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
 }

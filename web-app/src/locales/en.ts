@@ -81,7 +81,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'footer.sellWithUs': 'Sell your products with us',
   'footer.sellerSpace': 'Seller space',
   'footer.legal':
-    '© {year} TBK. Payments are cash-only (FC). Prices shown are set by sellers.',
+    '© {year} TBK. Payments are cash-only (USD). Prices shown are set by sellers.',
 
   /* ── Preferences (theme + language) ─────────────────────── */
   'prefs.theme': 'Theme',
@@ -358,9 +358,9 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.shopType.ONLINE': 'Online Only',
   'seller.onboarding.deliveryConfiguration': 'Delivery Configuration (optional)',
   'seller.onboarding.shopProvidesDelivery': 'Shop provides own delivery',
-  'seller.onboarding.shopDeliveryFee': 'Shop Delivery Fee (FC)',
+  'seller.onboarding.shopDeliveryFee': 'Shop Delivery Fee (USD)',
   'seller.onboarding.partnerDeliveryAvailable': 'Partner delivery available',
-  'seller.onboarding.partnerDeliveryFee': 'Partner Delivery Fee (FC)',
+  'seller.onboarding.partnerDeliveryFee': 'Partner Delivery Fee (USD)',
   'seller.onboarding.partnerProvider': 'Partner Provider',
   'seller.onboarding.deliveryCity': 'Delivery City',
   'seller.onboarding.deliveryAddress': 'Delivery Address',
@@ -1081,7 +1081,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.dashboard.stepCreateShopDesc':
     'Set up physical points of sale or fulfillment shops.',
   'seller.dashboard.stepAddProductsDesc':
-    'Define catalog items, variants, and prices in FC.',
+    'Define catalog items, variants, and prices in USD.',
   'seller.dashboard.stepAddStockDesc':
     'Assign available inventory quantities to your shops.',
   'seller.dashboard.stepReceiveOrdersDesc':
@@ -1225,7 +1225,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
     'Add customers to track their orders and preferences.',
   'seller.customers.contact': 'Contact',
   'seller.customers.orders': 'Orders',
-  'seller.customers.totalSpent': 'Total Spent (FC)',
+  'seller.customers.totalSpent': 'Total Spent (USD)',
   'seller.customers.joined': 'Joined',
 
   /* ── Seller employees ───────────────────────────────────── */
@@ -1333,7 +1333,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.orders.emptyShopDesc':
     'Choose "All Shops" to see every order for this business.',
   'seller.orders.orderNumber': 'Order #',
-  'seller.orders.totalFc': 'Total (FC)',
+  'seller.orders.totalFc': 'Total (USD)',
   'seller.orders.accept': 'Accept order',
   'seller.orders.reject': 'Reject',
   'seller.orders.startPreparing': 'Start preparing',
@@ -1346,9 +1346,9 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.orders.baseTotal': 'Base total',
   'seller.orders.notesLabel': 'Notes',
   'seller.orders.shopId': 'Shop ID',
-  'seller.orders.line': '{name} · Qty {quantity} · {price} FC',
+  'seller.orders.line': '{name} · Qty {quantity} · {price} USD',
   'seller.orders.lineWithVariant':
-    '{name} · {variant} · Qty {quantity} · {price} FC',
+    '{name} · {variant} · Qty {quantity} · {price} USD',
   'seller.orders.loadingDetails': 'Loading product details…',
   'seller.orders.cashPayment': 'Cash payment',
   'seller.orders.buyerColon': 'Buyer:',
@@ -1441,12 +1441,12 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.productInfo': 'Product information',
   'seller.productForm.productName': 'Product name *',
   'seller.productForm.namePlaceholder': 'e.g. Nivea cream 400 ml',
-  'seller.productForm.salePrice': 'Sale price (FC) *',
+  'seller.productForm.salePrice': 'Sale price (USD) *',
   'seller.productForm.salePricePlaceholder': 'e.g. 8000',
   'seller.productForm.skuOptional': 'SKU (optional)',
   'seller.productForm.skuPlaceholder': 'e.g. NIV-400',
   'seller.productForm.unitPlaceholder': 'PCS, KG, L, BOX',
-  'seller.productForm.costPriceOptional': 'Cost price (FC, optional)',
+  'seller.productForm.costPriceOptional': 'Cost price (USD, optional)',
   'seller.productForm.costPricePlaceholder': 'e.g. 5500',
   'seller.productForm.descriptionOptional': 'Description (optional)',
   'seller.productForm.descriptionPlaceholder':
@@ -1461,9 +1461,9 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.enablePromotion': 'Enable special promotion / sale price',
   'seller.productForm.discountType': 'Discount type',
   'seller.productForm.percentageOff': 'Discount percentage (%)',
-  'seller.productForm.fixedDiscount': 'Fixed price discount (FC)',
+  'seller.productForm.fixedDiscount': 'Fixed price discount (USD)',
   'seller.productForm.discountPercentage': 'Discount percentage (%)',
-  'seller.productForm.discountAmount': 'Discount amount (FC)',
+  'seller.productForm.discountAmount': 'Discount amount (USD)',
   'seller.productForm.discountPlaceholderPct': 'e.g. 20',
   'seller.productForm.discountPlaceholderFixed': 'e.g. 15000',
   'seller.productForm.startDateTimeOptional':
@@ -1471,7 +1471,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.endDateTimeOptional': 'End date and time (optional)',
   'seller.productForm.promoPreview': 'Live promo preview',
   'seller.productForm.offPercent': '{value}% OFF',
-  'seller.productForm.offFixed': '{value} FC OFF',
+  'seller.productForm.offFixed': '{value} USD OFF',
   'seller.productForm.photosTitle': 'Product photos',
   'seller.productForm.photosDesc':
     'Add photos from different angles so buyers understand your product better. The first photo is the main photo shown on the marketplace.',
@@ -1531,7 +1531,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.totalStock': 'Total stock:',
   'seller.productForm.unitsPlural': 'units',
   'seller.productForm.combination': 'Combination',
-  'seller.productForm.salePriceFc': 'Sale price (FC)',
+  'seller.productForm.salePriceFc': 'Sale price (USD)',
   'seller.productForm.initialStock': 'Initial stock',
   'seller.productForm.infoSpecsTitle':
     'Informative product specifications:',
@@ -1579,7 +1579,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.validation.nameRequired':
     'The product name is required.',
   'seller.productForm.validation.validPrice':
-    'A valid sale price (> 0 FC) is required.',
+    'A valid sale price (> 0 USD) is required.',
   'seller.productForm.validation.selfRatingRequired':
     'Please choose your self-rating (1 to 5 stars) for this product.',
   'seller.productForm.validation.promoValue':
@@ -1597,7 +1597,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.validation.missingIt':
     'Complete it before publishing, or save as draft.',
   'seller.productForm.validation.variantPrice':
-    'Variant "{label}" needs a valid price (> 0 FC).',
+    'Variant "{label}" needs a valid price (> 0 USD).',
   'seller.productForm.validation.variantStock':
     'Stock for variant "{label}" must be 0 or more.',
   'seller.productForm.validation.stockNonNegative':
@@ -1610,7 +1610,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
     'Catalog item & real-time variant inventory',
   'seller.productDetail.shopOnly': ' · {shop} only',
   'seller.productDetail.skuInfo': 'SKU: {sku}',
-  'seller.productDetail.basePrice': 'Base price: {price} FC',
+  'seller.productDetail.basePrice': 'Base price: {price} USD',
   'seller.productDetail.unitLabel': 'Unit: {unit}',
   'seller.productDetail.inventoryStatus': 'Inventory status',
   'seller.productDetail.availableUnits': '{count} units available',
@@ -1637,8 +1637,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productDetail.savePromotionSettings': 'Save promotion settings',
   'seller.productDetail.currentActivePromotion':
     'Currently active promotion',
-  'seller.productDetail.salePriceShort': 'Sale price: {price} FC',
-  'seller.productDetail.normalPrice': '/ regular: {price} FC',
+  'seller.productDetail.salePriceShort': 'Sale price: {price} USD',
+  'seller.productDetail.normalPrice': '/ regular: {price} USD',
   'seller.productDetail.startsAt': '📅 Starts: {date}',
   'seller.productDetail.endsAt': '📅 Ends: {date}',
   'seller.productDetail.activeIndefinitely': '📅 Active indefinitely',
@@ -1913,22 +1913,22 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.shopStatus.INACTIVE': 'Inactive',
 
   /* ── Seller · Product detail (promo validation) ─────────── */
-  'seller.productDetail.validSalePrice': 'A valid sale price (> 0 FC) is required.',
+  'seller.productDetail.validSalePrice': 'A valid sale price (> 0 USD) is required.',
   'seller.productDetail.promoInvalidValue': 'Please enter a valid promotion discount value.',
   'seller.productDetail.promoMaxPercent': 'Percentage discount cannot exceed 100%.',
   'seller.productDetail.promoFixedTooHigh': 'Fixed discount cannot exceed or equal the base price.',
   'seller.productDetail.promoEndBeforeStart': 'Promotion end date must be after the start date.',
   'seller.productDetail.discountType': 'Discount type',
   'seller.productDetail.discountPercentOff': 'Percentage off (%)',
-  'seller.productDetail.discountFixed': 'Fixed price discount (FC)',
+  'seller.productDetail.discountFixed': 'Fixed price discount (USD)',
   'seller.productDetail.discountPercentLabel': 'Discount percentage (%)',
-  'seller.productDetail.discountAmountLabel': 'Discount amount (FC)',
+  'seller.productDetail.discountAmountLabel': 'Discount amount (USD)',
   'seller.productDetail.startDateOptional': 'Start date & time (optional)',
   'seller.productDetail.endDateOptional': 'End date & time (optional)',
   'seller.productDetail.promotionLivePreview': 'Promotion live preview',
   'seller.productDetail.backToProducts': '← Back to products',
   'seller.productDetail.productNameRequired': 'Product name *',
-  'seller.productDetail.salePriceRequired': 'Sale price (FC) *',
+  'seller.productDetail.salePriceRequired': 'Sale price (USD) *',
   'seller.productDetail.saveProductChanges': 'Save product changes',
   'seller.productDetail.selectedShop': 'Selected shop',
   'seller.productDetail.primary': 'Primary',

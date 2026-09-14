@@ -188,7 +188,7 @@ export default function ProductDetailPage() {
       attributes: v.attributes,
       unit: p.unit,
       unitPrice: sellerSalePrice,
-      currency: 'FC',
+      currency: p.currency ?? 'USD',
       shopId: p.shop_id,
       shopName: p.shop_name,
       image: p.images?.find((img) => img.is_primary)?.url ?? p.images?.[0]?.url
@@ -201,7 +201,7 @@ export default function ProductDetailPage() {
     cart.buyNow({
       productId: p.id, variantId: v.id, quantity: qty, name: p.name,
       variantName: describeAttributes(v), attributes: v.attributes, unit: p.unit,
-      unitPrice: sellerSalePrice, currency: 'FC', shopId: p.shop_id,
+      unitPrice: sellerSalePrice, currency: p.currency ?? 'USD', shopId: p.shop_id,
       shopName: p.shop_name,
       image: p.images?.find((img) => img.is_primary)?.url ?? p.images?.[0]?.url
     })
@@ -219,7 +219,7 @@ export default function ProductDetailPage() {
       shopId: p.shop_id,
       shopName: p.shop_name,
       price: sellerSalePrice,
-      currency: 'FC',
+      currency: p.currency ?? 'USD',
       unit: p.unit,
       addedAt: new Date().toISOString()
     })

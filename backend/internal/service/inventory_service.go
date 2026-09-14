@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -656,6 +657,8 @@ func (s *InventoryService) GetShopInventory(userID, shopID uuid.UUID) ([]*models
 		return nil, err
 	}
 
+	threshold := s.lowStockThreshold()
+
 	var responses []*models.InventoryWithVariantResponse
 	for _, inv := range inventories {
 		variant, err := s.variantRepo.GetByID(inv.VariantID)
@@ -666,18 +669,21 @@ func (s *InventoryService) GetShopInventory(userID, shopID uuid.UUID) ([]*models
 		if err != nil {
 			continue
 		}
+		available := inv.Quantity - inv.ReservedQuantity
 		responses = append(responses, &models.InventoryWithVariantResponse{
 			Inventory: models.InventoryResponse{
-				ID:               inv.ID,
-				BusinessID:       inv.BusinessID,
-				ShopID:           inv.ShopID,
-				ProductID:        inv.ProductID,
-				VariantID:        inv.VariantID,
-				Quantity:         inv.Quantity,
-				ReservedQuantity: inv.ReservedQuantity,
-				Available:        inv.Quantity - inv.ReservedQuantity,
-				CreatedAt:        inv.CreatedAt,
-				UpdatedAt:        inv.UpdatedAt,
+				ID:                inv.ID,
+				BusinessID:        inv.BusinessID,
+				ShopID:            inv.ShopID,
+				ProductID:         inv.ProductID,
+				VariantID:         inv.VariantID,
+				Quantity:          inv.Quantity,
+				ReservedQuantity:  inv.ReservedQuantity,
+				Available:         available,
+				StockStatus:       stockStatusFor(available, threshold),
+				LowStockThreshold: threshold,
+				CreatedAt:         inv.CreatedAt,
+				UpdatedAt:         inv.UpdatedAt,
 			},
 			Variant: s.toVariantResponse(variant),
 			Product: s.toProductResponse(product),
@@ -707,23 +713,55 @@ func (s *InventoryService) GetVariantInventory(userID, variantID uuid.UUID) ([]*
 		return nil, err
 	}
 
+	threshold := s.lowStockThreshold()
+
 	var responses []*models.InventoryResponse
 	for _, inv := range inventories {
+		available := inv.Quantity - inv.ReservedQuantity
 		responses = append(responses, &models.InventoryResponse{
-			ID:               inv.ID,
-			BusinessID:       inv.BusinessID,
-			ShopID:           inv.ShopID,
-			ProductID:        inv.ProductID,
-			VariantID:        inv.VariantID,
-			Quantity:         inv.Quantity,
-			ReservedQuantity: inv.ReservedQuantity,
-			Available:        inv.Quantity - inv.ReservedQuantity,
-			CreatedAt:        inv.CreatedAt,
-			UpdatedAt:        inv.UpdatedAt,
+			ID:                inv.ID,
+			BusinessID:        inv.BusinessID,
+			ShopID:            inv.ShopID,
+			ProductID:         inv.ProductID,
+			VariantID:         inv.VariantID,
+			Quantity:          inv.Quantity,
+			ReservedQuantity:  inv.ReservedQuantity,
+			Available:         available,
+			StockStatus:       stockStatusFor(available, threshold),
+			LowStockThreshold: threshold,
+			CreatedAt:         inv.CreatedAt,
+			UpdatedAt:         inv.UpdatedAt,
 		})
 	}
 
 	return responses, nil
+}
+
+// lowStockThreshold reads the LOW_STOCK_THRESHOLD merchant-configurable value
+// from global_configs, falling back to 5 when unset or invalid.
+func (s *InventoryService) lowStockThreshold() int {
+	threshold := 5
+	var raw string
+	if err := s.db.QueryRow(`SELECT value FROM global_configs WHERE key = 'LOW_STOCK_THRESHOLD'`).Scan(&raw); err == nil {
+		if n, parseErr := strconv.Atoi(strings.TrimSpace(raw)); parseErr == nil && n >= 0 {
+			threshold = n
+		}
+	}
+	return threshold
+}
+
+// stockStatusFor derives the seller-facing stock status from the configurable
+// low-stock threshold: at or below threshold => LOW_STOCK, zero or negative
+// available => OUT_OF_STOCK, otherwise IN_STOCK.
+func stockStatusFor(available, threshold int) string {
+	switch {
+	case available <= 0:
+		return "OUT_OF_STOCK"
+	case available <= threshold:
+		return "LOW_STOCK"
+	default:
+		return "IN_STOCK"
+	}
 }
 
 func (s *InventoryService) GetStockMovements(userID, shopID uuid.UUID) ([]*models.StockMovementResponse, error) {
@@ -790,6 +828,15 @@ func (s *InventoryService) toVariantResponse(v *models.ProductVariant) models.Va
 	}
 }
 
+// currencyOrDefault keeps responses honest for rows written before the currency
+// column existed: an empty value means USD, the platform default.
+func currencyOrDefault(currency string) string {
+	if currency == "" {
+		return models.CurrencyUSD
+	}
+	return currency
+}
+
 func (s *InventoryService) toProductResponse(p *models.Product) models.ProductResponse {
 	return models.ProductResponse{
 		ID:          p.ID,
@@ -799,6 +846,7 @@ func (s *InventoryService) toProductResponse(p *models.Product) models.ProductRe
 		Description: p.Description,
 		UnitPrice:   p.UnitPrice,
 		CostPrice:   p.CostPrice,
+		Currency:    currencyOrDefault(p.Currency),
 		Unit:        p.Unit,
 		Status:      p.Status,
 		// The Seller Products page reads publication and discount state from
@@ -848,9 +896,12 @@ func (s *InventoryService) CreateProduct(userID, businessID uuid.UUID, req *mode
 		Description: req.Description,
 		UnitPrice:   req.UnitPrice,
 		CostPrice:   req.CostPrice,
-		Unit:        req.Unit,
-		Status:      models.ProductStatusActive,
-		SelfRating:  &selfRating,
+		// USD is the selling currency for every new product. Legacy rows may
+		// still carry another currency, which is why the column exists at all.
+		Currency:   models.CurrencyUSD,
+		Unit:       req.Unit,
+		Status:     models.ProductStatusActive,
+		SelfRating: &selfRating,
 	}
 	if idempotencyKey != "" {
 		product.IdempotencyKey = &idempotencyKey

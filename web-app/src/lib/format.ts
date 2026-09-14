@@ -3,14 +3,30 @@ import type { Dictionary } from '@/store/i18n'
 /** Signature-compatible with the store's `t`, so the hook can be passed in. */
 export type Translator = (key: keyof Dictionary, vars?: Record<string, string | number>) => string
 
-export function formatMoney(amount: number, currency = 'FC'): string {
-  if (amount === null || amount === undefined || isNaN(amount)) return `0 ${currency}`
-  const rounded = Math.round(amount * 100) / 100
+/**
+ * USD is the platform's selling currency, so it is the default and renders as
+ * $25.00 - always two decimals, because a price that drops its cents reads as
+ * a different price. Legacy CDF amounts keep the grouped suffix form they were
+ * always shown in.
+ */
+export function formatMoney(amount: number, currency = 'USD'): string {
+  const code = (currency || 'USD').toUpperCase()
+  const safe = amount === null || amount === undefined || isNaN(amount) ? 0 : amount
+  const rounded = Math.round(safe * 100) / 100
+
+  if (code === 'USD') {
+    const [int, frac] = rounded.toFixed(2).split('.')
+    const negative = int.startsWith('-')
+    const grouped = int.replace('-', '').replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return `${negative ? '-' : ''}$${grouped}.${frac}`
+  }
+
+  const label = code === 'CDF' ? 'FC' : code
   const isWhole = rounded % 1 === 0
   const digits = isWhole ? rounded.toFixed(0) : rounded.toFixed(2)
   const [int, frac] = digits.split('.')
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0')
-  return frac ? `${grouped}.${frac}\u00A0${currency}` : `${grouped}\u00A0${currency}`
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+  return frac ? `${grouped}.${frac} ${label}` : `${grouped} ${label}`
 }
 
 export function formatDate(iso?: string | null, locale = 'en-GB'): string {

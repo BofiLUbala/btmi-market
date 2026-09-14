@@ -45,7 +45,7 @@ function SuccessInner() {
         </p>
         <div className="pay-big" style={{ width: '100%', maxWidth: 380 }}>
           <div className="small muted">{t('success.amountToPay')}</div>
-          <div className="amount">{formatMoney(amount, payment?.currency ?? 'FC')}</div>
+          <div className="amount">{formatMoney(amount, payment?.currency ?? 'USD')}</div>
           <div className="pay-note">{t('success.trackingHint')}</div>
         </div>
         <div className="row-between" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>

@@ -438,6 +438,18 @@ func (s *OrderService) getBusinessIDFromShop(shopID uuid.UUID) (uuid.UUID, error
 	return shop.BusinessID, nil
 }
 
+// primaryImageURL resolves the marketplace primary image for a product so a
+// line snapshot can survive later image deletions or product edits.
+func (s *OrderService) primaryImageURL(productID uuid.UUID) string {
+	var url string
+	_ = s.db.QueryRow(`
+		SELECT pi.url FROM product_images pi
+		WHERE pi.product_id = $1
+		ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.created_at ASC
+		LIMIT 1`, productID).Scan(&url)
+	return url
+}
+
 func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequest) (*models.OrderWithLinesResponse, error) {
 	shopID, err := uuid.Parse(req.ShopID)
 	if err != nil {
@@ -488,6 +500,15 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 	orderRepo := repository.NewOrderRepository(&database.DB{Tx: tx})
 	inventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
 
+	sellerVariantIDs := make([]string, 0, len(req.Lines))
+	for _, line := range req.Lines {
+		sellerVariantIDs = append(sellerVariantIDs, line.VariantID)
+	}
+	sellerCurrency, err := s.resolveOrderCurrency(sellerVariantIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	order := &models.Order{
 		BusinessID: businessID,
 		ShopID:     shopID,
@@ -495,6 +516,7 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 		Status:     models.OrderStatusPending,
 		Notes:      req.Notes,
 		CreatedBy:  &userID,
+		Currency:   sellerCurrency,
 	}
 
 	if err := orderRepo.Create(order); err != nil {
@@ -532,11 +554,17 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 		}
 
 		line := &models.OrderLine{
-			OrderID:   order.ID,
-			ProductID: productID,
-			VariantID: variantID,
-			Quantity:  lineInput.Quantity,
-			UnitPrice: variant.SalePrice,
+			OrderID:           order.ID,
+			ProductID:         productID,
+			VariantID:         variantID,
+			Quantity:          lineInput.Quantity,
+			UnitPrice:         variant.SalePrice,
+			ProductName:       product.Name,
+			ProductSKU:        product.SKU,
+			VariantName:       variant.Name,
+			VariantSKU:        variant.SKU,
+			VariantAttributes: variant.Attributes,
+			ImageURL:          s.primaryImageURL(productID),
 		}
 		if err := orderRepo.CreateLine(line); err != nil {
 			return nil, err
@@ -612,9 +640,14 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 		}
 	}
 
+	shopName, businessName, sellerName := s.contextNames(order.ID)
+
 	return &models.OrderWithLinesResponse{
-		Order: s.toOrderResponse(order),
-		Lines: lineResponses,
+		Order:        s.toOrderResponse(order),
+		Lines:        lineResponses,
+		ShopName:     shopName,
+		BusinessName: businessName,
+		SellerName:   sellerName,
 	}, nil
 }
 
@@ -689,6 +722,15 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 	txOrderRepo := repository.NewOrderRepository(&database.DB{Tx: tx})
 	txInventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
 
+	buyerVariantIDs := make([]string, 0, len(req.Items))
+	for _, item := range req.Items {
+		buyerVariantIDs = append(buyerVariantIDs, item.VariantID)
+	}
+	orderCurrency, err := s.resolveOrderCurrency(buyerVariantIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	order := &models.Order{
 		BusinessID:           businessID,
 		ShopID:               shopID,
@@ -697,11 +739,12 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 		Status:               models.OrderStatusPending,
 		Notes:                "",
 		CreatedBy:            nil,
-		BaseTotal:            baseTotal,
+		BaseTotal:            models.RoundMoney(baseTotal),
 		PointsUsed:           pointsToUse,
-		PointsDiscountAmount: pointsDiscountAmount,
-		FinalTotal:           finalTotal,
+		PointsDiscountAmount: models.RoundMoney(pointsDiscountAmount),
+		FinalTotal:           models.RoundMoney(finalTotal),
 		IdempotencyKey:       req.IdempotencyKey,
+		Currency:             orderCurrency,
 	}
 
 	if err := txOrderRepo.Create(order); err != nil {
@@ -763,6 +806,12 @@ func (s *OrderService) CreateBuyerOrder(buyerProfileID uuid.UUID, req *models.Bu
 			BaseUnitPrice:         variant.SalePrice,
 			PointsDiscountPerUnit: pointsDiscountPerUnit,
 			FinalUnitPrice:        finalUnitPrice,
+			ProductName:           product.Name,
+			ProductSKU:            product.SKU,
+			VariantName:           variant.Name,
+			VariantSKU:            variant.SKU,
+			VariantAttributes:     variant.Attributes,
+			ImageURL:              s.primaryImageURL(productID),
 		}
 		if err := txOrderRepo.CreateLine(line); err != nil {
 			return nil, err
@@ -929,6 +978,41 @@ func (s *OrderService) resolveDeliveryLocation(req *models.SelectDeliveryRequest
 		return nil, err
 	}
 	return resolved, nil
+}
+
+// resolveOrderCurrency reads the selling currency off the products being bought
+// and refuses a cart that mixes currencies: an order carries one currency for
+// its whole life, and silently adding a USD price to a CDF one would be wrong
+// in a way no later report could detect.
+func (s *OrderService) resolveOrderCurrency(variantIDs []string) (string, error) {
+	currency := ""
+	for _, raw := range variantIDs {
+		variantID, err := uuid.Parse(raw)
+		if err != nil {
+			return "", errors.New("INVALID_VARIANT_ID")
+		}
+		variant, err := s.variantRepo.GetByID(variantID)
+		if err != nil {
+			return "", errors.New("VARIANT_NOT_FOUND")
+		}
+		product, err := s.productRepo.GetByID(variant.ProductID)
+		if err != nil {
+			return "", errors.New("PRODUCT_NOT_FOUND")
+		}
+		productCurrency := product.Currency
+		if productCurrency == "" {
+			productCurrency = models.CurrencyUSD
+		}
+		if currency == "" {
+			currency = productCurrency
+		} else if currency != productCurrency {
+			return "", errors.New("MIXED_CURRENCY_CART")
+		}
+	}
+	if currency == "" {
+		currency = models.CurrencyUSD
+	}
+	return currency, nil
 }
 
 // SelectDelivery sets the delivery address and details on an order and reserves
@@ -1135,6 +1219,19 @@ func (s *OrderService) GetOrderRaw(orderID uuid.UUID) (*models.Order, error) {
 	return s.orderRepo.GetByID(orderID)
 }
 
+// contextNames resolves the shop, business and seller display names for an
+// order in one query so buyer and seller views can show who sold the items.
+func (s *OrderService) contextNames(orderID uuid.UUID) (shopName, businessName, sellerName string) {
+	_ = s.db.QueryRow(`
+		SELECT COALESCE(s.name, ''), COALESCE(b.name, ''), COALESCE(u.first_name || ' ' || u.last_name, '')
+		FROM orders o
+		LEFT JOIN shops s ON s.id = o.shop_id
+		LEFT JOIN businesses b ON b.id = o.business_id
+		LEFT JOIN users u ON u.id = o.created_by
+		WHERE o.id = $1`, orderID).Scan(&shopName, &businessName, &sellerName)
+	return
+}
+
 func (s *OrderService) GetOrderByID(userID, orderID uuid.UUID) (*models.OrderWithLinesResponse, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
@@ -1189,16 +1286,15 @@ func (s *OrderService) GetOrderByID(userID, orderID uuid.UUID) (*models.OrderWit
 		}
 	}
 
-	shopName := ""
-	if shop, shopErr := s.shopRepo.GetByID(order.ShopID); shopErr == nil && shop != nil {
-		shopName = shop.Name
-	}
+	shopName, businessName, sellerName := s.contextNames(orderID)
 
 	return &models.OrderWithLinesResponse{
-		Order:    s.toOrderResponse(order),
-		Lines:    lineResponses,
-		History:  historyResponses,
-		ShopName: shopName,
+		Order:        s.toOrderResponse(order),
+		Lines:        lineResponses,
+		History:      historyResponses,
+		ShopName:     shopName,
+		BusinessName: businessName,
+		SellerName:   sellerName,
 	}, nil
 }
 
@@ -1282,16 +1378,15 @@ func (s *OrderService) GetBuyerOrderByID(buyerProfileID, orderID uuid.UUID) (*mo
 	orderResp.PointsDiscountAmount = order.PointsDiscountAmount
 	orderResp.FinalTotal = order.FinalTotal
 
-	shopName := ""
-	if shop, shopErr := s.shopRepo.GetByID(order.ShopID); shopErr == nil && shop != nil {
-		shopName = shop.Name
-	}
+	shopName, businessName, sellerName := s.contextNames(orderID)
 
 	return &models.OrderWithLinesResponse{
-		Order:    orderResp,
-		Lines:    lineResponses,
-		History:  historyResponses,
-		ShopName: shopName,
+		Order:        orderResp,
+		Lines:        lineResponses,
+		History:      historyResponses,
+		ShopName:     shopName,
+		BusinessName: businessName,
+		SellerName:   sellerName,
 	}, nil
 }
 

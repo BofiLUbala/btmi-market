@@ -76,7 +76,8 @@ PAY=$(api POST "/buyer/orders/$ORDER/payment" "{\"payment_method\":\"MOBILE_PAY_
 PAYID=$(echo "$PAY" | jq_ "d['id']")
 TOTAL=$(echo "$PAY" | jq_ "d['final_total']")
 STATUS=$(echo "$PAY" | jq_ "d['status']")
-echo "   payment=$PAYID status=$STATUS total=$TOTAL"
+CURRENCY=$(echo "$PAY" | jq_ "d['currency']")
+echo "   payment=$PAYID status=$STATUS total=$TOTAL $CURRENCY"
 check "pay-now order created UNPAID (17)" "$([ "$STATUS" != "VERIFIED" ] && [ "$STATUS" != "PAID" ] && echo 1 || echo 0)"
 
 echo "== le client ne peut pas se declarer paye =="
@@ -87,19 +88,19 @@ echo "   avant=$BEFORE apres=$AFTER"
 check "buyer confirmation alone never marks VERIFIED" "$([ "$AFTER" != "VERIFIED" ] && echo 1 || echo 0)"
 
 echo "== webhook non signe =="
-OUT=$(signed_post "{\"event_id\":\"forged-$STAMP\",\"payment_id\":\"$PAYID\",\"status\":\"SUCCEEDED\",\"amount\":$TOTAL,\"currency\":\"CDF\"}" "sha256=deadbeef")
+OUT=$(signed_post "{\"event_id\":\"forged-$STAMP\",\"payment_id\":\"$PAYID\",\"status\":\"SUCCEEDED\",\"amount\":$TOTAL,\"currency\":\"$CURRENCY\"}" "sha256=deadbeef")
 echo "   -> $OUT"
 check "bad signature refused (401)" "$(echo "$OUT" | grep -q '^401' && echo 1 || echo 0)"
 
 echo "== webhook signe, mauvais montant =="
-OUT=$(signed_post "{\"event_id\":\"wrongamount-$STAMP\",\"payment_id\":\"$PAYID\",\"status\":\"SUCCEEDED\",\"amount\":1,\"currency\":\"CDF\"}")
+OUT=$(signed_post "{\"event_id\":\"wrongamount-$STAMP\",\"payment_id\":\"$PAYID\",\"status\":\"SUCCEEDED\",\"amount\":1,\"currency\":\"$CURRENCY\"}")
 echo "   -> $OUT"
 check "amount mismatch refused" "$(echo "$OUT" | grep -q 'AMOUNT_MISMATCH' && echo 1 || echo 0)"
 STILL=$(api GET "/buyer/orders/$ORDER/payment" "" "$BUYER" | jq_ "d['status']")
 check "payment untouched after refusals (status=$STILL)" "$([ "$STILL" != "VERIFIED" ] && echo 1 || echo 0)"
 
 echo "== webhook signe et correct =="
-BODY="{\"event_id\":\"ok-$STAMP\",\"payment_id\":\"$PAYID\",\"reference\":\"PSP-$STAMP\",\"status\":\"SUCCEEDED\",\"amount\":$TOTAL,\"currency\":\"CDF\"}"
+BODY="{\"event_id\":\"ok-$STAMP\",\"payment_id\":\"$PAYID\",\"reference\":\"PSP-$STAMP\",\"status\":\"SUCCEEDED\",\"amount\":$TOTAL,\"currency\":\"$CURRENCY\"}"
 OUT=$(signed_post "$BODY")
 echo "   -> $OUT"
 SETTLED=$(api GET "/buyer/orders/$ORDER/payment" "" "$BUYER" | jq_ "d['status']")

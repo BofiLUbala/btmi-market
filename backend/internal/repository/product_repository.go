@@ -22,10 +22,10 @@ func NewProductRepository(db *database.DB) *ProductRepository {
 func (r *ProductRepository) Create(product *models.Product) error {
 	query := `
 		INSERT INTO products (
-			id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
+			id, business_id, name, sku, description, unit_price, cost_price, currency, unit, status, publication_status, category_id, subcategory_id,
 			discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, idempotency_key
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING created_at, updated_at
 	`
 
@@ -35,7 +35,7 @@ func (r *ProductRepository) Create(product *models.Product) error {
 
 	return r.db.QueryRow(query,
 		product.ID, product.BusinessID, product.Name, product.SKU,
-		product.Description, product.UnitPrice, product.CostPrice,
+		product.Description, product.UnitPrice, product.CostPrice, product.Currency,
 		product.Unit, product.Status, product.PublicationStatus,
 		product.CategoryID, product.SubcategoryID,
 		product.DiscountActive, product.DiscountType, product.DiscountValue,
@@ -50,7 +50,7 @@ func (r *ProductRepository) Create(product *models.Product) error {
 // never used returns (nil, nil).
 func (r *ProductRepository) GetByBusinessAndIdempotencyKey(businessID uuid.UUID, key string) (*models.Product, error) {
 	query := `
-		SELECT id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
+		SELECT id, business_id, name, sku, description, unit_price, cost_price, currency, unit, status, publication_status, category_id, subcategory_id,
 		       discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, created_at, updated_at
 		FROM products WHERE business_id = $1 AND idempotency_key = $2
 	`
@@ -58,7 +58,7 @@ func (r *ProductRepository) GetByBusinessAndIdempotencyKey(businessID uuid.UUID,
 	product := &models.Product{}
 	err := r.db.QueryRow(query, businessID, key).Scan(
 		&product.ID, &product.BusinessID, &product.Name, &product.SKU,
-		&product.Description, &product.UnitPrice, &product.CostPrice,
+		&product.Description, &product.UnitPrice, &product.CostPrice, &product.Currency,
 		&product.Unit, &product.Status, &product.PublicationStatus,
 		&product.CategoryID, &product.SubcategoryID,
 		&product.DiscountActive, &product.DiscountType, &product.DiscountValue,
@@ -76,7 +76,7 @@ func (r *ProductRepository) GetByBusinessAndIdempotencyKey(businessID uuid.UUID,
 
 func (r *ProductRepository) GetByID(id uuid.UUID) (*models.Product, error) {
 	query := `
-		SELECT id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
+		SELECT id, business_id, name, sku, description, unit_price, cost_price, currency, unit, status, publication_status, category_id, subcategory_id,
 		       discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, created_at, updated_at
 		FROM products WHERE id = $1
 	`
@@ -84,7 +84,7 @@ func (r *ProductRepository) GetByID(id uuid.UUID) (*models.Product, error) {
 	product := &models.Product{}
 	err := r.db.QueryRow(query, id).Scan(
 		&product.ID, &product.BusinessID, &product.Name, &product.SKU,
-		&product.Description, &product.UnitPrice, &product.CostPrice,
+		&product.Description, &product.UnitPrice, &product.CostPrice, &product.Currency,
 		&product.Unit, &product.Status, &product.PublicationStatus,
 		&product.CategoryID, &product.SubcategoryID,
 		&product.DiscountActive, &product.DiscountType, &product.DiscountValue,
@@ -104,7 +104,7 @@ func (r *ProductRepository) GetByID(id uuid.UUID) (*models.Product, error) {
 
 func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Product, error) {
 	query := `
-		SELECT id, business_id, name, sku, description, unit_price, cost_price, unit, status, publication_status, category_id, subcategory_id,
+		SELECT id, business_id, name, sku, description, unit_price, cost_price, currency, unit, status, publication_status, category_id, subcategory_id,
 		       discount_active, discount_type, discount_value, discount_start, discount_end, self_rating, created_at, updated_at
 		FROM products WHERE business_id = $1
 		ORDER BY created_at DESC
@@ -121,7 +121,7 @@ func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Pro
 		product := &models.Product{}
 		err := rows.Scan(
 			&product.ID, &product.BusinessID, &product.Name, &product.SKU,
-			&product.Description, &product.UnitPrice, &product.CostPrice,
+			&product.Description, &product.UnitPrice, &product.CostPrice, &product.Currency,
 			&product.Unit, &product.Status, &product.PublicationStatus,
 			&product.CategoryID, &product.SubcategoryID,
 			&product.DiscountActive, &product.DiscountType, &product.DiscountValue,
@@ -139,7 +139,7 @@ func (r *ProductRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Pro
 
 func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID, search, publicationStatus string) ([]*models.ProductResponse, error) {
 	query := `
-		SELECT p.id, p.business_id, p.name, p.sku, p.description, p.unit_price, p.cost_price,
+		SELECT p.id, p.business_id, p.name, p.sku, p.description, p.unit_price, p.cost_price, p.currency,
 		       p.unit, p.status, p.publication_status, p.category_id, p.subcategory_id,
 		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		       p.self_rating,
@@ -172,7 +172,7 @@ func (r *ProductRepository) GetWithSummaryByBusinessID(businessID uuid.UUID, sea
 		p := &models.ProductResponse{}
 		err := rows.Scan(
 			&p.ID, &p.BusinessID, &p.Name, &p.SKU,
-			&p.Description, &p.UnitPrice, &p.CostPrice,
+			&p.Description, &p.UnitPrice, &p.CostPrice, &p.Currency,
 			&p.Unit, &p.Status, &p.PublicationStatus,
 			&p.CategoryID, &p.SubcategoryID,
 			&p.DiscountActive, &p.DiscountType, &p.DiscountValue,

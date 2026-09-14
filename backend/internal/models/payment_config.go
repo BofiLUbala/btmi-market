@@ -12,26 +12,29 @@ const (
 )
 
 type PaymentMethodConfig struct {
-	Code         string     `json:"code"`
-	Label        string     `json:"label"`
-	Enabled      bool       `json:"enabled"`
-	Timing       string     `json:"timing"`
-	Channel      string     `json:"channel"`
-	MarkupType   string     `json:"markup_type"`
-	MarkupValue  float64    `json:"markup_value"`
-	Provider     string     `json:"provider"`
-	MarkupAmount float64    `json:"markup_amount"`
-	QuotedTotal  float64    `json:"quoted_total"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	ModifiedBy   *uuid.UUID `json:"modified_by,omitempty"`
+	Code        string  `json:"code"`
+	Label       string  `json:"label"`
+	Enabled     bool    `json:"enabled"`
+	Timing      string  `json:"timing"`
+	Channel     string  `json:"channel"`
+	MarkupType  string  `json:"markup_type"`
+	MarkupValue float64 `json:"markup_value"`
+	// Only meaningful for a FIXED markup: the currency the amount is entered in.
+	MarkupCurrency string     `json:"markup_currency"`
+	Provider       string     `json:"provider"`
+	MarkupAmount   float64    `json:"markup_amount"`
+	QuotedTotal    float64    `json:"quoted_total"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	ModifiedBy     *uuid.UUID `json:"modified_by,omitempty"`
 }
 
 type UpdatePaymentMethodConfigRequest struct {
-	Label       string  `json:"label" binding:"required"`
-	Enabled     bool    `json:"enabled"`
-	MarkupType  string  `json:"markup_type" binding:"required,oneof=NONE PERCENTAGE FIXED"`
-	MarkupValue float64 `json:"markup_value" binding:"gte=0"`
-	Provider    string  `json:"provider"`
+	Label          string  `json:"label" binding:"required"`
+	Enabled        bool    `json:"enabled"`
+	MarkupType     string  `json:"markup_type" binding:"required,oneof=NONE PERCENTAGE FIXED"`
+	MarkupValue    float64 `json:"markup_value" binding:"gte=0"`
+	MarkupCurrency string  `json:"markup_currency" binding:"omitempty,oneof=USD CDF"`
+	Provider       string  `json:"provider"`
 }
 
 type CreatePaymentRequest struct {

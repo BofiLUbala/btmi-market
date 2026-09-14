@@ -98,18 +98,18 @@ func (r *CommissionRepository) CreateCommission(c *models.SaleCommission) error 
 	query := `
 		INSERT INTO sale_commissions (
 			id, order_id, payment_id, business_id, shop_id, seller_user_id,
-			gross_amount, commission_base, commission_rate, commission_amount, seller_net_amount,
+			gross_amount, commission_base, commission_rate, commission_amount, seller_net_amount, currency,
 			status, calculated_at, notes, created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6,
-			$7, $8, $9, $10, $11,
-			$12, NOW(), $13, NOW(), NOW()
+			$7, $8, $9, $10, $11, $12,
+			$13, NOW(), $14, NOW(), NOW()
 		)
 		ON CONFLICT (order_id) DO NOTHING
 	`
 	_, err := r.db.Exec(query,
 		c.ID, c.OrderID, c.PaymentID, c.BusinessID, c.ShopID, c.SellerUserID,
-		c.GrossAmount, c.CommissionBase, c.CommissionRate, c.CommissionAmount, c.SellerNetAmount,
+		c.GrossAmount, c.CommissionBase, c.CommissionRate, c.CommissionAmount, c.SellerNetAmount, c.Currency,
 		c.Status, c.Notes,
 	)
 	return err
@@ -367,6 +367,26 @@ func (r *CommissionRepository) MarkCollected(id uuid.UUID, adminID uuid.UUID, no
 	return nil
 }
 
+// VoidCommissionForRefund waives the commission attached to a refunded order so
+// a cancelled transaction no longer counts as revenue anywhere.
+func (r *CommissionRepository) VoidCommissionForRefund(orderID uuid.UUID, notes string) error {
+	res, err := r.db.Exec(`
+		UPDATE sale_commissions
+		SET status = 'WAIVED',
+		    notes = CASE WHEN $2 != '' THEN concat_ws(' / ', notes, $2) ELSE notes END,
+		    updated_at = NOW()
+		WHERE order_id = $1 AND status IN ('DUE', 'COLLECTED')
+	`, orderID, notes)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return nil
+	}
+	return nil
+}
+
 func (r *CommissionRepository) scanCommission(row *sql.Row) (*models.SaleCommission, error) {
 	var c models.SaleCommission
 	var paymentID, sellerID, collectedBy sql.NullString
@@ -437,4 +457,223 @@ func (r *CommissionRepository) scanCommissionRows(rows *sql.Rows) (*models.SaleC
 	}
 
 	return &c, nil
+}
+
+// reportWhere builds the shared sale_commissions WHERE clause so every
+// dashboard number uses the same population.
+func commissionReportWhere(filter *models.FinanceReportFilter) (string, []interface{}) {
+	var where []string
+	var args []interface{}
+	argIdx := 1
+
+	if filter.BusinessID != "" {
+		where = append(where, fmt.Sprintf("c.business_id = $%d", argIdx))
+		args = append(args, filter.BusinessID)
+		argIdx++
+	}
+	if filter.ShopID != "" {
+		where = append(where, fmt.Sprintf("c.shop_id = $%d", argIdx))
+		args = append(args, filter.ShopID)
+		argIdx++
+	}
+	if filter.SellerID != "" {
+		where = append(where, fmt.Sprintf("c.seller_user_id = $%d", argIdx))
+		args = append(args, filter.SellerID)
+		argIdx++
+	}
+	if filter.DateFrom != "" {
+		where = append(where, fmt.Sprintf("c.calculated_at >= $%d", argIdx))
+		args = append(args, filter.DateFrom)
+		argIdx++
+	}
+	if filter.DateTo != "" {
+		where = append(where, fmt.Sprintf("c.calculated_at <= $%d", argIdx))
+		args = append(args, filter.DateTo)
+		argIdx++
+	}
+
+	if len(where) == 0 {
+		return "", args
+	}
+	return "WHERE " + strings.Join(where, " AND "), args
+}
+
+// GetDashboardReport builds the real-totals finance dashboard for Finance
+// Admin and sellers from per-sale commission snapshots and verified payments.
+func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFilter) (*models.FinanceDashboardReport, error) {
+	whereClause, args := commissionReportWhere(filter)
+
+	report := &models.FinanceDashboardReport{}
+
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.gross_amount ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.commission_amount ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN c.status = 'WAIVED' THEN c.gross_amount ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN c.status = 'WAIVED' THEN 1 ELSE 0 END), 0)
+		FROM sale_commissions c
+		%s
+	`, whereClause)
+	if err := r.db.QueryRow(query, args...).Scan(
+		&report.GrossSales, &report.CommissionAmount, &report.SellerNetAmount,
+		&report.CollectedCommission, &report.DueCommission, &report.WaivedCommission,
+		&report.VerifiedSales, &report.RefundedSales,
+	); err != nil {
+		return nil, err
+	}
+
+	// Cash actually collected from buyers for the same population, including
+	// delivery fees the seller keeps.
+	cashQuery := fmt.Sprintf(`
+		SELECT COALESCE(SUM(p.cash_due), 0)
+		FROM sale_commissions c
+		JOIN buyer_payments p ON p.order_id = c.order_id
+		WHERE p.status = 'VERIFIED'
+		  AND c.status <> 'WAIVED'
+		%s
+	`, whereClause)
+	if err := r.db.QueryRow(cashQuery, args...).Scan(&report.CollectedCash); err != nil {
+		return nil, err
+	}
+
+	// Orders still awaiting a verified payment (pipeline / work-in-progress).
+	pendingQuery := `
+		SELECT COUNT(*)
+		FROM orders o
+		LEFT JOIN buyer_payments p ON p.order_id = o.id
+		WHERE o.status NOT IN ('CANCELLED', 'REJECTED', 'COMPLETED')
+		  AND (p.id IS NULL OR p.status <> 'VERIFIED')
+	`
+	var pendingArgs []interface{}
+	pidx := 1
+	if filter.BusinessID != "" {
+		pendingQuery += fmt.Sprintf(" AND o.business_id = $%d", pidx)
+		pendingArgs = append(pendingArgs, filter.BusinessID)
+		pidx++
+	}
+	if filter.ShopID != "" {
+		pendingQuery += fmt.Sprintf(" AND o.shop_id = $%d", pidx)
+		pendingArgs = append(pendingArgs, filter.ShopID)
+		pidx++
+	}
+	if filter.SellerID != "" {
+		pendingQuery += fmt.Sprintf(" AND o.created_by = $%d", pidx)
+		pendingArgs = append(pendingArgs, filter.SellerID)
+		pidx++
+	}
+	if filter.DateFrom != "" {
+		pendingQuery += fmt.Sprintf(" AND o.created_at >= $%d", pidx)
+		pendingArgs = append(pendingArgs, filter.DateFrom)
+		pidx++
+	}
+	if filter.DateTo != "" {
+		pendingQuery += fmt.Sprintf(" AND o.created_at <= $%d", pidx)
+		pendingArgs = append(pendingArgs, filter.DateTo)
+		pidx++
+	}
+	if err := r.db.QueryRow(pendingQuery, pendingArgs...).Scan(&report.PendingOrders); err != nil {
+		return nil, err
+	}
+
+	rate, err := r.GetCommissionRate()
+	if err != nil {
+		rate = 3.00
+	}
+	report.CommissionRate = rate
+
+	return report, nil
+}
+
+// GetBreakdownReport groups the real sales figures by shop, product, seller or
+// business. Product commissions are attributed proportionally to each line's
+// share of its order, so the grouped numbers re-sum to the dashboard totals.
+func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownGroup, filter *models.FinanceReportFilter) ([]models.FinanceBreakdownItem, error) {
+	whereClause, args := commissionReportWhere(filter)
+
+	var query string
+	switch group {
+	case models.FinanceBreakdownBusiness:
+		query = fmt.Sprintf(`
+			SELECT c.business_id::text, COALESCE(b.name, ''),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.gross_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.commission_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
+			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END)
+			FROM sale_commissions c
+			LEFT JOIN businesses b ON b.id = c.business_id
+			%s
+			GROUP BY c.business_id, b.name
+			ORDER BY 3 DESC`, whereClause)
+	case models.FinanceBreakdownShop:
+		query = fmt.Sprintf(`
+			SELECT c.shop_id::text, COALESCE(s.name, ''),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.gross_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.commission_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
+			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END)
+			FROM sale_commissions c
+			LEFT JOIN shops s ON s.id = c.shop_id
+			%s
+			GROUP BY c.shop_id, s.name
+			ORDER BY 3 DESC`, whereClause)
+	case models.FinanceBreakdownSeller:
+		query = fmt.Sprintf(`
+			SELECT COALESCE(c.seller_user_id::text, ''), COALESCE(u.first_name || ' ' || u.last_name, u.email, '—'),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.gross_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.commission_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
+			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END)
+			FROM sale_commissions c
+			LEFT JOIN users u ON u.id = c.seller_user_id
+			%s
+			GROUP BY c.seller_user_id, u.first_name, u.last_name, u.email
+			ORDER BY 3 DESC`, whereClause)
+	case models.FinanceBreakdownProduct:
+		query = fmt.Sprintf(`
+			SELECT ol.product_id::text, COALESCE(NULLIF(ol.product_name, ''), COALESCE(p.name, '')),
+			       COALESCE(SUM(ol.final_unit_price * ol.quantity), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.commission_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
+			       COUNT(DISTINCT CASE WHEN c.status <> 'WAIVED' THEN c.order_id END)
+			FROM sale_commissions c
+			JOIN order_lines ol ON ol.order_id = c.order_id
+			JOIN LATERAL (
+				SELECT SUM(l2.final_unit_price * l2.quantity) AS order_gross
+				FROM order_lines l2 WHERE l2.order_id = c.order_id
+			) og ON true
+			LEFT JOIN products p ON p.id = ol.product_id
+			%s
+			GROUP BY ol.product_id, ol.product_name, p.name
+			ORDER BY 3 DESC`, whereClause)
+	default:
+		return nil, fmt.Errorf("INVALID_GROUP")
+	}
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.FinanceBreakdownItem
+	for rows.Next() {
+		var it models.FinanceBreakdownItem
+		if err := rows.Scan(&it.ID, &it.Label, &it.GrossSales, &it.CommissionAmount, &it.SellerNetAmount, &it.Collected, &it.Due, &it.SalesCount); err != nil {
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	return items, rows.Err()
 }

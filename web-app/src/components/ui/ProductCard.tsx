@@ -35,7 +35,7 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
           shopId: product.shop_id,
           shopName: product.shop_name,
           price: first?.unit_price ?? product.base_price,
-          currency: 'FC',
+          currency: product.currency ?? 'USD',
           unit: product.unit,
           addedAt: new Date().toISOString()
         })

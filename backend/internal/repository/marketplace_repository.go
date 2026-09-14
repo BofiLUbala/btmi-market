@@ -191,6 +191,7 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		SELECT p.id, s.id as shop_id, s.name as shop_name, p.business_id, b.name as business_name,
 		       p.name, p.sku, p.description, p.unit,
 		       COALESCE(MIN(v.sale_price), p.unit_price, 0) as unit_price,
+		       COALESCE(NULLIF(p.currency, ''), 'USD') as currency,
 		       p.category_id,
 		       COALESCE(c.name, '') as category_name,
 		       COALESCE(c.slug, '') as category_slug,
@@ -202,7 +203,7 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		       COALESCE(sl.search_boost, 0) as search_boost,
 		       COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) as available_quantity,
 		       CASE
-		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 5 THEN 'AVAILABLE'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > COALESCE((SELECT gc.value::int FROM global_configs gc WHERE gc.key = 'LOW_STOCK_THRESHOLD'), 5) THEN 'AVAILABLE'
 		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
 		           ELSE 'OUT_OF_STOCK'
 		       END as availability,
@@ -219,7 +220,7 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = b.id
 		WHERE %s
-		GROUP BY p.id, s.id, s.name, p.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price,
+		GROUP BY p.id, s.id, s.name, p.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price, p.currency,
 		         p.category_id, c.name, c.slug, p.subcategory_id, sc.name, sc.slug, sl.name, st.trust_status,
 		         p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		         p.created_at, sl.search_boost
@@ -229,7 +230,7 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 			ORDER BY id, available_quantity DESC, unit_price ASC, shop_id
 		)
 		SELECT id, shop_id, shop_name, business_id, business_name,
-		       name, sku, description, unit, unit_price,
+		       name, sku, description, unit, unit_price, currency,
 		       category_id, category_name, category_slug,
 		       subcategory_id, subcategory_name, subcategory_slug,
 		       seller_level, seller_trust, availability,
@@ -253,7 +254,7 @@ func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit
 		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
-			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
+			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice, &p.Currency,
 			&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 			&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
 			&p.SellerLevel, &p.SellerTrust, &p.Availability,
@@ -400,6 +401,7 @@ func (r *MarketplaceRepository) GetPublicProductByID(productID uuid.UUID) (*mode
 	query := `
 		SELECT p.id, s.id as shop_id, s.name as shop_name, p.business_id, b.name as business_name,
 		       p.name, p.sku, p.description, p.unit, p.unit_price as unit_price,
+		       COALESCE(NULLIF(p.currency, ''), 'USD') as currency,
 		       p.category_id,
 		       COALESCE(c.name, '') as category_name,
 		       COALESCE(c.slug, '') as category_slug,
@@ -424,7 +426,7 @@ func (r *MarketplaceRepository) GetPublicProductByID(productID uuid.UUID) (*mode
 	var discountStart, discountEnd sql.NullTime
 	err := r.db.QueryRow(query, productID).Scan(
 		&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
-		&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
+		&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice, &p.Currency,
 		&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 		&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
 		&p.SellerLevel, &p.SellerTrust,
@@ -459,7 +461,7 @@ func (r *MarketplaceRepository) GetVariantsForProduct(productID uuid.UUID) ([]mo
 		SELECT v.id, v.sku,
 		       COALESCE(v.sale_price, 0) as sale_price,
 		       CASE 
-		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 5 THEN 'AVAILABLE'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > COALESCE((SELECT gc.value::int FROM global_configs gc WHERE gc.key = 'LOW_STOCK_THRESHOLD'), 5) THEN 'AVAILABLE'
 		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
 		           ELSE 'OUT_OF_STOCK'
 		       END as stock,
@@ -604,6 +606,7 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 	query := fmt.Sprintf(`
 		SELECT p.id, s.id as shop_id, s.name as shop_name, p.business_id, b.name as business_name,
 		       p.name, p.sku, p.description, p.unit, COALESCE(MIN(v.sale_price), p.unit_price, 0) as unit_price,
+		       COALESCE(NULLIF(p.currency, ''), 'USD') as currency,
 		       p.category_id,
 		       COALESCE(c.name, '') as category_name,
 		       COALESCE(c.slug, '') as category_slug,
@@ -625,7 +628,7 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = b.id
 		WHERE %s
-		GROUP BY p.id, s.id, s.name, s.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price,
+		GROUP BY p.id, s.id, s.name, s.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price, p.currency,
 		         p.category_id, c.name, c.slug, p.subcategory_id, sc.name, sc.slug, sl.name, st.trust_status,
 		         p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		         p.created_at, sl.search_boost
@@ -647,7 +650,7 @@ func (r *MarketplaceRepository) SearchProducts(search *models.MarketplaceSearchP
 		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
-			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
+			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice, &p.Currency,
 			&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 			&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
 			&p.SellerLevel, &p.SellerTrust,
@@ -743,6 +746,7 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 	query := fmt.Sprintf(`
 		SELECT p.id, s.id as shop_id, s.name as shop_name, p.business_id, b.name as business_name,
 		       p.name, p.sku, p.description, p.unit, COALESCE(MIN(v.sale_price), p.unit_price, 0) as unit_price,
+		       COALESCE(NULLIF(p.currency, ''), 'USD') as currency,
 		       p.category_id,
 		       COALESCE(c.name, '') as category_name,
 		       COALESCE(c.slug, '') as category_slug,
@@ -763,7 +767,7 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = b.id
 		WHERE %s
-		GROUP BY p.id, s.id, s.name, p.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price,
+		GROUP BY p.id, s.id, s.name, p.business_id, b.name, p.name, p.sku, p.description, p.unit, p.unit_price, p.currency,
 		         p.category_id, c.name, c.slug, p.subcategory_id, sc.name, sc.slug, sl.name, st.trust_status,
 		         p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
 		         p.created_at
@@ -784,7 +788,7 @@ func (r *MarketplaceRepository) ListProductsByCategory(categoryID, subcategoryID
 		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
-			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
+			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice, &p.Currency,
 			&p.CategoryID, &p.CategoryName, &p.CategorySlug,
 			&p.SubcategoryID, &p.SubcategoryName, &p.SubcategorySlug,
 			&p.SellerLevel, &p.SellerTrust,
@@ -1039,6 +1043,7 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 	query := `
 		SELECT p.id, s.id as shop_id, s.name as shop_name, p.business_id, b.name as business_name,
 		       p.name, p.sku, p.description, p.unit, p.unit_price as unit_price, p.category_id, p.subcategory_id,
+		       COALESCE(NULLIF(p.currency, ''), 'USD') as currency,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
 		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
@@ -1075,6 +1080,7 @@ func (r *MarketplaceRepository) GetPublicProductDetailByID(productID uuid.UUID, 
 		&product.ID, &product.ShopID, &product.ShopName, &product.BusinessID, &product.BusinessName,
 		&product.Name, &product.SKU, &product.Description, &product.Unit, &product.BasePrice,
 		&product.CategoryID, &product.SubcategoryID,
+		&product.Currency,
 		&product.SellerLevel, &product.SellerTrust,
 		&product.DiscountActive, &product.DiscountType, &product.DiscountValue, &discountStart, &discountEnd,
 		&product.SelfRating,
@@ -1139,7 +1145,7 @@ func (r *MarketplaceRepository) GetVariantsWithStockForProduct(productID uuid.UU
 		SELECT v.id, v.sku, v.name, v.attributes,
 		       COALESCE(v.sale_price, 0) as sale_price,
 		       CASE 
-		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 5 THEN 'AVAILABLE'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > COALESCE((SELECT gc.value::int FROM global_configs gc WHERE gc.key = 'LOW_STOCK_THRESHOLD'), 5) THEN 'AVAILABLE'
 		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
 		           ELSE 'OUT_OF_STOCK'
 		       END as stock,
@@ -1196,7 +1202,7 @@ func (r *MarketplaceRepository) GetVariantsWithStockForProductAtShop(productID, 
 		SELECT v.id, v.sku, v.name, v.attributes,
 		       COALESCE(v.sale_price, 0) as sale_price,
 		       CASE
-		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 5 THEN 'AVAILABLE'
+		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > COALESCE((SELECT gc.value::int FROM global_configs gc WHERE gc.key = 'LOW_STOCK_THRESHOLD'), 5) THEN 'AVAILABLE'
 		           WHEN COALESCE(SUM(i.quantity), 0) - COALESCE(SUM(i.reserved_quantity), 0) > 0 THEN 'LOW_STOCK'
 		           ELSE 'OUT_OF_STOCK'
 		       END as stock,
@@ -1325,7 +1331,7 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 				WHERE v.product_id = p.id AND v.status = 'ACTIVE'
 				AND CASE 
 					WHEN $%d = 'available' THEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) > 0
-					WHEN $%d = 'low_stock' THEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) > 0 AND COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) <= 5
+					WHEN $%d = 'low_stock' THEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) > 0 AND COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) <= COALESCE((SELECT gc.value::int FROM global_configs gc WHERE gc.key = 'LOW_STOCK_THRESHOLD'), 5)
 					WHEN $%d = 'out_of_stock' THEN COALESCE(i.quantity, 0) - COALESCE(i.reserved_quantity, 0) <= 0
 					ELSE TRUE
 				END
@@ -1387,6 +1393,7 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 	query := fmt.Sprintf(`
 		SELECT DISTINCT p.id, s.id as shop_id, s.name as shop_name, p.business_id, b.name as business_name,
 		       p.name, p.sku, p.description, p.unit, COALESCE(MIN(v.sale_price), 0) as unit_price,
+		       COALESCE(NULLIF(p.currency, ''), 'USD') as currency,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
 		       p.discount_active, p.discount_type, p.discount_value, p.discount_start, p.discount_end,
@@ -1423,7 +1430,7 @@ func (r *MarketplaceRepository) ListShopProducts(shopID uuid.UUID, params *model
 		var discountStart, discountEnd sql.NullTime
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
-			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
+			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice, &p.Currency,
 			&p.SellerLevel, &p.SellerTrust,
 			&p.DiscountActive, &p.DiscountType, &p.DiscountValue, &discountStart, &discountEnd,
 			&p.CreatedAt, &_searchBoost,
@@ -1467,6 +1474,7 @@ func (r *MarketplaceRepository) GetSimilarProducts(ctx context.Context, productI
 	query := `
 		SELECT p.id, s.id as shop_id, s.name as shop_name, p.business_id, b.name as business_name,
 		       p.name, p.sku, p.description, p.unit, p.unit_price as unit_price,
+		       COALESCE(NULLIF(p.currency, ''), 'USD') as currency,
 		       p.category_id, p.subcategory_id,
 		       COALESCE(sl.name, 'STARTER') as seller_level,
 		       COALESCE(st.trust_status, 'NORMAL') as seller_trust,
@@ -1502,7 +1510,7 @@ func (r *MarketplaceRepository) GetSimilarProducts(ctx context.Context, productI
 		var catName, catSlug, subName, subSlug string
 		err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
-			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice,
+			&p.Name, &p.SKU, &p.Description, &p.Unit, &p.BasePrice, &p.Currency,
 			&p.CategoryID, &p.SubcategoryID,
 			&p.SellerLevel, &p.SellerTrust, &p.CreatedAt,
 			&catName, &catSlug, &subName, &subSlug,

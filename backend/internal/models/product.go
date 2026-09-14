@@ -22,6 +22,7 @@ type Product struct {
 	Description       string            `json:"description" db:"description"`
 	UnitPrice         float64           `json:"unit_price" db:"unit_price"`
 	CostPrice         float64           `json:"cost_price" db:"cost_price"`
+	Currency          string            `json:"currency" db:"currency"`
 	Unit              string            `json:"unit" db:"unit"`
 	Status            ProductStatus     `json:"status" db:"status"`
 	PublicationStatus PublicationStatus `json:"publication_status" db:"publication_status"`
@@ -47,6 +48,7 @@ type CreateProductRequest struct {
 	Description       string     `json:"description"`
 	UnitPrice         float64    `json:"unit_price"`
 	CostPrice         float64    `json:"cost_price"`
+	Currency          string     `json:"currency"`
 	Unit              string     `json:"unit"`
 	CategoryID        *string    `json:"category_id"`
 	SubcategoryID     *string    `json:"subcategory_id"`
@@ -92,6 +94,7 @@ type ProductResponse struct {
 	Description       string            `json:"description"`
 	UnitPrice         float64           `json:"unit_price"`
 	CostPrice         float64           `json:"cost_price"`
+	Currency          string            `json:"currency"`
 	Unit              string            `json:"unit"`
 	Status            ProductStatus     `json:"status"`
 	PublicationStatus PublicationStatus `json:"publication_status"`
