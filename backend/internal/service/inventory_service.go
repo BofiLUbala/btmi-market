@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -972,11 +971,10 @@ func (s *InventoryService) GetProductByID(userID, productID uuid.UUID) (*models.
 // requireCategoryAttributes rejects publication when the product's category
 // demands characteristics the product does not carry.
 //
-// Characteristics live on the variants' Attributes map, so the check looks at
-// the union of attribute names across every variant that actually assigns a
-// value — a key present with an empty string is treated as not filled in.
-// Categories with no rules pass unconditionally, so this never blocks a
-// product whose category is simply not covered.
+// Characteristics live on the variants' Attributes map. The database-backed
+// category_attribute_definitions table is the only source of publication
+// requirements; clients render the same definitions through the categories
+// API. A key present with an empty value is treated as missing.
 func (s *InventoryService) requireCategoryAttributes(product *models.Product) error {
 	if product.CategoryID == nil {
 		return nil
@@ -989,9 +987,12 @@ func (s *InventoryService) requireCategoryAttributes(product *models.Product) er
 		return nil
 	}
 
-	// 1. Primary Source of Truth: DB definitions
+	// The API and every client consume these same effective definitions.
 	defs, err := s.categoryRepo.GetEffectiveAttributes(*product.CategoryID, product.SubcategoryID)
-	if err == nil && len(defs) > 0 {
+	if err != nil {
+		return err
+	}
+	if len(defs) > 0 {
 		var requiredDefs []*models.CategoryAttributeDefinition
 		for _, d := range defs {
 			if d.Required && d.Status == "ACTIVE" {
@@ -1008,24 +1009,11 @@ func (s *InventoryService) requireCategoryAttributes(product *models.Product) er
 			return err
 		}
 
-		var missing []string
-		var missingFr []string
-		for _, rd := range requiredDefs {
-			// Publication is only safe when every variant carries every required
-			// characteristic. Checking the union allowed one complete variant to
-			// hide incomplete siblings from the authoritative backend guard.
-			completeOnEveryVariant := len(variants) > 0
-			for _, variant := range variants {
-				if !variantHasRequiredAttribute(variant.Attributes, rd) {
-					completeOnEveryVariant = false
-					break
-				}
-			}
-			if !completeOnEveryVariant {
-				missing = append(missing, rd.Key)
-				missingFr = append(missingFr, rd.LabelFr)
-			}
+		variantAttributes := make([]map[string]string, 0, len(variants))
+		for _, variant := range variants {
+			variantAttributes = append(variantAttributes, variant.Attributes)
 		}
+		missing, missingFr := missingRequiredDefinitions(requiredDefs, variantAttributes)
 
 		if len(missing) > 0 {
 			categorySlug := category.Slug
@@ -1048,44 +1036,32 @@ func (s *InventoryService) requireCategoryAttributes(product *models.Product) er
 		}
 		return nil
 	}
-
-	// 2. Migration safety fallback: hardcoded requirements
-	categoryKey := category.Slug
-	if categoryKey == "" {
-		categoryKey = category.Name
-	}
-
-	subKey := ""
-	if product.SubcategoryID != nil {
-		if sub, err := s.categoryRepo.GetSubcategoryByID(*product.SubcategoryID); err == nil {
-			if subKey = sub.Slug; subKey == "" {
-				subKey = sub.Name
-			}
-		}
-	}
-
-	requirements := models.GetCategoryRequirements(categoryKey, subKey)
-	if requirements.IsEmpty() {
-		return nil
-	}
-
-	variants, err := s.variantRepo.GetByProductID(product.ID)
-	if err != nil {
-		return err
-	}
-	var present []string
-	for _, v := range variants {
-		for name, value := range v.Attributes {
-			if strings.TrimSpace(value) != "" {
-				present = append(present, name)
-			}
-		}
-	}
-
-	if missing := models.MissingRequiredAttributes(requirements, present); len(missing) > 0 {
-		return fmt.Errorf("MISSING_REQUIRED_ATTRIBUTES: %s", strings.Join(missing, ", "))
-	}
 	return nil
+}
+
+// missingRequiredDefinitions is shared by the publication guard and its
+// data-driven rule-pattern tests. Every required definition must be present on
+// every variant; optional definitions never gate publication.
+func missingRequiredDefinitions(defs []*models.CategoryAttributeDefinition, variants []map[string]string) ([]string, []string) {
+	var missing []string
+	var missingFr []string
+	for _, definition := range defs {
+		if definition == nil || !definition.Required || definition.Status != "ACTIVE" {
+			continue
+		}
+		completeOnEveryVariant := len(variants) > 0
+		for _, attributes := range variants {
+			if !variantHasRequiredAttribute(attributes, definition) {
+				completeOnEveryVariant = false
+				break
+			}
+		}
+		if !completeOnEveryVariant {
+			missing = append(missing, definition.Key)
+			missingFr = append(missingFr, definition.LabelFr)
+		}
+	}
+	return missing, missingFr
 }
 
 func variantHasRequiredAttribute(attributes map[string]string, definition *models.CategoryAttributeDefinition) bool {

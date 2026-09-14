@@ -13,9 +13,6 @@ import { useColors } from '../../../src/store/theme'
 import { spacing, radius, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload } from '../../../src/lib/imageUpload'
 import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
-import {
-  getCategoryRequirements, missingRequiredAttributes,
-} from '../../../src/lib/categorySuggestions'
 import type { Category, Shop } from '../../../src/types'
 
 const MAX_IMAGES = 10
@@ -35,6 +32,11 @@ export default function SellerProductDetailScreen() {
   const images = useQuery({ queryKey: ['seller', 'productImages', productId], queryFn: () => sellerApi.productImages(activeBusiness!.id, productId), enabled: Boolean(activeBusiness && productId) })
   const inventory = useQuery({ queryKey: ['seller', 'inventory', activeShop], queryFn: () => sellerApi.shopInventory(activeShop!), enabled: Boolean(activeShop) })
   const categories = useQuery({ queryKey: ['seller', 'categories'], queryFn: sellerApi.categories })
+  const categoryAttributes = useQuery({
+    queryKey: ['categoryAttributes', product.data?.category_id, product.data?.subcategory_id],
+    queryFn: () => sellerApi.categoryAttributes(product.data!.category_id!, product.data?.subcategory_id || undefined),
+    enabled: Boolean(product.data?.category_id),
+  })
   // Stock is always shop-scoped, so the page needs a shop before it can show
   // or change any quantity. Offering the business's shops here means a product
   // opened straight from a notification is still actionable.
@@ -84,17 +86,14 @@ export default function SellerProductDetailScreen() {
   const togglePublish = useMutation({
     mutationFn: async () => {
       if (product.data!.publication_status !== 'PUBLISHED') {
-        const category = categories.data?.find((c: Category) => c.id === product.data!.category_id)
-        const subcategory = category?.subcategories?.find((s: Category) => s.id === product.data!.subcategory_id)
-        const categoryRequirements = getCategoryRequirements(
-          category?.slug || category?.name,
-          subcategory?.slug || subcategory?.name
-        )
-        const presentAttributes = new Set<string>()
-        variants.data?.forEach(v => Object.keys(v.attributes ?? {}).forEach(k => {
-          if (v.attributes![k]?.trim()) presentAttributes.add(k)
-        }))
-        const missing = missingRequiredAttributes(categoryRequirements, Array.from(presentAttributes), t)
+        if (categoryAttributes.isError) throw new Error(t('seller.productForm.requirementsUnavailable'))
+        const missing = (categoryAttributes.data ?? []).filter((def) => def.required && !(
+          (variants.data?.length ?? 0) > 0 && variants.data!.every((variant) => {
+            const aliases = [def.key, def.label_en, def.label_fr].map((key) => key.trim().toLowerCase())
+            return Object.entries(variant.attributes ?? {}).some(([key, value]) =>
+              aliases.includes(key.trim().toLowerCase()) && value.trim().length > 0)
+          })
+        )).map((def) => def.label_fr || def.label_en || def.key)
         if (missing.length > 0) {
           throw new Error(t('seller.productForm.validation.missingAttributes', { attributes: missing.join(', ') }) + ' ' + t(missing.length > 1 ? 'seller.productForm.validation.missingThem' : 'seller.productForm.validation.missingIt'))
         }

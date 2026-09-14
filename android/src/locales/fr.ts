@@ -899,6 +899,8 @@ export const fr = {
   'seller.productForm.stepOf': 'Étape {current} sur {total}',
   'seller.productForm.pricingTitle': 'Prix et auto-évaluation',
   'seller.productForm.categoryRequiresNotice': 'Cette catégorie exige ces caractéristiques avant publication : {attributes}.',
+  'seller.productForm.requirementsUnavailable': 'Impossible de vérifier les exigences de cette catégorie. Réessayez avant de publier.',
+  'seller.productForm.fixAttributes': 'Corriger les attributs',
   'seller.productForm.enablePromotion': 'Activer une promotion',
   'seller.productForm.percentageOff': 'Pourcentage (%)',
   'seller.productForm.fixedDiscount': 'Montant fixe (FC)',

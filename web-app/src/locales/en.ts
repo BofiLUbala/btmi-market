@@ -1545,6 +1545,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.saveDraft': 'Save draft',
   'seller.productForm.saving': 'Saving…',
   'seller.productForm.publishProduct': 'Publish product',
+  'seller.productForm.requirementsUnavailable': 'Category requirements could not be checked. Retry before publishing.',
+  'seller.productForm.validation.duplicateVariant': 'Two variants have the same attribute combination. Change or remove the duplicate.',
   'seller.productForm.publishing': 'Publishing…',
   'seller.productForm.stepCreatingProduct': 'Creating product…',
   'seller.productForm.stepConfiguringVariants': 'Configuring variants…',

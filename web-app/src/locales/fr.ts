@@ -1526,6 +1526,8 @@ export const fr = {
   'seller.productForm.saveDraft': 'Enregistrer le brouillon',
   'seller.productForm.saving': 'Enregistrement…',
   'seller.productForm.publishProduct': 'Publier le produit',
+  'seller.productForm.requirementsUnavailable': 'Impossible de vérifier les exigences de cette catégorie. Réessayez avant de publier.',
+  'seller.productForm.validation.duplicateVariant': 'Deux variantes ont la même combinaison d’attributs. Modifiez ou supprimez le doublon.',
   'seller.productForm.publishing': 'Publication…',
   'seller.productForm.stepCreatingProduct': 'Création du produit…',
   'seller.productForm.stepConfiguringVariants': 'Configuration des variantes…',

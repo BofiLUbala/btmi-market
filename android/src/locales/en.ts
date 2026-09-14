@@ -890,6 +890,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.stepOf': 'Step {current} of {total}',
   'seller.productForm.pricingTitle': 'Price and self-rating',
   'seller.productForm.categoryRequiresNotice': 'This category requires these characteristics before publishing: {attributes}.',
+  'seller.productForm.requirementsUnavailable': 'Category requirements could not be checked. Retry before publishing.',
+  'seller.productForm.fixAttributes': 'Fix attributes',
   'seller.productForm.enablePromotion': 'Enable a promotion',
   'seller.productForm.percentageOff': 'Percentage (%)',
   'seller.productForm.fixedDiscount': 'Fixed amount (FC)',

@@ -11,8 +11,6 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 
 import {
   getCategorySuggestions,
-  getCategoryRequirements,
-  missingRequiredAttributes,
   POPULAR_CUSTOM_CHARACTERISTICS,
   type AttributeClassification,
   type AttributeSuggestion,
@@ -87,6 +85,7 @@ export default function SellerProductCreatePage() {
   /* Category-first data */
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [dbAttrDefs, setDbAttrDefs] = useState<CategoryAttributeDefinition[]>([])
+  const [attributeLoadState, setAttributeLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
 
   /* Form state */
   const [categoryId, setCategoryId] = useState('')
@@ -198,15 +197,23 @@ export default function SellerProductCreatePage() {
   useEffect(() => {
     if (!categoryId) {
       setDbAttrDefs([])
+      setAttributeLoadState('idle')
       return
     }
     let active = true
+    setAttributeLoadState('loading')
     categoryApi.getAttributes(categoryId, subcategoryId || undefined)
       .then((defs) => {
-        if (active) setDbAttrDefs(Array.isArray(defs) ? defs : [])
+        if (active) {
+          setDbAttrDefs(Array.isArray(defs) ? defs : [])
+          setAttributeLoadState('ready')
+        }
       })
       .catch(() => {
-        if (active) setDbAttrDefs([])
+        if (active) {
+          setDbAttrDefs([])
+          setAttributeLoadState('error')
+        }
       })
     return () => {
       active = false
@@ -252,15 +259,6 @@ export default function SellerProductCreatePage() {
       : getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
     return fallback.filter((s) => s.recommendedType === 'INFO')
   }, [productAttrDefs, selectedCategory, selectedSubcategory])
-
-  const categoryRequirements = useMemo(
-    () =>
-      getCategoryRequirements(
-        selectedCategory?.slug || selectedCategory?.name,
-        selectedSubcategory?.slug || selectedSubcategory?.name
-      ),
-    [selectedCategory, selectedSubcategory]
-  )
 
   const requiredProductAttrNames = useMemo(() => {
     const set = new Set<string>()
@@ -352,6 +350,11 @@ export default function SellerProductCreatePage() {
     }
     return issues
   }, [variantAttrDefs, variantDrafts, t])
+
+  const liveMissingProductDefs = useMemo(() => productAttrDefs.filter((d) =>
+    d.required && !characteristics.some((c) => c.values.trim() &&
+      (matchesAttributeName(c.name, d) || c.definitionKey === d.key))),
+  [productAttrDefs, characteristics])
 
   useEffect(() => {
     setMissingIssues((prev) => (prev.length === 0 ? prev : liveMissingIssues))
@@ -534,6 +537,9 @@ export default function SellerProductCreatePage() {
 
     // A draft is a work in progress, so category rules only gate publication.
     if (intent === 'PUBLISHED') {
+      if (attributeLoadState !== 'ready') {
+        return t('seller.productForm.requirementsUnavailable')
+      }
       if (liveMissingIssues.length > 0) {
         setMissingIssues(liveMissingIssues)
         const first = liveMissingIssues[0]
@@ -541,16 +547,9 @@ export default function SellerProductCreatePage() {
         return t('seller.productForm.validation.completeVariantAttrs')
       }
 
-      const completed = characteristics
-        .filter((c) => c.name.trim() && c.values.trim())
-        .flatMap((c) => [c.name, c.definitionKey || ''].filter(Boolean))
-      const missingProduct = dbAttrDefs.length > 0
-        ? productAttrDefs.filter((d) => d.required && !characteristics.some((c) => c.values.trim() && (matchesAttributeName(c.name, d) || c.definitionKey === d.key))).map((d) => attributeLabel(d))
-        : missingRequiredAttributes(categoryRequirements, completed)
+      const missingProduct = liveMissingProductDefs.map((d) => attributeLabel(d))
       if (missingProduct.length > 0) {
-        const keys = productAttrDefs
-          .filter((d) => d.required && !characteristics.some((c) => c.values.trim() && (matchesAttributeName(c.name, d) || c.definitionKey === d.key)))
-          .map((d) => d.key)
+        const keys = liveMissingProductDefs.map((d) => d.key)
         setMissingProductKeys(keys)
         window.setTimeout(() => document.getElementById(`ch-${keys[0]}-values`)?.focus(), 0)
         return (
@@ -564,12 +563,16 @@ export default function SellerProductCreatePage() {
     }
 
     if (isVariantMode) {
+      const seenCombinations = new Set<string>()
       for (const [index, draft] of variantDrafts.entries()) {
         const p = parseFloat(draft.price || form.unit_price)
         const label = variantDisplayLabel(draft.attributes, variantAttrDefs, t('seller.productForm.variantN', { n: index + 1 }))
         if (isNaN(p) || p <= 0) return `Variant "${label}" needs a valid Price (> 0 FC).`
         const s = parseInt(draft.stock, 10)
         if (isNaN(s) || s < 0) return `Variant "${label}" stock must be 0 or more.`
+        const signature = variantAttrDefs.map((def) => getAttributeValue(draft.attributes, def).trim().toLowerCase()).join('\u001f')
+        if (seenCombinations.has(signature)) return t('seller.productForm.validation.duplicateVariant')
+        seenCombinations.add(signature)
       }
     } else {
       const s = parseInt(simpleStock, 10)
@@ -1540,7 +1543,7 @@ export default function SellerProductCreatePage() {
                   <Button
                     type="submit"
                     variant="primary"
-                    disabled={busy}
+                    disabled={busy || attributeLoadState !== 'ready' || liveMissingIssues.length > 0 || liveMissingProductDefs.length > 0}
                     onClick={() => (publishIntentRef.current = 'PUBLISHED')}
                   >
                     {busy && publishIntentRef.current === 'PUBLISHED' ? stepLabel || t('seller.productForm.publishing') : t('seller.productForm.publishProduct')}

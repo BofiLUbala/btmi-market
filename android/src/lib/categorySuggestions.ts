@@ -1,40 +1,9 @@
-import type { TranslationKey } from '../store/i18n'
-
-/** Signature-compatible with the i18n hook's `t`, so it can be passed in. */
-export type Translator = (key: TranslationKey, vars?: Record<string, string | number>) => string
-
 export type AttributeClassification = 'VARIANT' | 'INFO'
 
 export interface AttributeSuggestion {
   name: string
   recommendedType: AttributeClassification
   placeholder?: string
-}
-
-export interface CategoryAttributeRequirements {
-  /** Every named attribute must be present and have a value. */
-  allOf?: string[]
-  /** At least one named attribute in each group must be present and have a value. */
-  anyOf?: string[][]
-}
-
-/**
- * Port of web-app/src/lib/categorySuggestions.ts, itself mirrored by
- * backend/internal/models/category_requirements.go -- the backend copy is the
- * rule of record. All three must stay in sync when categories change; this one
- * exists so the seller sees what a category demands before submitting, instead
- * of discovering it as a rejected publish.
- */
-export const CATEGORY_ATTRIBUTE_REQUIREMENTS: Record<string, CategoryAttributeRequirements> = {
-  shoes: { allOf: ['Color', 'Shoe Size'] },
-  fashion: { allOf: ['Color', 'Size'] },
-  food: { allOf: ['Expiration Date'], anyOf: [['Weight', 'Volume', 'Pack Size']] },
-  beauty: { anyOf: [['Shade', 'Volume', 'Scent']] },
-  electronics: { allOf: ['Model'], anyOf: [['Storage', 'RAM', 'Capacity']] },
-  children: { allOf: ['Age Range'], anyOf: [['Size', 'Color']] },
-  home: { allOf: ['Dimensions', 'Material'] },
-  sport: { anyOf: [['Size', 'Weight']] },
-  automotive: { anyOf: [['Model', 'Compatibility']] },
 }
 
 export const CATEGORY_ATTRIBUTE_SUGGESTIONS: Record<string, AttributeSuggestion[]> = {
@@ -114,8 +83,8 @@ export function getCategorySuggestions(categorySlugOrName?: string): AttributeSu
 
 /**
  * Maps a slug or display name -- in English or French -- onto one of the keys
- * used by the tables above. Mirrors resolveCategoryKey in the web app and in
- * backend/internal/models/category_requirements.go.
+ * used by the suggestion table above. Suggestions are non-authoritative input
+ * hints; publication requirements come from the category attributes API.
  */
 export function resolveCategoryKey(categorySlugOrName?: string): string {
   if (!categorySlugOrName) return ''
@@ -140,51 +109,4 @@ export function resolveCategoryKey(categorySlugOrName?: string): string {
   if (has('sport', 'fitness')) return 'sport'
   if (has('vehic', 'voiture', 'automo') || hasWord('auto', 'car', 'cars')) return 'automotive'
   return n
-}
-
-/**
- * Rules for a category, or an empty set when it has none.
- *
- * A subcategory rule wins over its parent's, so a narrower category can demand
- * more; when the subcategory has no rule of its own the parent's applies.
- */
-export function getCategoryRequirements(
-  categorySlugOrName?: string,
-  subcategorySlugOrName?: string
-): CategoryAttributeRequirements {
-  if (subcategorySlugOrName) {
-    const sub = CATEGORY_ATTRIBUTE_REQUIREMENTS[resolveCategoryKey(subcategorySlugOrName)]
-    if (sub && ((sub.allOf?.length ?? 0) > 0 || (sub.anyOf?.length ?? 0) > 0)) return sub
-  }
-  return CATEGORY_ATTRIBUTE_REQUIREMENTS[resolveCategoryKey(categorySlugOrName)] ?? {}
-}
-
-/**
- * Names the characteristics that block publication, given those already filled
- * in. An empty result means the product satisfies its category.
- *
- * Mirrored by MissingRequiredAttributes in the backend, which is the rule of
- * record -- this copy only exists to warn the seller before they submit.
- */
-export function missingRequiredAttributes(
-  requirements: CategoryAttributeRequirements,
-  presentAttributes: string[],
-  t?: Translator
-): string[] {
-  const present = new Set(
-    presentAttributes.map((name) => name.trim().toLowerCase()).filter(Boolean)
-  )
-  const missing: string[] = []
-
-  for (const name of requirements.allOf ?? []) {
-    if (!present.has(name.toLowerCase())) missing.push(name)
-  }
-  for (const group of requirements.anyOf ?? []) {
-    if (!group.some((name) => present.has(name.toLowerCase()))) {
-      missing.push(
-        t ? t('category.anyOfMissing', { names: group.join(', ') }) : `one of: ${group.join(', ')}`
-      )
-    }
-  }
-  return missing
 }

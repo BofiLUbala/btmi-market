@@ -17,7 +17,6 @@ import { prepareProductImageUpload, type UploadFile } from '../../../src/lib/ima
 import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
 import { attributeLabel } from '../../../src/lib/attributeLabels'
 import {
-  getCategoryRequirements, getCategorySuggestions, missingRequiredAttributes,
   POPULAR_CUSTOM_CHARACTERISTICS,
   type AttributeClassification, type AttributeSuggestion,
 } from '../../../src/lib/categorySuggestions'
@@ -34,6 +33,7 @@ interface CharacteristicRow {
   type: AttributeClassification
   values: string
   placeholder?: string
+  definitionKey?: string
 }
 
 interface ComboRow {
@@ -130,75 +130,65 @@ export default function SellerProductCreateScreen() {
     enabled: Boolean(categoryId),
   })
 
-  /* DB API is the primary source of truth. Fallback to static client map only if offline or pending. */
-  const categorySuggestions = useMemo<AttributeSuggestion[]>(() => {
-    if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
-      return categoryAttributesQuery.data.map((def) => ({
-        name: lang === 'fr'
-          ? (def.label_fr || def.label_en || def.key)
-          : (def.label_en || def.label_fr || def.key),
-        recommendedType: (def.variant_attribute ? 'VARIANT' : 'INFO') as AttributeClassification,
-      }))
-    }
-    if (!selectedCategory) return []
-    if (selectedSubcategory) {
-      const subs = getCategorySuggestions(selectedSubcategory.slug || selectedSubcategory.name)
-      if (subs.length > 0) return subs
-    }
-    return getCategorySuggestions(selectedCategory.slug || selectedCategory.name)
-  }, [categoryAttributesQuery.data, selectedCategory, selectedSubcategory, lang])
-
-  const categoryRequirements = useMemo(
-    () => getCategoryRequirements(
-      selectedCategory?.slug || selectedCategory?.name,
-      selectedSubcategory?.slug || selectedSubcategory?.name,
-    ),
-    [selectedCategory, selectedSubcategory],
-  )
+  /* The DB API is the sole source of category fields and requirements. */
+  const categorySuggestions = useMemo<Array<AttributeSuggestion & { definitionKey?: string }>>(() => {
+    return (categoryAttributesQuery.data ?? []).map((def) => ({
+      name: lang === 'fr'
+        ? (def.label_fr || def.label_en || def.key)
+        : (def.label_en || def.label_fr || def.key),
+      recommendedType: (def.variant_attribute ? 'VARIANT' : 'INFO') as AttributeClassification,
+      placeholder: def.allowed_values?.join(', ') || undefined,
+      definitionKey: def.key,
+    }))
+  }, [categoryAttributesQuery.data, lang])
 
   const requiredAttributeAliases = useMemo(() => {
-    if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
-      const reqs = new Set<string>()
-      for (const def of categoryAttributesQuery.data) {
-        if (def.required) {
-          reqs.add(def.key.toLowerCase())
-          if (def.label_en) reqs.add(def.label_en.toLowerCase())
-          if (def.label_fr) reqs.add(def.label_fr.toLowerCase())
-        }
+    const reqs = new Set<string>()
+    for (const def of categoryAttributesQuery.data ?? []) {
+      if (def.required) {
+        reqs.add(def.key.toLowerCase())
+        if (def.label_en) reqs.add(def.label_en.toLowerCase())
+        if (def.label_fr) reqs.add(def.label_fr.toLowerCase())
       }
-      return reqs
     }
-    return new Set([
-      ...(categoryRequirements.allOf ?? []),
-      ...(categoryRequirements.anyOf ?? []).flat(),
-    ].map((n) => n.toLowerCase()))
-  }, [categoryAttributesQuery.data, categoryRequirements])
+    return reqs
+  }, [categoryAttributesQuery.data])
 
   const requiredAttributeLabels = useMemo(() => {
-    if (categoryAttributesQuery.data && categoryAttributesQuery.data.length > 0) {
-      return categoryAttributesQuery.data
-        .filter((def) => def.required)
-        .map((def) => lang === 'fr'
-          ? (def.label_fr || def.label_en || def.key)
-          : (def.label_en || def.label_fr || def.key))
-    }
-    return [
-      ...(categoryRequirements.allOf ?? []),
-      ...(categoryRequirements.anyOf ?? []).flat(),
-    ].map((name) => attributeLabel(t, name))
-  }, [categoryAttributesQuery.data, categoryRequirements, lang, t])
+    return (categoryAttributesQuery.data ?? [])
+      .filter((def) => def.required)
+      .map((def) => lang === 'fr'
+        ? (def.label_fr || def.label_en || def.key)
+        : (def.label_en || def.label_fr || def.key))
+  }, [categoryAttributesQuery.data, lang])
+
+  useEffect(() => {
+    const definitions = categoryAttributesQuery.data
+    if (!definitions) return
+    setCharacteristics((previous) => definitions.map((def) => {
+      const existing = previous.find((row) => row.definitionKey === def.key)
+      return {
+        id: existing?.id ?? `ch-${def.key}`,
+        name: lang === 'fr' ? (def.label_fr || def.label_en || def.key) : (def.label_en || def.label_fr || def.key),
+        type: def.variant_attribute ? 'VARIANT' : 'INFO',
+        values: existing?.values ?? '',
+        placeholder: def.allowed_values?.join(', ') || undefined,
+        definitionKey: def.key,
+      }
+    }))
+  }, [categoryAttributesQuery.data, lang])
 
   /* Combinations derived from VARIANT characteristics; INFO ones ride along on
      every combination as specifications. */
   const combos = useMemo<ComboRow[]>(() => {
     const variantAttrs = characteristics
       .filter((c) => c.type === 'VARIANT')
-      .map((c) => ({ name: c.name.trim(), values: c.values.split(',').map((v) => v.trim()).filter(Boolean) }))
+      .map((c) => ({ name: c.definitionKey || c.name.trim(), values: [...new Set(c.values.split(',').map((v) => v.trim()).filter(Boolean))] }))
       .filter((c) => c.name && c.values.length > 0)
 
     const infoAttrs: Record<string, string> = {}
     for (const c of characteristics.filter((c) => c.type === 'INFO')) {
-      const n = c.name.trim(); const v = c.values.trim()
+      const n = c.definitionKey || c.name.trim(); const v = c.values.trim()
       if (n && v) infoAttrs[n] = v
     }
 
@@ -218,19 +208,16 @@ export default function SellerProductCreateScreen() {
 
   /* The names the backend will see as "filled in" — the same union of variant
      attribute names it computes in requireCategoryAttributes. */
-  const filledAttributeNames = useMemo(
-    () => characteristics.filter((c) => c.name.trim() && c.values.trim()).map((c) => c.name),
-    [characteristics],
-  )
-  const missingAttributes = useMemo(
-    () => missingRequiredAttributes(categoryRequirements, filledAttributeNames, t),
-    [categoryRequirements, filledAttributeNames, t],
-  )
+  const missingAttributes = useMemo(() => (categoryAttributesQuery.data ?? [])
+    .filter((def) => def.required && !characteristics.some((row) =>
+      row.values.trim() && row.definitionKey === def.key))
+    .map((def) => lang === 'fr' ? (def.label_fr || def.label_en || def.key) : (def.label_en || def.label_fr || def.key)),
+  [categoryAttributesQuery.data, characteristics, lang])
 
   /* ── Characteristics ── */
-  function addSuggestion(s: AttributeSuggestion) {
+  function addSuggestion(s: AttributeSuggestion & { definitionKey?: string }) {
     if (characteristics.some((c) => c.name.trim().toLowerCase() === s.name.toLowerCase())) return
-    setCharacteristics((prev) => [...prev, { id: newRowId(), name: s.name, type: s.recommendedType, values: '', placeholder: s.placeholder }])
+    setCharacteristics((prev) => [...prev, { id: newRowId(), name: s.name, type: s.recommendedType, values: '', placeholder: s.placeholder, definitionKey: s.definitionKey }])
   }
   function addCustomCharacteristic(name = '') {
     setCharacteristics((prev) => [...prev, { id: newRowId(), name, type: 'VARIANT', values: '' }])
@@ -312,6 +299,9 @@ export default function SellerProductCreateScreen() {
     if (intent === 'PUBLISHED' && missingAttributes.length > 0) {
       return t('seller.productForm.validation.missingAttributes', { attributes: missingAttributes.join(', ') })
         + ' ' + t(missingAttributes.length > 1 ? 'seller.productForm.validation.missingThem' : 'seller.productForm.validation.missingIt')
+    }
+    if (intent === 'PUBLISHED' && categoryAttributesQuery.isError) {
+      return t('seller.productForm.requirementsUnavailable')
     }
 
     if (isVariantMode) {
@@ -407,7 +397,7 @@ export default function SellerProductCreateScreen() {
         if (!isVariantMode) {
           const attrs: Record<string, string> = {}
           for (const c of characteristics) {
-            const name = c.name.trim()
+            const name = c.definitionKey || c.name.trim()
             const value = c.values.split(',')[0]?.trim()
             if (name && value) attrs[name] = value
           }
@@ -558,7 +548,7 @@ export default function SellerProductCreateScreen() {
               key={s.id}
               accessibilityRole="button"
               style={[styles.chip, subcategoryId === s.id && styles.chipActive]}
-              onPress={() => setSubcategoryId(subcategoryId === s.id ? '' : s.id)}
+              onPress={() => { setSubcategoryId(subcategoryId === s.id ? '' : s.id); setCharacteristics([]) }}
             >
               <Text style={[styles.chipText, subcategoryId === s.id && styles.chipTextActive]}>{subcategoryLabel(t, s.slug, s.name)}</Text>
             </Pressable>)}
@@ -664,11 +654,12 @@ export default function SellerProductCreateScreen() {
         </Card>
 
         {characteristics.map((c) => <Card key={c.id}>
-          <Field label={t('seller.productForm.attributeName')} value={c.name} onChangeText={(v) => updateCharacteristic(c.id, 'name', v)} autoCapitalize="words" />
+          <Field label={t('seller.productForm.attributeName')} value={c.name} onChangeText={(v) => updateCharacteristic(c.id, 'name', v)} autoCapitalize="words" editable={!c.definitionKey} />
           <View style={styles.chipRow}>
             {(['VARIANT', 'INFO'] as const).map((type) => <Pressable
               key={type}
               accessibilityRole="button"
+              disabled={Boolean(c.definitionKey)}
               style={[styles.chip, c.type === type && styles.chipActive]}
               onPress={() => updateCharacteristic(c.id, 'type', type)}
             >
@@ -683,7 +674,7 @@ export default function SellerProductCreateScreen() {
             onChangeText={(v) => updateCharacteristic(c.id, 'values', v)}
             placeholder={c.placeholder}
           />
-          <Button dense variant="outline" title={t('seller.productForm.removeCharacteristic')} onPress={() => removeCharacteristic(c.id)} />
+          {!c.definitionKey ? <Button dense variant="outline" title={t('seller.productForm.removeCharacteristic')} onPress={() => removeCharacteristic(c.id)} /> : null}
         </Card>)}
       </>}
 
@@ -737,9 +728,14 @@ export default function SellerProductCreateScreen() {
           {t('seller.productForm.validation.missingAttributes', { attributes: missingAttributes.join(', ') })}
           {' '}{t('seller.productForm.validation.missingThem')}
         </Text>}
+        {missingAttributes.length > 0 ? <Button
+          variant="outline"
+          title={t('seller.productForm.fixAttributes')}
+          onPress={() => setStep(5)}
+        /> : null}
         {stepLabel ? <Text style={styles.muted}>{stepLabel}</Text> : null}
         <Button variant="outline" title={t('seller.productForm.saveDraft')} loading={busy} disabled={busy} onPress={() => submit('DRAFT')} />
-        <Button title={t('seller.productForm.publishProduct')} loading={busy} disabled={busy} onPress={() => submit('PUBLISHED')} />
+        <Button title={t('seller.productForm.publishProduct')} loading={busy} disabled={busy || missingAttributes.length > 0 || categoryAttributesQuery.isError || categoryAttributesQuery.isLoading} onPress={() => submit('PUBLISHED')} />
       </Card>}
 
       <View style={styles.navRow}>
