@@ -530,6 +530,15 @@ export interface BuyerOrder {
   delivery_contact_name: string
   delivery_phone: string
   delivery_address: string
+  delivery_province?: string
+  delivery_city?: string
+  delivery_commune?: string
+  delivery_street?: string
+  delivery_building_number?: string
+  delivery_landmark?: string
+  delivery_province_id?: string
+  delivery_city_id?: string
+  delivery_commune_id?: string
   delivery_notes: string
   points_finalized: boolean
   accepted_at?: string | null
@@ -1204,6 +1213,15 @@ export interface SellerOrder {
   delivery_contact_name: string
   delivery_phone: string
   delivery_address: string
+  delivery_province?: string
+  delivery_city?: string
+  delivery_commune?: string
+  delivery_street?: string
+  delivery_building_number?: string
+  delivery_landmark?: string
+  delivery_province_id?: string
+  delivery_city_id?: string
+  delivery_commune_id?: string
   delivery_notes: string
   points_finalized: boolean
   accepted_at?: string | null

@@ -151,6 +151,15 @@ type OrderResponse struct {
 	DeliveryContactName    string              `json:"delivery_contact_name"`
 	DeliveryPhone          string              `json:"delivery_phone"`
 	DeliveryAddress        string              `json:"delivery_address"`
+	DeliveryProvince       string              `json:"delivery_province"`
+	DeliveryCity           string              `json:"delivery_city"`
+	DeliveryCommune        string              `json:"delivery_commune"`
+	DeliveryStreet         string              `json:"delivery_street"`
+	DeliveryBuildingNumber string              `json:"delivery_building_number"`
+	DeliveryLandmark       string              `json:"delivery_landmark"`
+	DeliveryProvinceID     *uuid.UUID          `json:"delivery_province_id,omitempty"`
+	DeliveryCityID         *uuid.UUID          `json:"delivery_city_id,omitempty"`
+	DeliveryCommuneID      *uuid.UUID          `json:"delivery_commune_id,omitempty"`
 	DeliveryNotes          string              `json:"delivery_notes"`
 	DeliveryStatus         string              `json:"delivery_status"`
 	AssignedCourierID      *uuid.UUID          `json:"assigned_courier_id,omitempty"`

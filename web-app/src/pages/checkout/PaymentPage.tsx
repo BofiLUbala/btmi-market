@@ -41,6 +41,15 @@ function PaymentInner() {
   const [confirming, setConfirming] = useState(false)
   const selectedMethod = quote?.payment_methods.find(method => method.code === paymentMethod)
 
+  // Read the address back from the order, so the recap survives a reload and a
+  // later visit - the router state only exists on the first hop from Delivery.
+  const deliveryProvince = order?.order.delivery_province || summary?.delivery.province || ''
+  const deliveryCity = order?.order.delivery_city || summary?.delivery.city || ''
+  const deliveryCommune = order?.order.delivery_commune || summary?.delivery.commune || ''
+  const deliveryStreet = order?.order.delivery_street || summary?.delivery.street || ''
+  const deliveryBuildingNumber = order?.order.delivery_building_number || summary?.delivery.building_number || ''
+  const deliveryLandmark = order?.order.delivery_landmark || summary?.delivery.landmark || ''
+
   useEffect(() => {
     if (!orderId) {
       navigate('/cart', { replace: true })
@@ -140,14 +149,14 @@ function PaymentInner() {
             <span>{t('cart.products')}</span>
             <span>{formatMoney(summary.products_final_total)}</span>
           </div>
-          {summary.delivery.commune && (
+          {deliveryCommune && (
             <dl className="address-summary">
-              <div><dt>Province</dt><dd>{summary.delivery.province}</dd></div>
-              <div><dt>Ville</dt><dd>{summary.delivery.city}</dd></div>
-              <div><dt>Commune</dt><dd>{summary.delivery.commune}</dd></div>
-              <div><dt>Adresse</dt><dd>{summary.delivery.street}</dd></div>
-              <div><dt>Numéro</dt><dd>{summary.delivery.building_number}</dd></div>
-              {summary.delivery.landmark && <div><dt>Instructions</dt><dd>{summary.delivery.landmark}</dd></div>}
+              <div><dt>Province</dt><dd>{deliveryProvince}</dd></div>
+              <div><dt>Ville</dt><dd>{deliveryCity}</dd></div>
+              <div><dt>Commune</dt><dd>{deliveryCommune}</dd></div>
+              <div><dt>Adresse</dt><dd>{deliveryStreet}</dd></div>
+              <div><dt>Numéro</dt><dd>{deliveryBuildingNumber}</dd></div>
+              {deliveryLandmark && <div><dt>Instructions</dt><dd>{deliveryLandmark}</dd></div>}
             </dl>
           )}
           <div className="total-row">
