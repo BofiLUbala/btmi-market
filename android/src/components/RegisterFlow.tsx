@@ -10,7 +10,7 @@ import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { sellerIntent } from '../store/sellerIntent'
 import { useAuth } from '../store/auth'
-import { isKinshasa } from '../lib/drcLocations'
+import { StructuredAddressFields, type StructuredAddressValue } from './StructuredAddressFields'
 import { radius, spacing, type Colors } from '../theme'
 
 const PASSWORD_RULES = [
@@ -47,10 +47,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
   const [backupPhone, setBackupPhone] = useState('')
 
   // Step 3: Address & Location
-  const [country, setCountry] = useState('République Démocratique du Congo')
-  const [city, setCity] = useState('Kinshasa')
-  const [commune, setCommune] = useState('Gombe')
-  const [address, setAddress] = useState('')
+  const [address, setAddress] = useState<StructuredAddressValue>({ province: 'Kinshasa', city: 'Kinshasa', commune: 'Gombe', street: '', building_number: '', landmark: '' })
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
 
@@ -98,7 +95,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
     }
 
     if (currentStep === 3) {
-      if (!country.trim() || !city.trim() || !address.trim()) {
+      if (!address.province.trim() || !address.city.trim() || !address.commune.trim() || !address.street.trim() || !address.building_number.trim()) {
         setError(t('auth.register.fillAllFields'))
         return false
       }
@@ -130,10 +127,9 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
         email: email.trim().toLowerCase(),
         password,
         password_confirmation: confirmation,
-        country: country.trim() || undefined,
-        city: city.trim() || undefined,
-        commune: commune.trim() || undefined,
-        address: address.trim() || undefined,
+        country: 'DRC',
+        ...address,
+        address: [address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', '),
         latitude,
         longitude,
       }
@@ -300,10 +296,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
         {/* Step 3: Address & Location */}
         {step === 3 && (
           <Card>
-            <Field label={t('auth.register.country')} value={country} onChangeText={setCountry} />
-            <Field label={t('auth.register.city')} value={city} onChangeText={setCity} />
-            <Field label={t('auth.register.commune')} value={commune} onChangeText={setCommune} placeholder={isKinshasa(city) ? 'Gombe, Limete, etc.' : t('common.optional')} />
-            <Field label={t('auth.register.address')} value={address} onChangeText={setAddress} placeholder={t('auth.register.addressPlaceholder')} multiline />
+            <StructuredAddressFields value={address} onChange={setAddress} />
             <View style={styles.btnRow}>
               <View style={styles.btnCol}>
                 <Button title={`← ${t('auth.register.back')}`} variant="outline" onPress={prevStep} />
@@ -336,9 +329,8 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
 
             <View style={styles.summaryBlock}>
               <Text style={styles.summaryLabel}>{t('auth.register.addressDetails')}</Text>
-              <Text style={styles.summaryVal}>{country}</Text>
-              <Text style={styles.summaryVal}>{[commune, city].filter(Boolean).join(', ')}</Text>
-              <Text style={styles.summaryVal}>{address}</Text>
+              <Text style={styles.summaryVal}>{[address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', ')}</Text>
+              {address.landmark ? <Text style={styles.summaryVal}>{address.landmark}</Text> : null}
             </View>
 
             {accountType === 'SELLER' && (

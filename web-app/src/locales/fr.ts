@@ -1940,6 +1940,7 @@ export const fr = {
   'admin.layout.itemBuyerPoints': "Points acheteurs",
   'admin.layout.itemCases': "Litiges et réclamations",
   'admin.layout.itemCashPayments': "Paiements cash",
+  'admin.finance.paymentConfiguration': "Configuration des paiements",
   'admin.layout.itemCommissions': "Commissions sur ventes",
   'admin.layout.itemCashConfirmation': "Confirmation cash",
   'admin.layout.itemSupport': "Support",

@@ -49,6 +49,10 @@ export interface RegisterRequest {
   password: string
   password_confirmation: string
   address?: string
+  province: string
+  street: string
+  building_number: string
+  landmark?: string
   city?: string
   commune?: string
   country?: string
@@ -66,6 +70,10 @@ export interface BuyerProfile {
   phone: string
   backup_phone: string
   address: string
+  province: string
+  street: string
+  building_number: string
+  landmark: string
   email: string
   city?: string
   commune?: string
@@ -601,6 +609,7 @@ export interface SelectDeliveryRequest {
   contact_name?: string
   phone?: string
   address?: string
+  province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
   notes?: string
 }
 
@@ -655,6 +664,8 @@ export interface BuyerPayment {
   delivery_points_discount: number
   delivery_fee_final: number
   cash_due: number
+  payment_markup: number; final_total: number; provider?: string
+  provider_reference?: string; payment_timing: 'NOW' | 'DELIVERY'
   buyer_confirmed: boolean
   buyer_confirmed_at?: string | null
   seller_confirmed: boolean
@@ -665,6 +676,8 @@ export interface BuyerPayment {
   created_at: string
   updated_at: string
 }
+export interface PaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_amount: number; quoted_total: number; provider?: string }
+export interface CheckoutQuote { order_id: string; currency: string; subtotal: number; discount: number; points_discount: number; delivery_fee: number; payment_markup: number; final_total: number; selected_payment_method: string; payment_methods: PaymentMethodConfig[] }
 
 /* ---------- Tracking ---------- */
 
@@ -762,6 +775,11 @@ export interface SellerBusiness {
   email?: string
   country?: string
   city?: string
+  province: string
+  commune: string
+  street: string
+  building_number: string
+  landmark: string
   default_currency?: string
   status: string
   created_at: string
@@ -791,6 +809,11 @@ export interface Shop {
   type: string
   city: string
   address: string
+  province: string
+  commune: string
+  street: string
+  building_number: string
+  landmark: string
   phone: string
   status: string
   supports_shop_delivery: boolean
@@ -811,8 +834,13 @@ export interface CreateBusinessRequest {
   phone: string
   whatsapp?: string
   email: string
-  country: string
+  country?: string
+  province: string
   city: string
+  commune: string
+  street: string
+  building_number: string
+  landmark?: string
   default_currency: string
   description?: string
   registration_number?: string
@@ -824,6 +852,11 @@ export interface CreateShopRequest {
   type: string
   city: string
   address: string
+  province: string
+  commune: string
+  street: string
+  building_number: string
+  landmark?: string
   phone: string
   supports_shop_delivery?: boolean
   shop_delivery_fee?: number
@@ -839,6 +872,11 @@ export interface UpdateShopRequest {
   type?: string
   city?: string
   address?: string
+  province?: string
+  commune?: string
+  street?: string
+  building_number?: string
+  landmark?: string
   phone?: string
   status?: string
   supports_shop_delivery?: boolean

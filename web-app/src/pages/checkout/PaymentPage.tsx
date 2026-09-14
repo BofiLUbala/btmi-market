@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { marketplaceApi } from '@/api/marketplace'
-import { ApiError, type BuyerPayment, type DeliverySelectResponse, type OrderWithLines, type PublicProductDetail } from '@/api/types'
+import { ApiError, type BuyerPayment, type CheckoutQuote, type DeliverySelectResponse, type OrderWithLines, type PublicProductDetail } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney } from '@/lib/format'
@@ -29,12 +29,16 @@ function PaymentInner() {
 
   const methodLabel = (m: string) => (METHOD_LABEL[m] ? t(METHOD_LABEL[m]) : m.replace(/_/g, ' '))
 
+
   const [payment, setPayment] = useState<BuyerPayment | null>(null)
+  const [quote, setQuote] = useState<CheckoutQuote | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState('')
   const [order, setOrder] = useState<OrderWithLines | null>(null)
   const [products, setProducts] = useState<Record<string, PublicProductDetail>>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState(false)
+  const selectedMethod = quote?.payment_methods.find(method => method.code === paymentMethod)
 
   useEffect(() => {
     if (!orderId) {
@@ -42,8 +46,8 @@ function PaymentInner() {
       return
     }
     let mounted = true
-    Promise.all([buyerApi.createPayment(orderId), buyerApi.orderDetail(orderId)]).then(
-      ([p, o]) => { if (mounted) { setPayment(p); setOrder(o) } },
+    Promise.all([buyerApi.checkoutQuote(orderId), buyerApi.orderDetail(orderId)]).then(
+      ([q, o]) => { if (mounted) { setQuote(q); setPaymentMethod(q.payment_methods[0]?.code || ''); setOrder(o) } },
       (e: unknown) => mounted && setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare'))
     ).finally(() => mounted && setLoading(false))
     return () => {
@@ -62,11 +66,15 @@ function PaymentInner() {
   }, [order])
 
   async function confirmCash() {
-    if (!payment) return
+    if (!orderId || !paymentMethod) return
     setConfirming(true)
     setError('')
     try {
-      const updated = await buyerApi.buyerConfirmPayment(payment.id)
+      const created = payment || await buyerApi.createPayment(orderId, paymentMethod)
+      setPayment(created)
+      // Cash/mobile-at-delivery stays DUE. Buyer confirmation is only the
+      // checkout order confirmation, never proof that funds were received.
+      const updated = created
       setPayment(updated)
       navigate(`/orders/${orderId}/success`, {
         state: { payment: updated },
@@ -79,7 +87,7 @@ function PaymentInner() {
   }
 
   if (loading) return <LoadingBlock label={t('payment.preparing')} />
-  if (!payment)
+  if (!quote)
     return <ErrorBox error={error || t('payment.noPayment')} onRetry={() => window.location.reload()} />
 
   return (
@@ -91,6 +99,17 @@ function PaymentInner() {
 
       <div className="checkout-layout">
         <div className="checkout-content stack">
+          <section className="checkout-card">
+            <div className="checkout-card-head"><h2>Mode de paiement</h2><span>Configuré par Finance</span></div>
+            <div className="stack">
+              {quote.payment_methods.map(method => (
+                <label className={`delivery-option ${paymentMethod === method.code ? 'selected' : ''}`} key={method.code}>
+                  <input type="radio" name="payment_method" value={method.code} checked={paymentMethod === method.code} onChange={() => setPaymentMethod(method.code)} />
+                  <span><strong>{method.label}</strong><br/><small className="muted">{method.timing === 'NOW' ? 'Paiement vérifié par le prestataire avant confirmation' : 'Paiement exigible à la livraison'}</small></span>
+                </label>
+              ))}
+            </div>
+          </section>
           <section className="checkout-card"><div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{order?.order.total_items ?? 0} {order?.order.total_items === 1 ? t('cart.item') : t('cart.items')}</span></div>
           {order?.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); return <div className="review-order-line" key={line.id}><div><strong>{product?.name ?? t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong><span>{variant?.name || variant?.sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span></div><strong>{formatMoney((line.final_unit_price || line.unit_price) * line.quantity)}</strong></div> })}
           </section>
@@ -120,16 +139,13 @@ function PaymentInner() {
 
       <aside className="checkout-card checkout-summary">
         <span className="eyebrow">{t('payment.finalSummary')}</span>
-        <div className="summary-lines"><div><span>{t('cart.products')}</span><strong>{formatMoney(payment.products_base_total, payment.currency)}</strong></div><div><span>{t('payment.productPoints')}</span><strong className="discount">−{formatMoney(payment.products_points_discount, payment.currency)}</strong></div><div><span>{t('product.delivery')}</span><strong>{formatMoney(payment.delivery_fee_base, payment.currency)}</strong></div><div><span>{t('payment.deliveryPoints')}</span><strong className="discount">−{formatMoney(payment.delivery_points_discount, payment.currency)}</strong></div></div>
-        <div className="summary-total"><span>{t('payment.totalCash')}</span><strong>{formatMoney(payment.cash_due, payment.currency)}</strong><small>{t('payment.cashNote')}</small></div>
+        <div className="summary-lines"><div><span>{t('cart.products')}</span><strong>{formatMoney(quote.subtotal, quote.currency)}</strong></div><div><span>{t('payment.productPoints')}</span><strong className="discount">−{formatMoney(quote.points_discount, quote.currency)}</strong></div><div><span>{t('product.delivery')}</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div><div><span>Frais mode de paiement</span><strong>{formatMoney(selectedMethod?.markup_amount ?? 0, quote.currency)}</strong></div></div>
+        <div className="summary-total"><span>Total</span><strong>{formatMoney(selectedMethod?.quoted_total ?? quote.final_total, quote.currency)}</strong><small>Le montant final est calculé par le serveur.</small></div>
         <div className="pay-note">
-          {payment.products_points_used > 0 && t('payment.productsPts', { count: payment.products_points_used })}
-          {payment.delivery_points_used > 0 &&
-            `${payment.products_points_used > 0 ? ' · ' : ''}${t('payment.deliveryPts', { count: payment.delivery_points_used })}`}
-          {payment.buyer_confirmed ? ` · ${t('payment.alreadyConfirmed')}` : ''}
+          {payment?.status ? `Statut du paiement : ${payment.status}` : 'Aucun paiement enregistré avant confirmation.'}
         </div>
-        <Button variant="accent" size="lg" block onClick={confirmCash} loading={confirming} disabled={payment.buyer_confirmed}>
-          {payment.buyer_confirmed ? t('payment.orderConfirmed') : t('payment.placeOrder')}
+        <Button variant="accent" size="lg" block onClick={confirmCash} loading={confirming} disabled={!paymentMethod || Boolean(payment)}>
+          {payment ? t('payment.orderConfirmed') : t('payment.placeOrder')}
         </Button>
       </aside>
       </div>

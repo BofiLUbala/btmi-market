@@ -15,6 +15,7 @@ import (
 
 type PaymentService struct {
 	paymentRepo        *repository.BuyerPaymentRepository
+	paymentConfigRepo  *repository.PaymentConfigRepository
 	orderRepo          *repository.OrderRepository
 	shopRepo           *repository.ShopRepository
 	pointRepo          *repository.PointAccountRepository
@@ -36,6 +37,7 @@ type PaymentService struct {
 
 func NewPaymentService(
 	paymentRepo *repository.BuyerPaymentRepository,
+	paymentConfigRepo *repository.PaymentConfigRepository,
 	orderRepo *repository.OrderRepository,
 	shopRepo *repository.ShopRepository,
 	pointRepo *repository.PointAccountRepository,
@@ -55,6 +57,7 @@ func NewPaymentService(
 ) *PaymentService {
 	return &PaymentService{
 		paymentRepo:        paymentRepo,
+		paymentConfigRepo:  paymentConfigRepo,
 		orderRepo:          orderRepo,
 		shopRepo:           shopRepo,
 		pointRepo:          pointRepo,
@@ -104,7 +107,11 @@ func (s *PaymentService) requireShopAccess(userID, shopID uuid.UUID) error {
 
 // CreatePayment creates a CASH payment for an order, deriving every amount from
 // the Order + Delivery snapshot. The client never sends amounts.
-func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*models.BuyerPaymentResponse, error) {
+func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, requestedMethod ...string) (*models.BuyerPaymentResponse, error) {
+	paymentMethod := models.PaymentMethodCashOnDelivery
+	if len(requestedMethod) > 0 && strings.TrimSpace(requestedMethod[0]) != "" {
+		paymentMethod = strings.TrimSpace(requestedMethod[0])
+	}
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
 		return nil, mapOrderNotFoundErr(err)
@@ -129,10 +136,31 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*mode
 		return nil, err
 	}
 	if existing != nil {
+		if existing.PaymentMethod != paymentMethod {
+			return nil, errors.New("PAYMENT_ALREADY_SELECTED")
+		}
 		return s.toResponse(existing), nil
 	}
+	config, err := s.paymentConfigRepo.Get(paymentMethod)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil || !config.Enabled {
+		return nil, errors.New("PAYMENT_METHOD_UNAVAILABLE")
+	}
+	if config.Timing == "NOW" && strings.TrimSpace(config.Provider) == "" {
+		return nil, errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
+	}
 
-	cashDue := order.FinalTotal + order.DeliveryFeeFinal
+	baseDue := order.FinalTotal + order.DeliveryFeeFinal
+	markup := 0.0
+	switch config.MarkupType {
+	case "PERCENTAGE":
+		markup = baseDue * config.MarkupValue / 100
+	case "FIXED":
+		markup = config.MarkupValue
+	}
+	cashDue := baseDue + markup
 	if cashDue < 0 {
 		cashDue = 0
 	}
@@ -142,7 +170,7 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*mode
 		BusinessID:             order.BusinessID,
 		ShopID:                 order.ShopID,
 		BuyerProfileID:         buyerProfileID,
-		PaymentMethod:          models.BuyerPaymentMethodCash,
+		PaymentMethod:          config.Code,
 		Currency:               "CDF",
 		ProductsBaseTotal:      order.BaseTotal,
 		ProductsPointsUsed:     order.PointsUsed,
@@ -153,7 +181,11 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*mode
 		DeliveryPointsDiscount: order.DeliveryPointsDiscount,
 		DeliveryFeeFinal:       order.DeliveryFeeFinal,
 		CashDue:                cashDue,
-		Status:                 models.BuyerPaymentStatusPending,
+		PaymentMarkup:          markup,
+		FinalTotal:             cashDue,
+		Provider:               config.Provider,
+		PaymentTiming:          config.Timing,
+		Status:                 models.BuyerPaymentStatusDue,
 	}
 
 	if err := s.paymentRepo.Create(payment); err != nil {
@@ -161,6 +193,36 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID) (*mode
 	}
 
 	return s.toResponse(payment), nil
+}
+
+func (s *PaymentService) Quote(buyerProfileID, orderID uuid.UUID) (*models.CheckoutQuote, error) {
+	order, err := s.orderRepo.GetByID(orderID)
+	if err != nil {
+		return nil, mapOrderNotFoundErr(err)
+	}
+	if order.BuyerProfileID == nil || *order.BuyerProfileID != buyerProfileID {
+		return nil, errors.New("FORBIDDEN")
+	}
+	if order.DeliveryMethod == "" {
+		return nil, errors.New("DELIVERY_NOT_SELECTED")
+	}
+	methods, err := s.paymentConfigRepo.List(true)
+	if err != nil {
+		return nil, err
+	}
+	baseDue := order.FinalTotal + order.DeliveryFeeFinal
+	for index := range methods {
+		switch methods[index].MarkupType {
+		case "PERCENTAGE":
+			methods[index].MarkupAmount = baseDue * methods[index].MarkupValue / 100
+		case "FIXED":
+			methods[index].MarkupAmount = methods[index].MarkupValue
+		}
+		methods[index].QuotedTotal = baseDue + methods[index].MarkupAmount
+	}
+	return &models.CheckoutQuote{OrderID: order.ID.String(), Currency: "CDF", Subtotal: order.BaseTotal, Discount: 0,
+		PointsDiscount: order.PointsDiscountAmount + order.DeliveryPointsDiscount, DeliveryFee: order.DeliveryFeeFinal,
+		FinalTotal: order.FinalTotal + order.DeliveryFeeFinal, PaymentMethods: methods}, nil
 }
 
 func (s *PaymentService) GetPaymentByOrder(buyerProfileID, orderID uuid.UUID) (*models.BuyerPaymentResponse, error) {
@@ -466,6 +528,11 @@ func (s *PaymentService) toResponse(p *models.BuyerPayment) *models.BuyerPayment
 		DeliveryPointsDiscount: p.DeliveryPointsDiscount,
 		DeliveryFeeFinal:       p.DeliveryFeeFinal,
 		CashDue:                p.CashDue,
+		PaymentMarkup:          p.PaymentMarkup,
+		FinalTotal:             p.FinalTotal,
+		Provider:               p.Provider,
+		ProviderReference:      p.ProviderReference,
+		PaymentTiming:          p.PaymentTiming,
 		BuyerConfirmed:         p.BuyerConfirmed,
 		BuyerConfirmedAt:       p.BuyerConfirmedAt,
 		SellerConfirmed:        p.SellerConfirmed,

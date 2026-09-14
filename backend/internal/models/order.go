@@ -48,6 +48,12 @@ type Order struct {
 	DeliveryPhone          string      `json:"delivery_phone" db:"delivery_phone"`
 	DeliveryAddress        string      `json:"delivery_address" db:"delivery_address"`
 	DeliveryNotes          string      `json:"delivery_notes" db:"delivery_notes"`
+	DeliveryProvince       string      `json:"delivery_province" db:"delivery_province"`
+	DeliveryCity           string      `json:"delivery_city" db:"delivery_city"`
+	DeliveryCommune        string      `json:"delivery_commune" db:"delivery_commune"`
+	DeliveryStreet         string      `json:"delivery_street" db:"delivery_street"`
+	DeliveryBuildingNumber string      `json:"delivery_building_number" db:"delivery_building_number"`
+	DeliveryLandmark       string      `json:"delivery_landmark" db:"delivery_landmark"`
 	DeliveryStatus         string      `json:"delivery_status" db:"delivery_status"`
 	AssignedCourierID      *uuid.UUID  `json:"assigned_courier_id" db:"assigned_courier_id"`
 	DeliveryLatitude       *float64    `json:"delivery_latitude" db:"delivery_latitude"`
@@ -212,13 +218,13 @@ const (
 	DeliveryMethodPartner      = "PARTNER"
 	DeliveryMethodTBK          = "TBK_STANDARD"
 
-	DeliveryStatusPendingTBK       = "PENDING_TBK_ASSIGNMENT"
-	DeliveryStatusCourierAssigned  = "COURIER_ASSIGNED"
-	DeliveryStatusReadyForPickup   = "READY_FOR_PICKUP"
-	DeliveryStatusPickedUp         = "PICKED_UP"
-	DeliveryStatusInTransit        = "IN_TRANSIT"
-	DeliveryStatusDelivered        = "DELIVERED"
-	DeliveryStatusReceived         = "RECEIVED"
+	DeliveryStatusPendingTBK      = "PENDING_TBK_ASSIGNMENT"
+	DeliveryStatusCourierAssigned = "COURIER_ASSIGNED"
+	DeliveryStatusReadyForPickup  = "READY_FOR_PICKUP"
+	DeliveryStatusPickedUp        = "PICKED_UP"
+	DeliveryStatusInTransit       = "IN_TRANSIT"
+	DeliveryStatusDelivered       = "DELIVERED"
+	DeliveryStatusReceived        = "RECEIVED"
 )
 
 type DeliveryOption struct {
@@ -242,6 +248,12 @@ type SelectDeliveryRequest struct {
 	ContactName          string   `json:"contact_name"`
 	Phone                string   `json:"phone"`
 	Address              string   `json:"address"`
+	Province             string   `json:"province"`
+	City                 string   `json:"city"`
+	Commune              string   `json:"commune"`
+	Street               string   `json:"street"`
+	BuildingNumber       string   `json:"building_number"`
+	Landmark             string   `json:"landmark"`
 	Notes                string   `json:"notes"`
 	Latitude             *float64 `json:"latitude,omitempty"`
 	Longitude            *float64 `json:"longitude,omitempty"`

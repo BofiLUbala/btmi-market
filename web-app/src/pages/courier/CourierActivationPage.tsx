@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { API_BASE } from '@/api/client'
+import { StructuredAddressFields, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
 export default function CourierActivationPage() {
   const [searchParams] = useSearchParams()
@@ -16,6 +17,7 @@ export default function CourierActivationPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [address, setAddress] = useState<StructuredAddressValue>({ province: 'Kinshasa', city: 'Kinshasa', commune: '', street: '', building_number: '', landmark: '' })
 
   useEffect(() => {
     if (!token) {
@@ -67,6 +69,12 @@ export default function CourierActivationPage() {
           token,
           password,
           password_confirmation: confirmPassword,
+          province: address.province,
+          city: address.city,
+          commune: address.commune,
+          street: address.street,
+          building_number: address.building_number,
+          landmark: address.landmark,
         })
       })
       
@@ -278,6 +286,16 @@ export default function CourierActivationPage() {
                 fontSize: 14
               }}
             />
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20, marginBottom: 24 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>
+              Profile Address
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
+              Where are you based for picking up packages?
+            </p>
+            <StructuredAddressFields value={address} onChange={setAddress} />
           </div>
 
           <button

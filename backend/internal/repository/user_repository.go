@@ -127,6 +127,12 @@ func (r *UserRepository) UpdateStatus(id uuid.UUID, status models.UserStatus) er
 	return err
 }
 
+func (r *UserRepository) UpdatePhone(id uuid.UUID, phone string) error {
+	query := `UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2`
+	_, err := r.db.Exec(query, phone, id)
+	return err
+}
+
 func (r *UserRepository) UpdateEmailVerified(id uuid.UUID, verified bool) error {
 	query := `UPDATE users SET email_verified = $1, updated_at = NOW() WHERE id = $2`
 	_, err := r.db.Exec(query, verified, id)

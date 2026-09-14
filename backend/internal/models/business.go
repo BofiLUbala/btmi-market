@@ -33,7 +33,12 @@ type Business struct {
 	Whatsapp        string         `json:"whatsapp" db:"whatsapp"`
 	Email           string         `json:"email" db:"email"`
 	Country         string         `json:"country" db:"country"`
+	Province        string         `json:"province" db:"province"`
 	City            string         `json:"city" db:"city"`
+	Commune         string         `json:"commune" db:"commune"`
+	Street          string         `json:"street" db:"street"`
+	BuildingNumber  string         `json:"building_number" db:"building_number"`
+	Landmark        string         `json:"landmark" db:"landmark"`
 	DefaultCurrency string         `json:"default_currency" db:"default_currency"`
 	Status          BusinessStatus `json:"status" db:"status"`
 	CreatedAt       time.Time      `json:"created_at" db:"created_at"`
@@ -47,8 +52,13 @@ type CreateBusinessRequest struct {
 	Phone           string `json:"phone" binding:"required"`
 	Whatsapp        string `json:"whatsapp"`
 	Email           string `json:"email" binding:"required,email"`
-	Country         string `json:"country" binding:"required"`
+	Country         string `json:"country"`
+	Province        string `json:"province" binding:"required"`
 	City            string `json:"city" binding:"required"`
+	Commune         string `json:"commune" binding:"required"`
+	Street          string `json:"street" binding:"required"`
+	BuildingNumber  string `json:"building_number" binding:"required"`
+	Landmark        string `json:"landmark"`
 	DefaultCurrency string `json:"default_currency" binding:"required"`
 }
 
@@ -60,7 +70,12 @@ type UpdateBusinessRequest struct {
 	Whatsapp        *string `json:"whatsapp"`
 	Email           *string `json:"email"`
 	Country         *string `json:"country"`
+	Province        *string `json:"province"`
 	City            *string `json:"city"`
+	Commune         *string `json:"commune"`
+	Street          *string `json:"street"`
+	BuildingNumber  *string `json:"building_number"`
+	Landmark        *string `json:"landmark"`
 	DefaultCurrency *string `json:"default_currency"`
 }
 
@@ -100,7 +115,12 @@ type BusinessResponse struct {
 	Whatsapp        string         `json:"whatsapp"`
 	Email           string         `json:"email"`
 	Country         string         `json:"country"`
+	Province        string         `json:"province"`
 	City            string         `json:"city"`
+	Commune         string         `json:"commune"`
+	Street          string         `json:"street"`
+	BuildingNumber  string         `json:"building_number"`
+	Landmark        string         `json:"landmark"`
 	DefaultCurrency string         `json:"default_currency"`
 	Status          BusinessStatus `json:"status"`
 	CreatedAt       time.Time      `json:"created_at"`

@@ -929,7 +929,7 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 	}
 
 	if method != models.DeliveryMethodPickup {
-		if strings.TrimSpace(req.Address) == "" {
+		if strings.TrimSpace(req.Province) == "" || strings.TrimSpace(req.City) == "" || strings.TrimSpace(req.Commune) == "" || strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.BuildingNumber) == "" {
 			return nil, errors.New("DELIVERY_ADDRESS_REQUIRED")
 		}
 		if strings.TrimSpace(req.ContactName) == "" {
@@ -975,7 +975,13 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 	delivery.DeliveryFeeFinal = feeFinal
 	delivery.DeliveryContactName = strings.TrimSpace(req.ContactName)
 	delivery.DeliveryPhone = strings.TrimSpace(req.Phone)
-	delivery.DeliveryAddress = strings.TrimSpace(req.Address)
+	delivery.DeliveryProvince = strings.TrimSpace(req.Province)
+	delivery.DeliveryCity = strings.TrimSpace(req.City)
+	delivery.DeliveryCommune = strings.TrimSpace(req.Commune)
+	delivery.DeliveryStreet = strings.TrimSpace(req.Street)
+	delivery.DeliveryBuildingNumber = strings.TrimSpace(req.BuildingNumber)
+	delivery.DeliveryLandmark = strings.TrimSpace(req.Landmark)
+	delivery.DeliveryAddress = strings.Join([]string{delivery.DeliveryStreet, delivery.DeliveryBuildingNumber, delivery.DeliveryCommune, delivery.DeliveryCity, delivery.DeliveryProvince}, ", ")
 	delivery.DeliveryNotes = strings.TrimSpace(req.Notes)
 	if req.Latitude != nil {
 		delivery.DeliveryLatitude = req.Latitude

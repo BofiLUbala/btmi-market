@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,15 +11,49 @@ import (
 )
 
 type AdminFinanceService struct {
-	repo         *repository.AdminFinanceRepository
-	auditService *AuditService
+	repo              *repository.AdminFinanceRepository
+	auditService      *AuditService
+	paymentConfigRepo *repository.PaymentConfigRepository
 }
 
-func NewAdminFinanceService(repo *repository.AdminFinanceRepository, auditService *AuditService) *AdminFinanceService {
-	return &AdminFinanceService{
-		repo:         repo,
-		auditService: auditService,
+func NewAdminFinanceService(repo *repository.AdminFinanceRepository, auditService *AuditService, paymentConfigRepo ...*repository.PaymentConfigRepository) *AdminFinanceService {
+	var configRepo *repository.PaymentConfigRepository
+	if len(paymentConfigRepo) > 0 {
+		configRepo = paymentConfigRepo[0]
 	}
+	return &AdminFinanceService{
+		repo:              repo,
+		auditService:      auditService,
+		paymentConfigRepo: configRepo,
+	}
+}
+
+func (s *AdminFinanceService) ListPaymentConfigs(role models.AdminRole) ([]models.PaymentMethodConfig, error) {
+	if err := s.checkFinanceAccess(role); err != nil {
+		return nil, err
+	}
+	if s.paymentConfigRepo == nil {
+		return nil, errors.New("payment configuration repository unavailable")
+	}
+	return s.paymentConfigRepo.List(false)
+}
+
+func (s *AdminFinanceService) UpdatePaymentConfig(adminID uuid.UUID, role models.AdminRole, code string, req *models.UpdatePaymentMethodConfigRequest) (*models.PaymentMethodConfig, error) {
+	if err := s.checkFinanceMutation(role); err != nil {
+		return nil, err
+	}
+	if s.paymentConfigRepo == nil {
+		return nil, errors.New("payment configuration repository unavailable")
+	}
+	old, _ := s.paymentConfigRepo.Get(code)
+	updated, err := s.paymentConfigRepo.Update(code, req, adminID)
+	if err != nil {
+		return nil, err
+	}
+	if s.auditService != nil {
+		_ = s.auditService.Record(adminID, role, "UPDATE_PAYMENT_CONFIGURATION", "PAYMENT_METHOD_CONFIG", code, "Finance payment configuration update", old, updated, "", "")
+	}
+	return updated, nil
 }
 
 // Check RBAC permissions for Finance / Support / Trust

@@ -10,6 +10,7 @@ import { useAuth } from '@/store/auth'
 import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
+import { StructuredAddressFields, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
 function DeliveryInner() {
   const navigate = useNavigate()
@@ -27,10 +28,11 @@ function DeliveryInner() {
     return {
       contact_name: name,
       phone,
-      address: fullAddress || (user?.city ? `${t('delivery.cityPrefix')}${user.city}` : ''),
+      address: fullAddress || '',
       notes: ''
     }
   })
+  const [address, setAddress] = useState<StructuredAddressValue>({ province: '', city: buyerProfile?.city || user?.city || '', commune: buyerProfile?.commune || '', street: buyerProfile?.address || '', building_number: '', landmark: '' })
   const [previewFee, setPreviewFee] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -49,12 +51,7 @@ function DeliveryInner() {
     }))
   }, [buyerProfile, user, t])
 
-  const defaultAddress = useMemo(() => (user?.city ? `${t('delivery.cityPrefix')}${user.city}` : ''), [user?.city, t])
-
-  const isAddressIncomplete = useMemo(() => {
-    const addr = contact.address.trim()
-    return !addr || (!!defaultAddress && addr.toLowerCase() === defaultAddress.toLowerCase())
-  }, [contact.address, defaultAddress])
+  const isAddressIncomplete = useMemo(() => !address.province.trim() || !address.city.trim() || !address.commune.trim() || !address.street.trim() || !address.building_number.trim(), [address])
 
   const isFormInvalid = useMemo(() => {
     return !contact.contact_name.trim() || !contact.phone.trim() || isAddressIncomplete
@@ -118,6 +115,7 @@ function DeliveryInner() {
         contact_name: contact.contact_name.trim(),
         phone: contact.phone.trim(),
         address: contact.address.trim(),
+        province: address.province.trim(), city: address.city.trim(), commune: address.commune.trim(), street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
         notes: contact.notes.trim()
       })
       navigate('/checkout/payment', {
@@ -215,14 +213,7 @@ function DeliveryInner() {
               value={contact.phone}
               onChange={(e) => setContact({ ...contact, phone: e.target.value })}
             />
-            <Field
-              label={t('delivery.deliveryAddress')}
-              name="address"
-              required
-              value={contact.address}
-              onChange={(e) => setContact({ ...contact, address: e.target.value })}
-              placeholder={t('delivery.addressPlaceholder')}
-            />
+            <StructuredAddressFields value={address} onChange={setAddress} />
             {isAddressIncomplete && contact.address.trim().length > 0 && (
               <p className="small" style={{ color: 'var(--color-danger)', marginTop: -8, marginBottom: 12 }}>
                 {t('delivery.addressIncomplete')}

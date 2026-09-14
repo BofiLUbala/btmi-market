@@ -21,22 +21,31 @@ func NewCourierRepository(db *database.DB) *CourierRepository {
 // Create creates a new courier profile
 func (r *CourierRepository) Create(courier *models.Courier) error {
 	_, err := r.db.Exec(`
-		INSERT INTO couriers (id, user_id, status, availability, transport_type, vehicle_info, service_zone)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		INSERT INTO couriers (id, user_id, status, availability, transport_type, vehicle_info, service_zone, province, city, commune, street, building_number, landmark)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		courier.ID, courier.UserID, courier.Status, courier.Availability,
-		courier.TransportType, courier.VehicleInfo, courier.ServiceZone)
+		courier.TransportType, courier.VehicleInfo, courier.ServiceZone,
+		courier.Province, courier.City, courier.Commune, courier.Street,
+		courier.BuildingNumber, courier.Landmark)
 	return err
+}
+
+func (r *CourierRepository) selectColumns() string {
+	return `id, user_id, status, availability, transport_type, vehicle_info, service_zone,
+		province, city, commune, street, building_number, landmark,
+		activated_at, suspended_at, suspension_reason, created_at, updated_at`
 }
 
 // GetByID retrieves a courier by ID
 func (r *CourierRepository) GetByID(id uuid.UUID) (*models.Courier, error) {
 	var courier models.Courier
 	err := r.db.QueryRow(`
-		SELECT id, user_id, status, availability, transport_type, vehicle_info, service_zone,
-		       activated_at, suspended_at, suspension_reason, created_at, updated_at
+		SELECT `+r.selectColumns()+`
 		FROM couriers WHERE id = $1`, id).Scan(
 		&courier.ID, &courier.UserID, &courier.Status, &courier.Availability,
 		&courier.TransportType, &courier.VehicleInfo, &courier.ServiceZone,
+		&courier.Province, &courier.City, &courier.Commune, &courier.Street,
+		&courier.BuildingNumber, &courier.Landmark,
 		&courier.ActivatedAt, &courier.SuspendedAt, &courier.SuspensionReason,
 		&courier.CreatedAt, &courier.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -52,11 +61,12 @@ func (r *CourierRepository) GetByID(id uuid.UUID) (*models.Courier, error) {
 func (r *CourierRepository) GetByUserID(userID uuid.UUID) (*models.Courier, error) {
 	var courier models.Courier
 	err := r.db.QueryRow(`
-		SELECT id, user_id, status, availability, transport_type, vehicle_info, service_zone,
-		       activated_at, suspended_at, suspension_reason, created_at, updated_at
+		SELECT `+r.selectColumns()+`
 		FROM couriers WHERE user_id = $1`, userID).Scan(
 		&courier.ID, &courier.UserID, &courier.Status, &courier.Availability,
 		&courier.TransportType, &courier.VehicleInfo, &courier.ServiceZone,
+		&courier.Province, &courier.City, &courier.Commune, &courier.Street,
+		&courier.BuildingNumber, &courier.Landmark,
 		&courier.ActivatedAt, &courier.SuspendedAt, &courier.SuspensionReason,
 		&courier.CreatedAt, &courier.UpdatedAt)
 	if err == sql.ErrNoRows {
@@ -66,6 +76,19 @@ func (r *CourierRepository) GetByUserID(userID uuid.UUID) (*models.Courier, erro
 		return nil, err
 	}
 	return &courier, nil
+}
+
+// UpdateProfile updates the courier's profile details
+func (r *CourierRepository) UpdateProfile(courier *models.Courier) error {
+	_, err := r.db.Exec(`
+		UPDATE couriers SET
+			transport_type = $2, vehicle_info = $3, service_zone = $4,
+			province = $5, city = $6, commune = $7, street = $8,
+			building_number = $9, landmark = $10, updated_at = NOW()
+		WHERE id = $1`, courier.ID, courier.TransportType, courier.VehicleInfo,
+		courier.ServiceZone, courier.Province, courier.City, courier.Commune,
+		courier.Street, courier.BuildingNumber, courier.Landmark)
+	return err
 }
 
 // UpdateStatus updates a courier's status
@@ -107,8 +130,7 @@ func (r *CourierRepository) Reactivate(id uuid.UUID) error {
 // ListActive returns all active couriers
 func (r *CourierRepository) ListActive() ([]*models.Courier, error) {
 	rows, err := r.db.Query(`
-		SELECT id, user_id, status, availability, transport_type, vehicle_info, service_zone,
-		       activated_at, suspended_at, suspension_reason, created_at, updated_at
+		SELECT `+r.selectColumns()+`
 		FROM couriers WHERE status = 'ACTIVE' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -120,6 +142,8 @@ func (r *CourierRepository) ListActive() ([]*models.Courier, error) {
 		var c models.Courier
 		if err := rows.Scan(&c.ID, &c.UserID, &c.Status, &c.Availability,
 			&c.TransportType, &c.VehicleInfo, &c.ServiceZone,
+			&c.Province, &c.City, &c.Commune, &c.Street,
+			&c.BuildingNumber, &c.Landmark,
 			&c.ActivatedAt, &c.SuspendedAt, &c.SuspensionReason,
 			&c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
@@ -132,8 +156,7 @@ func (r *CourierRepository) ListActive() ([]*models.Courier, error) {
 // ListAll returns all couriers
 func (r *CourierRepository) ListAll(limit, offset int) ([]*models.Courier, error) {
 	rows, err := r.db.Query(`
-		SELECT id, user_id, status, availability, transport_type, vehicle_info, service_zone,
-		       activated_at, suspended_at, suspension_reason, created_at, updated_at
+		SELECT `+r.selectColumns()+`
 		FROM couriers ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, err
@@ -145,6 +168,8 @@ func (r *CourierRepository) ListAll(limit, offset int) ([]*models.Courier, error
 		var c models.Courier
 		if err := rows.Scan(&c.ID, &c.UserID, &c.Status, &c.Availability,
 			&c.TransportType, &c.VehicleInfo, &c.ServiceZone,
+			&c.Province, &c.City, &c.Commune, &c.Street,
+			&c.BuildingNumber, &c.Landmark,
 			&c.ActivatedAt, &c.SuspendedAt, &c.SuspensionReason,
 			&c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
@@ -157,8 +182,7 @@ func (r *CourierRepository) ListAll(limit, offset int) ([]*models.Courier, error
 // ListAvailableCouriers returns couriers that are ACTIVE and AVAILABLE
 func (r *CourierRepository) ListAvailableCouriers() ([]*models.Courier, error) {
 	rows, err := r.db.Query(`
-		SELECT id, user_id, status, availability, transport_type, vehicle_info, service_zone,
-		       activated_at, suspended_at, suspension_reason, created_at, updated_at
+		SELECT `+r.selectColumns()+`
 		FROM couriers WHERE status = 'ACTIVE' AND availability = 'AVAILABLE' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -170,6 +194,8 @@ func (r *CourierRepository) ListAvailableCouriers() ([]*models.Courier, error) {
 		var c models.Courier
 		if err := rows.Scan(&c.ID, &c.UserID, &c.Status, &c.Availability,
 			&c.TransportType, &c.VehicleInfo, &c.ServiceZone,
+			&c.Province, &c.City, &c.Commune, &c.Street,
+			&c.BuildingNumber, &c.Landmark,
 			&c.ActivatedAt, &c.SuspendedAt, &c.SuspensionReason,
 			&c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
@@ -222,11 +248,19 @@ func (r *CourierRepository) CountTotalDeliveries(courierUserID uuid.UUID) (int, 
 	return count, err
 }
 
+func (r *CourierRepository) shopPickupAddressExpr() string {
+	return `CASE WHEN TRIM(BOTH ', ' FROM concat_ws(', ', s.building_number, s.street, s.commune, s.city, s.province)) = ''
+	         THEN COALESCE(s.address,'')
+	         ELSE TRIM(BOTH ', ' FROM concat_ws(', ', s.building_number, s.street, s.commune, s.city, s.province))
+	              || CASE WHEN NULLIF(s.landmark,'') IS NOT NULL THEN ' — ' || s.landmark ELSE '' END
+	        END`
+}
+
 // GetMissions returns all missions for a courier
 func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.CourierMissionResponse, error) {
 	rows, err := r.db.Query(`
 		SELECT o.id, o.order_number, o.status, o.delivery_status,
-		       s.name AS shop_name, b.name, COALESCE(s.address,''), COALESCE(c.service_zone,''),
+		       s.name AS shop_name, b.name, `+r.shopPickupAddressExpr()+`, COALESCE(c.service_zone,''),
 		       (SELECT COUNT(*) FROM delivery_packages dp WHERE dp.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
 		       o.final_total, o.courier_assigned_at, o.courier_accepted_at, 
@@ -263,7 +297,7 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 	var m models.CourierMissionResponse
 	err := r.db.QueryRow(`
 		SELECT o.id, o.order_number, o.status, o.delivery_status,
-		       s.name AS shop_name, b.name, COALESCE(s.address,''), COALESCE(c.service_zone,''),
+		       s.name AS shop_name, b.name, `+r.shopPickupAddressExpr()+`, COALESCE(c.service_zone,''),
 		       (SELECT COUNT(*) FROM delivery_packages dp2 WHERE dp2.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
 		       o.final_total, o.courier_assigned_at, o.courier_accepted_at,

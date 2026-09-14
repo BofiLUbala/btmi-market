@@ -85,6 +85,7 @@ func main() {
 	categoryRepo := repository.NewCategoryRepository(db)
 	pointConfigRepo := repository.NewPointConfigRepository(db)
 	buyerPaymentRepo := repository.NewBuyerPaymentRepository(db)
+	paymentConfigRepo := repository.NewPaymentConfigRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 	employeeInvitationRepo := repository.NewEmployeeInvitationRepository(db)
 	employeeActivationTokenRepo := repository.NewEmployeeActivationTokenRepository(db)
@@ -136,7 +137,7 @@ func main() {
 	adminPlatformRepo := repository.NewAdminPlatformRepository(db.DB)
 	pointService := service.NewPointService(pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, adminPlatformRepo)
 	purchaseConfirmationService := service.NewPurchaseConfirmationService(confirmRepo, verifiedTxnRepo, orderRepo, shopRepo, cashRepo, pointService, trustRepo, asynqClient)
-	paymentService := service.NewPaymentService(buyerPaymentRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
+	paymentService := service.NewPaymentService(buyerPaymentRepo, paymentConfigRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
 	marketplaceService := service.NewMarketplaceService(marketplaceRepo, pointService)
 	productImageRepo := repository.NewProductImageRepository(db)
 	marketplaceService.SetProductImageRepo(productImageRepo)
@@ -193,7 +194,7 @@ func main() {
 	adminCommerceService := service.NewAdminCommerceService(db, adminCommerceRepo, productRepo, inventoryRepo, stockMovementRepo, auditRepo)
 	adminCommerceService.SetCommunicationService(commService)
 	adminFinanceRepo := repository.NewAdminFinanceRepository(db)
-	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService)
+	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService, paymentConfigRepo)
 	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB, migrationsDir)
 	adminTechnicalService := service.NewAdminTechnicalService(adminTechnicalRepo, db.DB, redisClient.GetRedis(), auditService, asynqInspector)
 	adminPlatformService := service.NewAdminPlatformService(adminPlatformRepo, auditService)
@@ -470,6 +471,7 @@ func main() {
 			buyerGroup.POST("/orders/:order_id/delivery-points-preview", orderHandler.DeliveryPointsPreview)
 			buyerGroup.POST("/orders/:order_id/points-preview", orderHandler.OrderPointsPreview)
 			buyerGroup.POST("/orders/:order_id/payment", orderHandler.CreateBuyerPayment)
+			buyerGroup.GET("/orders/:order_id/checkout-quote", orderHandler.GetCheckoutQuote)
 			buyerGroup.GET("/orders/:order_id/payment", orderHandler.GetBuyerPayment)
 			buyerGroup.POST("/payments/:payment_id/buyer-confirm", orderHandler.BuyerConfirmPayment)
 			buyerGroup.POST("/orders/:order_id/cancel", orderHandler.CancelBuyerOrder)
@@ -495,11 +497,12 @@ func main() {
 			courierGroup.GET("/verify/:token", courierHandler.VerifyInvitation)
 		}
 
-		// Courier profile remains readable while suspended so the UI can explain the
-		// restriction and offer logout. Every operational route still requires ACTIVE.
-		courierProfile := api.Group("/courier")
-		courierProfile.Use(middleware.AuthMiddleware(authService))
-		courierProfile.GET("/profile", courierHandler.GetProfile)
+// Courier profile remains readable while suspended so the UI can explain the
+// account state; a suspended account cannot change its own availability.
+courierProfile := api.Group("/courier")
+courierProfile.Use(middleware.AuthMiddleware(authService))
+courierProfile.GET("/profile", courierHandler.GetProfile)
+courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 
 		// Protected courier routes (require auth + active courier profile)
 		courierProtected := api.Group("/courier")
@@ -708,6 +711,8 @@ func main() {
 
 					financeGroup.GET("/payments", adminFinanceHandler.ListPayments)
 					financeGroup.GET("/payments/:id", adminFinanceHandler.GetPaymentDetail)
+					financeGroup.GET("/payment-config", adminFinanceHandler.ListPaymentConfigs)
+					financeGroup.PATCH("/payment-config/:code", adminFinanceHandler.UpdatePaymentConfig)
 
 					financeGroup.GET("/points/buyers", adminFinanceHandler.ListBuyerPoints)
 					financeGroup.GET("/points/users", adminFinanceHandler.ListPointUsers)

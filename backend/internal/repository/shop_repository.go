@@ -20,8 +20,8 @@ func NewShopRepository(db *database.DB) *ShopRepository {
 
 func (r *ShopRepository) Create(shop *models.Shop) error {
 	query := `
-		INSERT INTO shops (id, business_id, name, type, city, address, phone, status, supports_shop_delivery, shop_delivery_fee, supports_partner_delivery, partner_delivery_fee, partner_delivery_provider, delivery_city, delivery_address)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		INSERT INTO shops (id, business_id, name, type, city, address, phone, status, supports_shop_delivery, shop_delivery_fee, supports_partner_delivery, partner_delivery_fee, partner_delivery_provider, delivery_city, delivery_address, province, commune, street, building_number, landmark)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING created_at, updated_at
 	`
 
@@ -35,12 +35,13 @@ func (r *ShopRepository) Create(shop *models.Shop) error {
 		shop.SupportsShopDelivery, shop.ShopDeliveryFee,
 		shop.SupportsPartnerDelivery, shop.PartnerDeliveryFee,
 		shop.PartnerDeliveryProvider, shop.DeliveryCity, shop.DeliveryAddress,
+		shop.Province, shop.Commune, shop.Street, shop.BuildingNumber, shop.Landmark,
 	).Scan(&shop.CreatedAt, &shop.UpdatedAt)
 }
 
 func (r *ShopRepository) GetByID(id uuid.UUID) (*models.Shop, error) {
 	query := `
-		SELECT id, business_id, name, type, city, address, phone, status, supports_shop_delivery, shop_delivery_fee, supports_partner_delivery, partner_delivery_fee, partner_delivery_provider, delivery_city, delivery_address, created_at, updated_at
+		SELECT id, business_id, name, type, city, address, phone, status, supports_shop_delivery, shop_delivery_fee, supports_partner_delivery, partner_delivery_fee, partner_delivery_provider, delivery_city, delivery_address, province, commune, street, building_number, landmark, created_at, updated_at
 		FROM shops WHERE id = $1
 	`
 
@@ -51,6 +52,7 @@ func (r *ShopRepository) GetByID(id uuid.UUID) (*models.Shop, error) {
 		&shop.SupportsShopDelivery, &shop.ShopDeliveryFee,
 		&shop.SupportsPartnerDelivery, &shop.PartnerDeliveryFee,
 		&shop.PartnerDeliveryProvider, &shop.DeliveryCity, &shop.DeliveryAddress,
+		&shop.Province, &shop.Commune, &shop.Street, &shop.BuildingNumber, &shop.Landmark,
 		&shop.CreatedAt, &shop.UpdatedAt,
 	)
 
@@ -66,7 +68,7 @@ func (r *ShopRepository) GetByID(id uuid.UUID) (*models.Shop, error) {
 
 func (r *ShopRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Shop, error) {
 	query := `
-		SELECT id, business_id, name, type, city, address, phone, status, supports_shop_delivery, shop_delivery_fee, supports_partner_delivery, partner_delivery_fee, partner_delivery_provider, delivery_city, delivery_address, created_at, updated_at
+		SELECT id, business_id, name, type, city, address, phone, status, supports_shop_delivery, shop_delivery_fee, supports_partner_delivery, partner_delivery_fee, partner_delivery_provider, delivery_city, delivery_address, province, commune, street, building_number, landmark, created_at, updated_at
 		FROM shops WHERE business_id = $1
 		ORDER BY created_at DESC
 	`
@@ -86,6 +88,7 @@ func (r *ShopRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Shop, 
 			&shop.SupportsShopDelivery, &shop.ShopDeliveryFee,
 			&shop.SupportsPartnerDelivery, &shop.PartnerDeliveryFee,
 			&shop.PartnerDeliveryProvider, &shop.DeliveryCity, &shop.DeliveryAddress,
+			&shop.Province, &shop.Commune, &shop.Street, &shop.BuildingNumber, &shop.Landmark,
 			&shop.CreatedAt, &shop.UpdatedAt,
 		)
 		if err != nil {
@@ -104,6 +107,7 @@ func (r *ShopRepository) Update(shop *models.Shop) error {
 		    supports_shop_delivery = $8, shop_delivery_fee = $9,
 		    supports_partner_delivery = $10, partner_delivery_fee = $11,
 		    partner_delivery_provider = $12, delivery_city = $13, delivery_address = $14,
+		    province=$15, commune=$16, street=$17, building_number=$18, landmark=$19,
 		    updated_at = NOW()
 		WHERE id = $1
 		RETURNING updated_at
@@ -115,6 +119,7 @@ func (r *ShopRepository) Update(shop *models.Shop) error {
 		shop.SupportsShopDelivery, shop.ShopDeliveryFee,
 		shop.SupportsPartnerDelivery, shop.PartnerDeliveryFee,
 		shop.PartnerDeliveryProvider, shop.DeliveryCity, shop.DeliveryAddress,
+		shop.Province, shop.Commune, shop.Street, shop.BuildingNumber, shop.Landmark,
 	).Scan(&shop.UpdatedAt)
 }
 

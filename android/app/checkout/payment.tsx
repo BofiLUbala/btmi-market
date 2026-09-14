@@ -21,13 +21,14 @@ export default function PaymentScreen() {
   const { t } = useI18n()
   const [error, setError] = useState('')
 
-  // Creating the payment is idempotent server-side: re-entering this screen
-  // returns the existing payment rather than a second one.
-  const payment = useQuery({
-    queryKey: ['checkout', 'payment', orderId],
-    queryFn: () => buyerApi.createPayment(orderId!),
+  const quote = useQuery({
+    queryKey: ['checkout', 'quote', orderId],
+    queryFn: () => buyerApi.checkoutQuote(orderId!),
     enabled: Boolean(orderId),
   })
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const methods = quote.data?.payment_methods ?? []
+  const selectedMethod = methods.find((method) => method.code === paymentMethod) ?? methods[0]
 
   const order = useQuery({
     queryKey: ['checkout', 'order', orderId],
@@ -36,7 +37,7 @@ export default function PaymentScreen() {
   })
 
   const confirm = useMutation({
-    mutationFn: () => buyerApi.buyerConfirmPayment(payment.data!.id),
+    mutationFn: () => buyerApi.createPayment(orderId!, selectedMethod.code),
     onSuccess: () => {
       // The basket has become a real order — only now is it safe to empty it.
       clearCart()
@@ -46,14 +47,13 @@ export default function PaymentScreen() {
   })
 
   if (!orderId) return <ErrorState message={t('checkout.orderNotFound')} retry={() => router.replace('/(buyer)/cart')} />
-  if (payment.isLoading || order.isLoading) return <Loading label={t('checkout.preparingPayment')} />
-  if (payment.isError || !payment.data) {
-    return <ErrorState message={t('checkout.paymentFailed')} retry={() => payment.refetch()} />
+  if (quote.isLoading || order.isLoading) return <Loading label={t('checkout.preparingPayment')} />
+  if (quote.isError || !quote.data || !selectedMethod) {
+    return <ErrorState message={t('checkout.paymentFailed')} retry={() => quote.refetch()} />
   }
 
-  const p = payment.data
+  const p = quote.data
   const lines = order.data?.lines ?? []
-  const alreadyConfirmed = p.buyer_confirmed
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
@@ -64,6 +64,13 @@ export default function PaymentScreen() {
       </View>
 
       <SectionTitle title={t('checkout.reviewOrder')} />
+
+      <Card>
+        <Text style={styles.blockTitle}>Mode de paiement</Text>
+        {methods.map((method) => (
+          <Button key={method.code} variant={(paymentMethod || selectedMethod.code) === method.code ? 'primary' : 'outline'} title={method.label} onPress={() => setPaymentMethod(method.code)} />
+        ))}
+      </Card>
 
       <Card>
         <Text style={styles.blockTitle}>{t('checkout.products')}</Text>
@@ -84,33 +91,28 @@ export default function PaymentScreen() {
         <Text style={styles.blockTitle}>{t('checkout.amountBreakdown')}</Text>
         <View style={styles.totalRow}>
           <Text style={styles.muted}>{t('checkout.products')}</Text>
-          <Text style={styles.value}>{money(p.products_base_total, p.currency)}</Text>
+          <Text style={styles.value}>{money(p.subtotal, p.currency)}</Text>
         </View>
-        {p.products_points_discount > 0 && (
+        {p.points_discount > 0 && (
           <View style={styles.totalRow}>
-            <Text style={styles.muted}>{t('checkout.productPoints', { points: p.products_points_used })}</Text>
-            <Text style={styles.discount}>−{money(p.products_points_discount, p.currency)}</Text>
+            <Text style={styles.muted}>Réduction points</Text>
+            <Text style={styles.discount}>−{money(p.points_discount, p.currency)}</Text>
           </View>
         )}
         <View style={styles.totalRow}>
           <Text style={styles.muted}>{t('checkout.delivery')}</Text>
-          <Text style={styles.value}>{money(p.delivery_fee_base, p.currency)}</Text>
+          <Text style={styles.value}>{money(p.delivery_fee, p.currency)}</Text>
         </View>
-        {p.delivery_points_discount > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.muted}>{t('checkout.deliveryPoints', { points: p.delivery_points_used })}</Text>
-            <Text style={styles.discount}>−{money(p.delivery_points_discount, p.currency)}</Text>
-          </View>
-        )}
+        <View style={styles.totalRow}><Text style={styles.muted}>Frais mode de paiement</Text><Text style={styles.value}>{money(selectedMethod.markup_amount, p.currency)}</Text></View>
       </Card>
 
       <Card>
-        <Text style={styles.eyebrow}>{t('checkout.cashDueEyebrow')}</Text>
-        <Text style={styles.cashDue}>{money(p.cash_due, p.currency)}</Text>
+        <Text style={styles.eyebrow}>TOTAL CALCULÉ PAR LE SERVEUR</Text>
+        <Text style={styles.cashDue}>{money(selectedMethod.quoted_total, p.currency)}</Text>
         <View style={styles.cashNote}>
           <Ionicons name="cash-outline" size={18} color={colors.green} />
           <Text style={styles.muted}>
-            {t('checkout.cashNote')}
+            {selectedMethod.timing === 'NOW' ? 'Le prestataire doit confirmer le paiement.' : 'Paiement exigible à la livraison.'}
           </Text>
         </View>
       </Card>
@@ -119,19 +121,12 @@ export default function PaymentScreen() {
 
       <Button
         variant="gold"
-        title={alreadyConfirmed ? t('checkout.alreadyConfirmed') : t('checkout.confirmOrder')}
+        title={t('checkout.confirmOrder')}
         loading={confirm.isPending}
-        disabled={alreadyConfirmed}
+        disabled={!selectedMethod}
         onPress={() => confirm.mutate()}
       />
 
-      {alreadyConfirmed && (
-        <Button
-          variant="outline"
-          title={t('checkout.viewOrder')}
-          onPress={() => router.replace({ pathname: '/orders/[id]', params: { id: orderId } })}
-        />
-      )}
     </ScrollView>
   )
 }

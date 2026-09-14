@@ -28,6 +28,10 @@ func newMockBootstrapRepo() *mockBootstrapRepo {
 	}
 }
 
+func (m *mockBootstrapRepo) CountActiveSuperAdmins() (int, error) {
+	return m.superAdminCount, nil
+}
+
 func (m *mockBootstrapRepo) CountSuperAdmins() (int, error) {
 	return m.superAdminCount, nil
 }
@@ -555,6 +559,3 @@ func TestUpdateSuperAdminCredentials_Validation(t *testing.T) {
 		t.Errorf("expected error for short password, got nil")
 	}
 }
-
-
-

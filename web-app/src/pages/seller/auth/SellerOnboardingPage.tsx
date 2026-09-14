@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
 import type { SellerBusiness } from '@/api/types'
+import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
 import { drcCityOptions } from '@/lib/drcLocations'
 import { useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
@@ -37,15 +38,13 @@ export default function SellerOnboardingPage() {
     category: 'general',
     phone: '',
     email: '',
-    country: 'CD',
-    city: '',
+    province: '', city: '', commune: '', street: '', building_number: '', landmark: '',
     default_currency: 'USD',
   })
   const [shopForm, setShopForm] = useState({
     name: '',
     type: 'PHYSICAL',
-    city: '',
-    address: '',
+    province: '', city: '', commune: '', street: '', building_number: '', landmark: '', address: '',
     phone: '',
     supports_shop_delivery: false,
     shop_delivery_fee: 0,
@@ -93,7 +92,7 @@ export default function SellerOnboardingPage() {
         phone: businessForm.phone,
         whatsapp: businessForm.phone,
         email: businessForm.email,
-        country: businessForm.country,
+        country: 'DRC', province: businessForm.province, commune: businessForm.commune, street: businessForm.street, building_number: businessForm.building_number, landmark: businessForm.landmark,
         city: businessForm.city,
         default_currency: businessForm.default_currency,
       })
@@ -124,7 +123,7 @@ export default function SellerOnboardingPage() {
     setError('')
     setBusy(true)
     try {
-      const newShop = await shopApi.create(activeBusiness.id, shopForm)
+      const newShop = await shopApi.create(activeBusiness.id, { ...shopForm, address: [shopForm.building_number, shopForm.street, shopForm.commune, shopForm.city, shopForm.province].filter(Boolean).join(', ') })
       setActiveShop(newShop.id)
       navigate('/seller/dashboard', { replace: true })
     } catch (err) {
@@ -205,8 +204,7 @@ export default function SellerOnboardingPage() {
             <Field label={t('seller.onboarding.category')} name="category" required value={businessForm.category} onChange={(e) => updateBusiness('category', e.target.value)} placeholder={t('seller.onboarding.categoryPlaceholder')} />
             <Field label={t('seller.onboarding.businessPhone')} name="phone" required value={businessForm.phone} onChange={(e) => updateBusiness('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
             <Field label={t('seller.onboarding.businessEmail')} name="email" type="email" required value={businessForm.email} onChange={(e) => updateBusiness('email', e.target.value)} />
-            <Field label={t('seller.onboarding.country')} name="country" required value={businessForm.country} onChange={(e) => updateBusiness('country', e.target.value)} placeholder="CD" />
-            <Field label={t('common.city')} name="city" as="select" required value={businessForm.city} options={drcCityOptions()} onChange={(e) => updateBusiness('city', e.target.value)} />
+            <StructuredAddressFields value={{ province: businessForm.province, city: businessForm.city, commune: businessForm.commune, street: businessForm.street, building_number: businessForm.building_number, landmark: businessForm.landmark }} onChange={(address) => setBusinessForm((current) => ({ ...current, ...address }))} />
             <Field label={t('seller.onboarding.defaultCurrency')} name="default_currency" required value={businessForm.default_currency} onChange={(e) => updateBusiness('default_currency', e.target.value)} as="select" options={[
               { value: 'USD', label: 'USD' },
               { value: 'CDF', label: 'CDF' },
@@ -248,8 +246,7 @@ export default function SellerOnboardingPage() {
                 { value: 'ONLINE', label: t('seller.shopType.ONLINE') },
               ]}
             />
-            <Field label={t('common.city')} name="city" as="select" required value={shopForm.city} options={drcCityOptions()} onChange={(e) => updateShop('city', e.target.value)} />
-            <Field label={t('common.address')} name="address" required value={shopForm.address} onChange={(e) => updateShop('address', e.target.value)} rows={2} />
+            <StructuredAddressFields value={{ province: shopForm.province, city: shopForm.city, commune: shopForm.commune, street: shopForm.street, building_number: shopForm.building_number, landmark: shopForm.landmark }} onChange={(address) => setShopForm((current) => ({ ...current, ...address }))} />
             <Field label={t('common.phone')} name="phone" required value={shopForm.phone} onChange={(e) => updateShop('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
 
             <details style={{ marginTop: 16 }}>

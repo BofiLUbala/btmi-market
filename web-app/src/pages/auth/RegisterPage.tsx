@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
-import { drcCityOptions, isKinshasa, kinshasaCommuneOptions } from '@/lib/drcLocations'
+import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
 
 type RegPhase = 'form' | 'creating' | 'sending' | 'success' | 'email-failed'
 
@@ -29,9 +29,12 @@ export default function RegisterPage() {
     phone: '',
     backup_phone: '',
     country: 'République Démocratique du Congo',
+    province: 'Kinshasa',
     city: 'Kinshasa',
     commune: 'Gombe',
-    address: '',
+    street: '',
+    building_number: '',
+    landmark: '',
     latitude: null as number | null,
     longitude: null as number | null
   })
@@ -55,15 +58,6 @@ export default function RegisterPage() {
 
   function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
     setForm((f) => ({ ...f, [key]: value }))
-    setError('')
-  }
-
-  function setCity(city: string) {
-    setForm((f) => ({
-      ...f,
-      city,
-      commune: isKinshasa(city) ? (f.commune || 'Gombe') : ''
-    }))
     setError('')
   }
 
@@ -126,11 +120,7 @@ export default function RegisterPage() {
     }
 
     if (currentStep === 3) {
-      if (!form.country.trim() || !form.city.trim() || !form.address.trim()) {
-        setError(t('auth.register.fillAllFields'))
-        return false
-      }
-      if (isKinshasa(form.city) && !form.commune.trim()) {
+      if (!form.province.trim() || !form.city.trim() || !form.commune.trim() || !form.street.trim() || !form.building_number.trim()) {
         setError(t('auth.register.fillAllFields'))
         return false
       }
@@ -172,9 +162,13 @@ export default function RegisterPage() {
         password: form.password,
         password_confirmation: form.password_confirmation,
         country: form.country.trim() || undefined,
+        province: form.province.trim(),
         city: form.city.trim() || undefined,
         commune: form.commune.trim() || undefined,
-        address: form.address.trim() || undefined,
+        street: form.street.trim(),
+        building_number: form.building_number.trim(),
+        landmark: form.landmark.trim() || undefined,
+        address: [form.building_number, form.street, form.commune, form.city, form.province].filter(Boolean).join(', '),
         latitude: form.latitude,
         longitude: form.longitude
       })
@@ -397,49 +391,9 @@ export default function RegisterPage() {
             {/* Step 3: Address & Location */}
             {step === 3 && (
               <div className="stack" style={{ gap: '0.85rem' }}>
-                <Field
-                  label={t('auth.register.countryLabel')}
-                  name="country"
-                  value={form.country}
-                  onChange={(e) => set('country', e.target.value)}
-                  required
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: isKinshasa(form.city) ? '1fr 1fr' : '1fr', gap: '0.75rem' }}>
-                  <Field
-                    label={t('common.city')}
-                    name="city"
-                    as="select"
-                    value={form.city}
-                    options={drcCityOptions(form.city)}
-                    onChange={(e) => setCity(e.target.value)}
-                  />
-                  {isKinshasa(form.city) && (
-                    <Field
-                      label={t('common.commune')}
-                      name="commune"
-                      as="select"
-                      value={form.commune}
-                      options={kinshasaCommuneOptions(form.commune)}
-                      onChange={(e) => set('commune', e.target.value)}
-                    />
-                  )}
-                </div>
-                {!isKinshasa(form.city) && (
-                  <Field
-                    label={t('common.commune')}
-                    name="commune"
-                    placeholder="Commune / Quartier"
-                    value={form.commune}
-                    onChange={(e) => set('commune', e.target.value)}
-                  />
-                )}
-                <Field
-                  label={t('common.address')}
-                  name="address"
-                  required
-                  placeholder={t('auth.register.addressPlaceholder')}
-                  value={form.address}
-                  onChange={(e) => set('address', e.target.value)}
+                <StructuredAddressFields
+                  value={{ province: form.province, city: form.city, commune: form.commune, street: form.street, building_number: form.building_number, landmark: form.landmark }}
+                  onChange={(address) => setForm((current) => ({ ...current, ...address }))}
                 />
 
                 {/* Optional GPS Location */}
@@ -498,7 +452,7 @@ export default function RegisterPage() {
                   <div className="eyebrow">{t('auth.register.addressDetails')}</div>
                   <div className="info-row"><span className="k">{t('auth.register.countryLabel')}</span><span className="v">{form.country}</span></div>
                   <div className="info-row"><span className="k">{t('common.city')} / {t('common.commune')}</span><span className="v">{[form.commune, form.city].filter(Boolean).join(', ')}</span></div>
-                  <div className="info-row"><span className="k">{t('common.address')}</span><span className="v">{form.address}</span></div>
+                  <div className="info-row"><span className="k">{t('common.address')}</span><span className="v">{[form.building_number, form.street, form.commune, form.city, form.province].filter(Boolean).join(', ')}</span></div>
                   {form.latitude !== null && (
                     <div className="info-row"><span className="k">GPS</span><span className="v">{form.latitude}, {form.longitude}</span></div>
                   )}

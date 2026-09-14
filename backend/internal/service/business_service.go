@@ -65,10 +65,15 @@ func (s *BusinessService) UpdateBusiness(userID, businessID uuid.UUID, req *mode
 	if req.City != nil {
 		business.City = strings.TrimSpace(*req.City)
 	}
+	if req.Province != nil { business.Province = strings.TrimSpace(*req.Province) }
+	if req.Commune != nil { business.Commune = strings.TrimSpace(*req.Commune) }
+	if req.Street != nil { business.Street = strings.TrimSpace(*req.Street) }
+	if req.BuildingNumber != nil { business.BuildingNumber = strings.TrimSpace(*req.BuildingNumber) }
+	if req.Landmark != nil { business.Landmark = strings.TrimSpace(*req.Landmark) }
 	if req.DefaultCurrency != nil {
 		business.DefaultCurrency = *req.DefaultCurrency
 	}
-	_, err = s.db.Exec(`UPDATE businesses SET name=$2, business_type=$3, category=$4, phone=$5, whatsapp=$6, email=$7, country=$8, city=$9, default_currency=$10, updated_at=NOW() WHERE id=$1`, business.ID, business.Name, business.BusinessType, business.Category, business.Phone, business.Whatsapp, business.Email, business.Country, business.City, business.DefaultCurrency)
+	_, err = s.db.Exec(`UPDATE businesses SET name=$2, business_type=$3, category=$4, phone=$5, whatsapp=$6, email=$7, country=$8, city=$9, default_currency=$10, province=$11, commune=$12, street=$13, building_number=$14, landmark=$15, updated_at=NOW() WHERE id=$1`, business.ID, business.Name, business.BusinessType, business.Category, business.Phone, business.Whatsapp, business.Email, business.Country, business.City, business.DefaultCurrency, business.Province, business.Commune, business.Street, business.BuildingNumber, business.Landmark)
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +200,13 @@ func (s *BusinessService) CreateBusiness(userID uuid.UUID, req *models.CreateBus
 		Phone:           req.Phone,
 		Whatsapp:        req.Whatsapp,
 		Email:           req.Email,
-		Country:         req.Country,
+		Country:         "DRC",
+		Province:        req.Province,
 		City:            req.City,
+		Commune:         req.Commune,
+		Street:          req.Street,
+		BuildingNumber:  req.BuildingNumber,
+		Landmark:        req.Landmark,
 		DefaultCurrency: req.DefaultCurrency,
 		Status:          models.BusinessStatusActive,
 	}

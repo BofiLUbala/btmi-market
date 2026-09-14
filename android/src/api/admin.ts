@@ -236,6 +236,8 @@ export const adminCommerceApi = {
 }
 
 export const mobileAdminFinanceApi = {
+  listPaymentConfigs: () => adminApi<{ items: any[] }>('/admin/finance/payment-config'),
+  updatePaymentConfig: (code: string, body: { label: string; enabled: boolean; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; provider: string }) => adminApi<any>(`/admin/finance/payment-config/${code}`, { method: 'PATCH', body: JSON.stringify(body) }),
   getSummary: async () => {
     return adminApi<{
       total_order_value: number

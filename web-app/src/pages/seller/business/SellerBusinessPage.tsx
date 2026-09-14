@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { drcCityOptions } from '@/lib/drcLocations'
+import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
 import { useT } from '@/store/i18n'
 
 export default function SellerBusinessPage() {
@@ -21,7 +21,7 @@ export default function SellerBusinessPage() {
   const [saved, setSaved] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
   const [confirmName, setConfirmName] = useState('')
-  const [form, setForm] = useState({ name: '', business_type: 'RETAIL', category: '', phone: '', whatsapp: '', email: '', country: 'CD', city: '', default_currency: 'CDF' })
+  const [form, setForm] = useState({ name: '', business_type: 'RETAIL', category: '', phone: '', whatsapp: '', email: '', province: '', city: '', commune: '', street: '', building_number: '', landmark: '', default_currency: 'CDF' })
 
   useEffect(() => {
     if (!activeBusiness) return
@@ -32,7 +32,7 @@ export default function SellerBusinessPage() {
       phone: activeBusiness.phone,
       whatsapp: activeBusiness.whatsapp ?? '',
       email: activeBusiness.email ?? '',
-      country: activeBusiness.country ?? 'CD',
+      province: activeBusiness.province ?? '', commune: activeBusiness.commune ?? '', street: activeBusiness.street ?? '', building_number: activeBusiness.building_number ?? '', landmark: activeBusiness.landmark ?? '',
       city: activeBusiness.city ?? '',
       default_currency: activeBusiness.default_currency ?? 'CDF',
     })
@@ -89,7 +89,7 @@ export default function SellerBusinessPage() {
         <Field label={t('common.phone')} name="phone" required value={form.phone} onChange={e => set('phone', e.target.value)} />
         <Field label="WhatsApp" name="whatsapp" value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} />
         <Field label={t('common.email')} name="email" type="email" required value={form.email} onChange={e => set('email', e.target.value)} />
-        <Field label={t('common.city')} name="city" as="select" required value={form.city} options={drcCityOptions(form.city)} onChange={e => set('city', e.target.value)} />
+        <StructuredAddressFields value={{ province: form.province, city: form.city, commune: form.commune, street: form.street, building_number: form.building_number, landmark: form.landmark }} onChange={(address) => setForm((current) => ({ ...current, ...address }))} />
         <Field label={t('seller.business.currency')} name="default_currency" as="select" value={form.default_currency} options={[{value:'CDF',label:'CDF'},{value:'USD',label:'USD'}]} onChange={e => set('default_currency', e.target.value)} />
       </div>
       <Button type="submit" loading={busy}>{t('common.saveChanges')}</Button>

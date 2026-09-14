@@ -172,7 +172,7 @@ func (s *CourierService) VerifyInvitation(token string) (*models.CourierInvitati
 }
 
 // AcceptInvitation activates a courier account from invitation
-func (s *CourierService) AcceptInvitation(token, password, passwordConfirm string) error {
+func (s *CourierService) AcceptInvitation(token, password, passwordConfirm string, address models.UpdateCourierProfileRequest) error {
 	if password != passwordConfirm {
 		return ErrPasswordMismatch
 	}
@@ -241,6 +241,24 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 	if inv.ServiceZone != nil {
 		courier.ServiceZone = inv.ServiceZone
 	}
+	if address.Province != nil {
+		courier.Province = *address.Province
+	}
+	if address.City != nil {
+		courier.City = *address.City
+	}
+	if address.Commune != nil {
+		courier.Commune = *address.Commune
+	}
+	if address.Street != nil {
+		courier.Street = *address.Street
+	}
+	if address.BuildingNumber != nil {
+		courier.BuildingNumber = *address.BuildingNumber
+	}
+	if address.Landmark != nil {
+		courier.Landmark = *address.Landmark
+	}
 
 	if err := s.courierRepo.Create(courier); err != nil {
 		return err
@@ -294,6 +312,12 @@ func (s *CourierService) GetCourierProfile(userID uuid.UUID) (*models.CourierRes
 		TransportType:    courier.TransportType,
 		VehicleInfo:      courier.VehicleInfo,
 		ServiceZone:      courier.ServiceZone,
+		Province:         courier.Province,
+		City:             courier.City,
+		Commune:          courier.Commune,
+		Street:           courier.Street,
+		BuildingNumber:   courier.BuildingNumber,
+		Landmark:         courier.Landmark,
 		ActiveMissions:   activeMissions,
 		CompletedToday:   completedToday,
 		TotalDeliveries:  totalDeliveries,
@@ -303,6 +327,48 @@ func (s *CourierService) GetCourierProfile(userID uuid.UUID) (*models.CourierRes
 		CreatedAt:        courier.CreatedAt,
 		UpdatedAt:        courier.UpdatedAt,
 	}, nil
+}
+
+// UpdateProfile updates the courier's profile details (address, transport, availability metadata)
+func (s *CourierService) UpdateProfile(userID uuid.UUID, req *models.UpdateCourierProfileRequest) (*models.CourierResponse, error) {
+	courier, err := s.courierRepo.GetByUserID(userID)
+	if err != nil || courier == nil {
+		return nil, ErrCourierNotFound
+	}
+	if req.TransportType != nil {
+		courier.TransportType = *req.TransportType
+	}
+	if req.VehicleInfo != nil {
+		courier.VehicleInfo = req.VehicleInfo
+	}
+	if req.ServiceZone != nil {
+		courier.ServiceZone = req.ServiceZone
+	}
+	if req.Province != nil {
+		courier.Province = *req.Province
+	}
+	if req.City != nil {
+		courier.City = *req.City
+	}
+	if req.Commune != nil {
+		courier.Commune = *req.Commune
+	}
+	if req.Street != nil {
+		courier.Street = *req.Street
+	}
+	if req.BuildingNumber != nil {
+		courier.BuildingNumber = *req.BuildingNumber
+	}
+	if req.Landmark != nil {
+		courier.Landmark = *req.Landmark
+	}
+	if req.Phone != nil {
+		_ = s.userRepo.UpdatePhone(userID, *req.Phone)
+	}
+	if err := s.courierRepo.UpdateProfile(courier); err != nil {
+		return nil, err
+	}
+	return s.GetCourierProfile(userID)
 }
 
 // UpdateAvailability updates the courier's availability
@@ -635,9 +701,15 @@ func (s *CourierService) ListAllCouriers(limit, offset int) ([]*models.CourierRe
 			Status:           c.Status,
 			Availability:     c.Availability,
 			TransportType:    c.TransportType,
-			VehicleInfo:      c.VehicleInfo,
+VehicleInfo:      c.VehicleInfo,
 			ServiceZone:      c.ServiceZone,
-			ActiveMissions:   activeMissions,
+			Province:         c.Province,
+			City:             c.City,
+			Commune:          c.Commune,
+			Street:           c.Street,
+			BuildingNumber:   c.BuildingNumber,
+			Landmark:         c.Landmark,
+			ActiveMissions: activeMissions,
 			CompletedToday:   completedToday,
 			TotalDeliveries:  totalDeliveries,
 			ActivatedAt:      c.ActivatedAt,
@@ -796,6 +868,12 @@ func (s *CourierService) GetCourierDetailForAdmin(courierID uuid.UUID) (*models.
 		TransportType:    courier.TransportType,
 		VehicleInfo:      courier.VehicleInfo,
 		ServiceZone:      courier.ServiceZone,
+		Province:         courier.Province,
+		City:             courier.City,
+		Commune:          courier.Commune,
+		Street:           courier.Street,
+		BuildingNumber:   courier.BuildingNumber,
+		Landmark:         courier.Landmark,
 		ActiveMissions:   activeMissions,
 		CompletedToday:   completedToday,
 		TotalDeliveries:  totalDeliveries,

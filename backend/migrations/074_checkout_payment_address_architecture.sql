@@ -1,0 +1,68 @@
+-- Migration 074: RDC structured addresses and Finance-owned checkout payments.
+-- Additive only: legacy address strings and historical payment rows remain valid.
+
+CREATE TABLE IF NOT EXISTS payment_method_configs (
+    code VARCHAR(40) PRIMARY KEY,
+    label VARCHAR(120) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    timing VARCHAR(20) NOT NULL CHECK (timing IN ('NOW', 'DELIVERY')),
+    channel VARCHAR(20) NOT NULL CHECK (channel IN ('CASH', 'MOBILE', 'ONLINE')),
+    markup_type VARCHAR(20) NOT NULL DEFAULT 'NONE' CHECK (markup_type IN ('NONE', 'PERCENTAGE', 'FIXED')),
+    markup_value DECIMAL(15,2) NOT NULL DEFAULT 0 CHECK (markup_value >= 0),
+    provider VARCHAR(80) NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO payment_method_configs (code, label, enabled, timing, channel, markup_type, markup_value)
+VALUES
+ ('CASH_ON_DELIVERY', 'Cash à la livraison', TRUE, 'DELIVERY', 'CASH', 'NONE', 0),
+ ('MOBILE_PAY_NOW', 'Payer maintenant', FALSE, 'NOW', 'MOBILE', 'NONE', 0),
+ ('MOBILE_AT_DELIVERY', 'Paiement mobile à la livraison', FALSE, 'DELIVERY', 'MOBILE', 'NONE', 0)
+ON CONFLICT (code) DO NOTHING;
+
+ALTER TABLE buyer_payments ADD COLUMN IF NOT EXISTS payment_markup DECIMAL(15,2) NOT NULL DEFAULT 0;
+ALTER TABLE buyer_payments ADD COLUMN IF NOT EXISTS final_total DECIMAL(15,2) NOT NULL DEFAULT 0;
+ALTER TABLE buyer_payments ADD COLUMN IF NOT EXISTS provider VARCHAR(80) NOT NULL DEFAULT '';
+ALTER TABLE buyer_payments ADD COLUMN IF NOT EXISTS provider_reference VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE buyer_payments ADD COLUMN IF NOT EXISTS payment_timing VARCHAR(20) NOT NULL DEFAULT 'DELIVERY';
+UPDATE buyer_payments SET
+  payment_method = CASE WHEN payment_method = 'CASH' THEN 'CASH_ON_DELIVERY' ELSE payment_method END,
+  final_total = CASE WHEN final_total = 0 THEN cash_due ELSE final_total END
+WHERE payment_method = 'CASH' OR final_total = 0;
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_province VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_city VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_commune VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_street VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_building_number VARCHAR(80) NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_landmark TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE buyer_profiles ADD COLUMN IF NOT EXISTS province VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE buyer_profiles ADD COLUMN IF NOT EXISTS street VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE buyer_profiles ADD COLUMN IF NOT EXISTS building_number VARCHAR(80) NOT NULL DEFAULT '';
+ALTER TABLE buyer_profiles ADD COLUMN IF NOT EXISTS landmark TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS province VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS street VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS building_number VARCHAR(80) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS landmark TEXT NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS province VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS city VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS commune VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS street VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS building_number VARCHAR(80) NOT NULL DEFAULT '';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS landmark TEXT NOT NULL DEFAULT '';
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS province VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS commune VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS street VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS building_number VARCHAR(80) NOT NULL DEFAULT '';
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS landmark TEXT NOT NULL DEFAULT '';
+ALTER TABLE couriers ADD COLUMN IF NOT EXISTS province VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE couriers ADD COLUMN IF NOT EXISTS city VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE couriers ADD COLUMN IF NOT EXISTS commune VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE couriers ADD COLUMN IF NOT EXISTS street VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE couriers ADD COLUMN IF NOT EXISTS building_number VARCHAR(80) NOT NULL DEFAULT '';
+ALTER TABLE couriers ADD COLUMN IF NOT EXISTS landmark TEXT NOT NULL DEFAULT '';
+
+CREATE INDEX IF NOT EXISTS idx_payment_method_configs_enabled ON payment_method_configs(enabled);
+CREATE INDEX IF NOT EXISTS idx_buyer_payments_method_status ON buyer_payments(payment_method, status);

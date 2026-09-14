@@ -9,6 +9,7 @@ import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../sr
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
+import { StructuredAddressFields, type StructuredAddressValue } from '../../src/components/StructuredAddressFields'
 
 const money = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} FC`
 
@@ -28,6 +29,7 @@ export default function DeliveryScreen() {
     address: '',
     notes: '',
   })
+  const [address, setAddress] = useState<StructuredAddressValue>({ province: '', city: '', commune: '', street: '', building_number: '', landmark: '' })
 
   const profileQuery = useQuery({
     queryKey: ['buyer', 'profile'],
@@ -62,7 +64,7 @@ export default function DeliveryScreen() {
   const formInvalid =
     !contact.contact_name.trim() ||
     !contact.phone.trim() ||
-    !contact.address.trim()
+    !address.province.trim() || !address.city.trim() || !address.commune.trim() || !address.street.trim() || !address.building_number.trim()
 
   const pointsMutation = useMutation({
     mutationFn: (next: boolean) => buyerApi.deliveryPointsPreview(orderId!, next),
@@ -79,6 +81,7 @@ export default function DeliveryScreen() {
         phone: contact.phone.trim(),
         address: contact.address.trim(),
         notes: contact.notes.trim(),
+        province: address.province.trim(), city: address.city.trim(), commune: address.commune.trim(), street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
       }),
     onSuccess: () => router.push({ pathname: '/checkout/payment', params: { orderId } }),
     onError: (err: any) => {
@@ -173,12 +176,7 @@ export default function DeliveryScreen() {
             keyboardType="phone-pad"
             onChangeText={(v) => setContact({ ...contact, phone: v })}
           />
-          <Field
-            label={t('checkout.address')}
-            value={contact.address}
-            placeholder={t('checkout.addressPlaceholder')}
-            onChangeText={(v) => setContact({ ...contact, address: v })}
-          />
+          <StructuredAddressFields value={address} onChange={setAddress} />
           <Field
             label={t('checkout.instructions')}
             value={contact.notes}

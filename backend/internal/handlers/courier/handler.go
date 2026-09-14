@@ -57,7 +57,14 @@ func (h *Handler) Activate(c *gin.Context) {
 		return
 	}
 
-	err := h.courierService.AcceptInvitation(req.Token, req.Password, req.PasswordConfirmation)
+	err := h.courierService.AcceptInvitation(req.Token, req.Password, req.PasswordConfirmation, models.UpdateCourierProfileRequest{
+		Province:       &req.Province,
+		City:           &req.City,
+		Commune:        &req.Commune,
+		Street:         &req.Street,
+		BuildingNumber: &req.BuildingNumber,
+		Landmark:       &req.Landmark,
+	})
 	if err != nil {
 		status := http.StatusBadRequest
 		code := "ACTIVATION_FAILED"
@@ -138,6 +145,37 @@ func (h *Handler) GetProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Courier profile retrieved",
+		Data:    profile,
+	})
+}
+
+// PATCH /api/v1/courier/profile - Update courier profile details
+func (h *Handler) UpdateProfile(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	var req models.UpdateCourierProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body: "+err.Error())
+		return
+	}
+
+	profile, err := h.courierService.UpdateProfile(userID, &req)
+	if err != nil {
+		status := http.StatusNotFound
+		code := "COURIER_NOT_FOUND"
+		if err == service.ErrCourierNotActive || err == service.ErrCourierSuspended {
+			status = http.StatusForbidden
+			code = "COURIER_ACCESS_DENIED"
+		}
+		h.errResponse(c, status, code, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Courier profile updated",
 		Data:    profile,
 	})
 }

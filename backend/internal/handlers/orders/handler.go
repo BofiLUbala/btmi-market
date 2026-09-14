@@ -918,7 +918,12 @@ func (h *Handler) CreateBuyerPayment(c *gin.Context) {
 		return
 	}
 
-	result, err := h.paymentService.CreatePayment(buyerProfileID, orderID)
+	var req models.CreatePaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_PAYMENT_METHOD", err.Error())
+		return
+	}
+	result, err := h.paymentService.CreatePayment(buyerProfileID, orderID, req.PaymentMethod)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"
@@ -929,7 +934,7 @@ func (h *Handler) CreateBuyerPayment(c *gin.Context) {
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
-		case "INVALID_STATUS_TRANSITION", "DELIVERY_NOT_SELECTED":
+		case "INVALID_STATUS_TRANSITION", "DELIVERY_NOT_SELECTED", "PAYMENT_METHOD_UNAVAILABLE", "PAYMENT_PROVIDER_NOT_CONFIGURED", "PAYMENT_ALREADY_SELECTED":
 			statusCode = http.StatusBadRequest
 			errorCode = err.Error()
 		}
@@ -938,9 +943,37 @@ func (h *Handler) CreateBuyerPayment(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, models.SuccessResponse{
-		Message: "Cash payment created successfully",
+		Message: "Payment created successfully",
 		Data:    result,
 	})
+}
+
+// GET /api/v1/buyer/orders/:order_id/checkout-quote
+func (h *Handler) GetCheckoutQuote(c *gin.Context) {
+	buyerProfileID, ok := h.extractBuyerProfileID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "order_id")
+	if !ok {
+		return
+	}
+	result, err := h.paymentService.Quote(buyerProfileID, orderID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err.Error() == "ORDER_NOT_FOUND" {
+			status = http.StatusNotFound
+		}
+		if err.Error() == "FORBIDDEN" {
+			status = http.StatusForbidden
+		}
+		if err.Error() == "DELIVERY_NOT_SELECTED" {
+			status = http.StatusBadRequest
+		}
+		h.errResponse(c, status, err.Error(), err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Checkout quote calculated successfully", Data: result})
 }
 
 // GET /api/v1/buyer/orders/:order_id/payment

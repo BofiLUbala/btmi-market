@@ -2,6 +2,7 @@ import { del, get, patch, post } from './client'
 import type {
   BuyerOrder,
   BuyerPayment,
+  CheckoutQuote,
   BuyerProfile,
   BuyerPointsSummary,
   BuyerReviewsResponse,
@@ -76,7 +77,9 @@ export const buyerApi = {
       use_points: usePoints
     }),
 
-  createPayment: (orderId: string) => post<BuyerPayment>(`/buyer/orders/${orderId}/payment`, {}),
+  checkoutQuote: (orderId: string) => get<CheckoutQuote>(`/buyer/orders/${orderId}/checkout-quote`),
+
+  createPayment: (orderId: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${orderId}/payment`, { payment_method: paymentMethod }),
 
   getPayment: (orderId: string) => get<BuyerPayment>(`/buyer/orders/${orderId}/payment`),
 

@@ -247,19 +247,23 @@ func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accou
 			country = "DRC"
 		}
 		profile := &models.BuyerProfile{
-			UserID:      user.ID,
-			FirstName:   req.FirstName,
-			LastName:    req.LastName,
-			Phone:       req.Phone,
-			BackupPhone: strings.TrimSpace(req.BackupPhone),
-			Address:     strings.TrimSpace(req.Address),
-			Email:       req.Email,
-			City:        strings.TrimSpace(req.City),
-			Commune:     strings.TrimSpace(req.Commune),
-			Country:     country,
-			Latitude:    req.Latitude,
-			Longitude:   req.Longitude,
-			Status:      models.BuyerProfileStatusActive,
+			UserID:         user.ID,
+			FirstName:      req.FirstName,
+			LastName:       req.LastName,
+			Phone:          req.Phone,
+			BackupPhone:    strings.TrimSpace(req.BackupPhone),
+			Address:        strings.TrimSpace(req.Address),
+			Province:       strings.TrimSpace(req.Province),
+			Street:         strings.TrimSpace(req.Street),
+			BuildingNumber: strings.TrimSpace(req.BuildingNumber),
+			Landmark:       strings.TrimSpace(req.Landmark),
+			Email:          req.Email,
+			City:           strings.TrimSpace(req.City),
+			Commune:        strings.TrimSpace(req.Commune),
+			Country:        country,
+			Latitude:       req.Latitude,
+			Longitude:      req.Longitude,
+			Status:         models.BuyerProfileStatusActive,
 		}
 		if err := s.buyerProfileRepo.Create(profile); err != nil {
 			log.Printf("Warning: failed to create buyer profile for new user %s: %v", user.ID, err)

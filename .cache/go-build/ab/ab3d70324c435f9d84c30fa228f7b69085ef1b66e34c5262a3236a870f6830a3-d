@@ -1,0 +1,2 @@
+./admin_db_verify_test.go
+./admin_finance_points_test.go

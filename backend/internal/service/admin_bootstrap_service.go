@@ -13,7 +13,7 @@ import (
 
 // AdminBootstrapRepository specifies database operations needed for the bootstrap process.
 type AdminBootstrapRepository interface {
-	CountSuperAdmins() (int, error)
+	CountActiveSuperAdmins() (int, error)
 	GetByEmail(email string) (*models.AdminUser, error)
 	GetFirstSuperAdmin() (*models.AdminUser, error)
 	Create(admin *models.AdminUser) error
@@ -61,8 +61,8 @@ func (s *AdminBootstrapService) BootstrapSuperAdmin(name, email, password string
 		cleanName = "Super Admin"
 	}
 
-	// 1. FIRST-SUPER-ADMIN RULE: If any SUPER_ADMIN exists, skip idempotently.
-	superAdminCount, err := s.repo.CountSuperAdmins()
+	// 1. FIRST-SUPER-ADMIN RULE: an active authority makes bootstrap a no-op.
+	superAdminCount, err := s.repo.CountActiveSuperAdmins()
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing super admins: %w", err)
 	}
@@ -294,5 +294,4 @@ func (s *AdminBootstrapService) UpdateSuperAdminCredentials(name, email, newPass
 
 	return existingAdmin, nil
 }
-
 

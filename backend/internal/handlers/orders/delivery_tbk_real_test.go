@@ -50,6 +50,7 @@ func TestTBKCentralizedDeliveryFlow(t *testing.T) {
 	cashRepo := repository.NewCashRepository(db)
 	buyerProfileRepo := repository.NewBuyerProfileRepository(db)
 	buyerPaymentRepo := repository.NewBuyerPaymentRepository(db)
+	paymentConfigRepo := repository.NewPaymentConfigRepository(db)
 	pointAccountRepo := repository.NewPointAccountRepository(db)
 	pointTxnRepo := repository.NewPointTransactionRepository(db)
 	levelRepo := repository.NewLevelRepository(db)
@@ -79,7 +80,7 @@ func TestTBKCentralizedDeliveryFlow(t *testing.T) {
 		cashRepo, buyerProfileRepo, buyerPaymentRepo, pointRedemptionService, db,
 	)
 	paymentService := service.NewPaymentService(
-		buyerPaymentRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo,
+		buyerPaymentRepo, paymentConfigRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo,
 		levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService,
 		pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo,
 		assignmentRepo, asynqClient, db,
@@ -249,10 +250,15 @@ func TestTBKCentralizedDeliveryFlow(t *testing.T) {
 	// 3. Test successful delivery save with TBK Centralized Delivery
 	t.Run("Save TBK delivery without method selection required", func(t *testing.T) {
 		payload := models.SelectDeliveryRequest{
-			ContactName: "Digital Myla",
-			Phone:       "989805612",
-			Address:     "Masina, Kinshasa",
-			Notes:       "Appeler à l'arrivée",
+			ContactName:    "Digital Myla",
+			Phone:          "989805612",
+			Province:       "Kinshasa",
+			City:           "Kinshasa",
+			Commune:        "Masina",
+			Street:         "Avenue de la Paix",
+			BuildingNumber: "12",
+			Landmark:       "Marché central",
+			Notes:          "Appeler à l'arrivée",
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/buyer/orders/"+orderID.String()+"/delivery", bytes.NewBuffer(body))
@@ -277,8 +283,8 @@ func TestTBKCentralizedDeliveryFlow(t *testing.T) {
 		if resp.Data.Delivery.Status != models.DeliveryStatusPendingTBK {
 			t.Errorf("expected status %s, got %s", models.DeliveryStatusPendingTBK, resp.Data.Delivery.Status)
 		}
-		if resp.Data.Delivery.Address != "Masina, Kinshasa" {
-			t.Errorf("expected address 'Masina, Kinshasa', got '%s'", resp.Data.Delivery.Address)
+		if resp.Data.Delivery.Address != "Avenue de la Paix, 12, Masina, Kinshasa, Kinshasa" {
+			t.Errorf("expected structured RDC address, got '%s'", resp.Data.Delivery.Address)
 		}
 
 		// Verify database persistence

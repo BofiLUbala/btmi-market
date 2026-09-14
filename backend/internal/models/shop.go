@@ -28,6 +28,11 @@ type Shop struct {
 	Type                    ShopType   `json:"type" db:"type"`
 	City                    string     `json:"city" db:"city"`
 	Address                 string     `json:"address" db:"address"`
+	Province                string     `json:"province" db:"province"`
+	Commune                 string     `json:"commune" db:"commune"`
+	Street                  string     `json:"street" db:"street"`
+	BuildingNumber          string     `json:"building_number" db:"building_number"`
+	Landmark                string     `json:"landmark" db:"landmark"`
 	Phone                   string     `json:"phone" db:"phone"`
 	Status                  ShopStatus `json:"status" db:"status"`
 	SupportsShopDelivery    bool       `json:"supports_shop_delivery" db:"supports_shop_delivery"`
@@ -46,6 +51,11 @@ type CreateShopRequest struct {
 	Type                    string `json:"type" binding:"required,oneof=PHYSICAL ONLINE"`
 	City                    string `json:"city"`
 	Address                 string `json:"address"`
+	Province                string `json:"province" binding:"required"`
+	Commune                 string `json:"commune" binding:"required"`
+	Street                  string `json:"street" binding:"required"`
+	BuildingNumber          string `json:"building_number" binding:"required"`
+	Landmark                string `json:"landmark"`
 	Phone                   string `json:"phone"`
 	SupportsShopDelivery    *bool   `json:"supports_shop_delivery"`
 	ShopDeliveryFee         float64 `json:"shop_delivery_fee"`
@@ -61,6 +71,11 @@ type UpdateShopRequest struct {
 	Type                    *string `json:"type" binding:"omitempty,oneof=PHYSICAL ONLINE"`
 	City                    *string `json:"city"`
 	Address                 *string `json:"address"`
+	Province                *string `json:"province"`
+	Commune                 *string `json:"commune"`
+	Street                  *string `json:"street"`
+	BuildingNumber          *string `json:"building_number"`
+	Landmark                *string `json:"landmark"`
 	Phone                   *string `json:"phone"`
 	Status                  *string `json:"status"`
 	SupportsShopDelivery    *bool   `json:"supports_shop_delivery"`
@@ -79,6 +94,11 @@ type ShopResponse struct {
 	Type                    ShopType   `json:"type"`
 	City                    string     `json:"city"`
 	Address                 string     `json:"address"`
+	Province                string     `json:"province"`
+	Commune                 string     `json:"commune"`
+	Street                  string     `json:"street"`
+	BuildingNumber          string     `json:"building_number"`
+	Landmark                string     `json:"landmark"`
 	Phone                   string     `json:"phone"`
 	Status                  ShopStatus `json:"status"`
 	SupportsShopDelivery    bool       `json:"supports_shop_delivery"`

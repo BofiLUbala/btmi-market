@@ -48,6 +48,7 @@ func (s *ShopService) CreateShop(userID, businessID uuid.UUID, req *models.Creat
 		Type:       models.ShopType(req.Type),
 		City:       req.City,
 		Address:    req.Address,
+		Province: req.Province, Commune: req.Commune, Street: req.Street, BuildingNumber: req.BuildingNumber, Landmark: req.Landmark,
 		Phone:      req.Phone,
 		Status:     models.ShopStatusActive,
 	}
@@ -120,6 +121,11 @@ func (s *ShopService) UpdateShop(userID, shopID uuid.UUID, req *models.UpdateSho
 	if req.Address != nil {
 		shop.Address = *req.Address
 	}
+	if req.Province != nil { shop.Province = *req.Province }
+	if req.Commune != nil { shop.Commune = *req.Commune }
+	if req.Street != nil { shop.Street = *req.Street }
+	if req.BuildingNumber != nil { shop.BuildingNumber = *req.BuildingNumber }
+	if req.Landmark != nil { shop.Landmark = *req.Landmark }
 	if req.Phone != nil {
 		shop.Phone = *req.Phone
 	}

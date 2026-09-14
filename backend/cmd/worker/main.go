@@ -14,9 +14,9 @@ import (
 	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/robfig/cron/v3"
-	"github.com/google/uuid"
 )
 
 func main() {
@@ -65,6 +65,7 @@ func main() {
 	pointTxnRepo := repository.NewPointTransactionRepository(db)
 	pointConfigRepo := repository.NewPointConfigRepository(db)
 	paymentRepo := repository.NewBuyerPaymentRepository(db)
+	paymentConfigRepo := repository.NewPaymentConfigRepository(db)
 	verifiedTxnRepo := repository.NewVerifiedTransactionRepository(db)
 	membershipRepo := repository.NewMembershipRepository(db)
 	employeeRepo := repository.NewEmployeeRepository(db)
@@ -99,7 +100,7 @@ func main() {
 	reviewRepo := repository.NewReviewRepository(db)
 	reviewService := service.NewReviewService(reviewRepo, trustRepo, rankingService, asynqClient)
 
-	paymentService := service.NewPaymentService(paymentRepo, orderRepo, shopRepo, pointRepo, pointTxnRepo, levelRepo, buyerRepo, pointConfigRepo, pointRedemptionSvc, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
+	paymentService := service.NewPaymentService(paymentRepo, paymentConfigRepo, orderRepo, shopRepo, pointRepo, pointTxnRepo, levelRepo, buyerRepo, pointConfigRepo, pointRedemptionSvc, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(string(jobs.JobTypeRecalculateShopCategoryRanking), rankingJobHandler(rankingService))

@@ -31,6 +31,12 @@ type Courier struct {
 	TransportType    string              `json:"transport_type" db:"transport_type"`
 	VehicleInfo      *string             `json:"vehicle_info" db:"vehicle_info"`
 	ServiceZone      *string             `json:"service_zone" db:"service_zone"`
+	Province         string              `json:"province" db:"province"`
+	City             string              `json:"city" db:"city"`
+	Commune          string              `json:"commune" db:"commune"`
+	Street           string              `json:"street" db:"street"`
+	BuildingNumber   string              `json:"building_number" db:"building_number"`
+	Landmark         string              `json:"landmark" db:"landmark"`
 	ActivatedAt      *time.Time          `json:"activated_at" db:"activated_at"`
 	SuspendedAt      *time.Time          `json:"suspended_at" db:"suspended_at"`
 	SuspensionReason *string             `json:"suspension_reason" db:"suspension_reason"`
@@ -68,6 +74,12 @@ type CourierResponse struct {
 	TransportType    string              `json:"transport_type"`
 	VehicleInfo      *string             `json:"vehicle_info"`
 	ServiceZone      *string             `json:"service_zone"`
+	Province         string              `json:"province"`
+	City             string              `json:"city"`
+	Commune          string              `json:"commune"`
+	Street           string              `json:"street"`
+	BuildingNumber   string              `json:"building_number"`
+	Landmark         string              `json:"landmark"`
 	ActiveMissions   int                 `json:"active_missions"`
 	CompletedToday   int                 `json:"completed_today"`
 	TotalDeliveries  int                 `json:"total_deliveries"`
@@ -95,6 +107,26 @@ type AcceptCourierInvitationRequest struct {
 	Token                string `json:"token" binding:"required"`
 	Password             string `json:"password" binding:"required,min=8,max=64"`
 	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
+	Province             string `json:"province"`
+	City                 string `json:"city"`
+	Commune              string `json:"commune"`
+	Street               string `json:"street"`
+	BuildingNumber       string `json:"building_number"`
+	Landmark             string `json:"landmark"`
+}
+
+// UpdateCourierProfileRequest is the request body for updating the courier profile
+type UpdateCourierProfileRequest struct {
+	TransportType  *string `json:"transport_type"`
+	VehicleInfo    *string `json:"vehicle_info"`
+	ServiceZone    *string `json:"service_zone"`
+	Province       *string `json:"province"`
+	City           *string `json:"city"`
+	Commune        *string `json:"commune"`
+	Street         *string `json:"street"`
+	BuildingNumber *string `json:"building_number"`
+	Landmark       *string `json:"landmark"`
+	Phone          *string `json:"phone"`
 }
 
 // UpdateCourierAvailabilityRequest is the request body for updating availability

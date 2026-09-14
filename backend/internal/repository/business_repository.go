@@ -20,8 +20,8 @@ func NewBusinessRepository(db *database.DB) *BusinessRepository {
 
 func (r *BusinessRepository) Create(business *models.Business) error {
 	query := `
-		INSERT INTO businesses (id, name, business_type, category, phone, whatsapp, email, country, city, default_currency, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO businesses (id, name, business_type, category, phone, whatsapp, email, country, city, default_currency, status, province, commune, street, building_number, landmark)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		RETURNING created_at, updated_at
 	`
 
@@ -34,12 +34,13 @@ func (r *BusinessRepository) Create(business *models.Business) error {
 		business.Phone, business.Whatsapp, business.Email,
 		business.Country, business.City, business.DefaultCurrency,
 		business.Status,
+		business.Province, business.Commune, business.Street, business.BuildingNumber, business.Landmark,
 	).Scan(&business.CreatedAt, &business.UpdatedAt)
 }
 
 func (r *BusinessRepository) GetByID(id uuid.UUID) (*models.Business, error) {
 	query := `
-		SELECT id, name, business_type, category, phone, whatsapp, email, country, city, default_currency, status, created_at, updated_at
+		SELECT id, name, business_type, category, phone, whatsapp, email, country, city, default_currency, status, province, commune, street, building_number, landmark, created_at, updated_at
 		FROM businesses WHERE id = $1
 	`
 
@@ -48,7 +49,8 @@ func (r *BusinessRepository) GetByID(id uuid.UUID) (*models.Business, error) {
 		&business.ID, &business.Name, &business.BusinessType, &business.Category,
 		&business.Phone, &business.Whatsapp, &business.Email,
 		&business.Country, &business.City, &business.DefaultCurrency,
-		&business.Status, &business.CreatedAt, &business.UpdatedAt,
+		&business.Status, &business.Province, &business.Commune, &business.Street, &business.BuildingNumber, &business.Landmark,
+		&business.CreatedAt, &business.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -63,7 +65,7 @@ func (r *BusinessRepository) GetByID(id uuid.UUID) (*models.Business, error) {
 
 func (r *BusinessRepository) GetByUserID(userID uuid.UUID) ([]*models.Business, error) {
 	query := `
-		SELECT b.id, b.name, b.business_type, b.category, b.phone, b.whatsapp, b.email, b.country, b.city, b.default_currency, b.status, b.created_at, b.updated_at
+		SELECT b.id, b.name, b.business_type, b.category, b.phone, b.whatsapp, b.email, b.country, b.city, b.default_currency, b.status, b.province, b.commune, b.street, b.building_number, b.landmark, b.created_at, b.updated_at
 		FROM businesses b
 		INNER JOIN business_memberships bm ON b.id = bm.business_id
 		WHERE bm.user_id = $1 AND bm.status = 'ACTIVE' AND b.status = 'ACTIVE'
@@ -83,7 +85,8 @@ func (r *BusinessRepository) GetByUserID(userID uuid.UUID) ([]*models.Business, 
 			&business.ID, &business.Name, &business.BusinessType, &business.Category,
 			&business.Phone, &business.Whatsapp, &business.Email,
 			&business.Country, &business.City, &business.DefaultCurrency,
-			&business.Status, &business.CreatedAt, &business.UpdatedAt,
+			&business.Status, &business.Province, &business.Commune, &business.Street, &business.BuildingNumber, &business.Landmark,
+			&business.CreatedAt, &business.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err

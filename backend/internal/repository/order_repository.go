@@ -219,7 +219,9 @@ func (r *OrderRepository) UpdateDelivery(id uuid.UUID, delivery *models.Order) e
 		UPDATE orders
 		SET delivery_method = $2, delivery_fee_base = $3, delivery_points_used = $4, delivery_points_discount = $5,
 		    delivery_fee_final = $6, delivery_contact_name = $7, delivery_phone = $8, delivery_address = $9,
-		    delivery_notes = $10, delivery_status = $11, delivery_latitude = $12, delivery_longitude = $13, updated_at = NOW()
+		    delivery_notes = $10, delivery_status = $11, delivery_latitude = $12, delivery_longitude = $13,
+		    delivery_province=$14, delivery_city=$15, delivery_commune=$16, delivery_street=$17,
+		    delivery_building_number=$18, delivery_landmark=$19, updated_at = NOW()
 		WHERE id = $1
 		RETURNING updated_at
 	`
@@ -232,6 +234,8 @@ func (r *OrderRepository) UpdateDelivery(id uuid.UUID, delivery *models.Order) e
 		id, delivery.DeliveryMethod, delivery.DeliveryFeeBase, delivery.DeliveryPointsUsed, delivery.DeliveryPointsDiscount,
 		delivery.DeliveryFeeFinal, delivery.DeliveryContactName, delivery.DeliveryPhone, delivery.DeliveryAddress,
 		delivery.DeliveryNotes, deliveryStatus, delivery.DeliveryLatitude, delivery.DeliveryLongitude,
+		delivery.DeliveryProvince, delivery.DeliveryCity, delivery.DeliveryCommune, delivery.DeliveryStreet,
+		delivery.DeliveryBuildingNumber, delivery.DeliveryLandmark,
 	).Scan(&updatedAt)
 }
 

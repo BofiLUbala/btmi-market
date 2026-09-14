@@ -20,6 +20,29 @@ func NewAdminFinanceHandler(financeService *service.AdminFinanceService) *AdminF
 	return &AdminFinanceHandler{financeService: financeService}
 }
 
+func (h *AdminFinanceHandler) ListPaymentConfigs(c *gin.Context) {
+	items, err := h.financeService.ListPaymentConfigs(c.MustGet("admin_role").(models.AdminRole))
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
+func (h *AdminFinanceHandler) UpdatePaymentConfig(c *gin.Context) {
+	var req models.UpdatePaymentMethodConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	item, err := h.financeService.UpdatePaymentConfig(c.MustGet("admin_id").(uuid.UUID), c.MustGet("admin_role").(models.AdminRole), c.Param("code"), &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, item)
+}
+
 // GET /api/v1/admin/finance/summary
 func (h *AdminFinanceHandler) GetFinancialSummary(c *gin.Context) {
 	adminRole := c.MustGet("admin_role").(models.AdminRole)

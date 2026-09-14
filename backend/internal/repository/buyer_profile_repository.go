@@ -19,8 +19,8 @@ func NewBuyerProfileRepository(db *database.DB) *BuyerProfileRepository {
 
 func (r *BuyerProfileRepository) Create(profile *models.BuyerProfile) error {
 	query := `
-		INSERT INTO buyer_profiles (id, user_id, first_name, last_name, phone, backup_phone, address, email, city, commune, country, latitude, longitude, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		INSERT INTO buyer_profiles (id, user_id, first_name, last_name, phone, backup_phone, address, email, city, commune, country, latitude, longitude, status, province, street, building_number, landmark)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING created_at, updated_at
 	`
 	if profile.ID == uuid.Nil {
@@ -33,20 +33,20 @@ func (r *BuyerProfileRepository) Create(profile *models.BuyerProfile) error {
 	return r.db.QueryRow(query,
 		profile.ID, profile.UserID, profile.FirstName, profile.LastName,
 		profile.Phone, profile.BackupPhone, profile.Address, profile.Email, profile.City, profile.Commune,
-		profile.Country, profile.Latitude, profile.Longitude, profile.Status,
+		profile.Country, profile.Latitude, profile.Longitude, profile.Status, profile.Province, profile.Street, profile.BuildingNumber, profile.Landmark,
 	).Scan(&profile.CreatedAt, &profile.UpdatedAt)
 }
 
 func (r *BuyerProfileRepository) GetByID(id uuid.UUID) (*models.BuyerProfile, error) {
 	query := `
-		SELECT id, user_id, first_name, last_name, phone, backup_phone, address, email, city, commune, country, latitude, longitude, status, created_at, updated_at
+		SELECT id, user_id, first_name, last_name, phone, backup_phone, address, email, city, commune, country, latitude, longitude, status, province, street, building_number, landmark, created_at, updated_at
 		FROM buyer_profiles WHERE id = $1
 	`
 	p := &models.BuyerProfile{}
 	err := r.db.QueryRow(query, id).Scan(
 		&p.ID, &p.UserID, &p.FirstName, &p.LastName,
 		&p.Phone, &p.BackupPhone, &p.Address, &p.Email, &p.City, &p.Commune,
-		&p.Country, &p.Latitude, &p.Longitude, &p.Status,
+		&p.Country, &p.Latitude, &p.Longitude, &p.Status, &p.Province, &p.Street, &p.BuildingNumber, &p.Landmark,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -60,14 +60,14 @@ func (r *BuyerProfileRepository) GetByID(id uuid.UUID) (*models.BuyerProfile, er
 
 func (r *BuyerProfileRepository) GetByUserID(userID uuid.UUID) (*models.BuyerProfile, error) {
 	query := `
-		SELECT id, user_id, first_name, last_name, phone, backup_phone, address, email, city, commune, country, latitude, longitude, status, created_at, updated_at
+		SELECT id, user_id, first_name, last_name, phone, backup_phone, address, email, city, commune, country, latitude, longitude, status, province, street, building_number, landmark, created_at, updated_at
 		FROM buyer_profiles WHERE user_id = $1
 	`
 	p := &models.BuyerProfile{}
 	err := r.db.QueryRow(query, userID).Scan(
 		&p.ID, &p.UserID, &p.FirstName, &p.LastName,
 		&p.Phone, &p.BackupPhone, &p.Address, &p.Email, &p.City, &p.Commune,
-		&p.Country, &p.Latitude, &p.Longitude, &p.Status,
+		&p.Country, &p.Latitude, &p.Longitude, &p.Status, &p.Province, &p.Street, &p.BuildingNumber, &p.Landmark,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -124,6 +124,13 @@ func (r *BuyerProfileRepository) UpdateFromRequest(userID uuid.UUID, req *models
 		setClauses = append(setClauses, fmt.Sprintf("address=$%d", argIdx))
 		args = append(args, *req.Address)
 		argIdx++
+	}
+	for column, value := range map[string]*string{"province": req.Province, "street": req.Street, "building_number": req.BuildingNumber, "landmark": req.Landmark} {
+		if value != nil {
+			setClauses = append(setClauses, fmt.Sprintf("%s=$%d", column, argIdx))
+			args = append(args, *value)
+			argIdx++
+		}
 	}
 	if req.City != nil {
 		setClauses = append(setClauses, fmt.Sprintf("city=$%d", argIdx))

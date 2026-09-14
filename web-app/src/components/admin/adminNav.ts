@@ -92,6 +92,7 @@ export const SECTIONS: NavSection[] = [
       { to: '/admin/finance', labelKey: 'admin.layout.itemOverview', end: true },
       { to: '/admin/finance/commissions', labelKey: 'admin.layout.itemCommissions' },
       { to: '/admin/finance/payments', labelKey: 'admin.layout.itemCashPayments' },
+      { to: '/admin/finance/payment-config', labelKey: 'admin.finance.paymentConfiguration' },
       { to: '/admin/finance/confirmation', labelKey: 'admin.layout.itemCashConfirmation' },
       { to: '/admin/finance/points', labelKey: 'admin.layout.itemBuyerPoints' },
       { to: '/admin/finance/growth', labelKey: 'admin.layout.itemSellerGrowth' },

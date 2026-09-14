@@ -51,8 +51,10 @@ try {
   }
   if (-not $ready) { throw 'Isolated API did not become ready' }
 
+  # This bootstrap is safe because databaseName is a fresh isolated E2E database
+  # created above; the script never points this operation at the application DB.
   docker exec -e SUPER_ADMIN_NAME='Runtime SuperAdmin' -e SUPER_ADMIN_EMAIL='superadmin@admin-e2e.invalid' `
-    -e SUPER_ADMIN_PASSWORD=$superAdminPassword $containerName ./create-superadmin -update | Out-Null
+    -e SUPER_ADMIN_PASSWORD=$superAdminPassword $containerName ./create-superadmin | Out-Null
 
   $superLogin = Invoke-JsonRequest POST '/admin/auth/login' '' @{
     email = 'superadmin@admin-e2e.invalid'

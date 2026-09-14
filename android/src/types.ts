@@ -155,18 +155,21 @@ export interface Shop {
   supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
   delivery_city?: string; delivery_address?: string
   created_at?: string; updated_at?: string
+  province?: string; commune?: string; street?: string; building_number?: string; landmark?: string
 }
 export interface UpdateShopRequest {
   name?: string; type?: string; city?: string; address?: string; phone?: string; status?: string
   supports_shop_delivery?: boolean; shop_delivery_fee?: number
   supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
   delivery_city?: string; delivery_address?: string
+  province?: string; commune?: string; street?: string; building_number?: string; landmark?: string
 }
 export interface CreateShopRequest {
   name: string; type: 'PHYSICAL' | 'ONLINE'; city: string; address: string; phone: string
   supports_shop_delivery?: boolean; shop_delivery_fee?: number
   supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
   delivery_city?: string; delivery_address?: string
+  province: string; commune: string; street: string; building_number: string; landmark?: string
 }
 export interface BuyerProfile {
   id: string; first_name: string; last_name: string; email: string; phone: string
@@ -190,6 +193,7 @@ export interface Business {
   business_type?: string; category?: string; phone?: string; whatsapp?: string; email?: string
   country?: string; city?: string; default_currency?: string
   created_at?: string; updated_at?: string
+  province?: string; commune?: string; street?: string; building_number?: string; landmark?: string
 }
 export interface BusinessLifecycleSummary {
   shops: number; products: number; employees: number; inventory_units: number
@@ -215,11 +219,15 @@ export interface BuyerPayment {
   delivery_fee_base: number; delivery_points_used: number
   delivery_points_discount: number; delivery_fee_final: number
   cash_due: number
+  payment_markup: number; final_total: number; provider?: string
+  provider_reference?: string; payment_timing: 'NOW' | 'DELIVERY'
   buyer_confirmed: boolean; buyer_confirmed_at?: string | null
   seller_confirmed: boolean; seller_confirmed_at?: string | null
   status: string; verified_at?: string | null; created_at: string
   updated_at?: string
 }
+export interface PaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_amount: number; quoted_total: number; provider?: string }
+export interface CheckoutQuote { order_id: string; currency: string; subtotal: number; discount: number; points_discount: number; delivery_fee: number; payment_markup: number; final_total: number; selected_payment_method: string; payment_methods: PaymentMethodConfig[] }
 export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: OrderStatusHistory[]; shop_name: string }
 
 /* ---------- Checkout pipeline ----------
@@ -263,6 +271,7 @@ export interface DeliverySelectResponse {
 export interface SelectDeliveryRequest {
   method?: DeliveryMethod | string; use_points_for_delivery: boolean
   contact_name?: string; phone?: string; address?: string; notes?: string
+  province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
 }
 
 export interface DeliveryPointsPreview {

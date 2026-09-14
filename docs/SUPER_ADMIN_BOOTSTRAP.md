@@ -67,7 +67,7 @@ go run ./cmd/create-superadmin
 ## 5. Idempotency & Safety Rules
 
 1. **First-Super-Admin Rule**:
-   Before creating any record, the command queries `SELECT COUNT(*) FROM admin_users WHERE role = 'SUPER_ADMIN'`.
+   Before creating any record, the command uses `CountActiveSuperAdmins()`, equivalent to `role = 'SUPER_ADMIN' AND status = 'ACTIVE'`. If the count is at least one, it exits without creating or modifying an account.
    If one or more Super Admins already exist, the command safely exits with exit code `0` and outputs:
    ```
    [INFO] SUPER_ADMIN already exists. Bootstrap skipped.

@@ -2012,6 +2012,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'admin.layout.itemBuyerPoints': "Buyer Points",
   'admin.layout.itemCases': "Cases & Disputes",
   'admin.layout.itemCashPayments': "Cash Payments",
+  'admin.finance.paymentConfiguration': "Payment configuration",
   'admin.layout.itemCommissions': "Sales Commissions",
   'admin.layout.itemCashConfirmation': "Cash Confirmation",
   'admin.layout.itemSupport': "Support",

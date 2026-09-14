@@ -13,17 +13,19 @@ import {
   AdminCaseDetail,
   AdminPaymentDetail,
   AdminRiskEvent
+  ,AdminPaymentMethodConfig
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
 import { useAdminAuth } from '@/store/adminAuth'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
-type ActiveTab = 'overview' | 'payments' | 'confirmation' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'support' | 'risk' | 'trust'
+type ActiveTab = 'overview' | 'payment_config' | 'payments' | 'confirmation' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'support' | 'risk' | 'trust'
 
 /** URL slug -> feature. The sidebar links to these, so a refresh or a deep link
  *  reopens the same view instead of dropping back to the summary. */
 const FEATURE_BY_SLUG: Record<string, ActiveTab> = {
   payments: 'payments',
+  'payment-config': 'payment_config',
   confirmation: 'confirmation',
   points: 'points',
   growth: 'growth',
@@ -37,6 +39,7 @@ const FEATURE_BY_SLUG: Record<string, ActiveTab> = {
 
 const FEATURE_TITLE_KEY: Record<ActiveTab, string> = {
   overview: 'admin.layout.itemOverview',
+  payment_config: 'admin.finance.paymentConfiguration',
   payments: 'admin.layout.itemCashPayments',
   confirmation: 'admin.layout.itemCashConfirmation',
   points: 'admin.layout.itemBuyerPoints',
@@ -76,6 +79,7 @@ export default function FinanceDashboardPage() {
   const [shopReviews, setShopReviews] = useState<AdminShopReviewItem[]>([])
   const [cases, setCases] = useState<AdminCaseListItem[]>([])
   const [riskEvents, setRiskEvents] = useState<AdminRiskEvent[]>([])
+  const [paymentConfigs, setPaymentConfigs] = useState<AdminPaymentMethodConfig[]>([])
 
   // Modal / Action states
   const [selectedPayment, setSelectedPayment] = useState<AdminPaymentListItem | null>(null)
@@ -151,6 +155,9 @@ export default function FinanceDashboardPage() {
       if (tab === 'overview') {
         const sum = await adminFinanceApi.getSummary()
         setSummary(sum)
+      } else if (tab === 'payment_config') {
+        const res = await adminFinanceApi.listPaymentConfigs()
+        setPaymentConfigs(res.items || [])
       } else if (tab === 'payments') {
         const res = await adminFinanceApi.listPayments({
           page, limit: PAGE_SIZE,
@@ -214,6 +221,17 @@ export default function FinanceDashboardPage() {
       setAdjustError(err?.message || t('admin.finance.adjustFailed'))
     } finally {
       setAdjustingPoints(false)
+    }
+  }
+
+  const savePaymentConfig = async (config: AdminPaymentMethodConfig) => {
+    setError(null)
+    try {
+      const saved = await adminFinanceApi.updatePaymentConfig(config.code, config)
+      setPaymentConfigs(items => items.map(item => item.code === saved.code ? saved : item))
+      setActionSuccess(`Mode de paiement ${saved.label} enregistré`)
+    } catch (err: any) {
+      setError(err?.message || 'Impossible d’enregistrer la configuration')
     }
   }
 
@@ -391,6 +409,24 @@ export default function FinanceDashboardPage() {
             <MetricCard title={t('admin.finance.metricFlaggedReviewsTitle')} value={String(summary.flagged_reviews_count)} sub={t('admin.finance.metricFlaggedReviewsSub')} color="#fb923c" />
             <MetricCard title={t('admin.finance.metricRiskTitle')} value={String(summary.risk_alerts_count)} sub={t('admin.finance.metricRiskSub')} color="#ef4444" />
           </div>
+        </div>
+      )}
+
+      {!loading && tab === 'payment_config' && (
+        <div style={{ display: 'grid', gap: 14 }}>
+          {paymentConfigs.map((config, index) => (
+            <div key={config.code} style={{ padding: 16, background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 2fr auto', gap: 10, alignItems: 'end' }}>
+                <label>Libellé<input value={config.label} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, label:e.target.value} : item))} /></label>
+                <label>Actif<input type="checkbox" checked={config.enabled} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, enabled:e.target.checked} : item))} /></label>
+                <label>Majoration<select value={config.markup_type} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_type:e.target.value as AdminPaymentMethodConfig['markup_type']} : item))}><option value="NONE">Aucune</option><option value="PERCENTAGE">%</option><option value="FIXED">Fixe</option></select></label>
+                <label>Valeur<input type="number" min="0" step="0.01" value={config.markup_value} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_value:Number(e.target.value)} : item))} /></label>
+                <label>Fournisseur<input value={config.provider} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, provider:e.target.value} : item))} /></label>
+                <button className="admin-button" onClick={() => void savePaymentConfig(config)}>Enregistrer</button>
+              </div>
+              <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>{config.code} · {config.timing} · {config.channel}</div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -2,7 +2,7 @@ import { del, get, patch, post, postForm, uploadFile } from './client'
 import type { UploadFile } from '../lib/imageUpload'
 import type {
   AcceptEmployeeInvitationRequest, AddStockRequest, ArchiveBusinessResponse, AssignEmployeeRequest,
-  Business, BusinessLifecycleSummary, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse,
+  Business, BusinessLifecycleSummary, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse, CheckoutQuote,
   CashPayment, CashSession, CashSummary, Category, CategoryAttributeDefinition, Customer,
   CreateCustomerRequest, CreateEmployeeInvitationRequest,
   CreateEmployeeRequest, CreateProductRequest, CreateShopRequest, CreateStockReceiptRequest, CreateVariantRequest,
@@ -90,7 +90,8 @@ export const buyerApi = {
   tracking: (id: string) => get<TrackingResponse>(`/buyer/orders/${id}/tracking`),
   confirmReceived: (id: string) => post(`/buyer/orders/${id}/received`),
   cancelOrder: (id: string) => post(`/buyer/orders/${id}/cancel`),
-  createPayment: (id: string) => post<BuyerPayment>(`/buyer/orders/${id}/payment`),
+  checkoutQuote: (id: string) => get<CheckoutQuote>(`/buyer/orders/${id}/checkout-quote`),
+  createPayment: (id: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${id}/payment`, { payment_method: paymentMethod }),
   getPayment: (id: string) => get<BuyerPayment>(`/buyer/orders/${id}/payment`),
   buyerConfirmPayment: (paymentId: string) => post<BuyerPayment>(`/buyer/payments/${paymentId}/buyer-confirm`),
   reviewEligibility: (orderId: string, lineId?: string) => get<ReviewEligibility>(`/buyer/orders/${orderId}/review-eligibility${lineId ? `?order_line_id=${encodeURIComponent(lineId)}` : ''}`),

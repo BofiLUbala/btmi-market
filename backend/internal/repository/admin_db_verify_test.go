@@ -26,15 +26,16 @@ func TestRealDatabaseSuperAdminVerification(t *testing.T) {
 
 	adminRepo := repository.NewAdminRepository(db)
 
-	// 1. Verify SUPER_ADMIN count is exactly 1 (no duplicates)
-	count, err := adminRepo.CountSuperAdmins()
+	// Historical SUPER_ADMIN rows may remain for audit retention. The security
+	// invariant is exactly one effective ACTIVE SUPER_ADMIN.
+	count, err := adminRepo.CountActiveSuperAdmins()
 	if err != nil {
 		t.Fatalf("failed to count super admins: %v", err)
 	}
 	if count != 1 {
-		t.Fatalf("DUPLICATE CHECK FAILED: expected exactly 1 SUPER_ADMIN, found %d", count)
+		t.Fatalf("INTEGRITY CHECK FAILED: expected exactly 1 ACTIVE SUPER_ADMIN, found %d", count)
 	}
-	t.Logf("PASS: Exactly 1 SUPER_ADMIN found in PostgreSQL")
+	t.Logf("PASS: Exactly 1 ACTIVE SUPER_ADMIN found in PostgreSQL")
 
 	// 2. Fetch the super admin
 	admin, err := adminRepo.GetFirstSuperAdmin()

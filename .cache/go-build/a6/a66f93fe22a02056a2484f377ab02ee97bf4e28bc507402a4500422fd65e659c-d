@@ -1,0 +1,26 @@
+# test log
+getenv APP_ENV
+getenv API_PORT
+getenv BACKGROUND_WORKER_ENABLED
+getenv DB_HOST
+getenv DB_PORT
+getenv DB_NAME
+getenv DB_USER
+getenv DB_PASSWORD
+getenv REDIS_ADDR
+getenv REDIS_PASSWORD
+getenv REDIS_DB
+getenv JWT_SECRET
+getenv ACCESS_TOKEN_TTL
+getenv REFRESH_TOKEN_TTL
+getenv FRONTEND_URL
+getenv SMTP_HOST
+getenv SMTP_PORT
+getenv SMTP_USER
+getenv SMTP_PASSWORD
+getenv SMTP_FROM
+getenv UPLOAD_DIR
+getenv VISUAL_SEARCH_URL
+getenv APP_COMMIT_SHA
+getenv BUILD_TIME
+getenv APPDATA

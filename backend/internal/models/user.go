@@ -59,6 +59,10 @@ type RegisterRequest struct {
 	PasswordConfirmation string   `json:"password_confirmation" binding:"required"`
 	BackupPhone          string   `json:"backup_phone"`
 	Address              string   `json:"address"`
+	Province             string   `json:"province" binding:"required"`
+	Street               string   `json:"street" binding:"required"`
+	BuildingNumber       string   `json:"building_number" binding:"required"`
+	Landmark             string   `json:"landmark"`
 	City                 string   `json:"city"`
 	Commune              string   `json:"commune"`
 	Country              string   `json:"country"`

@@ -22,7 +22,7 @@ const buyerPaymentSelect = `
 	SELECT id, order_id, business_id, shop_id, buyer_profile_id, payment_method, currency,
 	       products_base_total, products_points_used, products_points_discount, products_final_total,
 	       delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-	       cash_due,
+	       cash_due, payment_markup, final_total, provider, provider_reference, payment_timing,
 	       buyer_confirmed, buyer_confirmed_at, seller_confirmed, seller_confirmed_by, seller_confirmed_at,
 	       status, verified_at,
 	       created_at, updated_at
@@ -34,7 +34,7 @@ func scanBuyerPayment(row interface{ Scan(...any) error }) (*models.BuyerPayment
 		&p.ID, &p.OrderID, &p.BusinessID, &p.ShopID, &p.BuyerProfileID, &p.PaymentMethod, &p.Currency,
 		&p.ProductsBaseTotal, &p.ProductsPointsUsed, &p.ProductsPointsDiscount, &p.ProductsFinalTotal,
 		&p.DeliveryFeeBase, &p.DeliveryPointsUsed, &p.DeliveryPointsDiscount, &p.DeliveryFeeFinal,
-		&p.CashDue,
+		&p.CashDue, &p.PaymentMarkup, &p.FinalTotal, &p.Provider, &p.ProviderReference, &p.PaymentTiming,
 		&p.BuyerConfirmed, &p.BuyerConfirmedAt, &p.SellerConfirmed, &p.SellerConfirmedBy, &p.SellerConfirmedAt,
 		&p.Status, &p.VerifiedAt,
 		&p.CreatedAt, &p.UpdatedAt,
@@ -53,9 +53,10 @@ func (r *BuyerPaymentRepository) Create(p *models.BuyerPayment) error {
 		INSERT INTO buyer_payments (id, order_id, business_id, shop_id, buyer_profile_id, payment_method, currency,
 		       products_base_total, products_points_used, products_points_discount, products_final_total,
 		       delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       cash_due, buyer_confirmed, buyer_confirmed_at, seller_confirmed, seller_confirmed_by, seller_confirmed_at,
+		       cash_due, payment_markup, final_total, provider, provider_reference, payment_timing,
+		       buyer_confirmed, buyer_confirmed_at, seller_confirmed, seller_confirmed_by, seller_confirmed_at,
 		       status, verified_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
 		RETURNING created_at, updated_at
 	`
 	if p.ID == uuid.Nil {
@@ -77,7 +78,8 @@ func (r *BuyerPaymentRepository) Create(p *models.BuyerPayment) error {
 		p.ID, p.OrderID, p.BusinessID, p.ShopID, p.BuyerProfileID, p.PaymentMethod, p.Currency,
 		p.ProductsBaseTotal, p.ProductsPointsUsed, p.ProductsPointsDiscount, p.ProductsFinalTotal,
 		p.DeliveryFeeBase, p.DeliveryPointsUsed, p.DeliveryPointsDiscount, p.DeliveryFeeFinal,
-		p.CashDue, p.BuyerConfirmed, p.BuyerConfirmedAt, p.SellerConfirmed, p.SellerConfirmedBy, p.SellerConfirmedAt,
+		p.CashDue, p.PaymentMarkup, p.FinalTotal, p.Provider, p.ProviderReference, p.PaymentTiming,
+		p.BuyerConfirmed, p.BuyerConfirmedAt, p.SellerConfirmed, p.SellerConfirmedBy, p.SellerConfirmedAt,
 		p.Status, p.VerifiedAt,
 	).Scan(&p.CreatedAt, &p.UpdatedAt)
 }

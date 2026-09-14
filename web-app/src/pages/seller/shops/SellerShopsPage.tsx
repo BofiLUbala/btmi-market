@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
 import { drcCityOptions } from '@/lib/drcLocations'
+import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
 import type { TranslationKey } from '@/locales/fr'
 
 interface ShopStats {
@@ -36,7 +37,7 @@ export default function SellerShopsPage() {
   // Create shop form
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState({
-    name: '', type: 'PHYSICAL', city: '', address: '', phone: '',
+    name: '', type: 'PHYSICAL', province: '', city: '', commune: '', street: '', building_number: '', landmark: '', address: '', phone: '',
     supports_shop_delivery: false, shop_delivery_fee: 0,
     supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
     delivery_city: '', delivery_address: '',
@@ -113,10 +114,10 @@ export default function SellerShopsPage() {
     setCreating(true)
     setActionError('')
     try {
-      await shopApi.create(activeBusiness.id, createForm)
+      await shopApi.create(activeBusiness.id, { ...createForm, address: [createForm.building_number, createForm.street, createForm.commune, createForm.city, createForm.province].filter(Boolean).join(', ') })
       setShowCreate(false)
       setCreateForm({
-        name: '', type: 'PHYSICAL', city: '', address: '', phone: '',
+        name: '', type: 'PHYSICAL', province: '', city: '', commune: '', street: '', building_number: '', landmark: '', address: '', phone: '',
         supports_shop_delivery: false, shop_delivery_fee: 0,
         supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
         delivery_city: '', delivery_address: '',
@@ -212,8 +213,7 @@ export default function SellerShopsPage() {
               { value: 'PHYSICAL', label: t('seller.shopPage.typePhysical') },
               { value: 'ONLINE', label: t('seller.shopPage.typeOnline') },
             ]} />
-            <Field label={t('common.city')} name="city" as="select" required value={createForm.city} options={drcCityOptions()} onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })} />
-            <Field label={t('common.address')} name="address" required value={createForm.address} onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })} />
+            <StructuredAddressFields value={{ province: createForm.province, city: createForm.city, commune: createForm.commune, street: createForm.street, building_number: createForm.building_number, landmark: createForm.landmark }} onChange={(address) => setCreateForm((current) => ({ ...current, ...address }))} />
             <Field label={t('common.phone')} name="phone" required value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder={t('seller.shopPage.phonePlaceholder')} />
 
             <h4 style={{ marginTop: 16, marginBottom: 4 }}>{t('seller.shopPage.deliveryOptions')}</h4>
@@ -264,6 +264,7 @@ export default function SellerShopsPage() {
               value={editForm.name ?? ''}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
             />
+            <StructuredAddressFields value={{ province: editForm.province ?? '', city: editForm.city ?? '', commune: editForm.commune ?? '', street: editForm.street ?? '', building_number: editForm.building_number ?? '', landmark: editForm.landmark ?? '' }} onChange={(address) => setEditForm((current) => ({ ...current, ...address, address: [address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', ') }))} />
 
             <h4 style={{ marginTop: 16, marginBottom: 4 }}>{t('seller.shopPage.deliveryOptions')}</h4>
 
@@ -355,7 +356,7 @@ export default function SellerShopsPage() {
                   <span className={`badge ${archived ? 'badge-muted' : 'badge-success'}`}>{t(`seller.shopStatus.${shop.status}` as TranslationKey)}</span>
                 </div>
                 <span className="small muted">
-                  {[shop.city, shop.address].filter(Boolean).join(' — ') || shop.type}
+                  {[shop.building_number, shop.street, shop.commune, shop.city, shop.province].filter(Boolean).join(', ') || shop.address || shop.type}
                 </span>
 
                 {archived ? (
@@ -399,6 +400,7 @@ export default function SellerShopsPage() {
                             partner_delivery_provider: shop.partner_delivery_provider ?? '',
                             delivery_city: shop.delivery_city ?? '',
                             delivery_address: shop.delivery_address ?? '',
+                            province: shop.province ?? '', city: shop.city ?? '', commune: shop.commune ?? '', street: shop.street ?? '', building_number: shop.building_number ?? '', landmark: shop.landmark ?? '',
                           })
                         }}
                       >

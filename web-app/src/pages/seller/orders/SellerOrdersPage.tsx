@@ -314,11 +314,20 @@ export default function SellerOrdersPage() {
                               <div><strong>{t('seller.orders.baseTotal')}:</strong> {(order.base_total ?? order.final_total).toLocaleString()} FC</div>
                               {order.notes && <div><strong>{t('seller.orders.notesLabel')}:</strong> {order.notes}</div>}
                               <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
+                              {detail?.order && <div className="seller-payment-box">
+                                <strong>Livraison</strong>
+                                <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
+                                <div>Adresse: {detail.order.delivery_address || '—'}</div>
+                                {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
+                                <div>Frais: {detail.order.delivery_fee_final.toLocaleString()} FC</div>
+                              </div>}
                               {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <div key={line.id}>{line.variant_name ? t('seller.orders.lineWithVariant', { name: line.product_name || line.product_id || '', variant: line.variant_name, quantity: line.quantity, price: (line.final_unit_price || line.unit_price).toLocaleString() }) : t('seller.orders.line', { name: line.product_name || line.product_id || '', quantity: line.quantity, price: (line.final_unit_price || line.unit_price).toLocaleString() })}</div>)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
                               <div className="seller-payment-box">
                                 <strong>{t('seller.orders.cashPayment')}</strong>
                                 {payment ? <>
                                   <div>{t('orders.amountDue')}: <strong>{payment.cash_due.toLocaleString()} FC</strong></div>
+                                  <div>Mode: <strong>{payment.payment_method}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
+                                  <div>Majoration: {payment.payment_markup.toLocaleString()} FC · Total: <strong>{payment.final_total.toLocaleString()} FC</strong></div>
                                   <div>{t('seller.orders.buyerColon')} {payment.buyer_confirmed ? `✓ ${t('orders.paymentDeclared')}` : t('orders.notConfirmed')}</div>
                                   <div>{t('seller.orders.sellerColon')} {payment.seller_confirmed ? `✓ ${t('orders.cashReceived')}` : t('orders.notConfirmed')}</div>
                                   <div>{t('common.status')}: <strong>{payment.status}</strong></div>

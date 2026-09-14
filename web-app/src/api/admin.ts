@@ -1384,7 +1384,11 @@ export interface AdminRiskEvent {
   resolved_by?: string
 }
 
+export interface AdminPaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; provider: string; modified_by?: string; updated_at: string }
+
 export const adminFinanceApi = {
+  listPaymentConfigs: () => adminApi<{ items: AdminPaymentMethodConfig[] }>('/admin/finance/payment-config'),
+  updatePaymentConfig: (code: string, body: Pick<AdminPaymentMethodConfig, 'label'|'enabled'|'markup_type'|'markup_value'|'provider'>) => adminApi<AdminPaymentMethodConfig>(`/admin/finance/payment-config/${code}`, { method: 'PATCH', body: JSON.stringify(body) }),
   getSummary: async (params?: { business_id?: string; shop_id?: string; seller_id?: string; date_from?: string; date_to?: string }) => {
     const q = new URLSearchParams()
     if (params?.business_id) q.set('business_id', params.business_id)
