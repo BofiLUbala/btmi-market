@@ -37,7 +37,7 @@ export default function SellerOnboardingScreen() {
   }, [existingBusiness, businessId])
 
   const [businessForm, setBusinessForm] = useState({ name: '', category: '', phone: user?.phone || '', email: user?.email || '', city: '', country: 'CD' })
-  const [shopForm, setShopForm] = useState({ name: '', city: '', address: '', phone: user?.phone || '' })
+  const [shopForm, setShopForm] = useState({ name: '', province: '', city: '', commune: '', street: '', building_number: '', phone: user?.phone || '' })
   const [shopType, setShopType] = useState<'PHYSICAL' | 'ONLINE'>('PHYSICAL')
   const [error, setError] = useState('')
 
@@ -70,11 +70,22 @@ export default function SellerOnboardingScreen() {
   const createShop = useMutation({
     mutationFn: () => {
       if (!businessId) throw new Error('NO_BUSINESS')
+      const province = shopForm.province.trim()
+      const city = shopForm.city.trim()
+      const commune = shopForm.commune.trim()
+      const street = shopForm.street.trim()
+      const buildingNumber = shopForm.building_number.trim()
       return sellerApi.createShop(businessId, {
         name: shopForm.name.trim(),
         type: shopType,
-        city: shopForm.city.trim(),
-        address: shopForm.address.trim(),
+        province,
+        city,
+        commune,
+        street,
+        building_number: buildingNumber,
+        // Same one-line rendering web builds from the structured parts, so a
+        // shop created on mobile reads identically everywhere else.
+        address: [buildingNumber, street, commune, city, province].filter(Boolean).join(', '),
         phone: shopForm.phone.trim(),
       })
     },
@@ -145,8 +156,11 @@ export default function SellerOnboardingScreen() {
                 <Text style={[styles.typeLabel, shopType === 'ONLINE' && styles.typeLabelActive]}>{t('seller.shopTypeOnline')}</Text>
               </Pressable>
             </View>
+            <Field label={t('seller.province')} value={shopForm.province} onChangeText={(value) => setShopField('province', value)} autoCapitalize="words" />
             <Field label={t('seller.city')} value={shopForm.city} onChangeText={(value) => setShopField('city', value)} autoCapitalize="words" />
-            <Field label={t('seller.address')} value={shopForm.address} onChangeText={(value) => setShopField('address', value)} autoCapitalize="words" />
+            <Field label={t('seller.commune')} value={shopForm.commune} onChangeText={(value) => setShopField('commune', value)} autoCapitalize="words" />
+            <Field label={t('seller.street')} value={shopForm.street} onChangeText={(value) => setShopField('street', value)} autoCapitalize="words" />
+            <Field label={t('seller.buildingNumber')} value={shopForm.building_number} onChangeText={(value) => setShopField('building_number', value)} autoCapitalize="characters" />
             <Field label={t('auth.phone')} value={shopForm.phone} onChangeText={(value) => setShopField('phone', value)} keyboardType="phone-pad" />
             <Button title={t('seller.createShopAndContinue')} loading={createShop.isPending} disabled={!shopValid} onPress={() => createShop.mutate()} />
           </Card>

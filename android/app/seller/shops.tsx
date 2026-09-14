@@ -12,7 +12,8 @@ import { radius, spacing, type Colors } from '../../src/theme'
 import type { CreateShopRequest, Shop, UpdateShopRequest } from '../../src/types'
 
 const emptyForm: CreateShopRequest = {
-  name: '', type: 'PHYSICAL', city: '', address: '', phone: '',
+  name: '', type: 'PHYSICAL', phone: '',
+  province: '', city: '', commune: '', street: '', building_number: '', address: '',
   supports_shop_delivery: false, shop_delivery_fee: 0,
   supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
   delivery_city: '', delivery_address: '',
@@ -69,7 +70,12 @@ export default function SellerShopsScreen() {
   }
 
   const create = useMutation({
-    mutationFn: () => sellerApi.createShop(activeBusiness!.id, form),
+    // The backend requires the structured address parts; `address` stays the
+    // one-line rendering derived from them, exactly as web composes it.
+    mutationFn: () => sellerApi.createShop(activeBusiness!.id, {
+      ...form,
+      address: [form.building_number, form.street, form.commune, form.city, form.province].filter(Boolean).join(', '),
+    }),
     onMutate: () => setError(''),
     onSuccess: () => { setShowCreate(false); setForm(emptyForm); invalidate() },
     onError: (e) => setError(e instanceof ApiError ? e.message : t('seller.shops.createFailed')),
@@ -127,8 +133,11 @@ export default function SellerShopsScreen() {
         <Pressable accessibilityRole="button" style={[styles.typeOption, form.type === 'PHYSICAL' && styles.typeOptionActive]} onPress={() => setForm((f) => ({ ...f, type: 'PHYSICAL' }))}><Text style={[styles.typeLabel, form.type === 'PHYSICAL' && styles.typeLabelActive]}>{t('seller.shopTypePhysical')}</Text></Pressable>
         <Pressable accessibilityRole="button" style={[styles.typeOption, form.type === 'ONLINE' && styles.typeOptionActive]} onPress={() => setForm((f) => ({ ...f, type: 'ONLINE' }))}><Text style={[styles.typeLabel, form.type === 'ONLINE' && styles.typeLabelActive]}>{t('seller.shopTypeOnline')}</Text></Pressable>
       </View>
+      <Field label={t('seller.province')} value={form.province} onChangeText={(v) => setForm((f) => ({ ...f, province: v }))} autoCapitalize="words" />
       <Field label={t('seller.city')} value={form.city} onChangeText={(v) => setForm((f) => ({ ...f, city: v }))} autoCapitalize="words" />
-      <Field label={t('seller.address')} value={form.address} onChangeText={(v) => setForm((f) => ({ ...f, address: v }))} autoCapitalize="words" />
+      <Field label={t('seller.commune')} value={form.commune} onChangeText={(v) => setForm((f) => ({ ...f, commune: v }))} autoCapitalize="words" />
+      <Field label={t('seller.street')} value={form.street} onChangeText={(v) => setForm((f) => ({ ...f, street: v }))} autoCapitalize="words" />
+      <Field label={t('seller.buildingNumber')} value={form.building_number} onChangeText={(v) => setForm((f) => ({ ...f, building_number: v }))} autoCapitalize="characters" />
       <Field label={t('auth.phone')} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} keyboardType="phone-pad" />
 
       <DeliverySection
