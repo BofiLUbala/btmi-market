@@ -553,6 +553,7 @@ func toOrderResponse(order *models.Order) models.OrderResponse {
 		FinalTotal:             order.FinalTotal,
 		IdempotencyKey:         order.IdempotencyKey,
 		OrderNumber:            order.OrderNumber,
+		Currency:               models.CurrencySnapshot(order.Currency),
 		DeliveryMethod:         order.DeliveryMethod,
 		DeliveryFeeBase:        order.DeliveryFeeBase,
 		DeliveryPointsUsed:     order.DeliveryPointsUsed,

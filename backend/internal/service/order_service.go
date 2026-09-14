@@ -1223,7 +1223,21 @@ func (s *OrderService) GetOrderRaw(orderID uuid.UUID) (*models.Order, error) {
 // order in one query so buyer and seller views can show who sold the items.
 func (s *OrderService) contextNames(orderID uuid.UUID) (shopName, businessName, sellerName string) {
 	_ = s.db.QueryRow(`
-		SELECT COALESCE(s.name, ''), COALESCE(b.name, ''), COALESCE(u.first_name || ' ' || u.last_name, '')
+		SELECT COALESCE(s.name, ''), COALESCE(b.name, ''),
+		       COALESCE(
+		         COALESCE(u.first_name || ' ' || u.last_name, ''),
+		         (
+		           SELECT om.first_name || ' ' || om.last_name
+		           FROM business_memberships bm
+		           JOIN users om ON om.id = bm.user_id
+		           WHERE bm.business_id = o.business_id
+		             AND bm.role = 'OWNER'
+		             AND (bm.status = 'ACTIVE' OR bm.status IS NULL)
+		           ORDER BY bm.joined_at ASC
+		           LIMIT 1
+		         ),
+		         ''
+		       )
 		FROM orders o
 		LEFT JOIN shops s ON s.id = o.shop_id
 		LEFT JOIN businesses b ON b.id = o.business_id
@@ -1861,6 +1875,7 @@ func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse
 		FinalTotal:             order.FinalTotal,
 		IdempotencyKey:         order.IdempotencyKey,
 		OrderNumber:            order.OrderNumber,
+		Currency:               models.CurrencySnapshot(order.Currency),
 		DeliveryMethod:         order.DeliveryMethod,
 		DeliveryFeeBase:        order.DeliveryFeeBase,
 		DeliveryPointsUsed:     order.DeliveryPointsUsed,

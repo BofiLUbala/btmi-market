@@ -17,6 +17,15 @@ func RoundMoney(amount float64) float64 {
 	return math.Round(amount*100) / 100
 }
 
+// CurrencySnapshot reads back a stored currency, treating the blank left by
+// rows written before the column existed as the platform default.
+func CurrencySnapshot(currency string) string {
+	if currency == "" {
+		return CurrencyUSD
+	}
+	return currency
+}
+
 // PercentOf applies a percentage to a base and rounds to the minor unit, so a
 // 3% markup on 25.50 is exactly 0.77 rather than 0.7649999999999999.
 func PercentOf(base, percent float64) float64 {
