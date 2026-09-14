@@ -44,6 +44,7 @@ type OrderService struct {
 	buyerRepo          *repository.BuyerProfileRepository
 	paymentRepo        *repository.BuyerPaymentRepository
 	pointRedemptionSvc *PointRedemptionService
+	locationRepo       *repository.LocationRepository
 	commSvc            *CommunicationService
 	qrSvc              *QRService
 	db                 *database.DB
@@ -86,6 +87,12 @@ func NewOrderService(
 		db:                 db,
 		orderEvents:        make([]models.OrderEvent, 0),
 	}
+}
+
+// SetLocationRepository injects the RDC hierarchy used to validate and
+// normalise every delivery address.
+func (s *OrderService) SetLocationRepository(locationRepo *repository.LocationRepository) {
+	s.locationRepo = locationRepo
 }
 
 func (s *OrderService) SetCommunicationService(commSvc *CommunicationService) {
@@ -890,6 +897,40 @@ func (s *OrderService) GetDeliveryOptions(buyerProfileID, orderID uuid.UUID) (*m
 	}, nil
 }
 
+// resolveDeliveryLocation turns the client's province/city/commune selection
+// into a validated row triple from the RDC hierarchy. Ids win when present;
+// names are accepted only when they match a real commune of that city, so a
+// legacy client cannot smuggle in a free-text address.
+func (s *OrderService) resolveDeliveryLocation(req *models.SelectDeliveryRequest) (*models.ResolvedAddress, error) {
+	if s.locationRepo == nil {
+		return nil, errors.New("LOCATION_HIERARCHY_UNAVAILABLE")
+	}
+	provinceID, errProvince := uuid.Parse(strings.TrimSpace(req.ProvinceID))
+	cityID, errCity := uuid.Parse(strings.TrimSpace(req.CityID))
+	communeID, errCommune := uuid.Parse(strings.TrimSpace(req.CommuneID))
+	if errProvince == nil && errCity == nil && errCommune == nil {
+		resolved, err := s.locationRepo.Resolve(provinceID, cityID, communeID)
+		if err == repository.ErrLocationNotFound {
+			return nil, errors.New("INVALID_DELIVERY_LOCATION")
+		}
+		if err != nil {
+			return nil, err
+		}
+		return resolved, nil
+	}
+	if strings.TrimSpace(req.City) == "" || strings.TrimSpace(req.Commune) == "" {
+		return nil, errors.New("DELIVERY_ADDRESS_REQUIRED")
+	}
+	resolved, err := s.locationRepo.ResolveByNames(strings.TrimSpace(req.Province), strings.TrimSpace(req.City), strings.TrimSpace(req.Commune))
+	if err == repository.ErrLocationNotFound {
+		return nil, errors.New("INVALID_DELIVERY_LOCATION")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return resolved, nil
+}
+
 // SelectDelivery sets the delivery address and details on an order and reserves
 // delivery points when requested. Delivery is centrally managed by TBK (TBK_STANDARD).
 func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *models.SelectDeliveryRequest) (*models.DeliverySelectResponse, error) {
@@ -928,9 +969,14 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		return nil, err
 	}
 
+	var resolved *models.ResolvedAddress
 	if method != models.DeliveryMethodPickup {
-		if strings.TrimSpace(req.Province) == "" || strings.TrimSpace(req.City) == "" || strings.TrimSpace(req.Commune) == "" || strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.BuildingNumber) == "" {
+		if strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.BuildingNumber) == "" {
 			return nil, errors.New("DELIVERY_ADDRESS_REQUIRED")
+		}
+		resolved, err = s.resolveDeliveryLocation(req)
+		if err != nil {
+			return nil, err
 		}
 		if strings.TrimSpace(req.ContactName) == "" {
 			return nil, errors.New("DELIVERY_CONTACT_NAME_REQUIRED")
@@ -975,9 +1021,21 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 	delivery.DeliveryFeeFinal = feeFinal
 	delivery.DeliveryContactName = strings.TrimSpace(req.ContactName)
 	delivery.DeliveryPhone = strings.TrimSpace(req.Phone)
-	delivery.DeliveryProvince = strings.TrimSpace(req.Province)
-	delivery.DeliveryCity = strings.TrimSpace(req.City)
-	delivery.DeliveryCommune = strings.TrimSpace(req.Commune)
+	if resolved != nil {
+		// Names are taken from the hierarchy, never from the client, so an order
+		// can never store a commune that does not exist in that city.
+		delivery.DeliveryProvince = resolved.Province.Name
+		delivery.DeliveryCity = resolved.City.Name
+		delivery.DeliveryCommune = resolved.Commune.Name
+		provinceID, cityID, communeID := resolved.Province.ID, resolved.City.ID, resolved.Commune.ID
+		delivery.DeliveryProvinceID = &provinceID
+		delivery.DeliveryCityID = &cityID
+		delivery.DeliveryCommuneID = &communeID
+	} else {
+		delivery.DeliveryProvince = strings.TrimSpace(req.Province)
+		delivery.DeliveryCity = strings.TrimSpace(req.City)
+		delivery.DeliveryCommune = strings.TrimSpace(req.Commune)
+	}
 	delivery.DeliveryStreet = strings.TrimSpace(req.Street)
 	delivery.DeliveryBuildingNumber = strings.TrimSpace(req.BuildingNumber)
 	delivery.DeliveryLandmark = strings.TrimSpace(req.Landmark)
@@ -1011,6 +1069,15 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 			ContactName:       delivery.DeliveryContactName,
 			Phone:             delivery.DeliveryPhone,
 			Address:           delivery.DeliveryAddress,
+			Province:          delivery.DeliveryProvince,
+			City:              delivery.DeliveryCity,
+			Commune:           delivery.DeliveryCommune,
+			Street:            delivery.DeliveryStreet,
+			BuildingNumber:    delivery.DeliveryBuildingNumber,
+			Landmark:          delivery.DeliveryLandmark,
+			ProvinceID:        delivery.DeliveryProvinceID,
+			CityID:            delivery.DeliveryCityID,
+			CommuneID:         delivery.DeliveryCommuneID,
 			Notes:             delivery.DeliveryNotes,
 			AssignedCourierID: delivery.AssignedCourierID,
 			Latitude:          delivery.DeliveryLatitude,

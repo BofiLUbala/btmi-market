@@ -37,7 +37,7 @@ export default function SellerShopsPage() {
   // Create shop form
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState({
-    name: '', type: 'PHYSICAL', province: '', city: '', commune: '', street: '', building_number: '', landmark: '', address: '', phone: '',
+    name: '', type: 'PHYSICAL', province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', address: '', phone: '',
     supports_shop_delivery: false, shop_delivery_fee: 0,
     supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
     delivery_city: '', delivery_address: '',
@@ -117,7 +117,7 @@ export default function SellerShopsPage() {
       await shopApi.create(activeBusiness.id, { ...createForm, address: [createForm.building_number, createForm.street, createForm.commune, createForm.city, createForm.province].filter(Boolean).join(', ') })
       setShowCreate(false)
       setCreateForm({
-        name: '', type: 'PHYSICAL', province: '', city: '', commune: '', street: '', building_number: '', landmark: '', address: '', phone: '',
+        name: '', type: 'PHYSICAL', province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', address: '', phone: '',
         supports_shop_delivery: false, shop_delivery_fee: 0,
         supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
         delivery_city: '', delivery_address: '',
@@ -213,7 +213,7 @@ export default function SellerShopsPage() {
               { value: 'PHYSICAL', label: t('seller.shopPage.typePhysical') },
               { value: 'ONLINE', label: t('seller.shopPage.typeOnline') },
             ]} />
-            <StructuredAddressFields value={{ province: createForm.province, city: createForm.city, commune: createForm.commune, street: createForm.street, building_number: createForm.building_number, landmark: createForm.landmark }} onChange={(address) => setCreateForm((current) => ({ ...current, ...address }))} />
+            <StructuredAddressFields value={{ province: createForm.province, city: createForm.city, commune: createForm.commune, province_id: createForm.province_id, city_id: createForm.city_id, commune_id: createForm.commune_id, street: createForm.street, building_number: createForm.building_number, landmark: createForm.landmark }} onChange={(address) => setCreateForm((current) => ({ ...current, ...address }))} />
             <Field label={t('common.phone')} name="phone" required value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder={t('seller.shopPage.phonePlaceholder')} />
 
             <h4 style={{ marginTop: 16, marginBottom: 4 }}>{t('seller.shopPage.deliveryOptions')}</h4>
@@ -264,7 +264,7 @@ export default function SellerShopsPage() {
               value={editForm.name ?? ''}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
             />
-            <StructuredAddressFields value={{ province: editForm.province ?? '', city: editForm.city ?? '', commune: editForm.commune ?? '', street: editForm.street ?? '', building_number: editForm.building_number ?? '', landmark: editForm.landmark ?? '' }} onChange={(address) => setEditForm((current) => ({ ...current, ...address, address: [address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', ') }))} />
+            <StructuredAddressFields value={{ province: editForm.province ?? '', city: editForm.city ?? '', commune: editForm.commune ?? '', province_id: editForm.province_id ?? '', city_id: editForm.city_id ?? '', commune_id: editForm.commune_id ?? '', street: editForm.street ?? '', building_number: editForm.building_number ?? '', landmark: editForm.landmark ?? '' }} onChange={(address) => setEditForm((current) => ({ ...current, ...address, address: [address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', ') }))} />
 
             <h4 style={{ marginTop: 16, marginBottom: 4 }}>{t('seller.shopPage.deliveryOptions')}</h4>
 

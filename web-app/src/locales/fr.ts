@@ -642,7 +642,7 @@ export const fr = {
   'checkout.progress': 'Progression de la commande',
   'checkout.step.cart': 'Panier',
   'checkout.step.delivery': 'Livraison',
-  'checkout.step.review': 'Vérification',
+  'checkout.step.review': 'Paiement',
   'checkout.step.order': 'Commande',
 
   /* ── Panier & commande ──────────────────────────────────── */

@@ -2061,3 +2061,55 @@
     display: none !important;
   }
 }
+
+/* ===== Structured RDC address (checkout, profiles, onboarding) ===== */
+.structured-address {
+  display: grid;
+  /* One field per row: province -> ville -> commune reads as a chain, and a
+     narrow screen never has to scroll sideways to reach a select. */
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.structured-address .field { min-width: 0; }
+.structured-address select:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.address-summary {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-muted, var(--color-surface));
+}
+.address-summary > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+}
+.address-summary dt { color: var(--color-text-muted); }
+.address-summary dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+
+/* ===== Payment method cards ===== */
+.payment-method-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  /* Comfortably tappable on a phone. */
+  min-height: 72px;
+  padding-right: var(--space-6);
+}
+.payment-method-option input[type='radio'] { width: 20px; height: 20px; flex: 0 0 auto; }
+.payment-method-option > span:nth-of-type(1) { flex: 1 1 12rem; min-width: 0; }
+.payment-method-markup { font-weight: 700; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .payment-method-option { align-items: flex-start; }
+  .payment-method-markup { width: 100%; text-align: left; }
+  .address-summary > div { flex-direction: column; gap: 2px; }
+  .address-summary dd { text-align: left; }
+}

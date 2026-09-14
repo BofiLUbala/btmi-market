@@ -20,8 +20,8 @@ type PaymentMethodConfig struct {
 	MarkupType   string     `json:"markup_type"`
 	MarkupValue  float64    `json:"markup_value"`
 	Provider     string     `json:"provider"`
-	MarkupAmount float64    `json:"markup_amount,omitempty"`
-	QuotedTotal  float64    `json:"quoted_total,omitempty"`
+	MarkupAmount float64    `json:"markup_amount"`
+	QuotedTotal  float64    `json:"quoted_total"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	ModifiedBy   *uuid.UUID `json:"modified_by,omitempty"`
 }

@@ -77,7 +77,9 @@ export const buyerApi = {
       use_points: usePoints
     }),
 
-  checkoutQuote: (orderId: string) => get<CheckoutQuote>(`/buyer/orders/${orderId}/checkout-quote`),
+  // The server prices the selected method; the client never adds a markup.
+  checkoutQuote: (orderId: string, paymentMethod?: string) =>
+    get<CheckoutQuote>(`/buyer/orders/${orderId}/checkout-quote${paymentMethod ? `?payment_method=${encodeURIComponent(paymentMethod)}` : ''}`),
 
   createPayment: (orderId: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${orderId}/payment`, { payment_method: paymentMethod }),
 

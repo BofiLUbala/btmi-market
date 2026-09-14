@@ -640,7 +640,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'checkout.progress': 'Checkout progress',
   'checkout.step.cart': 'Cart',
   'checkout.step.delivery': 'Delivery',
-  'checkout.step.review': 'Review',
+  'checkout.step.review': 'Payment',
   'checkout.step.order': 'Order',
 
   /* ── Cart & checkout ────────────────────────────────────── */

@@ -26,6 +26,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/employees"
 	"github.com/btmi-ai-market/backend/internal/handlers/growth"
 	"github.com/btmi-ai-market/backend/internal/handlers/inventory"
+	"github.com/btmi-ai-market/backend/internal/handlers/locations"
 	"github.com/btmi-ai-market/backend/internal/handlers/marketplace"
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
 	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
@@ -86,6 +87,7 @@ func main() {
 	pointConfigRepo := repository.NewPointConfigRepository(db)
 	buyerPaymentRepo := repository.NewBuyerPaymentRepository(db)
 	paymentConfigRepo := repository.NewPaymentConfigRepository(db)
+	locationRepo := repository.NewLocationRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 	employeeInvitationRepo := repository.NewEmployeeInvitationRepository(db)
 	employeeActivationTokenRepo := repository.NewEmployeeActivationTokenRepository(db)
@@ -127,6 +129,7 @@ func main() {
 	inventoryService := service.NewInventoryService(inventoryRepo, stockMovementRepo, shopRepo, productRepo, variantRepo, receiptRepo, assignmentRepo, membershipRepo, employeeRepo, categoryRepo, db, asynqClient)
 	orderService := service.NewOrderService(orderRepo, inventoryRepo, stockMovementRepo, shopRepo, productRepo, variantRepo, assignmentRepo, membershipRepo, employeeRepo, customerRepo, cashRepo, buyerProfileRepo, buyerPaymentRepo, pointRedemptionService, db)
 	commService := service.NewCommunicationService(orderConvRepo, notifRepo, orderRepo, shopRepo, businessRepo, buyerProfileRepo, userRepo, membershipRepo, db)
+	orderService.SetLocationRepository(locationRepo)
 	orderService.SetCommunicationService(commService)
 	qrService := service.NewQRService(db, membershipRepo, assignmentRepo, employeeRepo, commService)
 	orderService.SetQRService(qrService)
@@ -181,6 +184,7 @@ func main() {
 	marketplaceHandler := marketplace.NewHandler(marketplaceService, categoryRankingService, similarityService, pointService, buyerProfileService, categoryService)
 	marketplaceReviewHandler := marketplace.NewReviewHandler(reviewService)
 	categoryHandler := categories.NewHandler(categoryService)
+	locationHandler := locations.NewHandler(locationRepo)
 	growthHandler := growth.NewHandler(sellerGrowthService, pointService, membershipRepo)
 	commHandler := communication.NewHandler(commService)
 	qrHandler := qrhandlers.NewHandler(qrService)
@@ -561,6 +565,15 @@ courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 			categoriesGroup.GET("", categoryHandler.ListCategories)
 			categoriesGroup.GET("/:category_id/subcategories", categoryHandler.ListSubcategories)
 			categoriesGroup.GET("/:category_id/attributes", categoryHandler.GetCategoryAttributes)
+		}
+
+		// RDC administrative hierarchy, read-only and public: every address form
+		// (checkout, buyer profile, shop onboarding) selects from these.
+		locationsGroup := api.Group("/locations")
+		{
+			locationsGroup.GET("/provinces", locationHandler.ListProvinces)
+			locationsGroup.GET("/provinces/:province_id/cities", locationHandler.ListCities)
+			locationsGroup.GET("/cities/:city_id/communes", locationHandler.ListCommunes)
 		}
 
 		eventsGroup := api.Group("/events")

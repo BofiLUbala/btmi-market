@@ -45,12 +45,14 @@ type BuyerPayment struct {
 	DeliveryPointsDiscount float64 `json:"delivery_points_discount" db:"delivery_points_discount"`
 	DeliveryFeeFinal       float64 `json:"delivery_fee_final" db:"delivery_fee_final"`
 
-	CashDue           float64 `json:"cash_due" db:"cash_due"`
-	PaymentMarkup     float64 `json:"payment_markup" db:"payment_markup"`
-	FinalTotal        float64 `json:"final_total" db:"final_total"`
-	Provider          string  `json:"provider" db:"provider"`
-	ProviderReference string  `json:"provider_reference" db:"provider_reference"`
-	PaymentTiming     string  `json:"payment_timing" db:"payment_timing"`
+	CashDue            float64 `json:"cash_due" db:"cash_due"`
+	PaymentMarkup      float64 `json:"payment_markup" db:"payment_markup"`
+	PaymentMarkupType  string  `json:"payment_markup_type" db:"payment_markup_type"`
+	PaymentMarkupValue float64 `json:"payment_markup_value" db:"payment_markup_value"`
+	FinalTotal         float64 `json:"final_total" db:"final_total"`
+	Provider           string  `json:"provider" db:"provider"`
+	ProviderReference  string  `json:"provider_reference" db:"provider_reference"`
+	PaymentTiming      string  `json:"payment_timing" db:"payment_timing"`
 
 	BuyerConfirmed    bool       `json:"buyer_confirmed" db:"buyer_confirmed"`
 	BuyerConfirmedAt  *time.Time `json:"buyer_confirmed_at" db:"buyer_confirmed_at"`
@@ -83,6 +85,8 @@ type BuyerPaymentResponse struct {
 	DeliveryFeeFinal       float64    `json:"delivery_fee_final"`
 	CashDue                float64    `json:"cash_due"`
 	PaymentMarkup          float64    `json:"payment_markup"`
+	PaymentMarkupType      string     `json:"payment_markup_type"`
+	PaymentMarkupValue     float64    `json:"payment_markup_value"`
 	FinalTotal             float64    `json:"final_total"`
 	Provider               string     `json:"provider"`
 	ProviderReference      string     `json:"provider_reference,omitempty"`

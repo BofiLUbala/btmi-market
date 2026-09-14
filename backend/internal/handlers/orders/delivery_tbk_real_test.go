@@ -79,6 +79,7 @@ func TestTBKCentralizedDeliveryFlow(t *testing.T) {
 		variantRepo, assignmentRepo, membershipRepo, employeeRepo, customerRepo,
 		cashRepo, buyerProfileRepo, buyerPaymentRepo, pointRedemptionService, db,
 	)
+	orderService.SetLocationRepository(repository.NewLocationRepository(db))
 	paymentService := service.NewPaymentService(
 		buyerPaymentRepo, paymentConfigRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo,
 		levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService,

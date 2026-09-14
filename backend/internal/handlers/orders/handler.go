@@ -794,7 +794,7 @@ func (h *Handler) SelectDelivery(c *gin.Context) {
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
-		case "INVALID_STATUS_TRANSITION", "INVALID_DELIVERY_METHOD", "DELIVERY_NOT_AVAILABLE", "DELIVERY_ADDRESS_REQUIRED", "DELIVERY_CONTACT_NAME_REQUIRED", "DELIVERY_PHONE_REQUIRED":
+		case "INVALID_STATUS_TRANSITION", "INVALID_DELIVERY_METHOD", "DELIVERY_NOT_AVAILABLE", "DELIVERY_ADDRESS_REQUIRED", "DELIVERY_CONTACT_NAME_REQUIRED", "DELIVERY_PHONE_REQUIRED", "INVALID_DELIVERY_LOCATION":
 			statusCode = http.StatusBadRequest
 			errorCode = err.Error()
 		case "PAYMENT_ALREADY_CREATED":
@@ -958,7 +958,7 @@ func (h *Handler) GetCheckoutQuote(c *gin.Context) {
 	if !ok {
 		return
 	}
-	result, err := h.paymentService.Quote(buyerProfileID, orderID)
+	result, err := h.paymentService.Quote(buyerProfileID, orderID, c.Query("payment_method"))
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err.Error() == "ORDER_NOT_FOUND" {
@@ -967,7 +967,7 @@ func (h *Handler) GetCheckoutQuote(c *gin.Context) {
 		if err.Error() == "FORBIDDEN" {
 			status = http.StatusForbidden
 		}
-		if err.Error() == "DELIVERY_NOT_SELECTED" {
+		if err.Error() == "DELIVERY_NOT_SELECTED" || err.Error() == "PAYMENT_METHOD_UNAVAILABLE" {
 			status = http.StatusBadRequest
 		}
 		h.errResponse(c, status, err.Error(), err.Error())

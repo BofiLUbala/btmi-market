@@ -38,13 +38,13 @@ export default function SellerOnboardingPage() {
     category: 'general',
     phone: '',
     email: '',
-    province: '', city: '', commune: '', street: '', building_number: '', landmark: '',
+    province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '',
     default_currency: 'USD',
   })
   const [shopForm, setShopForm] = useState({
     name: '',
     type: 'PHYSICAL',
-    province: '', city: '', commune: '', street: '', building_number: '', landmark: '', address: '',
+    province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', address: '',
     phone: '',
     supports_shop_delivery: false,
     shop_delivery_fee: 0,
@@ -204,7 +204,7 @@ export default function SellerOnboardingPage() {
             <Field label={t('seller.onboarding.category')} name="category" required value={businessForm.category} onChange={(e) => updateBusiness('category', e.target.value)} placeholder={t('seller.onboarding.categoryPlaceholder')} />
             <Field label={t('seller.onboarding.businessPhone')} name="phone" required value={businessForm.phone} onChange={(e) => updateBusiness('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
             <Field label={t('seller.onboarding.businessEmail')} name="email" type="email" required value={businessForm.email} onChange={(e) => updateBusiness('email', e.target.value)} />
-            <StructuredAddressFields value={{ province: businessForm.province, city: businessForm.city, commune: businessForm.commune, street: businessForm.street, building_number: businessForm.building_number, landmark: businessForm.landmark }} onChange={(address) => setBusinessForm((current) => ({ ...current, ...address }))} />
+            <StructuredAddressFields value={{ province: businessForm.province, city: businessForm.city, commune: businessForm.commune, province_id: businessForm.province_id, city_id: businessForm.city_id, commune_id: businessForm.commune_id, street: businessForm.street, building_number: businessForm.building_number, landmark: businessForm.landmark }} onChange={(address) => setBusinessForm((current) => ({ ...current, ...address }))} />
             <Field label={t('seller.onboarding.defaultCurrency')} name="default_currency" required value={businessForm.default_currency} onChange={(e) => updateBusiness('default_currency', e.target.value)} as="select" options={[
               { value: 'USD', label: 'USD' },
               { value: 'CDF', label: 'CDF' },
@@ -246,7 +246,7 @@ export default function SellerOnboardingPage() {
                 { value: 'ONLINE', label: t('seller.shopType.ONLINE') },
               ]}
             />
-            <StructuredAddressFields value={{ province: shopForm.province, city: shopForm.city, commune: shopForm.commune, street: shopForm.street, building_number: shopForm.building_number, landmark: shopForm.landmark }} onChange={(address) => setShopForm((current) => ({ ...current, ...address }))} />
+            <StructuredAddressFields value={{ province: shopForm.province, city: shopForm.city, commune: shopForm.commune, province_id: shopForm.province_id, city_id: shopForm.city_id, commune_id: shopForm.commune_id, street: shopForm.street, building_number: shopForm.building_number, landmark: shopForm.landmark }} onChange={(address) => setShopForm((current) => ({ ...current, ...address }))} />
             <Field label={t('common.phone')} name="phone" required value={shopForm.phone} onChange={(e) => updateShop('phone', e.target.value)} placeholder={t('auth.phonePlaceholder')} />
 
             <details style={{ marginTop: 16 }}>

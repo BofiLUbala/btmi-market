@@ -42,6 +42,16 @@ type nullOrderScanFields struct {
 	deliveryLongitude   sql.NullFloat64
 	courierAssignedAt   sql.NullTime
 	courierNotes        sql.NullString
+
+	deliveryProvince       sql.NullString
+	deliveryCity           sql.NullString
+	deliveryCommune        sql.NullString
+	deliveryStreet         sql.NullString
+	deliveryBuildingNumber sql.NullString
+	deliveryLandmark       sql.NullString
+	deliveryProvinceID     uuid.NullUUID
+	deliveryCityID         uuid.NullUUID
+	deliveryCommuneID      uuid.NullUUID
 }
 
 func (f *nullOrderScanFields) applyTo(order *models.Order) {
@@ -52,6 +62,24 @@ func (f *nullOrderScanFields) applyTo(order *models.Order) {
 	order.DeliveryPhone = f.deliveryPhone.String
 	order.DeliveryAddress = f.deliveryAddress.String
 	order.DeliveryNotes = f.deliveryNotes.String
+	order.DeliveryProvince = f.deliveryProvince.String
+	order.DeliveryCity = f.deliveryCity.String
+	order.DeliveryCommune = f.deliveryCommune.String
+	order.DeliveryStreet = f.deliveryStreet.String
+	order.DeliveryBuildingNumber = f.deliveryBuildingNumber.String
+	order.DeliveryLandmark = f.deliveryLandmark.String
+	if f.deliveryProvinceID.Valid {
+		id := f.deliveryProvinceID.UUID
+		order.DeliveryProvinceID = &id
+	}
+	if f.deliveryCityID.Valid {
+		id := f.deliveryCityID.UUID
+		order.DeliveryCityID = &id
+	}
+	if f.deliveryCommuneID.Valid {
+		id := f.deliveryCommuneID.UUID
+		order.DeliveryCommuneID = &id
+	}
 	if f.deliveryStatus.Valid && f.deliveryStatus.String != "" {
 		order.DeliveryStatus = f.deliveryStatus.String
 	} else if order.DeliveryMethod != "" {
@@ -145,7 +173,10 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, delivery_status, assigned_courier_id,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
+		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
+		       delivery_province_id, delivery_city_id, delivery_commune_id,
+		       delivery_status, assigned_courier_id,
 		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
 		       points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
@@ -163,6 +194,8 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		&nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
 		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
+		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
+		&nf.deliveryProvinceID, &nf.deliveryCityID, &nf.deliveryCommuneID,
 		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
 		&order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
@@ -181,7 +214,10 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 	query := `
 		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key,
 		       order_number, delivery_method, delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes, delivery_status, assigned_courier_id,
+		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
+		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
+		       delivery_province_id, delivery_city_id, delivery_commune_id,
+		       delivery_status, assigned_courier_id,
 		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
 		       points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
@@ -200,6 +236,8 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 		&nf.orderNumber,
 		&nf.deliveryMethod, &order.DeliveryFeeBase, &order.DeliveryPointsUsed, &order.DeliveryPointsDiscount, &order.DeliveryFeeFinal,
 		&nf.deliveryContactName, &nf.deliveryPhone, &nf.deliveryAddress, &nf.deliveryNotes,
+		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
+		&nf.deliveryProvinceID, &nf.deliveryCityID, &nf.deliveryCommuneID,
 		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
 		&order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
@@ -221,7 +259,8 @@ func (r *OrderRepository) UpdateDelivery(id uuid.UUID, delivery *models.Order) e
 		    delivery_fee_final = $6, delivery_contact_name = $7, delivery_phone = $8, delivery_address = $9,
 		    delivery_notes = $10, delivery_status = $11, delivery_latitude = $12, delivery_longitude = $13,
 		    delivery_province=$14, delivery_city=$15, delivery_commune=$16, delivery_street=$17,
-		    delivery_building_number=$18, delivery_landmark=$19, updated_at = NOW()
+		    delivery_building_number=$18, delivery_landmark=$19,
+		    delivery_province_id=$20, delivery_city_id=$21, delivery_commune_id=$22, updated_at = NOW()
 		WHERE id = $1
 		RETURNING updated_at
 	`
@@ -236,6 +275,7 @@ func (r *OrderRepository) UpdateDelivery(id uuid.UUID, delivery *models.Order) e
 		delivery.DeliveryNotes, deliveryStatus, delivery.DeliveryLatitude, delivery.DeliveryLongitude,
 		delivery.DeliveryProvince, delivery.DeliveryCity, delivery.DeliveryCommune, delivery.DeliveryStreet,
 		delivery.DeliveryBuildingNumber, delivery.DeliveryLandmark,
+		delivery.DeliveryProvinceID, delivery.DeliveryCityID, delivery.DeliveryCommuneID,
 	).Scan(&updatedAt)
 }
 

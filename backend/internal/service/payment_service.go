@@ -182,6 +182,8 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, reques
 		DeliveryFeeFinal:       order.DeliveryFeeFinal,
 		CashDue:                cashDue,
 		PaymentMarkup:          markup,
+		PaymentMarkupType:      config.MarkupType,
+		PaymentMarkupValue:     config.MarkupValue,
 		FinalTotal:             cashDue,
 		Provider:               config.Provider,
 		PaymentTiming:          config.Timing,
@@ -195,7 +197,10 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, reques
 	return s.toResponse(payment), nil
 }
 
-func (s *PaymentService) Quote(buyerProfileID, orderID uuid.UUID) (*models.CheckoutQuote, error) {
+// Quote is the authoritative checkout price. It prices every enabled method so
+// the buyer can compare, and returns the selected method's total as final_total
+// - the frontend never adds a markup of its own.
+func (s *PaymentService) Quote(buyerProfileID, orderID uuid.UUID, selectedMethod ...string) (*models.CheckoutQuote, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
 		return nil, mapOrderNotFoundErr(err)
@@ -220,9 +225,25 @@ func (s *PaymentService) Quote(buyerProfileID, orderID uuid.UUID) (*models.Check
 		}
 		methods[index].QuotedTotal = baseDue + methods[index].MarkupAmount
 	}
-	return &models.CheckoutQuote{OrderID: order.ID.String(), Currency: "CDF", Subtotal: order.BaseTotal, Discount: 0,
+	selected := ""
+	if len(selectedMethod) > 0 {
+		selected = strings.TrimSpace(selectedMethod[0])
+	}
+	quote := &models.CheckoutQuote{OrderID: order.ID.String(), Currency: "CDF", Subtotal: order.BaseTotal, Discount: 0,
 		PointsDiscount: order.PointsDiscountAmount + order.DeliveryPointsDiscount, DeliveryFee: order.DeliveryFeeFinal,
-		FinalTotal: order.FinalTotal + order.DeliveryFeeFinal, PaymentMethods: methods}, nil
+		FinalTotal: baseDue, PaymentMethods: methods}
+	for _, method := range methods {
+		if method.Code == selected {
+			quote.SelectedPaymentMethod = method.Code
+			quote.PaymentMarkup = method.MarkupAmount
+			quote.FinalTotal = method.QuotedTotal
+			break
+		}
+	}
+	if quote.SelectedPaymentMethod == "" && selected != "" {
+		return nil, errors.New("PAYMENT_METHOD_UNAVAILABLE")
+	}
+	return quote, nil
 }
 
 func (s *PaymentService) GetPaymentByOrder(buyerProfileID, orderID uuid.UUID) (*models.BuyerPaymentResponse, error) {
@@ -529,6 +550,8 @@ func (s *PaymentService) toResponse(p *models.BuyerPayment) *models.BuyerPayment
 		DeliveryFeeFinal:       p.DeliveryFeeFinal,
 		CashDue:                p.CashDue,
 		PaymentMarkup:          p.PaymentMarkup,
+		PaymentMarkupType:      p.PaymentMarkupType,
+		PaymentMarkupValue:     p.PaymentMarkupValue,
 		FinalTotal:             p.FinalTotal,
 		Provider:               p.Provider,
 		ProviderReference:      p.ProviderReference,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { API_BASE } from '@/api/client'
-import { StructuredAddressFields, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
+import { StructuredAddressFields, emptyStructuredAddress, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
 export default function CourierActivationPage() {
   const [searchParams] = useSearchParams()
@@ -17,7 +17,7 @@ export default function CourierActivationPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [address, setAddress] = useState<StructuredAddressValue>({ province: 'Kinshasa', city: 'Kinshasa', commune: '', street: '', building_number: '', landmark: '' })
+  const [address, setAddress] = useState<StructuredAddressValue>(emptyStructuredAddress)
 
   useEffect(() => {
     if (!token) {

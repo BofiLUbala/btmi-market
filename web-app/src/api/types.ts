@@ -610,6 +610,7 @@ export interface SelectDeliveryRequest {
   phone?: string
   address?: string
   province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
+  province_id?: string; city_id?: string; commune_id?: string
   notes?: string
 }
 
@@ -622,6 +623,9 @@ export interface DeliverySummary {
   contact_name: string
   phone: string
   address: string
+  province?: string; city?: string; commune?: string
+  street?: string; building_number?: string; landmark?: string
+  province_id?: string; city_id?: string; commune_id?: string
   notes: string
 }
 
@@ -874,6 +878,9 @@ export interface UpdateShopRequest {
   address?: string
   province?: string
   commune?: string
+  province_id?: string
+  city_id?: string
+  commune_id?: string
   street?: string
   building_number?: string
   landmark?: string

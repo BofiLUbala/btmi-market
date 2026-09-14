@@ -54,6 +54,9 @@ type Order struct {
 	DeliveryStreet         string      `json:"delivery_street" db:"delivery_street"`
 	DeliveryBuildingNumber string      `json:"delivery_building_number" db:"delivery_building_number"`
 	DeliveryLandmark       string      `json:"delivery_landmark" db:"delivery_landmark"`
+	DeliveryProvinceID     *uuid.UUID  `json:"delivery_province_id" db:"delivery_province_id"`
+	DeliveryCityID         *uuid.UUID  `json:"delivery_city_id" db:"delivery_city_id"`
+	DeliveryCommuneID      *uuid.UUID  `json:"delivery_commune_id" db:"delivery_commune_id"`
 	DeliveryStatus         string      `json:"delivery_status" db:"delivery_status"`
 	AssignedCourierID      *uuid.UUID  `json:"assigned_courier_id" db:"assigned_courier_id"`
 	DeliveryLatitude       *float64    `json:"delivery_latitude" db:"delivery_latitude"`
@@ -251,6 +254,9 @@ type SelectDeliveryRequest struct {
 	Province             string   `json:"province"`
 	City                 string   `json:"city"`
 	Commune              string   `json:"commune"`
+	ProvinceID           string   `json:"province_id"`
+	CityID               string   `json:"city_id"`
+	CommuneID            string   `json:"commune_id"`
 	Street               string   `json:"street"`
 	BuildingNumber       string   `json:"building_number"`
 	Landmark             string   `json:"landmark"`
@@ -274,6 +280,15 @@ type DeliverySummary struct {
 	ContactName       string     `json:"contact_name"`
 	Phone             string     `json:"phone"`
 	Address           string     `json:"address"`
+	Province          string     `json:"province"`
+	City              string     `json:"city"`
+	Commune           string     `json:"commune"`
+	Street            string     `json:"street"`
+	BuildingNumber    string     `json:"building_number"`
+	Landmark          string     `json:"landmark"`
+	ProvinceID        *uuid.UUID `json:"province_id,omitempty"`
+	CityID            *uuid.UUID `json:"city_id,omitempty"`
+	CommuneID         *uuid.UUID `json:"commune_id,omitempty"`
 	Notes             string     `json:"notes"`
 	AssignedCourierID *uuid.UUID `json:"assigned_courier_id,omitempty"`
 	Latitude          *float64   `json:"latitude,omitempty"`

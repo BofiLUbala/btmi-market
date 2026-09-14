@@ -37,6 +37,7 @@ function PaymentInner() {
   const [products, setProducts] = useState<Record<string, PublicProductDetail>>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [quoting, setQuoting] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const selectedMethod = quote?.payment_methods.find(method => method.code === paymentMethod)
 
@@ -54,6 +55,19 @@ function PaymentInner() {
       mounted = false
     }
   }, [orderId, navigate])
+
+  // Every method change is re-priced by the server, so the total on screen is
+  // always the one the backend would charge - never a client-side sum.
+  useEffect(() => {
+    if (!orderId || !paymentMethod || loading) return
+    let mounted = true
+    setQuoting(true)
+    buyerApi.checkoutQuote(orderId, paymentMethod).then(
+      q => { if (mounted) { setQuote(q); setError('') } },
+      (e: unknown) => { if (mounted) setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare')) }
+    ).finally(() => { if (mounted) setQuoting(false) })
+    return () => { mounted = false }
+  }, [orderId, paymentMethod, loading])
 
   useEffect(() => {
     if (!order) return
@@ -103,9 +117,15 @@ function PaymentInner() {
             <div className="checkout-card-head"><h2>Mode de paiement</h2><span>Configuré par Finance</span></div>
             <div className="stack">
               {quote.payment_methods.map(method => (
-                <label className={`delivery-option ${paymentMethod === method.code ? 'selected' : ''}`} key={method.code}>
+                <label className={`delivery-option payment-method-option ${paymentMethod === method.code ? 'selected' : ''}`} key={method.code}>
                   <input type="radio" name="payment_method" value={method.code} checked={paymentMethod === method.code} onChange={() => setPaymentMethod(method.code)} />
-                  <span><strong>{method.label}</strong><br/><small className="muted">{method.timing === 'NOW' ? 'Paiement vérifié par le prestataire avant confirmation' : 'Paiement exigible à la livraison'}</small></span>
+                  <span>
+                    <strong>{method.label}</strong><br/>
+                    <small className="muted">{method.timing === 'NOW' ? 'Paiement vérifié par le prestataire avant confirmation' : 'Paiement exigible à la livraison'}</small>
+                  </span>
+                  <span className="payment-method-markup">
+                    {method.markup_amount > 0 ? `+ ${formatMoney(method.markup_amount, quote.currency)}` : 'Sans frais'}
+                  </span>
                 </label>
               ))}
             </div>
@@ -120,6 +140,16 @@ function PaymentInner() {
             <span>{t('cart.products')}</span>
             <span>{formatMoney(summary.products_final_total)}</span>
           </div>
+          {summary.delivery.commune && (
+            <dl className="address-summary">
+              <div><dt>Province</dt><dd>{summary.delivery.province}</dd></div>
+              <div><dt>Ville</dt><dd>{summary.delivery.city}</dd></div>
+              <div><dt>Commune</dt><dd>{summary.delivery.commune}</dd></div>
+              <div><dt>Adresse</dt><dd>{summary.delivery.street}</dd></div>
+              <div><dt>Numéro</dt><dd>{summary.delivery.building_number}</dd></div>
+              {summary.delivery.landmark && <div><dt>Instructions</dt><dd>{summary.delivery.landmark}</dd></div>}
+            </dl>
+          )}
           <div className="total-row">
             <span>{t('product.delivery')} ({methodLabel(summary.delivery.method)})</span>
             <span>
@@ -139,12 +169,20 @@ function PaymentInner() {
 
       <aside className="checkout-card checkout-summary">
         <span className="eyebrow">{t('payment.finalSummary')}</span>
-        <div className="summary-lines"><div><span>{t('cart.products')}</span><strong>{formatMoney(quote.subtotal, quote.currency)}</strong></div><div><span>{t('payment.productPoints')}</span><strong className="discount">−{formatMoney(quote.points_discount, quote.currency)}</strong></div><div><span>{t('product.delivery')}</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div><div><span>Frais mode de paiement</span><strong>{formatMoney(selectedMethod?.markup_amount ?? 0, quote.currency)}</strong></div></div>
-        <div className="summary-total"><span>Total</span><strong>{formatMoney(selectedMethod?.quoted_total ?? quote.final_total, quote.currency)}</strong><small>Le montant final est calculé par le serveur.</small></div>
+        <div className="summary-lines">
+          <div><span>{t('cart.products')}</span><strong>{formatMoney(quote.subtotal, quote.currency)}</strong></div>
+          <div><span>{t('payment.productPoints')}</span><strong className="discount">−{formatMoney(quote.points_discount, quote.currency)}</strong></div>
+          <div><span>{t('product.delivery')}</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div>
+          <div>
+            <span>Frais du mode de paiement{selectedMethod?.markup_type === 'PERCENTAGE' ? ` (${selectedMethod.markup_value}%)` : ''}</span>
+            <strong>{formatMoney(quote.payment_markup, quote.currency)}</strong>
+          </div>
+        </div>
+        <div className="summary-total"><span>Total</span><strong>{formatMoney(quote.final_total, quote.currency)}</strong><small>{quoting ? 'Recalcul du total…' : 'Le montant final est calculé par le serveur.'}</small></div>
         <div className="pay-note">
           {payment?.status ? `Statut du paiement : ${payment.status}` : 'Aucun paiement enregistré avant confirmation.'}
         </div>
-        <Button variant="accent" size="lg" block onClick={confirmCash} loading={confirming} disabled={!paymentMethod || Boolean(payment)}>
+        <Button variant="accent" size="lg" block onClick={confirmCash} loading={confirming} disabled={!paymentMethod || quoting || Boolean(payment)}>
           {payment ? t('payment.orderConfirmed') : t('payment.placeOrder')}
         </Button>
       </aside>

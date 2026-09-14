@@ -29,9 +29,12 @@ export default function RegisterPage() {
     phone: '',
     backup_phone: '',
     country: 'République Démocratique du Congo',
-    province: 'Kinshasa',
-    city: 'Kinshasa',
-    commune: 'Gombe',
+    province: '',
+    city: '',
+    commune: '',
+    province_id: '',
+    city_id: '',
+    commune_id: '',
     street: '',
     building_number: '',
     landmark: '',
@@ -392,7 +395,7 @@ export default function RegisterPage() {
             {step === 3 && (
               <div className="stack" style={{ gap: '0.85rem' }}>
                 <StructuredAddressFields
-                  value={{ province: form.province, city: form.city, commune: form.commune, street: form.street, building_number: form.building_number, landmark: form.landmark }}
+                  value={{ province: form.province, city: form.city, commune: form.commune, province_id: form.province_id, city_id: form.city_id, commune_id: form.commune_id, street: form.street, building_number: form.building_number, landmark: form.landmark }}
                   onChange={(address) => setForm((current) => ({ ...current, ...address }))}
                 />
 
