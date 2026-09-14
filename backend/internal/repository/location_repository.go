@@ -51,6 +51,25 @@ func (r *LocationRepository) ListCities(provinceID uuid.UUID) ([]models.City, er
 	return items, rows.Err()
 }
 
+// ListAllCities backs the single-city pickers (shop delivery zone), which have
+// no province step to filter on.
+func (r *LocationRepository) ListAllCities() ([]models.City, error) {
+	rows, err := r.db.Query(`SELECT id, province_id, code, name, active FROM cities WHERE active = TRUE ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]models.City, 0)
+	for rows.Next() {
+		var item models.City
+		if err := rows.Scan(&item.ID, &item.ProvinceID, &item.Code, &item.Name, &item.Active); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (r *LocationRepository) ListCommunes(cityID uuid.UUID) ([]models.Commune, error) {
 	rows, err := r.db.Query(`SELECT id, city_id, code, name, active FROM communes WHERE city_id = $1 AND active = TRUE ORDER BY name`, cityID)
 	if err != nil {

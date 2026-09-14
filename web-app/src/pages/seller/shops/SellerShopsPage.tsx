@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
-import { drcCityOptions } from '@/lib/drcLocations'
+import { CityPicker } from '@/components/address/CityPicker'
 import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
 import type { TranslationKey } from '@/locales/fr'
 
@@ -239,7 +239,7 @@ export default function SellerShopsPage() {
             )}
             {(createForm.supports_shop_delivery || createForm.supports_partner_delivery) && (
               <>
-                <Field label={t('seller.shopPage.deliveryCity')} name="delivery_city" as="select" value={createForm.delivery_city} options={drcCityOptions()} onChange={(e) => setCreateForm({ ...createForm, delivery_city: e.target.value })} />
+                <CityPicker label={t('seller.shopPage.deliveryCity')} name="delivery_city" value={createForm.delivery_city} onChange={(city) => setCreateForm({ ...createForm, delivery_city: city })} />
                 <Field label={t('seller.shopPage.deliveryAddress')} name="delivery_address" value={createForm.delivery_address} onChange={(e) => setCreateForm({ ...createForm, delivery_address: e.target.value })} />
               </>
             )}
@@ -288,7 +288,7 @@ export default function SellerShopsPage() {
             )}
             {(editForm.supports_shop_delivery || editForm.supports_partner_delivery) && (
               <>
-                <Field label={t('seller.shopPage.deliveryCity')} name="edit_delivery_city" as="select" value={editForm.delivery_city ?? ''} options={drcCityOptions()} onChange={(e) => setEditForm({ ...editForm, delivery_city: e.target.value })} />
+                <CityPicker label={t('seller.shopPage.deliveryCity')} name="edit_delivery_city" value={editForm.delivery_city ?? ''} onChange={(city) => setEditForm({ ...editForm, delivery_city: city })} />
                 <Field label={t('seller.shopPage.deliveryAddress')} name="edit_delivery_address" value={editForm.delivery_address ?? ''} onChange={(e) => setEditForm({ ...editForm, delivery_address: e.target.value })} />
               </>
             )}

@@ -746,7 +746,6 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'delivery.chooseMethod': 'Choose a method',
   'delivery.noAddressNeeded': 'You will pick up this order at the shop. No address needed.',
   'delivery.contactName': 'Contact name',
-  'delivery.cityPrefix': 'City: ',
   'delivery.deliveryAddress': 'Delivery address',
   'delivery.addressPlaceholder': 'City, commune, avenue, number…',
   'delivery.addressIncomplete':
@@ -1009,8 +1008,6 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
     'Tracking is updated by the shop and delivery partner. Cash payment is confirmed when the seller verifies it.',
 
   /* ── DRC locations ──────────────────────────────────────── */
-  'drc.selectCity': 'Select a city',
-  'drc.selectCommune': 'Select a commune',
 
   /* ── Seller workspace ───────────────────────────────────── */
   'seller.dashboard': 'Dashboard',

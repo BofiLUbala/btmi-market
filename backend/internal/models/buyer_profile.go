@@ -29,6 +29,9 @@ type BuyerProfile struct {
 	Email          string             `json:"email" db:"email"`
 	City           string             `json:"city" db:"city"`
 	Commune        string             `json:"commune" db:"commune"`
+	ProvinceID     *uuid.UUID         `json:"province_id" db:"province_id"`
+	CityID         *uuid.UUID         `json:"city_id" db:"city_id"`
+	CommuneID      *uuid.UUID         `json:"commune_id" db:"commune_id"`
 	Country        string             `json:"country" db:"country"`
 	Latitude       *float64           `json:"latitude" db:"latitude"`
 	Longitude      *float64           `json:"longitude" db:"longitude"`
@@ -50,6 +53,9 @@ type CreateBuyerProfileRequest struct {
 	Email          string   `json:"email" binding:"required,email"`
 	City           string   `json:"city"`
 	Commune        string   `json:"commune"`
+	ProvinceID     string   `json:"province_id"`
+	CityID         string   `json:"city_id"`
+	CommuneID      string   `json:"commune_id"`
 	Country        string   `json:"country"`
 	Latitude       *float64 `json:"latitude"`
 	Longitude      *float64 `json:"longitude"`
@@ -67,32 +73,38 @@ type UpdateBuyerProfileRequest struct {
 	Landmark       *string  `json:"landmark"`
 	City           *string  `json:"city"`
 	Commune        *string  `json:"commune"`
+	ProvinceID     *string  `json:"province_id"`
+	CityID         *string  `json:"city_id"`
+	CommuneID      *string  `json:"commune_id"`
 	Country        *string  `json:"country"`
 	Latitude       *float64 `json:"latitude"`
 	Longitude      *float64 `json:"longitude"`
 }
 
 type BuyerProfileResponse struct {
-	ID             uuid.UUID `json:"id"`
-	UserID         uuid.UUID `json:"user_id"`
-	FirstName      string    `json:"first_name"`
-	LastName       string    `json:"last_name"`
-	Phone          string    `json:"phone"`
-	BackupPhone    string    `json:"backup_phone"`
-	Address        string    `json:"address"`
-	Province       string    `json:"province"`
-	Street         string    `json:"street"`
-	BuildingNumber string    `json:"building_number"`
-	Landmark       string    `json:"landmark"`
-	Email          string    `json:"email"`
-	City           string    `json:"city"`
-	Commune        string    `json:"commune"`
-	Country        string    `json:"country"`
-	Latitude       *float64  `json:"latitude,omitempty"`
-	Longitude      *float64  `json:"longitude,omitempty"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             uuid.UUID  `json:"id"`
+	UserID         uuid.UUID  `json:"user_id"`
+	FirstName      string     `json:"first_name"`
+	LastName       string     `json:"last_name"`
+	Phone          string     `json:"phone"`
+	BackupPhone    string     `json:"backup_phone"`
+	Address        string     `json:"address"`
+	Province       string     `json:"province"`
+	Street         string     `json:"street"`
+	BuildingNumber string     `json:"building_number"`
+	Landmark       string     `json:"landmark"`
+	Email          string     `json:"email"`
+	City           string     `json:"city"`
+	Commune        string     `json:"commune"`
+	ProvinceID     *uuid.UUID `json:"province_id,omitempty"`
+	CityID         *uuid.UUID `json:"city_id,omitempty"`
+	CommuneID      *uuid.UUID `json:"commune_id,omitempty"`
+	Country        string     `json:"country"`
+	Latitude       *float64   `json:"latitude,omitempty"`
+	Longitude      *float64   `json:"longitude,omitempty"`
+	Status         string     `json:"status"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 type BuyerProfileViewResponse struct {

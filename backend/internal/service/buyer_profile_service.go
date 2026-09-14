@@ -13,22 +13,11 @@ import (
 
 var profilePhonePattern = regexp.MustCompile(`^\+?[0-9 ()-]+$`)
 
-var drcProfileCities = map[string]bool{
-	"Kinshasa": true, "Bandundu": true, "Baraka": true, "Beni": true, "Boende": true,
-	"Bukavu": true, "Bunia": true, "Bumba": true, "Buta": true, "Butembo": true,
-	"Gbadolite": true, "Gemena": true, "Goma": true, "Inongo": true, "Isiro": true,
-	"Kabinda": true, "Kalemie": true, "Kamina": true, "Kananga": true, "Kenge": true,
-	"Kikwit": true, "Kindu": true, "Kisangani": true, "Kolwezi": true, "Likasi": true,
-	"Lisala": true, "Lodja": true, "Lubumbashi": true, "Lusambo": true, "Matadi": true,
-	"Mbandaka": true, "Mbuji-Mayi": true, "Muanda": true, "Tshikapa": true, "Uvira": true, "Zongo": true,
-}
-
-var kinshasaProfileCommunes = map[string]bool{
-	"Bandalungwa": true, "Barumbu": true, "Bumbu": true, "Gombe": true, "Kalamu": true,
-	"Kasa-Vubu": true, "Kimbanseke": true, "Kinshasa": true, "Kintambo": true, "Kisenso": true,
-	"Lemba": true, "Limete": true, "Lingwala": true, "Makala": true, "Maluku": true,
-	"Masina": true, "Matete": true, "Mont-Ngafula": true, "N'Djili": true, "N'Sele": true,
-	"Ngaba": true, "Ngaliema": true, "Ngiri-Ngiri": true, "Selembao": true,
+func derefOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }
 
 func canonicalPhone(value string) string {
@@ -39,7 +28,7 @@ func canonicalPhone(value string) string {
 	return digits
 }
 
-func validateProfileContact(phone, backup, address, city, commune string) error {
+func validateProfileContact(phone, backup, address string) error {
 	validPhone := func(value string) bool {
 		digits := canonicalPhone(value)
 		return profilePhonePattern.MatchString(strings.TrimSpace(value)) && len(digits) >= 9 && len(digits) <= 15
@@ -58,24 +47,51 @@ func validateProfileContact(phone, backup, address, city, commune string) error 
 	if len(strings.TrimSpace(address)) > 500 {
 		return errors.New("ADDRESS_TOO_LONG")
 	}
-	if city != "" && !drcProfileCities[city] {
-		return errors.New("INVALID_CITY")
-	}
-	if city == "Kinshasa" {
-		if commune != "" && !kinshasaProfileCommunes[commune] {
-			return errors.New("INVALID_COMMUNE")
-		}
-	} else if commune != "" {
-		return errors.New("INVALID_COMMUNE")
-	}
 	return nil
 }
 
 type BuyerProfileService struct {
-	buyerRepo *repository.BuyerProfileRepository
-	userRepo  *repository.UserRepository
-	pointRepo *repository.PointAccountRepository
-	levelRepo *repository.LevelRepository
+	buyerRepo    *repository.BuyerProfileRepository
+	userRepo     *repository.UserRepository
+	pointRepo    *repository.PointAccountRepository
+	levelRepo    *repository.LevelRepository
+	locationRepo *repository.LocationRepository
+}
+
+// SetLocationRepository injects the RDC hierarchy. A profile address is
+// validated against the same PostgreSQL rows as a checkout address, so the two
+// can never disagree about which communes exist.
+func (s *BuyerProfileService) SetLocationRepository(locationRepo *repository.LocationRepository) {
+	s.locationRepo = locationRepo
+}
+
+// resolveProfileLocation accepts ids first and names as a fallback, and returns
+// nil when the caller sent no location at all (the address stays untouched).
+func (s *BuyerProfileService) resolveProfileLocation(provinceID, cityID, communeID, province, city, commune string) (*models.ResolvedAddress, error) {
+	if s.locationRepo == nil {
+		return nil, errors.New("LOCATION_HIERARCHY_UNAVAILABLE")
+	}
+	pid, errProvince := uuid.Parse(strings.TrimSpace(provinceID))
+	cid, errCity := uuid.Parse(strings.TrimSpace(cityID))
+	mid, errCommune := uuid.Parse(strings.TrimSpace(communeID))
+	if errProvince == nil && errCity == nil && errCommune == nil {
+		resolved, err := s.locationRepo.Resolve(pid, cid, mid)
+		if err == repository.ErrLocationNotFound {
+			return nil, errors.New("INVALID_ADDRESS_LOCATION")
+		}
+		return resolved, err
+	}
+	if strings.TrimSpace(city) == "" && strings.TrimSpace(commune) == "" {
+		return nil, nil
+	}
+	if strings.TrimSpace(city) == "" || strings.TrimSpace(commune) == "" {
+		return nil, errors.New("INVALID_ADDRESS_LOCATION")
+	}
+	resolved, err := s.locationRepo.ResolveByNames(strings.TrimSpace(province), strings.TrimSpace(city), strings.TrimSpace(commune))
+	if err == repository.ErrLocationNotFound {
+		return nil, errors.New("INVALID_ADDRESS_LOCATION")
+	}
+	return resolved, err
 }
 
 func NewBuyerProfileService(
@@ -93,12 +109,16 @@ func NewBuyerProfileService(
 }
 
 func (s *BuyerProfileService) CreateProfile(userID uuid.UUID, req *models.CreateBuyerProfileRequest) (*models.BuyerProfileResponse, error) {
-	if err := validateProfileContact(req.Phone, req.BackupPhone, req.Address, req.City, req.Commune); err != nil {
+	if err := validateProfileContact(req.Phone, req.BackupPhone, req.Address); err != nil {
 		return nil, err
 	}
-	existing, err := s.buyerRepo.GetByUserID(userID)
+	resolved, err := s.resolveProfileLocation(req.ProvinceID, req.CityID, req.CommuneID, req.Province, req.City, req.Commune)
 	if err != nil {
 		return nil, err
+	}
+	existing, existingErr := s.buyerRepo.GetByUserID(userID)
+	if existingErr != nil {
+		return nil, existingErr
 	}
 	if existing != nil {
 		return nil, errors.New("BUYER_PROFILE_EXISTS")
@@ -130,6 +150,11 @@ func (s *BuyerProfileService) CreateProfile(userID uuid.UUID, req *models.Create
 		Longitude: req.Longitude,
 		Status:    models.BuyerProfileStatusActive,
 	}
+	if resolved != nil {
+		profile.Province, profile.City, profile.Commune = resolved.Province.Name, resolved.City.Name, resolved.Commune.Name
+		provinceID, cityID, communeID := resolved.Province.ID, resolved.City.ID, resolved.Commune.ID
+		profile.ProvinceID, profile.CityID, profile.CommuneID = &provinceID, &cityID, &communeID
+	}
 
 	if err := s.buyerRepo.Create(profile); err != nil {
 		return nil, fmt.Errorf("failed to create buyer profile: %w", err)
@@ -155,15 +180,18 @@ func (s *BuyerProfileService) CreateProfile(userID uuid.UUID, req *models.Create
 		BackupPhone: profile.BackupPhone,
 		Address:     profile.Address,
 		Province:    profile.Province, Street: profile.Street, BuildingNumber: profile.BuildingNumber, Landmark: profile.Landmark,
-		Email:     profile.Email,
-		City:      profile.City,
-		Commune:   profile.Commune,
-		Country:   profile.Country,
-		Latitude:  profile.Latitude,
-		Longitude: profile.Longitude,
-		Status:    string(profile.Status),
-		CreatedAt: profile.CreatedAt,
-		UpdatedAt: profile.UpdatedAt,
+		Email:      profile.Email,
+		City:       profile.City,
+		Commune:    profile.Commune,
+		ProvinceID: profile.ProvinceID,
+		CityID:     profile.CityID,
+		CommuneID:  profile.CommuneID,
+		Country:    profile.Country,
+		Latitude:   profile.Latitude,
+		Longitude:  profile.Longitude,
+		Status:     string(profile.Status),
+		CreatedAt:  profile.CreatedAt,
+		UpdatedAt:  profile.UpdatedAt,
 	}, nil
 }
 
@@ -230,15 +258,18 @@ func (s *BuyerProfileService) GetProfile(userID uuid.UUID) (*models.BuyerProfile
 			BackupPhone: profile.BackupPhone,
 			Address:     profile.Address,
 			Province:    profile.Province, Street: profile.Street, BuildingNumber: profile.BuildingNumber, Landmark: profile.Landmark,
-			Email:     profile.Email,
-			City:      profile.City,
-			Commune:   profile.Commune,
-			Country:   profile.Country,
-			Latitude:  profile.Latitude,
-			Longitude: profile.Longitude,
-			Status:    string(profile.Status),
-			CreatedAt: profile.CreatedAt,
-			UpdatedAt: profile.UpdatedAt,
+			Email:      profile.Email,
+			City:       profile.City,
+			Commune:    profile.Commune,
+			ProvinceID: profile.ProvinceID,
+			CityID:     profile.CityID,
+			CommuneID:  profile.CommuneID,
+			Country:    profile.Country,
+			Latitude:   profile.Latitude,
+			Longitude:  profile.Longitude,
+			Status:     string(profile.Status),
+			CreatedAt:  profile.CreatedAt,
+			UpdatedAt:  profile.UpdatedAt,
 		},
 		CurrentPoints:     currentPoints,
 		LifetimePoints:    lifetimePoints,
@@ -255,7 +286,18 @@ func (s *BuyerProfileService) UpdateProfile(userID uuid.UUID, req *models.Update
 	if err != nil {
 		return nil, errors.New("BUYER_PROFILE_NOT_FOUND")
 	}
-	phone, backup, address, city, commune := profile.Phone, profile.BackupPhone, profile.Address, profile.City, profile.Commune
+	phone, backup, address := profile.Phone, profile.BackupPhone, profile.Address
+	province, city, commune := profile.Province, profile.City, profile.Commune
+	provinceID, cityID, communeID := "", "", ""
+	if profile.ProvinceID != nil {
+		provinceID, cityID, communeID = profile.ProvinceID.String(), "", ""
+	}
+	if profile.CityID != nil {
+		cityID = profile.CityID.String()
+	}
+	if profile.CommuneID != nil {
+		communeID = profile.CommuneID.String()
+	}
 	if req.Phone != nil {
 		phone = strings.TrimSpace(*req.Phone)
 	}
@@ -265,14 +307,36 @@ func (s *BuyerProfileService) UpdateProfile(userID uuid.UUID, req *models.Update
 	if req.Address != nil {
 		address = strings.TrimSpace(*req.Address)
 	}
+	if req.Province != nil {
+		province = strings.TrimSpace(*req.Province)
+	}
 	if req.City != nil {
 		city = strings.TrimSpace(*req.City)
 	}
 	if req.Commune != nil {
 		commune = strings.TrimSpace(*req.Commune)
 	}
-	if err := validateProfileContact(phone, backup, address, city, commune); err != nil {
+	// A changed level invalidates the ids the profile already had, so only the
+	// ids sent with this request are trusted.
+	if req.ProvinceID != nil || req.CityID != nil || req.CommuneID != nil {
+		provinceID, cityID, communeID = derefOrEmpty(req.ProvinceID), derefOrEmpty(req.CityID), derefOrEmpty(req.CommuneID)
+	} else if req.Province != nil || req.City != nil || req.Commune != nil {
+		provinceID, cityID, communeID = "", "", ""
+	}
+	if err := validateProfileContact(phone, backup, address); err != nil {
 		return nil, err
+	}
+	resolved, err := s.resolveProfileLocation(provinceID, cityID, communeID, province, city, commune)
+	if err != nil {
+		return nil, err
+	}
+	// Names are rewritten from the hierarchy so a stale client label cannot
+	// disagree with the id it was resolved from.
+	if resolved != nil {
+		resolvedProvince, resolvedCity, resolvedCommune := resolved.Province.Name, resolved.City.Name, resolved.Commune.Name
+		resolvedProvinceID, resolvedCityID, resolvedCommuneID := resolved.Province.ID.String(), resolved.City.ID.String(), resolved.Commune.ID.String()
+		req.Province, req.City, req.Commune = &resolvedProvince, &resolvedCity, &resolvedCommune
+		req.ProvinceID, req.CityID, req.CommuneID = &resolvedProvinceID, &resolvedCityID, &resolvedCommuneID
 	}
 
 	if err := s.buyerRepo.UpdateFromRequest(userID, req); err != nil {
@@ -294,15 +358,18 @@ func (s *BuyerProfileService) UpdateProfile(userID uuid.UUID, req *models.Update
 		BackupPhone: profile.BackupPhone,
 		Address:     profile.Address,
 		Province:    profile.Province, Street: profile.Street, BuildingNumber: profile.BuildingNumber, Landmark: profile.Landmark,
-		Email:     profile.Email,
-		City:      profile.City,
-		Commune:   profile.Commune,
-		Country:   profile.Country,
-		Latitude:  profile.Latitude,
-		Longitude: profile.Longitude,
-		Status:    string(profile.Status),
-		CreatedAt: profile.CreatedAt,
-		UpdatedAt: profile.UpdatedAt,
+		Email:      profile.Email,
+		City:       profile.City,
+		Commune:    profile.Commune,
+		ProvinceID: profile.ProvinceID,
+		CityID:     profile.CityID,
+		CommuneID:  profile.CommuneID,
+		Country:    profile.Country,
+		Latitude:   profile.Latitude,
+		Longitude:  profile.Longitude,
+		Status:     string(profile.Status),
+		CreatedAt:  profile.CreatedAt,
+		UpdatedAt:  profile.UpdatedAt,
 	}, nil
 }
 

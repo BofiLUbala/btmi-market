@@ -8,7 +8,7 @@ import { AvatarUpload } from '@/components/ui/AvatarUpload'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
-import { drcCityOptions, isKinshasa, kinshasaCommuneOptions } from '@/lib/drcLocations'
+import { StructuredAddressFields, emptyStructuredAddress, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 import { safeInternalPath } from '@/lib/returnTo'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -29,11 +29,12 @@ function EditInner() {
     backup_phone: '',
     country: 'République Démocratique du Congo',
     address: '',
-    city: '',
-    commune: '',
     latitude: null as number | null,
     longitude: null as number | null
   })
+  // Same DB-backed hierarchy the checkout uses: one source of truth for RDC
+  // addresses, so a profile can never hold a commune checkout would reject.
+  const [address, setAddress] = useState<StructuredAddressValue>(emptyStructuredAddress)
   const [gpsLoading, setGpsLoading] = useState(false)
   const [gpsStatus, setGpsStatus] = useState('')
   const [error, setError] = useState('')
@@ -49,20 +50,24 @@ function EditInner() {
       backup_phone: buyerProfile.backup_phone ?? '',
       country: buyerProfile.country ?? 'République Démocratique du Congo',
       address: buyerProfile.address ?? '',
-      city: buyerProfile.city ?? '',
-      commune: buyerProfile.commune ?? '',
       latitude: buyerProfile.latitude ?? null,
       longitude: buyerProfile.longitude ?? null
+    })
+    setAddress({
+      province: buyerProfile.province ?? '',
+      city: buyerProfile.city ?? '',
+      commune: buyerProfile.commune ?? '',
+      province_id: buyerProfile.province_id ?? '',
+      city_id: buyerProfile.city_id ?? '',
+      commune_id: buyerProfile.commune_id ?? '',
+      street: buyerProfile.street ?? '',
+      building_number: buyerProfile.building_number ?? '',
+      landmark: buyerProfile.landmark ?? ''
     })
   }, [buyerProfile])
 
   function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
     setForm((current) => ({ ...current, [key]: value }))
-    setError(''); setSuccess('')
-  }
-
-  function setCity(city: string) {
-    setForm((current) => ({ ...current, city, commune: isKinshasa(city) ? current.commune : '' }))
     setError(''); setSuccess('')
   }
 
@@ -101,7 +106,18 @@ function EditInner() {
     }
     setBusy(true)
     try {
-      await buyerApi.updateProfile(form)
+      await buyerApi.updateProfile({
+        ...form,
+        province: address.province,
+        city: address.city,
+        commune: address.commune,
+        province_id: address.province_id,
+        city_id: address.city_id,
+        commune_id: address.commune_id,
+        street: address.street.trim(),
+        building_number: address.building_number.trim(),
+        landmark: address.landmark.trim()
+      })
       await refreshUser()
       const returnTo = searchParams.get('returnTo')
       if (returnTo) navigate(safeInternalPath(returnTo, '/account'), { replace: true })
@@ -149,14 +165,8 @@ function EditInner() {
               <Field label={t('account.country')} name="country" value={form.country} onChange={(e) => set('country', e.target.value)} />
             </div>
             <div className="profile-field-full">
-              <Field label={t('common.address')} name="address" maxLength={500} placeholder="12 Avenue Kasa-Vubu" value={form.address} onChange={(e) => set('address', e.target.value)} />
+              <StructuredAddressFields value={address} onChange={(next) => { setAddress(next); setError(''); setSuccess('') }} />
             </div>
-            <Field label={t('common.city')} name="city" as="select" value={form.city} options={drcCityOptions(form.city)} onChange={(e) => setCity(e.target.value)} />
-            {isKinshasa(form.city) ? (
-              <Field label={t('common.commune')} name="commune" as="select" value={form.commune} options={kinshasaCommuneOptions(form.commune)} onChange={(e) => set('commune', e.target.value)} />
-            ) : (
-              <Field label={t('common.commune')} name="commune" placeholder="Commune / Quartier" value={form.commune} onChange={(e) => set('commune', e.target.value)} />
-            )}
             <div className="profile-field-full">
               <div className="profile-contact-block" style={{ padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
                 <div className="eyebrow">{t('account.gpsCoordinates')}</div>

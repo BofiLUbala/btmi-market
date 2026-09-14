@@ -752,7 +752,6 @@ export const fr = {
   'delivery.chooseMethod': 'Choisissez un mode',
   'delivery.noAddressNeeded': 'Vous récupérerez cette commande en boutique. Aucune adresse requise.',
   'delivery.contactName': 'Nom du contact',
-  'delivery.cityPrefix': 'Ville : ',
   'delivery.deliveryAddress': 'Adresse de livraison',
   'delivery.addressPlaceholder': 'Ville, commune, avenue, numéro…',
   'delivery.addressIncomplete':
@@ -1018,8 +1017,6 @@ export const fr = {
     'Le suivi est mis à jour par la boutique et le partenaire de livraison. Le paiement en espèces est confirmé lorsque le vendeur le vérifie.',
 
   /* ── Localisation (RDC) ─────────────────────────────────── */
-  'drc.selectCity': 'Choisir une ville',
-  'drc.selectCommune': 'Choisir une commune',
 
   /* ── Espace vendeur ─────────────────────────────────────── */
   'seller.dashboard': 'Tableau de bord',

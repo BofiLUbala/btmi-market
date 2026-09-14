@@ -50,8 +50,10 @@ func profileValidationMessage(code string) string {
 		return "Address is too long."
 	case "INVALID_CITY":
 		return "Select a valid city."
-	case "INVALID_COMMUNE":
-		return "Select a valid commune for Kinshasa."
+	case "INVALID_COMMUNE", "INVALID_ADDRESS_LOCATION":
+		return "Select a province, a city and one of that city's communes."
+	case "LOCATION_HIERARCHY_UNAVAILABLE":
+		return "Address locations are temporarily unavailable."
 	default:
 		return code
 	}
@@ -140,7 +142,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 			h.errResponse(c, http.StatusNotFound, code, code)
 			return
 		}
-		if code == "INVALID_PHONE" || code == "INVALID_BACKUP_PHONE" || code == "BACKUP_PHONE_SAME_AS_PRIMARY" || code == "ADDRESS_TOO_LONG" || code == "INVALID_CITY" || code == "INVALID_COMMUNE" {
+		if code == "INVALID_PHONE" || code == "INVALID_BACKUP_PHONE" || code == "BACKUP_PHONE_SAME_AS_PRIMARY" || code == "ADDRESS_TOO_LONG" || code == "INVALID_CITY" || code == "INVALID_COMMUNE" || code == "INVALID_ADDRESS_LOCATION" {
 			h.errResponse(c, http.StatusBadRequest, code, profileValidationMessage(code))
 			return
 		}

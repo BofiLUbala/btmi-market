@@ -137,6 +137,7 @@ func main() {
 	customerService := service.NewCustomerService(customerRepo, shopRepo, membershipRepo, db)
 	cashService := service.NewCashService(cashRepo, shopRepo, employeeRepo, assignmentRepo, membershipRepo, db)
 	buyerProfileService := service.NewBuyerProfileService(buyerProfileRepo, userRepo, pointAccountRepo, levelRepo)
+	buyerProfileService.SetLocationRepository(locationRepo)
 	adminPlatformRepo := repository.NewAdminPlatformRepository(db.DB)
 	pointService := service.NewPointService(pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, adminPlatformRepo)
 	purchaseConfirmationService := service.NewPurchaseConfirmationService(confirmRepo, verifiedTxnRepo, orderRepo, shopRepo, cashRepo, pointService, trustRepo, asynqClient)
@@ -573,6 +574,7 @@ courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 		{
 			locationsGroup.GET("/provinces", locationHandler.ListProvinces)
 			locationsGroup.GET("/provinces/:province_id/cities", locationHandler.ListCities)
+			locationsGroup.GET("/cities", locationHandler.ListAllCities)
 			locationsGroup.GET("/cities/:city_id/communes", locationHandler.ListCommunes)
 		}
 

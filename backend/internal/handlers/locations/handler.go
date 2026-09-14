@@ -43,6 +43,16 @@ func (h *Handler) ListCities(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
+// GET /api/v1/locations/cities
+func (h *Handler) ListAllCities(c *gin.Context) {
+	items, err := h.repo.ListAllCities()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load cities"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 // GET /api/v1/locations/cities/:city_id/communes
 func (h *Handler) ListCommunes(c *gin.Context) {
 	cityID, err := uuid.Parse(c.Param("city_id"))

@@ -28,7 +28,20 @@ function DeliveryInner() {
     phone: buyerProfile?.phone || user?.phone || '',
     notes: ''
   }))
-  const [address, setAddress] = useState<StructuredAddressValue>(() => ({ ...emptyStructuredAddress(), street: buyerProfile?.address || '' }))
+  // Pre-fill from the address the buyer already saved on their profile; they
+  // can still change any level, and the server re-resolves it either way.
+  const [address, setAddress] = useState<StructuredAddressValue>(() => ({
+    ...emptyStructuredAddress(),
+    province: buyerProfile?.province ?? '',
+    city: buyerProfile?.city ?? '',
+    commune: buyerProfile?.commune ?? '',
+    province_id: buyerProfile?.province_id ?? '',
+    city_id: buyerProfile?.city_id ?? '',
+    commune_id: buyerProfile?.commune_id ?? '',
+    street: buyerProfile?.street || buyerProfile?.address || '',
+    building_number: buyerProfile?.building_number ?? '',
+    landmark: buyerProfile?.landmark ?? ''
+  }))
   const [previewFee, setPreviewFee] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)

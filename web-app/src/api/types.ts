@@ -77,6 +77,9 @@ export interface BuyerProfile {
   email: string
   city?: string
   commune?: string
+  province_id?: string
+  city_id?: string
+  commune_id?: string
   country?: string
   latitude?: number | null
   longitude?: number | null
@@ -92,8 +95,15 @@ export interface CreateBuyerProfileRequest {
   backup_phone?: string
   email: string
   address?: string
+  province?: string
   city?: string
   commune?: string
+  province_id?: string
+  city_id?: string
+  commune_id?: string
+  street?: string
+  building_number?: string
+  landmark?: string
   country?: string
   latitude?: number | null
   longitude?: number | null
@@ -105,8 +115,15 @@ export interface UpdateBuyerProfileRequest {
   phone?: string
   backup_phone?: string
   address?: string
+  province?: string
   city?: string
   commune?: string
+  province_id?: string
+  city_id?: string
+  commune_id?: string
+  street?: string
+  building_number?: string
+  landmark?: string
   country?: string
   latitude?: number | null
   longitude?: number | null

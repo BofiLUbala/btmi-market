@@ -8,7 +8,7 @@ import { ErrorBox } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
 import type { SellerBusiness } from '@/api/types'
 import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
-import { drcCityOptions } from '@/lib/drcLocations'
+import { CityPicker } from '@/components/address/CityPicker'
 import { useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
@@ -292,13 +292,11 @@ export default function SellerOnboardingPage() {
                       value={shopForm.partner_delivery_provider}
                       onChange={(e) => updateShop('partner_delivery_provider', e.target.value)}
                     />
-                    <Field
+                    <CityPicker
                       label={t('seller.onboarding.deliveryCity')}
                       name="delivery_city"
-                      as="select"
                       value={shopForm.delivery_city}
-                      options={drcCityOptions()}
-                      onChange={(e) => updateShop('delivery_city', e.target.value)}
+                      onChange={(city) => updateShop('delivery_city', city)}
                     />
                     <Field
                       label={t('seller.onboarding.deliveryAddress')}
