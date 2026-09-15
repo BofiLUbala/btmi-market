@@ -15,9 +15,14 @@ import { deliveryLabel } from '../../src/lib/deliveryLabels'
 import {
   paymentStatusKey,
   paymentMethodKey,
+  confirmationActorKey,
+  isPaymentPaid,
   isPaymentConfirmed,
   isPaymentCancelled,
   isPaymentFailed,
+  isPaymentProcessing,
+  isCashOnDelivery,
+  isMobileAtDelivery,
 } from '../../src/lib/paymentStatus'
 
 const POLL_INTERVAL = 15_000
