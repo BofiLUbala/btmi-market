@@ -201,14 +201,14 @@ export interface BusinessLifecycleSummary {
   shop_summaries: Array<{ id: string; name: string; status: string; product_count: number }>
 }
 export interface ArchiveBusinessResponse { action: 'archived'; summary: BusinessLifecycleSummary }
-export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; notes?: string }
+export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; base_total?: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; delivery_fee_final?: number; delivery_contact_name?: string; delivery_phone?: string; delivery_address?: string; delivery_notes?: string; notes?: string }
 export interface SellerOrder extends BuyerOrder {
   business_id: string
   base_total?: number
   delivery_method?: string
   notes?: string
 }
-export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; final_unit_price: number; product_name: string; variant_name?: string; image_url?: string }
+export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; unit_price?: number; final_unit_price: number; product_name: string; variant_name?: string; image_url?: string }
 export interface OrderStatusHistory { id: string; order_id: string; status: string; changed_by?: string | null; actor_type?: string; notes: string; created_at: string }
 export interface TrackingResponse { order_id: string; order_number: string; current_status: string; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
 export interface BuyerPayment {
@@ -423,13 +423,22 @@ export interface ProductVerification {
 }
 
 /* ---------- Seller: Finances & Commissions ---------- */
+// Mirrors the backend's SellerFinanceSummary exactly. The field names here
+// used to diverge from the API (total_commission / net_revenue / sales_count),
+// which made every card read as $0.00 no matter the real revenue.
 export interface SellerFinanceSummary {
   gross_sales: number
-  total_commission: number
-  net_revenue: number
+  tbk_commission_total: number
+  seller_net_revenue: number
   commission_due: number
   commission_collected: number
-  sales_count: number
+  // Buyer-payment axis, kept separate from the commission axis above.
+  payments_received: number
+  payments_due: number
+  units_sold: number
+  /** Live platform rate, so the commission card never hardcodes a percentage. */
+  commission_rate: number
+  total_completed_sales: number
 }
 
 export interface SellerSaleCommissionItem {

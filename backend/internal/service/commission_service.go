@@ -166,12 +166,16 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 // commission page KPIs and the finance dashboard can never disagree.
 func (s *CommissionService) GetSummary(filter *models.CommissionFilter) (*models.CommissionSummary, error) {
 	report, err := s.GetDashboardReport(&models.FinanceReportFilter{
-		BusinessIDs: filter.BusinessIDs,
-		BusinessID:  filter.BusinessID,
-		ShopID:      filter.ShopID,
-		SellerID:    filter.SellerID,
-		DateFrom:    filter.DateFrom,
-		DateTo:      filter.DateTo,
+		BusinessIDs:      filter.BusinessIDs,
+		BusinessID:       filter.BusinessID,
+		ShopID:           filter.ShopID,
+		SellerID:         filter.SellerID,
+		ProductID:        filter.ProductID,
+		VariantID:        filter.VariantID,
+		PaymentStatus:    filter.PaymentStatus,
+		CommissionStatus: filter.Status,
+		DateFrom:         filter.DateFrom,
+		DateTo:           filter.DateTo,
 	})
 	if err != nil {
 		return nil, err
@@ -182,6 +186,9 @@ func (s *CommissionService) GetSummary(filter *models.CommissionFilter) (*models
 		CollectedCommission: report.CollectedCommission,
 		DueCommission:       report.DueCommission,
 		SellerNetRevenue:    report.SellerNetAmount,
+		PaymentsCollected:   report.PaymentsCollected,
+		PaymentsDue:         report.PaymentsDue,
+		UnitsSold:           report.UnitsSold,
 		TotalVerifiedSales:  report.VerifiedSales,
 		Currency:            report.Currency,
 		MixedCurrency:       report.MixedCurrency,
@@ -205,6 +212,24 @@ func (s *CommissionService) GetBreakdownReport(group models.FinanceBreakdownGrou
 		return nil, err
 	}
 	return s.commRepo.GetBreakdownReport(group, filter)
+}
+
+// GetTimeseriesReport returns the chart series backing the finance charts.
+// Same filter, same population, same service as the KPI cards.
+func (s *CommissionService) GetTimeseriesReport(interval models.FinanceTimeseriesInterval, filter *models.FinanceReportFilter) ([]models.FinanceTimeseriesPoint, error) {
+	if err := s.resolveSellerFilter(filter); err != nil {
+		return nil, err
+	}
+	return s.commRepo.GetTimeseriesReport(interval, filter)
+}
+
+// GetSellerTimeseriesReport is the same chart series narrowed to the seller's
+// own businesses.
+func (s *CommissionService) GetSellerTimeseriesReport(userID uuid.UUID, interval models.FinanceTimeseriesInterval, filter *models.FinanceReportFilter) ([]models.FinanceTimeseriesPoint, error) {
+	if err := s.applySellerScope(userID, filter); err != nil {
+		return nil, err
+	}
+	return s.commRepo.GetTimeseriesReport(interval, filter)
 }
 
 // ListCommissions lists per-sale history rows for Finance Admin.
@@ -272,6 +297,10 @@ func (s *CommissionService) GetSellerSummary(userID uuid.UUID) (*models.SellerFi
 		SellerNetRevenue:    report.SellerNetAmount,
 		CommissionDue:       report.DueCommission,
 		CommissionCollected: report.CollectedCommission,
+		PaymentsReceived:    report.PaymentsCollected,
+		PaymentsDue:         report.PaymentsDue,
+		UnitsSold:           report.UnitsSold,
+		CommissionRate:      report.CommissionRate,
 		TotalCompletedSales: report.VerifiedSales,
 	}, nil
 }
@@ -288,7 +317,7 @@ func (s *CommissionService) GetSellerDashboardReport(userID uuid.UUID, filter *m
 // GetSellerBreakdownReport returns the grouped report scoped to the seller's
 // businesses.
 func (s *CommissionService) GetSellerBreakdownReport(userID uuid.UUID, group models.FinanceBreakdownGroup, filter *models.FinanceReportFilter) ([]models.FinanceBreakdownItem, error) {
-	if group != models.FinanceBreakdownShop && group != models.FinanceBreakdownProduct {
+	if !models.IsValidBreakdownGroup(group) || group == models.FinanceBreakdownSeller {
 		return nil, errors.New("INVALID_GROUP")
 	}
 	if err := s.applySellerScope(userID, filter); err != nil {

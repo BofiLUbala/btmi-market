@@ -1,4 +1,5 @@
 import { useAuth } from '@/store/auth'
+import { formatMoney } from '@/lib/format'
 import { cashApi } from '@/api/seller'
 import { Card, CardGrid } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
@@ -131,12 +132,12 @@ export default function SellerCashPage() {
               <CardGrid>
                 <Card>
                   <h3>{t('seller.cash.totalCashSales')}</h3>
-                  <div className="stat-value">{summary.total_cash_sales.toLocaleString()} FC</div>
+                  <div className="stat-value">{formatMoney(summary.total_cash_sales)}</div>
                 </Card>
                 {(summary.shop_breakdown || []).map((shop) => (
                   <Card key={shop.shop_id}>
                     <h3>{shop.shop_name}</h3>
-                    <div className="stat-value">{shop.total_cash_sales.toLocaleString()} FC</div>
+                    <div className="stat-value">{formatMoney(shop.total_cash_sales)}</div>
                     <p className="muted small">
                       {t('seller.cash.sessionsOpenClosed', { open: shop.open_sessions, closed: shop.closed_sessions })}
                       {shop.total_shortage > 0 && t('seller.cash.shortage', { amount: shop.total_shortage.toLocaleString() })}

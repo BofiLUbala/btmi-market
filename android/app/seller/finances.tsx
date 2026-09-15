@@ -69,25 +69,38 @@ export default function SellerFinancesScreen() {
         <View style={styles.kpiCard}>
           <Text style={styles.kpiLabel}>{t('seller.finances.grossSales')}</Text>
           <Text style={styles.kpiValue}>${(s.gross_sales || 0).toFixed(2)}</Text>
-          <Text style={styles.kpiSub}>{t('seller.finances.verifiedSales', { count: s.sales_count || 0 })}</Text>
+          <Text style={styles.kpiSub}>{t('seller.finances.verifiedSales', { count: s.total_completed_sales || 0 })}</Text>
         </View>
         <View style={styles.kpiCard}>
           <Text style={[styles.kpiLabel, { color: '#f87171' }]}>{t('seller.finances.commission')}</Text>
-          <Text style={[styles.kpiValue, { color: '#f87171' }]}>-${(s.total_commission || 0).toFixed(2)}</Text>
-          <Text style={styles.kpiSub}>{t('seller.finances.standardRate')}</Text>
+          <Text style={[styles.kpiValue, { color: '#f87171' }]}>-${(s.tbk_commission_total || 0).toFixed(2)}</Text>
+          <Text style={styles.kpiSub}>{t('seller.finances.configuredRate', { rate: (s.commission_rate ?? 0).toFixed(2) })}</Text>
         </View>
       </View>
 
       <View style={styles.kpiGrid}>
         <View style={[styles.kpiCard, styles.kpiHighlight]}>
           <Text style={[styles.kpiLabel, { color: '#34d399' }]}>{t('seller.finances.netRevenue')}</Text>
-          <Text style={[styles.kpiValue, { color: '#34d399' }]}>${(s.net_revenue || 0).toFixed(2)}</Text>
+          <Text style={[styles.kpiValue, { color: '#34d399' }]}>${(s.seller_net_revenue || 0).toFixed(2)}</Text>
           <Text style={styles.kpiSub}>{t('seller.finances.yourShare')}</Text>
         </View>
         <View style={styles.kpiCard}>
           <Text style={[styles.kpiLabel, { color: '#fbbf24' }]}>{t('seller.finances.due')}</Text>
           <Text style={[styles.kpiValue, { color: '#fbbf24' }]}>${(s.commission_due || 0).toFixed(2)}</Text>
           <Text style={styles.kpiSub}>{t('seller.finances.alreadySettled', { amount: (s.commission_collected || 0).toFixed(2) })}</Text>
+        </View>
+      </View>
+
+      {/* Paiements: axe acheteur, distinct de la commission TBK ci-dessus. */}
+      <View style={styles.kpiGrid}>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>{t('seller.finances.paymentsReceived')}</Text>
+          <Text style={styles.kpiValue}>${(s.payments_received || 0).toFixed(2)}</Text>
+          <Text style={styles.kpiSub}>{t('seller.finances.unitsSold', { count: s.units_sold || 0 })}</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={[styles.kpiLabel, { color: '#fb923c' }]}>{t('seller.finances.paymentsDue')}</Text>
+          <Text style={[styles.kpiValue, { color: '#fb923c' }]}>${(s.payments_due || 0).toFixed(2)}</Text>
         </View>
       </View>
 

@@ -11,12 +11,12 @@ import (
 )
 
 type SimilarityService struct {
-	productRepo  *repository.ProductRepository
+	productRepo     *repository.ProductRepository
 	marketplaceRepo *repository.MarketplaceRepository
-	categoryRepo *repository.CategoryRepository
-	pointRepo    *repository.PointAccountRepository
-	levelRepo    *repository.LevelRepository
-	trustRepo    *repository.SellerTrustRepository
+	categoryRepo    *repository.CategoryRepository
+	pointRepo       *repository.PointAccountRepository
+	levelRepo       *repository.LevelRepository
+	trustRepo       *repository.SellerTrustRepository
 }
 
 func NewSimilarityService(
@@ -28,12 +28,12 @@ func NewSimilarityService(
 	trustRepo *repository.SellerTrustRepository,
 ) *SimilarityService {
 	return &SimilarityService{
-		productRepo:      productRepo,
-		marketplaceRepo:  marketplaceRepo,
-		categoryRepo:     categoryRepo,
-		pointRepo:        pointRepo,
-		levelRepo:        levelRepo,
-		trustRepo:        trustRepo,
+		productRepo:     productRepo,
+		marketplaceRepo: marketplaceRepo,
+		categoryRepo:    categoryRepo,
+		pointRepo:       pointRepo,
+		levelRepo:       levelRepo,
+		trustRepo:       trustRepo,
 	}
 }
 
@@ -185,19 +185,19 @@ type CandidateProduct struct {
 }
 
 type SimilarProductResult struct {
-	ProductID       uuid.UUID `json:"product_id"`
-	ProductName     string    `json:"name"`
-	ShopID          uuid.UUID `json:"shop_id"`
-	ShopName        string    `json:"shop_name"`
+	ProductID       uuid.UUID  `json:"product_id"`
+	ProductName     string     `json:"name"`
+	ShopID          uuid.UUID  `json:"shop_id"`
+	ShopName        string     `json:"shop_name"`
 	CategoryID      *uuid.UUID `json:"category_id,omitempty"`
 	SubcategoryID   *uuid.UUID `json:"subcategory_id,omitempty"`
-	BasePrice       float64   `json:"base_price"`
-	Availability    string    `json:"availability"`
-	SellerLevel     string    `json:"seller_level"`
-	SellerTrust     string    `json:"seller_trust"`
-	SimilarityScore float64   `json:"similarity_score"`
-	SellerScore     float64   `json:"seller_score"`
-	FinalScore      float64   `json:"final_score"`
+	BasePrice       float64    `json:"base_price"`
+	Availability    string     `json:"availability"`
+	SellerLevel     string     `json:"seller_level"`
+	SellerTrust     string     `json:"seller_trust"`
+	SimilarityScore float64    `json:"similarity_score"`
+	SellerScore     float64    `json:"seller_score"`
+	FinalScore      float64    `json:"final_score"`
 }
 
 func (s *SimilarityService) calculateSimilarityScore(source *models.Product, candidate *CandidateProduct) float64 {

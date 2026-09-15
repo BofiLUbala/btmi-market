@@ -9,9 +9,9 @@ import (
 )
 
 type RankingService struct {
-	pointRepo  *repository.PointAccountRepository
-	levelRepo  *repository.LevelRepository
-	trustRepo  *repository.SellerTrustRepository
+	pointRepo   *repository.PointAccountRepository
+	levelRepo   *repository.LevelRepository
+	trustRepo   *repository.SellerTrustRepository
 	productRepo *repository.ProductRepository
 }
 

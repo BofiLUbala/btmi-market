@@ -43,6 +43,19 @@ func fail(c *gin.Context, err error) {
 		status = http.StatusUnprocessableEntity
 	case errors.Is(err, service.ErrQRNotReady):
 		status = http.StatusNotFound
+	case errors.Is(err, service.ErrHandoverForbidden):
+		status = http.StatusForbidden
+	// The handover step exists but is out of order, or the money is not in yet. That is
+	// the caller asking too early, not a malformed request.
+	case errors.Is(err, service.ErrHandoverWrongState),
+		errors.Is(err, service.ErrProductNotVerified),
+		errors.Is(err, service.ErrProductMismatch),
+		errors.Is(err, service.ErrLinesNotAcknowledged),
+		errors.Is(err, service.ErrPaymentNotVerified),
+		errors.Is(err, service.ErrNotCashOnDelivery),
+		errors.Is(err, service.ErrQRDeliveryNotScanned),
+		errors.Is(err, service.ErrQRNotOperational):
+		status = http.StatusConflict
 	case errors.Is(err, service.ErrQRDuplicate), errors.Is(err, service.ErrQRAlreadyCompleted):
 		status = http.StatusConflict
 	}

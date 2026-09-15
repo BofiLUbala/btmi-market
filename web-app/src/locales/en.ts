@@ -1346,9 +1346,9 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.orders.baseTotal': 'Base total',
   'seller.orders.notesLabel': 'Notes',
   'seller.orders.shopId': 'Shop ID',
-  'seller.orders.line': '{name} · Qty {quantity} · {price} USD',
+  'seller.orders.line': '{name} · Qty {quantity} · {price}',
   'seller.orders.lineWithVariant':
-    '{name} · {variant} · Qty {quantity} · {price} USD',
+    '{name} · {variant} · Qty {quantity} · {price}',
   'seller.orders.loadingDetails': 'Loading product details…',
   'seller.orders.cashPayment': 'Cash payment',
   'seller.orders.buyerColon': 'Buyer:',
@@ -1638,7 +1638,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productDetail.currentActivePromotion':
     'Currently active promotion',
   'seller.productDetail.salePriceShort': 'Sale price: {price} USD',
-  'seller.productDetail.normalPrice': '/ regular: {price} USD',
+  'seller.productDetail.normalPrice': '/ regular: {price}',
   'seller.productDetail.startsAt': '📅 Starts: {date}',
   'seller.productDetail.endsAt': '📅 Ends: {date}',
   'seller.productDetail.activeIndefinitely': '📅 Active indefinitely',

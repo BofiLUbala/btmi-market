@@ -1,12 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminSaleHistoryItem, type AdminCommissionSummary, type FinanceBreakdownItem } from '@/api/admin'
+import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminSaleHistoryItem, type AdminCommissionSummary, type FinanceBreakdownItem, type FinanceBreakdownGroup } from '@/api/admin'
 
 // Amounts are shown in the currency of the sale itself. Never relabel a
 // historical CDF sale as USD (or XAF) just because the reader changed.
 const money = (value: number, currency?: string) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'USD' }).format(value || 0)
 
-type SummaryCurrencyField = 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission'
+type SummaryCurrencyField = 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission' | 'payments_collected' | 'payments_due'
+
+const BREAKDOWN_LABELS: Record<FinanceBreakdownGroup, string> = {
+  shop: 'Boutique',
+  product: 'Produit',
+  variant: 'Variante',
+  seller: 'Vendeur',
+  business: 'Entreprise'
+}
 
 export default function CommissionManagementPage() {
 
@@ -22,8 +30,11 @@ export default function CommissionManagementPage() {
   const [dateTo, setDateTo] = useState('')
 
   // Breakdown state (TBK finance report per entity)
-  const [breakdownGroup, setBreakdownGroup] = useState<'shop' | 'product' | 'seller' | 'business'>('shop')
+  const [breakdownGroup, setBreakdownGroup] = useState<FinanceBreakdownGroup>('shop')
   const [breakdownItems, setBreakdownItems] = useState<FinanceBreakdownItem[]>([])
+  // The buyer's payment status is a separate axis from the commission status
+  // filtered below; both are applied by the backend.
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
 
   // Edit Rate Modal state
   const [editRateModal, setEditRateModal] = useState(false)
@@ -53,14 +64,21 @@ export default function CommissionManagementPage() {
     setLoading(true)
     setError(false)
     try {
+      const scope = {
+        payment_status: paymentStatusFilter || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined
+      }
       const [configRes, summaryRes, commsRes] = await Promise.all([
         adminFinanceApi.getCommissionConfig(),
-        adminFinanceApi.getCommissionSummary({ date_from: dateFrom || undefined, date_to: dateTo || undefined }),
+        adminFinanceApi.getCommissionSummary({
+          ...scope,
+          status: statusFilter !== 'ALL' ? statusFilter : undefined
+        }),
         adminFinanceApi.listCommissions({
+          ...scope,
           status: statusFilter !== 'ALL' ? statusFilter : undefined,
           search: searchQuery || undefined,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
           limit: 100
         })
       ])
@@ -78,7 +96,7 @@ export default function CommissionManagementPage() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, searchQuery, dateFrom, dateTo])
+  }, [statusFilter, paymentStatusFilter, searchQuery, dateFrom, dateTo])
 
   useEffect(() => {
     void fetchData()
@@ -88,14 +106,20 @@ export default function CommissionManagementPage() {
     try {
       const res = await adminFinanceApi.getFinanceBreakdown({
         group: breakdownGroup,
+        payment_status: paymentStatusFilter || undefined,
+        commission_status: statusFilter !== 'ALL' ? statusFilter : undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined
       })
       setBreakdownItems(res.items || [])
     } catch (err) {
+      // A breakdown that cannot load must not leave stale rows on screen
+      // claiming to describe the current filter.
       console.error('Failed to load finance breakdown', err)
+      setBreakdownItems([])
+      setError(true)
     }
-  }, [breakdownGroup, dateFrom, dateTo])
+  }, [breakdownGroup, statusFilter, paymentStatusFilter, dateFrom, dateTo])
 
   useEffect(() => {
     void loadBreakdown()
@@ -257,10 +281,31 @@ export default function CommissionManagementPage() {
             {aggregateMoney('seller_net_amount', summary?.seller_net_revenue || 0)}
           </div>
         </div>
+
+        {/* Axe acheteur. Un acheteur peut avoir tout regle alors que la
+            commission TBK ci-dessus reste due: les deux ne se confondent pas. */}
+        <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiements Encaisses</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#facc15', marginTop: 4 }}>
+            {aggregateMoney('payments_collected', summary?.payments_collected || 0)}
+          </div>
+        </div>
+        <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiements Dus</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#fb923c', marginTop: 4 }}>
+            {aggregateMoney('payments_due', summary?.payments_due || 0)}
+          </div>
+        </div>
+        <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Unites Vendues</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--admin-text)', marginTop: 4 }}>
+            {summary?.units_sold ?? 0}
+          </div>
+        </div>
       </div>}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        {(['shop', 'product', 'seller', 'business'] as const).map((g) => (
+        {(['shop', 'product', 'variant', 'seller', 'business'] as const).map((g) => (
           <button
             key={g}
             onClick={() => {
@@ -288,8 +333,9 @@ export default function CommissionManagementPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{breakdownGroup === 'product' ? 'Produit' : breakdownGroup === 'shop' ? 'Boutique' : breakdownGroup === 'seller' ? 'Vendeur' : 'Entreprise'}</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Ventes</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{BREAKDOWN_LABELS[breakdownGroup]}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commandes</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Unités</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Vente Brute</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission TBK</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Net Vendeur</th>
@@ -298,11 +344,15 @@ export default function CommissionManagementPage() {
             </thead>
             <tbody>
               {breakdownItems.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>Aucune commission dans cette répartition.</td></tr>
+                <tr><td colSpan={7} style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>Aucune commission dans cette répartition.</td></tr>
               ) : breakdownItems.map((item) => (
                 <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
-                  <td style={{ padding: '12px 14px', fontWeight: 700 }}>{item.label}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700 }}>
+                    {item.label}
+                    {item.sub_label && <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--admin-text-muted)' }}>{item.sub_label}</div>}
+                  </td>
                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>{item.sales_count}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>{item.units_sold}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700 }}>{money(item.gross_sales, item.currency)}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: '#818cf8' }}>{money(item.commission_amount, item.currency)}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: '#38bdf8' }}>{money(item.seller_net_amount, item.currency)}</td>
@@ -339,6 +389,27 @@ export default function CommissionManagementPage() {
               {tab.label}
             </button>
           ))}
+
+          {/* Statut de paiement acheteur - axe distinct du statut de
+              commission ci-dessus, filtre lui aussi cote serveur. */}
+          <select
+            value={paymentStatusFilter}
+            onChange={(e) => setPaymentStatusFilter(e.target.value)}
+            aria-label="Statut de paiement"
+            style={{
+              padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              border: '1px solid var(--admin-border)',
+              backgroundColor: 'var(--admin-surface-2)',
+              color: 'var(--admin-text)'
+            }}
+          >
+            <option value="">Paiement - tous</option>
+            <option value="VERIFIED">Paiement verifie</option>
+            <option value="PAID">Paye</option>
+            <option value="PENDING">En attente</option>
+            <option value="CONFIRMED">Confirme</option>
+            <option value="REFUNDED">Rembourse</option>
+          </select>
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

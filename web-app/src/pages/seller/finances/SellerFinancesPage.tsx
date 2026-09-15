@@ -1,11 +1,21 @@
-import { useState, useEffect, useCallback, type CSSProperties } from 'react'
-import { sellerFinanceApi, type SellerFinanceDashboard, type SaleHistoryItem, type SellerFinanceBreakdownItem, type SaleFinanceDetail } from '@/api/seller'
+import { useState, useEffect, useCallback, useMemo, type CSSProperties } from 'react'
+import { sellerFinanceApi, type SellerFinanceDashboard, type SaleHistoryItem, type SellerFinanceBreakdownItem, type SaleFinanceDetail, type SellerFinanceTimeseriesPoint, type SellerBreakdownGroup } from '@/api/seller'
+import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
 
 const th = (align: 'left' | 'right' | 'center'): CSSProperties => ({
   textAlign: align, padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600, whiteSpace: 'nowrap'
 })
 
 const money = (value: number, currency = 'USD') => new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value)
+
+/** The dimensions a seller may slice their own sales by. `seller` is absent on
+ *  purpose: within a seller's own scope every row would be the same person. */
+const GROUP_TABS: Array<{ id: SellerBreakdownGroup; label: string }> = [
+  { id: 'shop', label: 'Boutique' },
+  { id: 'product', label: 'Produit' },
+  { id: 'variant', label: 'Variante' },
+  { id: 'business', label: 'Entreprise' }
+]
 
 export default function SellerFinancesPage() {
   const [summary, setSummary] = useState<SellerFinanceDashboard | null>(null)
@@ -16,43 +26,55 @@ export default function SellerFinancesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [breakdownGroup, setBreakdownGroup] = useState<'shop' | 'product'>('shop')
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
+  const [breakdownGroup, setBreakdownGroup] = useState<SellerBreakdownGroup>('shop')
   const [breakdownItems, setBreakdownItems] = useState<SellerFinanceBreakdownItem[]>([])
+  const [trend, setTrend] = useState<SellerFinanceTimeseriesPoint[]>([])
   const [selectedSale, setSelectedSale] = useState<SaleFinanceDetail | null>(null)
   const [error, setError] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
-  const aggregateMoney = (field: 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission') => {
+  const aggregateMoney = (field: 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission' | 'payments_collected' | 'payments_due') => {
     if (!summary) return ''
     if (summary.totals_by_currency?.length) return summary.totals_by_currency.map((t) => money(t[field], t.currency)).join(' · ')
     return money(summary[field], summary.currency || 'USD')
   }
 
+  // Every request below carries the same filter, so the KPI cards, the chart
+  // and the sales table are always three views of one server-side population.
+  const scope = useMemo(() => ({
+    payment_status: paymentStatusFilter || undefined,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined
+  }), [paymentStatusFilter, dateFrom, dateTo])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(false)
     try {
-      const [sumRes, salesRes] = await Promise.all([
-        sellerFinanceApi.getDashboard({ date_from: dateFrom || undefined, date_to: dateTo || undefined }),
+      const [sumRes, salesRes, trendRes] = await Promise.all([
+        sellerFinanceApi.getDashboard(scope),
         sellerFinanceApi.listSales({
+          ...scope,
           status: statusFilter || undefined,
           search: searchQuery || undefined,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
           limit: 50
-        })
+        }),
+        sellerFinanceApi.getTimeseries({ ...scope, interval: 'day' })
       ])
       setSummary(sumRes)
       setSales(salesRes.sales || [])
       setTotal(salesRes.total || 0)
+      setTrend(trendRes.points || [])
     } catch (err) {
       console.error('Failed to load seller finance data', err)
       setSummary(null)
       setSales([])
+      setTrend([])
       setError(true)
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, searchQuery, dateFrom, dateTo])
+  }, [statusFilter, searchQuery, scope])
 
   useEffect(() => {
     void fetchData()
@@ -62,16 +84,14 @@ export default function SellerFinancesPage() {
 
   const loadBreakdown = useCallback(async () => {
     try {
-      const res = await sellerFinanceApi.getBreakdown({
-        group: breakdownGroup,
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined
-      })
+      const res = await sellerFinanceApi.getBreakdown({ ...scope, group: breakdownGroup })
       setBreakdownItems(res.items || [])
     } catch (err) {
       console.error('Failed to load seller finance breakdown', err)
+      setBreakdownItems([])
+      setError(true)
     }
-  }, [breakdownGroup, dateFrom, dateTo])
+  }, [breakdownGroup, scope])
 
   useEffect(() => {
     void loadBreakdown()
@@ -139,7 +159,41 @@ export default function SellerFinancesPage() {
             {aggregateMoney('collected_commission')}
           </div>
         </div>
+
+        {/* Paiements: axe acheteur, distinct de l'axe commission ci-dessus.
+            Un acheteur peut avoir tout réglé alors que la part TBK reste due. */}
+        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
+          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Paiements Encaissés</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#fbbf24', marginTop: 4 }}>
+            {aggregateMoney('payments_collected')}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted, #64748b)', marginTop: 4 }}>réglés par les acheteurs</div>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
+          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Paiements En Attente</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#fb923c', marginTop: 4 }}>
+            {aggregateMoney('payments_due')}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted, #64748b)', marginTop: 4 }}>restant dû par les acheteurs</div>
+        </div>
+
+        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
+          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Unités Vendues</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text, #f8fafc)', marginTop: 4 }}>
+            {summary.units_sold}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-text-muted, #64748b)', marginTop: 4 }}>{summary.verified_sales} vente(s) vérifiée(s)</div>
+        </div>
       </div>}
+
+      {/* Évolution réelle — série renvoyée par le backend, jamais de démo. */}
+      {!error && summary && (
+        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18, marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Évolution (ventes · commission · net)</div>
+          <FinanceTrendChart points={trend} />
+        </div>
+      )}
 
       {/* Filters & Search */}
       <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', borderRadius: 12, border: '1px solid var(--color-border, #334155)', padding: 16, marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -210,6 +264,27 @@ export default function SellerFinancesPage() {
             fontSize: 13
           }}
         />
+        {/* Statut de paiement: axe acheteur, filtré côté serveur, indépendant
+            du statut de commission sélectionné plus haut. */}
+        <select
+          value={paymentStatusFilter}
+          onChange={(e) => setPaymentStatusFilter(e.target.value)}
+          aria-label="Statut de paiement"
+          style={{
+            padding: '8px 14px', borderRadius: 8, fontSize: 13,
+            border: '1px solid var(--color-border, #334155)',
+            backgroundColor: 'var(--color-surface-2, #0f172a)',
+            color: 'var(--color-text, #f8fafc)'
+          }}
+        >
+          <option value="">Tous les paiements</option>
+          <option value="VERIFIED">Paiement vérifié</option>
+          <option value="PAID">Payé</option>
+          <option value="PENDING">En attente</option>
+          <option value="CONFIRMED">Confirmé</option>
+          <option value="REFUNDED">Remboursé</option>
+        </select>
+
         <div style={{ fontSize: 13, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>
           {total} vente(s) trouvée(s)
         </div>
@@ -219,10 +294,10 @@ export default function SellerFinancesPage() {
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted, #94a3b8)' }}>Répartition par :</span>
-          {(['shop', 'product'] as const).map((g) => (
+          {GROUP_TABS.map((g) => (
             <button
-              key={g}
-              onClick={() => setBreakdownGroup(g)}
+              key={g.id}
+              onClick={() => setBreakdownGroup(g.id)}
               style={{
                 padding: '6px 14px',
                 borderRadius: 8,
@@ -230,11 +305,11 @@ export default function SellerFinancesPage() {
                 fontWeight: 700,
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: breakdownGroup === g ? 'var(--color-primary, #6366f1)' : 'var(--color-surface-2, #0f172a)',
-                color: breakdownGroup === g ? '#ffffff' : 'var(--color-text-muted, #94a3b8)',
+                backgroundColor: breakdownGroup === g.id ? 'var(--color-primary, #6366f1)' : 'var(--color-surface-2, #0f172a)',
+                color: breakdownGroup === g.id ? '#ffffff' : 'var(--color-text-muted, #94a3b8)',
               }}
             >
-              {g === 'shop' ? 'Boutique' : 'Produit'}
+              {g.label}
             </button>
           ))}
         </div>
@@ -242,20 +317,25 @@ export default function SellerFinancesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-border, #334155)', backgroundColor: 'var(--color-surface-2, #0f172a)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>{breakdownGroup === 'shop' ? 'Boutique' : 'Produit'}</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Ventes</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Vente Brute</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission TBK</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Net Vendeur</th>
+                <th style={th('left')}>{GROUP_TABS.find((g) => g.id === breakdownGroup)?.label}</th>
+                <th style={th('right')}>Commandes</th>
+                <th style={th('right')}>Unités</th>
+                <th style={th('right')}>Vente Brute</th>
+                <th style={th('right')}>Commission TBK</th>
+                <th style={th('right')}>Net Vendeur</th>
               </tr>
             </thead>
             <tbody>
               {breakdownItems.length === 0 ? (
-                <tr><td colSpan={5} style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--color-text-muted, #94a3b8)' }}>Aucune vente dans cette répartition.</td></tr>
+                <tr><td colSpan={6} style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--color-text-muted, #94a3b8)' }}>Aucune vente dans cette répartition.</td></tr>
               ) : breakdownItems.map((item) => (
                 <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid var(--color-border-soft, #1e293b)' }}>
-                  <td style={{ padding: '12px 16px', fontWeight: 700 }}>{item.label}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 700 }}>
+                    {item.label}
+                    {item.sub_label && <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-text-muted, #94a3b8)' }}>{item.sub_label}</div>}
+                  </td>
                   <td style={{ textAlign: 'right', padding: '12px 16px' }}>{item.sales_count}</td>
+                  <td style={{ textAlign: 'right', padding: '12px 16px' }}>{item.units_sold}</td>
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 700 }}>{money(item.gross_sales, item.currency)}</td>
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#818cf8' }}>{money(item.commission_amount, item.currency)}</td>
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#4ade80' }}>{money(item.seller_net_amount, item.currency)}</td>

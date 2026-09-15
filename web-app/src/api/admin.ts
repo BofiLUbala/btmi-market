@@ -1133,18 +1133,51 @@ export interface FinanceDashboardReport {
   due_commission: number
   waived_commission: number
   collected_cash: number
+  /** Buyer-payment axis, independent of the commission axis above. */
+  payments_collected: number
+  payments_due: number
+  units_sold: number
   verified_sales: number
   refunded_sales: number
   pending_orders: number
   commission_rate: number
   currency?: string
   mixed_currency: boolean
-  totals_by_currency: Array<{ currency: string; gross_sales: number; commission_amount: number; seller_net_amount: number; collected_commission: number; due_commission: number; verified_sales: number }>
+  totals_by_currency: FinanceCurrencyTotal[]
+}
+
+export interface FinanceCurrencyTotal {
+  currency: string
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected_commission: number
+  due_commission: number
+  payments_collected: number
+  payments_due: number
+  units_sold: number
+  verified_sales: number
 }
 
 export interface FinanceBreakdownItem {
   id?: string
   label: string
+  /** Parent dimension: the seller behind a shop, the shop behind a product,
+   *  the product behind a variant. */
+  sub_label: string
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected: number
+  due: number
+  sales_count: number
+  units_sold: number
+  currency: string
+}
+
+/** One bucket of the finance chart series, straight from SQL. */
+export interface FinanceTimeseriesPoint {
+  period: string
   gross_sales: number
   commission_amount: number
   seller_net_amount: number
@@ -1152,6 +1185,39 @@ export interface FinanceBreakdownItem {
   due: number
   sales_count: number
   currency: string
+}
+
+export type FinanceBreakdownGroup = 'shop' | 'product' | 'variant' | 'seller' | 'business'
+
+/** The filter axes every Finance Admin finance endpoint accepts. Payment
+ *  status and commission status are separate axes on purpose: a buyer can have
+ *  settled in full while TBK's cut is still due. */
+export interface FinanceReportParams {
+  business_id?: string
+  shop_id?: string
+  seller_id?: string
+  product_id?: string
+  variant_id?: string
+  payment_status?: string
+  commission_status?: string
+  date_from?: string
+  date_to?: string
+}
+
+/** Serialises the shared filter once, so the KPI cards, the breakdown table
+ *  and the chart can never end up asking for different populations. */
+export function financeQuery(params?: FinanceReportParams): string {
+  const q = new URLSearchParams()
+  if (!params) return q.toString()
+  const keys: Array<keyof FinanceReportParams> = [
+    'business_id', 'shop_id', 'seller_id', 'product_id', 'variant_id',
+    'payment_status', 'commission_status', 'date_from', 'date_to'
+  ]
+  for (const key of keys) {
+    const value = params[key]
+    if (value) q.set(key, value)
+  }
+  return q.toString()
 }
 
 export interface AdminPaymentListItem {
@@ -1310,13 +1376,13 @@ export interface AdminCommissionSummary {
   collected_commission: number
   due_commission: number
   seller_net_revenue: number
+  payments_collected: number
+  payments_due: number
+  units_sold: number
   total_verified_sales: number
   currency?: string
   mixed_currency: boolean
-  totals_by_currency: Array<{
-    currency: string; gross_sales: number; commission_amount: number; seller_net_amount: number
-    collected_commission: number; due_commission: number; verified_sales: number
-  }>
+  totals_by_currency: FinanceCurrencyTotal[]
 }
 
 export interface AdminPointTransaction {
@@ -1464,24 +1530,18 @@ getSummary: async (params?: { business_id?: string; shop_id?: string; seller_id?
     if (params?.date_to) q.set('date_to', params.date_to)
     return adminApi<AdminFinancialSummary>(`/admin/finance/summary?${q.toString()}`)
   },
-  getFinanceDashboard: async (params?: { business_id?: string; shop_id?: string; seller_id?: string; date_from?: string; date_to?: string }) => {
-    const q = new URLSearchParams()
-    if (params?.business_id) q.set('business_id', params.business_id)
-    if (params?.shop_id) q.set('shop_id', params.shop_id)
-    if (params?.seller_id) q.set('seller_id', params.seller_id)
-    if (params?.date_from) q.set('date_from', params.date_from)
-    if (params?.date_to) q.set('date_to', params.date_to)
-    return adminApi<FinanceDashboardReport>(`/admin/finance/dashboard?${q.toString()}`)
+  getFinanceDashboard: async (params?: FinanceReportParams) => {
+    return adminApi<FinanceDashboardReport>(`/admin/finance/dashboard?${financeQuery(params)}`)
   },
-  getFinanceBreakdown: async (params?: { group?: 'shop' | 'product' | 'seller' | 'business'; business_id?: string; shop_id?: string; seller_id?: string; date_from?: string; date_to?: string }) => {
-    const q = new URLSearchParams()
+  getFinanceBreakdown: async (params?: FinanceReportParams & { group?: FinanceBreakdownGroup }) => {
+    const q = new URLSearchParams(financeQuery(params))
     if (params?.group) q.set('group', params.group)
-    if (params?.business_id) q.set('business_id', params.business_id)
-    if (params?.shop_id) q.set('shop_id', params.shop_id)
-    if (params?.seller_id) q.set('seller_id', params.seller_id)
-    if (params?.date_from) q.set('date_from', params.date_from)
-    if (params?.date_to) q.set('date_to', params.date_to)
     return adminApi<{ group: string; items: FinanceBreakdownItem[] }>(`/admin/finance/breakdown?${q.toString()}`)
+  },
+  getFinanceTimeseries: async (params?: FinanceReportParams & { interval?: 'day' | 'week' | 'month' }) => {
+    const q = new URLSearchParams(financeQuery(params))
+    q.set('interval', params?.interval || 'day')
+    return adminApi<{ interval: string; points: FinanceTimeseriesPoint[] }>(`/admin/finance/timeseries?${q.toString()}`)
   },
   listPayments: async (params?: { payment_status?: string; buyer_confirmed?: boolean; seller_confirmed?: boolean; business_id?: string; shop_id?: string; order_number?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams()
@@ -1524,20 +1584,15 @@ getSummary: async (params?: { business_id?: string; shop_id?: string; seller_id?
       body: JSON.stringify(payload)
     })
   },
-  getCommissionSummary: async (params?: { business_id?: string; shop_id?: string; date_from?: string; date_to?: string }) => {
-    const q = new URLSearchParams()
-    if (params?.business_id) q.set('business_id', params.business_id)
-    if (params?.shop_id) q.set('shop_id', params.shop_id)
-    if (params?.date_from) q.set('date_from', params.date_from)
-    if (params?.date_to) q.set('date_to', params.date_to)
+  getCommissionSummary: async (params?: FinanceReportParams & { status?: string }) => {
+    const q = new URLSearchParams(financeQuery(params))
+    if (params?.status) q.set('status', params.status)
     return adminApi<AdminCommissionSummary>(`/admin/finance/commissions/summary?${q.toString()}`)
   },
-  listCommissions: async (params?: { status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) => {
-    const q = new URLSearchParams()
+  listCommissions: async (params?: FinanceReportParams & { status?: string; search?: string; limit?: number; offset?: number }) => {
+    const q = new URLSearchParams(financeQuery(params))
     if (params?.status) q.set('status', params.status)
     if (params?.search) q.set('search', params.search)
-    if (params?.date_from) q.set('date_from', params.date_from)
-    if (params?.date_to) q.set('date_to', params.date_to)
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
     return adminApi<{ commissions: AdminSaleHistoryItem[]; total: number }>(`/admin/finance/commissions?${q.toString()}`)

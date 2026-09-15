@@ -10,6 +10,8 @@ import type {
   CreateBuyerProfileRequest,
   DeliveryOptionsResponse,
   DeliveryPointsPreviewResponse,
+  HandoverLineAcknowledgement,
+  HandoverState,
   DeliverySelectResponse,
   OrderWithLines,
   OrderLineInput,
@@ -100,6 +102,17 @@ export const buyerApi = {
   confirmReceipt: (orderId: string) => post<{ delivery_status: string }>(`/buyer/orders/${orderId}/confirm-receipt`, {}),
   verifyProduct: (orderId: string, body: { token?: string; product_number?: string }) =>
     post<ProductVerification>(`/buyer/orders/${orderId}/verify-product`, body),
+
+  /** Where the handover stands, and what the buyer is allowed to do next. */
+  handover: (orderId: string) => get<HandoverState>(`/buyer/orders/${orderId}/handover`),
+
+  /**
+   * The buyer's per-line receipt form: for each product, that it is in their
+   * hands, that it is what they ordered, and that the quantity is right.
+   * Answering does not close the delivery; confirming receipt does.
+   */
+  acknowledgeHandover: (orderId: string, lines: HandoverLineAcknowledgement[]) =>
+    post<HandoverState>(`/buyer/orders/${orderId}/handover/acknowledge`, { lines }),
 
   /* reviews */
   reviewEligibility: (orderId: string, orderLineId?: string) =>

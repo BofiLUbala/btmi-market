@@ -22,9 +22,9 @@ func (s *CategoryService) ListCategories() ([]*models.CategoryResponse, error) {
 	var result []*models.CategoryResponse
 	for _, c := range categories {
 		result = append(result, &models.CategoryResponse{
-			ID:       c.ID,
-			Name:     c.Name,
-			Slug:     c.Slug,
+			ID:        c.ID,
+			Name:      c.Name,
+			Slug:      c.Slug,
 			SortOrder: c.SortOrder,
 		})
 	}
@@ -39,9 +39,9 @@ func (s *CategoryService) ListSubcategories(categoryID uuid.UUID) ([]*models.Sub
 	var result []*models.SubcategoryResponse
 	for _, sub := range subs {
 		result = append(result, &models.SubcategoryResponse{
-			ID:       sub.ID,
-			Name:     sub.Name,
-			Slug:     sub.Slug,
+			ID:        sub.ID,
+			Name:      sub.Name,
+			Slug:      sub.Slug,
 			SortOrder: sub.SortOrder,
 		})
 	}

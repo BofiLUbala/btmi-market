@@ -156,10 +156,18 @@ func main() {
 	commissionRepo := repository.NewCommissionRepository(db.DB)
 	commissionService := service.NewCommissionService(commissionRepo, orderRepo, buyerPaymentRepo, businessRepo)
 	paymentService.SetCommissionService(commissionService)
+	orderService.SetCommissionService(commissionService)
 	purchaseConfirmationService.SetCommissionService(commissionService)
+
+	// The handover needs to read the payment it is settling and to write an audit row for
+	// every step, so it gets those after PaymentService exists.
+	qrService.SetHandoverDependencies(paymentService, buyerPaymentRepo)
 
 	courierService := service.NewCourierService(courierRepo, userRepo, shopRepo, auditRepo, db)
 	courierService.SetCommunicationService(commService)
+	// Arrival is the first step of the handover, so it belongs on the same timeline as
+	// the scans, the payment and the buyer's confirmation.
+	courierService.SetQRService(qrService)
 	courierService.SetEmailService(emailService)
 
 	adminCommissionHandler := adminhandlers.NewAdminCommissionHandler(commissionService)
@@ -398,6 +406,7 @@ func main() {
 			sellerGroup.GET("/finances/summary", sellerFinanceHandler.GetSummary)
 			sellerGroup.GET("/finances/dashboard", sellerFinanceHandler.GetDashboard)
 			sellerGroup.GET("/finances/breakdown", sellerFinanceHandler.GetBreakdown)
+			sellerGroup.GET("/finances/timeseries", sellerFinanceHandler.GetTimeseries)
 			sellerGroup.GET("/finances/sales", sellerFinanceHandler.ListSales)
 			sellerGroup.GET("/finances/sales/:order_id", sellerFinanceHandler.GetSaleDetail)
 		}
@@ -490,6 +499,8 @@ func main() {
 			buyerGroup.GET("/orders/:order_id/delivery-qr", qrHandler.BuyerPackage)
 			buyerGroup.GET("/orders/:order_id/delivery-qr/image", qrHandler.BuyerPackageImage)
 			buyerGroup.POST("/orders/:order_id/verify-product", qrHandler.VerifyBuyerProduct)
+			buyerGroup.GET("/orders/:order_id/handover", qrHandler.BuyerHandoverState)
+			buyerGroup.POST("/orders/:order_id/handover/acknowledge", qrHandler.AcknowledgeHandoverLines)
 			buyerGroup.POST("/orders/:order_id/confirm-receipt", qrHandler.ConfirmReceipt)
 			buyerGroup.GET("/orders/:order_id/tracking", orderHandler.GetOrderTracking)
 			buyerGroup.GET("/orders/:order_id/review-eligibility", reviewHandler.GetReviewEligibility)
@@ -509,12 +520,12 @@ func main() {
 			courierGroup.GET("/verify/:token", courierHandler.VerifyInvitation)
 		}
 
-// Courier profile remains readable while suspended so the UI can explain the
-// account state; a suspended account cannot change its own availability.
-courierProfile := api.Group("/courier")
-courierProfile.Use(middleware.AuthMiddleware(authService))
-courierProfile.GET("/profile", courierHandler.GetProfile)
-courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
+		// Courier profile remains readable while suspended so the UI can explain the
+		// account state; a suspended account cannot change its own availability.
+		courierProfile := api.Group("/courier")
+		courierProfile.Use(middleware.AuthMiddleware(authService))
+		courierProfile.GET("/profile", courierHandler.GetProfile)
+		courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 
 		// Protected courier routes (require auth + active courier profile)
 		courierProtected := api.Group("/courier")
@@ -533,6 +544,11 @@ courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 			courierProtected.GET("/history", courierHandler.GetHistory)
 			courierProtected.POST("/scans/pickup", qrHandler.ScanPickup)
 			courierProtected.POST("/scans/delivery", qrHandler.ScanDelivery)
+			// Physical handover at the buyer's door: read the state, verify the product
+			// in the box, record cash actually received.
+			courierProtected.GET("/missions/:id/handover", qrHandler.CourierHandoverState)
+			courierProtected.POST("/missions/:id/verify-product", qrHandler.CourierVerifyProduct)
+			courierProtected.POST("/missions/:id/confirm-cash", qrHandler.CourierConfirmCash)
 		}
 
 		marketplaceGroup := api.Group("/marketplace")
@@ -731,6 +747,7 @@ courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 					financeGroup.GET("/summary", adminFinanceHandler.GetFinancialSummary)
 					financeGroup.GET("/dashboard", adminCommissionHandler.GetFinanceDashboard)
 					financeGroup.GET("/breakdown", adminCommissionHandler.GetFinanceBreakdown)
+					financeGroup.GET("/timeseries", adminCommissionHandler.GetFinanceTimeseries)
 
 					financeGroup.GET("/commission-config", adminCommissionHandler.GetCommissionConfig)
 					financeGroup.PATCH("/commission-config", adminCommissionHandler.UpdateCommissionConfig)

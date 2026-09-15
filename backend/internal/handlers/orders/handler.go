@@ -2,6 +2,7 @@ package orders
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -32,6 +33,54 @@ func (h *Handler) errResponse(c *gin.Context, statusCode int, errorCode, message
 			Message: message,
 		},
 	})
+}
+
+// sellerActionError turns a seller order-action failure into an HTTP status, a
+// stable error code and a message the seller can act on, and logs the full
+// context needed to chase the failure down: which order, which seller, which
+// shop, what state it was actually in, and what the backend said.
+//
+// The seller sees why the button did not work; the log keeps the identifiers,
+// which have no place in a message shown on a phone.
+func (h *Handler) sellerActionError(c *gin.Context, userID, orderID uuid.UUID, action string, err error) {
+	statusCode := http.StatusInternalServerError
+	errorCode := "INTERNAL_ERROR"
+	message := "The order could not be updated. Please try again."
+
+	switch err.Error() {
+	case "ORDER_NOT_FOUND":
+		statusCode = http.StatusNotFound
+		errorCode = "ORDER_NOT_FOUND"
+		message = "This order no longer exists."
+	case "SHOP_NOT_FOUND":
+		statusCode = http.StatusNotFound
+		errorCode = "SHOP_NOT_FOUND"
+		message = "The shop for this order no longer exists."
+	case "FORBIDDEN":
+		statusCode = http.StatusForbidden
+		errorCode = "FORBIDDEN"
+		message = "You are not allowed to manage orders for this shop."
+	case "INVALID_STATUS_TRANSITION":
+		statusCode = http.StatusBadRequest
+		errorCode = "INVALID_STATUS_TRANSITION"
+		message = "This order is no longer pending - it has already been handled. Refresh to see its current status."
+	}
+
+	// Current status is read separately: the action failed, so the service
+	// returned no order to read it from.
+	currentStatus := "UNKNOWN"
+	shopID := "UNKNOWN"
+	if order, getErr := h.orderService.GetOrderRaw(orderID); getErr == nil {
+		currentStatus = string(order.Status)
+		shopID = order.ShopID.String()
+	}
+
+	log.Printf(
+		"seller order action failed: order_id=%s seller_id=%s shop_id=%s current_status=%s action=%s endpoint=%s %s http_status=%d error=%s",
+		orderID, userID, shopID, currentStatus, action, c.Request.Method, c.Request.URL.Path, statusCode, err.Error(),
+	)
+
+	h.errResponse(c, statusCode, errorCode, message)
 }
 
 func (h *Handler) extractUserID(c *gin.Context) (uuid.UUID, bool) {
@@ -227,22 +276,7 @@ func (h *Handler) AcceptOrder(c *gin.Context) {
 
 	order, err := h.orderService.AcceptOrder(userID, orderID)
 	if err != nil {
-		statusCode := http.StatusInternalServerError
-		errorCode := "INTERNAL_ERROR"
-
-		switch err.Error() {
-		case "ORDER_NOT_FOUND":
-			statusCode = http.StatusNotFound
-			errorCode = "ORDER_NOT_FOUND"
-		case "FORBIDDEN":
-			statusCode = http.StatusForbidden
-			errorCode = "FORBIDDEN"
-		case "INVALID_STATUS_TRANSITION":
-			statusCode = http.StatusBadRequest
-			errorCode = "INVALID_STATUS_TRANSITION"
-		}
-
-		h.errResponse(c, statusCode, errorCode, err.Error())
+		h.sellerActionError(c, userID, orderID, "ACCEPT", err)
 		return
 	}
 
@@ -397,22 +431,7 @@ func (h *Handler) RejectOrder(c *gin.Context) {
 
 	order, err := h.orderService.RejectOrder(userID, orderID)
 	if err != nil {
-		statusCode := http.StatusInternalServerError
-		errorCode := "INTERNAL_ERROR"
-
-		switch err.Error() {
-		case "ORDER_NOT_FOUND":
-			statusCode = http.StatusNotFound
-			errorCode = "ORDER_NOT_FOUND"
-		case "FORBIDDEN":
-			statusCode = http.StatusForbidden
-			errorCode = "FORBIDDEN"
-		case "INVALID_STATUS_TRANSITION":
-			statusCode = http.StatusBadRequest
-			errorCode = "INVALID_STATUS_TRANSITION"
-		}
-
-		h.errResponse(c, statusCode, errorCode, err.Error())
+		h.sellerActionError(c, userID, orderID, "REJECT", err)
 		return
 	}
 

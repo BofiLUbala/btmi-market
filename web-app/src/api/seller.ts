@@ -248,6 +248,10 @@ export interface SellerFinanceSummary {
   seller_net_revenue: number
   commission_due: number
   commission_collected: number
+  /** Buyer-payment axis, kept separate from the commission axis above. */
+  payments_received: number
+  payments_due: number
+  units_sold: number
   total_completed_sales: number
 }
 
@@ -259,21 +263,51 @@ export interface SellerFinanceDashboard {
   due_commission: number
   waived_commission: number
   collected_cash: number
+  /** Buyer-payment axis, kept separate from the commission axis above. */
+  payments_collected: number
+  payments_due: number
+  units_sold: number
   verified_sales: number
   refunded_sales: number
   pending_orders: number
   commission_rate: number
   currency?: string
   mixed_currency: boolean
-  totals_by_currency: Array<{
-    currency: string; gross_sales: number; commission_amount: number; seller_net_amount: number
-    collected_commission: number; due_commission: number; verified_sales: number
-  }>
+  totals_by_currency: SellerFinanceCurrencyTotal[]
+}
+
+export interface SellerFinanceCurrencyTotal {
+  currency: string
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected_commission: number
+  due_commission: number
+  payments_collected: number
+  payments_due: number
+  units_sold: number
+  verified_sales: number
 }
 
 export interface SellerFinanceBreakdownItem {
   id?: string
   label: string
+  /** Parent dimension: the seller behind a shop, the shop behind a product,
+   *  the product behind a variant. */
+  sub_label: string
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected: number
+  due: number
+  sales_count: number
+  units_sold: number
+  currency: string
+}
+
+/** One bucket of the seller's finance chart, straight from SQL. */
+export interface SellerFinanceTimeseriesPoint {
+  period: string
   gross_sales: number
   commission_amount: number
   seller_net_amount: number
@@ -281,6 +315,20 @@ export interface SellerFinanceBreakdownItem {
   due: number
   sales_count: number
   currency: string
+}
+
+export type SellerBreakdownGroup = 'shop' | 'product' | 'variant' | 'business'
+
+/** The axes a seller may narrow their own finances by. There is no seller_id
+ *  or business_id here: the backend pins those to the caller. */
+export interface SellerFinanceParams {
+  shop_id?: string
+  product_id?: string
+  variant_id?: string
+  payment_status?: string
+  commission_status?: string
+  date_from?: string
+  date_to?: string
 }
 
 export interface SellerSaleCommissionItem {
@@ -343,11 +391,13 @@ export interface SaleFinanceDetail {
 
 export const sellerFinanceApi = {
   getSummary: () => get<SellerFinanceSummary>('/seller/finances/summary'),
-  getDashboard: (params?: { shop_id?: string; date_from?: string; date_to?: string }) =>
+  getDashboard: (params?: SellerFinanceParams) =>
     get<SellerFinanceDashboard>('/seller/finances/dashboard', params),
-  getBreakdown: (params?: { group?: 'shop' | 'product'; shop_id?: string; date_from?: string; date_to?: string }) =>
+  getBreakdown: (params?: SellerFinanceParams & { group?: SellerBreakdownGroup }) =>
     get<{ group: string; items: SellerFinanceBreakdownItem[] }>('/seller/finances/breakdown', params),
-  listSales: (params?: { status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) =>
+  getTimeseries: (params?: SellerFinanceParams & { interval?: 'day' | 'week' | 'month' }) =>
+    get<{ interval: string; points: SellerFinanceTimeseriesPoint[] }>('/seller/finances/timeseries', params),
+  listSales: (params?: SellerFinanceParams & { status?: string; search?: string; limit?: number; offset?: number }) =>
     get<{ sales: SaleHistoryItem[]; total: number }>('/seller/finances/sales', params),
   getSaleDetail: (orderId: string) => get<SaleFinanceDetail>(`/seller/finances/sales/${orderId}`),
 }

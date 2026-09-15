@@ -9,6 +9,7 @@ import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { useT } from '@/store/i18n'
+import { DEFAULT_CURRENCY, formatMoney } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
@@ -27,10 +28,23 @@ interface Order {
   status: string
   final_total: number
   base_total?: number
+  /** Snapshot taken when the order was placed; never re-derived from config. */
+  currency?: string
   created_at: string
   shop_id: string
   delivery_method?: string
   notes?: string
+}
+
+/**
+ * An order always renders in the currency it was sold in. Orders placed before
+ * the platform moved to USD keep their own code, so a shop total is only shown
+ * as one figure when every order under it agrees; otherwise each line speaks
+ * for itself rather than adding CDF to USD.
+ */
+function sharedCurrency(orders: Order[]): string | null {
+  const codes = new Set(orders.map((order) => order.currency || DEFAULT_CURRENCY))
+  return codes.size === 1 ? [...codes][0] : null
 }
 
 type SellerAction = { label: string; status?: OrderStatus; action?: 'accept' | 'reject' | 'prepare' }
@@ -202,6 +216,7 @@ export default function SellerOrdersPage() {
         shopName: shopNames.get(shopId) ?? t('seller.orders.unknownShop'),
         orders: shopOrders,
         total: shopOrders.reduce((sum, order) => sum + (order.final_total || 0), 0),
+        currency: sharedCurrency(shopOrders),
       }))
       .sort((a, b) => a.shopName.localeCompare(b.shopName))
   }, [visibleOrders, shops, t])
@@ -269,7 +284,7 @@ export default function SellerOrdersPage() {
                       <td colSpan={5}>
                         <div className="seller-order-shop-summary">
                           <span><strong>{group.shopName}</strong> <span className="muted">· {group.orders.length === 1 ? t('seller.orders.count', { count: group.orders.length }) : t('seller.orders.count_plural', { count: group.orders.length })}</span></span>
-                          <strong>{group.total.toLocaleString()} FC</strong>
+                          <strong>{group.currency ? formatMoney(group.total, group.currency) : '—'}</strong>
                         </div>
                       </td>
                     </tr>,
@@ -282,7 +297,7 @@ export default function SellerOrdersPage() {
                       <tr key={order.id}>
                         <td>{order.order_number || order.id.slice(0, 8)}</td>
                         <td><span className={`badge badge-${getStatusColor(order.status)}`}>{orderStatusLabel(order.status, t)}</span></td>
-                        <td>{order.final_total?.toLocaleString() || '0'}</td>
+                        <td>{formatMoney(order.final_total || 0, order.currency || DEFAULT_CURRENCY)}</td>
                         <td>{new Date(order.created_at).toLocaleDateString()}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -311,7 +326,7 @@ export default function SellerOrdersPage() {
                           {isExpanded && (
                             <div className="small muted" style={{ marginTop: 8, textAlign: 'left' }}>
                               <div><strong>{t('orders.deliveryLabel')}:</strong> {order.delivery_method || '—'}</div>
-                              <div><strong>{t('seller.orders.baseTotal')}:</strong> {(order.base_total ?? order.final_total).toLocaleString()} FC</div>
+                              <div><strong>{t('seller.orders.baseTotal')}:</strong> {formatMoney(order.base_total ?? order.final_total, order.currency || DEFAULT_CURRENCY)}</div>
                               {order.notes && <div><strong>{t('seller.orders.notesLabel')}:</strong> {order.notes}</div>}
                               <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
                               {detail?.order && <div className="seller-payment-box">
@@ -319,15 +334,15 @@ export default function SellerOrdersPage() {
                                 <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
                                 <div>Adresse: {detail.order.delivery_address || '—'}</div>
                                 {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
-                                <div>Frais: {detail.order.delivery_fee_final.toLocaleString()} FC</div>
+                                <div>Frais: {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)}</div>
                               </div>}
-                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <div key={line.id}>{line.variant_name ? t('seller.orders.lineWithVariant', { name: line.product_name || line.product_id || '', variant: line.variant_name, quantity: line.quantity, price: (line.final_unit_price || line.unit_price).toLocaleString() }) : t('seller.orders.line', { name: line.product_name || line.product_id || '', quantity: line.quantity, price: (line.final_unit_price || line.unit_price).toLocaleString() })}</div>)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
+                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <div key={line.id}>{line.variant_name ? t('seller.orders.lineWithVariant', { name: line.product_name || line.product_id || '', variant: line.variant_name, quantity: line.quantity, price: formatMoney(line.final_unit_price || line.unit_price, detail.order?.currency || order.currency || DEFAULT_CURRENCY) }) : t('seller.orders.line', { name: line.product_name || line.product_id || '', quantity: line.quantity, price: formatMoney(line.final_unit_price || line.unit_price, detail.order?.currency || order.currency || DEFAULT_CURRENCY) })}</div>)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
                               <div className="seller-payment-box">
                                 <strong>{t('seller.orders.cashPayment')}</strong>
                                 {payment ? <>
-                                  <div>{t('orders.amountDue')}: <strong>{payment.cash_due.toLocaleString()} FC</strong></div>
+                                  <div>{t('orders.amountDue')}: <strong>{formatMoney(payment.cash_due, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
                                   <div>Mode: <strong>{payment.payment_method}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
-                                  <div>Majoration: {payment.payment_markup.toLocaleString()} FC · Total: <strong>{payment.final_total.toLocaleString()} FC</strong></div>
+                                  <div>Majoration: {formatMoney(payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)} · Total: <strong>{formatMoney(payment.final_total, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
                                   <div>{t('seller.orders.buyerColon')} {payment.buyer_confirmed ? `✓ ${t('orders.paymentDeclared')}` : t('orders.notConfirmed')}</div>
                                   <div>{t('seller.orders.sellerColon')} {payment.seller_confirmed ? `✓ ${t('orders.cashReceived')}` : t('orders.notConfirmed')}</div>
                                   <div>{t('common.status')}: <strong>{payment.status}</strong></div>

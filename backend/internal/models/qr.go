@@ -52,7 +52,10 @@ type ProductVerificationRequest struct {
 }
 
 type ProductVerificationResponse struct {
-	Result             string                 `json:"result"`
+	Result string `json:"result"`
+	// ResultCode is the shared handover verdict (VALID, ALREADY_USED, ...). Result stays
+	// "SUCCESS" for the clients that shipped before the codes existed.
+	ResultCode         string                 `json:"result_code"`
 	OrderID            uuid.UUID              `json:"order_id"`
 	OrderReference     string                 `json:"order_reference"`
 	ProductID          uuid.UUID              `json:"product_id"`

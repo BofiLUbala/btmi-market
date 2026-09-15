@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -15,6 +16,23 @@ type AdminCommissionHandler struct {
 
 func NewAdminCommissionHandler(commService *service.CommissionService) *AdminCommissionHandler {
 	return &AdminCommissionHandler{commService: commService}
+}
+
+// reportFilter reads the finance filter axes off the query string. Every
+// Finance Admin finance endpoint uses this one builder, so a filter that works
+// on the KPI cards works identically on the breakdowns and the chart.
+func reportFilter(c *gin.Context) *models.FinanceReportFilter {
+	return &models.FinanceReportFilter{
+		BusinessID:       c.Query("business_id"),
+		ShopID:           c.Query("shop_id"),
+		SellerID:         c.Query("seller_id"),
+		ProductID:        c.Query("product_id"),
+		VariantID:        c.Query("variant_id"),
+		PaymentStatus:    c.Query("payment_status"),
+		CommissionStatus: c.Query("commission_status"),
+		DateFrom:         c.Query("date_from"),
+		DateTo:           c.Query("date_to"),
+	}
 }
 
 // GET /api/v1/admin/finance/commission-config
@@ -79,10 +97,15 @@ func (h *AdminCommissionHandler) UpdateCommissionConfig(c *gin.Context) {
 // GET /api/v1/admin/finance/commissions/summary
 func (h *AdminCommissionHandler) GetCommissionSummary(c *gin.Context) {
 	filter := &models.CommissionFilter{
-		BusinessID: c.Query("business_id"),
-		ShopID:     c.Query("shop_id"),
-		DateFrom:   c.Query("date_from"),
-		DateTo:     c.Query("date_to"),
+		Status:        c.Query("status"),
+		PaymentStatus: c.Query("payment_status"),
+		BusinessID:    c.Query("business_id"),
+		ShopID:        c.Query("shop_id"),
+		SellerID:      c.Query("seller_id"),
+		ProductID:     c.Query("product_id"),
+		VariantID:     c.Query("variant_id"),
+		DateFrom:      c.Query("date_from"),
+		DateTo:        c.Query("date_to"),
 	}
 
 	summary, err := h.commService.GetSummary(filter)
@@ -104,14 +127,22 @@ func (h *AdminCommissionHandler) GetCommissionSummary(c *gin.Context) {
 
 // GET /api/v1/admin/finance/commissions
 func (h *AdminCommissionHandler) ListCommissions(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
 	filter := &models.CommissionFilter{
-		Status:     c.Query("status"),
-		BusinessID: c.Query("business_id"),
-		ShopID:     c.Query("shop_id"),
-		SellerID:   c.Query("seller_id"),
-		DateFrom:   c.Query("date_from"),
-		DateTo:     c.Query("date_to"),
-		Search:     c.Query("search"),
+		Status:        c.Query("status"),
+		PaymentStatus: c.Query("payment_status"),
+		BusinessID:    c.Query("business_id"),
+		ShopID:        c.Query("shop_id"),
+		SellerID:      c.Query("seller_id"),
+		ProductID:     c.Query("product_id"),
+		VariantID:     c.Query("variant_id"),
+		DateFrom:      c.Query("date_from"),
+		DateTo:        c.Query("date_to"),
+		Search:        c.Query("search"),
+		Limit:         limit,
+		Offset:        offset,
 	}
 
 	items, total, err := h.commService.ListCommissions(filter)
@@ -162,15 +193,7 @@ func (h *AdminCommissionHandler) GetSaleDetail(c *gin.Context) {
 
 // GET /api/v1/admin/finance/dashboard
 func (h *AdminCommissionHandler) GetFinanceDashboard(c *gin.Context) {
-	filter := &models.FinanceReportFilter{
-		BusinessID: c.Query("business_id"),
-		ShopID:     c.Query("shop_id"),
-		SellerID:   c.Query("seller_id"),
-		DateFrom:   c.Query("date_from"),
-		DateTo:     c.Query("date_to"),
-	}
-
-	report, err := h.commService.GetDashboardReport(filter)
+	report, err := h.commService.GetDashboardReport(reportFilter(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: struct {
@@ -190,28 +213,17 @@ func (h *AdminCommissionHandler) GetFinanceDashboard(c *gin.Context) {
 // GET /api/v1/admin/finance/breakdown?group=shop|product|seller|business
 func (h *AdminCommissionHandler) GetFinanceBreakdown(c *gin.Context) {
 	group := models.FinanceBreakdownGroup(c.DefaultQuery("group", "shop"))
-	if group != models.FinanceBreakdownShop &&
-		group != models.FinanceBreakdownProduct &&
-		group != models.FinanceBreakdownSeller &&
-		group != models.FinanceBreakdownBusiness {
+	if !models.IsValidBreakdownGroup(group) {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: struct {
 				Code    string `json:"code"`
 				Message string `json:"message"`
-			}{Code: "INVALID_GROUP", Message: "group must be shop, product, seller or business"},
+			}{Code: "INVALID_GROUP", Message: "group must be shop, product, variant, seller or business"},
 		})
 		return
 	}
 
-	filter := &models.FinanceReportFilter{
-		BusinessID: c.Query("business_id"),
-		ShopID:     c.Query("shop_id"),
-		SellerID:   c.Query("seller_id"),
-		DateFrom:   c.Query("date_from"),
-		DateTo:     c.Query("date_to"),
-	}
-
-	items, err := h.commService.GetBreakdownReport(group, filter)
+	items, err := h.commService.GetBreakdownReport(group, reportFilter(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: struct {
@@ -228,6 +240,27 @@ func (h *AdminCommissionHandler) GetFinanceBreakdown(c *gin.Context) {
 			"group": group,
 			"items": items,
 		},
+	})
+}
+
+// GET /api/v1/admin/finance/timeseries?interval=day|week|month
+func (h *AdminCommissionHandler) GetFinanceTimeseries(c *gin.Context) {
+	interval := models.FinanceTimeseriesInterval(c.DefaultQuery("interval", "day"))
+
+	points, err := h.commService.GetTimeseriesReport(interval, reportFilter(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{Code: "INTERNAL_ERROR", Message: err.Error()},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Finance timeseries retrieved",
+		Data:    gin.H{"interval": interval, "points": points},
 	})
 }
 

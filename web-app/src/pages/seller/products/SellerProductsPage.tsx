@@ -1,4 +1,5 @@
 import { inventoryApi, productApi } from '@/api/seller'
+import { formatMoney } from '@/lib/format'
 import type { InventoryItem, Product, ProductVariant, PublicationStatus } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -244,16 +245,18 @@ export default function SellerProductsPage() {
                             {(() => {
                               const base = product.unit_price || 0
                               const val = product.discount_value || 0
-                              if (product.discount_type === 'PERCENTAGE') return (base * (1 - val / 100)).toLocaleString()
-                              return Math.max(0, base - val).toLocaleString()
-                            })()} FC
+                              const discounted = product.discount_type === 'PERCENTAGE'
+                                ? base * (1 - val / 100)
+                                : Math.max(0, base - val)
+                              return formatMoney(discounted, product.currency)
+                            })()}
                           </span>
                           <span style={{ textDecoration: 'line-through', fontSize: '0.85em', color: 'var(--color-text-muted)', fontWeight: 'normal' }}>
-                            {Number(product.unit_price).toLocaleString()} FC
+                            {formatMoney(Number(product.unit_price), product.currency)}
                           </span>
                         </span>
                       ) : (
-                        product.unit_price ? `${Number(product.unit_price).toLocaleString()} FC` : '—'
+                        product.unit_price ? formatMoney(Number(product.unit_price), product.currency) : '—'
                       )}
                     </strong>
                   </div>

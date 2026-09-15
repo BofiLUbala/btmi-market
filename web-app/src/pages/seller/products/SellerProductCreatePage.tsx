@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { formatMoney } from '@/lib/format'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
@@ -567,7 +568,7 @@ export default function SellerProductCreatePage() {
       for (const [index, draft] of variantDrafts.entries()) {
         const p = parseFloat(draft.price || form.unit_price)
         const label = variantDisplayLabel(draft.attributes, variantAttrDefs, t('seller.productForm.variantN', { n: index + 1 }))
-        if (isNaN(p) || p <= 0) return `Variant "${label}" needs a valid Price (> 0 FC).`
+        if (isNaN(p) || p <= 0) return `Variant "${label}" needs a valid Price (greater than 0).`
         const s = parseInt(draft.stock, 10)
         if (isNaN(s) || s < 0) return `Variant "${label}" stock must be 0 or more.`
         const signature = variantAttrDefs.map((def) => getAttributeValue(draft.attributes, def).trim().toLowerCase()).join('\u001f')
@@ -1188,19 +1189,19 @@ export default function SellerProductCreatePage() {
                         const val = parseFloat(form.discount_value)
                         if (isNaN(base) || isNaN(val)) return '—'
                         if (form.discount_type === 'PERCENTAGE') {
-                          return (base * (1 - val / 100)).toLocaleString()
+                          return formatMoney(base * (1 - val / 100))
                         } else {
-                          return Math.max(0, base - val).toLocaleString()
+                          return formatMoney(Math.max(0, base - val))
                         }
-                      })()} FC
+                      })()}
                     </span>
                     <span style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                      {parseFloat(form.unit_price).toLocaleString()} FC
+                      {formatMoney(parseFloat(form.unit_price))}
                     </span>
                     <span className="badge badge-success" style={{ fontSize: '0.8rem', padding: '2px 6px' }}>
                       {form.discount_type === 'PERCENTAGE' 
                         ? `${form.discount_value}% OFF` 
-                        : `${parseFloat(form.discount_value).toLocaleString()} FC OFF`}
+                        : `${formatMoney(parseFloat(form.discount_value))} OFF`}
                     </span>
                   </div>
                 </div>

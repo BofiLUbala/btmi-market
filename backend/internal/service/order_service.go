@@ -46,6 +46,7 @@ type OrderService struct {
 	pointRedemptionSvc *PointRedemptionService
 	locationRepo       *repository.LocationRepository
 	commSvc            *CommunicationService
+	commissionSvc      *CommissionService
 	qrSvc              *QRService
 	db                 *database.DB
 	orderEvents        []models.OrderEvent
@@ -509,22 +510,22 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 		return nil, err
 	}
 
-	order := &models.Order{
-		BusinessID: businessID,
-		ShopID:     shopID,
-		CustomerID: customerID,
-		Status:     models.OrderStatusPending,
-		Notes:      req.Notes,
-		CreatedBy:  &userID,
-		Currency:   sellerCurrency,
+	// Price every line before the order row is written, so the order is created
+	// with its totals already on it - the same shape a buyer order is created
+	// in. Writing the order first and leaving the totals at zero is what made a
+	// counter sale show up as 0 on the seller's own order list.
+	type pricedLine struct {
+		productID, variantID uuid.UUID
+		quantity             int
+		unitPrice            float64
+		baseUnitPrice        float64
+		product              *models.Product
+		variant              *models.ProductVariant
 	}
 
-	if err := orderRepo.Create(order); err != nil {
-		return nil, err
-	}
-
+	priced := make([]pricedLine, 0, len(req.Lines))
 	totalItems := 0
-	lines := make([]*models.OrderLine, 0, len(req.Lines))
+	var baseTotal float64
 
 	for _, lineInput := range req.Lines {
 		productID, err := uuid.Parse(lineInput.ProductID)
@@ -553,24 +554,65 @@ func (s *OrderService) CreateOrder(userID uuid.UUID, req *models.CreateOrderRequ
 			return nil, errors.New("VARIANT_NOT_PRODUCT")
 		}
 
+		// Same rule as the marketplace listing and the buyer checkout, so a
+		// promotion is honoured at the counter too.
+		effectivePrice := models.Promotion{
+			Active: product.DiscountActive, Type: product.DiscountType, Value: product.DiscountValue,
+			Start: product.DiscountStart, End: product.DiscountEnd,
+		}.EffectivePrice(variant.SalePrice, time.Now())
+
+		priced = append(priced, pricedLine{
+			productID:     productID,
+			variantID:     variantID,
+			quantity:      lineInput.Quantity,
+			unitPrice:     effectivePrice,
+			baseUnitPrice: variant.SalePrice,
+			product:       product,
+			variant:       variant,
+		})
+		baseTotal += effectivePrice * float64(lineInput.Quantity)
+		totalItems += lineInput.Quantity
+	}
+
+	// No points are redeemed at the counter, so the final total is the base
+	// total; the fields still carry the currency the lines were priced in.
+	order := &models.Order{
+		BusinessID: businessID,
+		ShopID:     shopID,
+		CustomerID: customerID,
+		Status:     models.OrderStatusPending,
+		Notes:      req.Notes,
+		CreatedBy:  &userID,
+		BaseTotal:  models.RoundMoney(baseTotal),
+		FinalTotal: models.RoundMoney(baseTotal),
+		Currency:   sellerCurrency,
+	}
+
+	if err := orderRepo.Create(order); err != nil {
+		return nil, err
+	}
+
+	lines := make([]*models.OrderLine, 0, len(priced))
+	for _, p := range priced {
 		line := &models.OrderLine{
 			OrderID:           order.ID,
-			ProductID:         productID,
-			VariantID:         variantID,
-			Quantity:          lineInput.Quantity,
-			UnitPrice:         variant.SalePrice,
-			ProductName:       product.Name,
-			ProductSKU:        product.SKU,
-			VariantName:       variant.Name,
-			VariantSKU:        variant.SKU,
-			VariantAttributes: variant.Attributes,
-			ImageURL:          s.primaryImageURL(productID),
+			ProductID:         p.productID,
+			VariantID:         p.variantID,
+			Quantity:          p.quantity,
+			UnitPrice:         p.unitPrice,
+			BaseUnitPrice:     p.baseUnitPrice,
+			FinalUnitPrice:    p.unitPrice,
+			ProductName:       p.product.Name,
+			ProductSKU:        p.product.SKU,
+			VariantName:       p.variant.Name,
+			VariantSKU:        p.variant.SKU,
+			VariantAttributes: p.variant.Attributes,
+			ImageURL:          s.primaryImageURL(p.productID),
 		}
 		if err := orderRepo.CreateLine(line); err != nil {
 			return nil, err
 		}
 		lines = append(lines, line)
-		totalItems += lineInput.Quantity
 	}
 
 	for _, line := range lines {
@@ -1418,13 +1460,11 @@ func (s *OrderService) GetBuyerOrderByID(buyerProfileID, orderID uuid.UUID) (*mo
 }
 
 func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, error) {
+	// Authorization is settled before the row is locked: it reads other tables
+	// and must not hold a write lock while it does.
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
 		return nil, mapOrderNotFoundErr(err)
-	}
-
-	if order.Status != models.OrderStatusPending {
-		return nil, errors.New("INVALID_STATUS_TRANSITION")
 	}
 
 	if err := s.RequireShopAccess(userID, order.ShopID); err != nil {
@@ -1437,20 +1477,49 @@ func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, er
 		changedBy = &employee.ID
 	}
 
-	history := &models.OrderStatusHistory{
+	// The PENDING check and the status write share one transaction against a
+	// row-locked order, so a double tap or two devices acting at once cannot
+	// both accept and write two ACCEPTED history rows for the same order. The
+	// second caller sees ACCEPTED and is told the order was already handled.
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	txOrderRepo := repository.NewOrderRepository(&database.DB{Tx: tx})
+
+	// Re-read under the lock: the status read above may already be stale.
+	locked, err := txOrderRepo.GetByIDForUpdate(orderID)
+	if err != nil {
+		return nil, mapOrderNotFoundErr(err)
+	}
+
+	if locked.Status != models.OrderStatusPending {
+		return nil, errors.New("INVALID_STATUS_TRANSITION")
+	}
+
+	updatedOrder, err := txOrderRepo.UpdateStatus(orderID, models.OrderStatusAccepted)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := txOrderRepo.CreateStatusHistory(&models.OrderStatusHistory{
 		OrderID:   orderID,
 		Status:    models.OrderStatusAccepted,
 		ChangedBy: changedBy,
 		Notes:     "Order accepted",
-	}
-	if err := s.orderRepo.CreateStatusHistory(history); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
-	updatedOrder, err := s.orderRepo.UpdateStatus(orderID, models.OrderStatusAccepted)
-	if err != nil {
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+
+	// Accepting reserves nothing new: the stock was reserved when the order was
+	// created, so there is deliberately no inventory call here. Deducting again
+	// would double-count the same units.
 
 	s.triggerStatusNotification(orderID, models.OrderStatusAccepted)
 
@@ -1458,13 +1527,11 @@ func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, er
 }
 
 func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, error) {
+	// Authorization is settled before the row is locked: it reads other tables
+	// and must not hold a write lock while it does.
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
 		return nil, mapOrderNotFoundErr(err)
-	}
-
-	if order.Status != models.OrderStatusPending {
-		return nil, errors.New("INVALID_STATUS_TRANSITION")
 	}
 
 	if err := s.RequireShopAccess(userID, order.ShopID); err != nil {
@@ -1477,45 +1544,69 @@ func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, er
 		changedBy = &employee.ID
 	}
 
-	history := &models.OrderStatusHistory{
-		OrderID:   orderID,
-		Status:    models.OrderStatusRejected,
-		ChangedBy: changedBy,
-		Notes:     "Order rejected",
-	}
-	if err := s.orderRepo.CreateStatusHistory(history); err != nil {
-		return nil, err
-	}
-
-	lines, err := s.orderRepo.GetLinesByOrderID(orderID)
-	if err != nil {
-		return nil, err
-	}
-
+	// Everything that changes state runs in one transaction against a
+	// row-locked order: the PENDING check, the status write, the stock release
+	// and the point release. Two sellers hitting Refuser at the same moment -
+	// two devices, or a double tap that beat the button's disabled state -
+	// would otherwise both read PENDING and both release the same reservation,
+	// so the shop would silently gain stock it does not have and start
+	// overselling. Locking the row first makes the second caller see REJECTED
+	// and stop, and a failure anywhere rolls the whole thing back instead of
+	// leaving stock released against a still-pending order.
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	inventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
+	txDB := &database.DB{Tx: tx}
+	txOrderRepo := repository.NewOrderRepository(txDB)
+	inventoryRepo := repository.NewInventoryRepository(txDB)
+
+	// Re-read under the lock: the status read above may already be stale.
+	locked, err := txOrderRepo.GetByIDForUpdate(orderID)
+	if err != nil {
+		return nil, mapOrderNotFoundErr(err)
+	}
+
+	if locked.Status != models.OrderStatusPending {
+		return nil, errors.New("INVALID_STATUS_TRANSITION")
+	}
+
+	lines, err := txOrderRepo.GetLinesByOrderID(orderID)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedOrder, err := txOrderRepo.UpdateStatus(orderID, models.OrderStatusRejected)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := txOrderRepo.CreateStatusHistory(&models.OrderStatusHistory{
+		OrderID:   orderID,
+		Status:    models.OrderStatusRejected,
+		ChangedBy: changedBy,
+		Notes:     "Order rejected",
+	}); err != nil {
+		return nil, err
+	}
 
 	for _, line := range lines {
-		_, err := inventoryRepo.ReleaseAtomic(order.ShopID, line.VariantID, line.Quantity)
-		if err != nil {
+		if _, err := inventoryRepo.ReleaseAtomic(locked.ShopID, line.VariantID, line.Quantity); err != nil {
 			return nil, err
 		}
 	}
 
 	// Release reserved points if this was a buyer order with points
-	if order.BuyerProfileID != nil && order.PointsUsed > 0 {
-		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*order.BuyerProfileID, orderID, order.PointsUsed, models.PointTransactionRefRedemptionProduct, &database.DB{Tx: tx}); err != nil {
+	if locked.BuyerProfileID != nil && locked.PointsUsed > 0 {
+		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*locked.BuyerProfileID, orderID, locked.PointsUsed, models.PointTransactionRefRedemptionProduct, txDB); err != nil {
 			return nil, err
 		}
 	}
 	// Release reserved delivery points if any
-	if order.BuyerProfileID != nil && order.DeliveryPointsUsed > 0 {
-		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*order.BuyerProfileID, orderID, order.DeliveryPointsUsed, models.PointTransactionRefRedemptionDelivery, &database.DB{Tx: tx}); err != nil {
+	if locked.BuyerProfileID != nil && locked.DeliveryPointsUsed > 0 {
+		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*locked.BuyerProfileID, orderID, locked.DeliveryPointsUsed, models.PointTransactionRefRedemptionDelivery, txDB); err != nil {
 			return nil, err
 		}
 	}
@@ -1524,10 +1615,8 @@ func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, er
 		return nil, err
 	}
 
-	updatedOrder, err := s.orderRepo.UpdateStatus(orderID, models.OrderStatusRejected)
-	if err != nil {
-		return nil, err
-	}
+	// A rejected order is not a sale either.
+	s.voidCommission(orderID, "Order rejected")
 
 	s.triggerStatusNotification(orderID, models.OrderStatusRejected)
 
@@ -1730,6 +1819,23 @@ func (s *OrderService) createCashPaymentFromOrder(order *models.Order, lines []*
 	return payment, nil
 }
 
+// SetCommissionService injects the finance engine so a cancelled or rejected
+// order stops counting as a real sale. Wired in main.go after both services
+// exist, the same way payments and refunds reach the engine.
+func (s *OrderService) SetCommissionService(cs *CommissionService) {
+	s.commissionSvc = cs
+}
+
+// voidCommission waives any commission snapshot attached to an order that is
+// no longer a sale. It is a no-op when no snapshot exists, which is the normal
+// case: snapshots are only created once a payment is VERIFIED.
+func (s *OrderService) voidCommission(orderID uuid.UUID, reason string) {
+	if s.commissionSvc == nil {
+		return
+	}
+	_ = s.commissionSvc.VoidForRefund(orderID, reason)
+}
+
 func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
@@ -1802,6 +1908,9 @@ func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, er
 		return nil, err
 	}
 
+	// A cancelled order is not a sale: drop it out of every finance total.
+	s.voidCommission(orderID, "Order cancelled")
+
 	s.triggerStatusNotification(orderID, models.OrderStatusCancelled)
 
 	return updatedOrder, nil
@@ -1865,6 +1974,9 @@ func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*mod
 	if err != nil {
 		return nil, err
 	}
+
+	// A cancelled order is not a sale: drop it out of every finance total.
+	s.voidCommission(orderID, "Order cancelled")
 
 	s.triggerStatusNotification(orderID, models.OrderStatusCancelled)
 

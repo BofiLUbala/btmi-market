@@ -10,11 +10,22 @@ import { radius, spacing, type Colors } from '../../src/theme'
 import type { BuyerPayment, SellerOrder } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
-import { formatMoney } from '../../src/lib/money'
+import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
 
 const POLL_INTERVAL = 30_000
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
 const isTerminal = (status?: string) => !!status && TERMINAL_STATUSES.includes(status)
+
+/**
+ * An order always renders in the currency it was sold in. Orders placed before
+ * the platform moved to USD keep their own code, so a shop total is only shown
+ * as one figure when every order under it agrees; otherwise each card speaks
+ * for itself rather than adding CDF to USD.
+ */
+function sharedCurrency(orders: SellerOrder[]): string | null {
+  const codes = new Set(orders.map((order) => order.currency || DEFAULT_CURRENCY))
+  return codes.size === 1 ? [...codes][0] : null
+}
 
 interface SellerAction { label: TranslationKey; status: string; kind?: 'accept' | 'reject' | 'prepare' | 'transition' | 'cancel'; destructive?: boolean }
 
@@ -86,6 +97,7 @@ export default function SellerOrders() {
       name: names.get(id) ?? t('seller.unknownShop'),
       orders: shopOrders,
       total: shopOrders.reduce((sum, order) => sum + (order.final_total || 0), 0),
+      currency: sharedCurrency(shopOrders),
     })).sort((a, b) => a.name.localeCompare(b.name))
   }, [orders.data, shops.data, t])
 
@@ -117,7 +129,7 @@ export default function SellerOrders() {
     {orders.isLoading ? <Loading label={t('orders.loading')}/> : orders.isError ? <ErrorState message={t('orders.loadFailed')} retry={() => void orders.refetch()}/> : !groups.length ? <Card><Text style={styles.emptyText}>{t('seller.noOrdersFilter')}</Text></Card> : groups.map((group) => <View key={group.id} style={styles.group}>
       <View style={styles.groupHeader}>
         <View><Text style={styles.shop}>{group.name}</Text><Text style={styles.muted}>{t('orders.orderCount', { count: group.orders.length })}</Text></View>
-        <Text style={styles.groupTotal}>{formatMoney(group.total)}</Text>
+        <Text style={styles.groupTotal}>{group.currency ? formatMoney(group.total, group.currency) : '—'}</Text>
       </View>
       {group.orders.map((order) => <OrderCard
         key={order.id}
@@ -140,9 +152,19 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
   const styles = useMemo(() => makeStyles(colors), [colors])
   const queryClient = useQueryClient()
   const actions = nextActions(order)
+  const orderCurrency = order.currency || DEFAULT_CURRENCY
   const payment = useQuery({
     queryKey: ['seller','payment',order.id],
     queryFn: () => sellerApi.getOrderPayment(order.id),
+    enabled: expanded,
+    retry: false,
+  })
+  // The list endpoint carries only the summary, so the lines, the buyer and the
+  // delivery address are fetched on demand - the same detail the web dashboard
+  // shows, rather than a thinner mobile-only view.
+  const detail = useQuery({
+    queryKey: ['seller','orderDetail',order.id],
+    queryFn: () => sellerApi.order(order.id),
     enabled: expanded,
     retry: false,
   })
@@ -154,7 +176,7 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
 
   return <Card>
     <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text></View>
-    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{formatMoney(order.final_total)}</Text></View>
+    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{formatMoney(order.final_total, order.currency)}</Text></View>
     <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
     {actions.length ? actions.map((action) => (
       <Button key={action.status} variant={action.destructive ? 'outline' : 'primary'} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
@@ -162,8 +184,25 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
     <Button variant="outline" title={expanded ? t('seller.hideDetails') : t('seller.viewDetails')} onPress={onToggle}/>
     {canCancel && <Button variant="outline" title={t('seller.cancelOrder')} loading={cancelBusy} onPress={onCancel}/>}
     {expanded && <View style={styles.details}>
+      {detail.data ? <>
+        <Text style={styles.detailHeading}>{t('seller.products')}</Text>
+        {detail.data.lines.map((line) => (
+          <Text key={line.id} style={styles.muted}>
+            {line.product_name}{line.variant_name && line.variant_name !== line.product_name ? ` · ${line.variant_name}` : ''}
+            {' · '}{t('orders.itemCount', { count: line.quantity })}
+            {' · '}{formatMoney(line.final_unit_price ?? line.unit_price ?? 0, orderCurrency)}
+            {' = '}{formatMoney((line.final_unit_price ?? line.unit_price ?? 0) * line.quantity, orderCurrency)}
+          </Text>
+        ))}
+        <Text style={styles.detailHeading}>{t('checkout.delivery')}</Text>
+        <Text style={styles.muted}>{detail.data.order.delivery_contact_name || '—'}{detail.data.order.delivery_phone ? ` · ${detail.data.order.delivery_phone}` : ''}</Text>
+        <Text style={styles.muted}>{detail.data.order.delivery_address || '—'}</Text>
+        {detail.data.order.delivery_notes ? <Text style={styles.muted}>{detail.data.order.delivery_notes}</Text> : null}
+        <Text style={styles.muted}>{t('orders.deliveryFee')} : {formatMoney(detail.data.order.delivery_fee_final ?? 0, orderCurrency)}</Text>
+        <Text style={styles.detailTotal}>{t('common.total')} : {formatMoney(order.final_total, orderCurrency)}</Text>
+      </> : detail.isLoading ? <Text style={styles.muted}>{t('common.loading')}</Text> : null}
       {payment.isLoading ? <Text style={styles.muted}>{t('seller.loadingPayment')}</Text> : payment.data ? <>
-        <Text style={styles.muted}>{t('orders.amountDue', { amount: `${payment.data.cash_due.toLocaleString()} ${payment.data.currency}` })}</Text>
+        <Text style={styles.muted}>{t('orders.amountDue', { amount: formatMoney(payment.data.cash_due, payment.data.currency) })}</Text>
         <Text style={styles.muted}>{t('orders.actorBuyer')} : {payment.data.buyer_confirmed ? t('orders.paymentDeclared') : t('orders.notConfirmed')}</Text>
         <Text style={styles.muted}>{t('seller.seller')} : {payment.data.seller_confirmed ? t('orders.cashReceived') : t('orders.notConfirmed')}</Text>
         <Text style={styles.muted}>{t('orders.status')} : {statusLabel(t, payment.data.status)}</Text>
@@ -198,6 +237,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   date: { color: colors.muted, fontSize: 12 },
   actionButton: { marginTop: spacing.xs },
   details: { gap: spacing.xs, paddingTop: spacing.xs },
+  detailHeading: { color: colors.ink, fontWeight: '900', marginTop: spacing.xs },
+  detailTotal: { color: colors.ink, fontWeight: '900' },
   muted: { color: colors.muted },
   error: { color: colors.danger },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },

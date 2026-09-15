@@ -7,14 +7,14 @@ import (
 
 func TestCommissionCalculation_Formulas(t *testing.T) {
 	tests := []struct {
-		name                 string
-		productsTotal        float64
-		pointsDiscount       float64
-		deliveryFee          float64
-		rate                 float64
-		expectedBase         float64
-		expectedCommission   float64
-		expectedSellerNet    float64
+		name               string
+		productsTotal      float64
+		pointsDiscount     float64
+		deliveryFee        float64
+		rate               float64
+		expectedBase       float64
+		expectedCommission float64
+		expectedSellerNet  float64
 	}{
 		{
 			name:               "Standard 3% commission on $200 sale with $5 delivery",

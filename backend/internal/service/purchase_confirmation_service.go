@@ -12,36 +12,36 @@ import (
 )
 
 type PurchaseConfirmationService struct {
-	confirmRepo *repository.PurchaseConfirmationRepository
-	vtRepo      *repository.VerifiedTransactionRepository
-	orderRepo   *repository.OrderRepository
-	shopRepo    *repository.ShopRepository
-	cashRepo    *repository.CashRepository
+	confirmRepo  *repository.PurchaseConfirmationRepository
+	vtRepo       *repository.VerifiedTransactionRepository
+	orderRepo    *repository.OrderRepository
+	shopRepo     *repository.ShopRepository
+	cashRepo     *repository.CashRepository
 	pointService *PointService
-	trustRepo   *repository.SellerTrustRepository
-	commService *CommissionService
-	asynqClient *asynq.Client
+	trustRepo    *repository.SellerTrustRepository
+	commService  *CommissionService
+	asynqClient  *asynq.Client
 }
 
 func NewPurchaseConfirmationService(
 	confirmRepo *repository.PurchaseConfirmationRepository,
-	vtRepo      *repository.VerifiedTransactionRepository,
-	orderRepo   *repository.OrderRepository,
-	shopRepo    *repository.ShopRepository,
-	cashRepo    *repository.CashRepository,
+	vtRepo *repository.VerifiedTransactionRepository,
+	orderRepo *repository.OrderRepository,
+	shopRepo *repository.ShopRepository,
+	cashRepo *repository.CashRepository,
 	pointService *PointService,
-	trustRepo   *repository.SellerTrustRepository,
+	trustRepo *repository.SellerTrustRepository,
 	asynqClient *asynq.Client,
 ) *PurchaseConfirmationService {
 	return &PurchaseConfirmationService{
-		confirmRepo: confirmRepo,
-		vtRepo:      vtRepo,
-		orderRepo:   orderRepo,
-		shopRepo:    shopRepo,
-		cashRepo:    cashRepo,
+		confirmRepo:  confirmRepo,
+		vtRepo:       vtRepo,
+		orderRepo:    orderRepo,
+		shopRepo:     shopRepo,
+		cashRepo:     cashRepo,
 		pointService: pointService,
-		trustRepo:   trustRepo,
-		asynqClient: asynqClient,
+		trustRepo:    trustRepo,
+		asynqClient:  asynqClient,
 	}
 }
 

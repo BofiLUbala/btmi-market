@@ -21,7 +21,6 @@ type AdminBootstrapRepository interface {
 	UpdateSuperAdminCredentials(id uuid.UUID, firstName, lastName, email, passwordHash string) error
 }
 
-
 // AdminAuditRecorder records bootstrap actions in the audit log.
 type AdminAuditRecorder interface {
 	Record(entry *models.AdminAuditLog) error
@@ -294,4 +293,3 @@ func (s *AdminBootstrapService) UpdateSuperAdminCredentials(name, email, newPass
 
 	return existingAdmin, nil
 }
-

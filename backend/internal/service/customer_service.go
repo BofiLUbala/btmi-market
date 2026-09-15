@@ -11,10 +11,10 @@ import (
 )
 
 type CustomerService struct {
-	customerRepo  *repository.CustomerRepository
-	shopRepo      *repository.ShopRepository
+	customerRepo   *repository.CustomerRepository
+	shopRepo       *repository.ShopRepository
 	membershipRepo *repository.MembershipRepository
-	db            *database.DB
+	db             *database.DB
 }
 
 func NewCustomerService(
@@ -24,10 +24,10 @@ func NewCustomerService(
 	db *database.DB,
 ) *CustomerService {
 	return &CustomerService{
-		customerRepo:  customerRepo,
-		shopRepo:      shopRepo,
+		customerRepo:   customerRepo,
+		shopRepo:       shopRepo,
 		membershipRepo: membershipRepo,
-		db:            db,
+		db:             db,
 	}
 }
 

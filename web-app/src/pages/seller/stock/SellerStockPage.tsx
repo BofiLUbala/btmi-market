@@ -1,4 +1,5 @@
 import { useAuth } from '@/store/auth'
+import { formatMoney } from '@/lib/format'
 import { inventoryApi } from '@/api/seller'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -28,6 +29,8 @@ interface InventoryRow {
   product?: {
     id: string
     name: string
+    /** Currency the variant's price is in; falls back to the platform default. */
+    currency?: string
   }
 }
 
@@ -169,7 +172,7 @@ export default function SellerStockPage() {
                         <td className="wrap small">
                           {row.variant?.sku || row.variant?.name || row.inventory.variant_id.slice(0, 8)}
                           {row.variant?.sale_price != null && (
-                            <span className="muted"> · {Number(row.variant.sale_price).toLocaleString()} FC</span>
+                            <span className="muted"> · {formatMoney(Number(row.variant.sale_price), row.product?.currency)}</span>
                           )}
                         </td>
                         <td className="num">{row.inventory.quantity}</td>

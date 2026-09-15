@@ -122,6 +122,9 @@ type CommissionSummary struct {
 	CollectedCommission float64                `json:"collected_commission"`
 	DueCommission       float64                `json:"due_commission"`
 	SellerNetRevenue    float64                `json:"seller_net_revenue"`
+	PaymentsCollected   float64                `json:"payments_collected"`
+	PaymentsDue         float64                `json:"payments_due"`
+	UnitsSold           int                    `json:"units_sold"`
 	TotalVerifiedSales  int                    `json:"total_verified_sales"`
 	Currency            string                 `json:"currency,omitempty"`
 	MixedCurrency       bool                   `json:"mixed_currency"`
@@ -135,6 +138,14 @@ type SellerFinanceSummary struct {
 	SellerNetRevenue    float64 `json:"seller_net_revenue"`
 	CommissionDue       float64 `json:"commission_due"`
 	CommissionCollected float64 `json:"commission_collected"`
+	// Payments are the buyer axis and stay separate from the commission axis
+	// above: a buyer can have paid in full while TBK's cut is still due.
+	PaymentsReceived float64 `json:"payments_received"`
+	PaymentsDue      float64 `json:"payments_due"`
+	UnitsSold        int     `json:"units_sold"`
+	// The live platform rate, so clients label the commission card with the
+	// configured percentage instead of hardcoding one.
+	CommissionRate      float64 `json:"commission_rate"`
 	TotalCompletedSales int     `json:"total_completed_sales"`
 }
 
@@ -152,13 +163,18 @@ type CommissionFilter struct {
 	// BusinessIDs scopes the list to the businesses a seller owns. Set by the
 	// service from the caller's memberships, never from a query parameter.
 	BusinessIDs []uuid.UUID `form:"-"`
-	Status      string      `form:"status"`
-	BusinessID  string      `form:"business_id"`
-	ShopID      string      `form:"shop_id"`
-	SellerID    string      `form:"seller_id"`
-	DateFrom    string      `form:"date_from"`
-	DateTo      string      `form:"date_to"`
-	Search      string      `form:"search"`
-	Limit       int         `form:"limit"`
-	Offset      int         `form:"offset"`
+	// Status is the COMMISSION status (DUE / COLLECTED / WAIVED); PaymentStatus
+	// is the buyer's. They are separate axes and filter independently.
+	Status        string `form:"status"`
+	PaymentStatus string `form:"payment_status"`
+	BusinessID    string `form:"business_id"`
+	ShopID        string `form:"shop_id"`
+	SellerID      string `form:"seller_id"`
+	ProductID     string `form:"product_id"`
+	VariantID     string `form:"variant_id"`
+	DateFrom      string `form:"date_from"`
+	DateTo        string `form:"date_to"`
+	Search        string `form:"search"`
+	Limit         int    `form:"limit"`
+	Offset        int    `form:"offset"`
 }

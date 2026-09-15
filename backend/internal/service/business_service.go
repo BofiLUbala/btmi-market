@@ -65,11 +65,21 @@ func (s *BusinessService) UpdateBusiness(userID, businessID uuid.UUID, req *mode
 	if req.City != nil {
 		business.City = strings.TrimSpace(*req.City)
 	}
-	if req.Province != nil { business.Province = strings.TrimSpace(*req.Province) }
-	if req.Commune != nil { business.Commune = strings.TrimSpace(*req.Commune) }
-	if req.Street != nil { business.Street = strings.TrimSpace(*req.Street) }
-	if req.BuildingNumber != nil { business.BuildingNumber = strings.TrimSpace(*req.BuildingNumber) }
-	if req.Landmark != nil { business.Landmark = strings.TrimSpace(*req.Landmark) }
+	if req.Province != nil {
+		business.Province = strings.TrimSpace(*req.Province)
+	}
+	if req.Commune != nil {
+		business.Commune = strings.TrimSpace(*req.Commune)
+	}
+	if req.Street != nil {
+		business.Street = strings.TrimSpace(*req.Street)
+	}
+	if req.BuildingNumber != nil {
+		business.BuildingNumber = strings.TrimSpace(*req.BuildingNumber)
+	}
+	if req.Landmark != nil {
+		business.Landmark = strings.TrimSpace(*req.Landmark)
+	}
 	if req.DefaultCurrency != nil {
 		business.DefaultCurrency = *req.DefaultCurrency
 	}

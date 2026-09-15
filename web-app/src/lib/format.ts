@@ -9,7 +9,10 @@ export type Translator = (key: keyof Dictionary, vars?: Record<string, string | 
  * a different price. Legacy CDF amounts keep the grouped suffix form they were
  * always shown in.
  */
-export function formatMoney(amount: number, currency = 'USD'): string {
+/** The platform's selling currency: every new product, cart and order is in it. */
+export const DEFAULT_CURRENCY = 'USD'
+
+export function formatMoney(amount: number, currency = DEFAULT_CURRENCY): string {
   const code = (currency || 'USD').toUpperCase()
   const safe = amount === null || amount === undefined || isNaN(amount) ? 0 : amount
   const rounded = Math.round(safe * 100) / 100

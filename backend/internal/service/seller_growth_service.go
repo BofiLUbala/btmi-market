@@ -7,9 +7,9 @@ import (
 )
 
 type SellerGrowthService struct {
-	pointRepo  *repository.PointAccountRepository
-	levelRepo  *repository.LevelRepository
-	trustRepo  *repository.SellerTrustRepository
+	pointRepo   *repository.PointAccountRepository
+	levelRepo   *repository.LevelRepository
+	trustRepo   *repository.SellerTrustRepository
 	benefitRepo *repository.LevelRepository
 }
 
@@ -19,9 +19,9 @@ func NewSellerGrowthService(
 	trustRepo *repository.SellerTrustRepository,
 ) *SellerGrowthService {
 	return &SellerGrowthService{
-		pointRepo:  pointRepo,
-		levelRepo:  levelRepo,
-		trustRepo:  trustRepo,
+		pointRepo:   pointRepo,
+		levelRepo:   levelRepo,
+		trustRepo:   trustRepo,
 		benefitRepo: levelRepo,
 	}
 }
@@ -139,8 +139,8 @@ func (s *SellerGrowthService) GetGrowthData(businessID uuid.UUID) (*models.Selle
 			ProgressToNext:         progressToNext,
 			Description:            levelInfo.Description,
 		},
-		Trust: trustInfo,
-		Benefits: benefits,
+		Trust:                  trustInfo,
+		Benefits:               benefits,
 		HighValueBuyerEligible: highValueBuyerEligible,
 	}, nil
 }

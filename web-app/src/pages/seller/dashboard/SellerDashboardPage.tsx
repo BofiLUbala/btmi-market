@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import {
@@ -296,7 +297,7 @@ export default function SellerDashboardPage() {
           </div>
           <div className="stat-value">{ordersCount}</div>
           <div className="stat-footer">
-            <span className="muted small">{totalRevenue.toLocaleString()} FC</span>
+            <span className="muted small">{formatMoney(totalRevenue)}</span>
             <Link to="/seller/orders" className="stat-link">
               {t('seller.dashboard.viewOrders')} <ArrowRightIcon />
             </Link>
@@ -327,7 +328,7 @@ export default function SellerDashboardPage() {
               <CashIcon />
             </span>
           </div>
-          <div className="stat-value">{cashTotal.toLocaleString()} <span className="currency-unit">FC</span></div>
+          <div className="stat-value">{formatMoney(cashTotal)}</div>
           <div className="stat-footer">
             <Link to="/seller/cash" className="stat-link">
               {t('seller.dashboard.cashSessions')} <ArrowRightIcon />
@@ -400,7 +401,7 @@ export default function SellerDashboardPage() {
                         </span>
                       </td>
                       <td>
-                        <strong>{order.final_total?.toLocaleString() || '0'} FC</strong>
+                        <strong>{formatMoney(order.final_total || 0, order.currency)}</strong>
                       </td>
                       <td className="muted small">
                         {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}

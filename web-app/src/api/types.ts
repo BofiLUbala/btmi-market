@@ -533,6 +533,8 @@ export interface BuyerOrder {
   buyer_profile_id?: string | null
   status: OrderStatus
   total_items: number
+  /** Currency the order was sold in, snapshotted at checkout. */
+  currency?: string
   notes: string
   created_by?: string | null
   base_total: number
@@ -1053,6 +1055,8 @@ export interface Product {
   sku: string
   unit_price?: number
   cost_price?: number
+  /** Currency the product is priced in; USD for everything created now. */
+  currency?: string
   unit?: string
   status?: string
   category_id?: string | null
@@ -1254,6 +1258,8 @@ export interface SellerOrder {
   buyer_profile_id?: string | null
   status: OrderStatus
   total_items: number
+  /** Currency the order was sold in, snapshotted at checkout. */
+  currency?: string
   notes: string
   created_by?: string | null
   base_total: number
@@ -1440,3 +1446,127 @@ export interface SellerPointsHistory {
 }
 
 /* ---------- Reviews ---------- */
+
+/* ---------------------------------------------------------------------------
+ * Physical handover at the buyer's door.
+ * ------------------------------------------------------------------------- */
+
+/** The verdict on one product check. Anything but VALID stops the handover. */
+export type HandoverResult =
+  | 'VALID'
+  | 'ALREADY_USED'
+  | 'WRONG_PRODUCT'
+  | 'WRONG_VARIANT'
+  | 'WRONG_ORDER'
+  | 'WRONG_SHOP'
+  | 'INVALID_QR'
+
+export type HandoverStage =
+  | 'IN_TRANSIT'
+  | 'COURIER_ARRIVED'
+  | 'PRODUCT_VERIFIED'
+  | 'AWAITING_PAYMENT'
+  | 'PAYMENT_VERIFIED'
+  | 'AWAITING_BUYER_CONFIRMATION'
+  | 'DELIVERED'
+
+export interface HandoverVerificationResult {
+  result: HandoverResult
+  reason?: string
+  verification_method: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER'
+  order_id: string
+  order_number?: string
+  order_line_id?: string
+  product_id?: string
+  variant_id?: string
+  product_name?: string
+  product_number?: string
+  variant_name?: string
+  attributes?: Record<string, unknown>
+  shop_name?: string
+  seller_name?: string
+  quantity?: number
+  unit_price?: number
+  line_total?: number
+  currency?: string
+  verified_at?: string
+}
+
+export interface HandoverLine {
+  order_line_id: string
+  product_id: string
+  variant_id: string
+  product_name: string
+  variant_name: string
+  product_number: string
+  attributes?: Record<string, unknown>
+  image_url?: string
+  quantity: number
+  unit_price: number
+  line_total: number
+  product_verified: boolean
+  verified_at?: string
+  verified_by_role?: string
+  buyer_acknowledged: boolean
+}
+
+/**
+ * The server's own view of where the handover stands. Both apps drive their
+ * buttons from the `*_can_*` flags rather than re-deriving the rules, so the
+ * UI can never offer a step the backend would refuse.
+ */
+export interface HandoverState {
+  order_id: string
+  order_number: string
+  order_status: string
+  delivery_status: string
+  stage: HandoverStage
+  buyer_name?: string
+  buyer_phone?: string
+  delivery_address?: string
+  shop_name?: string
+  seller_name?: string
+  payment_method: string
+  payment_status: string
+  payment_timing?: string
+  amount_due: number
+  currency: string
+  payment_verified: boolean
+  lines: HandoverLine[]
+  courier_arrived: boolean
+  all_products_verified: boolean
+  all_lines_acknowledged: boolean
+  delivery_scanned: boolean
+  receipt_confirmed: boolean
+  courier_can_verify_product: boolean
+  courier_can_confirm_cash: boolean
+  buyer_can_acknowledge: boolean
+  buyer_can_confirm_receipt: boolean
+  blocked_reason?: string
+}
+
+export interface ConfirmCashResponse {
+  order_id: string
+  payment_id: string
+  payment_status: string
+  amount_collected: number
+  currency: string
+  commission_status: string
+  commission_amount: number
+  /** Cash from the buyer never collects TBK's commission; this stays false here. */
+  commission_collected: boolean
+  already_confirmed: boolean
+}
+
+export interface HandoverLineAcknowledgement {
+  order_line_id: string
+  product_received: boolean
+  matches_order: boolean
+  quantity_correct: boolean
+}
+
+/** What the courier or buyer scanned, or typed when the camera failed. */
+export interface ProductVerificationRequestBody {
+  token?: string
+  product_number?: string
+}

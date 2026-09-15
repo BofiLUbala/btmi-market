@@ -41,7 +41,11 @@ type CourierService struct {
 	auditRepo    *repository.AuditRepository
 	db           *database.DB
 	emailService *email.Service
+	qrSvc        *QRService
 }
+
+// SetQRService gives the courier service the handover timeline to write arrivals to.
+func (s *CourierService) SetQRService(qrSvc *QRService) { s.qrSvc = qrSvc }
 
 func NewCourierService(
 	courierRepo *repository.CourierRepository,
@@ -599,8 +603,11 @@ func (s *CourierService) ArriveAtDestination(userID, orderID uuid.UUID) error {
 	if err := s.courierRepo.UpdateMissionStatus(orderID, "delivery_status", "COURIER_ARRIVED"); err != nil {
 		return err
 	}
-	if s.auditRepo != nil {
-		_ = s.auditRepo.Record(&models.AdminAuditLog{ActorAdminID: userID, ActorRole: "COURIER", Action: "COURIER_ARRIVED", TargetType: "ORDER", TargetID: orderID.String(), Reason: "Courier explicitly confirmed arrival"})
+	// admin_audit_log cannot hold a courier: its actor column is a foreign key to
+	// admin_users. The arrival goes on the order's own handover timeline instead.
+	if s.qrSvc != nil {
+		s.qrSvc.RecordHandoverEvent(orderID, userID, "COURIER", "COURIER_ARRIVED", "SUCCESS",
+			"Courier explicitly confirmed arrival at the delivery address")
 	}
 
 	// Notify buyer
@@ -701,7 +708,7 @@ func (s *CourierService) ListAllCouriers(limit, offset int) ([]*models.CourierRe
 			Status:           c.Status,
 			Availability:     c.Availability,
 			TransportType:    c.TransportType,
-VehicleInfo:      c.VehicleInfo,
+			VehicleInfo:      c.VehicleInfo,
 			ServiceZone:      c.ServiceZone,
 			Province:         c.Province,
 			City:             c.City,
@@ -709,7 +716,7 @@ VehicleInfo:      c.VehicleInfo,
 			Street:           c.Street,
 			BuildingNumber:   c.BuildingNumber,
 			Landmark:         c.Landmark,
-			ActiveMissions: activeMissions,
+			ActiveMissions:   activeMissions,
 			CompletedToday:   completedToday,
 			TotalDeliveries:  totalDeliveries,
 			ActivatedAt:      c.ActivatedAt,

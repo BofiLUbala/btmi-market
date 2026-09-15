@@ -15,8 +15,11 @@ import {
   AdminRiskEvent
   ,FinanceDashboardReport
   ,FinanceBreakdownItem
+  ,FinanceTimeseriesPoint
+  ,FinanceBreakdownGroup
   ,AdminPaymentMethodConfig
 } from '../../../api/admin'
+import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
 import { useT } from '@/store/i18n'
 import { useAdminAuth } from '@/store/adminAuth'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
@@ -77,8 +80,15 @@ export default function FinanceDashboardPage() {
   const [summary, setSummary] = useState<AdminFinancialSummary | null>(null)
   const [financeReport, setFinanceReport] = useState<FinanceDashboardReport | null>(null)
   const [breakdownItems, setBreakdownItems] = useState<FinanceBreakdownItem[]>([])
-  const [breakdownGroup, setBreakdownGroup] = useState<'shop' | 'product' | 'seller' | 'business'>('shop')
-  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'all'>('today')
+  const [breakdownGroup, setBreakdownGroup] = useState<FinanceBreakdownGroup>('shop')
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'all' | 'custom'>('today')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [trend, setTrend] = useState<FinanceTimeseriesPoint[]>([])
+  // Payment status (what the BUYER settled) and commission status (what TBK
+  // collected) are separate axes; both are applied server-side.
+  const [financePaymentStatus, setFinancePaymentStatus] = useState('')
+  const [financeCommissionStatus, setFinanceCommissionStatus] = useState('')
   const [payments, setPayments] = useState<AdminPaymentListItem[]>([])
   const [pointUsers, setPointUsers] = useState<AdminPointUser[]>([])
   const [sellerGrowth, setSellerGrowth] = useState<AdminSellerGrowthItem[]>([])
@@ -153,12 +163,26 @@ export default function FinanceDashboardPage() {
 
   useEffect(() => {
     loadTabContent()
-  }, [tab, page, search, statusFilter, dateRange, breakdownGroup])
+  }, [tab, page, search, statusFilter, dateRange, customFrom, customTo, breakdownGroup, financePaymentStatus, financeCommissionStatus])
+
+  // The TBK finance panel re-reads itself so a sale verified elsewhere shows
+  // up without anyone pressing Refresh. Only the overview polls: the other
+  // tabs are worked on interactively and would fight a background reload.
+  useEffect(() => {
+    if (tab !== 'overview') return
+    const timer = window.setInterval(() => { void loadTabContent() }, 30_000)
+    return () => window.clearInterval(timer)
+  }, [tab, dateRange, customFrom, customTo, breakdownGroup, financePaymentStatus, financeCommissionStatus])
 
   // Maps a preset date range to date_from/date_to query params (inclusive,
   // local time) forwarded to the backend, which filters in SQL.
   const rangeParams = (range: typeof dateRange): { date_from?: string; date_to?: string } => {
     if (range === 'all') return {}
+    if (range === 'custom') {
+      // An incomplete custom range simply leaves that bound open rather than
+      // silently falling back to another preset.
+      return { date_from: customFrom || undefined, date_to: customTo || undefined }
+    }
     const end = new Date()
     const start = new Date()
     if (range === 'today') {
@@ -174,20 +198,31 @@ export default function FinanceDashboardPage() {
     return { date_from: iso(start), date_to: iso(end) }
   }
 
+  /** The one filter every TBK finance request on this page carries, so the KPI
+   *  cards, the breakdown table and the chart always describe the same rows. */
+  const financeScope = () => ({
+    ...rangeParams(dateRange),
+    payment_status: financePaymentStatus || undefined,
+    commission_status: financeCommissionStatus || undefined
+  })
+
   const loadTabContent = async () => {
     setLoading(true)
     setError(null)
-    if (tab === 'overview') { setSummary(null); setFinanceReport(null); setBreakdownItems([]) }
+    if (tab === 'overview') { setSummary(null); setFinanceReport(null); setBreakdownItems([]); setTrend([]) }
     try {
 if (tab === 'overview') {
-        const [sum, report, breakdown] = await Promise.all([
+        const scope = financeScope()
+        const [sum, report, breakdown, series] = await Promise.all([
           adminFinanceApi.getSummary(),
-          adminFinanceApi.getFinanceDashboard(rangeParams(dateRange)),
-          adminFinanceApi.getFinanceBreakdown({ group: breakdownGroup, ...rangeParams(dateRange) })
+          adminFinanceApi.getFinanceDashboard(scope),
+          adminFinanceApi.getFinanceBreakdown({ ...scope, group: breakdownGroup }),
+          adminFinanceApi.getFinanceTimeseries({ ...scope, interval: 'day' })
         ])
         setSummary(sum)
         setFinanceReport(report)
         setBreakdownItems(breakdown.items || [])
+        setTrend(series.points || [])
       } else if (tab === 'payment_config') {
         const res = await adminFinanceApi.listPaymentConfigs()
         setPaymentConfigs(res.items || [])
@@ -437,14 +472,44 @@ if (tab === 'overview') {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#a5b4fc' }}>TBK Platform Finance — live</h3>
               <div style={{ display: 'flex', gap: 8 }}>
-                {(['today', 'week', 'month', 'all'] as const).map((r) => (
+                {(['today', 'week', 'month', 'all', 'custom'] as const).map((r) => (
                   <button key={r} onClick={() => setDateRange(r)}
                     style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #4338ca', cursor: 'pointer', fontWeight: 700, fontSize: 12,
                       backgroundColor: dateRange === r ? '#4f46e5' : 'transparent', color: dateRange === r ? '#fff' : '#a5b4fc' }}>
-                    {r === 'today' ? 'Today' : r === 'week' ? '7 days' : r === 'month' ? 'Month' : 'All time'}
+                    {r === 'today' ? 'Today' : r === 'week' ? '7 days' : r === 'month' ? 'Month' : r === 'all' ? 'All time' : 'Custom'}
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Server-side filters. Every control below re-queries the backend;
+                nothing on this panel is filtered in the browser. */}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+              {dateRange === 'custom' && (
+                <>
+                  <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="Date de début"
+                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }} />
+                  <span style={{ color: '#818cf8', fontSize: 12 }}>→</span>
+                  <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label="Date de fin"
+                    style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }} />
+                </>
+              )}
+              <select value={financePaymentStatus} onChange={(e) => setFinancePaymentStatus(e.target.value)} aria-label="Statut de paiement"
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }}>
+                <option value="">Paiement · tous</option>
+                <option value="VERIFIED">Paiement vérifié</option>
+                <option value="PAID">Payé</option>
+                <option value="PENDING">En attente</option>
+                <option value="CONFIRMED">Confirmé</option>
+                <option value="REFUNDED">Remboursé</option>
+              </select>
+              <select value={financeCommissionStatus} onChange={(e) => setFinanceCommissionStatus(e.target.value)} aria-label="Statut de commission"
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }}>
+                <option value="">Commission · toutes</option>
+                <option value="DUE">Commission due</option>
+                <option value="COLLECTED">Commission encaissée</option>
+                <option value="WAIVED">Commission annulée</option>
+              </select>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
@@ -454,10 +519,21 @@ if (tab === 'overview') {
               <MetricCard title="Cash collecté (avec livraison)" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.collected_cash, financeReport!.currency || 'USD')} sub={`verified payments · cash_due`} color="#fbbf24" />
               <MetricCard title="Commission annulée (remboursements)" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.waived_commission, financeReport!.currency || 'USD')} sub={`${financeReport!.refunded_sales} refunded sales`} color="#a78bfa" />
               <MetricCard title="Ventes en attente" value={String(financeReport!.pending_orders)} sub="no verified payment yet" color="#94a3b8" />
+              {/* Axe acheteur — encaissé / restant dû — distinct de l'axe
+                  commission TBK (due / encaissée) au-dessus. */}
+              <MetricCard title="Paiements encaissés" value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_collected, x.currency)).join(' · ') || financeMoney(financeReport!.payments_collected, financeReport!.currency || 'USD')} sub="réglés par les acheteurs" color="#facc15" />
+              <MetricCard title="Paiements dus" value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_due, x.currency)).join(' · ') || financeMoney(financeReport!.payments_due, financeReport!.currency || 'USD')} sub="restant dû par les acheteurs" color="#fb923c" />
+              <MetricCard title="Unités vendues" value={String(financeReport!.units_sold)} sub="order line quantities" color="#e2e8f0" />
+            </div>
+
+            {/* Real series from /admin/finance/timeseries — no demo data. */}
+            <div style={{ border: '1px solid #4338ca', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#a5b4fc', marginBottom: 6 }}>Évolution — ventes · commission · net</div>
+              <FinanceTrendChart points={trend} emptyLabel="Aucune vente sur cette période." />
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-              {(['shop', 'product', 'seller', 'business'] as const).map((g) => (
+              {(['shop', 'product', 'variant', 'seller', 'business'] as const).map((g) => (
                 <button key={g} onClick={() => setBreakdownGroup(g)}
                   style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #4338ca', cursor: 'pointer', fontWeight: 700, fontSize: 12,
                     backgroundColor: breakdownGroup === g ? '#312e81' : 'transparent', color: breakdownGroup === g ? '#c7d2fe' : '#818cf8' }}>
@@ -470,7 +546,8 @@ if (tab === 'overview') {
               <thead>
                 <tr style={{ backgroundColor: '#312e81', textAlign: 'left', color: '#c7d2fe' }}>
                   <th style={{ padding: '8px 10px' }}>Entity</th>
-                  <th style={{ padding: '8px 10px' }}>Sales</th>
+                  <th style={{ padding: '8px 10px' }}>Orders</th>
+                  <th style={{ padding: '8px 10px' }}>Units</th>
                   <th style={{ padding: '8px 10px' }}>Gross</th>
                   <th style={{ padding: '8px 10px' }}>Commission</th>
                   <th style={{ padding: '8px 10px' }}>Seller net</th>
@@ -479,12 +556,16 @@ if (tab === 'overview') {
               </thead>
               <tbody>
                 {breakdownItems.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: 12, color: '#818cf8', textAlign: 'center' }}>No sale commissions recorded in this range yet.</td></tr>
+                  <tr><td colSpan={7} style={{ padding: 12, color: '#818cf8', textAlign: 'center' }}>No sale commissions recorded in this range yet.</td></tr>
                 )}
                 {breakdownItems.map((item) => (
                   <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid #4338ca' }}>
-                    <td style={{ padding: '8px 10px', fontWeight: 700 }}>{item.label}</td>
+                    <td style={{ padding: '8px 10px', fontWeight: 700 }}>
+                      {item.label}
+                      {item.sub_label && <div style={{ fontSize: 10, fontWeight: 500, color: '#818cf8' }}>{item.sub_label}</div>}
+                    </td>
                     <td style={{ padding: '8px 10px' }}>{item.sales_count}</td>
+                    <td style={{ padding: '8px 10px' }}>{item.units_sold}</td>
                     <td style={{ padding: '8px 10px', color: '#93c5fd' }}>{financeMoney(item.gross_sales, item.currency)}</td>
                     <td style={{ padding: '8px 10px', color: '#fca5a5' }}>{financeMoney(item.commission_amount, item.currency)}</td>
                     <td style={{ padding: '8px 10px', color: '#6ee7b7' }}>{financeMoney(item.seller_net_amount, item.currency)}</td>

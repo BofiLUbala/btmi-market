@@ -18,6 +18,22 @@ func NewSellerFinanceHandler(commService *service.CommissionService) *SellerFina
 	return &SellerFinanceHandler{commService: commService}
 }
 
+// sellerReportFilter reads the narrowing axes a seller may apply to their own
+// finances. business_id / seller_id are deliberately NOT read from the query
+// string: the service pins those to the caller's own businesses, so a seller
+// cannot widen the scope by crafting a URL.
+func sellerReportFilter(c *gin.Context) *models.FinanceReportFilter {
+	return &models.FinanceReportFilter{
+		ShopID:           c.Query("shop_id"),
+		ProductID:        c.Query("product_id"),
+		VariantID:        c.Query("variant_id"),
+		PaymentStatus:    c.Query("payment_status"),
+		CommissionStatus: c.Query("commission_status"),
+		DateFrom:         c.Query("date_from"),
+		DateTo:           c.Query("date_to"),
+	}
+}
+
 // GET /api/v1/seller/finances/summary
 func (h *SellerFinanceHandler) GetSummary(c *gin.Context) {
 	userIDVal, _ := c.Get("user_id")
@@ -45,13 +61,7 @@ func (h *SellerFinanceHandler) GetDashboard(c *gin.Context) {
 	userIDVal, _ := c.Get("user_id")
 	userID, _ := userIDVal.(uuid.UUID)
 
-	filter := &models.FinanceReportFilter{
-		ShopID:   c.Query("shop_id"),
-		DateFrom: c.Query("date_from"),
-		DateTo:   c.Query("date_to"),
-	}
-
-	report, err := h.commService.GetSellerDashboardReport(userID, filter)
+	report, err := h.commService.GetSellerDashboardReport(userID, sellerReportFilter(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: struct {
@@ -75,13 +85,7 @@ func (h *SellerFinanceHandler) GetBreakdown(c *gin.Context) {
 
 	group := models.FinanceBreakdownGroup(c.DefaultQuery("group", "shop"))
 
-	filter := &models.FinanceReportFilter{
-		ShopID:   c.Query("shop_id"),
-		DateFrom: c.Query("date_from"),
-		DateTo:   c.Query("date_to"),
-	}
-
-	items, err := h.commService.GetSellerBreakdownReport(userID, group, filter)
+	items, err := h.commService.GetSellerBreakdownReport(userID, group, sellerReportFilter(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: struct {
@@ -101,6 +105,30 @@ func (h *SellerFinanceHandler) GetBreakdown(c *gin.Context) {
 	})
 }
 
+// GET /api/v1/seller/finances/timeseries?interval=day|week|month
+func (h *SellerFinanceHandler) GetTimeseries(c *gin.Context) {
+	userIDVal, _ := c.Get("user_id")
+	userID, _ := userIDVal.(uuid.UUID)
+
+	interval := models.FinanceTimeseriesInterval(c.DefaultQuery("interval", "day"))
+
+	points, err := h.commService.GetSellerTimeseriesReport(userID, interval, sellerReportFilter(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{Code: "INTERNAL_ERROR", Message: err.Error()},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Seller finance timeseries retrieved",
+		Data:    gin.H{"interval": interval, "points": points},
+	})
+}
+
 // GET /api/v1/seller/finances/sales
 func (h *SellerFinanceHandler) ListSales(c *gin.Context) {
 	userIDVal, _ := c.Get("user_id")
@@ -110,12 +138,16 @@ func (h *SellerFinanceHandler) ListSales(c *gin.Context) {
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
 	filter := &models.CommissionFilter{
-		Status:   c.Query("status"),
-		DateFrom: c.Query("date_from"),
-		DateTo:   c.Query("date_to"),
-		Search:   c.Query("search"),
-		Limit:    limit,
-		Offset:   offset,
+		Status:        c.Query("status"),
+		PaymentStatus: c.Query("payment_status"),
+		ShopID:        c.Query("shop_id"),
+		ProductID:     c.Query("product_id"),
+		VariantID:     c.Query("variant_id"),
+		DateFrom:      c.Query("date_from"),
+		DateTo:        c.Query("date_to"),
+		Search:        c.Query("search"),
+		Limit:         limit,
+		Offset:        offset,
 	}
 
 	items, total, err := h.commService.ListSellerSales(userID, filter)

@@ -12,13 +12,13 @@ import (
 )
 
 type CategoryRankingService struct {
-	redisClient *redislib.Client
-	rankRepo    *repository.RankingRepository
-	mpRepo      *repository.MarketplaceRepository
+	redisClient  *redislib.Client
+	rankRepo     *repository.RankingRepository
+	mpRepo       *repository.MarketplaceRepository
 	categoryRepo *repository.CategoryRepository
-	pointRepo   *repository.PointAccountRepository
-	levelRepo   *repository.LevelRepository
-	trustRepo   *repository.SellerTrustRepository
+	pointRepo    *repository.PointAccountRepository
+	levelRepo    *repository.LevelRepository
+	trustRepo    *repository.SellerTrustRepository
 }
 
 func NewCategoryRankingService(
@@ -31,13 +31,13 @@ func NewCategoryRankingService(
 	trustRepo *repository.SellerTrustRepository,
 ) *CategoryRankingService {
 	return &CategoryRankingService{
-		redisClient: redisClient,
-		rankRepo:    rankRepo,
-		mpRepo:      mpRepo,
+		redisClient:  redisClient,
+		rankRepo:     rankRepo,
+		mpRepo:       mpRepo,
 		categoryRepo: categoryRepo,
-		pointRepo:   pointRepo,
-		levelRepo:   levelRepo,
-		trustRepo:   trustRepo,
+		pointRepo:    pointRepo,
+		levelRepo:    levelRepo,
+		trustRepo:    trustRepo,
 	}
 }
 

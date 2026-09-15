@@ -1,4 +1,5 @@
 import { useAuth } from '@/store/auth'
+import { formatMoney } from '@/lib/format'
 import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, CategoryAttributeDefinition, ProductImageResponse, QRIdentity } from '@/api/types'
@@ -797,7 +798,7 @@ export default function SellerProductDetailPage() {
                     <div className="completion-variant-title">
                       <div>
                         <strong>{variantDisplayLabel(variant.attributes, categoryAttrDefs, variant.name || `Variante ${index + 1}`)}</strong>
-                        <span>SKU : {variant.sku || '—'} · Prix : {Number(variant.sale_price || 0).toLocaleString()} FC</span>
+                        <span>SKU : {variant.sku || '—'} · Prix : {formatMoney(Number(variant.sale_price || 0), product.currency)}</span>
                       </div>
                     </div>
                     <div className="completion-fields">
@@ -1084,19 +1085,19 @@ export default function SellerProductDetailPage() {
                       const val = parseFloat(promoForm.discount_value)
                       if (isNaN(base) || isNaN(val)) return '—'
                       if (promoForm.discount_type === 'PERCENTAGE') {
-                        return (base * (1 - val / 100)).toLocaleString()
+                        return formatMoney(base * (1 - val / 100), product.currency)
                       } else {
-                        return Math.max(0, base - val).toLocaleString()
+                        return formatMoney(Math.max(0, base - val), product.currency)
                       }
-                    })()} FC
+                    })()}
                   </span>
                   <span style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                    {product.unit_price.toLocaleString()} FC
+                    {formatMoney(product.unit_price, product.currency)}
                   </span>
                   <span className="badge badge-success" style={{ fontSize: '0.8rem', padding: '2px 6px' }}>
                     {promoForm.discount_type === 'PERCENTAGE' 
                       ? `${promoForm.discount_value}% OFF` 
-                      : `${parseFloat(promoForm.discount_value).toLocaleString()} FC OFF`}
+                      : `${formatMoney(parseFloat(promoForm.discount_value), product.currency)} OFF`}
                   </span>
                 </div>
               </div>
@@ -1114,16 +1115,16 @@ export default function SellerProductDetailPage() {
                     <strong style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>
                       {product.discount_type === 'PERCENTAGE' 
                         ? `${product.discount_value}% OFF` 
-                        : `${(product.discount_value || 0).toLocaleString()} FC OFF`}
+                        : `${formatMoney(product.discount_value || 0, product.currency)} OFF`}
                     </strong>
                     {product.unit_price && (
                       <span className="small muted">
                         (Sale Price: <strong>{(() => {
                           const base = product.unit_price || 0
                           const val = product.discount_value || 0
-                          if (product.discount_type === 'PERCENTAGE') return (base * (1 - val / 100)).toLocaleString()
-                          return Math.max(0, base - val).toLocaleString()
-                        })()} FC</strong> {t('seller.productDetail.normalPrice', { price: product.unit_price.toLocaleString() })})
+                          if (product.discount_type === 'PERCENTAGE') return formatMoney(base * (1 - val / 100), product.currency)
+                          return formatMoney(Math.max(0, base - val), product.currency)
+                        })()}</strong> {t('seller.productDetail.normalPrice', { price: formatMoney(product.unit_price, product.currency) })})
                       </span>
                     )}
                   </div>
@@ -1500,7 +1501,7 @@ export default function SellerProductDetailPage() {
                           )}
                         </td>
                         <td className="mono small">{v.sku || '—'}</td>
-                        <td><strong>{Number(v.sale_price || 0).toLocaleString()} FC</strong></td>
+                        <td><strong>{formatMoney(Number(v.sale_price || 0), product.currency)}</strong></td>
                         <td>
                           <div>
                             <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
@@ -1588,7 +1589,7 @@ export default function SellerProductDetailPage() {
                         {v.sku && <span className="mono small muted">SKU: {v.sku}</span>}
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <span className="mobile-data-card-price">{Number(v.sale_price || 0).toLocaleString()} FC</span>
+                        <span className="mobile-data-card-price">{formatMoney(Number(v.sale_price || 0), product.currency)}</span>
                         <div style={{ marginTop: 4 }}>
                           <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
                             {v.status}

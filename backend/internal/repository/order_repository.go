@@ -402,7 +402,7 @@ func (r *OrderRepository) GetHistoryByOrderID(orderID uuid.UUID) ([]*models.Orde
 func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
-		       base_total, final_total, order_number, delivery_method, created_at, updated_at
+		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at
 		FROM orders WHERE shop_id = $1
 		ORDER BY created_at DESC
 	`
@@ -416,17 +416,18 @@ func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error)
 	var orders []*models.Order
 	for rows.Next() {
 		order := &models.Order{}
-		var notes, orderNumber, deliveryMethod sql.NullString
+		var notes, currency, orderNumber, deliveryMethod sql.NullString
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
 			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
-			&orderNumber, &deliveryMethod,
+			&currency, &orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("order repository: scan by shop: %w", err)
 		}
 		order.Notes = notes.String
+		order.Currency = currency.String
 		order.OrderNumber = orderNumber.String
 		order.DeliveryMethod = deliveryMethod.String
 		orders = append(orders, order)
@@ -438,7 +439,7 @@ func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error)
 func (r *OrderRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
-		       base_total, final_total, order_number, delivery_method, created_at, updated_at
+		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at
 		FROM orders WHERE business_id = $1
 		ORDER BY created_at DESC
 	`
@@ -452,17 +453,18 @@ func (r *OrderRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Order
 	var orders []*models.Order
 	for rows.Next() {
 		order := &models.Order{}
-		var notes, orderNumber, deliveryMethod sql.NullString
+		var notes, currency, orderNumber, deliveryMethod sql.NullString
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
 			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
-			&orderNumber, &deliveryMethod,
+			&currency, &orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("order repository: scan by business: %w", err)
 		}
 		order.Notes = notes.String
+		order.Currency = currency.String
 		order.OrderNumber = orderNumber.String
 		order.DeliveryMethod = deliveryMethod.String
 		orders = append(orders, order)
@@ -483,20 +485,26 @@ func (r *OrderRepository) UpdateStatus(id uuid.UUID, status models.OrderStatus) 
 		    received_at = CASE WHEN $2 = 'RECEIVED' THEN COALESCE(received_at, NOW()) ELSE received_at END,
 		    completed_at = CASE WHEN $2 = 'COMPLETED' THEN COALESCE(completed_at, NOW()) ELSE completed_at END
 		WHERE id = $1
-		RETURNING id, business_id, shop_id, customer_id, status, total_items, notes, created_by, created_at, updated_at
+		RETURNING id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
+		          base_total, final_total, currency, order_number, delivery_method,
+		          accepted_at, created_at, updated_at
 	`
 	order := &models.Order{}
-	var notes sql.NullString
+	var notes, currency, orderNumber, deliveryMethod sql.NullString
 	err := r.db.QueryRow(query, id, status).Scan(
 		&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
 		&order.TotalItems, &notes, &order.CreatedBy,
-		&order.CreatedAt, &order.UpdatedAt,
+		&order.BaseTotal, &order.FinalTotal, &currency, &orderNumber, &deliveryMethod,
+		&order.AcceptedAt, &order.CreatedAt, &order.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, scanOrderErr(err)
 	}
 	order.Notes = notes.String
+	order.Currency = currency.String
+	order.OrderNumber = orderNumber.String
+	order.DeliveryMethod = deliveryMethod.String
 
 	return order, nil
 }
@@ -514,7 +522,8 @@ func (r *OrderRepository) UpdateTotalItems(id uuid.UUID, totalItems int) error {
 
 func (r *OrderRepository) GetByShopIDAndStatus(shopID uuid.UUID, status models.OrderStatus) ([]*models.Order, error) {
 	query := `
-		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by, created_at, updated_at
+		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
+		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at
 		FROM orders WHERE shop_id = $1 AND status = $2
 		ORDER BY created_at DESC
 	`
@@ -528,16 +537,20 @@ func (r *OrderRepository) GetByShopIDAndStatus(shopID uuid.UUID, status models.O
 	var orders []*models.Order
 	for rows.Next() {
 		order := &models.Order{}
-		var notes sql.NullString
+		var notes, currency, orderNumber, deliveryMethod sql.NullString
 		err := rows.Scan(
 			&order.ID, &order.BusinessID, &order.ShopID, &order.CustomerID, &order.Status,
-			&order.TotalItems, &notes, &order.CreatedBy,
+			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
+			&currency, &orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("order repository: scan by shop/status: %w", err)
 		}
 		order.Notes = notes.String
+		order.Currency = currency.String
+		order.OrderNumber = orderNumber.String
+		order.DeliveryMethod = deliveryMethod.String
 		orders = append(orders, order)
 	}
 
