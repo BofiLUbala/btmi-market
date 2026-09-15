@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -360,6 +361,7 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 		OrderID:        order.ID,
 		OrderNumber:    order.OrderNumber,
 		CurrentStatus:  string(order.Status),
+		DeliveryStatus: order.DeliveryStatus,
 		DeliveryMethod: order.DeliveryMethod,
 		PaymentStatus:  "PENDING",
 	}
@@ -406,6 +408,29 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 			entry.ChangedBy = cb
 		}
 		tracking.History = append(tracking.History, entry)
+	}
+
+	// Merge the database-owned delivery transitions into the buyer timeline.
+	deliveryRows, deliveryErr := s.db.Query(`SELECT id, new_status, actor_user_id, actor_role, created_at
+		FROM delivery_status_history WHERE order_id=$1 ORDER BY created_at`, orderID)
+	if deliveryErr == nil {
+		defer deliveryRows.Close()
+		for deliveryRows.Next() {
+			var id uuid.UUID
+			var status, actor string
+			var changedBy *uuid.UUID
+			var createdAt time.Time
+			if scanErr := deliveryRows.Scan(&id, &status, &changedBy, &actor, &createdAt); scanErr != nil {
+				return nil, scanErr
+			}
+			tracking.History = append(tracking.History, models.OrderStatusHistoryResponse{
+				ID: id, OrderID: orderID, Status: status, ChangedBy: changedBy,
+				ActorType: actor, Notes: "Delivery status updated", CreatedAt: createdAt,
+			})
+		}
+		sort.SliceStable(tracking.History, func(i, j int) bool {
+			return tracking.History[i].CreatedAt.Before(tracking.History[j].CreatedAt)
+		})
 	}
 
 	return tracking, nil

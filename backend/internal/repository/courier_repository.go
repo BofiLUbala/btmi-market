@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,6 +10,28 @@ import (
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
 )
+
+func (r *CourierRepository) GetDeliveryHistory(orderID uuid.UUID) ([]models.DeliveryStatusHistoryResponse, error) {
+	rows, err := r.db.Query(`SELECT id, order_id, delivery_id, previous_status, new_status,
+		actor_user_id, actor_role, metadata, created_at
+		FROM delivery_status_history WHERE order_id=$1 ORDER BY created_at`, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	history := make([]models.DeliveryStatusHistoryResponse, 0)
+	for rows.Next() {
+		var event models.DeliveryStatusHistoryResponse
+		var raw []byte
+		if err := rows.Scan(&event.ID, &event.OrderID, &event.DeliveryID, &event.PreviousStatus,
+			&event.NewStatus, &event.ActorUserID, &event.ActorRole, &raw, &event.CreatedAt); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal(raw, &event.Metadata)
+		history = append(history, event)
+	}
+	return history, rows.Err()
+}
 
 type CourierRepository struct {
 	db *database.DB
@@ -130,7 +153,7 @@ func (r *CourierRepository) Reactivate(id uuid.UUID) error {
 // ListActive returns all active couriers
 func (r *CourierRepository) ListActive() ([]*models.Courier, error) {
 	rows, err := r.db.Query(`
-		SELECT `+r.selectColumns()+`
+		SELECT ` + r.selectColumns() + `
 		FROM couriers WHERE status = 'ACTIVE' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -182,7 +205,7 @@ func (r *CourierRepository) ListAll(limit, offset int) ([]*models.Courier, error
 // ListAvailableCouriers returns couriers that are ACTIVE and AVAILABLE
 func (r *CourierRepository) ListAvailableCouriers() ([]*models.Courier, error) {
 	rows, err := r.db.Query(`
-		SELECT `+r.selectColumns()+`
+		SELECT ` + r.selectColumns() + `
 		FROM couriers WHERE status = 'ACTIVE' AND availability = 'AVAILABLE' ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -263,13 +286,16 @@ func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.Cour
 		       s.name AS shop_name, b.name, `+r.shopPickupAddressExpr()+`, COALESCE(c.service_zone,''),
 		       (SELECT COUNT(*) FROM delivery_packages dp WHERE dp.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
-		       o.final_total, o.courier_assigned_at, o.courier_accepted_at, 
+		       o.final_total, COALESCE(o.currency,'CDF'),
+		       COALESCE(pay.payment_method,''), COALESCE(pay.status,'UNPAID'),
+		       o.courier_assigned_at, o.courier_accepted_at, 
 		       o.ready_at, dp.pickup_verified_at, o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
 		JOIN businesses b ON b.id = o.business_id
 		JOIN couriers c ON c.user_id = o.assigned_courier_id
 		LEFT JOIN LATERAL (SELECT pickup_verified_at FROM delivery_packages WHERE order_id=o.id ORDER BY package_number LIMIT 1) dp ON TRUE
+		LEFT JOIN LATERAL (SELECT payment_method, status FROM buyer_payments WHERE order_id=o.id ORDER BY created_at DESC LIMIT 1) pay ON TRUE
 		WHERE o.assigned_courier_id = $1
 		AND o.status NOT IN ('CANCELLED')
 		ORDER BY o.courier_assigned_at DESC`, courierUserID)
@@ -283,7 +309,8 @@ func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.Cour
 		var m models.CourierMissionResponse
 		if err := rows.Scan(&m.OrderID, &m.OrderNumber, &m.Status, &m.DeliveryStatus,
 			&m.ShopName, &m.BusinessName, &m.ShopAddress, &m.ServiceZone, &m.PackageCount, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
-			&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
+			&m.TotalAmount, &m.Currency, &m.PaymentMethod, &m.PaymentStatus,
+			&m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
 			&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt); err != nil {
 			return nil, err
 		}
@@ -300,17 +327,21 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 		       s.name AS shop_name, b.name, `+r.shopPickupAddressExpr()+`, COALESCE(c.service_zone,''),
 		       (SELECT COUNT(*) FROM delivery_packages dp2 WHERE dp2.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
-		       o.final_total, o.courier_assigned_at, o.courier_accepted_at,
+		       o.final_total, COALESCE(o.currency,'CDF'),
+		       COALESCE(pay.payment_method,''), COALESCE(pay.status,'UNPAID'),
+		       o.courier_assigned_at, o.courier_accepted_at,
 		       o.ready_at, dp.pickup_verified_at, o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
 		JOIN businesses b ON b.id = o.business_id
 		JOIN couriers c ON c.user_id = o.assigned_courier_id
 		LEFT JOIN LATERAL (SELECT pickup_verified_at FROM delivery_packages WHERE order_id=o.id ORDER BY package_number LIMIT 1) dp ON TRUE
+		LEFT JOIN LATERAL (SELECT payment_method, status FROM buyer_payments WHERE order_id=o.id ORDER BY created_at DESC LIMIT 1) pay ON TRUE
 		WHERE o.assigned_courier_id = $1 AND o.id = $2`, courierUserID, orderID).Scan(
 		&m.OrderID, &m.OrderNumber, &m.Status, &m.DeliveryStatus,
 		&m.ShopName, &m.BusinessName, &m.ShopAddress, &m.ServiceZone, &m.PackageCount, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
-		&m.TotalAmount, &m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
+		&m.TotalAmount, &m.Currency, &m.PaymentMethod, &m.PaymentStatus,
+		&m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
 		&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -469,4 +500,27 @@ func (r *CourierRepository) UpdateMissionStatus(orderID uuid.UUID, field string,
 	}
 	_, err := r.db.Exec(fmt.Sprintf(`UPDATE orders SET %s = $2, updated_at = NOW() WHERE id = $1`, field), orderID, value)
 	return err
+}
+
+// TransitionMission performs the stale-state check and state change in one SQL
+// statement. Exactly one concurrent caller can win; retries cannot duplicate
+// timestamps, history-trigger rows, or notifications emitted by the service.
+func (r *CourierRepository) TransitionMission(orderID, courierUserID uuid.UUID, expected, next, timestampField string) (bool, error) {
+	validTimestampFields := map[string]bool{
+		"courier_accepted_at": true,
+		"courier_started_at":  true,
+		"courier_arrived_at":  true,
+	}
+	if !validTimestampFields[timestampField] {
+		return false, fmt.Errorf("invalid timestamp field: %s", timestampField)
+	}
+	result, err := r.db.Exec(fmt.Sprintf(`UPDATE orders
+		SET delivery_status=$4, %s=COALESCE(%s, NOW()), updated_at=NOW()
+		WHERE id=$1 AND assigned_courier_id=$2 AND delivery_status=$3`, timestampField, timestampField),
+		orderID, courierUserID, expected, next)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows == 1, err
 }

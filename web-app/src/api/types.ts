@@ -773,6 +773,7 @@ export interface TrackingResponse {
   order_id: string
   order_number: string
   current_status: string
+  delivery_status: string
   delivery_method: string
   payment_status: string
   latest_update: string

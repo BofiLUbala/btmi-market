@@ -347,6 +347,7 @@ type TrackingResponse struct {
 	OrderID        uuid.UUID                    `json:"order_id"`
 	OrderNumber    string                       `json:"order_number"`
 	CurrentStatus  string                       `json:"current_status"`
+	DeliveryStatus string                       `json:"delivery_status"`
 	DeliveryMethod string                       `json:"delivery_method"`
 	PaymentStatus  string                       `json:"payment_status"`
 	LatestUpdate   string                       `json:"latest_update"`

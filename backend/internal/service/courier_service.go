@@ -434,7 +434,42 @@ func (s *CourierService) GetMissionByID(userID, orderID uuid.UUID) (*models.Cour
 	if err != nil || courier == nil {
 		return nil, ErrCourierNotFound
 	}
-	return s.courierRepo.GetMissionByID(userID, orderID)
+	mission, err := s.courierRepo.GetMissionByID(userID, orderID)
+	if err != nil || mission == nil {
+		return mission, err
+	}
+	orderRepo := repository.NewOrderRepository(s.db)
+	lines, err := orderRepo.GetLinesByOrderID(orderID)
+	if err != nil {
+		return nil, err
+	}
+	mission.Lines = make([]models.OrderLineResponse, 0, len(lines))
+	for _, line := range lines {
+		mission.Lines = append(mission.Lines, models.OrderLineResponse{
+			ID: line.ID, OrderID: line.OrderID, ProductID: line.ProductID, VariantID: line.VariantID,
+			Quantity: line.Quantity, UnitPrice: line.UnitPrice, BaseUnitPrice: line.BaseUnitPrice,
+			PointsDiscountPerUnit: line.PointsDiscountPerUnit, FinalUnitPrice: line.FinalUnitPrice,
+			CreatedAt: line.CreatedAt, ProductName: line.ProductName, ProductSKU: line.ProductSKU,
+			VariantName: line.VariantName, VariantSKU: line.VariantSKU,
+			VariantAttributes: line.VariantAttributes, ImageURL: line.ImageURL,
+		})
+	}
+	history, err := orderRepo.GetHistoryByOrderID(orderID)
+	if err != nil {
+		return nil, err
+	}
+	mission.History = make([]models.OrderStatusHistoryResponse, 0, len(history))
+	for _, event := range history {
+		mission.History = append(mission.History, models.OrderStatusHistoryResponse{
+			ID: event.ID, OrderID: event.OrderID, Status: string(event.Status), ChangedBy: event.ChangedBy,
+			Notes: event.Notes, CreatedAt: event.CreatedAt,
+		})
+	}
+	mission.DeliveryHistory, err = s.courierRepo.GetDeliveryHistory(orderID)
+	if err != nil {
+		return nil, err
+	}
+	return mission, nil
 }
 
 // AcceptMission accepts a delivery mission
@@ -455,12 +490,12 @@ func (s *CourierService) AcceptMission(userID, orderID uuid.UUID) error {
 		return ErrMissionAlreadyAccepted
 	}
 
-	// Update order status
-	if err := s.courierRepo.UpdateMissionStatus(orderID, "courier_accepted_at", time.Now()); err != nil {
+	changed, err := s.courierRepo.TransitionMission(orderID, userID, "COURIER_ASSIGNED", "COURIER_ACCEPTED", "courier_accepted_at")
+	if err != nil {
 		return err
 	}
-	if err := s.courierRepo.UpdateMissionStatus(orderID, "delivery_status", "COURIER_ACCEPTED"); err != nil {
-		return err
+	if !changed {
+		return ErrInvalidStatusTransition
 	}
 
 	// Set courier to BUSY if they have active missions
@@ -562,11 +597,12 @@ func (s *CourierService) StartDelivery(userID, orderID uuid.UUID) error {
 		return ErrInvalidStatusTransition
 	}
 
-	if err := s.courierRepo.UpdateMissionStatus(orderID, "courier_started_at", time.Now()); err != nil {
+	changed, err := s.courierRepo.TransitionMission(orderID, userID, "PICKED_UP", "IN_TRANSIT", "courier_started_at")
+	if err != nil {
 		return err
 	}
-	if err := s.courierRepo.UpdateMissionStatus(orderID, "delivery_status", "IN_TRANSIT"); err != nil {
-		return err
+	if !changed {
+		return ErrInvalidStatusTransition
 	}
 	if s.auditRepo != nil {
 		_ = s.auditRepo.Record(&models.AdminAuditLog{ActorAdminID: userID, ActorRole: "COURIER", Action: "DELIVERY_STARTED", TargetType: "ORDER", TargetID: orderID.String(), Reason: "Courier started delivery after verified pickup"})
@@ -597,11 +633,12 @@ func (s *CourierService) ArriveAtDestination(userID, orderID uuid.UUID) error {
 		return ErrInvalidStatusTransition
 	}
 
-	if err := s.courierRepo.UpdateMissionStatus(orderID, "courier_arrived_at", time.Now()); err != nil {
+	changed, err := s.courierRepo.TransitionMission(orderID, userID, "IN_TRANSIT", "COURIER_ARRIVED", "courier_arrived_at")
+	if err != nil {
 		return err
 	}
-	if err := s.courierRepo.UpdateMissionStatus(orderID, "delivery_status", "COURIER_ARRIVED"); err != nil {
-		return err
+	if !changed {
+		return ErrInvalidStatusTransition
 	}
 	// admin_audit_log cannot hold a courier: its actor column is a foreign key to
 	// admin_users. The arrival goes on the order's own handover timeline instead.

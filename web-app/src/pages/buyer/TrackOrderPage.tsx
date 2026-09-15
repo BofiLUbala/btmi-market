@@ -19,6 +19,8 @@ const FLOW_STEPS: Record<string, string[]> = {
   PARTNER: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'HANDED_TO_PARTNER', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
 }
 
+const TBK_DELIVERY_STEPS = ['PENDING_TBK_ASSIGNMENT', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'RECEIVED']
+
 function actorLabel(actor: string | undefined, t: (key: TranslationKey, vars?: Record<string, string | number>) => string) {
   if (actor === 'SELLER') return t('tracking.byShop')
   if (actor === 'BUYER') return t('tracking.byBuyer')
@@ -53,11 +55,12 @@ function TrackInner() {
     try {
       const t = await buyerApi.tracking(orderId)
       const normalized = t ? { ...t, history: asArray(t.history) } : t
-      if (normalized && prevStatusRef.current && prevStatusRef.current !== normalized.current_status) {
+      const effectiveStatus = normalized?.delivery_status || normalized?.current_status
+      if (effectiveStatus && prevStatusRef.current && prevStatusRef.current !== effectiveStatus) {
         setStatusFlash(true)
         setTimeout(() => setStatusFlash(false), 1500)
       }
-      if (normalized) prevStatusRef.current = normalized.current_status
+      if (effectiveStatus) prevStatusRef.current = effectiveStatus
       setData(normalized)
       void buyerApi.deliveryQR(orderId).then(setDeliveryQR).catch(() => setDeliveryQR(null))
       setLastUpdated(new Date())
@@ -76,7 +79,8 @@ function TrackInner() {
   }, [fetchTracking])
 
   // Auto-polling with tab visibility — stops once the Order reaches a final state
-  const terminal = isTerminalOrderStatus(data?.current_status)
+  const effectiveStatus = data?.delivery_status || data?.current_status
+  const terminal = effectiveStatus === 'RECEIVED' || isTerminalOrderStatus(data?.current_status)
   useEffect(() => {
     function startPolling() {
       stopPolling()
@@ -111,9 +115,10 @@ function TrackInner() {
   if (loading) return <LoadingBlock label={t('tracking.loading')} />
   if (error || !data) return <ErrorBox error={error || t('tracking.noData')} onRetry={() => void fetchTracking()} />
 
-  const baseSteps = FLOW_STEPS[data.delivery_method] ?? [data.current_status]
-  const statusSteps = baseSteps.includes(data.current_status) ? baseSteps : [...baseSteps, data.current_status]
-  const currentIdx = statusSteps.indexOf(data.current_status)
+  const currentStatus = data.delivery_status || data.current_status
+  const baseSteps = data.delivery_method === 'TBK_STANDARD' ? TBK_DELIVERY_STEPS : (FLOW_STEPS[data.delivery_method] ?? [currentStatus])
+  const statusSteps = baseSteps.includes(currentStatus) ? baseSteps : [...baseSteps, currentStatus]
+  const currentIdx = statusSteps.indexOf(currentStatus)
 
   return (
     <div className="fade-in">
@@ -130,7 +135,7 @@ function TrackInner() {
 
       <div className={`row-between${statusFlash ? ' status-updated' : ''}`} style={{ marginTop: 8 }}>
         <h1 style={{ fontSize: '1.5rem' }}>{t('tracking.title')}</h1>
-        <StatusBadge status={data.current_status} />
+        <StatusBadge status={currentStatus} />
       </div>
       <div className="small muted">
         {t('tracking.summary', { number: data.order_number, method: data.delivery_method.replace(/_/g, ' ').toLowerCase(), status: data.payment_status.replace(/_/g, ' ').toLowerCase() })}

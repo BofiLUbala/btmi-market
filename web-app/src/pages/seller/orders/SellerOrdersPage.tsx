@@ -33,6 +33,7 @@ interface Order {
   created_at: string
   shop_id: string
   delivery_method?: string
+  delivery_status?: string
   notes?: string
 }
 
@@ -296,7 +297,11 @@ export default function SellerOrdersPage() {
                     return (
                       <tr key={order.id}>
                         <td>{order.order_number || order.id.slice(0, 8)}</td>
-                        <td><span className={`badge badge-${getStatusColor(order.status)}`}>{orderStatusLabel(order.status, t)}</span></td>
+                        <td>
+                          <span className={`badge badge-${getStatusColor(order.delivery_status || order.status)}`}>
+                            {orderStatusLabel(order.delivery_status || order.status, t)}
+                          </span>
+                        </td>
                         <td>{formatMoney(order.final_total || 0, order.currency || DEFAULT_CURRENCY)}</td>
                         <td>{new Date(order.created_at).toLocaleDateString()}</td>
                         <td>
@@ -331,6 +336,7 @@ export default function SellerOrdersPage() {
                               <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
                               {detail?.order && <div className="seller-payment-box">
                                 <strong>Livraison</strong>
+                                <div>Statut: <strong>{detail.order.delivery_status || order.delivery_status || 'PENDING_TBK_ASSIGNMENT'}</strong></div>
                                 <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
                                 <div>Adresse: {detail.order.delivery_address || '—'}</div>
                                 {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
