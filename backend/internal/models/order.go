@@ -275,8 +275,12 @@ type SelectDeliveryRequest struct {
 	BuildingNumber       string   `json:"building_number"`
 	Landmark             string   `json:"landmark"`
 	Notes                string   `json:"notes"`
-	Latitude             *float64 `json:"latitude,omitempty"`
-	Longitude            *float64 `json:"longitude,omitempty"`
+	// SaveAddress persists the validated address (and resolved hierarchy ids)
+	// onto the buyer profile so a later checkout can reuse it. It is an explicit
+	// opt-in: a temporary "other address" for this order keeps the profile as is.
+	SaveAddress bool     `json:"save_address"`
+	Latitude    *float64 `json:"latitude,omitempty"`
+	Longitude   *float64 `json:"longitude,omitempty"`
 }
 
 type AssignCourierRequest struct {

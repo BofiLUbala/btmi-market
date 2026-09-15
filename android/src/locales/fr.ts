@@ -479,7 +479,7 @@ export const fr = {
   'checkout.contactName': 'Nom du contact',
   'checkout.address': 'Adresse de livraison',
   'checkout.addressPlaceholder': 'Commune, avenue, numéro…',
-  'checkout.instructions': 'Instructions (facultatif)',
+  'checkout.instructions': 'Instructions supplémentaires (facultatif)',
   'checkout.pickupNote': 'Vous récupérerez cette commande à la boutique. Aucune adresse n’est nécessaire.',
   'checkout.deliverySaveFailed': 'Les informations de livraison n’ont pas pu être enregistrées. Réessayez.',
   'checkout.fillDetails': 'Renseignez le nom, le téléphone et l’adresse de livraison.',

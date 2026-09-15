@@ -118,6 +118,23 @@ type BuyerProfileViewResponse struct {
 	AvailableBenefits []LevelBenefitInfo   `json:"available_benefits"`
 }
 
+// SavedDeliveryAddress is the validated, canonical form of the RDC delivery
+// address that checkout persists onto a buyer profile. Names come from the
+// hierarchy, never from the client; the ids keep the province -> city ->
+// commune chain resolvable on every later checkout.
+type SavedDeliveryAddress struct {
+	Province       string    `json:"province"`
+	City           string    `json:"city"`
+	Commune        string    `json:"commune"`
+	ProvinceID     uuid.UUID `json:"province_id"`
+	CityID         uuid.UUID `json:"city_id"`
+	CommuneID      uuid.UUID `json:"commune_id"`
+	Street         string    `json:"street"`
+	BuildingNumber string    `json:"building_number"`
+	Landmark       string    `json:"landmark"`
+	Address        string    `json:"address"`
+}
+
 type LevelBenefitInfo struct {
 	BenefitType  string  `json:"benefit_type"`
 	BenefitValue float64 `json:"benefit_value"`

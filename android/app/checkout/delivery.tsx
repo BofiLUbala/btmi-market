@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi } from '../../src/api'
@@ -9,10 +9,20 @@ import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../sr
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
-import { StructuredAddressFields, type StructuredAddressValue } from '../../src/components/StructuredAddressFields'
+import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '../../src/components/StructuredAddressFields'
 import { formatMoney } from '../../src/lib/money'
 
 const money = (value: number, currency?: string) => formatMoney(value, currency)
+
+function savedAddressFromProfile(profile: any): StructuredAddressValue | null {
+  if (!profile) return null
+  const v: StructuredAddressValue = {
+    province: profile.province ?? '', city: profile.city ?? '', commune: profile.commune ?? '',
+    province_id: profile.province_id ?? '', city_id: profile.city_id ?? '', commune_id: profile.commune_id ?? '',
+    street: profile.street || profile.address || '', building_number: profile.building_number ?? '', landmark: profile.landmark ?? '',
+  }
+  return isStructuredAddressComplete(v) ? v : null
+}
 
 export default function DeliveryScreen() {
   const colors = useColors()
@@ -27,10 +37,8 @@ export default function DeliveryScreen() {
   const [contact, setContact] = useState({
     contact_name: user ? `${user.first_name} ${user.last_name}`.trim() : '',
     phone: user?.phone ?? '',
-    address: '',
     notes: '',
   })
-  const [address, setAddress] = useState<StructuredAddressValue>({ province: '', city: '', commune: '', street: '', building_number: '', landmark: '' })
 
   const profileQuery = useQuery({
     queryKey: ['buyer', 'profile'],
@@ -38,16 +46,22 @@ export default function DeliveryScreen() {
     enabled: Boolean(user),
   })
 
+  const savedAddress = useMemo(() => savedAddressFromProfile(profileQuery.data), [profileQuery.data])
+
+  const [address, setAddress] = useState<StructuredAddressValue>(() => savedAddressFromProfile(profileQuery.data) ?? emptyStructuredAddress())
+  const [mode, setMode] = useState<'saved' | 'custom'>(() => (savedAddress ? 'saved' : 'custom'))
+  // First checkout: store the address as primary by default. Returning buyer
+  // editing their address: opt-in, so a temporary address stays temporary.
+  const [savePrimary, setSavePrimary] = useState(() => !savedAddress)
+
   useEffect(() => {
     if (!profileQuery.data && !user) return
     const p = profileQuery.data
     const name = [p?.first_name || user?.first_name, p?.last_name || user?.last_name].filter(Boolean).join(' ')
     const phone = p?.phone || user?.phone || ''
-    const fullAddress = [p?.address, p?.commune, p?.city].filter(Boolean).join(', ')
     setContact((prev) => ({
       contact_name: prev.contact_name || name,
       phone: prev.phone || phone,
-      address: prev.address || fullAddress,
       notes: prev.notes,
     }))
   }, [profileQuery.data, user])
@@ -62,10 +76,8 @@ export default function DeliveryScreen() {
   const baseFee = option?.fee ?? 0
   const displayedFee = previewFee !== null ? previewFee : baseFee
 
-  const formInvalid =
-    !contact.contact_name.trim() ||
-    !contact.phone.trim() ||
-    !address.province.trim() || !address.city.trim() || !address.commune.trim() || !address.street.trim() || !address.building_number.trim()
+  const formInvalid = !contact.contact_name.trim() || !contact.phone.trim() ||
+    (mode === 'custom' && !isStructuredAddressComplete(address))
 
   const pointsMutation = useMutation({
     mutationFn: (next: boolean) => buyerApi.deliveryPointsPreview(orderId!, next),
@@ -80,9 +92,12 @@ export default function DeliveryScreen() {
         use_points_for_delivery: usePoints,
         contact_name: contact.contact_name.trim(),
         phone: contact.phone.trim(),
-        address: contact.address.trim(),
+        address: [address.street.trim(), address.building_number.trim(), address.commune, address.city, address.province].filter(Boolean).join(', '),
+        province_id: address.province_id, city_id: address.city_id, commune_id: address.commune_id,
+        province: address.province, city: address.city, commune: address.commune,
+        street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
         notes: contact.notes.trim(),
-        province: address.province.trim(), city: address.city.trim(), commune: address.commune.trim(), street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
+        save_address: mode === 'saved' ? false : savePrimary,
       }),
     onSuccess: () => router.push({ pathname: '/checkout/payment', params: { orderId } }),
     onError: (err: any) => {
@@ -177,7 +192,6 @@ export default function DeliveryScreen() {
             keyboardType="phone-pad"
             onChangeText={(v) => setContact({ ...contact, phone: v })}
           />
-          <StructuredAddressFields value={address} onChange={setAddress} />
           <Field
             label={t('checkout.instructions')}
             value={contact.notes}
@@ -186,14 +200,44 @@ export default function DeliveryScreen() {
           />
         </Card>
 
-        {error ? <ErrorState message={error} /> : null}
+        <SectionTitle title={t('checkout.delivery')} />
 
-        <Button
-          title={t('checkout.continueToPayment')}
-          loading={selectMutation.isPending}
-          disabled={formInvalid}
-          onPress={submit}
-        />
+        {mode === 'saved' && savedAddress && (
+          <Card>
+            <Text style={styles.savedLabel}>Adresse enregistrée</Text>
+            <Text style={styles.savedValue}>{savedAddress.street}, {savedAddress.building_number}</Text>
+            <Text style={styles.savedValue}>{savedAddress.commune}, {savedAddress.city}</Text>
+            <Text style={styles.savedValue}>{savedAddress.province}</Text>
+            {savedAddress.landmark ? <Text style={[styles.savedValue, { marginTop: 4 }]}>Repère : {savedAddress.landmark}</Text> : null}
+            <Button title="Utiliser cette adresse" onPress={submit} loading={selectMutation.isPending} />
+            <TouchableOpacity onPress={() => { setError(''); setMode('custom') }}>
+              <Text style={styles.customLink}>Utiliser une autre adresse</Text>
+            </TouchableOpacity>
+          </Card>
+        )}
+
+        {mode === 'custom' && (
+          <Card>
+            <StructuredAddressFields value={address} onChange={setAddress} />
+            <TouchableOpacity style={styles.checkbox} onPress={() => setSavePrimary(!savePrimary)}>
+              <View style={[styles.checkboxTick, savePrimary && styles.checkboxTickOn]}>
+                {savePrimary ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.checkboxLabel}>Enregistrer comme adresse principale</Text>
+                <Text style={styles.checkboxHint}>Elle sera réutilisée et pré-remplie lors de vos prochaines commandes.</Text>
+              </View>
+            </TouchableOpacity>
+            {savedAddress && (
+              <TouchableOpacity onPress={() => { setError(''); setMode('saved') }}>
+                <Text style={styles.customLink}>Revenir à l'adresse enregistrée</Text>
+              </TouchableOpacity>
+            )}
+            <Button title={t('checkout.continueToPayment')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
+          </Card>
+        )}
+
+        {error ? <ErrorState message={error} /> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -208,23 +252,24 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   stepNext: { color: colors.muted, fontWeight: '700', fontSize: 12 },
   tbkHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.greenSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.greenSoft,
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
   },
   tbkHeaderText: { flex: 1 },
   tbkTitle: { color: colors.ink, fontWeight: '900', fontSize: 16 },
   tbkSubtitle: { color: colors.muted, fontSize: 13, marginTop: 2 },
   tbkDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
-  tbkNotice: { color: colors.muted, fontSize: 12, lineHeight: 16 },
   optionTitle: { color: colors.ink, fontWeight: '800', fontSize: 15 },
   muted: { color: colors.muted, fontSize: 13 },
   fee: { color: colors.green, fontWeight: '900', fontSize: 16 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   pointsNote: { color: colors.success, fontWeight: '700' },
+  savedLabel: { fontSize: 13, color: colors.muted, marginBottom: 6 },
+  savedValue: { fontSize: 15, color: colors.ink, lineHeight: 22 },
+  customLink: { textAlign: 'center', color: colors.success, fontWeight: '700', fontSize: 14, marginTop: 12, textDecorationLine: 'underline' },
+  checkbox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 12, marginTop: 10 },
+  checkboxTick: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxTickOn: { backgroundColor: colors.success, borderColor: colors.success },
+  checkboxLabel: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  checkboxHint: { fontSize: 12, color: colors.muted, marginTop: 2 },
 })

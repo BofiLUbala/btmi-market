@@ -190,6 +190,28 @@ func (r *BuyerProfileRepository) CountVerifiedPurchases(buyerProfileID uuid.UUID
 	return count, err
 }
 
+// SaveDeliveryAddress persists a validated delivery address (canonical names +
+// resolved hierarchy ids) onto the buyer profile. Only the address is touched:
+// contact details, points and status are left alone. The order snapshot stays
+// untouched -- historical orders keep the address they shipped to.
+func (r *BuyerProfileRepository) SaveDeliveryAddress(profileID uuid.UUID, addr *models.SavedDeliveryAddress) error {
+	query := `
+		UPDATE buyer_profiles
+		SET province=$1, city=$2, commune=$3,
+		    province_id=$4, city_id=$5, commune_id=$6,
+		    street=$7, building_number=$8, landmark=$9,
+		    address=$10, updated_at=NOW()
+		WHERE id = $11
+	`
+	_, err := r.db.Exec(query,
+		addr.Province, addr.City, addr.Commune,
+		addr.ProvinceID, addr.CityID, addr.CommuneID,
+		addr.Street, addr.BuildingNumber, addr.Landmark,
+		addr.Address, profileID,
+	)
+	return err
+}
+
 func (r *BuyerProfileRepository) CountAllPurchases(buyerProfileID uuid.UUID) (int, error) {
 	var count int
 	query := `SELECT COUNT(*) FROM purchase_confirmations WHERE buyer_profile_id = $1`

@@ -192,8 +192,18 @@ export default function ProfileScreen() {
 
       <Card>
         <Text style={themed.eyebrow}>{t('profile.address')}</Text>
-        <Text style={themed.value}>{p?.address || t('profile.noAddress')}</Text>
-        <Text style={themed.muted}>{[p?.commune, p?.city, p?.country].filter(Boolean).join(', ') || t('profile.noLocation')}</Text>
+        {p?.commune || p?.city || p?.province ? (
+          <>
+            <Text style={themed.value}>{[p?.street, p?.building_number].filter(Boolean).join(', ') || t('profile.noAddress')}</Text>
+            <Text style={themed.value}>{[p?.commune, p?.city, p?.province].filter(Boolean).join(', ')}</Text>
+            {p?.landmark ? <Text style={themed.muted}>Point de repère : {p.landmark}</Text> : null}
+          </>
+        ) : (
+          <>
+            <Text style={themed.value}>{p?.address || t('profile.noAddress')}</Text>
+            <Text style={themed.muted}>{[p?.commune, p?.city, p?.country].filter(Boolean).join(', ') || t('profile.noLocation')}</Text>
+          </>
+        )}
         {p?.latitude != null && p?.longitude != null && (
           <Text style={[themed.muted, { fontSize: 13, marginTop: 4 }]}>
             📍 GPS: {p.latitude}, {p.longitude}

@@ -817,27 +817,57 @@ func (h *Handler) SelectDelivery(c *gin.Context) {
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"
+		// French-safe message shown directly to the buyer. The technical code
+		// stays stable in error.code so clients can branch on it; the message
+		// is what a human on a phone should read.
+		message := "La livraison n'a pas pu être enregistrée. Veuillez réessayer."
 		switch err.Error() {
 		case "ORDER_NOT_FOUND":
 			statusCode = http.StatusNotFound
 			errorCode = "ORDER_NOT_FOUND"
+			message = "Cette commande n'existe plus."
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
-		case "INVALID_STATUS_TRANSITION", "INVALID_DELIVERY_METHOD", "DELIVERY_NOT_AVAILABLE", "DELIVERY_ADDRESS_REQUIRED", "DELIVERY_CONTACT_NAME_REQUIRED", "DELIVERY_PHONE_REQUIRED", "INVALID_DELIVERY_LOCATION":
+			message = "Vous n'êtes pas autorisé à modifier cette commande."
+		case "INVALID_STATUS_TRANSITION", "INVALID_DELIVERY_METHOD", "DELIVERY_NOT_AVAILABLE":
 			statusCode = http.StatusBadRequest
 			errorCode = err.Error()
+			message = "La livraison n'est plus disponible pour cette commande. Rechargez la page."
+		case "DELIVERY_ADDRESS_REQUIRED":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+			message = "Veuillez renseigner l'adresse complète (rue et numéro)."
+		case "DELIVERY_CONTACT_NAME_REQUIRED":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+			message = "Veuillez indiquer le nom du contact qui recevra la livraison."
+		case "DELIVERY_PHONE_REQUIRED":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+			message = "Veuillez indiquer le numéro de téléphone du contact."
+		case "INVALID_BUILDING_NUMBER":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+			message = "Le numéro de la parcelle n'est pas valide. Saisissez par exemple « 12 » ou « 12A »."
+		case "INVALID_DELIVERY_LOCATION":
+			statusCode = http.StatusBadRequest
+			errorCode = err.Error()
+			message = "Adresse de livraison non reconnue : la commune ne correspond pas à la ville choisie. Sélectionnez la commune dans la liste."
 		case "PAYMENT_ALREADY_CREATED":
 			statusCode = http.StatusConflict
 			errorCode = "PAYMENT_ALREADY_CREATED"
+			message = "Le paiement de cette commande a déjà été initié."
 		case "SHOP_NOT_FOUND":
 			statusCode = http.StatusNotFound
 			errorCode = "SHOP_NOT_FOUND"
+			message = "La boutique de cette commande n'existe plus."
 		case "INSUFFICIENT_POINTS":
 			statusCode = http.StatusBadRequest
 			errorCode = "INSUFFICIENT_POINTS"
+			message = "Points insuffisants pour payer la livraison."
 		}
-		h.errResponse(c, statusCode, errorCode, err.Error())
+		h.errResponse(c, statusCode, errorCode, message)
 		return
 	}
 

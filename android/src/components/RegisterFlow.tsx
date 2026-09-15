@@ -10,7 +10,7 @@ import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { sellerIntent } from '../store/sellerIntent'
 import { useAuth } from '../store/auth'
-import { StructuredAddressFields, type StructuredAddressValue } from './StructuredAddressFields'
+import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from './StructuredAddressFields'
 import { radius, spacing, type Colors } from '../theme'
 
 const PASSWORD_RULES = [
@@ -47,7 +47,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
   const [backupPhone, setBackupPhone] = useState('')
 
   // Step 3: Address & Location
-  const [address, setAddress] = useState<StructuredAddressValue>({ province: 'Kinshasa', city: 'Kinshasa', commune: 'Gombe', street: '', building_number: '', landmark: '' })
+  const [address, setAddress] = useState<StructuredAddressValue>(() => ({ ...emptyStructuredAddress(), province: 'Kinshasa', city: 'Kinshasa', commune: 'Gombe' }))
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
 
@@ -95,7 +95,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
     }
 
     if (currentStep === 3) {
-      if (!address.province.trim() || !address.city.trim() || !address.commune.trim() || !address.street.trim() || !address.building_number.trim()) {
+      if (!address.street.trim() || !address.building_number.trim() || !isStructuredAddressComplete(address)) {
         setError(t('auth.register.fillAllFields'))
         return false
       }

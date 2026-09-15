@@ -645,6 +645,8 @@ export interface SelectDeliveryRequest {
   province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
   province_id?: string; city_id?: string; commune_id?: string
   notes?: string
+  /** Persists this address as the buyer's primary profile address when true. */
+  save_address?: boolean
 }
 
 export interface DeliverySummary {

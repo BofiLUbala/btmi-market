@@ -35,8 +35,10 @@ export interface RegisterInput {
   password: string
   password_confirmation: string
   address?: string
-  city?: string
-  commune?: string
+  province?: string; province_id?: string
+  city?: string; city_id?: string
+  commune?: string; commune_id?: string
+  street?: string; building_number?: string; landmark?: string
   country?: string
   latitude?: number | null
   longitude?: number | null
@@ -174,7 +176,10 @@ export interface CreateShopRequest {
 export interface BuyerProfile {
   id: string; first_name: string; last_name: string; email: string; phone: string
   backup_phone?: string; address?: string; city?: string; commune?: string
+  province?: string; province_id?: string; city_id?: string; commune_id?: string
+  street?: string; building_number?: string; landmark?: string
   country?: string; latitude?: number | null; longitude?: number | null
+  status?: string; created_at?: string; updated_at?: string
 }
 export interface UpdateBuyerProfileRequest {
   first_name?: string
@@ -182,8 +187,10 @@ export interface UpdateBuyerProfileRequest {
   phone?: string
   backup_phone?: string
   address?: string
+  province?: string; province_id?: string; city_id?: string; commune_id?: string
   city?: string
   commune?: string
+  street?: string; building_number?: string; landmark?: string
   country?: string
   latitude?: number | null
   longitude?: number | null
@@ -261,6 +268,9 @@ export interface DeliverySummary {
   method: string; fee_base: number; points_used: number
   points_discount: number; fee_final: number
   contact_name: string; phone: string; address: string; notes: string
+  province?: string; city?: string; commune?: string
+  street?: string; building_number?: string; landmark?: string
+  province_id?: string; city_id?: string; commune_id?: string
 }
 
 export interface DeliverySelectResponse {
@@ -272,6 +282,8 @@ export interface SelectDeliveryRequest {
   method?: DeliveryMethod | string; use_points_for_delivery: boolean
   contact_name?: string; phone?: string; address?: string; notes?: string
   province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
+  province_id?: string; city_id?: string; commune_id?: string
+  save_address?: boolean
 }
 
 export interface DeliveryPointsPreview {

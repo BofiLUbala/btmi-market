@@ -470,7 +470,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'checkout.contactName': 'Contact name',
   'checkout.address': 'Delivery address',
   'checkout.addressPlaceholder': 'Commune, avenue, number…',
-  'checkout.instructions': 'Instructions (optional)',
+  'checkout.instructions': 'Additional instructions (optional)',
   'checkout.pickupNote': 'You will pick this order up at the shop. No address is needed.',
   'checkout.deliverySaveFailed': 'The delivery information could not be saved. Try again.',
   'checkout.fillDetails': 'Fill in the name, phone and delivery address.',

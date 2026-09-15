@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -1047,6 +1048,34 @@ func (s *OrderService) resolveDeliveryLocation(req *models.SelectDeliveryRequest
 	return resolved, nil
 }
 
+// buildingNumberPattern allows plain numbers ("10", "45") and short
+// alphanumeric building references ("12A", "B/15"), up to 20 characters.
+var buildingNumberPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z /-]{0,19}$`)
+
+// validateBuildingNumber keeps a phone number out of the building-number field:
+// a 9-15 digit value on this platform is a phone number (e.g. "0989805614"),
+// and slipping the phone into the building field breaks the address. Phone
+// numbers belong on the contact phone, which is already taken from the client.
+func validateBuildingNumber(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return errors.New("DELIVERY_ADDRESS_REQUIRED")
+	}
+	if !buildingNumberPattern.MatchString(value) {
+		return errors.New("INVALID_BUILDING_NUMBER")
+	}
+	digits := 0
+	for _, r := range value {
+		if r >= '0' && r <= '9' {
+			digits++
+		}
+	}
+	if digits >= 9 && digits <= 15 {
+		return errors.New("INVALID_BUILDING_NUMBER")
+	}
+	return nil
+}
+
 // resolveOrderCurrency reads the selling currency off the products being bought
 // and refuses a cart that mixes currencies: an order carries one currency for
 // its whole life, and silently adding a USD price to a CDF one would be wrong
@@ -1125,6 +1154,9 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		if strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.BuildingNumber) == "" {
 			return nil, errors.New("DELIVERY_ADDRESS_REQUIRED")
 		}
+		if err := validateBuildingNumber(req.BuildingNumber); err != nil {
+			return nil, err
+		}
 		resolved, err = s.resolveDeliveryLocation(req)
 		if err != nil {
 			return nil, err
@@ -1201,6 +1233,29 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 
 	if err := txOrderRepo.UpdateDelivery(orderID, &delivery); err != nil {
 		return nil, err
+	}
+
+	// A valid delivery address with save_address opt-in becomes the buyer's
+	// canonical profile address -- usable as a one-tap prefill on the next
+	// checkout. It is done inside the same transaction so the order and the
+	// (re)saved address can never diverge.
+	if req.SaveAddress && method != models.DeliveryMethodPickup && resolved != nil {
+		profileAddress := &models.SavedDeliveryAddress{
+			Province:       resolved.Province.Name,
+			City:           resolved.City.Name,
+			Commune:        resolved.Commune.Name,
+			ProvinceID:     resolved.Province.ID,
+			CityID:         resolved.City.ID,
+			CommuneID:      resolved.Commune.ID,
+			Street:         delivery.DeliveryStreet,
+			BuildingNumber: delivery.DeliveryBuildingNumber,
+			Landmark:       delivery.DeliveryLandmark,
+			Address:        delivery.DeliveryAddress,
+		}
+		txBuyerRepo := repository.NewBuyerProfileRepository(&database.DB{Tx: tx})
+		if err := txBuyerRepo.SaveDeliveryAddress(buyerProfileID, profileAddress); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

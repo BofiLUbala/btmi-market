@@ -98,8 +98,8 @@ export function StructuredAddressFields({ value, onChange }: { value: Structured
         options={[{ value: '', label: value.city_id ? (loadingCommunes ? 'Chargement…' : 'Sélectionner une commune') : "Sélectionnez d'abord la ville" }, ...communes.map(item => ({ value: item.id, label: item.name }))]}
       />
       <Field label="Avenue / Rue / Adresse" name="street" required value={value.street} onChange={e => onChange({ ...value, street: e.target.value })} />
-      <Field label="Numéro de maison / bâtiment" name="building_number" required value={value.building_number} onChange={e => onChange({ ...value, building_number: e.target.value })} />
-      <Field as="textarea" label="Instructions de livraison" name="landmark" value={value.landmark} onChange={e => onChange({ ...value, landmark: e.target.value })} />
+      <Field label="Numéro de la parcelle (ex : 12, 12A)" name="building_number" required value={value.building_number} onChange={e => onChange({ ...value, building_number: e.target.value })} />
+      <Field label="Point de repère (facultatif, ex : à côté de la pharmacie)" name="landmark" value={value.landmark} onChange={e => onChange({ ...value, landmark: e.target.value })} />
     </div>
   )
 }
@@ -114,7 +114,7 @@ export function StructuredAddressSummary({ value }: { value: StructuredAddressVa
       <div><dt>Commune</dt><dd>{value.commune}</dd></div>
       <div><dt>Adresse</dt><dd>{value.street}</dd></div>
       <div><dt>Numéro</dt><dd>{value.building_number}</dd></div>
-      {value.landmark.trim() && <div><dt>Instructions</dt><dd>{value.landmark}</dd></div>}
+      {value.landmark.trim() && <div><dt>Point de repère</dt><dd>{value.landmark}</dd></div>}
     </dl>
   )
 }

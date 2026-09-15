@@ -64,8 +64,18 @@ function AccountInner() {
           <div className="profile-contact-block"><div className="eyebrow">{t('account.contact')}</div><div className="info-row"><span className="k">{t('account.primary')}</span><span className="v">{buyerProfile?.phone || '—'}</span></div><div className="info-row"><span className="k">{t('account.backup')}</span><span className="v">{buyerProfile?.backup_phone || '—'}</span></div></div>
           <div className="profile-contact-block">
             <div className="eyebrow">{t('account.location')}</div>
-            <div className="profile-address">{buyerProfile?.address || t('account.noAddress')}</div>
-            <div className="small muted">{[buyerProfile?.commune, buyerProfile?.city, buyerProfile?.country].filter(Boolean).join(', ') || t('account.noLocation')}</div>
+            {buyerProfile?.commune || buyerProfile?.city || buyerProfile?.province ? (
+              <>
+                <div className="profile-address">{[buyerProfile.street, buyerProfile.building_number].filter(Boolean).join(', ') || buyerProfile?.address || t('account.noAddress')}</div>
+                <div className="small muted">{[buyerProfile.commune, buyerProfile.city, buyerProfile.province].filter(Boolean).join(', ')}</div>
+                {buyerProfile.landmark && <div className="small muted">Point de repère : {buyerProfile.landmark}</div>}
+              </>
+            ) : (
+              <>
+                <div className="profile-address">{buyerProfile?.address || t('account.noAddress')}</div>
+                <div className="small muted">{[buyerProfile?.commune, buyerProfile?.city, buyerProfile?.country].filter(Boolean).join(', ') || t('account.noLocation')}</div>
+              </>
+            )}
             {buyerProfile?.latitude != null && buyerProfile?.longitude != null && (
               <div className="small muted" style={{ marginTop: '0.25rem' }}>
                 📍 GPS: {buyerProfile.latitude}, {buyerProfile.longitude}

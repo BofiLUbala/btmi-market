@@ -69,7 +69,7 @@ export const marketplaceApi = {
 }
 export const buyerApi = {
   profile: async () => (await get<{ profile: BuyerProfile }>('/buyer/profile')).profile,
-  updateProfile: (body: { first_name?: string; last_name?: string; phone?: string; backup_phone?: string; address?: string; city?: string; commune?: string; country?: string; latitude?: number | null; longitude?: number | null }) =>
+  updateProfile: (body: { first_name?: string; last_name?: string; phone?: string; backup_phone?: string; address?: string; province?: string; province_id?: string; city?: string; city_id?: string; commune?: string; commune_id?: string; street?: string; building_number?: string; landmark?: string; country?: string; latitude?: number | null; longitude?: number | null }) =>
     patch<BuyerProfile>('/buyer/profile', body),
   points: () => get<unknown>('/buyer/points'),
 
@@ -239,4 +239,14 @@ export const employeeAuthApi = {
 export const courierApi = {
   scanPickup: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/pickup', payload),
   scanDelivery: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/delivery', payload),
+}
+
+export interface LocationProvince { id: string; name: string; code?: string }
+export interface LocationCity { id: string; province_id: string; name: string; code?: string }
+export interface LocationCommune { id: string; city_id: string; name: string; code?: string }
+
+export const locationsApi = {
+  provinces: async (): Promise<LocationProvince[]> => list<LocationProvince>(await get<unknown>('/locations/provinces')),
+  cities: async (provinceId: string): Promise<LocationCity[]> => list<LocationCity>(await get<unknown>(`/locations/provinces/${provinceId}/cities`)),
+  communes: async (cityId: string): Promise<LocationCommune[]> => list<LocationCommune>(await get<unknown>(`/locations/cities/${cityId}/communes`)),
 }

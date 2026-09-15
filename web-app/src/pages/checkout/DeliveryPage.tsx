@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import { ApiError, type DeliveryOptionsResponse } from '@/api/types'
+import { ApiError, type DeliveryOptionsResponse, type BuyerProfile } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -11,6 +11,26 @@ import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 import { StructuredAddressFields, StructuredAddressSummary, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
+
+/** The buyer's primary delivery address stored on their profile, or null when
+ * it was never set (or only has legacy free-text labels with no ids).
+ * Null is treated as "first checkout": the full form is shown and the address
+ * is offered to be saved as primary. */
+function savedAddressOf(profile?: BuyerProfile | null): StructuredAddressValue | null {
+  if (!profile) return null
+  const value: StructuredAddressValue = {
+    province: profile.province ?? '',
+    city: profile.city ?? '',
+    commune: profile.commune ?? '',
+    province_id: profile.province_id ?? '',
+    city_id: profile.city_id ?? '',
+    commune_id: profile.commune_id ?? '',
+    street: profile.street || profile.address || '',
+    building_number: profile.building_number ?? '',
+    landmark: profile.landmark ?? ''
+  }
+  return isStructuredAddressComplete(value) ? value : null
+}
 
 function DeliveryInner() {
   const navigate = useNavigate()
@@ -28,20 +48,21 @@ function DeliveryInner() {
     phone: buyerProfile?.phone || user?.phone || '',
     notes: ''
   }))
-  // Pre-fill from the address the buyer already saved on their profile; they
-  // can still change any level, and the server re-resolves it either way.
+
+  const savedAddress = useMemo(() => savedAddressOf(buyerProfile), [buyerProfile])
+
+  // The full form lives in `address`, always seeded from the profile address so
+  // editing starts from what is already known. `mode` decides whether the saved
+  // summary card or the editable form is shown.
   const [address, setAddress] = useState<StructuredAddressValue>(() => ({
     ...emptyStructuredAddress(),
-    province: buyerProfile?.province ?? '',
-    city: buyerProfile?.city ?? '',
-    commune: buyerProfile?.commune ?? '',
-    province_id: buyerProfile?.province_id ?? '',
-    city_id: buyerProfile?.city_id ?? '',
-    commune_id: buyerProfile?.commune_id ?? '',
-    street: buyerProfile?.street || buyerProfile?.address || '',
-    building_number: buyerProfile?.building_number ?? '',
-    landmark: buyerProfile?.landmark ?? ''
+    ...(savedAddressOf(buyerProfile) ?? {})
   }))
+  const [mode, setMode] = useState<'saved' | 'custom'>(() => (savedAddressOf(buyerProfile) ? 'saved' : 'custom'))
+  // First checkout: store the address as primary by default. Returning buyer
+  // editing their address: opt-in, so a temporary address stays temporary.
+  const [savePrimary, setSavePrimary] = useState(() => !savedAddressOf(buyerProfile))
+
   const [previewFee, setPreviewFee] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -61,8 +82,8 @@ function DeliveryInner() {
   const isAddressIncomplete = useMemo(() => !isStructuredAddressComplete(address), [address])
 
   const isFormInvalid = useMemo(() => {
-    return !contact.contact_name.trim() || !contact.phone.trim() || isAddressIncomplete
-  }, [contact.contact_name, contact.phone, isAddressIncomplete])
+    return !contact.contact_name.trim() || !contact.phone.trim() || (mode === 'custom' && isAddressIncomplete)
+  }, [contact.contact_name, contact.phone, isAddressIncomplete, mode])
 
   useEffect(() => {
     if (!orderId) {
@@ -125,7 +146,11 @@ function DeliveryInner() {
         province_id: address.province_id, city_id: address.city_id, commune_id: address.commune_id,
         province: address.province, city: address.city, commune: address.commune,
         street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
-        notes: contact.notes.trim()
+        notes: contact.notes.trim(),
+        // In saved mode the address already is the profile address; when the
+        // buyer enters a different one, it only replaces the primary address
+        // on explicit opt-in.
+        save_address: mode === 'saved' ? false : savePrimary
       })
       navigate('/checkout/payment', {
         state: { orderId, summary: res },
@@ -136,6 +161,17 @@ function DeliveryInner() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function useAnotherAddress() {
+    setError('')
+    setAddress((current) => {
+      // Seed the form with the saved address so "a different address" starts
+      // from what the buyer knows is correct.
+      const base = savedAddressOf(buyerProfile)
+      return base ? { ...base } : current
+    })
+    setMode('custom')
   }
 
   if (loading) return <LoadingBlock label={t('delivery.loadingOptions')} />
@@ -222,29 +258,80 @@ function DeliveryInner() {
               value={contact.phone}
               onChange={(e) => setContact({ ...contact, phone: e.target.value })}
             />
-            <StructuredAddressFields value={address} onChange={setAddress} />
-            {isAddressIncomplete ? (
-              <p className="small" style={{ color: 'var(--color-muted)', marginTop: -8, marginBottom: 12 }}>
-                {t('delivery.addressIncomplete')}
-              </p>
-            ) : (
-              <StructuredAddressSummary value={address} />
-            )}
             <Field
               label={t('delivery.notes')}
               name="notes"
               value={contact.notes}
               onChange={(e) => setContact({ ...contact, notes: e.target.value })}
             />
-            <Button
-              size="lg"
-              block
-              loading={submitting}
-              disabled={isFormInvalid}
-              onClick={continueToPayment}
-            >
-              {t('delivery.continueToReview')}
-            </Button>
+
+            <hr className="checkout-divider" />
+            <span className="eyebrow">{t('delivery.savedAddressTitle')}</span>
+
+            {mode === 'saved' && (
+              <>
+                <p className="small muted">{t('delivery.savedAddress')}</p>
+                {savedAddress && <StructuredAddressSummary value={savedAddress} />}
+                <Button size="lg" block loading={submitting} onClick={continueToPayment}>
+                  {t('delivery.useSavedAddress')}
+                </Button>
+                <button
+                  type="button"
+                  className="delivery-custom-link"
+                  onClick={useAnotherAddress}
+                >
+                  {t('delivery.useAnotherAddress')}
+                </button>
+              </>
+            )}
+
+            {mode === 'custom' && (
+              <>
+                <StructuredAddressFields value={address} onChange={setAddress} />
+                {isAddressIncomplete ? (
+                  <p className="small" style={{ color: 'var(--color-muted)', marginTop: -8, marginBottom: 12 }}>
+                    {t('delivery.addressIncomplete')}
+                  </p>
+                ) : (
+                  <StructuredAddressSummary value={address} />
+                )}
+                <label className="checkout-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={savePrimary}
+                    onChange={(e) => setSavePrimary(e.target.checked)}
+                  />
+                  <span>
+                    <strong>{t('delivery.saveAsPrimary')}</strong>
+                    <span className="small muted">{t('delivery.saveAsPrimaryHint')}</span>
+                  </span>
+                </label>
+                <p className="small" style={{ color: 'var(--color-muted)', marginTop: -4 }}>
+                  {t('delivery.otherAddressNote')}
+                </p>
+                {savedAddress && (
+                  <button
+                    type="button"
+                    className="delivery-custom-link"
+                    onClick={() => {
+                      setError('')
+                      setMode('saved')
+                    }}
+                  >
+                    {t('delivery.backToSavedAddress')}
+                  </button>
+                )}
+                <Button
+                  size="lg"
+                  block
+                  loading={submitting}
+                  disabled={isFormInvalid}
+                  onClick={continueToPayment}
+                >
+                  {t('delivery.continueToReview')}
+                </Button>
+              </>
+            )}
           </aside>
         </div>
       )}
