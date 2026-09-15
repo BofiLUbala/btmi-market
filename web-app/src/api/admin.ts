@@ -76,6 +76,17 @@ export interface AdminCourierListItem {
   created_at: string
 }
 
+export interface AdminCourierInvitationItem {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+  status: 'PENDING'
+  expires_at: string
+  created_at: string
+}
+
 export interface AdminAuditLog {
   id: string
   actor_admin_id: string
@@ -1040,7 +1051,7 @@ export const adminCommerceApi = {
     const q = new URLSearchParams()
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
-    return adminApi<{ couriers: AdminCourierListItem[]; total: number; limit: number; offset: number }>(
+    return adminApi<{ couriers: AdminCourierListItem[]; invitations: AdminCourierInvitationItem[]; total: number; limit: number; offset: number }>(
       `/admin/commerce/couriers?${q.toString()}`
     )
   },

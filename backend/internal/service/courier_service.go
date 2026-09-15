@@ -137,7 +137,7 @@ func (s *CourierService) InviteCourier(
 
 	if s.emailService != nil {
 		invitationURL := s.emailService.BuildCourierInvitationURLForBase(req.FrontendURL, token)
-		if err := s.emailService.SendCourierInvitationEmail(inv.Email, inv.FirstName, invitationURL); err != nil {
+		if err := s.emailService.SendCourierInvitationEmail(inv.Email, inv.FirstName, invitationURL, s.emailService.BuildCourierLoginURL()); err != nil {
 			return "", fmt.Errorf("send courier invitation email: %w", err)
 		}
 	}
@@ -728,6 +728,12 @@ func (s *CourierService) ListAllCouriers(limit, offset int) ([]*models.CourierRe
 	}
 
 	return responses, len(responses), nil
+}
+
+// ListPendingCourierInvitations exposes only invitation metadata to Commerce Admin.
+// Token hashes and activation URLs remain private.
+func (s *CourierService) ListPendingCourierInvitations() ([]*models.CourierInvitation, error) {
+	return s.courierRepo.ListPendingInvitations()
 }
 
 // GetAvailableCouriers returns available couriers for assignment

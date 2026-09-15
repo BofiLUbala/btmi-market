@@ -12,7 +12,8 @@ export default function ForgotPasswordPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const isSeller = params.get('account') === 'seller'
-  const loginPath = isSeller ? '/seller/login' : '/login'
+  const isCourier = params.get('account') === 'courier'
+  const loginPath = isCourier ? '/livreur/login' : isSeller ? '/seller/login' : '/login'
   const [identifier, setIdentifier] = useState('')
   const [error, setError] = useState('')
   const [done, setDone] = useState<string | null>(null)

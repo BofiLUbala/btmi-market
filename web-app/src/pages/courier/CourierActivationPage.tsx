@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { API_BASE } from '@/api/client'
 import { StructuredAddressFields, emptyStructuredAddress, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
 export default function CourierActivationPage() {
   const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
   const token = searchParams.get('token')
   
   const [loading, setLoading] = useState(true)
@@ -84,8 +83,7 @@ export default function CourierActivationPage() {
         throw new Error(data.error?.message || 'Activation failed')
       }
       
-      setSuccess('Account activated successfully! Redirecting to login...')
-      setTimeout(() => navigate('/login?returnTo=/courier/dashboard'), 2000)
+      setSuccess('Votre compte Livreur est activé.')
     } catch (err: any) {
       setError(err.message || 'Failed to activate account')
     } finally {
@@ -119,6 +117,19 @@ export default function CourierActivationPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             This activation link is invalid or has expired. Please contact your administrator for a new invitation.
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (success) {
+    return (
+      <div className="auth-wrap">
+        <div className="card auth-card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 48 }} aria-hidden="true">✅</div>
+          <h1>Votre compte Livreur est activé.</h1>
+          <p className="muted">Vous pouvez maintenant vous connecter avec votre email et le mot de passe que vous venez de créer.</p>
+          <Link to="/livreur/login" className="btn btn-primary btn-block">Accéder à mon espace Livreur</Link>
         </div>
       </div>
     )
@@ -161,19 +172,6 @@ export default function CourierActivationPage() {
             fontSize: 14
           }}>
             {error}
-          </div>
-        )}
-
-        {success && (
-          <div style={{
-            backgroundColor: 'var(--success-bg)',
-            color: 'var(--success)',
-            padding: '12px 16px',
-            borderRadius: 8,
-            marginBottom: 24,
-            fontSize: 14
-          }}>
-            {success}
           </div>
         )}
 

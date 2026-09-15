@@ -492,12 +492,18 @@ func (h *Handler) ListCouriers(c *gin.Context) {
 		h.errResponse(c, http.StatusInternalServerError, "LIST_FAILED", err.Error())
 		return
 	}
+	invitations, err := h.courierService.ListPendingCourierInvitations()
+	if err != nil {
+		h.errResponse(c, http.StatusInternalServerError, "LIST_FAILED", err.Error())
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"couriers": couriers,
-		"total":    total,
-		"limit":    limit,
-		"offset":   offset,
+		"couriers":    couriers,
+		"invitations": invitations,
+		"total":       total,
+		"limit":       limit,
+		"offset":      offset,
 	})
 }
 

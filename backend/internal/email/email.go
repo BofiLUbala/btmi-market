@@ -104,7 +104,11 @@ func (s *Service) BuildCourierInvitationURLForBase(baseURL, token string) string
 	return fmt.Sprintf("%s/courier/activate?token=%s", strings.TrimRight(baseURL, "/"), url.QueryEscape(token))
 }
 
-func (s *Service) SendCourierInvitationEmail(to, firstName, invitationURL string) error {
+func (s *Service) BuildCourierLoginURL() string {
+	return fmt.Sprintf("%s/livreur/login", strings.TrimRight(s.config.FrontendURL, "/"))
+}
+
+func (s *Service) SendCourierInvitationEmail(to, firstName, invitationURL, loginURL string) error {
 	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
 		log.Printf("[DEV MODE] Courier Invitation URL for %s (%s): %s", to, firstName, invitationURL)
 		return nil
@@ -115,7 +119,9 @@ func (s *Service) SendCourierInvitationEmail(to, firstName, invitationURL string
 <p>You have been invited to join TBK Market as a courier.</p>
 <p><a href="%s" style="background-color:#146c43;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Activate courier account</a></p>
 <p>Or copy and paste this link into your browser:</p><p>%s</p>
-<p>This private link expires in 7 days and can only be used once.</p>`, firstName, invitationURL, invitationURL)
+<p>This private link expires in 7 days and can only be used once.</p>
+<p>Après activation, vous pouvez toujours vous connecter à votre espace Livreur ici :</p>
+<p><a href="%s">Connexion Livreur TBK</a></p>`, firstName, invitationURL, invitationURL, loginURL)
 	return s.sendEmail(to, subject, body)
 }
 

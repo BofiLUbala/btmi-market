@@ -74,6 +74,12 @@ export default function LoginPage() {
       <form className="card auth-card" onSubmit={onSubmit}>
         <h1>{t('auth.login.title')}</h1>
         <p className="muted small">{t('auth.login.subtitle')}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 16 }}>
+          <span className="btn btn-primary">Acheteur</span>
+          <Link className="btn btn-outline" to="/seller/login">Vendeur</Link>
+          <Link className="btn btn-outline" to="/livreur/login">Livreur</Link>
+          <Link className="btn btn-outline" to="/admin/login">Administration</Link>
+        </div>
         {error && <ErrorBox error={error} />}
           {errorCode === 'ACCOUNT_NOT_ACTIVATED' && (
           <div className="small" style={{ marginTop: -4, marginBottom: 12 }}>

@@ -114,6 +114,7 @@ import SellerMessagesPage from '@/pages/seller/messages/SellerMessagesPage'
 import SellerNotificationsPage from '@/pages/seller/notifications/SellerNotificationsPage'
 import CommerceOrderCommunicationsPage from '@/pages/admin/commerce/communications/CommerceOrderCommunicationsPage'
 import CourierActivationPage from '@/pages/courier/CourierActivationPage'
+import CourierLoginPage from '@/pages/courier/CourierLoginPage'
 import CourierDashboardPage from '@/pages/courier/CourierDashboardPage'
 import CourierScanPage from '@/pages/courier/CourierScanPage'
 import CourierMissionPage from '@/pages/courier/CourierMissionPage'
@@ -238,6 +239,11 @@ export default function App() {
 
               {/* Courier Routes */}
               <Route path="/courier/activate" element={<CourierActivationPage />} />
+              <Route path="/courier" element={<Navigate to="/livreur/login" replace />} />
+              <Route path="/livreur" element={<Navigate to="/livreur/login" replace />} />
+              <Route element={<PublicOnly />}>
+                <Route path="/livreur/login" element={<CourierLoginPage />} />
+              </Route>
               <Route element={<RequireAuth />}>
                 <Route path="/courier/dashboard" element={<CourierDashboardPage />} />
                 <Route path="/courier/scan" element={<CourierScanPage />} />

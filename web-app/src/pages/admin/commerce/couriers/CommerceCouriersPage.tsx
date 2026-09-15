@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { adminCommerceApi, type AdminCourierListItem } from '@/api/admin'
+import { adminCommerceApi, type AdminCourierInvitationItem, type AdminCourierListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
 
 export default function CommerceCouriersPage() {
   const t = useT()
   const [couriers, setCouriers] = useState<AdminCourierListItem[]>([])
+  const [invitations, setInvitations] = useState<AdminCourierInvitationItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
@@ -20,6 +21,7 @@ export default function CommerceCouriersPage() {
         offset: page * limit,
       })
       setCouriers(res.couriers ?? [])
+      setInvitations(res.invitations ?? [])
       setTotal(res.total ?? 0)
     } catch (err) {
       console.error('Failed to load couriers', err)
@@ -53,6 +55,10 @@ export default function CommerceCouriersPage() {
   }
 
   const totalPages = Math.ceil(total / limit)
+
+  const copyCourierLogin = async () => {
+    await navigator.clipboard.writeText(`${window.location.origin}/livreur/login`)
+  }
 
   return (
     <div>
@@ -148,6 +154,21 @@ export default function CommerceCouriersPage() {
         </span>
       </div>
 
+      {invitations.length > 0 && (
+        <div style={{ marginBottom: 16, backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 16 }}>
+          <h3 style={{ margin: '0 0 12px' }}>Invitations en attente</h3>
+          {invitations.map((invitation) => (
+            <div key={invitation.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 0', borderTop: '1px solid var(--admin-border-soft)' }}>
+              <div>
+                <strong>{invitation.first_name} {invitation.last_name}</strong>
+                <div style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>{invitation.email}</div>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'var(--admin-warning-soft)', color: 'var(--admin-warning)' }}>INVITED</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>
           <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
@@ -242,6 +263,11 @@ export default function CommerceCouriersPage() {
                         {t('admin.commerce.assignOrder') || 'Assign Order'}
                       </Link>
                       {c.status === 'ACTIVE' ? (
+                        <>
+                        <button
+                          onClick={() => void copyCourierLogin()}
+                          style={{ fontSize: 12, color: 'var(--admin-primary)', backgroundColor: 'var(--admin-surface-2)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--admin-border-soft)', fontWeight: 600, cursor: 'pointer' }}
+                        >Copier le lien de connexion Livreur</button>
                         <button
                           onClick={() => handleSuspend(c.id)}
                           style={{
@@ -257,6 +283,7 @@ export default function CommerceCouriersPage() {
                         >
                           {t('admin.commerce.suspend') || 'Suspend'}
                         </button>
+                        </>
                       ) : (
                         <button
                           onClick={() => handleReactivate(c.id)}
