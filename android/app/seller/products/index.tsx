@@ -11,6 +11,7 @@ import { useColors } from '../../../src/store/theme'
 import { spacing, type Colors } from '../../../src/theme'
 import type { Product, PublicationStatus } from '../../../src/types'
 import { categoryLabel } from '../../../src/lib/categoryLabels'
+import { formatMoney } from '../../../src/lib/money'
 
 const FILTERS: { label: TranslationKey; value: '' | PublicationStatus }[] = [
   { label: 'seller.productList.filterAll', value: '' },
@@ -79,7 +80,7 @@ export default function SellerProductsScreen() {
         </View>
         <Text style={styles.muted}>{product.category_name ? categoryLabel(t, undefined, product.category_name) : t('seller.productList.generalCategory')} · {product.sku ? t('seller.productDetail.skuInfo', { sku: product.sku }) : t('seller.productList.noSku')}</Text>
         <View style={styles.row}>
-          <Text style={styles.price}>{(product.unit_price ?? 0).toLocaleString()} FC</Text>
+          <Text style={styles.price}>{formatMoney((product.unit_price ?? 0))}</Text>
           <Text style={styles.muted}>{t('seller.productList.availableLabel')}: {product.available_quantity ?? 0}</Text>
         </View>
         <View style={styles.actions}>

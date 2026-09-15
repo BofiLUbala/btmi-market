@@ -7,8 +7,9 @@ import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
 import { resolveMediaUrl } from '../api/client'
 import { resolvePromotion } from '../lib/promotion'
+import { formatMoney } from '../lib/money'
 
-const money = (value = 0, currency = 'FC') => `${value.toLocaleString('fr-FR')} ${currency === 'CDF' ? 'FC' : currency}`
+const money = (value = 0, currency?: string) => formatMoney(value, currency)
 
 export function ProductCard({ product, onPress }: { product: PublicProduct; onPress: () => void }) {
   const c = useColors()

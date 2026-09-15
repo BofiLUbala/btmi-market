@@ -8,6 +8,7 @@ import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../sr
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
+import { formatMoney } from '../../src/lib/money'
 
 export default function SellerStockScreen() {
   const { t } = useI18n()
@@ -46,7 +47,7 @@ export default function SellerStockScreen() {
     {tab === 'inventory' ? (
       inventory.isLoading ? <Loading label={t('seller.stockPage.loading')} /> : inventory.isError ? <ErrorState message={t('seller.stockPage.loadFailed')} retry={() => void inventory.refetch()} /> : !inventory.data?.length ? <Card><Text style={styles.muted}>{t('seller.stockPage.noInventoryTitle')}</Text></Card> : inventory.data.map((row) => <Card key={row.inventory.id}>
         <Text style={styles.name}>{row.product?.name || row.variant?.name || row.inventory.variant_id.slice(0, 8)}</Text>
-        <Text style={styles.muted}>{row.variant?.sku || row.variant?.name || ''}{row.variant?.sale_price != null ? ` · ${Number(row.variant.sale_price).toLocaleString()} FC` : ''}</Text>
+        <Text style={styles.muted}>{row.variant?.sku || row.variant?.name || ''}{row.variant?.sale_price != null ? ` · ${formatMoney(Number(row.variant.sale_price))}` : ''}</Text>
         <View style={styles.statsRow}>
           <Text style={styles.muted}>{t('seller.stockPage.onHand')}: {row.inventory.quantity}</Text>
           <Text style={styles.muted}>{t('points.reserved')}: {row.inventory.reserved_quantity}</Text>

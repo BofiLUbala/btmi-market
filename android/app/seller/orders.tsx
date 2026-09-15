@@ -10,6 +10,7 @@ import { radius, spacing, type Colors } from '../../src/theme'
 import type { BuyerPayment, SellerOrder } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
+import { formatMoney } from '../../src/lib/money'
 
 const POLL_INTERVAL = 30_000
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
@@ -116,7 +117,7 @@ export default function SellerOrders() {
     {orders.isLoading ? <Loading label={t('orders.loading')}/> : orders.isError ? <ErrorState message={t('orders.loadFailed')} retry={() => void orders.refetch()}/> : !groups.length ? <Card><Text style={styles.emptyText}>{t('seller.noOrdersFilter')}</Text></Card> : groups.map((group) => <View key={group.id} style={styles.group}>
       <View style={styles.groupHeader}>
         <View><Text style={styles.shop}>{group.name}</Text><Text style={styles.muted}>{t('orders.orderCount', { count: group.orders.length })}</Text></View>
-        <Text style={styles.groupTotal}>{group.total.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} FC</Text>
+        <Text style={styles.groupTotal}>{formatMoney(group.total)}</Text>
       </View>
       {group.orders.map((order) => <OrderCard
         key={order.id}
@@ -153,7 +154,7 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
 
   return <Card>
     <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text></View>
-    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{order.final_total.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')} FC</Text></View>
+    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{formatMoney(order.final_total)}</Text></View>
     <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
     {actions.length ? actions.map((action) => (
       <Button key={action.status} variant={action.destructive ? 'outline' : 'primary'} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>

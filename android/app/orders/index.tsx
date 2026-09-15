@@ -8,6 +8,7 @@ import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import { statusLabel } from '../../src/lib/statusLabels'
+import { formatMoney } from '../../src/lib/money'
 
 type OrderFilter = 'toutes' | 'a_payer' | 'payees' | 'en_preparation' | 'en_livraison' | 'terminees' | 'annulees'
 
@@ -57,7 +58,7 @@ export default function OrdersScreen() {
         <Text style={[styles.chipText, filter === f.key && styles.chipTextActive]}>{t(f.label)}</Text>
       </Pressable>
     ))}</View>
-    {!orders.length ? <Card><Text style={styles.muted}>{t('orders.empty')}</Text></Card> : orders.map((order) => <Pressable key={order.id} onPress={() => router.push(`/orders/${order.id}`)}><Card><Text style={styles.number}>{order.order_number || t('orders.number', { number: order.id.slice(0,8) })}</Text><Text style={[styles.status, ['COMPLETED','RECEIVED'].includes(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.final_total.toLocaleString()} FC</Text></Card></Pressable>)}
+    {!orders.length ? <Card><Text style={styles.muted}>{t('orders.empty')}</Text></Card> : orders.map((order) => <Pressable key={order.id} onPress={() => router.push(`/orders/${order.id}`)}><Card><Text style={styles.number}>{order.order_number || t('orders.number', { number: order.id.slice(0,8) })}</Text><Text style={[styles.status, ['COMPLETED','RECEIVED'].includes(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {formatMoney(order.final_total, order.currency)}</Text></Card></Pressable>)}
   </ScrollView>
 }
 const makeStyles = (colors: Colors) => StyleSheet.create({

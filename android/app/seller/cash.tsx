@@ -9,6 +9,7 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import type { CashSession } from '../../src/types'
+import { formatMoney } from '../../src/lib/money'
 
 export default function SellerCashScreen() {
   const { t } = useI18n()
@@ -71,10 +72,10 @@ export default function SellerCashScreen() {
     {error ? <Text style={styles.error}>{error}</Text> : null}
 
     {tab === 'summary' && summary.data && <>
-      <Card><Text style={styles.cardTitle}>{t('seller.cash.totalCashSales')}</Text><Text style={styles.metric}>{summary.data.total_cash_sales.toLocaleString()} FC</Text></Card>
+      <Card><Text style={styles.cardTitle}>{t('seller.cash.totalCashSales')}</Text><Text style={styles.metric}>{formatMoney(summary.data.total_cash_sales)}</Text></Card>
       {summary.data.shop_breakdown.map((shop) => <Card key={shop.shop_id}>
         <Text style={styles.cardTitle}>{shop.shop_name}</Text>
-        <Text style={styles.metric}>{shop.total_cash_sales.toLocaleString()} FC</Text>
+        <Text style={styles.metric}>{formatMoney(shop.total_cash_sales)}</Text>
         <Text style={styles.muted}>{t('seller.cash.sessionsOpenClosed', { open: shop.open_sessions, closed: shop.closed_sessions })}</Text>
       </Card>)}
       {activeShop && <Card>
@@ -105,7 +106,7 @@ export default function SellerCashScreen() {
       <Button variant="outline" dense title={expandedSession === session.id ? t('seller.hideDetails') : t('seller.cash.viewPayments')} onPress={() => setExpandedSession(expandedSession === session.id ? null : session.id)} />
       {expandedSession === session.id && <Fragment>
         {payments.isLoading ? <Loading label={t('common.loading')} /> : !payments.data?.length ? <Text style={styles.muted}>{t('seller.cash.noPayments')}</Text> : payments.data.map((p) => (
-          <Text key={p.id} style={styles.muted}>{p.amount.toLocaleString()} FC · {p.payment_method} · {new Date(p.created_at).toLocaleString()}</Text>
+          <Text key={p.id} style={styles.muted}>{formatMoney(p.amount)} · {p.payment_method} · {new Date(p.created_at).toLocaleString()}</Text>
         ))}
       </Fragment>}
     </Card>))}

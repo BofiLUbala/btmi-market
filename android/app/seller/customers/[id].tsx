@@ -9,6 +9,7 @@ import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { spacing, type Colors } from '../../../src/theme'
 import { statusLabel } from '../../../src/lib/statusLabels'
+import { formatMoney } from '../../../src/lib/money'
 
 export default function SellerCustomerDetailScreen() {
   const { t } = useI18n()
@@ -66,7 +67,7 @@ export default function SellerCustomerDetailScreen() {
         <Text style={styles.name}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text>
         <Text style={styles.muted}>{statusLabel(t, order.status)}</Text>
       </View>
-      <Text style={styles.muted}>{order.total_items} · {order.final_total.toLocaleString()} FC</Text>
+      <Text style={styles.muted}>{order.total_items} · {formatMoney(order.final_total)}</Text>
       <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString()}</Text>
     </Card>)}
   </ScrollView>

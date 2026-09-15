@@ -14,6 +14,7 @@ import { spacing, radius, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload } from '../../../src/lib/imageUpload'
 import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
 import type { Category, Shop } from '../../../src/types'
+import { formatMoney } from '../../../src/lib/money'
 
 const MAX_IMAGES = 10
 
@@ -305,7 +306,7 @@ export default function SellerProductDetailScreen() {
               <Text style={styles.name}>{variant.name || t('seller.productDetail.defaultVariant')}</Text>
               <Button dense variant="outline" title={t('seller.productList.edit')} onPress={() => { setEditingVariant(variant.id); setVariantEditForm(variant.attributes ?? {}); setNewAttributeName('') }} />
             </View>
-            <Text style={styles.muted}>{variant.sku || '—'} · {(variant.sale_price ?? 0).toLocaleString()} FC</Text>
+            <Text style={styles.muted}>{variant.sku || '—'} · {formatMoney((variant.sale_price ?? 0))}</Text>
             {attributes.length > 0 ? <Text style={styles.muted}>{attributes.map(([k, v]) => `${k}: ${v}`).join(' · ')}</Text> : null}
             <Text style={styles.muted}>{activeShop ? t('seller.productList.availableLabel') + ': ' + (inv?.inventory.available ?? 0) : t('seller.productDetail.selectShopLocation')}</Text>
             {activeShop && <View style={styles.row}>

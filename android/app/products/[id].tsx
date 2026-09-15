@@ -15,6 +15,7 @@ import { resolvePromotion } from '../../src/lib/promotion'
 import { attributeLabel } from '../../src/lib/attributeLabels'
 import { useI18n } from '../../src/store/i18n'
 import type { ProductReviewSummary } from '../../src/types'
+import { formatMoney } from '../../src/lib/money'
 import {
   buildAttributeGroups,
   resolveVariant,
@@ -232,12 +233,12 @@ export default function ProductScreen() {
           )}
           <View style={styles.priceRow}>
             <Text style={styles.price}>
-              {price.toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
+              {formatMoney(price, product.currency)}
             </Text>
             {onSale && (
               <>
                 <Text style={styles.strikePrice}>
-                  {promotion.originalPrice.toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
+                  {formatMoney(promotion.originalPrice, product.currency)}
                 </Text>
                 <View style={styles.discountPill}>
                   <Text style={styles.discountPillText}>-{promotion.discountPercent}%</Text>
@@ -434,10 +435,10 @@ export default function ProductScreen() {
             <Text style={styles.priceBlockQty} numberOfLines={1}>
               {stock < 1
                 ? t('product.outOfStock')
-                : `${quantity} × ${price.toLocaleString()} ${product.currency === 'USD' ? 'USD' : 'FC'}`}
+                : `${quantity} × ${formatMoney(price, product.currency)}`}
             </Text>
             <Text style={styles.priceBlockTotal} numberOfLines={1}>
-              {(price * quantity).toLocaleString()} {product.currency === 'USD' ? 'USD' : 'FC'}
+              {formatMoney(price * quantity, product.currency)}
             </Text>
           </View>
           <Button

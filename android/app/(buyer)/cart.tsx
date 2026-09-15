@@ -13,8 +13,9 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import type { PointRedemptionPreview } from '../../src/types'
+import { formatMoney } from '../../src/lib/money'
 
-const money = (value: number) => `${Math.round(value).toLocaleString('fr-FR')} FC`
+const money = (value: number, currency?: string) => formatMoney(value, currency)
 
 /** RFC4122-ish v4 id. Used only as an idempotency key for order creation. */
 function idempotencyKey() {

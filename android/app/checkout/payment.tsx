@@ -9,9 +9,9 @@ import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/compo
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
+import { formatMoney } from '../../src/lib/money'
 
-const money = (value: number, currency = 'FC') =>
-  `${Math.round(value).toLocaleString('fr-FR')} ${currency}`
+const money = (value: number, currency?: string) => formatMoney(value, currency)
 
 export default function PaymentScreen() {
   const colors = useColors()

@@ -21,6 +21,7 @@ import {
   type AttributeClassification, type AttributeSuggestion,
 } from '../../../src/lib/categorySuggestions'
 import type { Category, Shop } from '../../../src/types'
+import { formatMoney } from '../../../src/lib/money'
 
 /* ── Types ──────────────────────────────────────────────── */
 
@@ -595,7 +596,7 @@ export default function SellerProductCreateScreen() {
             onChangeText={(v) => setForm((f) => ({ ...f, discount_value: v }))}
             keyboardType="numeric"
           />
-          <Text style={styles.muted}>{t('seller.productForm.promoPreview')}: {promoPrice.toLocaleString()} FC</Text>
+          <Text style={styles.muted}>{t('seller.productForm.promoPreview')}: {formatMoney(promoPrice)}</Text>
         </>}
       </Card>}
 
@@ -719,7 +720,7 @@ export default function SellerProductCreateScreen() {
           selectedCategory ? categoryLabel(t, selectedCategory.slug, selectedCategory.name) : '',
           selectedSubcategory ? subcategoryLabel(t, selectedSubcategory.slug, selectedSubcategory.name) : '',
         ].filter(Boolean).join(' › ') || '—'} />
-        <SummaryRow styles={styles} label={t('seller.productForm.salePrice')} value={`${price.toLocaleString()} FC`} />
+        <SummaryRow styles={styles} label={t('seller.productForm.salePrice')} value={`${formatMoney(price)}`} />
         <SummaryRow styles={styles} label={t('seller.productForm.summaryImages')} value={String(images.length)} />
         <SummaryRow styles={styles} label={t('seller.productForm.summaryVariants')} value={String(isVariantMode ? activeCombos.length : 1)} />
         <SummaryRow styles={styles} label={t('seller.productForm.summaryStockHere')} value={String(totalUnits)} />

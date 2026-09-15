@@ -11,6 +11,7 @@ import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import { canSell, canOnboardSeller } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
+import { formatMoney } from '../../src/lib/money'
 
 // Port of web-app/src/pages/seller/dashboard/SellerDashboardPage.tsx at its
 // narrow-screen layout: same context pills, same six stat cards (uppercase
@@ -115,9 +116,9 @@ export default function SellerHome() {
     {/* ── Metrics: same six cards, same order as web ── */}
     <Stat stat="shops" label={t('seller.shops')} value={String(shopsCount)} link={t('seller.dashboard.manageShops')} onPress={() => router.push('/seller/shops')} colors={colors} styles={styles} />
     <Stat stat="products" label={t('seller.products')} value={String(productsCount)} sub={t('seller.dashboard.publishedCount', { count: publishedProducts })} link={t('common.viewAll')} onPress={() => router.push('/seller/products')} colors={colors} styles={styles} />
-    <Stat stat="orders" label={t('seller.orders')} value={String(ordersCount)} sub={`${totalRevenue.toLocaleString()} FC`} link={t('seller.dashboard.viewOrders')} onPress={() => router.push('/seller/orders')} colors={colors} styles={styles} />
+    <Stat stat="orders" label={t('seller.orders')} value={String(ordersCount)} sub={`${formatMoney(totalRevenue)}`} link={t('seller.dashboard.viewOrders')} onPress={() => router.push('/seller/orders')} colors={colors} styles={styles} />
     <Stat stat="employees" label={t('seller.employees')} value={String(employeesCount)} link={t('seller.dashboard.manageTeam')} onPress={() => router.push('/seller/employees')} colors={colors} styles={styles} />
-    <Stat stat="cash" label={t('seller.dashboard.cashSales')} value={cashTotal.toLocaleString()} unit="FC" link={t('seller.dashboard.cashSessions')} onPress={() => router.push('/seller/cash')} colors={colors} styles={styles} />
+    <Stat stat="cash" label={t('seller.dashboard.cashSales')} value={formatMoney(cashTotal)} link={t('seller.dashboard.cashSessions')} onPress={() => router.push('/seller/cash')} colors={colors} styles={styles} />
     <Stat stat="growth" label={t('seller.dashboard.sellerLevel')} value={sellerLevel} tier sub={`${t(`seller.growth.trust.${trustStatus}` as any)} (${sellerPoints} pts)`} link={t('seller.growth')} onPress={() => router.push('/seller/growth')} colors={colors} styles={styles} />
 
     {/* ── Recent Orders ── */}
@@ -149,7 +150,7 @@ export default function SellerHome() {
             <View style={styles.colStatus}>
               <Text numberOfLines={1} style={[styles.statusBadge, { backgroundColor: tint.bg, color: tint.color }]}>{statusLabel(t, order.status)}</Text>
             </View>
-            <Text style={[styles.tdStrong, styles.colTotal]}>{(order.final_total ?? 0).toLocaleString()} FC</Text>
+            <Text style={[styles.tdStrong, styles.colTotal]}>{formatMoney((order.final_total ?? 0))}</Text>
           </Pressable>
         })}
       </>}
