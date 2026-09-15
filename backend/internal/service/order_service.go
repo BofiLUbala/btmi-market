@@ -1243,6 +1243,19 @@ func (s *OrderService) contextNames(orderID uuid.UUID) (shopName, businessName, 
 		LEFT JOIN businesses b ON b.id = o.business_id
 		LEFT JOIN users u ON u.id = o.created_by
 		WHERE o.id = $1`, orderID).Scan(&shopName, &businessName, &sellerName)
+	var ownerRaw string
+	_ = s.db.QueryRow(`
+		SELECT COALESCE(om.first_name || ' ' || om.last_name, '')
+		FROM orders o
+		JOIN business_memberships bm ON bm.business_id = o.business_id
+		JOIN users om ON om.id = bm.user_id
+		WHERE o.id = $1 AND bm.role = 'OWNER'
+		  AND (bm.status = 'ACTIVE' OR bm.status IS NULL)
+		ORDER BY bm.joined_at ASC
+		LIMIT 1`, orderID).Scan(&ownerRaw)
+	if sellerName == "" && ownerRaw != "" {
+		sellerName = ownerRaw
+	}
 	return
 }
 
@@ -1894,16 +1907,19 @@ func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse
 		DeliveryCityID:         order.DeliveryCityID,
 		DeliveryCommuneID:      order.DeliveryCommuneID,
 		DeliveryNotes:          order.DeliveryNotes,
-		PointsFinalized:        order.PointsFinalized,
-		AcceptedAt:             order.AcceptedAt,
-		PreparingAt:            order.PreparingAt,
-		ReadyAt:                order.ReadyAt,
-		OutForDeliveryAt:       order.OutForDeliveryAt,
-		DeliveredAt:            order.DeliveredAt,
-		ReceivedAt:             order.ReceivedAt,
-		CompletedAt:            order.CompletedAt,
-		CreatedAt:              order.CreatedAt,
-		UpdatedAt:              order.UpdatedAt,
+		// Without this the buyer's order detail always reported an empty
+		// delivery status, even though orders.delivery_status was set.
+		DeliveryStatus:   order.DeliveryStatus,
+		PointsFinalized:  order.PointsFinalized,
+		AcceptedAt:       order.AcceptedAt,
+		PreparingAt:      order.PreparingAt,
+		ReadyAt:          order.ReadyAt,
+		OutForDeliveryAt: order.OutForDeliveryAt,
+		DeliveredAt:      order.DeliveredAt,
+		ReceivedAt:       order.ReceivedAt,
+		CompletedAt:      order.CompletedAt,
+		CreatedAt:        order.CreatedAt,
+		UpdatedAt:        order.UpdatedAt,
 	}
 }
 

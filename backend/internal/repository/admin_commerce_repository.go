@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,19 @@ import (
 
 type AdminCommerceRepository struct {
 	db *database.DB
+}
+
+// lowStockThreshold reads the merchant-configurable LOW_STOCK_THRESHOLD from
+// global_configs, falling back to 5 when unset or invalid.
+func (r *AdminCommerceRepository) lowStockThreshold() int {
+	threshold := 5
+	var raw string
+	if err := r.db.QueryRow(`SELECT value FROM global_configs WHERE key = 'LOW_STOCK_THRESHOLD'`).Scan(&raw); err == nil {
+		if n, parseErr := strconv.Atoi(strings.TrimSpace(raw)); parseErr == nil && n >= 0 {
+			threshold = n
+		}
+	}
+	return threshold
 }
 
 func NewAdminCommerceRepository(db *database.DB) *AdminCommerceRepository {
@@ -258,6 +272,16 @@ func (r *AdminCommerceRepository) ListProducts(search, businessID, categoryID, s
 			item.PrimaryImage = &primaryURL.String
 		}
 
+		threshold := r.lowStockThreshold()
+		if item.TotalAvailable <= 0 {
+			item.StockStatus = "OUT_OF_STOCK"
+		} else if item.TotalAvailable <= threshold {
+			item.StockStatus = "LOW_STOCK"
+		} else {
+			item.StockStatus = "IN_STOCK"
+		}
+		item.LowStockThreshold = threshold
+
 		// Calculate effective price
 		item.EffectivePrice = item.UnitPrice
 		if item.DiscountActive {
@@ -489,11 +513,12 @@ func (r *AdminCommerceRepository) ListInventory(businessID, shopID, stockStatus 
 
 		if item.Available <= 0 {
 			item.StockStatus = "OUT_OF_STOCK"
-		} else if item.Available <= 5 {
+		} else if item.Available <= r.lowStockThreshold() {
 			item.StockStatus = "LOW_STOCK"
 		} else {
 			item.StockStatus = "IN_STOCK"
 		}
+		item.LowStockThreshold = r.lowStockThreshold()
 
 		items = append(items, item)
 	}

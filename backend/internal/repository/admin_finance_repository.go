@@ -208,6 +208,11 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 		args = append(args, shopID)
 		argIdx++
 	}
+	if sellerID != "" {
+		query += fmt.Sprintf(" AND o.business_id IN (SELECT business_id FROM business_memberships WHERE user_id = $%d AND role = 'OWNER')", argIdx)
+		args = append(args, sellerID)
+		argIdx++
+	}
 	if dateFrom != "" {
 		query += fmt.Sprintf(" AND o.created_at >= $%d", argIdx)
 		args = append(args, dateFrom)

@@ -12,7 +12,7 @@ import type {
   PublicationStatus, PublicProduct, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
-  QRScanRequest, QRScanResponse,
+  QRScanRequest, QRScanResponse, ProductVerification,
   TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User,
 } from '../types'
 
@@ -88,7 +88,8 @@ export const buyerApi = {
   orders: () => get<BuyerOrder[]>('/buyer/orders'),
   order: (id: string) => get<OrderDetail>(`/buyer/orders/${id}`),
   tracking: (id: string) => get<TrackingResponse>(`/buyer/orders/${id}/tracking`),
-  confirmReceived: (id: string) => post(`/buyer/orders/${id}/received`),
+  confirmReceived: (id: string) => post(`/buyer/orders/${id}/confirm-receipt`),
+  verifyProduct: (id: string, body: { token?: string; product_number?: string }) => post<ProductVerification>(`/buyer/orders/${id}/verify-product`, body),
   cancelOrder: (id: string) => post(`/buyer/orders/${id}/cancel`),
   checkoutQuote: (id: string) => get<CheckoutQuote>(`/buyer/orders/${id}/checkout-quote`),
   createPayment: (id: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${id}/payment`, { payment_method: paymentMethod }),

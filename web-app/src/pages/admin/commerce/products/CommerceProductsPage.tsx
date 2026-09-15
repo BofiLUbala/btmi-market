@@ -136,7 +136,7 @@ export default function CommerceProductsPage() {
                     {p.discount_active && <div style={{ color: '#64748b', fontSize: 11, textDecoration: 'line-through' }}>${p.unit_price.toFixed(2)}</div>}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <StatusBadge status={p.total_available > 0 ? (p.total_available <= 5 ? 'LOW_STOCK' : 'IN_STOCK') : 'OUT_OF_STOCK'} />
+                    <StatusBadge status={p.stock_status || (p.total_available > 0 ? (p.total_available <= (p.low_stock_threshold || 5) ? 'LOW_STOCK' : 'IN_STOCK') : 'OUT_OF_STOCK')} />
                     <div style={{ color: '#64748b', fontSize: 11 }}>{t('admin.products.unitsCount', { count: p.total_available })}</div>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{p.variant_count}</td>

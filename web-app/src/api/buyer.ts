@@ -19,7 +19,7 @@ import type {
   ReviewEligibilityResponse,
   ReviewResponse,
   SelectDeliveryRequest,
-  TrackingResponse,
+  TrackingResponse, ProductVerification,
   DeliveryPackageQR,
   UpdateBuyerProfileRequest
 } from './types'
@@ -93,11 +93,13 @@ export const buyerApi = {
     post<BuyerPayment>(`/buyer/payments/${paymentId}/buyer-confirm`, {}),
 
   confirmReceived: (orderId: string) =>
-    post<BuyerOrder>(`/buyer/orders/${orderId}/received`, {}),
+    post<BuyerOrder>(`/buyer/orders/${orderId}/confirm-receipt`, {}),
 
   tracking: (orderId: string) => get<TrackingResponse>(`/buyer/orders/${orderId}/tracking`),
   deliveryQR: (orderId: string) => get<DeliveryPackageQR>(`/buyer/orders/${orderId}/delivery-qr`),
   confirmReceipt: (orderId: string) => post<{ delivery_status: string }>(`/buyer/orders/${orderId}/confirm-receipt`, {}),
+  verifyProduct: (orderId: string, body: { token?: string; product_number?: string }) =>
+    post<ProductVerification>(`/buyer/orders/${orderId}/verify-product`, body),
 
   /* reviews */
   reviewEligibility: (orderId: string, orderLineId?: string) =>

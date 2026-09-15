@@ -211,6 +211,28 @@ func (h *Handler) ConfirmReceipt(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Receipt confirmed; cash verification remains separate", "delivery_status": "RECEIVED"})
 }
 
+func (h *Handler) VerifyBuyerProduct(c *gin.Context) {
+	u, ok := user(c)
+	if !ok {
+		return
+	}
+	o, ok := id(c, "order_id")
+	if !ok {
+		return
+	}
+	var req models.ProductVerificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil || (strings.TrimSpace(req.Token) == "" && strings.TrimSpace(req.ProductNumber) == "") {
+		fail(c, service.ErrQRInvalid)
+		return
+	}
+	result, err := h.svc.VerifyBuyerProduct(u, o, req)
+	if err != nil {
+		fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": result})
+}
+
 // AdminDelivery serves the Commerce Admin handover view. It is mounted under the admin
 // commerce group, whose order param is ":id", and returns no QR token.
 func (h *Handler) AdminDelivery(c *gin.Context) {

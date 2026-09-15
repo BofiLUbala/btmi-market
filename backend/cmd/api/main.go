@@ -156,6 +156,7 @@ func main() {
 	commissionRepo := repository.NewCommissionRepository(db.DB)
 	commissionService := service.NewCommissionService(commissionRepo, orderRepo, buyerPaymentRepo, businessRepo)
 	paymentService.SetCommissionService(commissionService)
+	purchaseConfirmationService.SetCommissionService(commissionService)
 
 	courierService := service.NewCourierService(courierRepo, userRepo, shopRepo, auditRepo, db)
 	courierService.SetCommunicationService(commService)
@@ -395,6 +396,8 @@ func main() {
 			sellerGroup.GET("/conversations", commHandler.ListSellerConversations)
 			sellerGroup.GET("/unread-counts", commHandler.GetSellerUnreadCounts)
 			sellerGroup.GET("/finances/summary", sellerFinanceHandler.GetSummary)
+			sellerGroup.GET("/finances/dashboard", sellerFinanceHandler.GetDashboard)
+			sellerGroup.GET("/finances/breakdown", sellerFinanceHandler.GetBreakdown)
 			sellerGroup.GET("/finances/sales", sellerFinanceHandler.ListSales)
 			sellerGroup.GET("/finances/sales/:order_id", sellerFinanceHandler.GetSaleDetail)
 		}
@@ -486,6 +489,7 @@ func main() {
 			buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
 			buyerGroup.GET("/orders/:order_id/delivery-qr", qrHandler.BuyerPackage)
 			buyerGroup.GET("/orders/:order_id/delivery-qr/image", qrHandler.BuyerPackageImage)
+			buyerGroup.POST("/orders/:order_id/verify-product", qrHandler.VerifyBuyerProduct)
 			buyerGroup.POST("/orders/:order_id/confirm-receipt", qrHandler.ConfirmReceipt)
 			buyerGroup.GET("/orders/:order_id/tracking", orderHandler.GetOrderTracking)
 			buyerGroup.GET("/orders/:order_id/review-eligibility", reviewHandler.GetReviewEligibility)
@@ -725,11 +729,14 @@ courierProfile.PATCH("/profile", courierHandler.UpdateProfile)
 				))
 				{
 					financeGroup.GET("/summary", adminFinanceHandler.GetFinancialSummary)
+					financeGroup.GET("/dashboard", adminCommissionHandler.GetFinanceDashboard)
+					financeGroup.GET("/breakdown", adminCommissionHandler.GetFinanceBreakdown)
 
 					financeGroup.GET("/commission-config", adminCommissionHandler.GetCommissionConfig)
 					financeGroup.PATCH("/commission-config", adminCommissionHandler.UpdateCommissionConfig)
 					financeGroup.GET("/commissions/summary", adminCommissionHandler.GetCommissionSummary)
 					financeGroup.GET("/commissions", adminCommissionHandler.ListCommissions)
+					financeGroup.GET("/commissions/order/:order_id", adminCommissionHandler.GetSaleDetail)
 					financeGroup.POST("/commissions/:id/collect", adminCommissionHandler.MarkCommissionCollected)
 
 					financeGroup.GET("/payments", adminFinanceHandler.ListPayments)

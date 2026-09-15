@@ -40,6 +40,67 @@ func (h *SellerFinanceHandler) GetSummary(c *gin.Context) {
 	})
 }
 
+// GET /api/v1/seller/finances/dashboard
+func (h *SellerFinanceHandler) GetDashboard(c *gin.Context) {
+	userIDVal, _ := c.Get("user_id")
+	userID, _ := userIDVal.(uuid.UUID)
+
+	filter := &models.FinanceReportFilter{
+		ShopID:   c.Query("shop_id"),
+		DateFrom: c.Query("date_from"),
+		DateTo:   c.Query("date_to"),
+	}
+
+	report, err := h.commService.GetSellerDashboardReport(userID, filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{Code: "INTERNAL_ERROR", Message: err.Error()},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Seller finance dashboard retrieved",
+		Data:    report,
+	})
+}
+
+// GET /api/v1/seller/finances/breakdown?group=shop|product|seller|business
+func (h *SellerFinanceHandler) GetBreakdown(c *gin.Context) {
+	userIDVal, _ := c.Get("user_id")
+	userID, _ := userIDVal.(uuid.UUID)
+
+	group := models.FinanceBreakdownGroup(c.DefaultQuery("group", "shop"))
+
+	filter := &models.FinanceReportFilter{
+		ShopID:   c.Query("shop_id"),
+		DateFrom: c.Query("date_from"),
+		DateTo:   c.Query("date_to"),
+	}
+
+	items, err := h.commService.GetSellerBreakdownReport(userID, group, filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{Code: "INTERNAL_ERROR", Message: err.Error()},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Seller finance breakdown retrieved",
+		Data: gin.H{
+			"group": group,
+			"items": items,
+		},
+	})
+}
+
 // GET /api/v1/seller/finances/sales
 func (h *SellerFinanceHandler) ListSales(c *gin.Context) {
 	userIDVal, _ := c.Get("user_id")

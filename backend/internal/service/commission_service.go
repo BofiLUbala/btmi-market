@@ -127,6 +127,13 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 		paymentID = &payment.ID
 	}
 
+	sellerUserID := order.CreatedBy
+	if sellerUserID == nil {
+		if ownerID, err := s.commRepo.GetBusinessOwnerUserID(order.BusinessID); err == nil {
+			sellerUserID = &ownerID
+		}
+	}
+
 	comm := &models.SaleCommission{
 		ID:               uuid.New(),
 		OrderID:          order.ID,
@@ -134,7 +141,7 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 		PaymentID:        paymentID,
 		BusinessID:       order.BusinessID,
 		ShopID:           order.ShopID,
-		SellerUserID:     order.CreatedBy,
+		SellerUserID:     sellerUserID,
 		GrossAmount:      grossAmount,
 		CommissionBase:   commissionBase,
 		CommissionRate:   rate,
@@ -154,26 +161,87 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 	return s.commRepo.GetByOrderID(order.ID)
 }
 
-// GetSummary returns Finance Admin aggregate KPI statistics.
+// GetSummary returns Finance Admin aggregate KPI statistics. It reshapes the
+// one shared dashboard report rather than running a second aggregation, so the
+// commission page KPIs and the finance dashboard can never disagree.
 func (s *CommissionService) GetSummary(filter *models.CommissionFilter) (*models.CommissionSummary, error) {
-	return s.commRepo.GetSummary(filter)
+	report, err := s.GetDashboardReport(&models.FinanceReportFilter{
+		BusinessIDs: filter.BusinessIDs,
+		BusinessID:  filter.BusinessID,
+		ShopID:      filter.ShopID,
+		SellerID:    filter.SellerID,
+		DateFrom:    filter.DateFrom,
+		DateTo:      filter.DateTo,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &models.CommissionSummary{
+		GrossSales:          report.GrossSales,
+		TotalCommission:     report.CommissionAmount,
+		CollectedCommission: report.CollectedCommission,
+		DueCommission:       report.DueCommission,
+		SellerNetRevenue:    report.SellerNetAmount,
+		TotalVerifiedSales:  report.VerifiedSales,
+		Currency:            report.Currency,
+		MixedCurrency:       report.MixedCurrency,
+		TotalsByCurrency:    report.TotalsByCurrency,
+	}, nil
 }
 
 // GetDashboardReport returns the real-totals finance dashboard (gross,
 // commission, seller net, collected/due/waived, cash collected, pipeline).
 func (s *CommissionService) GetDashboardReport(filter *models.FinanceReportFilter) (*models.FinanceDashboardReport, error) {
+	if err := s.resolveSellerFilter(filter); err != nil {
+		return nil, err
+	}
 	return s.commRepo.GetDashboardReport(filter)
 }
 
 // GetBreakdownReport returns the finance dashboard grouped by shop, product,
 // seller or business for the same filter.
 func (s *CommissionService) GetBreakdownReport(group models.FinanceBreakdownGroup, filter *models.FinanceReportFilter) ([]models.FinanceBreakdownItem, error) {
+	if err := s.resolveSellerFilter(filter); err != nil {
+		return nil, err
+	}
 	return s.commRepo.GetBreakdownReport(group, filter)
 }
 
-// ListCommissions lists per-sale commission records for Finance Admin.
-func (s *CommissionService) ListCommissions(filter *models.CommissionFilter) ([]models.SaleCommission, int, error) {
+// ListCommissions lists per-sale history rows for Finance Admin.
+func (s *CommissionService) ListCommissions(filter *models.CommissionFilter) ([]models.SaleHistoryItem, int, error) {
+	if filter.BusinessIDs == nil && filter.SellerID != "" {
+		sellerID, err := uuid.Parse(filter.SellerID)
+		if err != nil {
+			return nil, 0, errors.New("INVALID_SELLER_ID")
+		}
+		businessIDs, err := s.getSellerBusinessIDs(sellerID)
+		if err != nil {
+			return nil, 0, err
+		}
+		filter.BusinessIDs = businessIDs
+		filter.SellerID = ""
+	}
 	return s.commRepo.ListCommissions(filter)
+}
+
+// resolveSellerFilter turns a Finance Admin "seller_id" drill-down into the
+// same business scope Seller Finance uses for that seller, so the admin view of
+// a seller and the seller's own view are the same population by construction.
+func (s *CommissionService) resolveSellerFilter(filter *models.FinanceReportFilter) error {
+	if filter.BusinessIDs != nil || filter.SellerID == "" {
+		return nil
+	}
+	sellerID, err := uuid.Parse(filter.SellerID)
+	if err != nil {
+		return errors.New("INVALID_SELLER_ID")
+	}
+	businessIDs, err := s.getSellerBusinessIDs(sellerID)
+	if err != nil {
+		return err
+	}
+	filter.BusinessIDs = businessIDs
+	filter.SellerID = ""
+	return nil
 }
 
 // MarkCollected allows Finance Admin to mark a commission as collected from seller.
@@ -190,58 +258,73 @@ func (s *CommissionService) VoidForRefund(orderID uuid.UUID, notes string) error
 	return s.commRepo.VoidCommissionForRefund(orderID, notes)
 }
 
-// GetSellerSummary computes aggregate financial summary for a seller user.
+// GetSellerSummary computes the seller's aggregate financial summary. It reads
+// the SAME dashboard report Finance Admin reads and only reshapes the fields,
+// so a seller total can never drift from the admin total for the same scope.
 func (s *CommissionService) GetSellerSummary(userID uuid.UUID) (*models.SellerFinanceSummary, error) {
-	businessIDs, err := s.getSellerBusinessIDs(userID)
+	report, err := s.GetSellerDashboardReport(userID, &models.FinanceReportFilter{})
 	if err != nil {
 		return nil, err
 	}
-	return s.commRepo.GetSellerSummary(businessIDs)
+	return &models.SellerFinanceSummary{
+		GrossSales:          report.GrossSales,
+		TBKCommissionTotal:  report.CommissionAmount,
+		SellerNetRevenue:    report.SellerNetAmount,
+		CommissionDue:       report.DueCommission,
+		CommissionCollected: report.CollectedCommission,
+		TotalCompletedSales: report.VerifiedSales,
+	}, nil
 }
 
 // GetSellerDashboardReport returns the real-totals dashboard scoped to the
 // businesses the seller belongs to.
 func (s *CommissionService) GetSellerDashboardReport(userID uuid.UUID, filter *models.FinanceReportFilter) (*models.FinanceDashboardReport, error) {
-	businessIDs, err := s.getSellerBusinessIDs(userID)
-	if err != nil {
+	if err := s.applySellerScope(userID, filter); err != nil {
 		return nil, err
 	}
-	if len(businessIDs) == 0 {
-		return &models.FinanceDashboardReport{}, nil
-	}
-	filter.BusinessID = businessIDs[0].String()
 	return s.commRepo.GetDashboardReport(filter)
 }
 
 // GetSellerBreakdownReport returns the grouped report scoped to the seller's
 // businesses.
 func (s *CommissionService) GetSellerBreakdownReport(userID uuid.UUID, group models.FinanceBreakdownGroup, filter *models.FinanceReportFilter) ([]models.FinanceBreakdownItem, error) {
-	businessIDs, err := s.getSellerBusinessIDs(userID)
-	if err != nil {
+	if group != models.FinanceBreakdownShop && group != models.FinanceBreakdownProduct {
+		return nil, errors.New("INVALID_GROUP")
+	}
+	if err := s.applySellerScope(userID, filter); err != nil {
 		return nil, err
 	}
-	if len(businessIDs) == 0 {
-		return []models.FinanceBreakdownItem{}, nil
-	}
-	filter.BusinessID = businessIDs[0].String()
 	return s.commRepo.GetBreakdownReport(group, filter)
 }
 
-// ListSellerSales lists per-sale financial records for a seller user.
-func (s *CommissionService) ListSellerSales(userID uuid.UUID, filter *models.CommissionFilter) ([]models.SaleCommission, int, error) {
+// ListSellerSales lists the seller's complete sales history.
+func (s *CommissionService) ListSellerSales(userID uuid.UUID, filter *models.CommissionFilter) ([]models.SaleHistoryItem, int, error) {
 	businessIDs, err := s.getSellerBusinessIDs(userID)
 	if err != nil {
 		return nil, 0, err
 	}
-	if len(businessIDs) == 0 {
-		return []models.SaleCommission{}, 0, nil
-	}
-	filter.BusinessID = businessIDs[0].String()
+	filter.BusinessIDs = businessIDs
+	filter.SellerID = ""
 	return s.commRepo.ListCommissions(filter)
 }
 
+// applySellerScope narrows a report to the businesses the caller owns. Scoping
+// by business (not by orders.created_by) is what makes the seller see EVERY
+// sale of their business, including orders an employee or the buyer created.
+// A caller-supplied shop_id is kept but can only narrow within that scope.
+func (s *CommissionService) applySellerScope(userID uuid.UUID, filter *models.FinanceReportFilter) error {
+	businessIDs, err := s.getSellerBusinessIDs(userID)
+	if err != nil {
+		return err
+	}
+	filter.BusinessIDs = businessIDs
+	filter.SellerID = ""
+	filter.BusinessID = ""
+	return nil
+}
+
 // GetSellerSaleDetail retrieves per-sale financial detail for a seller.
-func (s *CommissionService) GetSellerSaleDetail(userID uuid.UUID, orderID uuid.UUID) (*models.SaleCommission, error) {
+func (s *CommissionService) GetSellerSaleDetail(userID uuid.UUID, orderID uuid.UUID) (*models.SaleFinanceDetail, error) {
 	comm, err := s.commRepo.GetByOrderID(orderID)
 	if err != nil {
 		return nil, err
@@ -267,7 +350,16 @@ func (s *CommissionService) GetSellerSaleDetail(userID uuid.UUID, orderID uuid.U
 		return nil, errors.New("FORBIDDEN")
 	}
 
-	return comm, nil
+	return s.commRepo.GetSaleFinanceDetail(orderID)
+}
+
+// GetSaleFinanceDetail exposes the same drill-down to Finance Admin.
+func (s *CommissionService) GetSaleFinanceDetail(orderID uuid.UUID) (*models.SaleFinanceDetail, error) {
+	detail, err := s.commRepo.GetSaleFinanceDetail(orderID)
+	if detail == nil && err == nil {
+		return nil, errors.New("COMMISSION_NOT_FOUND")
+	}
+	return detail, err
 }
 
 func (s *CommissionService) getSellerBusinessIDs(userID uuid.UUID) ([]uuid.UUID, error) {
@@ -275,7 +367,7 @@ func (s *CommissionService) getSellerBusinessIDs(userID uuid.UUID) ([]uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
-	var ids []uuid.UUID
+	ids := []uuid.UUID{}
 	for _, b := range businesses {
 		ids = append(ids, b.ID)
 	}

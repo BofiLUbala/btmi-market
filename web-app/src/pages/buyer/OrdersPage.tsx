@@ -188,14 +188,14 @@ function OrdersInner() {
         const total = order.final_total + order.delivery_fee_final
         return <article key={order.id} className="card buyer-order-card">
           <div className="row-between buyer-order-head"><div><div className="eyebrow">{t('orders.eyebrow')}</div><h2>{order.order_number || order.id.slice(0, 8).toUpperCase()}</h2><div className="small muted">{formatDateTime(order.created_at)}</div></div><StatusBadge status={order.status} /></div>
-          <div className="buyer-order-shop"><span className="muted small">{t('orders.shop')}</span><strong>{detail.shop_name || t('orders.shopUnavailable')}</strong></div>
+          <div className="buyer-order-shop"><span className="muted small">{t('orders.shop')}</span><strong>{detail.shop_name || t('orders.shopUnavailable')}</strong>{detail.business_name ? <span className="small muted"> · {detail.business_name}</span> : null}{detail.seller_name ? <span className="small muted"> · {detail.seller_name}</span> : null}</div>
           <div className="stack buyer-order-lines">
             {detail.lines.map((line) => {
               const price = line.final_unit_price
               return <div className="cart-line" key={line.id}>
                 <div className="cart-line-thumb">{line.image_url ? <img src={line.image_url} alt="" /> : initials(line.product_name || t('orders.product'))}</div>
                 <div className="stack" style={{ gap: 2, flex: 1 }}>
-                  <strong>{line.product_name || t('orders.productWithId', { id: line.product_id.slice(0, 8) })}</strong>
+                  <Link to={`/products/${line.product_id}`}><strong>{line.product_name || t('orders.productWithId', { id: line.product_id.slice(0, 8) })}</strong></Link>
                   <span className="small muted">{t('orders.variantWithLabel', { variant: variantLabel(line, t) })}</span>
                   <span className="small muted">{t('orders.quantityUnitPrice', { quantity: line.quantity, price: formatMoney(price) })}</span>
                   <ReviewAction orderId={order.id} lineId={line.id} completed={order.status === 'COMPLETED'} />

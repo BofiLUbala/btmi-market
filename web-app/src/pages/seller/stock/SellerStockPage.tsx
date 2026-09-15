@@ -14,6 +14,8 @@ interface InventoryRow {
     quantity: number
     reserved_quantity: number
     available: number
+    stock_status?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+    low_stock_threshold?: number
     updated_at: string
   }
   variant?: {
@@ -172,7 +174,7 @@ export default function SellerStockPage() {
                         </td>
                         <td className="num">{row.inventory.quantity}</td>
                         <td className="num">{row.inventory.reserved_quantity}</td>
-                        <td className={`num ${row.inventory.available <= 5 ? 'danger' : 'success'}`}>{row.inventory.available}</td>
+                        <td className={`num ${row.inventory.stock_status === 'OUT_OF_STOCK' || (row.inventory.stock_status === 'LOW_STOCK' && row.inventory.available <= 0) ? 'danger' : row.inventory.stock_status === 'LOW_STOCK' ? 'warning' : 'success'}`}>{row.inventory.available}</td>
                         <td>
                           <div className="row-sm" style={{ flexWrap: 'nowrap' }}>
                             <input

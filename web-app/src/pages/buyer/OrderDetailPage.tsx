@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import { ApiError, type BuyerPayment, type OrderLine, type OrderWithLines } from '@/api/types'
+import { ApiError, type BuyerPayment, type OrderLine, type OrderWithLines, type ProductVerification } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
@@ -181,6 +181,7 @@ function PayNowCard({ orderId, payment, onDone }: { orderId: string; payment: Bu
   const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
   const [instructions, setInstructions] = useState('')
 
   if (!payment || payment.payment_method === 'CASH_ON_DELIVERY') return null
@@ -294,6 +295,10 @@ function OrderInner() {
   const [refreshing, setRefreshing] = useState(false)
   const [statusFlash, setStatusFlash] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [productNumber, setProductNumber] = useState('')
+  const [productToken, setProductToken] = useState('')
+  const [productVerification, setProductVerification] = useState<ProductVerification | null>(null)
+  const [verificationError, setVerificationError] = useState('')
   const prevStatusRef = useRef<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [, setTick] = useState(0)
@@ -400,6 +405,19 @@ function OrderInner() {
     }
   }
 
+  async function verifyProduct(mode: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER') {
+    setBusy(true); setVerificationError('')
+    try {
+      const body = mode === 'QR_SCAN' ? { token: productToken.trim() } : { product_number: productNumber.trim() }
+      setProductVerification(await buyerApi.verifyProduct(orderId, body))
+    } catch (e) {
+      setProductVerification(null)
+      setVerificationError(e instanceof ApiError && e.code === 'PRODUCT_MISMATCH'
+        ? 'Ce produit ne correspond pas à votre commande.'
+        : (e instanceof Error ? e.message : 'Vérification impossible.'))
+    } finally { setBusy(false) }
+  }
+
   if (loading) return <LoadingBlock label={t('orders.loading')} />
   if (error || !data) return <ErrorBox error={error || t('orders.notFound')} onRetry={() => void load()} />
 
@@ -440,7 +458,7 @@ function OrderInner() {
         <StatusBadge status={o.status} />
       </div>
       <div className="small muted">{formatDateTime(o.created_at)}</div>
-      <div className="small" style={{ marginTop: 6 }}><span className="muted">{t('orders.shop')}:</span> <strong>{data.shop_name || t('orders.shopUnavailable')}</strong></div>
+      <div className="small" style={{ marginTop: 6 }}><span className="muted">{t('orders.shop')}:</span> <strong>{data.shop_name || t('orders.shopUnavailable')}</strong>{data.business_name ? <span className="muted"> · {data.business_name}</span> : null}{data.seller_name ? <span className="muted"> · {data.seller_name}</span> : null}</div>
 
       {error && <ErrorBox error={error} />}
 
@@ -555,6 +573,24 @@ function OrderInner() {
 
           <div className="card stack">
             <h2 style={{ fontSize: '1.1rem' }}>{t('orders.actions')}</h2>
+            {['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '') && (
+              <div className="stack">
+                <strong>Vérifier le produit reçu</strong>
+                <label className="small">Numéro du produit</label>
+                <input value={productNumber} onChange={(e) => setProductNumber(e.target.value)} placeholder="VAR-00000000" />
+                <Button variant="outline" loading={busy} disabled={!productNumber.trim()} onClick={() => verifyProduct('MANUAL_PRODUCT_NUMBER')}>Vérifier le numéro</Button>
+                <label className="small">Contenu du QR produit</label>
+                <input value={productToken} onChange={(e) => setProductToken(e.target.value)} placeholder="tbk.p.…" />
+                <Button variant="outline" loading={busy} disabled={!productToken.trim()} onClick={() => verifyProduct('QR_SCAN')}>Scanner / vérifier le QR</Button>
+                {verificationError && <div className="checkout-inline-error">{verificationError}</div>}
+                {productVerification && <div className="checkout-inline-success">
+                  <strong>Produit vérifié ✓</strong><br />
+                  {productVerification.product_name} · {productVerification.product_number}<br />
+                  {productVerification.shop} · {productVerification.variant}<br />
+                  Quantité {productVerification.quantity} · {formatMoney(productVerification.unit_price, productVerification.currency)} / unité · {formatMoney(productVerification.product_total, productVerification.currency)}
+                </div>}
+              </div>
+            )}
             {o.status === 'PENDING' && (
               <>
                 {needsDelivery && (
@@ -572,7 +608,7 @@ function OrderInner() {
                 <Button block>{t('orders.trackOrder')}</Button>
               </Link>
             )}
-            {!needsDelivery && ((o.delivery_method === 'PICKUP' && o.status === 'READY_FOR_PICKUP') || (o.delivery_method !== 'PICKUP' && o.status === 'DELIVERED')) && (
+            {!needsDelivery && productVerification && ((o.delivery_method === 'PICKUP' && o.status === 'READY_FOR_PICKUP') || (o.delivery_method !== 'PICKUP' && o.status === 'DELIVERED')) && (
               <Button
                 onClick={async () => {
                   await buyerApi.confirmReceived(orderId)

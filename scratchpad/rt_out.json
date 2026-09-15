@@ -1,0 +1,446 @@
+{
+  "seller_dashboard": {
+    "gross_sales": 5698,
+    "commission_amount": 170.94,
+    "seller_net_amount": 5527.06,
+    "collected_commission": 0,
+    "due_commission": 170.94,
+    "waived_commission": 0,
+    "collected_cash": 7281.96,
+    "verified_sales": 7,
+    "refunded_sales": 0,
+    "pending_orders": 61,
+    "commission_rate": 3,
+    "currency": "USD",
+    "mixed_currency": false,
+    "totals_by_currency": [
+      {
+        "currency": "USD",
+        "gross_sales": 5698,
+        "commission_amount": 170.94,
+        "seller_net_amount": 5527.06,
+        "collected_commission": 0,
+        "due_commission": 170.94,
+        "verified_sales": 7
+      }
+    ]
+  },
+  "seller_summary": {
+    "gross_sales": 5698,
+    "tbk_commission_total": 170.94,
+    "seller_net_revenue": 5527.06,
+    "commission_due": 170.94,
+    "commission_collected": 0,
+    "total_completed_sales": 7
+  },
+  "admin_seller_dash": {
+    "gross_sales": 5698,
+    "commission_amount": 170.94,
+    "seller_net_amount": 5527.06,
+    "collected_commission": 0,
+    "due_commission": 170.94,
+    "waived_commission": 0,
+    "collected_cash": 7281.96,
+    "verified_sales": 7,
+    "refunded_sales": 0,
+    "pending_orders": 61,
+    "commission_rate": 3,
+    "currency": "USD",
+    "mixed_currency": false,
+    "totals_by_currency": [
+      {
+        "currency": "USD",
+        "gross_sales": 5698,
+        "commission_amount": 170.94,
+        "seller_net_amount": 5527.06,
+        "collected_commission": 0,
+        "due_commission": 170.94,
+        "verified_sales": 7
+      }
+    ]
+  },
+  "admin_global_dash": {
+    "gross_sales": 18298,
+    "commission_amount": 548.94,
+    "seller_net_amount": 17749.06,
+    "collected_commission": 0,
+    "due_commission": 548.94,
+    "waived_commission": 0,
+    "collected_cash": 19881.96,
+    "verified_sales": 8,
+    "refunded_sales": 0,
+    "pending_orders": 68,
+    "commission_rate": 3,
+    "currency": "USD",
+    "mixed_currency": false,
+    "totals_by_currency": [
+      {
+        "currency": "USD",
+        "gross_sales": 18298,
+        "commission_amount": 548.94,
+        "seller_net_amount": 17749.06,
+        "collected_commission": 0,
+        "due_commission": 548.94,
+        "verified_sales": 8
+      }
+    ]
+  },
+  "seller_sales_total": 7,
+  "seller_sales": [
+    {
+      "n": "BTMI-1221",
+      "gross": 999,
+      "comm": 29.97,
+      "net": 969.03,
+      "cur": "USD",
+      "st": "DUE",
+      "pay": "VERIFIED",
+      "del": "PENDING_TBK_ASSIGNMENT",
+      "qty": 1,
+      "buyer": "Jean Tester"
+    },
+    {
+      "n": "BTMI-1214",
+      "gross": 999,
+      "comm": 29.97,
+      "net": 969.03,
+      "cur": "USD",
+      "st": "DUE",
+      "pay": "VERIFIED",
+      "del": "PENDING_TBK_ASSIGNMENT",
+      "qty": 1,
+      "buyer": "Jean Tester"
+    },
+    {
+      "n": "BTMI-1200",
+      "gross": 1100,
+      "comm": 33,
+      "net": 1067,
+      "cur": "USD",
+      "st": "DUE",
+      "pay": "VERIFIED",
+      "del": "PENDING_TBK_ASSIGNMENT",
+      "qty": 1,
+      "buyer": "Jean Tester"
+    },
+    {
+      "n": "BTMI-1194",
+      "gross": 1100,
+      "comm": 33,
+      "net": 1067,
+      "cur": "USD",
+      "st": "DUE",
+      "pay": "VERIFIED",
+      "del": "DELIVERED",
+      "qty": 1,
+      "buyer": "Jean Tester"
+    },
+    {
+      "n": "BTMI-1193",
+      "gross": 1100,
+      "comm": 33,
+      "net": 1067,
+      "cur": "USD",
+      "st": "DUE",
+      "pay": "VERIFIED",
+      "del": "PENDING_TBK_ASSIGNMENT",
+      "qty": 1,
+      "buyer": "Jean Tester"
+    },
+    {
+      "n": "BTMI-1150",
+      "gross": 200,
+      "comm": 6,
+      "net": 194,
+      "cur": "USD",
+      "st": "DUE",
+      "pay": "VERIFIED",
+      "del": "PENDING_TBK_ASSIGNMENT",
+      "qty": 2,
+      "buyer": "Jean Tester"
+    },
+    {
+      "n": "BTMI-1149",
+      "gross": 200,
+      "comm": 6,
+      "net": 194,
+      "cur": "USD",
+      "st": "DUE",
+      "pay": "VERIFIED",
+      "del": "PENDING_TBK_ASSIGNMENT",
+      "qty": 2,
+      "buyer": "Jean Tester"
+    }
+  ],
+  "admin_sales_total": 7,
+  "admin_sales": [
+    {
+      "n": "BTMI-1221",
+      "gross": 999,
+      "comm": 29.97,
+      "net": 969.03,
+      "cur": "USD",
+      "st": "DUE"
+    },
+    {
+      "n": "BTMI-1214",
+      "gross": 999,
+      "comm": 29.97,
+      "net": 969.03,
+      "cur": "USD",
+      "st": "DUE"
+    },
+    {
+      "n": "BTMI-1200",
+      "gross": 1100,
+      "comm": 33,
+      "net": 1067,
+      "cur": "USD",
+      "st": "DUE"
+    },
+    {
+      "n": "BTMI-1194",
+      "gross": 1100,
+      "comm": 33,
+      "net": 1067,
+      "cur": "USD",
+      "st": "DUE"
+    },
+    {
+      "n": "BTMI-1193",
+      "gross": 1100,
+      "comm": 33,
+      "net": 1067,
+      "cur": "USD",
+      "st": "DUE"
+    },
+    {
+      "n": "BTMI-1150",
+      "gross": 200,
+      "comm": 6,
+      "net": 194,
+      "cur": "USD",
+      "st": "DUE"
+    },
+    {
+      "n": "BTMI-1149",
+      "gross": 200,
+      "comm": 6,
+      "net": 194,
+      "cur": "USD",
+      "st": "DUE"
+    }
+  ],
+  "seller_shop_breakdown": {
+    "group": "shop",
+    "items": [
+      {
+        "id": "3508cff2-3093-4294-ba38-45285cb0a8ca",
+        "label": "Runtime Shop",
+        "gross_sales": 5698,
+        "commission_amount": 170.94,
+        "seller_net_amount": 5527.06,
+        "collected": 0,
+        "due": 170.94,
+        "sales_count": 7,
+        "currency": "USD"
+      }
+    ]
+  },
+  "seller_product_breakdown": {
+    "group": "product",
+    "items": [
+      {
+        "id": "42491c01-bfaa-442b-956a-148d0dbc7a3f",
+        "label": "QA Fashion Shoes 20260914",
+        "gross_sales": 3300,
+        "commission_amount": 99,
+        "seller_net_amount": 3201,
+        "collected": 0,
+        "due": 99,
+        "sales_count": 3,
+        "currency": "USD"
+      },
+      {
+        "id": "28f4fdcc-2135-44a8-ab72-a56388b80ba8",
+        "label": "QA Draft Missing Age 20260914",
+        "gross_sales": 1998,
+        "commission_amount": 59.94,
+        "seller_net_amount": 1938.06,
+        "collected": 0,
+        "due": 59.94,
+        "sales_count": 2,
+        "currency": "USD"
+      },
+      {
+        "id": "746fc9e7-3c76-48f0-8012-72c7cea2c2cc",
+        "label": "RT Shoes 1789277670",
+        "gross_sales": 400,
+        "commission_amount": 12,
+        "seller_net_amount": 388,
+        "collected": 0,
+        "due": 12,
+        "sales_count": 2,
+        "currency": "USD"
+      }
+    ]
+  },
+  "admin_shop_breakdown": {
+    "group": "shop",
+    "items": [
+      {
+        "id": "3508cff2-3093-4294-ba38-45285cb0a8ca",
+        "label": "Runtime Shop",
+        "gross_sales": 5698,
+        "commission_amount": 170.94,
+        "seller_net_amount": 5527.06,
+        "collected": 0,
+        "due": 170.94,
+        "sales_count": 7,
+        "currency": "USD"
+      }
+    ]
+  },
+  "admin_product_breakdown": {
+    "group": "product",
+    "items": [
+      {
+        "id": "42491c01-bfaa-442b-956a-148d0dbc7a3f",
+        "label": "QA Fashion Shoes 20260914",
+        "gross_sales": 3300,
+        "commission_amount": 99,
+        "seller_net_amount": 3201,
+        "collected": 0,
+        "due": 99,
+        "sales_count": 3,
+        "currency": "USD"
+      },
+      {
+        "id": "28f4fdcc-2135-44a8-ab72-a56388b80ba8",
+        "label": "QA Draft Missing Age 20260914",
+        "gross_sales": 1998,
+        "commission_amount": 59.94,
+        "seller_net_amount": 1938.06,
+        "collected": 0,
+        "due": 59.94,
+        "sales_count": 2,
+        "currency": "USD"
+      },
+      {
+        "id": "746fc9e7-3c76-48f0-8012-72c7cea2c2cc",
+        "label": "RT Shoes 1789277670",
+        "gross_sales": 400,
+        "commission_amount": 12,
+        "seller_net_amount": 388,
+        "collected": 0,
+        "due": 12,
+        "sales_count": 2,
+        "currency": "USD"
+      }
+    ]
+  },
+  "seller_detail": {
+    "sale": {
+      "id": "59be5e5d-bf42-422d-87ee-1a136f967fc5",
+      "order_id": "907b4032-ff7e-49b8-ac54-378b39266303",
+      "order_number": "BTMI-1221",
+      "payment_id": "2a09ced1-b61b-4d3a-a02d-b0c7db54c99c",
+      "business_id": "7310cf83-5a7c-4773-8f33-62c4422d5447",
+      "business_name": "Runtime Biz",
+      "shop_id": "3508cff2-3093-4294-ba38-45285cb0a8ca",
+      "shop_name": "Runtime Shop",
+      "seller_user_id": "62dea746-a595-4f31-862c-1160e21e35d8",
+      "seller_name": "Runtime Seller",
+      "gross_amount": 999,
+      "commission_base": 999,
+      "commission_rate": 3,
+      "commission_amount": 29.97,
+      "currency": "USD",
+      "seller_net_amount": 969.03,
+      "status": "DUE",
+      "calculated_at": "2026-09-14T23:44:18.799509Z",
+      "notes": "",
+      "created_at": "2026-09-14T23:44:18.799509Z",
+      "updated_at": "2026-09-14T23:44:18.799509Z"
+    },
+    "buyer_name": "Jean Tester",
+    "payment_method": "MOBILE_PAY_NOW",
+    "payment_status": "VERIFIED",
+    "order_status": "PENDING",
+    "delivery_method": "TBK_STANDARD",
+    "delivery_status": "PENDING_TBK_ASSIGNMENT",
+    "payment_markup": 19.98,
+    "delivery_fee": 0,
+    "products_subtotal": 999,
+    "final_total": 1018.98,
+    "ordered_at": "2026-09-14T23:44:11.804277Z",
+    "verified_at": "2026-09-14T23:44:18.255914Z",
+    "lines": [
+      {
+        "product_id": "28f4fdcc-2135-44a8-ab72-a56388b80ba8",
+        "product_name": "QA Draft Missing Age 20260914",
+        "product_sku": "",
+        "variant_id": "b5023fcf-865a-4234-915e-0a126b276f2a",
+        "variant_name": "QA Draft Missing Age 20260914 — Variante 1",
+        "variant_sku": "",
+        "quantity": 1,
+        "unit_price": 999,
+        "points_discount": 0,
+        "final_unit_price": 999,
+        "gross_amount": 999
+      }
+    ]
+  },
+  "admin_detail": {
+    "sale": {
+      "id": "59be5e5d-bf42-422d-87ee-1a136f967fc5",
+      "order_id": "907b4032-ff7e-49b8-ac54-378b39266303",
+      "order_number": "BTMI-1221",
+      "payment_id": "2a09ced1-b61b-4d3a-a02d-b0c7db54c99c",
+      "business_id": "7310cf83-5a7c-4773-8f33-62c4422d5447",
+      "business_name": "Runtime Biz",
+      "shop_id": "3508cff2-3093-4294-ba38-45285cb0a8ca",
+      "shop_name": "Runtime Shop",
+      "seller_user_id": "62dea746-a595-4f31-862c-1160e21e35d8",
+      "seller_name": "Runtime Seller",
+      "gross_amount": 999,
+      "commission_base": 999,
+      "commission_rate": 3,
+      "commission_amount": 29.97,
+      "currency": "USD",
+      "seller_net_amount": 969.03,
+      "status": "DUE",
+      "calculated_at": "2026-09-14T23:44:18.799509Z",
+      "notes": "",
+      "created_at": "2026-09-14T23:44:18.799509Z",
+      "updated_at": "2026-09-14T23:44:18.799509Z"
+    },
+    "buyer_name": "Jean Tester",
+    "payment_method": "MOBILE_PAY_NOW",
+    "payment_status": "VERIFIED",
+    "order_status": "PENDING",
+    "delivery_method": "TBK_STANDARD",
+    "delivery_status": "PENDING_TBK_ASSIGNMENT",
+    "payment_markup": 19.98,
+    "delivery_fee": 0,
+    "products_subtotal": 999,
+    "final_total": 1018.98,
+    "ordered_at": "2026-09-14T23:44:11.804277Z",
+    "verified_at": "2026-09-14T23:44:18.255914Z",
+    "lines": [
+      {
+        "product_id": "28f4fdcc-2135-44a8-ab72-a56388b80ba8",
+        "product_name": "QA Draft Missing Age 20260914",
+        "product_sku": "",
+        "variant_id": "b5023fcf-865a-4234-915e-0a126b276f2a",
+        "variant_name": "QA Draft Missing Age 20260914 — Variante 1",
+        "variant_sku": "",
+        "quantity": 1,
+        "unit_price": 999,
+        "points_discount": 0,
+        "final_unit_price": 999,
+        "gross_amount": 999
+      }
+    ]
+  }
+}

@@ -193,6 +193,7 @@ export interface PublicProduct {
   description: string
   unit: string
   base_price: number
+  currency?: string
   category_id?: string | null
   category_name?: string | null
   category_slug?: string | null
@@ -240,6 +241,7 @@ export interface PublicProductDetail {
   description: string
   unit: string
   base_price: number
+  currency?: string
   category_id?: string | null
   subcategory_id?: string | null
   category?: CategoryResponse
@@ -557,6 +559,7 @@ export interface BuyerOrder {
   delivery_city_id?: string
   delivery_commune_id?: string
   delivery_notes: string
+  delivery_status?: string
   points_finalized: boolean
   accepted_at?: string | null
   preparing_at?: string | null
@@ -603,6 +606,8 @@ export interface OrderWithLines {
   lines: OrderLine[]
   history?: OrderStatusHistory[]
   shop_name: string
+  business_name?: string
+  seller_name?: string
 }
 
 export interface BuyerCreateOrderRequest {
@@ -741,6 +746,25 @@ export interface DeliveryPackageQR extends QRIdentity {
   pickup_verified_at?: string | null
   delivery_scanned_at?: string | null
   receipt_confirmed_at?: string | null
+}
+
+export interface ProductVerification {
+  result: 'SUCCESS'
+  order_id: string
+  order_reference: string
+  product_id: string
+  variant_id: string
+  product_name: string
+  product_number: string
+  seller: string
+  shop: string
+  variant: string
+  attributes: Record<string, unknown>
+  quantity: number
+  unit_price: number
+  product_total: number
+  currency: string
+  verification_method: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER'
 }
 
 export interface TrackingResponse {
@@ -1154,6 +1178,8 @@ export interface InventoryItem {
   quantity: number
   reserved_quantity: number
   available: number
+  stock_status?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+  low_stock_threshold?: number
   created_at: string
   updated_at: string
 }

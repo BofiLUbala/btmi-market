@@ -44,6 +44,8 @@ type AdminProductListItem struct {
 	ImageCount        int        `json:"image_count"`
 	VariantCount      int        `json:"variant_count"`
 	TotalAvailable    int        `json:"total_available"`
+	StockStatus       string     `json:"stock_status"` // IN_STOCK, LOW_STOCK, OUT_OF_STOCK
+	LowStockThreshold int        `json:"low_stock_threshold"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }
@@ -80,21 +82,22 @@ type AdminVisibilityReport struct {
 }
 
 type AdminInventoryItem struct {
-	InventoryID      uuid.UUID `json:"inventory_id"`
-	BusinessID       uuid.UUID `json:"business_id"`
-	BusinessName     string    `json:"business_name"`
-	ShopID           uuid.UUID `json:"shop_id"`
-	ShopName         string    `json:"shop_name"`
-	ProductID        uuid.UUID `json:"product_id"`
-	ProductName      string    `json:"product_name"`
-	VariantID        uuid.UUID `json:"variant_id"`
-	VariantName      string    `json:"variant_name"`
-	SKU              string    `json:"sku"`
-	Quantity         int       `json:"quantity"`
-	ReservedQuantity int       `json:"reserved_quantity"`
-	Available        int       `json:"available"`
-	StockStatus      string    `json:"stock_status"` // IN_STOCK, LOW_STOCK, OUT_OF_STOCK
-	UpdatedAt        time.Time `json:"updated_at"`
+	InventoryID       uuid.UUID `json:"inventory_id"`
+	BusinessID        uuid.UUID `json:"business_id"`
+	BusinessName      string    `json:"business_name"`
+	ShopID            uuid.UUID `json:"shop_id"`
+	ShopName          string    `json:"shop_name"`
+	ProductID         uuid.UUID `json:"product_id"`
+	ProductName       string    `json:"product_name"`
+	VariantID         uuid.UUID `json:"variant_id"`
+	VariantName       string    `json:"variant_name"`
+	SKU               string    `json:"sku"`
+	Quantity          int       `json:"quantity"`
+	ReservedQuantity  int       `json:"reserved_quantity"`
+	Available         int       `json:"available"`
+	StockStatus       string    `json:"stock_status"` // IN_STOCK, LOW_STOCK, OUT_OF_STOCK
+	LowStockThreshold int       `json:"low_stock_threshold"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type StockAnomaly struct {

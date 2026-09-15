@@ -46,6 +46,30 @@ type QRScanResponse struct {
 	RequiresBuyerConfirmation bool      `json:"requires_buyer_confirmation"`
 }
 
+type ProductVerificationRequest struct {
+	Token         string `json:"token"`
+	ProductNumber string `json:"product_number"`
+}
+
+type ProductVerificationResponse struct {
+	Result             string                 `json:"result"`
+	OrderID            uuid.UUID              `json:"order_id"`
+	OrderReference     string                 `json:"order_reference"`
+	ProductID          uuid.UUID              `json:"product_id"`
+	VariantID          uuid.UUID              `json:"variant_id"`
+	ProductName        string                 `json:"product_name"`
+	ProductNumber      string                 `json:"product_number"`
+	Seller             string                 `json:"seller"`
+	Shop               string                 `json:"shop"`
+	Variant            string                 `json:"variant"`
+	Attributes         map[string]interface{} `json:"attributes"`
+	Quantity           int                    `json:"quantity"`
+	UnitPrice          float64                `json:"unit_price"`
+	ProductTotal       float64                `json:"product_total"`
+	Currency           string                 `json:"currency"`
+	VerificationMethod string                 `json:"verification_method"`
+}
+
 type DeliveryScanEvent struct {
 	ID           uuid.UUID  `json:"id"`
 	ScanType     string     `json:"scan_type"`

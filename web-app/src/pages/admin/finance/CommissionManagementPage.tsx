@@ -1,11 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminCommissionSummary } from '@/api/admin'
+import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminSaleHistoryItem, type AdminCommissionSummary, type FinanceBreakdownItem } from '@/api/admin'
+
+// Amounts are shown in the currency of the sale itself. Never relabel a
+// historical CDF sale as USD (or XAF) just because the reader changed.
+const money = (value: number, currency?: string) =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'USD' }).format(value || 0)
+
+type SummaryCurrencyField = 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission'
 
 export default function CommissionManagementPage() {
 
   const [config, setConfig] = useState<AdminCommissionConfig | null>(null)
   const [summary, setSummary] = useState<AdminCommissionSummary | null>(null)
-  const [commissions, setCommissions] = useState<AdminCommissionItem[]>([])
+  const [commissions, setCommissions] = useState<AdminSaleHistoryItem[]>([])
   const [total, setTotal] = useState(0)
 
   const [loading, setLoading] = useState(true)
@@ -14,9 +21,13 @@ export default function CommissionManagementPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
+  // Breakdown state (TBK finance report per entity)
+  const [breakdownGroup, setBreakdownGroup] = useState<'shop' | 'product' | 'seller' | 'business'>('shop')
+  const [breakdownItems, setBreakdownItems] = useState<FinanceBreakdownItem[]>([])
+
   // Edit Rate Modal state
   const [editRateModal, setEditRateModal] = useState(false)
-  const [newRate, setNewRate] = useState<number>(3.0)
+  const [newRate, setNewRate] = useState<number>(0)
   const [changeReason, setChangeReason] = useState('')
   const [savingRate, setSavingRate] = useState(false)
 
@@ -26,9 +37,21 @@ export default function CommissionManagementPage() {
   const [savingCollection, setSavingCollection] = useState(false)
 
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [error, setError] = useState(false)
+
+  // Totals are rendered per currency so a CDF sale and a USD sale are never
+  // summed into one meaningless number.
+  const aggregateMoney = (field: SummaryCurrencyField, flat: number) => {
+    if (!summary) return ''
+    if (summary.totals_by_currency?.length) {
+      return summary.totals_by_currency.map((t) => money(t[field], t.currency)).join(' · ')
+    }
+    return money(flat, summary.currency)
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const [configRes, summaryRes, commsRes] = await Promise.all([
         adminFinanceApi.getCommissionConfig(),
@@ -46,7 +69,12 @@ export default function CommissionManagementPage() {
       setCommissions(commsRes.commissions || [])
       setTotal(commsRes.total || 0)
     } catch (err) {
+      // Never fall back to a fabricated 0: an unreachable finance API is an
+      // error the admin must see, not a platform with no revenue.
       console.error('Failed to load commission data', err)
+      setSummary(null)
+      setCommissions([])
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -55,6 +83,23 @@ export default function CommissionManagementPage() {
   useEffect(() => {
     void fetchData()
   }, [fetchData])
+
+  const loadBreakdown = useCallback(async () => {
+    try {
+      const res = await adminFinanceApi.getFinanceBreakdown({
+        group: breakdownGroup,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined
+      })
+      setBreakdownItems(res.items || [])
+    } catch (err) {
+      console.error('Failed to load finance breakdown', err)
+    }
+  }, [breakdownGroup, dateFrom, dateTo])
+
+  useEffect(() => {
+    void loadBreakdown()
+  }, [loadBreakdown])
 
   const handleUpdateRate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -143,7 +188,7 @@ export default function CommissionManagementPage() {
             COMMISSION SUR LES VENTES TBK
           </div>
           <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--admin-primary)', margin: '4px 0' }}>
-            {config ? config.rate.toFixed(2) : '3.00'} %
+            {config ? config.rate.toFixed(2) : '—'} %
           </div>
           <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>
             Taux actuel applicable automatiquement à toutes les nouvelles ventes vérifiées.
@@ -152,7 +197,7 @@ export default function CommissionManagementPage() {
 
         <button
           onClick={() => {
-            setNewRate(config?.rate || 3.0)
+            setNewRate(config?.rate ?? 0)
             setEditRateModal(true)
           }}
           style={{
@@ -173,39 +218,101 @@ export default function CommissionManagementPage() {
         </button>
       </div>
 
+      {error && (
+        <div role="alert" style={{ padding: 18, marginBottom: 20, borderRadius: 10, background: '#450a0a', border: '1px solid #991b1b', color: '#fecaca' }}>
+          <strong>Impossible de charger les données financières.</strong>
+          <button onClick={() => void fetchData()} style={{ marginLeft: 16, padding: '7px 14px', borderRadius: 7, cursor: 'pointer' }}>Réessayer</button>
+        </div>
+      )}
+
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+      {!error && summary && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Chiffre d'Affaires Brut</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--admin-text)', marginTop: 4 }}>
-            {(summary?.gross_sales || 0).toLocaleString()} XAF
+            {aggregateMoney('gross_sales', summary?.gross_sales || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission TBK Générée</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#818cf8', marginTop: 4 }}>
-            {(summary?.total_commission || 0).toLocaleString()} XAF
+            {aggregateMoney('commission_amount', summary?.total_commission || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission À Reverser (DUE)</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#eab308', marginTop: 4 }}>
-            {(summary?.due_commission || 0).toLocaleString()} XAF
+            {aggregateMoney('due_commission', summary?.due_commission || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission Réglée</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>
-            {(summary?.collected_commission || 0).toLocaleString()} XAF
+            {aggregateMoney('collected_commission', summary?.collected_commission || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Revenu Net Vendeurs</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#38bdf8', marginTop: 4 }}>
-            {(summary?.seller_net_revenue || 0).toLocaleString()} XAF
+            {aggregateMoney('seller_net_amount', summary?.seller_net_revenue || 0)}
           </div>
         </div>
+      </div>}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {(['shop', 'product', 'seller', 'business'] as const).map((g) => (
+          <button
+            key={g}
+            onClick={() => {
+              setBreakdownGroup(g)
+              void loadBreakdown()
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              border: '1px solid var(--admin-border)',
+              cursor: 'pointer',
+              backgroundColor: breakdownGroup === g ? 'var(--admin-primary)' : 'var(--admin-surface-2)',
+              color: breakdownGroup === g ? '#ffffff' : 'var(--admin-text-muted)',
+            }}
+          >
+            Répartition par {g}
+          </button>
+        ))}
       </div>
+
+      {loading ? null : (
+        <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', marginBottom: 20 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{breakdownGroup === 'product' ? 'Produit' : breakdownGroup === 'shop' ? 'Boutique' : breakdownGroup === 'seller' ? 'Vendeur' : 'Entreprise'}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Ventes</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Vente Brute</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission TBK</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Net Vendeur</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Réglée / Due</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakdownItems.length === 0 ? (
+                <tr><td colSpan={6} style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>Aucune commission dans cette répartition.</td></tr>
+              ) : breakdownItems.map((item) => (
+                <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
+                  <td style={{ padding: '12px 14px', fontWeight: 700 }}>{item.label}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right' }}>{item.sales_count}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700 }}>{money(item.gross_sales, item.currency)}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: '#818cf8' }}>{money(item.commission_amount, item.currency)}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: '#38bdf8' }}>{money(item.seller_net_amount, item.currency)}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--admin-text-muted)' }}>{money(item.collected, item.currency)} / {money(item.due, item.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -299,11 +406,16 @@ export default function CommissionManagementPage() {
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
                 <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commande</th>
                 <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Boutique / Vendeur</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Acheteur</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Produits / Variantes</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Qté</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Vente Brute</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Base Commission</th>
                 <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Taux TBK</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission TBK</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Net Vendeur</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiement</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livraison</th>
                 <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Statut</th>
                 <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Actions</th>
               </tr>
@@ -321,20 +433,40 @@ export default function CommissionManagementPage() {
                     <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{c.shop_name}</div>
                     <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{c.business_name}</div>
                   </td>
+                  <td style={{ padding: '12px 14px' }}>{c.buyer_name || '—'}</td>
+                  <td style={{ padding: '12px 14px', minWidth: 220 }}>
+                    {(c.lines || []).length === 0 ? '—' : (c.lines || []).map((line, i) => (
+                      <div key={`${c.id}-line-${i}`}>
+                        <span style={{ fontWeight: 600 }}>{line.product_name || '—'}</span>
+                        {line.variant_name ? <span style={{ color: 'var(--admin-text-muted)' }}> · {line.variant_name}</span> : null}
+                        <span style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
+                          {' '}({line.quantity} × {money(line.final_unit_price, c.currency)})
+                        </span>
+                      </div>
+                    ))}
+                  </td>
+                  <td style={{ textAlign: 'center', padding: '12px 14px', fontWeight: 700 }}>{c.total_quantity || 0}</td>
                   <td style={{ textAlign: 'right', padding: '12px 14px', fontWeight: 700 }}>
-                    {(c.gross_amount || 0).toLocaleString()} XAF
+                    {money(c.gross_amount, c.currency)}
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)' }}>
-                    {(c.commission_base || 0).toLocaleString()} XAF
+                    {money(c.commission_base, c.currency)}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 14px', fontWeight: 700, color: 'var(--admin-primary)' }}>
                     {c.commission_rate.toFixed(2)}%
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 14px', fontWeight: 800, color: '#818cf8' }}>
-                    {(c.commission_amount || 0).toLocaleString()} XAF
+                    {money(c.commission_amount, c.currency)}
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 14px', fontWeight: 800, color: '#38bdf8' }}>
-                    {(c.seller_net_amount || 0).toLocaleString()} XAF
+                    {money(c.seller_net_amount, c.currency)}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <div style={{ fontWeight: 600 }}>{c.payment_method || '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{c.payment_status || '—'}</div>
+                  </td>
+                  <td style={{ textAlign: 'center', padding: '12px 14px', fontSize: 12 }}>
+                    {c.delivery_status || c.delivery_method || c.order_status || '—'}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 14px' }}>
                     <span style={{
@@ -493,7 +625,7 @@ export default function CommissionManagementPage() {
               Confirmer l'Encaissement de la Commission
             </h3>
             <p style={{ fontSize: 13, color: 'var(--admin-text-muted)', marginBottom: 16 }}>
-              Commande <strong>#{collectModalItem.order_number}</strong> • Montant Commission: <strong style={{ color: '#818cf8' }}>{(collectModalItem.commission_amount || 0).toLocaleString()} XAF</strong>
+              Commande <strong>#{collectModalItem.order_number}</strong> • Montant Commission: <strong style={{ color: '#818cf8' }}>{money(collectModalItem.commission_amount, collectModalItem.currency)}</strong>
             </p>
 
             <form onSubmit={handleMarkCollected}>

@@ -8,7 +8,25 @@ import (
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
+
+// businessScopeClause renders the seller scope. An explicit but empty scope
+// means "this caller owns no business", which must match no sale rather than
+// silently widening to every sale on the platform.
+func businessScopeClause(ids []uuid.UUID, alias string, argIdx int) (string, interface{}, bool) {
+	if ids == nil {
+		return "", nil, false
+	}
+	if len(ids) == 0 {
+		return "FALSE", nil, false
+	}
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = id.String()
+	}
+	return fmt.Sprintf("%s.business_id = ANY($%d)", alias, argIdx), pq.Array(strs), true
+}
 
 type CommissionRepository struct {
 	db *sql.DB
@@ -32,6 +50,22 @@ func (r *CommissionRepository) GetCommissionRate() (float64, error) {
 		return 3.00, nil
 	}
 	return rate, nil
+}
+
+// GetBusinessOwnerUserID resolves the seller user that owns a business via the
+// OWNER business membership. This is the authoritative "seller" for an order
+// when no explicit creator (orders.created_by) is recorded.
+func (r *CommissionRepository) GetBusinessOwnerUserID(businessID uuid.UUID) (uuid.UUID, error) {
+	var ownerID uuid.UUID
+	err := r.db.QueryRow(`
+		SELECT user_id
+		FROM business_memberships
+		WHERE business_id = $1
+		  AND role = 'OWNER'
+		  AND (status = 'ACTIVE' OR status IS NULL)
+		ORDER BY joined_at ASC
+		LIMIT 1`, businessID).Scan(&ownerID)
+	return ownerID, err
 }
 
 // UpdateCommissionRate updates global_configs and appends an audit entry to platform_commission_history.
@@ -121,6 +155,7 @@ func (r *CommissionRepository) GetByOrderID(orderID uuid.UUID) (*models.SaleComm
 		SELECT c.id, c.order_id, o.order_number, c.payment_id, c.business_id, COALESCE(b.name,''),
 		       c.shop_id, COALESCE(s.name,''), c.seller_user_id, COALESCE(u.first_name || ' ' || u.last_name, u.email, ''),
 		       c.gross_amount, c.commission_base, c.commission_rate, c.commission_amount, c.seller_net_amount,
+		       c.currency,
 		       c.status, c.calculated_at, c.collected_at, c.collected_by, COALESCE(adm.first_name || ' ' || adm.last_name, adm.email, ''),
 		       c.notes, c.created_at, c.updated_at
 		FROM sale_commissions c
@@ -136,11 +171,18 @@ func (r *CommissionRepository) GetByOrderID(orderID uuid.UUID) (*models.SaleComm
 }
 
 // ListCommissions lists per-sale commission records matching filters.
-func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) ([]models.SaleCommission, int, error) {
+func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) ([]models.SaleHistoryItem, int, error) {
 	var where []string
 	var args []interface{}
 	argIdx := 1
 
+	if clause, arg, hasArg := businessScopeClause(filter.BusinessIDs, "c", argIdx); clause != "" {
+		where = append(where, clause)
+		if hasArg {
+			args = append(args, arg)
+			argIdx++
+		}
+	}
 	if filter.Status != "" {
 		where = append(where, fmt.Sprintf("c.status = $%d", argIdx))
 		args = append(args, filter.Status)
@@ -210,14 +252,20 @@ func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) 
 		SELECT c.id, c.order_id, o.order_number, c.payment_id, c.business_id, COALESCE(b.name,''),
 		       c.shop_id, COALESCE(s.name,''), c.seller_user_id, COALESCE(u.first_name || ' ' || u.last_name, u.email, ''),
 		       c.gross_amount, c.commission_base, c.commission_rate, c.commission_amount, c.seller_net_amount,
+		       c.currency,
 		       c.status, c.calculated_at, c.collected_at, c.collected_by, COALESCE(adm.first_name || ' ' || adm.last_name, adm.email, ''),
-		       c.notes, c.created_at, c.updated_at
+		       c.notes, c.created_at, c.updated_at,
+		       COALESCE(bp.first_name || ' ' || bp.last_name, bp.email, ''),
+		       COALESCE(pay.payment_method, ''), COALESCE(pay.status::text, ''),
+		       o.status::text, COALESCE(o.delivery_method, ''), COALESCE(o.delivery_status, '')
 		FROM sale_commissions c
 		JOIN orders o ON c.order_id = o.id
 		LEFT JOIN businesses b ON c.business_id = b.id
 		LEFT JOIN shops s ON c.shop_id = s.id
 		LEFT JOIN users u ON c.seller_user_id = u.id
 		LEFT JOIN users adm ON c.collected_by = adm.id
+		LEFT JOIN buyer_payments pay ON pay.order_id = c.order_id
+		LEFT JOIN buyer_profiles bp ON bp.id = COALESCE(pay.buyer_profile_id, o.buyer_profile_id)
 		%s
 		ORDER BY c.calculated_at DESC
 		LIMIT $%d OFFSET $%d
@@ -231,115 +279,123 @@ func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) 
 	}
 	defer rows.Close()
 
-	var items []models.SaleCommission
+	items := []models.SaleHistoryItem{}
+	orderIDs := []string{}
 	for rows.Next() {
-		item, err := r.scanCommissionRows(rows)
+		item, err := r.scanHistoryRow(rows)
 		if err != nil {
 			return nil, 0, err
 		}
 		items = append(items, *item)
+		orderIDs = append(orderIDs, item.OrderID.String())
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	// Attach the product/variant snapshots of this page in one round trip so
+	// the history table can show what was actually sold, not just totals.
+	linesByOrder, err := r.linesForOrders(orderIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := range items {
+		lines := linesByOrder[items[i].OrderID.String()]
+		if lines == nil {
+			lines = []models.SaleFinanceLine{}
+		}
+		items[i].Lines = lines
+		for _, line := range lines {
+			items[i].TotalQuantity += line.Quantity
+		}
 	}
 
 	return items, total, nil
 }
 
-// GetSummary computes aggregate KPI statistics for Finance Admin.
-func (r *CommissionRepository) GetSummary(filter *models.CommissionFilter) (*models.CommissionSummary, error) {
-	var where []string
-	var args []interface{}
-	argIdx := 1
-
-	if filter.BusinessID != "" {
-		where = append(where, fmt.Sprintf("c.business_id = $%d", argIdx))
-		args = append(args, filter.BusinessID)
-		argIdx++
+// linesForOrders loads the order-line snapshots for a page of sales, keyed by
+// order id. Same snapshot source as the per-order drill-down.
+func (r *CommissionRepository) linesForOrders(orderIDs []string) (map[string][]models.SaleFinanceLine, error) {
+	result := map[string][]models.SaleFinanceLine{}
+	if len(orderIDs) == 0 {
+		return result, nil
 	}
-	if filter.ShopID != "" {
-		where = append(where, fmt.Sprintf("c.shop_id = $%d", argIdx))
-		args = append(args, filter.ShopID)
-		argIdx++
-	}
-	if filter.DateFrom != "" {
-		where = append(where, fmt.Sprintf("c.calculated_at >= $%d", argIdx))
-		args = append(args, filter.DateFrom)
-		argIdx++
-	}
-	if filter.DateTo != "" {
-		where = append(where, fmt.Sprintf("c.calculated_at <= $%d", argIdx))
-		args = append(args, filter.DateTo)
-		argIdx++
-	}
-
-	whereClause := ""
-	if len(where) > 0 {
-		whereClause = "WHERE " + strings.Join(where, " AND ")
-	}
-
-	query := fmt.Sprintf(`
-		SELECT
-			COALESCE(SUM(c.gross_amount), 0),
-			COALESCE(SUM(c.commission_amount), 0),
-			COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
-			COALESCE(SUM(c.seller_net_amount), 0),
-			COUNT(c.id)
-		FROM sale_commissions c
-		%s
-	`, whereClause)
-
-	summary := &models.CommissionSummary{}
-	err := r.db.QueryRow(query, args...).Scan(
-		&summary.GrossSales,
-		&summary.TotalCommission,
-		&summary.CollectedCommission,
-		&summary.DueCommission,
-		&summary.SellerNetRevenue,
-		&summary.TotalVerifiedSales,
-	)
+	rows, err := r.db.Query(`
+		SELECT ol.order_id, ol.product_id, COALESCE(NULLIF(ol.product_name, ''), p.name, ''), COALESCE(ol.product_sku, ''),
+		       ol.variant_id, COALESCE(NULLIF(ol.variant_name, ''), v.name, ''), COALESCE(ol.variant_sku, ''),
+		       ol.quantity, ol.base_unit_price, ol.points_discount_per_unit,
+		       ol.final_unit_price, ROUND(ol.final_unit_price * ol.quantity, 2)
+		FROM order_lines ol
+		LEFT JOIN products p ON p.id = ol.product_id
+		LEFT JOIN product_variants v ON v.id = ol.variant_id
+		WHERE ol.order_id = ANY($1)
+		ORDER BY ol.created_at, ol.id`, pq.Array(orderIDs))
 	if err != nil {
 		return nil, err
 	}
-	return summary, nil
+	defer rows.Close()
+	for rows.Next() {
+		var orderID string
+		var line models.SaleFinanceLine
+		var productID, variantID sql.NullString
+		if err := rows.Scan(&orderID, &productID, &line.ProductName, &line.ProductSKU, &variantID,
+			&line.VariantName, &line.VariantSKU, &line.Quantity, &line.UnitPrice,
+			&line.PointsDiscount, &line.FinalUnitPrice, &line.GrossAmount); err != nil {
+			return nil, err
+		}
+		if productID.Valid {
+			if id, parseErr := uuid.Parse(productID.String); parseErr == nil {
+				line.ProductID = &id
+			}
+		}
+		if variantID.Valid {
+			if id, parseErr := uuid.Parse(variantID.String); parseErr == nil {
+				line.VariantID = &id
+			}
+		}
+		result[orderID] = append(result[orderID], line)
+	}
+	return result, rows.Err()
 }
 
-// GetSellerSummary computes aggregate financial KPI summary for a seller's business IDs.
-func (r *CommissionRepository) GetSellerSummary(businessIDs []uuid.UUID) (*models.SellerFinanceSummary, error) {
-	if len(businessIDs) == 0 {
-		return &models.SellerFinanceSummary{}, nil
-	}
+// scanHistoryRow scans the commission snapshot plus its buyer / payment /
+// delivery context into one history row.
+func (r *CommissionRepository) scanHistoryRow(rows *sql.Rows) (*models.SaleHistoryItem, error) {
+	var item models.SaleHistoryItem
+	c := &item.SaleCommission
+	var paymentID, sellerID, collectedBy sql.NullString
+	var collectedAt sql.NullTime
 
-	placeholders := make([]string, len(businessIDs))
-	args := make([]interface{}, len(businessIDs))
-	for i, id := range businessIDs {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-		args[i] = id
-	}
-
-	query := fmt.Sprintf(`
-		SELECT
-			COALESCE(SUM(gross_amount), 0),
-			COALESCE(SUM(commission_amount), 0),
-			COALESCE(SUM(seller_net_amount), 0),
-			COALESCE(SUM(CASE WHEN status = 'DUE' THEN commission_amount ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN status = 'COLLECTED' THEN commission_amount ELSE 0 END), 0),
-			COUNT(id)
-		FROM sale_commissions
-		WHERE business_id IN (%s)
-	`, strings.Join(placeholders, ","))
-
-	summary := &models.SellerFinanceSummary{}
-	err := r.db.QueryRow(query, args...).Scan(
-		&summary.GrossSales,
-		&summary.TBKCommissionTotal,
-		&summary.SellerNetRevenue,
-		&summary.CommissionDue,
-		&summary.CommissionCollected,
-		&summary.TotalCompletedSales,
+	err := rows.Scan(
+		&c.ID, &c.OrderID, &c.OrderNumber, &paymentID, &c.BusinessID, &c.BusinessName,
+		&c.ShopID, &c.ShopName, &sellerID, &c.SellerName,
+		&c.GrossAmount, &c.CommissionBase, &c.CommissionRate, &c.CommissionAmount, &c.SellerNetAmount, &c.Currency,
+		&c.Status, &c.CalculatedAt, &collectedAt, &collectedBy, &c.CollectorName,
+		&c.Notes, &c.CreatedAt, &c.UpdatedAt,
+		&item.BuyerName, &item.PaymentMethod, &item.PaymentStatus,
+		&item.OrderStatus, &item.DeliveryMethod, &item.DeliveryStatus,
 	)
 	if err != nil {
 		return nil, err
 	}
-	return summary, nil
+
+	if paymentID.Valid {
+		id, _ := uuid.Parse(paymentID.String)
+		c.PaymentID = &id
+	}
+	if sellerID.Valid {
+		id, _ := uuid.Parse(sellerID.String)
+		c.SellerUserID = &id
+	}
+	if collectedBy.Valid {
+		id, _ := uuid.Parse(collectedBy.String)
+		c.CollectedBy = &id
+	}
+	if collectedAt.Valid {
+		c.CollectedAt = &collectedAt.Time
+	}
+
+	return &item, nil
 }
 
 // MarkCollected marks a commission record as COLLECTED by Finance Admin.
@@ -387,6 +443,77 @@ func (r *CommissionRepository) VoidCommissionForRefund(orderID uuid.UUID, notes 
 	return nil
 }
 
+// GetSaleFinanceDetail returns the shared order-level finance drill-down used
+// by seller finance and Finance Admin.
+func (r *CommissionRepository) GetSaleFinanceDetail(orderID uuid.UUID) (*models.SaleFinanceDetail, error) {
+	sale, err := r.GetByOrderID(orderID)
+	if err != nil || sale == nil {
+		return nil, err
+	}
+
+	detail := &models.SaleFinanceDetail{Sale: *sale, Lines: []models.SaleFinanceLine{}}
+	var verifiedAt sql.NullTime
+	err = r.db.QueryRow(`
+		SELECT COALESCE(bp.first_name || ' ' || bp.last_name, bp.email, ''),
+		       COALESCE(pay.payment_method, ''), COALESCE(pay.status::text, ''),
+		       o.status::text, COALESCE(o.delivery_method, ''), COALESCE(o.delivery_status, ''),
+		       COALESCE(pay.payment_markup, 0), COALESCE(pay.delivery_fee_final, o.delivery_fee_final, 0),
+		       COALESCE(pay.products_final_total, c.gross_amount), COALESCE(pay.final_total, o.final_total),
+		       o.created_at, pay.verified_at
+		FROM sale_commissions c
+		JOIN orders o ON o.id = c.order_id
+		LEFT JOIN buyer_payments pay ON pay.order_id = o.id
+		LEFT JOIN buyer_profiles bp ON bp.id = COALESCE(pay.buyer_profile_id, o.buyer_profile_id)
+		WHERE c.order_id = $1`, orderID).Scan(
+		&detail.BuyerName, &detail.PaymentMethod, &detail.PaymentStatus,
+		&detail.OrderStatus, &detail.DeliveryMethod, &detail.DeliveryStatus,
+		&detail.PaymentMarkup, &detail.DeliveryFee, &detail.ProductsSubtotal, &detail.FinalTotal,
+		&detail.OrderedAt, &verifiedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if verifiedAt.Valid {
+		detail.VerifiedAt = &verifiedAt.Time
+	}
+
+	rows, err := r.db.Query(`
+		SELECT ol.product_id, COALESCE(NULLIF(ol.product_name, ''), p.name, ''), COALESCE(ol.product_sku, ''),
+		       ol.variant_id, COALESCE(NULLIF(ol.variant_name, ''), v.name, ''), COALESCE(ol.variant_sku, ''),
+		       ol.quantity, ol.base_unit_price, ol.points_discount_per_unit,
+		       ol.final_unit_price, ROUND(ol.final_unit_price * ol.quantity, 2)
+		FROM order_lines ol
+		LEFT JOIN products p ON p.id = ol.product_id
+		LEFT JOIN product_variants v ON v.id = ol.variant_id
+		WHERE ol.order_id = $1
+		ORDER BY ol.created_at, ol.id`, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var line models.SaleFinanceLine
+		var productID, variantID sql.NullString
+		if err := rows.Scan(&productID, &line.ProductName, &line.ProductSKU, &variantID,
+			&line.VariantName, &line.VariantSKU, &line.Quantity, &line.UnitPrice,
+			&line.PointsDiscount, &line.FinalUnitPrice, &line.GrossAmount); err != nil {
+			return nil, err
+		}
+		if productID.Valid {
+			if id, parseErr := uuid.Parse(productID.String); parseErr == nil {
+				line.ProductID = &id
+			}
+		}
+		if variantID.Valid {
+			if id, parseErr := uuid.Parse(variantID.String); parseErr == nil {
+				line.VariantID = &id
+			}
+		}
+		detail.Lines = append(detail.Lines, line)
+	}
+	return detail, rows.Err()
+}
+
 func (r *CommissionRepository) scanCommission(row *sql.Row) (*models.SaleCommission, error) {
 	var c models.SaleCommission
 	var paymentID, sellerID, collectedBy sql.NullString
@@ -395,48 +522,13 @@ func (r *CommissionRepository) scanCommission(row *sql.Row) (*models.SaleCommiss
 	err := row.Scan(
 		&c.ID, &c.OrderID, &c.OrderNumber, &paymentID, &c.BusinessID, &c.BusinessName,
 		&c.ShopID, &c.ShopName, &sellerID, &c.SellerName,
-		&c.GrossAmount, &c.CommissionBase, &c.CommissionRate, &c.CommissionAmount, &c.SellerNetAmount,
+		&c.GrossAmount, &c.CommissionBase, &c.CommissionRate, &c.CommissionAmount, &c.SellerNetAmount, &c.Currency,
 		&c.Status, &c.CalculatedAt, &collectedAt, &collectedBy, &c.CollectorName,
 		&c.Notes, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
-		return nil, err
-	}
-
-	if paymentID.Valid {
-		id, _ := uuid.Parse(paymentID.String)
-		c.PaymentID = &id
-	}
-	if sellerID.Valid {
-		id, _ := uuid.Parse(sellerID.String)
-		c.SellerUserID = &id
-	}
-	if collectedBy.Valid {
-		id, _ := uuid.Parse(collectedBy.String)
-		c.CollectedBy = &id
-	}
-	if collectedAt.Valid {
-		c.CollectedAt = &collectedAt.Time
-	}
-
-	return &c, nil
-}
-
-func (r *CommissionRepository) scanCommissionRows(rows *sql.Rows) (*models.SaleCommission, error) {
-	var c models.SaleCommission
-	var paymentID, sellerID, collectedBy sql.NullString
-	var collectedAt sql.NullTime
-
-	err := rows.Scan(
-		&c.ID, &c.OrderID, &c.OrderNumber, &paymentID, &c.BusinessID, &c.BusinessName,
-		&c.ShopID, &c.ShopName, &sellerID, &c.SellerName,
-		&c.GrossAmount, &c.CommissionBase, &c.CommissionRate, &c.CommissionAmount, &c.SellerNetAmount,
-		&c.Status, &c.CalculatedAt, &collectedAt, &collectedBy, &c.CollectorName,
-		&c.Notes, &c.CreatedAt, &c.UpdatedAt,
-	)
-	if err != nil {
 		return nil, err
 	}
 
@@ -466,6 +558,13 @@ func commissionReportWhere(filter *models.FinanceReportFilter) (string, []interf
 	var args []interface{}
 	argIdx := 1
 
+	if clause, arg, hasArg := businessScopeClause(filter.BusinessIDs, "c", argIdx); clause != "" {
+		where = append(where, clause)
+		if hasArg {
+			args = append(args, arg)
+			argIdx++
+		}
+	}
 	if filter.BusinessID != "" {
 		where = append(where, fmt.Sprintf("c.business_id = $%d", argIdx))
 		args = append(args, filter.BusinessID)
@@ -526,8 +625,43 @@ func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFi
 		return nil, err
 	}
 
+	currencyQuery := fmt.Sprintf(`
+		SELECT c.currency,
+		       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.gross_amount ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.commission_amount ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
+		       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END)
+		FROM sale_commissions c %s GROUP BY c.currency ORDER BY c.currency`, whereClause)
+	currencyRows, err := r.db.Query(currencyQuery, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer currencyRows.Close()
+	report.TotalsByCurrency = []models.FinanceCurrencyTotal{}
+	for currencyRows.Next() {
+		var total models.FinanceCurrencyTotal
+		if err := currencyRows.Scan(&total.Currency, &total.GrossSales, &total.CommissionAmount,
+			&total.SellerNetAmount, &total.CollectedCommission, &total.DueCommission, &total.VerifiedSales); err != nil {
+			return nil, err
+		}
+		report.TotalsByCurrency = append(report.TotalsByCurrency, total)
+	}
+	if err := currencyRows.Err(); err != nil {
+		return nil, err
+	}
+	if len(report.TotalsByCurrency) == 1 {
+		report.Currency = report.TotalsByCurrency[0].Currency
+	}
+	report.MixedCurrency = len(report.TotalsByCurrency) > 1
+
 	// Cash actually collected from buyers for the same population, including
 	// delivery fees the seller keeps.
+	cashWhere := strings.TrimPrefix(whereClause, "WHERE")
+	if cashWhere != "" {
+		cashWhere = " AND " + cashWhere
+	}
 	cashQuery := fmt.Sprintf(`
 		SELECT COALESCE(SUM(p.cash_due), 0)
 		FROM sale_commissions c
@@ -535,7 +669,7 @@ func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFi
 		WHERE p.status = 'VERIFIED'
 		  AND c.status <> 'WAIVED'
 		%s
-	`, whereClause)
+	`, cashWhere)
 	if err := r.db.QueryRow(cashQuery, args...).Scan(&report.CollectedCash); err != nil {
 		return nil, err
 	}
@@ -560,8 +694,15 @@ func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFi
 		pendingArgs = append(pendingArgs, filter.ShopID)
 		pidx++
 	}
+	if clause, arg, hasArg := businessScopeClause(filter.BusinessIDs, "o", pidx); clause != "" {
+		pendingQuery += " AND " + clause
+		if hasArg {
+			pendingArgs = append(pendingArgs, arg)
+			pidx++
+		}
+	}
 	if filter.SellerID != "" {
-		pendingQuery += fmt.Sprintf(" AND o.created_by = $%d", pidx)
+		pendingQuery += fmt.Sprintf(" AND EXISTS (SELECT 1 FROM business_memberships bm WHERE bm.business_id = o.business_id AND bm.user_id = $%d AND bm.role = 'OWNER' AND (bm.status = 'ACTIVE' OR bm.status IS NULL))", pidx)
 		pendingArgs = append(pendingArgs, filter.SellerID)
 		pidx++
 	}
@@ -604,11 +745,11 @@ func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownG
 			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
-			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END)
+			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END), c.currency
 			FROM sale_commissions c
 			LEFT JOIN businesses b ON b.id = c.business_id
 			%s
-			GROUP BY c.business_id, b.name
+			GROUP BY c.business_id, b.name, c.currency
 			ORDER BY 3 DESC`, whereClause)
 	case models.FinanceBreakdownShop:
 		query = fmt.Sprintf(`
@@ -618,11 +759,11 @@ func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownG
 			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
-			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END)
+			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END), c.currency
 			FROM sale_commissions c
 			LEFT JOIN shops s ON s.id = c.shop_id
 			%s
-			GROUP BY c.shop_id, s.name
+			GROUP BY c.shop_id, s.name, c.currency
 			ORDER BY 3 DESC`, whereClause)
 	case models.FinanceBreakdownSeller:
 		query = fmt.Sprintf(`
@@ -632,21 +773,21 @@ func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownG
 			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
-			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END)
+			       COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END), c.currency
 			FROM sale_commissions c
 			LEFT JOIN users u ON u.id = c.seller_user_id
 			%s
-			GROUP BY c.seller_user_id, u.first_name, u.last_name, u.email
+			GROUP BY c.seller_user_id, u.first_name, u.last_name, u.email, c.currency
 			ORDER BY 3 DESC`, whereClause)
 	case models.FinanceBreakdownProduct:
 		query = fmt.Sprintf(`
 			SELECT ol.product_id::text, COALESCE(NULLIF(ol.product_name, ''), COALESCE(p.name, '')),
-			       COALESCE(SUM(ol.final_unit_price * ol.quantity), 0),
+			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN ol.final_unit_price * ol.quantity ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.commission_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
 			       COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount * (ol.final_unit_price * ol.quantity / NULLIF(og.order_gross, 0)) ELSE 0 END), 0),
-			       COUNT(DISTINCT CASE WHEN c.status <> 'WAIVED' THEN c.order_id END)
+			       COUNT(DISTINCT CASE WHEN c.status <> 'WAIVED' THEN c.order_id END), c.currency
 			FROM sale_commissions c
 			JOIN order_lines ol ON ol.order_id = c.order_id
 			JOIN LATERAL (
@@ -655,7 +796,7 @@ func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownG
 			) og ON true
 			LEFT JOIN products p ON p.id = ol.product_id
 			%s
-			GROUP BY ol.product_id, ol.product_name, p.name
+			GROUP BY ol.product_id, ol.product_name, p.name, c.currency
 			ORDER BY 3 DESC`, whereClause)
 	default:
 		return nil, fmt.Errorf("INVALID_GROUP")
@@ -670,7 +811,7 @@ func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownG
 	var items []models.FinanceBreakdownItem
 	for rows.Next() {
 		var it models.FinanceBreakdownItem
-		if err := rows.Scan(&it.ID, &it.Label, &it.GrossSales, &it.CommissionAmount, &it.SellerNetAmount, &it.Collected, &it.Due, &it.SalesCount); err != nil {
+		if err := rows.Scan(&it.ID, &it.Label, &it.GrossSales, &it.CommissionAmount, &it.SellerNetAmount, &it.Collected, &it.Due, &it.SalesCount, &it.Currency); err != nil {
 			return nil, err
 		}
 		items = append(items, it)

@@ -251,6 +251,38 @@ export interface SellerFinanceSummary {
   total_completed_sales: number
 }
 
+export interface SellerFinanceDashboard {
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected_commission: number
+  due_commission: number
+  waived_commission: number
+  collected_cash: number
+  verified_sales: number
+  refunded_sales: number
+  pending_orders: number
+  commission_rate: number
+  currency?: string
+  mixed_currency: boolean
+  totals_by_currency: Array<{
+    currency: string; gross_sales: number; commission_amount: number; seller_net_amount: number
+    collected_commission: number; due_commission: number; verified_sales: number
+  }>
+}
+
+export interface SellerFinanceBreakdownItem {
+  id?: string
+  label: string
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected: number
+  due: number
+  sales_count: number
+  currency: string
+}
+
 export interface SellerSaleCommissionItem {
   id: string
   order_id: string
@@ -265,16 +297,57 @@ export interface SellerSaleCommissionItem {
   commission_rate: number
   commission_amount: number
   seller_net_amount: number
+  currency: string
   status: 'DUE' | 'COLLECTED' | 'WAIVED' | 'ADJUSTED'
   calculated_at: string
   collected_at?: string
   notes?: string
 }
 
-export const sellerFinanceApi = {
-  getSummary: () => get<SellerFinanceSummary>('/seller/finances/summary'),
-  listSales: (params?: { status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) =>
-    get<{ sales: SellerSaleCommissionItem[]; total: number }>('/seller/finances/sales', params),
-  getSaleDetail: (orderId: string) => get<SellerSaleCommissionItem>(`/seller/finances/sales/${orderId}`),
+export interface SaleFinanceLine {
+  product_id?: string; product_name: string; product_sku: string
+  variant_id?: string; variant_name: string; variant_sku: string
+  quantity: number; unit_price: number; points_discount: number
+  final_unit_price: number; gross_amount: number
 }
 
+// One row of sales history: the shared commission snapshot plus the buyer,
+// payment, delivery and line context. Finance Admin reads the same shape.
+export interface SaleHistoryItem extends SellerSaleCommissionItem {
+  buyer_name: string
+  payment_method: string
+  payment_status: string
+  order_status: string
+  delivery_method: string
+  delivery_status: string
+  total_quantity: number
+  lines: SaleFinanceLine[]
+}
+
+export interface SaleFinanceDetail {
+  sale: SellerSaleCommissionItem
+  buyer_name: string
+  payment_method: string
+  payment_status: string
+  order_status: string
+  delivery_method: string
+  delivery_status: string
+  payment_markup: number
+  delivery_fee: number
+  products_subtotal: number
+  final_total: number
+  ordered_at: string
+  verified_at?: string
+  lines: SaleFinanceLine[]
+}
+
+export const sellerFinanceApi = {
+  getSummary: () => get<SellerFinanceSummary>('/seller/finances/summary'),
+  getDashboard: (params?: { shop_id?: string; date_from?: string; date_to?: string }) =>
+    get<SellerFinanceDashboard>('/seller/finances/dashboard', params),
+  getBreakdown: (params?: { group?: 'shop' | 'product'; shop_id?: string; date_from?: string; date_to?: string }) =>
+    get<{ group: string; items: SellerFinanceBreakdownItem[] }>('/seller/finances/breakdown', params),
+  listSales: (params?: { status?: string; search?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }) =>
+    get<{ sales: SaleHistoryItem[]; total: number }>('/seller/finances/sales', params),
+  getSaleDetail: (orderId: string) => get<SaleFinanceDetail>(`/seller/finances/sales/${orderId}`),
+}

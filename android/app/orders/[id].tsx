@@ -4,12 +4,12 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
-import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
+import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
-import type { OrderStatusHistory, BuyerPayment } from '../../src/types'
+import type { OrderStatusHistory, BuyerPayment, ProductVerification } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
 import {
@@ -76,6 +76,9 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const { id } = useLocalSearchParams<{id:string}>()
   const queryClient = useQueryClient()
   const [actionError, setActionError] = useState('')
+  const [productNumber, setProductNumber] = useState('')
+  const [productToken, setProductToken] = useState('')
+  const [productVerification, setProductVerification] = useState<ProductVerification | null>(null)
   const [showChat, setShowChat] = useState(false)
 
   const order = useQuery({
@@ -107,6 +110,11 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const cancelMutation = useMutation({ mutationFn: () => buyerApi.cancelOrder(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
   const createPaymentMutation = useMutation({ mutationFn: () => buyerApi.createPayment(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
   const confirmPaidMutation = useMutation({ mutationFn: () => buyerApi.buyerConfirmPayment(payment.data!.id), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
+  const verifyMutation = useMutation({
+    mutationFn: (mode: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER') => buyerApi.verifyProduct(id!, mode === 'QR_SCAN' ? { token: productToken.trim() } : { product_number: productNumber.trim() }),
+    onSuccess: (result) => { setProductVerification(result); setActionError('') },
+    onError: (e) => { setProductVerification(null); setActionError(e instanceof ApiError && e.code === 'PRODUCT_MISMATCH' ? 'Ce produit ne correspond pas à votre commande.' : (e instanceof Error ? e.message : t('common.actionImpossible'))) },
+  })
 
   const lines = order.data?.lines || []
   const eligibility = useQueries({ queries: lines.map(line=>({queryKey:['review-eligibility',id,line.id],queryFn:()=>buyerApi.reviewEligibility(id!,line.id)})) })
@@ -119,7 +127,8 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const t2 = tracking.data
   const p = payment.data ?? null
   const deliveryMethod = o.delivery_method || t2?.delivery_method || ''
-  const canReceive = (deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP') || (deliveryMethod !== 'PICKUP' && o.status === 'DELIVERED')
+  const canReceive = Boolean(productVerification) && ((deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP') || (deliveryMethod !== 'PICKUP' && o.status === 'DELIVERED'))
+  const canVerify = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '')
   const canCancel = o.status === 'PENDING' || o.status === 'ACCEPTED'
 
   const history: OrderStatusHistory[] = t2?.history?.length ? [...t2.history].reverse() : (order.data.history ? [...order.data.history].reverse() : [])
@@ -158,6 +167,15 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       </Card>
 
       {actionError ? <Card><Text style={styles.error}>{actionError}</Text></Card> : null}
+
+      {canVerify && <Card>
+        <Text style={styles.name}>Vérifier le produit reçu</Text>
+        <Field label="Numéro du produit" value={productNumber} onChangeText={setProductNumber} placeholder="VAR-00000000" />
+        <Button variant="outline" title="Vérifier le numéro" loading={verifyMutation.isPending} disabled={!productNumber.trim()} onPress={() => verifyMutation.mutate('MANUAL_PRODUCT_NUMBER')} />
+        <Field label="Contenu du QR produit" value={productToken} onChangeText={setProductToken} placeholder="tbk.p.…" />
+        <Button variant="outline" title="Scanner / vérifier le QR" loading={verifyMutation.isPending} disabled={!productToken.trim()} onPress={() => verifyMutation.mutate('QR_SCAN')} />
+        {productVerification ? <Text style={styles.hint}>✓ {productVerification.product_name} · {productVerification.product_number} · {productVerification.quantity} × {productVerification.unit_price.toFixed(2)} {productVerification.currency}</Text> : null}
+      </Card>}
 
       {(canCancel || canReceive) && <Card>
         {canReceive && <Button title={t('orders.received')} loading={receiveMutation.isPending} onPress={()=>{ setActionError(''); receiveMutation.mutate() }}/>}

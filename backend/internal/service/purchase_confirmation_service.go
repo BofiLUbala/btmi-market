@@ -19,6 +19,7 @@ type PurchaseConfirmationService struct {
 	cashRepo    *repository.CashRepository
 	pointService *PointService
 	trustRepo   *repository.SellerTrustRepository
+	commService *CommissionService
 	asynqClient *asynq.Client
 }
 
@@ -42,6 +43,13 @@ func NewPurchaseConfirmationService(
 		trustRepo:   trustRepo,
 		asynqClient: asynqClient,
 	}
+}
+
+// SetCommissionService injects the commission recorder so refunds can waive
+// the commission snapshot attached to the order. Optional; refunds still work
+// when unset, they simply leave the historical snapshot untouched.
+func (s *PurchaseConfirmationService) SetCommissionService(cs *CommissionService) {
+	s.commService = cs
 }
 
 func (s *PurchaseConfirmationService) GetPendingPurchases(buyerProfileID uuid.UUID) ([]*models.PendingPurchaseResponse, error) {
@@ -175,6 +183,12 @@ func (s *PurchaseConfirmationService) RefundTransaction(buyerProfileID, orderID 
 	refundedAt := time.Now()
 	if err := s.vtRepo.Refund(orderID, refundedAt); err != nil {
 		return err
+	}
+
+	// A refunded sale is no longer revenue: waive its commission snapshot so
+	// gross/commission/net reports stop counting it.
+	if s.commService != nil {
+		_ = s.commService.VoidForRefund(orderID, "Refunded by buyer")
 	}
 
 	// Debit seller points

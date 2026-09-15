@@ -15,9 +15,10 @@ interface ShopProductRow { product: Product; variants: ShopInventoryRow[]; image
 
 const availableOf = (i: InventoryItem) => Number(i.available)
 /** Returns the state key rather than a label, so the caller translates it and
- *  the CSS class stays a stable, language-independent identifier. */
-const stockStatus = (available: number): StockState =>
-  available <= 0 ? 'out' : available <= 5 ? 'low' : 'in'
+ *  the CSS class stays a stable, language-independent identifier. The low-stock
+ *  threshold comes from the live global_configs value surfaced by the backend. */
+const stockStatus = (available: number, threshold: number): StockState =>
+  available <= 0 ? 'out' : available <= threshold ? 'low' : 'in'
 /** The stylesheet keys these off the original English wording; keep the class
  *  names as they are so the existing styles keep matching. */
 const STOCK_STATE_CLASS: Record<StockState, string> = {
@@ -75,19 +76,21 @@ export default function ShopProductsPage() {
 
   useEffect(() => { void load() }, [activeBusiness?.id, shopId])
 
+  const threshold = useMemo(() => rows.flatMap(r => r.variants.map(v => v.inventory)).find(i => i.low_stock_threshold != null)?.low_stock_threshold ?? 5, [rows])
+
   const categories = useMemo(() => {
     const entries = rows.filter(row => row.product.category_id).map(row => [row.product.category_id!, row.product.category_name || t('seller.shopProducts.categoryFallback')] as const)
     return Array.from(new Map(entries).entries())
   }, [rows, t])
   const visibleRows = useMemo(() => rows.filter(row => {
     if (category !== 'all' && row.product.category_id !== category) return false
-    if (availability === 'in_stock' && row.available <= 5) return false
-    if (availability === 'low_stock' && (row.available <= 0 || row.available > 5)) return false
+    if (availability === 'in_stock' && row.available <= threshold) return false
+    if (availability === 'low_stock' && (row.available <= 0 || row.available > threshold)) return false
     if (availability === 'out_of_stock' && row.available > 0) return false
     const q = search.trim().toLowerCase()
     if (!q) return true
     return [row.product.name, row.product.sku, ...row.variants.flatMap(v => [v.variant.sku, v.variant.name, ...Object.values(v.variant.attributes ?? {})])].some(value => String(value ?? '').toLowerCase().includes(q))
-  }), [rows, category, availability, search])
+  }), [rows, category, availability, search, threshold])
 
   async function addStock(row: ShopInventoryRow) {
     const quantity = Number(restock[row.variant.id])
@@ -106,7 +109,7 @@ export default function ShopProductsPage() {
     {error && <ErrorBox error={error} />}
     <div className="shop-inventory-filters card"><input className="input" placeholder={t('seller.shopProducts.searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} /><select className="input" value={category} onChange={e => setCategory(e.target.value)}><option value="all">{t('seller.shopProducts.allCategories')}</option>{categories.map(([id,name]) => <option key={id} value={id}>{name}</option>)}</select><select className="input" value={availability} onChange={e => setAvailability(e.target.value as Availability)}><option value="all">{t('seller.shopProducts.allAvailability')}</option><option value="in_stock">{t('stock.inStock')}</option><option value="low_stock">{t('stock.lowStock')}</option><option value="out_of_stock">{t('stock.outOfStock')}</option></select><Button variant="outline" onClick={() => void load()}>{t('seller.shopProducts.refresh')}</Button></div>
     {loading ? <LoadingBlock label={t('seller.shopProducts.loading')} /> : visibleRows.length === 0 ? <div className="card empty-state"><h3>{t('seller.shopProducts.emptyTitle')}</h3><p className="muted">{t('seller.shopProducts.emptyBody')}</p></div> : <div className="shop-inventory-grid">{visibleRows.map(row => {
-      const open = expanded.has(row.product.id); const status = stockStatus(row.available)
+      const open = expanded.has(row.product.id); const status = stockStatus(row.available, threshold)
       return <article className="card shop-inventory-card" key={row.product.id}><div className="shop-product-main"><div className="shop-product-thumb">{row.image ? <img src={row.image.url} alt="" /> : <span>{row.product.name.slice(0,2).toUpperCase()}</span>}</div><div><div className="row-between"><div><h2>{row.product.name}</h2><p className="small muted">{row.product.category_name || t('seller.shopProducts.uncategorized')} · SKU {row.product.sku || '—'}</p></div><span className={`badge badge-${row.product.publication_status === 'PUBLISHED' ? 'success' : 'warning'}`}>{t(`seller.publicationStatus.${row.product.publication_status}` as TranslationKey)}</span></div><div className="stock-metrics"><span><small>{t('seller.shopProducts.total')}</small><strong>{row.total}</strong></span><span><small>{t('seller.shopProducts.reserved')}</small><strong>{row.reserved}</strong></span><span><small>{t('seller.shopProducts.available')}</small><strong>{row.available}</strong></span><span className={`stock-state ${STOCK_STATE_CLASS[status]}`}>{t(`stock.state.${status}` as TranslationKey)}</span></div><div className="row-between"><span className="small muted">{t(row.variants.length === 1 ? 'seller.shopProducts.variantCount' : 'seller.shopProducts.variantCountPlural', { count: row.variants.length })}</span><div className="row"><Button size="sm" variant="outline" onClick={() => setExpanded(prev => { const next=new Set(prev); next.has(row.product.id)?next.delete(row.product.id):next.add(row.product.id); return next })}>{open ? t('seller.shopProducts.hideVariants') : t('seller.shopProducts.viewVariants')}</Button><Link to={`/seller/products/${row.product.id}?shop=${shopId}`}><Button size="sm" variant="ghost">{t('seller.shopProducts.productDetail')}</Button></Link></div></div></div></div>
         {open && (
           <>
@@ -126,7 +129,7 @@ export default function ShopProductsPage() {
                 <tbody>
                   {row.variants.map((item) => {
                     const av = availableOf(item.inventory)
-                    const state = stockStatus(av)
+const state = stockStatus(av, threshold)
                     return (
                       <tr key={item.variant.id}>
                         <td><strong>{variantLabel(item.variant)}</strong></td>
@@ -160,7 +163,7 @@ export default function ShopProductsPage() {
             <div className="mobile-card-list">
               {row.variants.map((item) => {
                 const av = availableOf(item.inventory)
-                const state = stockStatus(av)
+                const state = stockStatus(av, threshold)
                 return (
                   <div key={item.variant.id} className="mobile-data-card" style={{ padding: '12px', gap: '8px' }}>
                     <div className="mobile-data-card-header">

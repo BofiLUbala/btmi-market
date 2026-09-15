@@ -1,23 +1,43 @@
-import { useState, useEffect, useCallback } from 'react'
-import { sellerFinanceApi, type SellerFinanceSummary, type SellerSaleCommissionItem } from '@/api/seller'
+import { useState, useEffect, useCallback, type CSSProperties } from 'react'
+import { sellerFinanceApi, type SellerFinanceDashboard, type SaleHistoryItem, type SellerFinanceBreakdownItem, type SaleFinanceDetail } from '@/api/seller'
+
+const th = (align: 'left' | 'right' | 'center'): CSSProperties => ({
+  textAlign: align, padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600, whiteSpace: 'nowrap'
+})
+
+const money = (value: number, currency = 'USD') => new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value)
 
 export default function SellerFinancesPage() {
-  const [summary, setSummary] = useState<SellerFinanceSummary | null>(null)
-  const [sales, setSales] = useState<SellerSaleCommissionItem[]>([])
+  const [summary, setSummary] = useState<SellerFinanceDashboard | null>(null)
+  const [sales, setSales] = useState<SaleHistoryItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSale, setSelectedSale] = useState<SellerSaleCommissionItem | null>(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [breakdownGroup, setBreakdownGroup] = useState<'shop' | 'product'>('shop')
+  const [breakdownItems, setBreakdownItems] = useState<SellerFinanceBreakdownItem[]>([])
+  const [selectedSale, setSelectedSale] = useState<SaleFinanceDetail | null>(null)
+  const [error, setError] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const aggregateMoney = (field: 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission') => {
+    if (!summary) return ''
+    if (summary.totals_by_currency?.length) return summary.totals_by_currency.map((t) => money(t[field], t.currency)).join(' · ')
+    return money(summary[field], summary.currency || 'USD')
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const [sumRes, salesRes] = await Promise.all([
-        sellerFinanceApi.getSummary(),
+        sellerFinanceApi.getDashboard({ date_from: dateFrom || undefined, date_to: dateTo || undefined }),
         sellerFinanceApi.listSales({
           status: statusFilter || undefined,
           search: searchQuery || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
           limit: 50
         })
       ])
@@ -26,14 +46,43 @@ export default function SellerFinancesPage() {
       setTotal(salesRes.total || 0)
     } catch (err) {
       console.error('Failed to load seller finance data', err)
+      setSummary(null)
+      setSales([])
+      setError(true)
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, searchQuery])
+  }, [statusFilter, searchQuery, dateFrom, dateTo])
 
   useEffect(() => {
     void fetchData()
+    const timer = window.setInterval(() => { void fetchData() }, 30_000)
+    return () => window.clearInterval(timer)
   }, [fetchData])
+
+  const loadBreakdown = useCallback(async () => {
+    try {
+      const res = await sellerFinanceApi.getBreakdown({
+        group: breakdownGroup,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined
+      })
+      setBreakdownItems(res.items || [])
+    } catch (err) {
+      console.error('Failed to load seller finance breakdown', err)
+    }
+  }, [breakdownGroup, dateFrom, dateTo])
+
+  useEffect(() => {
+    void loadBreakdown()
+  }, [loadBreakdown])
+
+  const openSale = async (orderId: string) => {
+    setDetailLoading(true)
+    try { setSelectedSale(await sellerFinanceApi.getSaleDetail(orderId)) }
+    catch { setError(true) }
+    finally { setDetailLoading(false) }
+  }
 
   return (
     <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', color: 'var(--color-text, #f8fafc)' }}>
@@ -47,43 +96,50 @@ export default function SellerFinancesPage() {
         </p>
       </div>
 
+      {error && (
+        <div role="alert" style={{ padding: 18, marginBottom: 20, borderRadius: 10, background: '#450a0a', border: '1px solid #991b1b' }}>
+          <strong>Impossible de charger les données financières.</strong>
+          <button onClick={() => void fetchData()} style={{ marginLeft: 16, padding: '7px 14px', borderRadius: 7 }}>Réessayer</button>
+        </div>
+      )}
+
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
+      {!error && summary && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
         <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Chiffre d'Affaires Brut</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text, #f8fafc)', marginTop: 4 }}>
-            {(summary?.gross_sales || 0).toLocaleString()} XAF
+            {aggregateMoney('gross_sales')}
           </div>
         </div>
 
         <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission TBK Totale</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#818cf8', marginTop: 4 }}>
-            {(summary?.tbk_commission_total || 0).toLocaleString()} XAF
+            {aggregateMoney('commission_amount')}
           </div>
         </div>
 
         <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Revenu Net Vendeur</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>
-            {(summary?.seller_net_revenue || 0).toLocaleString()} XAF
+            {aggregateMoney('seller_net_amount')}
           </div>
         </div>
 
         <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission à Reverser</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#eab308', marginTop: 4 }}>
-            {(summary?.commission_due || 0).toLocaleString()} XAF
+            {aggregateMoney('due_commission')}
           </div>
         </div>
 
         <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission Déjà Réglée</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#38bdf8', marginTop: 4 }}>
-            {(summary?.commission_collected || 0).toLocaleString()} XAF
+            {aggregateMoney('collected_commission')}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Filters & Search */}
       <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', borderRadius: 12, border: '1px solid var(--color-border, #334155)', padding: 16, marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -128,8 +184,85 @@ export default function SellerFinancesPage() {
             fontSize: 13
           }}
         />
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          style={{
+            padding: '8px 14px',
+            borderRadius: 8,
+            border: '1px solid var(--color-border, #334155)',
+            backgroundColor: 'var(--color-surface-2, #0f172a)',
+            color: 'var(--color-text, #f8fafc)',
+            fontSize: 13
+          }}
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          style={{
+            padding: '8px 14px',
+            borderRadius: 8,
+            border: '1px solid var(--color-border, #334155)',
+            backgroundColor: 'var(--color-surface-2, #0f172a)',
+            color: 'var(--color-text, #f8fafc)',
+            fontSize: 13
+          }}
+        />
         <div style={{ fontSize: 13, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>
           {total} vente(s) trouvée(s)
+        </div>
+      </div>
+
+      {/* Breakdown by shop / product (per date range) */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted, #94a3b8)' }}>Répartition par :</span>
+          {(['shop', 'product'] as const).map((g) => (
+            <button
+              key={g}
+              onClick={() => setBreakdownGroup(g)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: breakdownGroup === g ? 'var(--color-primary, #6366f1)' : 'var(--color-surface-2, #0f172a)',
+                color: breakdownGroup === g ? '#ffffff' : 'var(--color-text-muted, #94a3b8)',
+              }}
+            >
+              {g === 'shop' ? 'Boutique' : 'Produit'}
+            </button>
+          ))}
+        </div>
+        <div style={{ overflowX: 'auto', backgroundColor: 'var(--color-surface, #1e293b)', borderRadius: 12, border: '1px solid var(--color-border, #334155)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-border, #334155)', backgroundColor: 'var(--color-surface-2, #0f172a)' }}>
+                <th style={{ textAlign: 'left', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>{breakdownGroup === 'shop' ? 'Boutique' : 'Produit'}</th>
+                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Ventes</th>
+                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Vente Brute</th>
+                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission TBK</th>
+                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Net Vendeur</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakdownItems.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--color-text-muted, #94a3b8)' }}>Aucune vente dans cette répartition.</td></tr>
+              ) : breakdownItems.map((item) => (
+                <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid var(--color-border-soft, #1e293b)' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: 700 }}>{item.label}</td>
+                  <td style={{ textAlign: 'right', padding: '12px 16px' }}>{item.sales_count}</td>
+                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 700 }}>{money(item.gross_sales, item.currency)}</td>
+                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#818cf8' }}>{money(item.commission_amount, item.currency)}</td>
+                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#4ade80' }}>{money(item.seller_net_amount, item.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -147,14 +280,19 @@ export default function SellerFinancesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-border, #334155)', backgroundColor: 'var(--color-surface-2, #0f172a)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commande</th>
-                <th style={{ textAlign: 'left', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Boutique</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Vente Brute</th>
-                <th style={{ textAlign: 'center', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Taux TBK</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission TBK</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Net Vendeur</th>
-                <th style={{ textAlign: 'center', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Statut Commission</th>
-                <th style={{ textAlign: 'right', padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Détail</th>
+                <th style={th('left')}>Date / Commande</th>
+                <th style={th('left')}>Acheteur</th>
+                <th style={th('left')}>Entreprise / Boutique</th>
+                <th style={th('left')}>Produits / Variantes</th>
+                <th style={th('center')}>Qté</th>
+                <th style={th('right')}>Vente Brute</th>
+                <th style={th('center')}>Taux TBK</th>
+                <th style={th('right')}>Commission TBK</th>
+                <th style={th('right')}>Net Vendeur</th>
+                <th style={th('left')}>Paiement</th>
+                <th style={th('center')}>Livraison</th>
+                <th style={th('center')}>Statut Commission</th>
+                <th style={th('right')}>Détail</th>
               </tr>
             </thead>
             <tbody>
@@ -163,23 +301,44 @@ export default function SellerFinancesPage() {
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ fontWeight: 800 }}>#{item.order_number}</div>
                     <div style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>
-                      {new Date(item.calculated_at).toLocaleDateString()}
+                      {new Date(item.calculated_at).toLocaleString()}
                     </div>
                   </td>
+                  <td style={{ padding: '12px 16px' }}>{item.buyer_name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ fontWeight: 600 }}>{item.shop_name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>{item.business_name}</div>
                   </td>
+                  <td style={{ padding: '12px 16px', minWidth: 220 }}>
+                    {(item.lines || []).length === 0 ? '—' : (item.lines || []).map((line, i) => (
+                      <div key={`${item.id}-line-${i}`}>
+                        <span style={{ fontWeight: 600 }}>{line.product_name || '—'}</span>
+                        {line.variant_name ? <span style={{ color: 'var(--color-text-muted, #94a3b8)' }}> · {line.variant_name}</span> : null}
+                        <span style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>
+                          {' '}({line.quantity} × {money(line.final_unit_price, item.currency)})
+                        </span>
+                      </div>
+                    ))}
+                  </td>
+                  <td style={{ textAlign: 'center', padding: '12px 16px', fontWeight: 700 }}>{item.total_quantity || 0}</td>
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 700 }}>
-                    {(item.gross_amount || 0).toLocaleString()} XAF
+                    {money(item.gross_amount, item.currency)}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 16px', fontWeight: 700, color: 'var(--color-primary, #6366f1)' }}>
                     {item.commission_rate.toFixed(2)}%
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#818cf8' }}>
-                    {(item.commission_amount || 0).toLocaleString()} XAF
+                    {money(item.commission_amount, item.currency)}
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#4ade80' }}>
-                    {(item.seller_net_amount || 0).toLocaleString()} XAF
+                    {money(item.seller_net_amount, item.currency)}
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ fontWeight: 600 }}>{item.payment_method || '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>{item.payment_status || '—'}</div>
+                  </td>
+                  <td style={{ textAlign: 'center', padding: '12px 16px', fontSize: 12 }}>
+                    {item.delivery_status || item.delivery_method || item.order_status || '—'}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 16px' }}>
                     <span style={{
@@ -195,7 +354,8 @@ export default function SellerFinancesPage() {
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 16px' }}>
                     <button
-                      onClick={() => setSelectedSale(item)}
+                      onClick={() => void openSale(item.order_id)}
+                      disabled={detailLoading}
                       style={{
                         padding: '6px 12px',
                         borderRadius: 6,
@@ -232,39 +392,59 @@ export default function SellerFinancesPage() {
             color: 'var(--color-text, #f8fafc)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Résumé Financier Vente #{selectedSale.order_number}</span>
+              <span>Vente #{selectedSale.sale.order_number}</span>
               <button onClick={() => setSelectedSale(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 18, cursor: 'pointer' }}>✕</button>
             </h3>
 
+            <div style={{ marginBottom: 16, fontSize: 13, lineHeight: 1.7 }}>
+              <div><strong>Acheteur :</strong> {selectedSale.buyer_name || '—'}</div>
+              <div><strong>Entreprise / boutique :</strong> {selectedSale.sale.business_name} / {selectedSale.sale.shop_name}</div>
+              <div><strong>Paiement :</strong> {selectedSale.payment_method || '—'} · {selectedSale.payment_status || '—'}</div>
+              <div><strong>Commande / livraison :</strong> {selectedSale.order_status} · {selectedSale.delivery_status || selectedSale.delivery_method || '—'}</div>
+              <div><strong>Date :</strong> {new Date(selectedSale.ordered_at).toLocaleString()}</div>
+            </div>
+            <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                <thead><tr><th style={{ textAlign: 'left' }}>Produit / variante</th><th>Qté</th><th>Prix unitaire</th><th>Total</th></tr></thead>
+                <tbody>{selectedSale.lines.map((line, index) => <tr key={`${line.product_id}-${line.variant_id}-${index}`}>
+                  <td>{line.product_name}<br/><small>{line.variant_name || line.variant_sku || '—'}</small></td>
+                  <td style={{ textAlign: 'center' }}>{line.quantity}</td>
+                  <td style={{ textAlign: 'right' }}>{money(line.final_unit_price, selectedSale.sale.currency)}</td>
+                  <td style={{ textAlign: 'right' }}>{money(line.gross_amount, selectedSale.sale.currency)}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
             <div style={{ backgroundColor: 'var(--color-surface-2, #0f172a)', borderRadius: 10, padding: 16, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#94a3b8' }}>Montant Produits Vente</span>
-                <span style={{ fontWeight: 700 }}>{(selectedSale.gross_amount || 0).toLocaleString()} XAF</span>
+                <span style={{ fontWeight: 700 }}>{money(selectedSale.sale.gross_amount, selectedSale.sale.currency)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#94a3b8' }}>Base calcul commission</span>
-                <span style={{ fontWeight: 700 }}>{(selectedSale.commission_base || 0).toLocaleString()} XAF</span>
+                <span style={{ fontWeight: 700 }}>{money(selectedSale.sale.commission_base, selectedSale.sale.currency)}</span>
               </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Majoration paiement</span><span>{money(selectedSale.payment_markup, selectedSale.sale.currency)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Frais de livraison</span><span>{money(selectedSale.delivery_fee, selectedSale.sale.currency)}</span></div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#94a3b8' }}>Taux de commission TBK</span>
-                <span style={{ fontWeight: 700, color: '#818cf8' }}>{selectedSale.commission_rate.toFixed(2)}%</span>
+                <span style={{ fontWeight: 700, color: '#818cf8' }}>{selectedSale.sale.commission_rate.toFixed(2)}%</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: 8 }}>
                 <span style={{ color: '#94a3b8', fontWeight: 600 }}>Commission TBK</span>
-                <span style={{ fontWeight: 800, color: '#818cf8' }}>- {(selectedSale.commission_amount || 0).toLocaleString()} XAF</span>
+                <span style={{ fontWeight: 800, color: '#818cf8' }}>- {money(selectedSale.sale.commission_amount, selectedSale.sale.currency)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: 8 }}>
                 <span style={{ fontWeight: 800, color: '#4ade80' }}>Revenu Net Vendeur</span>
-                <span style={{ fontWeight: 900, color: '#4ade80', fontSize: 15 }}>{(selectedSale.seller_net_amount || 0).toLocaleString()} XAF</span>
+                <span style={{ fontWeight: 900, color: '#4ade80', fontSize: 15 }}>{money(selectedSale.sale.seller_net_amount, selectedSale.sale.currency)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                 <span style={{ color: '#94a3b8' }}>Statut Règlement</span>
                 <span style={{
                   fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-                  backgroundColor: selectedSale.status === 'COLLECTED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                  color: selectedSale.status === 'COLLECTED' ? '#4ade80' : '#eab308'
+                  backgroundColor: selectedSale.sale.status === 'COLLECTED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                  color: selectedSale.sale.status === 'COLLECTED' ? '#4ade80' : '#eab308'
                 }}>
-                  {selectedSale.status === 'COLLECTED' ? 'Réglée à TBK' : 'À reverser à TBK'}
+                  {selectedSale.sale.status === 'COLLECTED' ? 'Réglée à TBK' : 'À reverser à TBK'}
                 </span>
               </div>
             </div>

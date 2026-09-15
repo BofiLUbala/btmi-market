@@ -26,6 +26,8 @@ var (
 	ErrQRDuplicate          = errors.New("QR_DUPLICATE")
 	ErrQRAlreadyCompleted   = errors.New("QR_ALREADY_COMPLETED")
 	ErrQRDeliveryNotScanned = errors.New("DELIVERY_NOT_SCANNED")
+	ErrProductNotVerified   = errors.New("PRODUCT_NOT_VERIFIED")
+	ErrProductMismatch      = errors.New("PRODUCT_MISMATCH")
 	// ErrQRNotReady is returned before the seller has marked the order ready, i.e. before a
 	// package QR exists. It keeps raw database errors out of API responses.
 	ErrQRNotReady = errors.New("QR_NOT_READY")
@@ -39,6 +41,94 @@ type QRService struct {
 	commSvc        *CommunicationService
 	orderSvc       *OrderService
 	secret         []byte
+}
+
+// VerifyBuyerProduct resolves the existing seller product identity and compares it
+// with an order line on the server. Failed attempts are retained for audit.
+func (s *QRService) VerifyBuyerProduct(userID, orderID uuid.UUID, req models.ProductVerificationRequest) (*models.ProductVerificationResponse, error) {
+	method := "MANUAL_PRODUCT_NUMBER"
+	var ref uuid.UUID
+	var err error
+	if strings.TrimSpace(req.Token) != "" {
+		method = "QR_SCAN"
+		ref, err = s.parse(strings.TrimSpace(req.Token), "p")
+	} else {
+		raw := strings.ToUpper(strings.TrimSpace(req.ProductNumber))
+		parts := strings.SplitN(raw, "-", 2)
+		if len(parts) != 2 || (parts[0] != "PRD" && parts[0] != "VAR") || len(parts[1]) != 8 {
+			err = ErrQRInvalid
+		} else {
+			err = s.db.QueryRow(`SELECT public_reference FROM product_qr_codes WHERE UPPER(LEFT(public_reference::text,8))=$1`, parts[1]).Scan(&ref)
+		}
+	}
+
+	var buyerProfileID uuid.UUID
+	var courierID *uuid.UUID
+	var deliveryStatus, orderStatus string
+	ownerErr := s.db.QueryRow(`SELECT bp.id,o.assigned_courier_id,COALESCE(o.delivery_status,''),o.status::text
+		FROM orders o JOIN buyer_profiles bp ON bp.id=o.buyer_profile_id WHERE o.id=$1 AND bp.user_id=$2`, orderID, userID).
+		Scan(&buyerProfileID, &courierID, &deliveryStatus, &orderStatus)
+	if ownerErr != nil {
+		return nil, ErrQRForbidden
+	}
+	record := func(productID, variantID *uuid.UUID, result, reason string) {
+		_, _ = s.db.Exec(`INSERT INTO product_handover_verifications(order_id,buyer_profile_id,courier_id,product_id,variant_id,verification_method,supplied_reference,result,reason)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, orderID, buyerProfileID, courierID, productID, variantID, method, strings.TrimSpace(req.ProductNumber), result, reason)
+	}
+	if err != nil {
+		record(nil, nil, "REJECTED", "INVALID_PRODUCT_IDENTITY")
+		return nil, ErrQRInvalid
+	}
+	if courierID == nil || !containsString([]string{"COURIER_ARRIVED", "DELIVERY_SCAN_SUCCESS", "AWAITING_BUYER_CONFIRMATION"}, deliveryStatus) || containsString([]string{"CANCELLED", "REJECTED"}, orderStatus) {
+		record(nil, nil, "REJECTED", "INVALID_DELIVERY_STATE")
+		return nil, ErrQRNotOperational
+	}
+
+	var productID uuid.UUID
+	var variantID *uuid.UUID
+	var qrStatus string
+	if e := s.db.QueryRow(`SELECT product_id,variant_id,status FROM product_qr_codes WHERE public_reference=$1`, ref).Scan(&productID, &variantID, &qrStatus); e != nil || qrStatus != "ACTIVE" {
+		record(nil, nil, "REJECTED", "INVALID_PRODUCT_IDENTITY")
+		return nil, ErrQRInvalid
+	}
+	if variantID == nil {
+		record(&productID, nil, "REJECTED", "VARIANT_REQUIRED")
+		return nil, ErrProductMismatch
+	}
+
+	var response models.ProductVerificationResponse
+	var attrsRaw []byte
+	var publicRef uuid.UUID
+	err = s.db.QueryRow(`SELECT o.id,COALESCE(o.order_number,''),p.id,v.id,p.name,q.public_reference,b.name,s.name,v.name,v.attributes,
+		ol.quantity,ol.final_unit_price
+		FROM orders o JOIN order_lines ol ON ol.order_id=o.id
+		JOIN products p ON p.id=ol.product_id JOIN product_variants v ON v.id=ol.variant_id
+		JOIN shops s ON s.id=o.shop_id JOIN businesses b ON b.id=o.business_id
+		JOIN product_qr_codes q ON q.product_id=p.id AND q.variant_id=v.id
+		WHERE o.id=$1 AND p.id=$2 AND v.id=$3 AND o.shop_id=s.id`, orderID, productID, *variantID).
+		Scan(&response.OrderID, &response.OrderReference, &response.ProductID, &response.VariantID, &response.ProductName, &publicRef,
+			&response.Seller, &response.Shop, &response.Variant, &attrsRaw, &response.Quantity, &response.UnitPrice)
+	if err != nil {
+		record(&productID, variantID, "REJECTED", "PRODUCT_NOT_IN_ORDER")
+		return nil, ErrProductMismatch
+	}
+	_ = json.Unmarshal(attrsRaw, &response.Attributes)
+	response.Result = "SUCCESS"
+	response.ProductNumber = "VAR-" + strings.ToUpper(publicRef.String()[:8])
+	response.ProductTotal = response.UnitPrice * float64(response.Quantity)
+	response.Currency = "USD"
+	response.VerificationMethod = method
+	record(&productID, variantID, "SUCCESS", "")
+	return &response, nil
+}
+
+func containsString(values []string, needle string) bool {
+	for _, value := range values {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }
 
 // SetOrderService wires the order state machine in after construction; OrderService and
@@ -378,6 +468,13 @@ func (s *QRService) ConfirmReceipt(userID, orderID uuid.UUID) error {
 	}
 	if scanned == nil {
 		return ErrQRDeliveryNotScanned
+	}
+	var productVerified bool
+	if err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM product_handover_verifications WHERE order_id=$1 AND result='SUCCESS')`, orderID).Scan(&productVerified); err != nil {
+		return err
+	}
+	if !productVerified {
+		return ErrProductNotVerified
 	}
 
 	if _, err = tx.Exec(`UPDATE delivery_packages SET receipt_confirmed_at=NOW(),updated_at=NOW() WHERE id=$1`, pkg); err != nil {

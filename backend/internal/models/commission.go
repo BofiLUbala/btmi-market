@@ -43,6 +43,57 @@ type SaleCommission struct {
 	UpdatedAt        time.Time        `json:"updated_at" db:"updated_at"`
 }
 
+// SaleFinanceLine is the immutable order-line snapshot shown in seller and
+// Finance Admin drill-downs. Values come from order_lines, never the client.
+type SaleFinanceLine struct {
+	ProductID      *uuid.UUID `json:"product_id,omitempty"`
+	ProductName    string     `json:"product_name"`
+	ProductSKU     string     `json:"product_sku"`
+	VariantID      *uuid.UUID `json:"variant_id,omitempty"`
+	VariantName    string     `json:"variant_name"`
+	VariantSKU     string     `json:"variant_sku"`
+	Quantity       int        `json:"quantity"`
+	UnitPrice      float64    `json:"unit_price"`
+	PointsDiscount float64    `json:"points_discount"`
+	FinalUnitPrice float64    `json:"final_unit_price"`
+	GrossAmount    float64    `json:"gross_amount"`
+}
+
+// SaleFinanceDetail joins one shared commission snapshot to the corresponding
+// order, payment, buyer and order-line snapshots. Both seller and Finance Admin
+// endpoints return this exact model.
+type SaleFinanceDetail struct {
+	Sale             SaleCommission    `json:"sale"`
+	BuyerName        string            `json:"buyer_name"`
+	PaymentMethod    string            `json:"payment_method"`
+	PaymentStatus    string            `json:"payment_status"`
+	OrderStatus      string            `json:"order_status"`
+	DeliveryMethod   string            `json:"delivery_method"`
+	DeliveryStatus   string            `json:"delivery_status"`
+	PaymentMarkup    float64           `json:"payment_markup"`
+	DeliveryFee      float64           `json:"delivery_fee"`
+	ProductsSubtotal float64           `json:"products_subtotal"`
+	FinalTotal       float64           `json:"final_total"`
+	OrderedAt        time.Time         `json:"ordered_at"`
+	VerifiedAt       *time.Time        `json:"verified_at,omitempty"`
+	Lines            []SaleFinanceLine `json:"lines"`
+}
+
+// SaleHistoryItem is one row of sales history. It carries the shared per-sale
+// commission snapshot plus the buyer, payment, delivery and line context the
+// history tables show. Seller Finance and Finance Admin read the same rows.
+type SaleHistoryItem struct {
+	SaleCommission
+	BuyerName      string            `json:"buyer_name"`
+	PaymentMethod  string            `json:"payment_method"`
+	PaymentStatus  string            `json:"payment_status"`
+	OrderStatus    string            `json:"order_status"`
+	DeliveryMethod string            `json:"delivery_method"`
+	DeliveryStatus string            `json:"delivery_status"`
+	TotalQuantity  int               `json:"total_quantity"`
+	Lines          []SaleFinanceLine `json:"lines"`
+}
+
 // CommissionConfig represents the global platform commission configuration.
 type CommissionConfig struct {
 	Rate      float64             `json:"rate"`
@@ -63,13 +114,18 @@ type CommissionHistory struct {
 }
 
 // CommissionSummary represents aggregate financial metrics for Finance Admin.
+// It is a reshaping of FinanceDashboardReport, so it carries the same currency
+// breakdown: totals of different currencies are never silently added together.
 type CommissionSummary struct {
-	GrossSales          float64 `json:"gross_sales"`
-	TotalCommission     float64 `json:"total_commission"`
-	CollectedCommission float64 `json:"collected_commission"`
-	DueCommission       float64 `json:"due_commission"`
-	SellerNetRevenue    float64 `json:"seller_net_revenue"`
-	TotalVerifiedSales  int     `json:"total_verified_sales"`
+	GrossSales          float64                `json:"gross_sales"`
+	TotalCommission     float64                `json:"total_commission"`
+	CollectedCommission float64                `json:"collected_commission"`
+	DueCommission       float64                `json:"due_commission"`
+	SellerNetRevenue    float64                `json:"seller_net_revenue"`
+	TotalVerifiedSales  int                    `json:"total_verified_sales"`
+	Currency            string                 `json:"currency,omitempty"`
+	MixedCurrency       bool                   `json:"mixed_currency"`
+	TotalsByCurrency    []FinanceCurrencyTotal `json:"totals_by_currency"`
 }
 
 // SellerFinanceSummary represents aggregate financial metrics for a specific Seller.
@@ -93,13 +149,16 @@ type MarkCommissionCollectedRequest struct {
 }
 
 type CommissionFilter struct {
-	Status     string `form:"status"`
-	BusinessID string `form:"business_id"`
-	ShopID     string `form:"shop_id"`
-	SellerID   string `form:"seller_id"`
-	DateFrom   string `form:"date_from"`
-	DateTo     string `form:"date_to"`
-	Search     string `form:"search"`
-	Limit      int    `form:"limit"`
-	Offset     int    `form:"offset"`
+	// BusinessIDs scopes the list to the businesses a seller owns. Set by the
+	// service from the caller's memberships, never from a query parameter.
+	BusinessIDs []uuid.UUID `form:"-"`
+	Status      string      `form:"status"`
+	BusinessID  string      `form:"business_id"`
+	ShopID      string      `form:"shop_id"`
+	SellerID    string      `form:"seller_id"`
+	DateFrom    string      `form:"date_from"`
+	DateTo      string      `form:"date_to"`
+	Search      string      `form:"search"`
+	Limit       int         `form:"limit"`
+	Offset      int         `form:"offset"`
 }

@@ -134,6 +134,103 @@ func (h *AdminCommissionHandler) ListCommissions(c *gin.Context) {
 	})
 }
 
+// GET /api/v1/admin/finance/commissions/order/:order_id
+func (h *AdminCommissionHandler) GetSaleDetail(c *gin.Context) {
+	orderID, err := uuid.Parse(c.Param("order_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}{Code: "INVALID_ID", Message: "Invalid order UUID"}})
+		return
+	}
+	detail, err := h.commService.GetSaleFinanceDetail(orderID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		code := "INTERNAL_ERROR"
+		if err.Error() == "COMMISSION_NOT_FOUND" {
+			status, code = http.StatusNotFound, "COMMISSION_NOT_FOUND"
+		}
+		c.JSON(status, models.ErrorResponse{Error: struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}{Code: code, Message: err.Error()}})
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Sale financial detail retrieved", Data: detail})
+}
+
+// GET /api/v1/admin/finance/dashboard
+func (h *AdminCommissionHandler) GetFinanceDashboard(c *gin.Context) {
+	filter := &models.FinanceReportFilter{
+		BusinessID: c.Query("business_id"),
+		ShopID:     c.Query("shop_id"),
+		SellerID:   c.Query("seller_id"),
+		DateFrom:   c.Query("date_from"),
+		DateTo:     c.Query("date_to"),
+	}
+
+	report, err := h.commService.GetDashboardReport(filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{Code: "INTERNAL_ERROR", Message: err.Error()},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Finance dashboard retrieved",
+		Data:    report,
+	})
+}
+
+// GET /api/v1/admin/finance/breakdown?group=shop|product|seller|business
+func (h *AdminCommissionHandler) GetFinanceBreakdown(c *gin.Context) {
+	group := models.FinanceBreakdownGroup(c.DefaultQuery("group", "shop"))
+	if group != models.FinanceBreakdownShop &&
+		group != models.FinanceBreakdownProduct &&
+		group != models.FinanceBreakdownSeller &&
+		group != models.FinanceBreakdownBusiness {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{Code: "INVALID_GROUP", Message: "group must be shop, product, seller or business"},
+		})
+		return
+	}
+
+	filter := &models.FinanceReportFilter{
+		BusinessID: c.Query("business_id"),
+		ShopID:     c.Query("shop_id"),
+		SellerID:   c.Query("seller_id"),
+		DateFrom:   c.Query("date_from"),
+		DateTo:     c.Query("date_to"),
+	}
+
+	items, err := h.commService.GetBreakdownReport(group, filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{Code: "INTERNAL_ERROR", Message: err.Error()},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Finance breakdown retrieved",
+		Data: gin.H{
+			"group": group,
+			"items": items,
+		},
+	})
+}
+
 // POST /api/v1/admin/finance/commissions/:id/collect
 func (h *AdminCommissionHandler) MarkCommissionCollected(c *gin.Context) {
 	adminIDVal, _ := c.Get("admin_id")

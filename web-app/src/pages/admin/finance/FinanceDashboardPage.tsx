@@ -13,6 +13,8 @@ import {
   AdminCaseDetail,
   AdminPaymentDetail,
   AdminRiskEvent
+  ,FinanceDashboardReport
+  ,FinanceBreakdownItem
   ,AdminPaymentMethodConfig
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
@@ -53,6 +55,7 @@ const FEATURE_TITLE_KEY: Record<ActiveTab, string> = {
 }
 
 const PAGE_SIZE = 25
+const financeMoney = (value: number, currency = 'USD') => new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value)
 
 export default function FinanceDashboardPage() {
   const t = useT()
@@ -72,6 +75,10 @@ export default function FinanceDashboardPage() {
 
   // Data states
   const [summary, setSummary] = useState<AdminFinancialSummary | null>(null)
+  const [financeReport, setFinanceReport] = useState<FinanceDashboardReport | null>(null)
+  const [breakdownItems, setBreakdownItems] = useState<FinanceBreakdownItem[]>([])
+  const [breakdownGroup, setBreakdownGroup] = useState<'shop' | 'product' | 'seller' | 'business'>('shop')
+  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'all'>('today')
   const [payments, setPayments] = useState<AdminPaymentListItem[]>([])
   const [pointUsers, setPointUsers] = useState<AdminPointUser[]>([])
   const [sellerGrowth, setSellerGrowth] = useState<AdminSellerGrowthItem[]>([])
@@ -146,15 +153,41 @@ export default function FinanceDashboardPage() {
 
   useEffect(() => {
     loadTabContent()
-  }, [tab, page, search, statusFilter])
+  }, [tab, page, search, statusFilter, dateRange, breakdownGroup])
+
+  // Maps a preset date range to date_from/date_to query params (inclusive,
+  // local time) forwarded to the backend, which filters in SQL.
+  const rangeParams = (range: typeof dateRange): { date_from?: string; date_to?: string } => {
+    if (range === 'all') return {}
+    const end = new Date()
+    const start = new Date()
+    if (range === 'today') {
+      start.setHours(0, 0, 0, 0)
+    } else if (range === 'week') {
+      start.setDate(start.getDate() - 6)
+      start.setHours(0, 0, 0, 0)
+    } else {
+      start.setDate(1)
+      start.setHours(0, 0, 0, 0)
+    }
+    const iso = (d: Date) => d.toISOString().slice(0, 10)
+    return { date_from: iso(start), date_to: iso(end) }
+  }
 
   const loadTabContent = async () => {
     setLoading(true)
     setError(null)
+    if (tab === 'overview') { setSummary(null); setFinanceReport(null); setBreakdownItems([]) }
     try {
-      if (tab === 'overview') {
-        const sum = await adminFinanceApi.getSummary()
+if (tab === 'overview') {
+        const [sum, report, breakdown] = await Promise.all([
+          adminFinanceApi.getSummary(),
+          adminFinanceApi.getFinanceDashboard(rangeParams(dateRange)),
+          adminFinanceApi.getFinanceBreakdown({ group: breakdownGroup, ...rangeParams(dateRange) })
+        ])
         setSummary(sum)
+        setFinanceReport(report)
+        setBreakdownItems(breakdown.items || [])
       } else if (tab === 'payment_config') {
         const res = await adminFinanceApi.listPaymentConfigs()
         setPaymentConfigs(res.items || [])
@@ -385,7 +418,7 @@ export default function FinanceDashboardPage() {
 
       {error && (
         <div style={{ backgroundColor: '#7f1d1d', color: '#fca5a5', padding: '12px 16px', borderRadius: 8, marginBottom: 16, border: '1px solid #dc2626' }}>
-          ⚠️ {error}
+          ⚠️ Impossible de charger les données financières. <button onClick={() => void loadTabContent()}>Réessayer</button>
         </div>
       )}
 
@@ -396,9 +429,72 @@ export default function FinanceDashboardPage() {
         </div>
       )}
 
-      {/* TAB 1: FINANCIAL SUMMARY OVERVIEW */}
+{/* TAB 1: FINANCIAL SUMMARY OVERVIEW */}
       {!loading && tab === 'overview' && summary && (
         <div>
+          {/* TBK PLATFORM FINANCE — real numbers from sale_commissions + verified payments */}
+          <div style={{ border: '1px solid #4338ca', backgroundColor: '#1e1b4b', borderRadius: 10, padding: 18, marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#a5b4fc' }}>TBK Platform Finance — live</h3>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['today', 'week', 'month', 'all'] as const).map((r) => (
+                  <button key={r} onClick={() => setDateRange(r)}
+                    style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #4338ca', cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                      backgroundColor: dateRange === r ? '#4f46e5' : 'transparent', color: dateRange === r ? '#fff' : '#a5b4fc' }}>
+                    {r === 'today' ? 'Today' : r === 'week' ? '7 days' : r === 'month' ? 'Month' : 'All time'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+              <MetricCard title="Ventes brutes (marchandise)" value={financeReport!.totals_by_currency.map(x => financeMoney(x.gross_sales, x.currency)).join(' · ')} sub={`${financeReport!.verified_sales} sales verified`} color="#60a5fa" />
+              <MetricCard title={`Commission TBK (${financeReport!.commission_rate.toFixed(2)}%)`} value={financeReport!.totals_by_currency.map(x => financeMoney(x.commission_amount, x.currency)).join(' · ')} sub="DUE / COLLECTED tracked separately" color="#f87171" />
+              <MetricCard title="Revenu net vendeur" value={financeReport!.totals_by_currency.map(x => financeMoney(x.seller_net_amount, x.currency)).join(' · ')} sub={`Gross − commission`} color="#34d399" />
+              <MetricCard title="Cash collecté (avec livraison)" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.collected_cash, financeReport!.currency || 'USD')} sub={`verified payments · cash_due`} color="#fbbf24" />
+              <MetricCard title="Commission annulée (remboursements)" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.waived_commission, financeReport!.currency || 'USD')} sub={`${financeReport!.refunded_sales} refunded sales`} color="#a78bfa" />
+              <MetricCard title="Ventes en attente" value={String(financeReport!.pending_orders)} sub="no verified payment yet" color="#94a3b8" />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+              {(['shop', 'product', 'seller', 'business'] as const).map((g) => (
+                <button key={g} onClick={() => setBreakdownGroup(g)}
+                  style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #4338ca', cursor: 'pointer', fontWeight: 700, fontSize: 12,
+                    backgroundColor: breakdownGroup === g ? '#312e81' : 'transparent', color: breakdownGroup === g ? '#c7d2fe' : '#818cf8' }}>
+                  By {g}
+                </button>
+              ))}
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ backgroundColor: '#312e81', textAlign: 'left', color: '#c7d2fe' }}>
+                  <th style={{ padding: '8px 10px' }}>Entity</th>
+                  <th style={{ padding: '8px 10px' }}>Sales</th>
+                  <th style={{ padding: '8px 10px' }}>Gross</th>
+                  <th style={{ padding: '8px 10px' }}>Commission</th>
+                  <th style={{ padding: '8px 10px' }}>Seller net</th>
+                  <th style={{ padding: '8px 10px' }}>Collected / Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdownItems.length === 0 && (
+                  <tr><td colSpan={6} style={{ padding: 12, color: '#818cf8', textAlign: 'center' }}>No sale commissions recorded in this range yet.</td></tr>
+                )}
+                {breakdownItems.map((item) => (
+                  <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid #4338ca' }}>
+                    <td style={{ padding: '8px 10px', fontWeight: 700 }}>{item.label}</td>
+                    <td style={{ padding: '8px 10px' }}>{item.sales_count}</td>
+                    <td style={{ padding: '8px 10px', color: '#93c5fd' }}>{financeMoney(item.gross_sales, item.currency)}</td>
+                    <td style={{ padding: '8px 10px', color: '#fca5a5' }}>{financeMoney(item.commission_amount, item.currency)}</td>
+                    <td style={{ padding: '8px 10px', color: '#6ee7b7' }}>{financeMoney(item.seller_net_amount, item.currency)}</td>
+                    <td style={{ padding: '8px 10px', color: '#e9d5ff' }}>{financeMoney(item.collected, item.currency)} / {financeMoney(item.due, item.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 24 }}>
             <MetricCard title={t('admin.finance.metricGmvTitle')} value={`$${summary.total_order_value.toFixed(2)}`} sub={t('admin.finance.metricGmvSub', { count: summary.total_orders })} color="#60a5fa" />
             <MetricCard title={t('admin.finance.metricVerifiedTitle')} value={`$${summary.verified_cash.toFixed(2)}`} sub={t('admin.finance.metricVerifiedSub', { count: summary.verified_payments_count })} color="#34d399" />
@@ -421,6 +517,14 @@ export default function FinanceDashboardPage() {
                 <label>Actif<input type="checkbox" checked={config.enabled} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, enabled:e.target.checked} : item))} /></label>
                 <label>Majoration<select value={config.markup_type} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_type:e.target.value as AdminPaymentMethodConfig['markup_type']} : item))}><option value="NONE">Aucune</option><option value="PERCENTAGE">%</option><option value="FIXED">Fixe</option></select></label>
                 <label>Valeur<input type="number" min="0" step="0.01" value={config.markup_value} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_value:Number(e.target.value)} : item))} /></label>
+                {/* A fixed markup is an amount, so it needs a currency; a
+                    percentage is currency-free and says so instead. */}
+                <label>Devise{config.markup_type === 'FIXED' ? (
+                  <select value={config.markup_currency ?? 'USD'} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_currency:e.target.value} : item))}>
+                    <option value="USD">USD</option>
+                    <option value="CDF">CDF (héritage)</option>
+                  </select>
+                ) : <input value={config.markup_type === 'PERCENTAGE' ? '% — sans devise' : '—'} readOnly />}</label>
                 <label>Fournisseur<input value={config.provider} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, provider:e.target.value} : item))} /></label>
                 <button className="admin-button" onClick={() => void savePaymentConfig(config)}>Enregistrer</button>
               </div>
@@ -882,7 +986,10 @@ export default function FinanceDashboardPage() {
             {/* TBK PLATFORM COMMISSION BREAKDOWN */}
             {(() => {
               const grossBase = Math.max(0, (selectedPayment.subtotal_amount || 0) - (selectedPayment.points_discount_amount || 0))
-              const estCommission = grossBase * 0.03
+              const commissionRate = financeReport && financeReport.commission_rate > 0
+                ? financeReport.commission_rate / 100
+                : 0
+              const estCommission = grossBase * commissionRate
               const estNet = grossBase - estCommission
               const isVerified = selectedPayment.payment_status === 'VERIFIED'
               return (
@@ -900,7 +1007,7 @@ export default function FinanceDashboardPage() {
                     </div>
                     <div>
                       <div style={{ color: '#94a3b8', fontSize: 11 }}>Taux de commission</div>
-                      <div style={{ fontWeight: 700, color: '#a5b4fc' }}>3.00%</div>
+                      <div style={{ fontWeight: 700, color: '#a5b4fc' }}>{commissionRate > 0 ? `${(commissionRate * 100).toFixed(2)}%` : '—'}</div>
                     </div>
                     <div>
                       <div style={{ color: '#94a3b8', fontSize: 11 }}>Commission TBK</div>

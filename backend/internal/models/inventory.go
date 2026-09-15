@@ -44,16 +44,18 @@ type ReleaseStockRequest struct {
 }
 
 type InventoryResponse struct {
-	ID               uuid.UUID `json:"id"`
-	BusinessID       uuid.UUID `json:"business_id"`
-	ShopID           uuid.UUID `json:"shop_id"`
-	ProductID        uuid.UUID `json:"product_id"`
-	VariantID        uuid.UUID `json:"variant_id"`
-	Quantity         int       `json:"quantity"`
-	ReservedQuantity int       `json:"reserved_quantity"`
-	Available        int       `json:"available"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID                uuid.UUID `json:"id"`
+	BusinessID        uuid.UUID `json:"business_id"`
+	ShopID            uuid.UUID `json:"shop_id"`
+	ProductID         uuid.UUID `json:"product_id"`
+	VariantID         uuid.UUID `json:"variant_id"`
+	Quantity          int       `json:"quantity"`
+	ReservedQuantity  int       `json:"reserved_quantity"`
+	Available         int       `json:"available"`
+	StockStatus       string    `json:"stock_status,omitempty"` // IN_STOCK, LOW_STOCK, OUT_OF_STOCK
+	LowStockThreshold int       `json:"low_stock_threshold,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type InventoryWithVariantResponse struct {

@@ -201,7 +201,7 @@ export interface BusinessLifecycleSummary {
   shop_summaries: Array<{ id: string; name: string; status: string; product_count: number }>
 }
 export interface ArchiveBusinessResponse { action: 'archived'; summary: BusinessLifecycleSummary }
-export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; created_at: string; delivery_method?: string; notes?: string }
+export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; notes?: string }
 export interface SellerOrder extends BuyerOrder {
   business_id: string
   base_total?: number
@@ -412,6 +412,14 @@ export interface QRScanResponse {
   package_id: string
   delivery_status: string
   requires_buyer_confirmation: boolean
+}
+
+export interface ProductVerification {
+  result: 'SUCCESS'; order_id: string; order_reference: string
+  product_id: string; variant_id: string; product_name: string; product_number: string
+  seller: string; shop: string; variant: string; attributes: Record<string, unknown>
+  quantity: number; unit_price: number; product_total: number; currency: string
+  verification_method: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER'
 }
 
 /* ---------- Seller: Finances & Commissions ---------- */

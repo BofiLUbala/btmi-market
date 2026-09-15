@@ -132,6 +132,8 @@ export interface AdminProductListItem {
   image_count: number
   variant_count: number
   total_available: number
+  stock_status?: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+  low_stock_threshold?: number
   created_at: string
   updated_at: string
 }
@@ -226,6 +228,7 @@ export interface AdminInventoryItem {
   reserved_quantity: number
   available: number
   stock_status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+  low_stock_threshold: number
   updated_at: string
 }
 
@@ -1122,6 +1125,35 @@ export interface AdminFinancialSummary {
   risk_alerts_count: number
 }
 
+export interface FinanceDashboardReport {
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected_commission: number
+  due_commission: number
+  waived_commission: number
+  collected_cash: number
+  verified_sales: number
+  refunded_sales: number
+  pending_orders: number
+  commission_rate: number
+  currency?: string
+  mixed_currency: boolean
+  totals_by_currency: Array<{ currency: string; gross_sales: number; commission_amount: number; seller_net_amount: number; collected_commission: number; due_commission: number; verified_sales: number }>
+}
+
+export interface FinanceBreakdownItem {
+  id?: string
+  label: string
+  gross_sales: number
+  commission_amount: number
+  seller_net_amount: number
+  collected: number
+  due: number
+  sales_count: number
+  currency: string
+}
+
 export interface AdminPaymentListItem {
   payment_id: string
   order_id: string
@@ -1234,6 +1266,7 @@ export interface AdminCommissionItem {
   commission_rate: number
   commission_amount: number
   seller_net_amount: number
+  currency: string
   status: 'DUE' | 'COLLECTED' | 'WAIVED' | 'ADJUSTED'
   calculated_at: string
   collected_at?: string
@@ -1244,6 +1277,33 @@ export interface AdminCommissionItem {
   updated_at: string
 }
 
+export interface AdminSaleFinanceLine {
+  product_id?: string; product_name: string; product_sku: string
+  variant_id?: string; variant_name: string; variant_sku: string
+  quantity: number; unit_price: number; points_discount: number
+  final_unit_price: number; gross_amount: number
+}
+
+// One row of global sales history. Same backend shape Seller Finance reads.
+export interface AdminSaleHistoryItem extends AdminCommissionItem {
+  buyer_name: string
+  payment_method: string
+  payment_status: string
+  order_status: string
+  delivery_method: string
+  delivery_status: string
+  total_quantity: number
+  lines: AdminSaleFinanceLine[]
+}
+
+export interface AdminSaleFinanceDetail {
+  sale: AdminCommissionItem
+  buyer_name: string; payment_method: string; payment_status: string; order_status: string
+  delivery_method: string; delivery_status: string; payment_markup: number; delivery_fee: number
+  products_subtotal: number; final_total: number; ordered_at: string; verified_at?: string
+  lines: AdminSaleFinanceLine[]
+}
+
 export interface AdminCommissionSummary {
   gross_sales: number
   total_commission: number
@@ -1251,6 +1311,12 @@ export interface AdminCommissionSummary {
   due_commission: number
   seller_net_revenue: number
   total_verified_sales: number
+  currency?: string
+  mixed_currency: boolean
+  totals_by_currency: Array<{
+    currency: string; gross_sales: number; commission_amount: number; seller_net_amount: number
+    collected_commission: number; due_commission: number; verified_sales: number
+  }>
 }
 
 export interface AdminPointTransaction {
@@ -1384,12 +1450,12 @@ export interface AdminRiskEvent {
   resolved_by?: string
 }
 
-export interface AdminPaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; provider: string; modified_by?: string; updated_at: string }
+export interface AdminPaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_currency?: string; provider: string; modified_by?: string; updated_at: string }
 
 export const adminFinanceApi = {
   listPaymentConfigs: () => adminApi<{ items: AdminPaymentMethodConfig[] }>('/admin/finance/payment-config'),
-  updatePaymentConfig: (code: string, body: Pick<AdminPaymentMethodConfig, 'label'|'enabled'|'markup_type'|'markup_value'|'provider'>) => adminApi<AdminPaymentMethodConfig>(`/admin/finance/payment-config/${code}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  getSummary: async (params?: { business_id?: string; shop_id?: string; seller_id?: string; date_from?: string; date_to?: string }) => {
+  updatePaymentConfig: (code: string, body: Partial<Pick<AdminPaymentMethodConfig, 'label'|'enabled'|'markup_type'|'markup_value'|'markup_currency'|'provider'>>) => adminApi<AdminPaymentMethodConfig>(`/admin/finance/payment-config/${code}`, { method: 'PATCH', body: JSON.stringify(body) }),
+getSummary: async (params?: { business_id?: string; shop_id?: string; seller_id?: string; date_from?: string; date_to?: string }) => {
     const q = new URLSearchParams()
     if (params?.business_id) q.set('business_id', params.business_id)
     if (params?.shop_id) q.set('shop_id', params.shop_id)
@@ -1397,6 +1463,25 @@ export const adminFinanceApi = {
     if (params?.date_from) q.set('date_from', params.date_from)
     if (params?.date_to) q.set('date_to', params.date_to)
     return adminApi<AdminFinancialSummary>(`/admin/finance/summary?${q.toString()}`)
+  },
+  getFinanceDashboard: async (params?: { business_id?: string; shop_id?: string; seller_id?: string; date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.business_id) q.set('business_id', params.business_id)
+    if (params?.shop_id) q.set('shop_id', params.shop_id)
+    if (params?.seller_id) q.set('seller_id', params.seller_id)
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    return adminApi<FinanceDashboardReport>(`/admin/finance/dashboard?${q.toString()}`)
+  },
+  getFinanceBreakdown: async (params?: { group?: 'shop' | 'product' | 'seller' | 'business'; business_id?: string; shop_id?: string; seller_id?: string; date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.group) q.set('group', params.group)
+    if (params?.business_id) q.set('business_id', params.business_id)
+    if (params?.shop_id) q.set('shop_id', params.shop_id)
+    if (params?.seller_id) q.set('seller_id', params.seller_id)
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    return adminApi<{ group: string; items: FinanceBreakdownItem[] }>(`/admin/finance/breakdown?${q.toString()}`)
   },
   listPayments: async (params?: { payment_status?: string; buyer_confirmed?: boolean; seller_confirmed?: boolean; business_id?: string; shop_id?: string; order_number?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams()
@@ -1455,8 +1540,9 @@ export const adminFinanceApi = {
     if (params?.date_to) q.set('date_to', params.date_to)
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
-    return adminApi<{ commissions: AdminCommissionItem[]; total: number }>(`/admin/finance/commissions?${q.toString()}`)
+    return adminApi<{ commissions: AdminSaleHistoryItem[]; total: number }>(`/admin/finance/commissions?${q.toString()}`)
   },
+  getCommissionSaleDetail: (orderId: string) => adminApi<AdminSaleFinanceDetail>(`/admin/finance/commissions/order/${orderId}`),
   markCommissionCollected: async (id: string, notes?: string) => {
     return adminApi<{ id: string; status: string }>(`/admin/finance/commissions/${id}/collect`, {
       method: 'POST',
