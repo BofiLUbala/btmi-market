@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { hasActiveOrderStatus } from '@/lib/orderStatus'
+import { paymentStatusKey, confirmationActorKey, isPaymentPaid } from '@/lib/paymentStatus'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { useT } from '@/store/i18n'
@@ -194,12 +195,8 @@ export default function SellerOrdersPage() {
     }
   }
 
-  async function confirmCash(order: Order, payment: BuyerPayment) {
-    await runAction(order, async () => {
-      const updated = await orderApi.sellerConfirmPayment(payment.id) as BuyerPayment
-      setPayments(prev => ({ ...prev, [order.id]: updated }))
-    })
-  }
+  // The seller has no cash-confirmation action. Cash is handed to the courier at the
+  // buyer's door, so the courier confirms it; the seller only reads the result.
 
   const visibleOrders = Array.isArray(orders) ? orders : []
   const shopNames = new Map(shops.map((shop) => [shop.id, shop.name]))
@@ -349,10 +346,12 @@ export default function SellerOrdersPage() {
                                   <div>{t('orders.amountDue')}: <strong>{formatMoney(payment.cash_due, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
                                   <div>Mode: <strong>{payment.payment_method}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
                                   <div>Majoration: {formatMoney(payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)} · Total: <strong>{formatMoney(payment.final_total, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
-                                  <div>{t('seller.orders.buyerColon')} {payment.buyer_confirmed ? `✓ ${t('orders.paymentDeclared')}` : t('orders.notConfirmed')}</div>
-                                  <div>{t('seller.orders.sellerColon')} {payment.seller_confirmed ? `✓ ${t('orders.cashReceived')}` : t('orders.notConfirmed')}</div>
-                                  <div>{t('common.status')}: <strong>{payment.status}</strong></div>
-                                  {!payment.seller_confirmed && <Button size="sm" disabled={actingId === order.id} onClick={() => void confirmCash(order, payment)}>{t('seller.orders.confirmCash')}</Button>}
+                                  <div>{t('common.status')}: <strong>{t(paymentStatusKey(payment) as TranslationKey)}</strong></div>
+                                  {isPaymentPaid(payment)
+                                    ? <div>{confirmationActorKey(payment.confirmation_actor)
+                                        ? t(confirmationActorKey(payment.confirmation_actor) as TranslationKey)
+                                        : t('orders.paymentPaid')}</div>
+                                    : <div className="muted">{t('seller.orders.cashAwaitingCourier')}</div>}
                                 </> : <div>{t('seller.orders.noPaymentCreated')}</div>}
                               </div>
                               {packageQRs[order.id] && (

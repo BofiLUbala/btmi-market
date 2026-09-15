@@ -319,101 +319,11 @@ func (s *PaymentService) GetPaymentByOrderForSeller(userID, orderID uuid.UUID) (
 	return s.toResponse(payment), nil
 }
 
-func (s *PaymentService) BuyerConfirm(buyerProfileID, paymentID uuid.UUID) (*models.BuyerPaymentResponse, error) {
-	payment, err := s.paymentRepo.GetByID(paymentID)
-	if err != nil {
-		return nil, err
-	}
-	if payment == nil {
-		return nil, errors.New("PAYMENT_NOT_FOUND")
-	}
-	if payment.BuyerProfileID != buyerProfileID {
-		return nil, errors.New("FORBIDDEN")
-	}
-	// Buyer/seller confirmation is the cash-handover ritual. An online payment is
-	// settled by its provider alone, so neither party may nudge it along.
-	if payment.PaymentMethod != models.PaymentMethodCashOnDelivery {
-		return nil, errors.New("PROVIDER_CONFIRMATION_REQUIRED")
-	}
-
-	if payment.Status == models.BuyerPaymentStatusVerified || payment.BuyerConfirmed {
-		return s.toResponse(payment), nil
-	}
-
-	now := time.Now()
-	payment.BuyerConfirmed = true
-	payment.BuyerConfirmedAt = &now
-
-	if payment.SellerConfirmed {
-		payment.Status = models.BuyerPaymentStatusVerified
-		payment.VerifiedAt = &now
-	} else {
-		payment.Status = models.BuyerPaymentStatusConfirmed
-	}
-
-	if err := s.paymentRepo.Update(payment); err != nil {
-		return nil, err
-	}
-	if payment.Status == models.BuyerPaymentStatusVerified {
-		s.enqueueVerified(payment)
-		if s.commService != nil {
-			_, _ = s.commService.CalculateAndRecordCommission(payment.OrderID)
-		}
-	}
-	return s.toResponse(payment), nil
-}
-
-func (s *PaymentService) SellerConfirm(userID, paymentID uuid.UUID) (*models.BuyerPaymentResponse, error) {
-	payment, err := s.paymentRepo.GetByID(paymentID)
-	if err != nil {
-		return nil, err
-	}
-	if payment == nil {
-		return nil, errors.New("PAYMENT_NOT_FOUND")
-	}
-
-	if err := s.requireShopAccess(userID, payment.ShopID); err != nil {
-		return nil, err
-	}
-	// Buyer/seller confirmation is the cash-handover ritual. An online payment is
-	// settled by its provider alone, so neither party may nudge it along.
-	if payment.PaymentMethod != models.PaymentMethodCashOnDelivery {
-		return nil, errors.New("PROVIDER_CONFIRMATION_REQUIRED")
-	}
-
-	if payment.Status == models.BuyerPaymentStatusVerified || payment.SellerConfirmed {
-		return s.toResponse(payment), nil
-	}
-
-	now := time.Now()
-	payment.SellerConfirmed = true
-	payment.SellerConfirmedAt = &now
-
-	employee, err := s.employeeRepo.GetByLinkedUserID(userID)
-	if err == nil && employee != nil {
-		payment.SellerConfirmedBy = &employee.ID
-	} else {
-		payment.SellerConfirmedBy = &userID
-	}
-
-	if payment.BuyerConfirmed {
-		payment.Status = models.BuyerPaymentStatusVerified
-		payment.VerifiedAt = &now
-	} else {
-		payment.Status = models.BuyerPaymentStatusConfirmed
-	}
-
-	if err := s.paymentRepo.Update(payment); err != nil {
-		return nil, err
-	}
-	if payment.Status == models.BuyerPaymentStatusVerified {
-		s.enqueueVerified(payment)
-		if s.commService != nil {
-			_, _ = s.commService.CalculateAndRecordCommission(payment.OrderID)
-		}
-	}
-	return s.toResponse(payment), nil
-}
+// Cash at delivery is settled by the assigned courier at the door
+// (QRService.CourierConfirmCash), and an online payment by its provider's webhook
+// (HandleProviderWebhook). There is deliberately no buyer- or seller-facing way to
+// declare a payment received: neither party is present at the handover, so neither
+// one's word is evidence that money moved.
 
 func (s *PaymentService) SetCommissionService(cs *CommissionService) {
 	s.commService = cs
@@ -439,7 +349,7 @@ func (s *PaymentService) ProcessVerifiedPayment(paymentID uuid.UUID) error {
 	if payment == nil {
 		return errors.New("PAYMENT_NOT_FOUND")
 	}
-	if payment.Status != models.BuyerPaymentStatusVerified {
+	if !models.PaymentSettled(payment.Status) {
 		return errors.New("PAYMENT_NOT_VERIFIED")
 	}
 
@@ -611,6 +521,10 @@ func (s *PaymentService) toResponse(p *models.BuyerPayment) *models.BuyerPayment
 		SellerConfirmedAt:      p.SellerConfirmedAt,
 		Status:                 string(p.Status),
 		VerifiedAt:             p.VerifiedAt,
+		PaidAt:                 p.PaidAt,
+		ConfirmedByUserID:      p.ConfirmedByUserID,
+		ConfirmationActor:      p.ConfirmationActor,
+		CashReceivedAt:         p.CashReceivedAt,
 		CreatedAt:              p.CreatedAt,
 		UpdatedAt:              p.UpdatedAt,
 	}

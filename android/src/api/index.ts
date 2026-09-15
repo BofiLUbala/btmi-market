@@ -94,7 +94,8 @@ export const buyerApi = {
   checkoutQuote: (id: string) => get<CheckoutQuote>(`/buyer/orders/${id}/checkout-quote`),
   createPayment: (id: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${id}/payment`, { payment_method: paymentMethod }),
   getPayment: (id: string) => get<BuyerPayment>(`/buyer/orders/${id}/payment`),
-  buyerConfirmPayment: (paymentId: string) => post<BuyerPayment>(`/buyer/payments/${paymentId}/buyer-confirm`),
+  // No buyerConfirmPayment: choosing cash at delivery is not paying, and the buyer
+  // saying they paid is not evidence. The courier confirms the cash at the door.
   reviewEligibility: (orderId: string, lineId?: string) => get<ReviewEligibility>(`/buyer/orders/${orderId}/review-eligibility${lineId ? `?order_line_id=${encodeURIComponent(lineId)}` : ''}`),
   createReview: (orderId: string, lineId: string, rating: number, comment: string) => post(`/buyer/orders/${orderId}/review`, { order_line_id: lineId, rating, comment }),
   createServiceReview: (orderId: string, deliveryRating: number, serviceRating: number, experienceRating: number, comment: string) => post(`/buyer/orders/${orderId}/service-review`, { delivery_rating: deliveryRating, service_rating: serviceRating, order_experience_rating: experienceRating, comment }),
@@ -182,7 +183,8 @@ export const sellerApi = {
   cancelOrder: (id: string) => post<SellerOrder>(`/orders/${id}/cancel`, {}),
   sellerTransition: (id: string, status: string, notes?: string) => post(`/orders/${id}/tracking/status`, { status, notes }),
   getOrderPayment: (id: string) => get<BuyerPayment>(`/orders/${id}/payment`),
-  sellerConfirmPayment: (paymentId: string) => post<BuyerPayment>(`/payments/${paymentId}/seller-confirm`),
+  // No sellerConfirmPayment: a seller is not at the handover, so they cannot attest
+  // that cash changed hands. The assigned courier confirms it from their own app.
 
   /* Customers */
   customers: async (businessId: string) => list<unknown>(await get<unknown>(`/businesses/${businessId}/customers`)).map(normalizeCustomer),

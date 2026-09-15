@@ -419,14 +419,14 @@ func (h *Handler) DeleteShop(c *gin.Context) {
 	data := gin.H{"action": action}
 	if shop != nil {
 		data["shop"] = models.ShopResponse{
-			ID:      shop.ID,
+			ID:         shop.ID,
 			BusinessID: shop.BusinessID,
-			Name:    shop.Name,
-			Type:    shop.Type,
-			City:    shop.City,
-			Address: shop.Address,
-			Phone:   shop.Phone,
-			Status:  shop.Status,
+			Name:       shop.Name,
+			Type:       shop.Type,
+			City:       shop.City,
+			Address:    shop.Address,
+			Phone:      shop.Phone,
+			Status:     shop.Status,
 		}
 	}
 

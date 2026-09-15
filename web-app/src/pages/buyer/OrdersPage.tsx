@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/ui/Badges'
 import { BoxIcon } from '@/components/ui/Icons'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
-import { paymentStatusKey } from '@/lib/paymentStatus'
+import { paymentStatusKey, confirmationActorKey } from '@/lib/paymentStatus'
 import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
@@ -205,7 +205,7 @@ function OrdersInner() {
             })}
           </div>
           <div className="buyer-order-footer">
-            <div className="small"><span className="muted">{t('orders.payment')}</span><br /><strong>{payment ? t(paymentStatusKey(payment) as TranslationKey) : t('orders.notPrepared')}</strong>{payment?.buyer_confirmed ? ` ${t('orders.buyerConfirmed')}` : ''}{payment?.seller_confirmed ? ` ${t('orders.sellerConfirmed')}` : ''}</div>
+            <div className="small"><span className="muted">{t('orders.payment')}</span><br /><strong>{payment ? t(paymentStatusKey(payment) as TranslationKey) : t('orders.notPrepared')}</strong>{confirmationActorKey(payment?.confirmation_actor) ? ` · ${t(confirmationActorKey(payment?.confirmation_actor) as TranslationKey)}` : ''}</div>
             <div className="small"><span className="muted">{t('orders.deliveryLabel')}</span><br /><strong>{order.delivery_method ? order.delivery_method.replace(/_/g, ' ') : t('orders.notSelected')}</strong></div>
             <div><span className="muted small">{t('common.total')}</span><br /><strong>{formatMoney(total)}</strong></div>
             <Link to={`/orders/${order.id}`} className="btn btn-primary">{t('orders.viewOrder')}</Link>

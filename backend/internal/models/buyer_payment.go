@@ -20,6 +20,23 @@ const (
 	BuyerPaymentStatusRefunded   BuyerPaymentStatus = "REFUNDED"
 )
 
+// Who settled a payment. Cash is only ever COURIER; an online payment only ever
+// PROVIDER. LegacyDeclaration marks rows settled under the old buyer+seller
+// declaration rule, which no code path can produce any more.
+const (
+	PaymentConfirmationActorCourier  = "COURIER"
+	PaymentConfirmationActorProvider = "PROVIDER"
+	PaymentConfirmationActorAdmin    = "ADMIN"
+	PaymentConfirmationActorLegacy   = "LEGACY_DECLARATION"
+)
+
+// PaymentSettled reports whether the buyer has actually paid, as opposed to having
+// promised to. PAID is what every new settlement writes; VERIFIED is the same fact
+// under the name older rows were stored with.
+func PaymentSettled(status BuyerPaymentStatus) bool {
+	return status == BuyerPaymentStatusPaid || status == BuyerPaymentStatusVerified
+}
+
 const (
 	BuyerPaymentMethodCash = PaymentMethodCashOnDelivery
 )
@@ -54,6 +71,9 @@ type BuyerPayment struct {
 	ProviderReference  string  `json:"provider_reference" db:"provider_reference"`
 	PaymentTiming      string  `json:"payment_timing" db:"payment_timing"`
 
+	// Legacy declaration flags. Nothing writes these any more: cash is settled by the
+	// courier at the door, not by the buyer and seller each declaring it happened.
+	// They are read-only history for rows written before that rule.
 	BuyerConfirmed    bool       `json:"buyer_confirmed" db:"buyer_confirmed"`
 	BuyerConfirmedAt  *time.Time `json:"buyer_confirmed_at" db:"buyer_confirmed_at"`
 	SellerConfirmed   bool       `json:"seller_confirmed" db:"seller_confirmed"`
@@ -62,6 +82,14 @@ type BuyerPayment struct {
 
 	Status     BuyerPaymentStatus `json:"status" db:"status"`
 	VerifiedAt *time.Time         `json:"verified_at" db:"verified_at"`
+
+	// Who actually settled the payment. ConfirmationActor names the authority, so a
+	// courier's cash receipt is never confused with a provider's confirmation.
+	PaidAt            *time.Time `json:"paid_at" db:"paid_at"`
+	ConfirmedByUserID *uuid.UUID `json:"confirmed_by_user_id" db:"confirmed_by_user_id"`
+	ConfirmationActor string     `json:"confirmation_actor" db:"confirmation_actor"`
+	CashReceivedBy    *uuid.UUID `json:"cash_received_by" db:"cash_received_by"`
+	CashReceivedAt    *time.Time `json:"cash_received_at" db:"cash_received_at"`
 
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
@@ -100,6 +128,10 @@ type BuyerPaymentResponse struct {
 	SellerConfirmedAt      *time.Time `json:"seller_confirmed_at"`
 	Status                 string     `json:"status"`
 	VerifiedAt             *time.Time `json:"verified_at"`
+	PaidAt                 *time.Time `json:"paid_at"`
+	ConfirmedByUserID      *uuid.UUID `json:"confirmed_by_user_id"`
+	ConfirmationActor      string     `json:"confirmation_actor"`
+	CashReceivedAt         *time.Time `json:"cash_received_at"`
 	CreatedAt              time.Time  `json:"created_at"`
 	UpdatedAt              time.Time  `json:"updated_at"`
 }

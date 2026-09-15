@@ -146,7 +146,7 @@ func (r *AdminCommerceRepository) GetOverview() (*models.CommerceOverviewStats, 
 	_ = r.db.QueryRow(`
 		SELECT COALESCE(SUM(amount), 0)
 		FROM buyer_payments
-		WHERE status = 'VERIFIED' OR seller_confirmed = true
+		WHERE status IN ('PAID', 'VERIFIED')
 	`).Scan(&cashTotal)
 	if cashTotal.Valid {
 		stats.ConfirmedCash = cashTotal.Float64

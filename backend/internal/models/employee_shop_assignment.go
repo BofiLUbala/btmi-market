@@ -14,14 +14,14 @@ const (
 )
 
 type EmployeeShopAssignment struct {
-	ID          uuid.UUID        `json:"id" db:"id"`
-	EmployeeID  uuid.UUID        `json:"employee_id" db:"employee_id"`
-	ShopID      uuid.UUID        `json:"shop_id" db:"shop_id"`
-	AssignedBy  uuid.UUID        `json:"assigned_by" db:"assigned_by"`
-	Status      AssignmentStatus `json:"status" db:"status"`
-	AssignedAt  time.Time        `json:"assigned_at" db:"assigned_at"`
-	CreatedAt   time.Time        `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time        `json:"updated_at" db:"updated_at"`
+	ID         uuid.UUID        `json:"id" db:"id"`
+	EmployeeID uuid.UUID        `json:"employee_id" db:"employee_id"`
+	ShopID     uuid.UUID        `json:"shop_id" db:"shop_id"`
+	AssignedBy uuid.UUID        `json:"assigned_by" db:"assigned_by"`
+	Status     AssignmentStatus `json:"status" db:"status"`
+	AssignedAt time.Time        `json:"assigned_at" db:"assigned_at"`
+	CreatedAt  time.Time        `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at" db:"updated_at"`
 }
 
 type AssignEmployeeRequest struct {
@@ -29,12 +29,12 @@ type AssignEmployeeRequest struct {
 }
 
 type AssignmentResponse struct {
-	ID          uuid.UUID        `json:"id"`
-	EmployeeID  uuid.UUID        `json:"employee_id"`
-	ShopID      uuid.UUID        `json:"shop_id"`
-	AssignedBy  uuid.UUID        `json:"assigned_by"`
-	Status      AssignmentStatus `json:"status"`
-	AssignedAt  time.Time        `json:"assigned_at"`
+	ID         uuid.UUID        `json:"id"`
+	EmployeeID uuid.UUID        `json:"employee_id"`
+	ShopID     uuid.UUID        `json:"shop_id"`
+	AssignedBy uuid.UUID        `json:"assigned_by"`
+	Status     AssignmentStatus `json:"status"`
+	AssignedAt time.Time        `json:"assigned_at"`
 }
 
 type ShopWithEmployeesResponse struct {

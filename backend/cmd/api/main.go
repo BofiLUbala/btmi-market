@@ -463,12 +463,6 @@ func main() {
 			cashPaymentsGroup.GET("/:payment_id", cashHandler.GetPayment)
 		}
 
-		paymentsGroup := api.Group("/payments")
-		paymentsGroup.Use(middleware.AuthMiddleware(authService))
-		{
-			paymentsGroup.POST("/:payment_id/seller-confirm", orderHandler.SellerConfirmPayment)
-		}
-
 		buyerGroup := api.Group("/buyer")
 		buyerGroup.Use(middleware.AuthMiddleware(authService))
 		{
@@ -493,7 +487,6 @@ func main() {
 			buyerGroup.GET("/orders/:order_id/checkout-quote", orderHandler.GetCheckoutQuote)
 			buyerGroup.GET("/orders/:order_id/payment", orderHandler.GetBuyerPayment)
 			buyerGroup.POST("/orders/:order_id/payment/initiate", orderHandler.InitiateBuyerPayment)
-			buyerGroup.POST("/payments/:payment_id/buyer-confirm", orderHandler.BuyerConfirmPayment)
 			buyerGroup.POST("/orders/:order_id/cancel", orderHandler.CancelBuyerOrder)
 			buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
 			buyerGroup.GET("/orders/:order_id/delivery-qr", qrHandler.BuyerPackage)

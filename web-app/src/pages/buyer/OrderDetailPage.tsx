@@ -10,10 +10,14 @@ import { isTerminalOrderStatus } from '@/lib/orderStatus'
 import {
   paymentStatusKey,
   paymentMethodKey,
-  isPaymentConfirmed,
+  confirmationActorKey,
+  isPaymentPaid,
   isPaymentCancelled,
   isPaymentFailed,
-  isPaymentPending
+  isPaymentProcessing,
+  isCashOnDelivery,
+  isMobileAtDelivery,
+  CASH_ON_DELIVERY
 } from '@/lib/paymentStatus'
 import { RequireAuth } from '@/components/auth/Guards'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
@@ -23,8 +27,6 @@ import type { TranslationKey } from '@/locales/fr'
 const POLL_INTERVAL = 30_000 // 30 seconds
 
 const ORDER_STAGES = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
-const CASH = 'CASH'
-const MOBILE_ON_DELIVERY = 'MOBILE_ON_DELIVERY'
 
 function timeAgo(date: Date, t: (key: TranslationKey, vars?: Record<string, string | number>) => string): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
@@ -69,7 +71,7 @@ const TIMELINE_STEPS: TimelineStep[] = [
   {
     key: 'payment',
     labelKey: 'orders.paymentStep',
-    done: (_, p) => isPaymentConfirmed(p)
+    done: (_, p) => isPaymentPaid(p)
   },
   {
     key: 'preparing',
@@ -145,7 +147,7 @@ function OrderTimeline({ o, payment }: { o: OrderWithLines['order']; payment: Bu
 function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
   const { t } = useI18n()
   if (!payment) return null
-  const markup = payment.products_final_total + payment.delivery_fee_final - payment.cash_due
+  const markup = payment.payment_markup
   const refundStatus = (payment as BuyerPayment & { refund_status?: string | null }).refund_status
   return (
     <div className="card stack">
@@ -154,8 +156,14 @@ function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment
       <div className="info-row"><span className="k">{t('orders.paymentMethod')}</span><span className="v">{t(paymentMethodKey(payment.payment_method))}</span></div>
       <div className="info-row"><span className="k">{t('orders.amountDue')}</span><span className="v bold">{formatMoney(payment.cash_due, payment.currency)}</span></div>
       <div className="info-row"><span className="k">{t('orders.paymentMarkup')}</span><span className="v">{formatMoney(Math.max(markup, 0), payment.currency)}</span></div>
-      <div className="info-row"><span className="k">{t('orders.totalDue')}</span><span className="v bold">{formatMoney(payment.cash_due, payment.currency)}</span></div>
+      <div className="info-row"><span className="k">{t('orders.totalDue')}</span><span className="v bold">{formatMoney(payment.final_total, payment.currency)}</span></div>
       <div className="info-row"><span className="k">{t('orders.paymentStatus')}</span><span className="v">{t(paymentStatusKey(payment) as TranslationKey)}</span></div>
+      {isPaymentPaid(payment) && confirmationActorKey(payment.confirmation_actor) && (
+        <div className="info-row">
+          <span className="k">{t('orders.confirmedBy')}</span>
+          <span className="v">{t(confirmationActorKey(payment.confirmation_actor) as TranslationKey)}</span>
+        </div>
+      )}
       <div className="info-row"><span className="k">{t('orders.createdAtLabel')}</span><span className="v">{formatDateTime(payment.created_at)}</span></div>
       <div className="info-row"><span className="k">{t('orders.reference')}</span><span className="v small">{payment.id.slice(0, 8).toUpperCase()}</span></div>
       <div className="info-row"><span className="k">{t('orders.lastUpdate')}</span><span className="v">{formatDateTime(payment.updated_at)}</span></div>
@@ -184,7 +192,7 @@ function PayNowCard({ orderId, payment, onDone }: { orderId: string; payment: Bu
 
   const [instructions, setInstructions] = useState('')
 
-  if (!payment || payment.payment_method === 'CASH_ON_DELIVERY') return null
+  if (!payment || payment.payment_method === CASH_ON_DELIVERY) return null
   if (payment.payable_reason === 'ALREADY_PAID' || payment.payable_reason === 'PAYMENT_CLOSED') return null
 
   const waiting = payment.payable_reason === 'AWAITING_DELIVERY_STAGE'
@@ -220,60 +228,91 @@ function PayNowCard({ orderId, payment, onDone }: { orderId: string; payment: Bu
   )
 }
 
+/**
+ * The payment lifecycle as the buyer should read it, per method.
+ *
+ * Cash runs through the physical handover - the courier arrives, the goods are checked,
+ * the money changes hands - and only the courier's confirmation makes it paid. Mobile
+ * money runs through the operator instead. Each step is drawn from a stored fact, never
+ * from an assumption that the next one must have happened.
+ */
+function PaymentLifecycle({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
+  const { t } = useI18n()
+  if (!payment) return null
+
+  const paid = isPaymentPaid(payment)
+  const arrived = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
+    .includes(o.delivery_status || '') || ['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(o.status)
+  const verified = ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED'].includes(o.delivery_status || '')
+
+  const steps: Array<{ labelKey: TranslationKey; done: boolean }> = isCashOnDelivery(payment)
+    ? [
+        { labelKey: 'orders.lifecycleDue', done: true },
+        { labelKey: 'orders.lifecycleCourierArrived', done: arrived },
+        { labelKey: 'orders.lifecycleProductVerified', done: verified || paid },
+        { labelKey: 'orders.lifecycleCashReceived', done: paid },
+        { labelKey: 'orders.lifecyclePaid', done: paid }
+      ]
+    : [
+        { labelKey: 'orders.lifecycleDue', done: true },
+        { labelKey: 'orders.lifecyclePaymentStarted', done: isPaymentProcessing(payment) || paid },
+        { labelKey: 'orders.lifecycleProviderConfirmation', done: paid },
+        { labelKey: 'orders.lifecyclePaid', done: paid }
+      ]
+
+  return (
+    <div className="stack" style={{ gap: 4, marginTop: 8 }}>
+      <strong className="small">{t('orders.paymentTimeline')}</strong>
+      <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {steps.map(step => (
+          <li key={step.labelKey} className="small" style={{ padding: '3px 0', opacity: step.done ? 1 : 0.45 }}>
+            {step.done ? '✓' : '○'} {t(step.labelKey)}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+/**
+ * What actually happened to this payment, with times. Only events the backend recorded
+ * appear: the order being placed, the method being chosen, and - if it has happened -
+ * the settlement, attributed to whoever the backend says settled it.
+ */
 function PaymentAttempts({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
   const { t } = useI18n()
-  const attempts: Array<{ label: string; at: string; ok: boolean; stepKey: TranslationKey }> = []
-  const method = payment?.payment_method || 'CASH'
-  const methodLabel = method === CASH ? t('orders.attemptCash') : t('orders.attemptMobile')
-  if (payment) {
-    attempts.push({
-      label: t('orders.orderCreated'),
-      at: formatDateTime(o.created_at),
-      ok: true,
-      stepKey: 'orders.orderCreated'
-    })
-    attempts.push({
-      label: methodLabel,
-      at: formatDateTime(payment.created_at),
-      ok: !isPaymentCancelled(payment) && !isPaymentFailed(payment) && !isPaymentConfirmed(payment),
-      stepKey: 'orders.createdAtLabel'
-    })
-  }
-  if (payment?.buyer_confirmed_at) {
-    attempts.push({
-      label: `${t('orders.attemptDeclared')} · ${methodLabel}`,
-      at: formatDateTime(payment.buyer_confirmed_at),
-      ok: true,
-      stepKey: 'orders.attemptDeclared'
+  if (!payment) return null
+
+  const methodLabel = t(paymentMethodKey(payment.payment_method))
+  const events: Array<{ label: string; at: string; ok: boolean }> = [
+    { label: t('orders.orderCreated'), at: formatDateTime(o.created_at), ok: true },
+    { label: `${t('orders.paymentMethodChosen')} · ${methodLabel}`, at: formatDateTime(payment.created_at), ok: true }
+  ]
+
+  const settledAt = payment.paid_at || payment.cash_received_at || payment.verified_at
+  if (isPaymentPaid(payment) && settledAt) {
+    const actorKey = confirmationActorKey(payment.confirmation_actor)
+    events.push({
+      label: actorKey ? `${t('orders.paymentPaid')} · ${t(actorKey as TranslationKey)}` : t('orders.paymentPaid'),
+      at: formatDateTime(settledAt),
+      ok: true
     })
   }
-  if (payment?.seller_confirmed_at) {
-    attempts.push({
-      label: `${t('orders.attemptConfirmed')} · ${methodLabel}`,
-      at: formatDateTime(payment.seller_confirmed_at),
-      ok: true,
-      stepKey: 'orders.attemptConfirmed'
-    })
+  if (isPaymentFailed(payment)) {
+    events.push({ label: t('orders.paymentFailed'), at: formatDateTime(payment.updated_at), ok: false })
   }
-  if (payment?.verified_at) {
-    attempts.push({
-      label: `${t('orders.attemptConfirmed')} · ${methodLabel}`,
-      at: formatDateTime(payment.verified_at),
-      ok: true,
-      stepKey: 'orders.attemptConfirmed'
-    })
+  if (isPaymentCancelled(payment)) {
+    events.push({ label: t('orders.paymentCancelled'), at: formatDateTime(payment.updated_at), ok: false })
   }
-  if (attempts.length === 0) return null
+
   return (
     <div className="card">
       <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>{t('orders.attempts')}</h2>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} className="stack">
-        {attempts.map((a, i) => (
-          <li key={i} className="small" style={{ display: 'flex', gap: 8, justifyContent: 'space-between', borderBottom: '1px dashed var(--color-border)', paddingBottom: 4 }}>
-            <span>
-              {a.ok ? '✓' : '✕'} {a.label}
-            </span>
-            <span className="muted">{a.at}</span>
+        {events.map((event, index) => (
+          <li key={index} className="small" style={{ display: 'flex', gap: 8, justifyContent: 'space-between', borderBottom: '1px dashed var(--color-border)', paddingBottom: 4 }}>
+            <span>{event.ok ? '✓' : '✕'} {event.label}</span>
+            <span className="muted">{event.at}</span>
           </li>
         ))}
       </ul>
@@ -381,16 +420,6 @@ function OrderInner() {
     finally { setBusy(false) }
   }
 
-  async function confirmPaid() {
-    if (!payment) return
-    setBusy(true); setPaymentError('')
-    try {
-      setPayment(await buyerApi.buyerConfirmPayment(payment.id))
-      await refreshAll()
-    } catch (e) { setPaymentError(e instanceof Error ? e.message : t('orders.paymentConfirmFailed')) }
-    finally { setBusy(false) }
-  }
-
   async function cancel() {
     if (!confirm(t('orders.cancelConfirm'))) return
     setBusy(true)
@@ -425,18 +454,10 @@ function OrderInner() {
   const productsTotal = o.final_total + o.points_discount_amount
   const total = o.final_total + o.delivery_fee_final
   const needsDelivery = !o.delivery_method
-  const method = payment?.payment_method || CASH
-  const payBtnVisible =
-    !!payment &&
-    !isPaymentConfirmed(payment) &&
-    !isPaymentCancelled(payment) &&
-    !isPaymentFailed(payment) &&
-    method === CASH
-  const mobilePayReady =
-    !!payment &&
-    method === MOBILE_ON_DELIVERY &&
-    !isPaymentConfirmed(payment) &&
-    (o.status === 'DELIVERED' || o.status === 'RECEIVED')
+  // How the payment was settled, once it has been. Naming the actor is the point:
+  // the buyer's record should say the courier took the cash, not that "it is paid".
+  const actorKey = confirmationActorKey(payment?.confirmation_actor)
+  const actorNote = actorKey ? t(actorKey as TranslationKey) : ''
 
   return (
     <div className="fade-in">
@@ -532,38 +553,36 @@ function OrderInner() {
             {paymentError && <ErrorBox error={paymentError} />}
             {payment ? <>
               <div className="info-row"><span className="k">{t('orders.paymentMethod')}</span><span className="v">{t(paymentMethodKey(payment.payment_method))}</span></div>
-              {/* Payment breakdown (Req #40) */}
+              <div className="info-row"><span className="k">{t('orders.paymentStatus')}</span><span className="v bold">{t(paymentStatusKey(payment) as TranslationKey)}</span></div>
+              <div className="info-row"><span className="k">{t('orders.amountDue')}</span><span className="v bold">{formatMoney(payment.final_total, payment.currency)}</span></div>
+
               <div className="total-row"><span>{t('orders.productsAmount')}</span><span>{formatMoney(payment.products_final_total, payment.currency)}</span></div>
               <div className="total-row"><span>{t('orders.deliveryFee')}</span><span>{formatMoney(payment.delivery_fee_final, payment.currency)}</span></div>
-              <div className="total-row"><span>{t('orders.paymentMarkup')}</span><span>{formatMoney(Math.max(payment.cash_due - payment.products_final_total - payment.delivery_fee_final, 0), payment.currency)}</span></div>
+              <div className="total-row"><span>{t('orders.paymentMarkup')}</span><span>{formatMoney(Math.max(payment.payment_markup, 0), payment.currency)}</span></div>
               <div className="total-row"><span>{t('orders.pointsDiscount')}</span><span className="pd-discount">−{formatMoney(payment.products_points_discount + payment.delivery_points_discount, payment.currency)}</span></div>
-              <div className="total-row total"><span>{t('orders.finalTotal')}</span><span>{formatMoney(payment.cash_due, payment.currency)}</span></div>
-              <div className="info-row"><span className="k">{t('orders.amountDue')}</span><span className="v bold">{formatMoney(payment.cash_due, payment.currency)}</span></div>
-              <div className="info-row"><span className="k">{t('orders.paymentStatus')}</span><span className="v">{t(paymentStatusKey(payment) as TranslationKey)}</span></div>
-              <div className="info-row"><span className="k">{t('orders.buyerConfirmation')}</span><span className="v">{payment.buyer_confirmed ? `✓ ${t('orders.paymentDeclared')}` : t('orders.notConfirmed')}</span></div>
-              <div className="info-row"><span className="k">{t('orders.sellerConfirmation')}</span><span className="v">{payment.seller_confirmed ? `✓ ${t('orders.cashReceived')}` : t('orders.waitingForSeller')}</span></div>
+              <div className="total-row total"><span>{t('orders.finalTotal')}</span><span>{formatMoney(payment.final_total, payment.currency)}</span></div>
 
-              {/* Payment action rules (Req #52) */}
-              {payBtnVisible && (
-                <Button loading={busy} onClick={confirmPaid}>{t('orders.iHavePaid')}</Button>
+              {/*
+                Who settles this payment, and therefore what the buyer is waiting for.
+                Cash is settled by the courier at the door; mobile money by the operator.
+                There is deliberately no control here that would let the buyer declare
+                the payment made - saying so is not paying.
+              */}
+              {isPaymentPaid(payment) ? (
+                <p className="small muted">✓ {t('orders.paymentPaid')}{actorNote ? ` · ${actorNote}` : ''}</p>
+              ) : isCashOnDelivery(payment) ? (
+                <p className="small muted">{t('orders.cashConfirmedByCourier')}</p>
+              ) : isMobileAtDelivery(payment) ? (
+                <p className="small muted">{t('orders.mobileToPayAtDelivery')}</p>
+              ) : (
+                <p className="small muted">{t('orders.mobilePayNowNote')}</p>
               )}
-              {payment.buyer_confirmed && !payment.seller_confirmed && <p className="small muted">{t('orders.declarationSaved')}</p>}
-              {method === CASH && !payment.buyer_confirmed && isPaymentPending(payment) && (
-                <p className="small muted">{t('orders.payAtDelivery')}</p>
-              )}
-              {payment && isPaymentConfirmed(payment) && <p className="small muted">✓ {t('orders.paymentConfirmed')}</p>}
-              {(method === 'PAY_NOW' || method === 'MOBILE_PAY') && !isPaymentConfirmed(payment) && !isPaymentCancelled(payment) && !isPaymentFailed(payment) && (
-                <Button loading={busy} onClick={confirmPaid}>{t('orders.continuePayment')}</Button>
-              )}
+              {isPaymentProcessing(payment) && <p className="small muted">{t('orders.paymentAwaitingProvider')}</p>}
               {isPaymentFailed(payment) && (
                 <Button loading={busy} onClick={refreshAll}>{t('orders.retryPayment')}</Button>
               )}
-              {mobilePayReady && (
-                <Button loading={busy} onClick={confirmPaid}>{t('orders.payNow')}</Button>
-              )}
-              {method === MOBILE_ON_DELIVERY && !mobilePayReady && !isPaymentConfirmed(payment) && (
-                <p className="small muted">{t('orders.mobileToPayAtDelivery')}</p>
-              )}
+
+              <PaymentLifecycle o={o} payment={payment} />
             </> : o.delivery_method ? <Button loading={busy} onClick={ensurePayment}>{t('orders.prepareCashPayment')}</Button> : <p className="small muted">{t('orders.selectDeliveryFirst')}</p>}
           </div>
 

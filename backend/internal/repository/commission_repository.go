@@ -736,7 +736,7 @@ func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFi
 		SELECT COALESCE(SUM(p.cash_due), 0)
 		FROM sale_commissions c
 		JOIN buyer_payments p ON p.order_id = c.order_id
-		WHERE p.status = 'VERIFIED'
+		WHERE p.status IN ('PAID', 'VERIFIED')
 		  AND c.status <> 'WAIVED'
 		%s
 	`, cashWhere)
@@ -758,7 +758,7 @@ func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFi
 		FROM orders o
 		LEFT JOIN buyer_payments p ON p.order_id = o.id
 		WHERE o.status NOT IN ('CANCELLED', 'REJECTED', 'COMPLETED')
-		  AND (p.id IS NULL OR p.status <> 'VERIFIED')`, filter)
+		  AND (p.id IS NULL OR p.status NOT IN ('PAID', 'VERIFIED'))`, filter)
 	if err := r.db.QueryRow(pendingQuery, pendingArgs...).Scan(&report.PendingOrders); err != nil {
 		return nil, err
 	}

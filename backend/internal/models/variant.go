@@ -40,18 +40,18 @@ func (m *JSONMap) Scan(src interface{}) error {
 }
 
 type ProductVariant struct {
-	ID            uuid.UUID `json:"id" db:"id"`
-	ProductID     uuid.UUID `json:"product_id" db:"product_id"`
-	SKU           string    `json:"sku" db:"sku"`
-	Name          string    `json:"name" db:"name"`
-	Attributes    JSONMap   `json:"attributes" db:"attributes"`
-	SalePrice     float64   `json:"sale_price" db:"sale_price"`
-	PurchasePrice float64   `json:"purchase_price" db:"purchase_price"`
-	Barcode       string    `json:"barcode" db:"barcode"`
-	Unit          string    `json:"unit" db:"unit"`
+	ID            uuid.UUID     `json:"id" db:"id"`
+	ProductID     uuid.UUID     `json:"product_id" db:"product_id"`
+	SKU           string        `json:"sku" db:"sku"`
+	Name          string        `json:"name" db:"name"`
+	Attributes    JSONMap       `json:"attributes" db:"attributes"`
+	SalePrice     float64       `json:"sale_price" db:"sale_price"`
+	PurchasePrice float64       `json:"purchase_price" db:"purchase_price"`
+	Barcode       string        `json:"barcode" db:"barcode"`
+	Unit          string        `json:"unit" db:"unit"`
 	Status        VariantStatus `json:"status" db:"status"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at" db:"updated_at"`
 }
 
 type CreateVariantRequest struct {

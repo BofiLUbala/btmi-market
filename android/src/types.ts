@@ -228,9 +228,15 @@ export interface BuyerPayment {
   cash_due: number
   payment_markup: number; final_total: number; provider?: string
   provider_reference?: string; payment_timing: 'NOW' | 'DELIVERY'
+  /** Frozen history from the retired buyer/seller declaration rule. */
   buyer_confirmed: boolean; buyer_confirmed_at?: string | null
   seller_confirmed: boolean; seller_confirmed_at?: string | null
+  /** DUE / PROCESSING while money is owed; PAID (or legacy VERIFIED) once it arrived. */
   status: string; verified_at?: string | null; created_at: string
+  paid_at?: string | null; cash_received_at?: string | null
+  /** COURIER for cash taken at the door, PROVIDER for a settled mobile payment. */
+  confirmation_actor?: string | null; confirmed_by_user_id?: string | null
+  payable?: boolean; payable_reason?: string
   updated_at?: string
 }
 export interface PaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_amount: number; quoted_total: number; provider?: string }

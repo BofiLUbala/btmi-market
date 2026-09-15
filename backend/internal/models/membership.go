@@ -18,10 +18,10 @@ const (
 type MembershipStatus string
 
 const (
-	MembershipStatusActive   MembershipStatus = "ACTIVE"
-	MembershipStatusPending  MembershipStatus = "PENDING"
-	MembershipStatusSuspend  MembershipStatus = "SUSPENDED"
-	MembershipStatusRemoved  MembershipStatus = "REMOVED"
+	MembershipStatusActive  MembershipStatus = "ACTIVE"
+	MembershipStatusPending MembershipStatus = "PENDING"
+	MembershipStatusSuspend MembershipStatus = "SUSPENDED"
+	MembershipStatusRemoved MembershipStatus = "REMOVED"
 )
 
 type BusinessMembership struct {

@@ -197,7 +197,8 @@ export const orderApi = {
   prepare: (id: string) => post<SellerOrder>(`/orders/${id}/prepare`, {}),
   cancel: (id: string) => post<SellerOrder>(`/orders/${id}/cancel`, {}),
   sellerTransition: (id: string, body: { status: OrderStatus }) => post<SellerOrder>(`/orders/${id}/tracking/status`, body),
-  sellerConfirmPayment: (paymentId: string) => post<any>(`/payments/${paymentId}/seller-confirm`, {}),
+  // No sellerConfirmPayment: a seller is not at the handover, so they cannot attest
+  // that cash changed hands. The assigned courier confirms it from their own app.
   getOrderPayment: (orderId: string) => get<BuyerPayment>(`/orders/${orderId}/payment`),
   getPackageQR: (orderId: string) => get<DeliveryPackageQR>(`/orders/${orderId}/package-qr`),
 }

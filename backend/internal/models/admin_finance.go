@@ -62,10 +62,17 @@ type AdminPaymentListItem struct {
 	SellerConfirmedReceived bool       `json:"seller_confirmed_received"`
 	SellerConfirmedAt       *time.Time `json:"seller_confirmed_at,omitempty"`
 	PaymentStatus           string     `json:"payment_status"`
+	PaymentMethod           string     `json:"payment_method"`
 	CreatedAt               time.Time  `json:"created_at"`
 	VerifiedAt              *time.Time `json:"verified_at,omitempty"`
-	AnomalyFlag             bool       `json:"anomaly_flag"`
-	AnomalyReason           string     `json:"anomaly_reason,omitempty"`
+	// Who settled the payment: the courier who took the cash, or the provider that
+	// confirmed the transfer. LEGACY_DECLARATION marks rows settled under the old
+	// buyer+seller declaration rule, which no longer exists.
+	ConfirmationActor string     `json:"confirmation_actor"`
+	ConfirmedByUserID *uuid.UUID `json:"confirmed_by_user_id,omitempty"`
+	PaidAt            *time.Time `json:"paid_at,omitempty"`
+	AnomalyFlag       bool       `json:"anomaly_flag"`
+	AnomalyReason     string     `json:"anomaly_reason,omitempty"`
 }
 
 type AdminPaymentDetail struct {

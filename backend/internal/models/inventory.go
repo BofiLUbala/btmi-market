@@ -145,20 +145,20 @@ type StockMovementPerformerInfo struct {
 }
 
 type StockMovementHistoryData struct {
-	ID               uuid.UUID                `json:"id"`
-	BusinessID       uuid.UUID                `json:"business_id"`
-	Shop             StockMovementShopInfo    `json:"shop"`
-	Product          StockMovementProductInfo `json:"product"`
-	Variant          *StockMovementVariantInfo `json:"variant"`
-	MovementType     string                   `json:"movement_type"`
-	Quantity         int                      `json:"quantity"`
-	PreviousQuantity int                      `json:"previous_quantity"`
-	NewQuantity      int                      `json:"new_quantity"`
-	Notes            string                   `json:"notes"`
+	ID               uuid.UUID                   `json:"id"`
+	BusinessID       uuid.UUID                   `json:"business_id"`
+	Shop             StockMovementShopInfo       `json:"shop"`
+	Product          StockMovementProductInfo    `json:"product"`
+	Variant          *StockMovementVariantInfo   `json:"variant"`
+	MovementType     string                      `json:"movement_type"`
+	Quantity         int                         `json:"quantity"`
+	PreviousQuantity int                         `json:"previous_quantity"`
+	NewQuantity      int                         `json:"new_quantity"`
+	Notes            string                      `json:"notes"`
 	PerformedBy      *StockMovementPerformerInfo `json:"performed_by"`
-	ReferenceType    *string                  `json:"reference_type"`
-	ReferenceID      *uuid.UUID               `json:"reference_id"`
-	CreatedAt        time.Time                `json:"created_at"`
+	ReferenceType    *string                     `json:"reference_type"`
+	ReferenceID      *uuid.UUID                  `json:"reference_id"`
+	CreatedAt        time.Time                   `json:"created_at"`
 }
 
 type StockMovementHistoryResponse struct {
@@ -167,9 +167,9 @@ type StockMovementHistoryResponse struct {
 }
 
 type PaginationInfo struct {
-	Page    int `json:"page"`
-	Limit   int `json:"limit"`
-	Total   int `json:"total"`
+	Page    int  `json:"page"`
+	Limit   int  `json:"limit"`
+	Total   int  `json:"total"`
 	HasMore bool `json:"has_more"`
 }
 

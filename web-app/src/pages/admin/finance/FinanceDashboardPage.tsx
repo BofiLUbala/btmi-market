@@ -24,6 +24,9 @@ import { useT } from '@/store/i18n'
 import { useAdminAuth } from '@/store/adminAuth'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
+/** PAID is what a settlement writes today; VERIFIED is the same fact on older rows. */
+const SETTLED_STATUSES = ['PAID', 'VERIFIED']
+
 type ActiveTab = 'overview' | 'payment_config' | 'payments' | 'confirmation' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'support' | 'risk' | 'trust'
 
 /** URL slug -> feature. The sidebar links to these, so a refresh or a deep link
@@ -642,8 +645,8 @@ if (tab === 'overview') {
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colBuyer')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colShopBusiness')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colTotalAmount')}</th>
-                <th style={{ padding: '12px 14px' }}>{t('admin.finance.colBuyerPaid')}</th>
-                <th style={{ padding: '12px 14px' }}>{t('admin.finance.colSellerRecv')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('admin.finance.colPaymentMethod')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('admin.finance.colConfirmedBy')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('common.status')}</th>
                 <th style={{ padding: '12px 14px' }}>{t('admin.finance.colAction')}</th>
               </tr>
@@ -661,17 +664,20 @@ if (tab === 'overview') {
                     <div style={{ fontSize: 11, color: '#64748b' }}>{p.business_name}</div>
                   </td>
                   <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>${p.total_amount.toFixed(2)}</td>
+                  <td style={{ padding: '12px 14px' }}>{p.payment_method || '—'}</td>
                   <td style={{ padding: '12px 14px' }}>
-                    <StatusBadge ok={p.buyer_confirmed_paid} label={p.buyer_confirmed_paid ? t('admin.finance.confirmed') : t('admin.finance.waiting')} />
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <StatusBadge ok={p.seller_confirmed_received} label={p.seller_confirmed_received ? t('admin.finance.confirmed') : t('admin.finance.waiting')} />
+                    {/* Cash is settled by the assigned courier, mobile money by the
+                        operator. A settled payment naming neither is the anomaly. */}
+                    <StatusBadge
+                      ok={!!p.confirmation_actor && p.confirmation_actor !== 'LEGACY_DECLARATION'}
+                      label={p.confirmation_actor || t('admin.finance.waiting')}
+                    />
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{
                       padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
-                      backgroundColor: p.payment_status === 'VERIFIED' ? '#064e3b' : p.payment_status === 'DISPUTED' ? '#7f1d1d' : '#78350f',
-                      color: p.payment_status === 'VERIFIED' ? '#34d399' : p.payment_status === 'DISPUTED' ? '#fca5a5' : '#fcd34d'
+                      backgroundColor: SETTLED_STATUSES.includes(p.payment_status) ? '#064e3b' : p.payment_status === 'DISPUTED' ? '#7f1d1d' : '#78350f',
+                      color: SETTLED_STATUSES.includes(p.payment_status) ? '#34d399' : p.payment_status === 'DISPUTED' ? '#fca5a5' : '#fcd34d'
                     }}>
                       {p.payment_status}
                     </span>
@@ -1049,18 +1055,30 @@ if (tab === 'overview') {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#fbbf24' }}>{t('admin.finance.doubleConfirmTitle')}</h4>
+              <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#fbbf24' }}>{t('admin.finance.settlementTitle')}</h4>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 6 }}>
-                <span>{t('admin.finance.labelBuyerConfirmed')}</span>
-                <StatusBadge ok={selectedPayment.buyer_confirmed_paid} label={selectedPayment.buyer_confirmed_paid ? t('admin.finance.confirmedAtTime', { time: selectedPayment.buyer_confirmed_at ? new Date(selectedPayment.buyer_confirmed_at).toLocaleTimeString() : '' }) : t('admin.finance.waiting')} />
+                <span>{t('admin.finance.labelPaymentMethod')}</span>
+                <span style={{ fontWeight: 700 }}>{selectedPayment.payment_method || '—'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 6 }}>
-                <span>{t('admin.finance.labelSellerConfirmed')}</span>
-                <StatusBadge ok={selectedPayment.seller_confirmed_received} label={selectedPayment.seller_confirmed_received ? t('admin.finance.confirmedAtTime', { time: selectedPayment.seller_confirmed_at ? new Date(selectedPayment.seller_confirmed_at).toLocaleTimeString() : '' }) : t('admin.finance.waiting')} />
+                <span>{t('admin.finance.labelConfirmedBy')}</span>
+                <StatusBadge
+                  ok={!!selectedPayment.confirmation_actor && selectedPayment.confirmation_actor !== 'LEGACY_DECLARATION'}
+                  label={selectedPayment.confirmation_actor
+                    ? t('admin.finance.confirmedAtTime', { time: selectedPayment.paid_at ? new Date(selectedPayment.paid_at).toLocaleTimeString() : selectedPayment.confirmation_actor })
+                    : t('admin.finance.waiting')}
+                />
               </div>
+              {/* Kept visible for rows written before the courier became the cash
+                  authority, so Finance can still audit that history. */}
+              {(selectedPayment.buyer_confirmed_paid || selectedPayment.seller_confirmed_received) && (
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
+                  {t('admin.finance.legacyDeclarationNote')}
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginTop: 8 }}>
                 <span>{t('admin.finance.labelAuthoritativeStatus')}</span>
-                <span style={{ fontWeight: 700, color: selectedPayment.payment_status === 'VERIFIED' ? '#34d399' : '#fcd34d' }}>{selectedPayment.payment_status}</span>
+                <span style={{ fontWeight: 700, color: SETTLED_STATUSES.includes(selectedPayment.payment_status) ? '#34d399' : '#fcd34d' }}>{selectedPayment.payment_status}</span>
               </div>
             </div>
 

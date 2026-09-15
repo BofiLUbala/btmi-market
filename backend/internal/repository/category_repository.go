@@ -306,4 +306,3 @@ func (r *CategoryRepository) GetEffectiveAttributesBySlug(categorySlug string, s
 	}
 	return r.GetEffectiveAttributes(cat.ID, subID)
 }
-

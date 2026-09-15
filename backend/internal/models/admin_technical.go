@@ -60,16 +60,16 @@ type LongQueryItem struct {
 }
 
 type PostgresHealth struct {
-	Reachable           bool            `json:"reachable"`
-	ConnectionCount     int             `json:"connection_count"`
-	ActiveConnections   int             `json:"active_connections"`
-	IdleConnections     int             `json:"idle_connections"`
-	DatabaseSizeBytes   int64           `json:"database_size_bytes"`
-	DatabaseSizeFormatted string        `json:"database_size_formatted"`
-	StorageUsagePercent float64         `json:"storage_usage_percent"`
-	MigrationVersion    string          `json:"migration_version"`
-	LastBackupStatus    string          `json:"last_backup_status"`
-	LongRunningQueries  []LongQueryItem `json:"long_running_queries"`
+	Reachable             bool            `json:"reachable"`
+	ConnectionCount       int             `json:"connection_count"`
+	ActiveConnections     int             `json:"active_connections"`
+	IdleConnections       int             `json:"idle_connections"`
+	DatabaseSizeBytes     int64           `json:"database_size_bytes"`
+	DatabaseSizeFormatted string          `json:"database_size_formatted"`
+	StorageUsagePercent   float64         `json:"storage_usage_percent"`
+	MigrationVersion      string          `json:"migration_version"`
+	LastBackupStatus      string          `json:"last_backup_status"`
+	LongRunningQueries    []LongQueryItem `json:"long_running_queries"`
 }
 
 type RedisHealth struct {
@@ -91,34 +91,34 @@ type QueueStatItem struct {
 }
 
 type WorkerMetrics struct {
-	QueuedJobs     int64           `json:"queued_jobs"`
-	ActiveJobs     int64           `json:"active_jobs"`
-	CompletedJobs  int64           `json:"completed_jobs"`
-	FailedJobs     int64           `json:"failed_jobs"`
-	RetryingJobs   int64           `json:"retrying_jobs"`
-	DeadJobs       int64           `json:"dead_jobs"`
-	QueueStats     []QueueStatItem `json:"queue_stats"`
+	QueuedJobs    int64           `json:"queued_jobs"`
+	ActiveJobs    int64           `json:"active_jobs"`
+	CompletedJobs int64           `json:"completed_jobs"`
+	FailedJobs    int64           `json:"failed_jobs"`
+	RetryingJobs  int64           `json:"retrying_jobs"`
+	DeadJobs      int64           `json:"dead_jobs"`
+	QueueStats    []QueueStatItem `json:"queue_stats"`
 }
 
 type WorkerJobItem struct {
-	JobID       string     `json:"job_id"`
-	JobType     string     `json:"job_type"`
-	Queue       string     `json:"queue"`
-	CreatedAt   time.Time  `json:"created_at"`
-	StartedAt   *time.Time `json:"started_at,omitempty"`
-	FinishedAt  *time.Time `json:"finished_at,omitempty"`
-	RetryCount  int        `json:"retry_count"`
-	Status      string     `json:"status"` // QUEUED, RUNNING, COMPLETED, FAILED, DEAD
-	LastError   string     `json:"last_error,omitempty"`
+	JobID      string     `json:"job_id"`
+	JobType    string     `json:"job_type"`
+	Queue      string     `json:"queue"`
+	CreatedAt  time.Time  `json:"created_at"`
+	StartedAt  *time.Time `json:"started_at,omitempty"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	RetryCount int        `json:"retry_count"`
+	Status     string     `json:"status"` // QUEUED, RUNNING, COMPLETED, FAILED, DEAD
+	LastError  string     `json:"last_error,omitempty"`
 }
 
 type VisualSearchHealth struct {
-	ServiceName          string     `json:"service_name"`
-	Status               string     `json:"status"` // HEALTHY, DEGRADED, DOWN, NOT_DEPLOYED
-	LatencyMS            int        `json:"latency_ms"`
-	ErrorCount           int64      `json:"error_count"`
+	ServiceName           string     `json:"service_name"`
+	Status                string     `json:"status"` // HEALTHY, DEGRADED, DOWN, NOT_DEPLOYED
+	LatencyMS             int        `json:"latency_ms"`
+	ErrorCount            int64      `json:"error_count"`
 	LastSuccessfulRequest *time.Time `json:"last_successful_request,omitempty"`
-	Reachable            bool       `json:"reachable"`
+	Reachable             bool       `json:"reachable"`
 }
 
 type BackupSummary struct {
@@ -141,11 +141,11 @@ type MigrationItem struct {
 }
 
 type MigrationSummary struct {
-	CurrentVersion   string          `json:"current_version"`
-	AppliedCount     int             `json:"applied_count"`
-	PendingCount     int             `json:"pending_count"`
-	FailedCount      int             `json:"failed_count"`
-	LastAppliedAt    *time.Time      `json:"last_applied_at,omitempty"`
+	CurrentVersion    string          `json:"current_version"`
+	AppliedCount      int             `json:"applied_count"`
+	PendingCount      int             `json:"pending_count"`
+	FailedCount       int             `json:"failed_count"`
+	LastAppliedAt     *time.Time      `json:"last_applied_at,omitempty"`
 	AppliedMigrations []MigrationItem `json:"applied_migrations"`
 }
 
@@ -158,13 +158,13 @@ type SanitizedEmailLog struct {
 }
 
 type EmailHealth struct {
-	SMTPReachable             bool                `json:"smtp_reachable"`
+	SMTPReachable              bool                `json:"smtp_reachable"`
 	ActivationEmailSuccessRate float64             `json:"activation_email_success_rate"`
-	EmployeeInviteSuccessRate float64             `json:"employee_invite_success_rate"`
-	QueuedEmails              int                 `json:"queued_emails"`
-	LastSuccessfulEmail       *time.Time          `json:"last_successful_email,omitempty"`
-	RecentFailuresCount       int                 `json:"recent_failures_count"`
-	RecentLogs                []SanitizedEmailLog `json:"recent_logs"`
+	EmployeeInviteSuccessRate  float64             `json:"employee_invite_success_rate"`
+	QueuedEmails               int                 `json:"queued_emails"`
+	LastSuccessfulEmail        *time.Time          `json:"last_successful_email,omitempty"`
+	RecentFailuresCount        int                 `json:"recent_failures_count"`
+	RecentLogs                 []SanitizedEmailLog `json:"recent_logs"`
 }
 
 type AdminSessionItem struct {
@@ -194,13 +194,13 @@ type SecurityEventItem struct {
 }
 
 type AppVersionItem struct {
-	ID                  uuid.UUID `json:"id"`
-	Platform            string    `json:"platform"` // WEB, ANDROID, API
-	CurrentVersion      string    `json:"current_version"`
-	MinSupportedVersion string    `json:"min_supported_version"`
-	RecommendedVersion  string    `json:"recommended_version"`
+	ID                  uuid.UUID  `json:"id"`
+	Platform            string     `json:"platform"` // WEB, ANDROID, API
+	CurrentVersion      string     `json:"current_version"`
+	MinSupportedVersion string     `json:"min_supported_version"`
+	RecommendedVersion  string     `json:"recommended_version"`
 	UpdatedBy           *uuid.UUID `json:"updated_by,omitempty"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type TechnicalOverviewKPIs struct {

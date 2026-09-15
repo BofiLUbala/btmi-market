@@ -451,7 +451,7 @@ func (s *OrderService) CompleteIfReceivedAndPaid(orderID uuid.UUID) (*models.Ord
 		return order, nil
 	}
 	payment, err := s.paymentRepo.GetByOrderID(orderID)
-	if err != nil || payment == nil || payment.Status != models.BuyerPaymentStatusVerified {
+	if err != nil || payment == nil || !models.PaymentSettled(payment.Status) {
 		return order, nil
 	}
 	return s.TransitionOrderNoAuth(orderID, models.OrderStatusCompleted, "Auto-completed after receipt and payment verification", "SYSTEM")

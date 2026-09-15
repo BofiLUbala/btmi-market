@@ -19,15 +19,15 @@ type SellerLevel struct {
 }
 
 type BuyerLevel struct {
-	ID                     uuid.UUID `json:"id" db:"id"`
-	Name                   string    `json:"name" db:"name"`
-	MinPoints              int       `json:"min_points" db:"min_points"`
-	MaxPoints              int       `json:"max_points" db:"max_points"`
-	DiscountPercent        float64   `json:"discount_percent" db:"discount_percent"`
-	DeliveryDiscountPercent float64  `json:"delivery_discount_percent" db:"delivery_discount_percent"`
-	FreeDelivery           bool      `json:"free_delivery" db:"free_delivery"`
-	Description            string    `json:"description" db:"description"`
-	CreatedAt              time.Time `json:"created_at" db:"created_at"`
+	ID                      uuid.UUID `json:"id" db:"id"`
+	Name                    string    `json:"name" db:"name"`
+	MinPoints               int       `json:"min_points" db:"min_points"`
+	MaxPoints               int       `json:"max_points" db:"max_points"`
+	DiscountPercent         float64   `json:"discount_percent" db:"discount_percent"`
+	DeliveryDiscountPercent float64   `json:"delivery_discount_percent" db:"delivery_discount_percent"`
+	FreeDelivery            bool      `json:"free_delivery" db:"free_delivery"`
+	Description             string    `json:"description" db:"description"`
+	CreatedAt               time.Time `json:"created_at" db:"created_at"`
 }
 
 type LevelBenefit struct {

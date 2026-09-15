@@ -44,9 +44,9 @@ func (h *Handler) ListCategories(c *gin.Context) {
 			subs := make([]models.SubcategoryResponse, 0)
 			for _, s := range cat.Subcategories {
 				subs = append(subs, models.SubcategoryResponse{
-					ID:       s.ID,
-					Name:     s.Name,
-					Slug:     s.Slug,
+					ID:        s.ID,
+					Name:      s.Name,
+					Slug:      s.Slug,
 					SortOrder: s.SortOrder,
 				})
 			}

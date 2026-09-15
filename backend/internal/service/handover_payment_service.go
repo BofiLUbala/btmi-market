@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -11,10 +12,10 @@ import (
 )
 
 // paymentSettled reports whether the buyer has actually paid, as opposed to having
-// promised to. Only VERIFIED and PAID count: CONFIRMED means one side of a cash
-// handover said so and the other has not.
+// promised to. Only PAID and its legacy spelling VERIFIED count: CONFIRMED was a
+// declaration, and a declaration is not money.
 func paymentSettled(status models.BuyerPaymentStatus) bool {
-	return status == models.BuyerPaymentStatusVerified || status == models.BuyerPaymentStatusPaid
+	return models.PaymentSettled(status)
 }
 
 // CourierConfirmCash records that the courier physically received the cash at the door.
@@ -74,30 +75,38 @@ func (s *QRService) CourierConfirmCash(courierUserID, orderID uuid.UUID, req mod
 		return response, nil
 	}
 
-	// The guard on status is what makes a retried confirmation harmless: the second
-	// call matches no row, so it neither re-credits points nor re-books commission.
-	result, err := s.db.Exec(`
-		UPDATE buyer_payments
-		SET status='VERIFIED', verified_at=NOW(), cash_received_by=$2, cash_received_at=NOW(), updated_at=NOW()
-		WHERE id=$1 AND status NOT IN ('VERIFIED','PAID','REFUNDED','CANCELLED')`, payment.ID, courierUserID)
+	// Settling is guarded on status, which is what makes a retried confirmation
+	// harmless: the second call matches no row, so it neither re-credits points nor
+	// re-books commission.
+	settled, err := s.paymentRepo.SettleCashByCourier(payment.ID, courierUserID)
 	if err != nil {
 		return nil, err
 	}
-	changed, _ := result.RowsAffected()
-	if changed == 0 {
+	if !settled {
 		response.AlreadyConfirmed = true
-		response.PaymentStatus = string(models.BuyerPaymentStatusVerified)
+		response.PaymentStatus = string(models.BuyerPaymentStatusPaid)
 		s.fillCommission(orderID, response)
 		return response, nil
 	}
 
 	now := time.Now()
-	payment.Status = models.BuyerPaymentStatusVerified
+	payment.Status = models.BuyerPaymentStatusPaid
 	payment.VerifiedAt = &now
-	response.PaymentStatus = string(models.BuyerPaymentStatusVerified)
+	payment.PaidAt = &now
+	payment.CashReceivedAt = &now
+	payment.CashReceivedBy = &courierUserID
+	payment.ConfirmedByUserID = &courierUserID
+	payment.ConfirmationActor = models.PaymentConfirmationActorCourier
+	response.PaymentStatus = string(models.BuyerPaymentStatusPaid)
+	response.ConfirmedAt = &now
+	response.ConfirmedByUserID = &courierUserID
+	response.ConfirmationActor = models.PaymentConfirmationActorCourier
 
+	// The audit row carries who took the money, for which order, and how much, so the
+	// cash trail can be reconstructed without joining back through the payment.
 	s.audit(courierUserID, "COURIER", "HANDOVER_CASH_RECEIVED", orderID,
-		"Courier confirmed cash received for order "+ctx.orderNumber)
+		fmt.Sprintf("Courier confirmed %s %.2f received in cash for order %s (payment %s, method %s)",
+			payment.Currency, payment.FinalTotal, ctx.orderNumber, payment.ID, payment.PaymentMethod))
 
 	if s.paymentSvc != nil {
 		s.paymentSvc.enqueueVerified(payment)
@@ -109,7 +118,7 @@ func (s *QRService) CourierConfirmCash(courierUserID, orderID uuid.UUID, req mod
 
 	if s.commSvc != nil {
 		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeBuyerReceiptRequired,
-			map[string]interface{}{"payment_status": "PAID", "payment_method": payment.PaymentMethod})
+			map[string]interface{}{"payment_status": string(models.BuyerPaymentStatusPaid), "payment_method": payment.PaymentMethod})
 	}
 	return response, nil
 }

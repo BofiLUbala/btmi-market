@@ -28,20 +28,20 @@ type StockReceipt struct {
 }
 
 type StockReceiptLine struct {
-	ID         uuid.UUID  `json:"id" db:"id"`
-	ReceiptID  uuid.UUID  `json:"receipt_id" db:"receipt_id"`
-	VariantID  uuid.UUID  `json:"variant_id" db:"variant_id"`
-	Quantity   int        `json:"quantity" db:"quantity"`
-	UnitCost   float64    `json:"unit_cost" db:"unit_cost"`
-	Notes      string     `json:"notes" db:"notes"`
-	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	ID        uuid.UUID `json:"id" db:"id"`
+	ReceiptID uuid.UUID `json:"receipt_id" db:"receipt_id"`
+	VariantID uuid.UUID `json:"variant_id" db:"variant_id"`
+	Quantity  int       `json:"quantity" db:"quantity"`
+	UnitCost  float64   `json:"unit_cost" db:"unit_cost"`
+	Notes     string    `json:"notes" db:"notes"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
 type CreateReceiptRequest struct {
-	ShopID          string              `json:"shop_id" binding:"required"`
-	ReferenceNumber string              `json:"reference_number"`
-	Notes           string              `json:"notes"`
-	Lines           []ReceiptLineInput  `json:"lines" binding:"required,min=1"`
+	ShopID          string             `json:"shop_id" binding:"required"`
+	ReferenceNumber string             `json:"reference_number"`
+	Notes           string             `json:"notes"`
+	Lines           []ReceiptLineInput `json:"lines" binding:"required,min=1"`
 }
 
 type ReceiptLineInput struct {
@@ -75,6 +75,6 @@ type ReceiptLineResponse struct {
 }
 
 type ReceiptWithLinesResponse struct {
-	Receipt ReceiptResponse    `json:"receipt"`
+	Receipt ReceiptResponse       `json:"receipt"`
 	Lines   []ReceiptLineResponse `json:"lines"`
 }

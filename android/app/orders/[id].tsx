@@ -48,16 +48,69 @@ function formatDateTime(value: string, lang: string) {
   return new Date(value).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+/**
+ * The payment lifecycle as the buyer should read it, per method.
+ *
+ * Cash runs through the physical handover - courier arrives, goods are checked, money
+ * changes hands - and only the courier's confirmation makes it paid. Mobile money runs
+ * through the operator instead. Each step is drawn from a stored fact.
+ */
+function PaymentLifecycle({ p, o, t, styles }: { p: BuyerPayment; o: { status: string; delivery_status?: string | null }; t: (key: TranslationKey, vars?: Record<string, string | number>) => string; styles: ReturnType<typeof makeStyles> }) {
+  const paid = isPaymentPaid(p)
+  const arrived = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED'].includes(o.delivery_status || '')
+    || ['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(o.status)
+  const verified = ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED'].includes(o.delivery_status || '')
+
+  const steps: Array<{ key: TranslationKey; done: boolean }> = isCashOnDelivery(p)
+    ? [
+        { key: 'orders.lifecycleDue', done: true },
+        { key: 'orders.lifecycleCourierArrived', done: arrived },
+        { key: 'orders.lifecycleProductVerified', done: verified || paid },
+        { key: 'orders.lifecycleCashReceived', done: paid },
+        { key: 'orders.lifecyclePaid', done: paid },
+      ]
+    : [
+        { key: 'orders.lifecycleDue', done: true },
+        { key: 'orders.lifecyclePaymentStarted', done: isPaymentProcessing(p) || paid },
+        { key: 'orders.lifecycleProviderConfirmation', done: paid },
+        { key: 'orders.lifecyclePaid', done: paid },
+      ]
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      <Text style={[styles.muted, { fontWeight: '800' }]}>{t('orders.paymentTimeline')}</Text>
+      {steps.map(step => (
+        <Text key={step.key} style={[styles.muted, { opacity: step.done ? 1 : 0.45 }]}>
+          {step.done ? '✓' : '○'} {t(step.key)}
+        </Text>
+      ))}
+    </View>
+  )
+}
+
+/**
+ * What actually happened to this payment, with times. Only backend-recorded events
+ * appear, and a settlement is attributed to whoever the backend says settled it.
+ */
 function PaymentAttempts({ p, o, lang, t, styles }: { p: BuyerPayment | null; o: { created_at: string }; lang: string; t: (key: TranslationKey, vars?: Record<string, string | number>) => string; styles: ReturnType<typeof makeStyles> }) {
   if (!p) return null
-  const methodLabel = (p.payment_method === 'CASH' || !p.payment_method) ? t('orders.attemptCash') : t('orders.attemptMobile')
+  const methodLabel = t(paymentMethodKey(p.payment_method))
   const attempts: Array<{ label: string; at: string; ok: boolean }> = [
     { label: t('orders.orderCreated'), at: formatDateTime(o.created_at, lang), ok: true },
-    { label: methodLabel, at: formatDateTime(p.created_at, lang), ok: !isPaymentCancelled(p) && !isPaymentFailed(p) && !isPaymentConfirmed(p) },
+    { label: `${t('orders.paymentMethodChosen')} · ${methodLabel}`, at: formatDateTime(p.created_at, lang), ok: true },
   ]
-  if (p.buyer_confirmed_at) attempts.push({ label: `${t('orders.attemptDeclared')} · ${methodLabel}`, at: formatDateTime(p.buyer_confirmed_at, lang), ok: true })
-  if (p.seller_confirmed_at) attempts.push({ label: `${t('orders.attemptConfirmed')} · ${methodLabel}`, at: formatDateTime(p.seller_confirmed_at, lang), ok: true })
-  if (p.verified_at) attempts.push({ label: `${t('orders.attemptConfirmed')} · ${methodLabel}`, at: formatDateTime(p.verified_at, lang), ok: true })
+  const settledAt = p.paid_at || p.cash_received_at || p.verified_at
+  if (isPaymentPaid(p) && settledAt) {
+    const actor = confirmationActorKey(p.confirmation_actor)
+    attempts.push({
+      label: actor ? `${t('orders.paymentPaid')} · ${t(actor)}` : t('orders.paymentPaid'),
+      at: formatDateTime(settledAt, lang),
+      ok: true,
+    })
+  }
+  if (isPaymentFailed(p)) attempts.push({ label: t('orders.paymentFailed'), at: formatDateTime(p.updated_at || p.created_at, lang), ok: false })
+  if (isPaymentCancelled(p)) attempts.push({ label: t('orders.paymentCancelled'), at: formatDateTime(p.updated_at || p.created_at, lang), ok: false })
+
   return (
     <Card>
       <Text style={styles.name}>{t('orders.attempts')}</Text>
@@ -109,7 +162,9 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const receiveMutation = useMutation({ mutationFn: () => buyerApi.confirmReceived(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
   const cancelMutation = useMutation({ mutationFn: () => buyerApi.cancelOrder(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
   const createPaymentMutation = useMutation({ mutationFn: () => buyerApi.createPayment(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
-  const confirmPaidMutation = useMutation({ mutationFn: () => buyerApi.buyerConfirmPayment(payment.data!.id), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
+  // There is no "I have paid" mutation. Cash is settled by the assigned courier at the
+  // door and mobile money by the operator's callback, so the buyer can only read the
+  // outcome here - saying so is not paying.
   const verifyMutation = useMutation({
     mutationFn: (mode: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER') => buyerApi.verifyProduct(id!, mode === 'QR_SCAN' ? { token: productToken.trim() } : { product_number: productNumber.trim() }),
     onSuccess: (result) => { setProductVerification(result); setActionError('') },
@@ -202,28 +257,21 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
           <Text style={styles.name}>{t(paymentMethodKey(p?.payment_method))}</Text>
           {p ? <>
             <Text style={[styles.muted,{fontWeight:'800'}]}>{t(paymentStatusKey(p))}</Text>
-            <Text style={styles.muted}>{t('orders.amountDue', { amount: `${p.cash_due.toLocaleString()} ${p.currency}` })}</Text>
+            <Text style={styles.muted}>{t('orders.amountDue', { amount: `${p.final_total.toLocaleString()} ${p.currency}` })}</Text>
             <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsAmount')}</Text><Text style={styles.muted}>{p.products_final_total.toLocaleString()} {p.currency}</Text></View>
             <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.deliveryFee')}</Text><Text style={styles.muted}>{p.delivery_fee_final.toLocaleString()} {p.currency}</Text></View>
-            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMarkup')}</Text><Text style={styles.muted}>{Math.max(p.cash_due - p.products_final_total - p.delivery_fee_final, 0).toLocaleString()} {p.currency}</Text></View>
+            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMarkup')}</Text><Text style={styles.muted}>{Math.max(p.payment_markup, 0).toLocaleString()} {p.currency}</Text></View>
             <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.pointsDiscount')}</Text><Text style={styles.muted}>-{(p.products_points_discount + p.delivery_points_discount).toLocaleString()} {p.currency}</Text></View>
-            <View style={styles.breakRow}><Text style={[styles.muted,{fontWeight:'900'}]}>{t('orders.finalTotal')}</Text><Text style={[styles.muted,{fontWeight:'900'}]}>{p.cash_due.toLocaleString()} {p.currency}</Text></View>
-            <Text style={styles.muted}>{t('orders.you')} : {p.buyer_confirmed ? t('orders.paymentDeclared') : t('orders.notConfirmed')}</Text>
-            <Text style={styles.muted}>{t('orders.actorSeller')} : {p.seller_confirmed ? t('orders.cashReceived') : t('orders.waitingSeller')}</Text>
-            {p.payment_method === 'MOBILE_ON_DELIVERY' ?
-              ((o.status === 'DELIVERED' || o.status === 'RECEIVED') && !isPaymentConfirmed(p)
-                ? <Button title={t('orders.payNow')} loading={confirmPaidMutation.isPending} onPress={()=>{ setActionError(''); confirmPaidMutation.mutate() }}/>
-                : <Text style={styles.hint}>{t('orders.mobileToPayAtDelivery')}</Text>)
-              : (p.payment_method === 'CASH' || !p.payment_method)
-                ? (!p.buyer_confirmed && !isPaymentCancelled(p) && !isPaymentConfirmed(p)
-                  ? <Button title={t('orders.paid')} loading={confirmPaidMutation.isPending} onPress={()=>{ setActionError(''); confirmPaidMutation.mutate() }}/>
-                  : null)
-                : (!isPaymentConfirmed(p) && !isPaymentCancelled(p) && !isPaymentFailed(p)
-                  ? <Button title={t('orders.continuePayment')} loading={confirmPaidMutation.isPending} onPress={()=>{ setActionError(''); confirmPaidMutation.mutate() }}/>
-                  : null)}
-            {isPaymentFailed(p) && <Button title={t('orders.retryPayment')} variant="outline" loading={confirmPaidMutation.isPending} onPress={()=>{ setActionError(''); confirmPaidMutation.mutate() }}/>}
-            {p.buyer_confirmed && !p.seller_confirmed && <Text style={styles.hint}>{t('orders.paymentNote')}</Text>}
-            {isPaymentConfirmed(p) && <Text style={styles.hint}>✓ {t('orders.paymentConfirmed')}</Text>}
+            <View style={styles.breakRow}><Text style={[styles.muted,{fontWeight:'900'}]}>{t('orders.finalTotal')}</Text><Text style={[styles.muted,{fontWeight:'900'}]}>{p.final_total.toLocaleString()} {p.currency}</Text></View>
+            {isPaymentPaid(p)
+              ? <Text style={styles.hint}>✓ {t('orders.paymentPaid')}{confirmationActorKey(p.confirmation_actor) ? ` · ${t(confirmationActorKey(p.confirmation_actor)!)}` : ''}</Text>
+              : isCashOnDelivery(p)
+                ? <Text style={styles.hint}>{t('orders.cashConfirmedByCourier')}</Text>
+                : isMobileAtDelivery(p)
+                  ? <Text style={styles.hint}>{t('orders.mobileToPayAtDelivery')}</Text>
+                  : <Text style={styles.hint}>{t('orders.mobilePayNowNote')}</Text>}
+            {isPaymentProcessing(p) && <Text style={styles.hint}>{t('orders.paymentAwaitingProvider')}</Text>}
+            <PaymentLifecycle p={p} o={o} t={t} styles={styles} />
             {isPaymentCancelled(p) && <Text style={styles.hint}>{t('orders.paymentCancelled')}</Text>}
           </> : <Button variant="outline" title={t('orders.prepareCashPayment')} loading={createPaymentMutation.isPending} onPress={()=>{ setActionError(''); createPaymentMutation.mutate() }}/>}
         </Card>

@@ -628,7 +628,7 @@ func (h *Handler) Me(c *gin.Context) {
 			code = "ACCOUNT_SUSPENDED"
 		}
 		c.JSON(http.StatusForbidden, models.ErrorResponse{Error: struct {
-			Code string `json:"code"`
+			Code    string `json:"code"`
 			Message string `json:"message"`
 		}{Code: code, Message: "Account is not permitted to start a session"}})
 		return

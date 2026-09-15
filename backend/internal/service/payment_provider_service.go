@@ -177,7 +177,7 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 			return reject("AMOUNT_MISMATCH")
 		}
 		now := time.Now()
-		changed, err := s.paymentRepo.MarkProviderOutcome(paymentID, models.BuyerPaymentStatusVerified, event.Reference, "", &now)
+		changed, err := s.paymentRepo.MarkProviderOutcome(paymentID, models.BuyerPaymentStatusPaid, event.Reference, "", &now)
 		if err != nil {
 			return err
 		}
@@ -189,8 +189,10 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 		_ = s.webhookRepo.Settle(record.ID, true, "")
 		// Points, commission and the verified-transaction record follow the same
 		// path as any other verified payment.
-		payment.Status = models.BuyerPaymentStatusVerified
+		payment.Status = models.BuyerPaymentStatusPaid
 		payment.VerifiedAt = &now
+		payment.PaidAt = &now
+		payment.ConfirmationActor = models.PaymentConfirmationActorProvider
 		s.enqueueVerified(payment)
 		if s.commService != nil {
 			_, _ = s.commService.CalculateAndRecordCommission(payment.OrderID)

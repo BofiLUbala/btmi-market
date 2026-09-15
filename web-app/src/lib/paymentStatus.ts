@@ -1,65 +1,107 @@
+/**
+ * The buyer-facing reading of a payment, derived only from what the backend stores.
+ *
+ * Selecting a payment method is not paying. For cash at delivery the payment stays DUE
+ * from checkout until the assigned courier confirms, at the door, that the money is in
+ * their hand; for mobile money it stays DUE or PROCESSING until the provider's webhook
+ * confirms it. No screen may invent a settled state between those two facts.
+ */
 export interface PaymentLike {
   status?: string | null
   payment_method?: string | null
-  buyer_confirmed?: boolean
-  seller_confirmed?: boolean
+  payment_timing?: string | null
+  confirmation_actor?: string | null
 }
 
-const CASH = 'CASH'
-const PAY_NOW = 'PAY_NOW'
-const MOBILE_PAY = 'MOBILE_PAY'
-const MOBILE_ON_DELIVERY = 'MOBILE_ON_DELIVERY'
+/** Business payment methods, exactly as the backend names them. */
+export const CASH_ON_DELIVERY = 'CASH_ON_DELIVERY'
+export const MOBILE_PAY_NOW = 'MOBILE_PAY_NOW'
+export const MOBILE_AT_DELIVERY = 'MOBILE_AT_DELIVERY'
 
-/** True only once the backend has actually confirmed the payment (VERIFIED or CONFIRMED with both party flags). */
-export function isPaymentConfirmed(payment?: PaymentLike | null): boolean {
-  if (!payment) return false
-  if (payment.status === 'VERIFIED') return true
-  return payment.status === 'CONFIRMED' && !!payment.buyer_confirmed && !!payment.seller_confirmed
+/** PAID is what every settlement writes; VERIFIED is the same fact on older rows. */
+const SETTLED = ['PAID', 'VERIFIED']
+const CLOSED = ['CANCELLED', 'REFUNDED']
+
+export function paymentMethodOf(payment?: PaymentLike | null): string {
+  return payment?.payment_method || CASH_ON_DELIVERY
 }
 
-/** True while the buyer still must pay (nothing confirmed yet and the flow is still open). */
-export function isPaymentPending(payment?: PaymentLike | null): boolean {
+/** True only once the backend has recorded that the money actually arrived. */
+export function isPaymentPaid(payment?: PaymentLike | null): boolean {
+  return !!payment && SETTLED.includes(payment.status ?? '')
+}
+
+/** Kept as the old name so existing call sites keep meaning "really paid". */
+export const isPaymentConfirmed = isPaymentPaid
+
+/** True while the buyer still owes the money and the payment is still open. */
+export function isPaymentDue(payment?: PaymentLike | null): boolean {
   if (!payment) return false
-  return !isPaymentConfirmed(payment) && !['CANCELLED', 'FAILED'].includes(payment.status ?? '')
+  return !isPaymentPaid(payment) && !isPaymentCancelled(payment) && !isPaymentFailed(payment)
+}
+
+export const isPaymentPending = isPaymentDue
+
+/** The buyer has asked the provider to charge them; the provider has not answered yet. */
+export function isPaymentProcessing(payment?: PaymentLike | null): boolean {
+  return payment?.status === 'PROCESSING'
 }
 
 export function isPaymentCancelled(payment?: PaymentLike | null): boolean {
-  return !!payment && payment.status === 'CANCELLED'
+  return !!payment && CLOSED.includes(payment.status ?? '')
 }
 
 export function isPaymentFailed(payment?: PaymentLike | null): boolean {
-  return !!payment && payment.status === 'FAILED'
+  return payment?.status === 'FAILED'
 }
 
-/** Map a real backend payment to a user-facing translation key. No frontend-only states are invented. */
+/** Cash owed at the door, settled by the courier and nobody else. */
+export function isCashOnDelivery(payment?: PaymentLike | null): boolean {
+  return paymentMethodOf(payment) === CASH_ON_DELIVERY
+}
+
+/** Paid before the courier leaves the shop, so nothing is owed at the door. */
+export function isPayNow(payment?: PaymentLike | null): boolean {
+  return paymentMethodOf(payment) === MOBILE_PAY_NOW
+}
+
+/** Mobile money, but due at the door: the provider still settles it, not the courier. */
+export function isMobileAtDelivery(payment?: PaymentLike | null): boolean {
+  return paymentMethodOf(payment) === MOBILE_AT_DELIVERY
+}
+
+/** Map a real backend payment to a user-facing translation key. */
 export function paymentStatusKey(payment?: PaymentLike | null): string {
-  const status = payment?.status || 'PENDING'
-  const method = payment?.payment_method || CASH
-
-  if (status === 'CANCELLED') return 'orders.paymentCancelled'
-  if (status === 'FAILED') return 'orders.paymentFailed'
-
-  if (method === CASH) {
-    if (status === 'VERIFIED') return 'orders.paymentConfirmed'
-    if (payment?.buyer_confirmed && !payment?.seller_confirmed) return 'orders.paymentInProgress'
-    return 'orders.payAtDelivery'
-  }
-
-  if (method === MOBILE_ON_DELIVERY) {
-    if (isPaymentConfirmed(payment)) return 'orders.paymentConfirmed'
-    return 'orders.paymentPending'
-  }
-
-  // PAY_NOW / MOBILE families — backend-driven states only.
-  if (isPaymentConfirmed(payment)) return 'orders.paymentConfirmed'
-  return 'orders.paymentPending'
+  if (!payment) return 'orders.payAtDelivery'
+  if (payment.status === 'CANCELLED' || payment.status === 'REFUNDED') return 'orders.paymentCancelled'
+  if (payment.status === 'FAILED') return 'orders.paymentFailed'
+  if (isPaymentPaid(payment)) return 'orders.paymentPaid'
+  if (isPaymentProcessing(payment)) return 'orders.paymentAwaitingProvider'
+  return isCashOnDelivery(payment) ? 'orders.payAtDelivery' : 'orders.paymentDue'
 }
 
-/** Method label used in the buyer order card. */
+/** Method label used wherever the buyer sees how they chose to pay. */
 export function paymentMethodKey(method?: string | null): string {
-  if (method === CASH || !method) return 'orders.cashOnDelivery'
-  if (method === MOBILE_ON_DELIVERY) return 'orders.mobileOnDelivery'
-  return 'orders.payment'
+  switch (method) {
+    case MOBILE_PAY_NOW:
+      return 'orders.mobilePayNow'
+    case MOBILE_AT_DELIVERY:
+      return 'orders.mobileOnDelivery'
+    default:
+      return 'orders.cashOnDelivery'
+  }
 }
 
-export { CASH, PAY_NOW, MOBILE_PAY, MOBILE_ON_DELIVERY }
+/** Who the backend says settled the payment, for the buyer's own record. */
+export function confirmationActorKey(actor?: string | null): string | null {
+  switch (actor) {
+    case 'COURIER':
+      return 'orders.confirmedByCourier'
+    case 'PROVIDER':
+      return 'orders.confirmedByProvider'
+    case 'ADMIN':
+      return 'orders.confirmedByAdmin'
+    default:
+      return null
+  }
+}

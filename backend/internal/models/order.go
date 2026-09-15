@@ -260,21 +260,21 @@ type DeliveryOptionsResponse struct {
 }
 
 type SelectDeliveryRequest struct {
-	Method               string   `json:"method"`
-	UsePointsForDelivery bool     `json:"use_points_for_delivery"`
-	ContactName          string   `json:"contact_name"`
-	Phone                string   `json:"phone"`
-	Address              string   `json:"address"`
-	Province             string   `json:"province"`
-	City                 string   `json:"city"`
-	Commune              string   `json:"commune"`
-	ProvinceID           string   `json:"province_id"`
-	CityID               string   `json:"city_id"`
-	CommuneID            string   `json:"commune_id"`
-	Street               string   `json:"street"`
-	BuildingNumber       string   `json:"building_number"`
-	Landmark             string   `json:"landmark"`
-	Notes                string   `json:"notes"`
+	Method               string `json:"method"`
+	UsePointsForDelivery bool   `json:"use_points_for_delivery"`
+	ContactName          string `json:"contact_name"`
+	Phone                string `json:"phone"`
+	Address              string `json:"address"`
+	Province             string `json:"province"`
+	City                 string `json:"city"`
+	Commune              string `json:"commune"`
+	ProvinceID           string `json:"province_id"`
+	CityID               string `json:"city_id"`
+	CommuneID            string `json:"commune_id"`
+	Street               string `json:"street"`
+	BuildingNumber       string `json:"building_number"`
+	Landmark             string `json:"landmark"`
+	Notes                string `json:"notes"`
 	// SaveAddress persists the validated address (and resolved hierarchy ids)
 	// onto the buyer profile so a later checkout can reuse it. It is an explicit
 	// opt-in: a temporary "other address" for this order keeps the profile as is.

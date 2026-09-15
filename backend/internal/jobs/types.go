@@ -11,13 +11,13 @@ type JobType string
 
 const (
 	JobTypeRecalculateShopCategoryRanking JobType = "ranking:shop_category:recalculate"
-	JobTypeRebuildCategoryRanking        JobType = "ranking:category:rebuild"
-	JobTypePeriodicConsistencyCheck      JobType = "ranking:consistency_check"
-	JobTypeRecalculateProductSimilarity  JobType = "similarity:product:recalculate"
-	JobTypeRebuildProductSimilarity      JobType = "similarity:product:rebuild"
-	JobTypeRebuildAllProductSimilarity   JobType = "similarity:product:rebuild_all"
-	JobTypeProcessVerifiedPayment       JobType = "payment:process_verified"
-	JobTypeProcessReviewAggregate       JobType = "review:aggregate:recalculate"
+	JobTypeRebuildCategoryRanking         JobType = "ranking:category:rebuild"
+	JobTypePeriodicConsistencyCheck       JobType = "ranking:consistency_check"
+	JobTypeRecalculateProductSimilarity   JobType = "similarity:product:recalculate"
+	JobTypeRebuildProductSimilarity       JobType = "similarity:product:rebuild"
+	JobTypeRebuildAllProductSimilarity    JobType = "similarity:product:rebuild_all"
+	JobTypeProcessVerifiedPayment         JobType = "payment:process_verified"
+	JobTypeProcessReviewAggregate         JobType = "review:aggregate:recalculate"
 )
 
 type ShopCategoryRankingPayload struct {

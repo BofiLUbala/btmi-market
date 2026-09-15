@@ -709,13 +709,23 @@ export interface BuyerPayment {
   /** Server-decided: may the buyer start paying this right now, and if not why. */
   payable?: boolean
   payable_reason?: string
+  /**
+   * Frozen history. These were written under the retired rule where a buyer declared
+   * they had paid and a seller declared they had received; nothing sets them any more.
+   */
   buyer_confirmed: boolean
   buyer_confirmed_at?: string | null
   seller_confirmed: boolean
   seller_confirmed_by?: string | null
   seller_confirmed_at?: string | null
+  /** DUE / PROCESSING while money is owed; PAID (or legacy VERIFIED) once it arrived. */
   status: string
   verified_at?: string | null
+  paid_at?: string | null
+  /** COURIER for cash taken at the door, PROVIDER for a settled mobile payment. */
+  confirmation_actor?: string | null
+  confirmed_by_user_id?: string | null
+  cash_received_at?: string | null
   created_at: string
   updated_at: string
 }

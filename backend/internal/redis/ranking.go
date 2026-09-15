@@ -45,9 +45,9 @@ func (c *Client) IsAvailable(ctx context.Context) bool {
 }
 
 type RankedShop struct {
-	ShopID        uuid.UUID `json:"shop_id"`
-	RankingScore  float64  `json:"ranking_score"`
-	RankingPosition int    `json:"ranking_position"`
+	ShopID          uuid.UUID `json:"shop_id"`
+	RankingScore    float64   `json:"ranking_score"`
+	RankingPosition int       `json:"ranking_position"`
 }
 
 func (c *Client) keyForCategory(categorySlug string) string {

@@ -127,4 +127,3 @@ func main() {
 
 	log.Printf("[SUCCESS] %s\n", result.Message)
 }
-

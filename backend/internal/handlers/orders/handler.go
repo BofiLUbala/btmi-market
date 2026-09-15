@@ -1075,86 +1075,11 @@ func (h *Handler) GetBuyerPayment(c *gin.Context) {
 	})
 }
 
-// POST /api/v1/buyer/payments/:payment_id/buyer-confirm
-func (h *Handler) BuyerConfirmPayment(c *gin.Context) {
-	buyerProfileID, ok := h.extractBuyerProfileID(c)
-	if !ok {
-		return
-	}
-	paymentID, ok := h.parseUUIDParam(c, "payment_id")
-	if !ok {
-		return
-	}
-
-	result, err := h.paymentService.BuyerConfirm(buyerProfileID, paymentID)
-	if err != nil {
-		statusCode := http.StatusInternalServerError
-		errorCode := "INTERNAL_ERROR"
-		switch err.Error() {
-		case "PAYMENT_NOT_FOUND":
-			statusCode = http.StatusNotFound
-			errorCode = "PAYMENT_NOT_FOUND"
-		case "PROVIDER_CONFIRMATION_REQUIRED":
-			statusCode = http.StatusConflict
-			errorCode = "PROVIDER_CONFIRMATION_REQUIRED"
-		case "FORBIDDEN":
-			statusCode = http.StatusForbidden
-			errorCode = "FORBIDDEN"
-		}
-		h.errResponse(c, statusCode, errorCode, err.Error())
-		return
-	}
-	if result.Status == string(models.BuyerPaymentStatusVerified) {
-		_, _ = h.orderService.CompleteIfReceivedAndPaid(result.OrderID)
-	}
-
-	c.JSON(http.StatusOK, models.SuccessResponse{
-		Message: "Payment confirmed by buyer",
-		Data:    result,
-	})
-}
-
-// POST /api/v1/payments/:payment_id/seller-confirm
-func (h *Handler) SellerConfirmPayment(c *gin.Context) {
-	userID, ok := h.extractUserID(c)
-	if !ok {
-		return
-	}
-	paymentID, ok := h.parseUUIDParam(c, "payment_id")
-	if !ok {
-		return
-	}
-
-	result, err := h.paymentService.SellerConfirm(userID, paymentID)
-	if err != nil {
-		statusCode := http.StatusInternalServerError
-		errorCode := "INTERNAL_ERROR"
-		switch err.Error() {
-		case "PAYMENT_NOT_FOUND":
-			statusCode = http.StatusNotFound
-			errorCode = "PAYMENT_NOT_FOUND"
-		case "PROVIDER_CONFIRMATION_REQUIRED":
-			statusCode = http.StatusConflict
-			errorCode = "PROVIDER_CONFIRMATION_REQUIRED"
-		case "FORBIDDEN":
-			statusCode = http.StatusForbidden
-			errorCode = "FORBIDDEN"
-		case "SHOP_NOT_FOUND":
-			statusCode = http.StatusNotFound
-			errorCode = "SHOP_NOT_FOUND"
-		}
-		h.errResponse(c, statusCode, errorCode, err.Error())
-		return
-	}
-	if result.Status == string(models.BuyerPaymentStatusVerified) {
-		_, _ = h.orderService.CompleteIfReceivedAndPaid(result.OrderID)
-	}
-
-	c.JSON(http.StatusOK, models.SuccessResponse{
-		Message: "Payment confirmed by seller",
-		Data:    result,
-	})
-}
+// Cash at delivery is confirmed by the assigned courier at the physical handover
+// (POST /courier/missions/:id/confirm-cash), and an online payment by its provider's
+// signed webhook. The buyer-confirm and seller-confirm endpoints that used to stand
+// here let a payment be declared settled by someone who was not at the door, so they
+// are gone rather than merely hidden.
 
 // GET /api/v1/orders/:order_id/payment (seller/authorized employee)
 func (h *Handler) GetSellerOrderPayment(c *gin.Context) {

@@ -10,10 +10,10 @@ import (
 )
 
 type SimilarProduct struct {
-	ProductID     uuid.UUID `json:"product_id"`
-	SimilarityScore float64 `json:"similarity_score"`
-	SellerScore   float64 `json:"seller_score"`
-	FinalScore    float64 `json:"final_score"`
+	ProductID       uuid.UUID `json:"product_id"`
+	SimilarityScore float64   `json:"similarity_score"`
+	SellerScore     float64   `json:"seller_score"`
+	FinalScore      float64   `json:"final_score"`
 }
 
 func (c *Client) keyForProductSimilarity(productID uuid.UUID) string {
@@ -71,10 +71,10 @@ func (c *Client) GetProductSimilarity(ctx context.Context, productID uuid.UUID, 
 			continue
 		}
 		products = append(products, &SimilarProduct{
-			ProductID:     productID,
-			FinalScore:    z.Score,
+			ProductID:       productID,
+			FinalScore:      z.Score,
 			SimilarityScore: 0,
-			SellerScore:   0,
+			SellerScore:     0,
 		})
 	}
 
@@ -102,10 +102,10 @@ func (c *Client) GetAllProductSimilarity(ctx context.Context, productID uuid.UUI
 			continue
 		}
 		products = append(products, &SimilarProduct{
-			ProductID:     productID,
-			FinalScore:    z.Score,
+			ProductID:       productID,
+			FinalScore:      z.Score,
 			SimilarityScore: 0,
-			SellerScore:   0,
+			SellerScore:     0,
 		})
 	}
 

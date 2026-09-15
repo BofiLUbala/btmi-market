@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/btmi-ai-market/backend/internal/models"
-	"github.com/btmi-ai-market/backend/internal/service"
 	"github.com/btmi-ai-market/backend/internal/repository"
+	"github.com/btmi-ai-market/backend/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -133,8 +133,8 @@ func (h *Handler) GetBenefits(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Seller benefits retrieved successfully",
 		Data: map[string]interface{}{
-			"benefits":              growth.Benefits,
-			"level":                 growth.Level,
+			"benefits":                  growth.Benefits,
+			"level":                     growth.Level,
 			"high_value_buyer_eligible": growth.HighValueBuyerEligible,
 		},
 	})

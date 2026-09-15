@@ -17,6 +17,30 @@ const METHOD_LABEL: Record<string, TranslationKey> = {
   PARTNER: 'delivery.partner'
 }
 
+/**
+ * The buyer's real choice is WHEN they pay, so the methods are presented under that
+ * heading rather than as one flat list. Finance decides which methods exist and are
+ * enabled; this only groups what the server quoted.
+ */
+const PAYMENT_GROUPS = [
+  {
+    timing: 'NOW' as const,
+    title: 'Payer maintenant',
+    hint: 'Paiement en ligne, confirmé par l’opérateur avant la livraison.'
+  },
+  {
+    timing: 'DELIVERY' as const,
+    title: 'Payer à la livraison',
+    hint: 'Rien n’est prélevé maintenant. Le montant est dû à la remise de la commande.'
+  }
+]
+
+const METHOD_HINT: Record<string, string> = {
+  CASH_ON_DELIVERY: 'Espèces remises au Livreur, qui confirme la réception sur place.',
+  MOBILE_AT_DELIVERY: 'Paiement mobile effectué à la remise, confirmé par l’opérateur.',
+  MOBILE_PAY_NOW: 'Paiement mobile immédiat. Aucun paiement ne sera demandé à la livraison.'
+}
+
 function PaymentInner() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -88,21 +112,20 @@ function PaymentInner() {
     })
   }, [order])
 
-  async function confirmCash() {
+  /**
+   * Places the order with the chosen method. It records how the buyer intends to pay -
+   * nothing more. Every method starts DUE: cash is settled by the courier at the door,
+   * and mobile money by its operator, so confirming this screen can never make an order
+   * paid.
+   */
+  async function placeOrder() {
     if (!orderId || !paymentMethod) return
     setConfirming(true)
     setError('')
     try {
       const created = payment || await buyerApi.createPayment(orderId, paymentMethod)
       setPayment(created)
-      // Cash/mobile-at-delivery stays DUE. Buyer confirmation is only the
-      // checkout order confirmation, never proof that funds were received.
-      const updated = created
-      setPayment(updated)
-      navigate(`/orders/${orderId}/success`, {
-        state: { payment: updated },
-        replace: true
-      })
+      navigate(`/orders/${orderId}/success`, { state: { payment: created }, replace: true })
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('payment.couldNotConfirm'))
       setConfirming(false)
@@ -124,20 +147,30 @@ function PaymentInner() {
         <div className="checkout-content stack">
           <section className="checkout-card">
             <div className="checkout-card-head"><h2>Mode de paiement</h2><span>Configuré par Finance</span></div>
-            <div className="stack">
-              {quote.payment_methods.map(method => (
-                <label className={`delivery-option payment-method-option ${paymentMethod === method.code ? 'selected' : ''}`} key={method.code}>
-                  <input type="radio" name="payment_method" value={method.code} checked={paymentMethod === method.code} onChange={() => setPaymentMethod(method.code)} />
-                  <span>
-                    <strong>{method.label}</strong><br/>
-                    <small className="muted">{method.timing === 'NOW' ? 'Paiement vérifié par le prestataire avant confirmation' : 'Paiement exigible à la livraison'}</small>
-                  </span>
-                  <span className="payment-method-markup">
-                    {method.markup_amount > 0 ? `+ ${formatMoney(method.markup_amount, quote.currency)}` : 'Sans frais'}
-                  </span>
-                </label>
-              ))}
-            </div>
+            {PAYMENT_GROUPS.map(group => {
+              const methods = quote.payment_methods.filter(method => method.timing === group.timing)
+              if (methods.length === 0) return null
+              return (
+                <div className="stack" key={group.timing} style={{ marginTop: 12 }}>
+                  <div>
+                    <strong>{group.title}</strong>
+                    <div><small className="muted">{group.hint}</small></div>
+                  </div>
+                  {methods.map(method => (
+                    <label className={`delivery-option payment-method-option ${paymentMethod === method.code ? 'selected' : ''}`} key={method.code}>
+                      <input type="radio" name="payment_method" value={method.code} checked={paymentMethod === method.code} onChange={() => setPaymentMethod(method.code)} />
+                      <span>
+                        <strong>{method.label}</strong><br/>
+                        <small className="muted">{METHOD_HINT[method.code] ?? group.hint}</small>
+                      </span>
+                      <span className="payment-method-markup">
+                        {method.markup_amount > 0 ? `+ ${formatMoney(method.markup_amount, quote.currency)}` : 'Sans frais'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )
+            })}
           </section>
           <section className="checkout-card"><div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{order?.order.total_items ?? 0} {order?.order.total_items === 1 ? t('cart.item') : t('cart.items')}</span></div>
           {order?.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); return <div className="review-order-line" key={line.id}><div><strong>{product?.name ?? t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong><span>{variant?.name || variant?.sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span></div><strong>{formatMoney((line.final_unit_price || line.unit_price) * line.quantity)}</strong></div> })}
@@ -189,9 +222,11 @@ function PaymentInner() {
         </div>
         <div className="summary-total"><span>Total</span><strong>{formatMoney(quote.final_total, quote.currency)}</strong><small>{quoting ? 'Recalcul du total…' : 'Le montant final est calculé par le serveur.'}</small></div>
         <div className="pay-note">
-          {payment?.status ? `Statut du paiement : ${payment.status}` : 'Aucun paiement enregistré avant confirmation.'}
+          {selectedMethod?.timing === 'NOW'
+            ? 'Vous serez redirigé vers votre opérateur. La commande est payée une fois que l’opérateur le confirme.'
+            : 'Aucun montant n’est prélevé maintenant : ce total est dû à la livraison.'}
         </div>
-        <Button variant="accent" size="lg" block onClick={confirmCash} loading={confirming} disabled={!paymentMethod || quoting || Boolean(payment)}>
+        <Button variant="accent" size="lg" block onClick={placeOrder} loading={confirming} disabled={!paymentMethod || quoting || Boolean(payment)}>
           {payment ? t('payment.orderConfirmed') : t('payment.placeOrder')}
         </Button>
       </aside>

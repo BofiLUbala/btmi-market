@@ -149,6 +149,10 @@ type ConfirmCashResponse struct {
 	// separate ledger that stays DUE until Finance actually collects it.
 	CommissionCollected bool `json:"commission_collected"`
 	AlreadyConfirmed    bool `json:"already_confirmed"`
+	// Who settled it. Always COURIER on this path - it is the whole point of it.
+	ConfirmationActor string     `json:"confirmation_actor,omitempty"`
+	ConfirmedByUserID *uuid.UUID `json:"confirmed_by_user_id,omitempty"`
+	ConfirmedAt       *time.Time `json:"confirmed_at,omitempty"`
 }
 
 // HandoverEvent is one entry in an order's handover audit trail.

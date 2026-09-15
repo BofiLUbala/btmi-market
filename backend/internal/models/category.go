@@ -43,20 +43,20 @@ type SubcategoryResponse struct {
 }
 
 type CategoryResponse struct {
-	ID          uuid.UUID             `json:"id"`
-	Name        string                `json:"name"`
-	Slug        string                `json:"slug"`
-	SortOrder   int                   `json:"sort_order"`
+	ID            uuid.UUID             `json:"id"`
+	Name          string                `json:"name"`
+	Slug          string                `json:"slug"`
+	SortOrder     int                   `json:"sort_order"`
 	Subcategories []SubcategoryResponse `json:"subcategories,omitempty"`
 }
 
 type CategoryWithSubcategories struct {
-	ID          uuid.UUID
-	Name        string
-	Slug        string
-	Status      string
-	SortOrder   int
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            uuid.UUID
+	Name          string
+	Slug          string
+	Status        string
+	SortOrder     int
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 	Subcategories []*Subcategory
 }

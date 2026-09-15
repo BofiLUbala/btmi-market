@@ -183,13 +183,13 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 	query := `
 		SELECT 
 			COALESCE(SUM(o.final_total), 0) as total_order_value,
-			COALESCE(SUM(CASE WHEN p.status = 'VERIFIED' THEN p.cash_due ELSE 0 END), 0) as verified_cash,
-			COALESCE(SUM(CASE WHEN p.status IN ('PENDING', 'BUYER_CONFIRMED') THEN p.cash_due ELSE 0 END), 0) as unverified_cash,
+			COALESCE(SUM(CASE WHEN p.status IN ('PAID', 'VERIFIED') THEN p.cash_due ELSE 0 END), 0) as verified_cash,
+			COALESCE(SUM(CASE WHEN p.status IN ('PENDING', 'DUE', 'PROCESSING', 'CONFIRMED') THEN p.cash_due ELSE 0 END), 0) as unverified_cash,
 			COALESCE(SUM(CASE WHEN p.status = 'DISPUTED' THEN p.cash_due ELSE 0 END), 0) as disputed_cash,
 			COALESCE(SUM(p.products_points_discount + p.delivery_points_discount), 0) as points_discount_value,
 			COUNT(DISTINCT o.id) as total_orders,
-			COUNT(DISTINCT CASE WHEN p.status IN ('PENDING', 'BUYER_CONFIRMED') THEN p.id END) as pending_payments_count,
-			COUNT(DISTINCT CASE WHEN p.status = 'VERIFIED' THEN p.id END) as verified_payments_count,
+			COUNT(DISTINCT CASE WHEN p.status IN ('PENDING', 'DUE', 'PROCESSING', 'CONFIRMED') THEN p.id END) as pending_payments_count,
+			COUNT(DISTINCT CASE WHEN p.status IN ('PAID', 'VERIFIED') THEN p.id END) as verified_payments_count,
 			COUNT(DISTINCT CASE WHEN p.status = 'DISPUTED' THEN p.id END) as disputed_payments_count
 		FROM orders o
 		LEFT JOIN buyer_payments p ON p.order_id = o.id
@@ -325,7 +325,9 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 			p.cash_due,
 			p.buyer_confirmed, p.buyer_confirmed_at,
 			p.seller_confirmed, p.seller_confirmed_at,
-			p.status as payment_status, p.created_at, p.verified_at
+			p.status as payment_status, COALESCE(p.payment_method, '') as payment_method,
+			p.created_at, p.verified_at,
+			COALESCE(p.confirmation_actor, '') as confirmation_actor, p.confirmed_by_user_id, p.paid_at
 		FROM buyer_payments p
 		JOIN orders o ON p.order_id = o.id
 		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
@@ -355,32 +357,46 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 			&item.CashDue,
 			&item.BuyerConfirmedPaid, &item.BuyerConfirmedAt,
 			&item.SellerConfirmedReceived, &item.SellerConfirmedAt,
-			&item.PaymentStatus, &item.CreatedAt, &item.VerifiedAt,
+			&item.PaymentStatus, &item.PaymentMethod, &item.CreatedAt, &item.VerifiedAt,
+			&item.ConfirmationActor, &item.ConfirmedByUserID, &item.PaidAt,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		// Cash payment consistency anomaly checks
-		now := time.Now()
-		if item.BuyerConfirmedPaid && item.SellerConfirmedReceived && item.PaymentStatus != "VERIFIED" {
-			item.AnomalyFlag = true
-			item.AnomalyReason = "Buyer & Seller both confirmed cash but status is not VERIFIED"
-		} else if item.PaymentStatus == "VERIFIED" && (!item.BuyerConfirmedPaid || !item.SellerConfirmedReceived) {
-			item.AnomalyFlag = true
-			item.AnomalyReason = "Payment marked VERIFIED but missing double confirmation"
-		} else if item.BuyerConfirmedPaid && !item.SellerConfirmedReceived && item.BuyerConfirmedAt != nil && now.Sub(*item.BuyerConfirmedAt) > 24*time.Hour {
-			item.AnomalyFlag = true
-			item.AnomalyReason = "Buyer confirmed cash paid over 24h ago awaiting seller confirmation"
-		} else if item.SellerConfirmedReceived && !item.BuyerConfirmedPaid && item.SellerConfirmedAt != nil && now.Sub(*item.SellerConfirmedAt) > 24*time.Hour {
-			item.AnomalyFlag = true
-			item.AnomalyReason = "Seller confirmed cash received over 24h ago awaiting buyer confirmation"
-		}
+		item.AnomalyFlag, item.AnomalyReason = paymentAnomaly(&item)
 
 		items = append(items, item)
 	}
 
 	return items, total, nil
+}
+
+// paymentAnomaly flags a settled payment that cannot account for itself.
+//
+// Cash is settled by the assigned courier at the door and an online payment by its
+// provider's signed webhook, so a settled row that names neither actor is money
+// Finance cannot trace to anyone. The old rule - a buyer declaration plus a seller
+// declaration - is history: rows carrying it are reported as such rather than
+// treated as a current, correct settlement.
+func paymentAnomaly(item *models.AdminPaymentListItem) (bool, string) {
+	settled := models.PaymentSettled(models.BuyerPaymentStatus(item.PaymentStatus))
+	cash := item.PaymentMethod == models.PaymentMethodCashOnDelivery
+
+	switch {
+	case settled && item.ConfirmationActor == "":
+		return true, "Payment settled with no confirming actor recorded"
+	case settled && item.ConfirmationActor == models.PaymentConfirmationActorLegacy:
+		return true, "Payment settled under the retired buyer/seller declaration rule"
+	case settled && cash && item.ConfirmationActor != models.PaymentConfirmationActorCourier &&
+		item.ConfirmationActor != models.PaymentConfirmationActorAdmin:
+		return true, "Cash payment settled by " + item.ConfirmationActor + " rather than the assigned courier"
+	case settled && !cash && item.ConfirmationActor == models.PaymentConfirmationActorCourier:
+		return true, "Online payment settled by a courier instead of the provider"
+	case !settled && item.ConfirmationActor != "":
+		return true, "Payment names a confirming actor but is not settled"
+	}
+	return false, ""
 }
 
 // Get Payment Detail
@@ -399,7 +415,9 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 			p.cash_due,
 			p.buyer_confirmed, p.buyer_confirmed_at,
 			p.seller_confirmed, p.seller_confirmed_at,
-			p.status as payment_status, p.created_at, p.verified_at
+			p.status as payment_status, COALESCE(p.payment_method, '') as payment_method,
+			p.created_at, p.verified_at,
+			COALESCE(p.confirmation_actor, '') as confirmation_actor, p.confirmed_by_user_id, p.paid_at
 		FROM buyer_payments p
 		JOIN orders o ON p.order_id = o.id
 		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
@@ -418,26 +436,14 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 		&detail.CashDue,
 		&detail.BuyerConfirmedPaid, &detail.BuyerConfirmedAt,
 		&detail.SellerConfirmedReceived, &detail.SellerConfirmedAt,
-		&detail.PaymentStatus, &detail.CreatedAt, &detail.VerifiedAt,
+		&detail.PaymentStatus, &detail.PaymentMethod, &detail.CreatedAt, &detail.VerifiedAt,
+		&detail.ConfirmationActor, &detail.ConfirmedByUserID, &detail.PaidAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	now := time.Now()
-	if detail.BuyerConfirmedPaid && detail.SellerConfirmedReceived && detail.PaymentStatus != "VERIFIED" {
-		detail.AnomalyFlag = true
-		detail.AnomalyReason = "Buyer & Seller both confirmed cash but status is not VERIFIED"
-	} else if detail.PaymentStatus == "VERIFIED" && (!detail.BuyerConfirmedPaid || !detail.SellerConfirmedReceived) {
-		detail.AnomalyFlag = true
-		detail.AnomalyReason = "Payment marked VERIFIED but missing double confirmation"
-	} else if detail.BuyerConfirmedPaid && !detail.SellerConfirmedReceived && detail.BuyerConfirmedAt != nil && now.Sub(*detail.BuyerConfirmedAt) > 24*time.Hour {
-		detail.AnomalyFlag = true
-		detail.AnomalyReason = "Buyer confirmed cash paid over 24h ago awaiting seller confirmation"
-	} else if detail.SellerConfirmedReceived && !detail.BuyerConfirmedPaid && detail.SellerConfirmedAt != nil && now.Sub(*detail.SellerConfirmedAt) > 24*time.Hour {
-		detail.AnomalyFlag = true
-		detail.AnomalyReason = "Seller confirmed cash received over 24h ago awaiting buyer confirmation"
-	}
+	detail.AnomalyFlag, detail.AnomalyReason = paymentAnomaly(&detail.AdminPaymentListItem)
 
 	// Fetch Order Product Lines. Names and SKUs live on products/variants,
 	// not on the line itself, so they are joined in.

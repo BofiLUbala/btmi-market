@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"log"
 
-	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/models"
+	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/google/uuid"
 )
 
 type SimilarityRepository struct {
-	redisClient  *redislib.Client
+	redisClient     *redislib.Client
 	marketplaceRepo *MarketplaceRepository
-	productRepo    *ProductRepository
+	productRepo     *ProductRepository
 }
 
 func NewSimilarityRepository(
@@ -176,10 +176,10 @@ func (r *SimilarityRepository) UpdateProductSimilarity(ctx context.Context, prod
 	similar := make([]*redislib.SimilarProduct, len(similarProducts))
 	for i, sp := range similarProducts {
 		similar[i] = &redislib.SimilarProduct{
-			ProductID:    sp.ProductID,
-			FinalScore:   sp.FinalScore,
+			ProductID:       sp.ProductID,
+			FinalScore:      sp.FinalScore,
 			SimilarityScore: sp.SimilarityScore,
-			SellerScore:  sp.SellerScore,
+			SellerScore:     sp.SellerScore,
 		}
 	}
 

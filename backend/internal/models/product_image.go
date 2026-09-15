@@ -7,9 +7,9 @@ import (
 )
 
 type ProductImage struct {
-	ID         uuid.UUID  `json:"id" db:"id"`
-	BusinessID uuid.UUID  `json:"business_id" db:"business_id"`
-	ProductID  uuid.UUID  `json:"product_id" db:"product_id"`
+	ID         uuid.UUID `json:"id" db:"id"`
+	BusinessID uuid.UUID `json:"business_id" db:"business_id"`
+	ProductID  uuid.UUID `json:"product_id" db:"product_id"`
 	// VariantID scopes the image to one Variant (a specific colour/model).
 	// NULL means the image represents the Product as a whole.
 	VariantID *uuid.UUID `json:"variant_id,omitempty" db:"variant_id"`

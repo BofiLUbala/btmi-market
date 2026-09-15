@@ -64,7 +64,7 @@ func (s *ReviewService) CanBuyerReviewOrder(buyerProfileID, orderID uuid.UUID) (
 	if err != nil {
 		return nil, err
 	}
-	if paymentStatus != "VERIFIED" {
+	if !models.PaymentSettled(models.BuyerPaymentStatus(paymentStatus)) {
 		return &models.ReviewEligibilityResponse{
 			Eligible: false,
 			Reason:   "PAYMENT_NOT_VERIFIED",

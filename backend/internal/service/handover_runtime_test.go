@@ -177,11 +177,14 @@ func newHandoverFixture(t *testing.T, paymentMethod string) *handoverFixture {
 	var verifiedAt interface{}
 	if paymentMethod == models.PaymentMethodMobilePayNow {
 		// Pay-now is settled at checkout, before anyone leaves the shop.
-		status, verifiedAt = "VERIFIED", time.Now()
+		status, verifiedAt = "PAID", time.Now()
 	}
 	mustExec(`INSERT INTO buyer_payments (id,order_id,business_id,shop_id,buyer_profile_id,payment_method,currency,
-		products_final_total,cash_due,final_total,status,provider,payment_timing,verified_at)
-		VALUES ($1,$2,$3,$4,$5,$6,'USD',100,100,100,$7,'TEST_PROVIDER',$8,$9)`,
+		products_final_total,cash_due,final_total,status,provider,payment_timing,verified_at,paid_at,
+		confirmation_actor)
+		VALUES ($1,$2,$3,$4,$5,$6,'USD',100,100,100,$7,'TEST_PROVIDER',$8,
+		        $9::timestamptz,$9::timestamptz,
+		        CASE WHEN $9::timestamptz IS NULL THEN '' ELSE 'PROVIDER' END)`,
 		f.paymentID, f.orderID, f.businessID, f.shopID, f.buyerProfID, paymentMethod, status,
 		timingFor(paymentMethod), verifiedAt)
 
@@ -273,6 +276,19 @@ func (f *handoverFixture) acknowledgeAllLines(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("buyer line acknowledgement failed: %v", err)
 	}
+}
+
+// confirmationActor is who the database says settled the payment. The handover tests
+// assert on it because "PAID" alone cannot tell a courier's cash receipt apart from a
+// provider callback - and the whole point of the rule is that only one of them is
+// allowed to settle a given method.
+func (f *handoverFixture) confirmationActor(t *testing.T) string {
+	t.Helper()
+	var actor string
+	if err := f.db.QueryRow(`SELECT confirmation_actor FROM buyer_payments WHERE id=$1`, f.paymentID).Scan(&actor); err != nil {
+		t.Fatalf("read confirmation actor: %v", err)
+	}
+	return actor
 }
 
 func (f *handoverFixture) paymentStatus(t *testing.T) string {
@@ -498,11 +514,18 @@ func TestCashOnDeliveryHandoverEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cash confirmation: %v", err)
 	}
-	if cash.PaymentStatus != string(models.BuyerPaymentStatusVerified) {
+	if cash.PaymentStatus != string(models.BuyerPaymentStatusPaid) {
 		t.Fatalf("cash confirmation left payment at %s", cash.PaymentStatus)
 	}
-	if f.paymentStatus(t) != "VERIFIED" {
+	if f.paymentStatus(t) != "PAID" {
 		t.Fatalf("payment row not settled: %s", f.paymentStatus(t))
+	}
+	// The courier is the actor of record: the seller has no part in this.
+	if actor := f.confirmationActor(t); actor != models.PaymentConfirmationActorCourier {
+		t.Fatalf("cash settled by %q, expected COURIER", actor)
+	}
+	if cash.ConfirmedByUserID == nil || *cash.ConfirmedByUserID != f.courierID {
+		t.Fatalf("cash confirmation not attributed to the confirming courier: %v", cash.ConfirmedByUserID)
 	}
 
 	// 100 USD in the courier's hand settles the buyer. It does not settle TBK.
@@ -584,8 +607,12 @@ func TestMobileAtDeliveryRequiresProviderConfirmation(t *testing.T) {
 	if err := f.pay.HandleProviderWebhook("TEST_PROVIDER", body, "sha256="+signature); err != nil {
 		t.Fatalf("signed provider webhook rejected: %v", err)
 	}
-	if f.paymentStatus(t) != "VERIFIED" {
+	if f.paymentStatus(t) != "PAID" {
 		t.Fatalf("webhook did not settle the payment: %s", f.paymentStatus(t))
+	}
+	// Mobile money is the provider's word, never the courier's.
+	if actor := f.confirmationActor(t); actor != models.PaymentConfirmationActorProvider {
+		t.Fatalf("mobile payment settled by %q, expected PROVIDER", actor)
 	}
 
 	if err := f.qr.ConfirmReceipt(f.buyerUserID, f.orderID); err != nil {

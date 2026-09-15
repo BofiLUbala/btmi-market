@@ -208,4 +208,3 @@ func (r *NotificationRepository) CreateIfUnique(notif *models.Notification, wind
 	}
 	return true, nil
 }
-

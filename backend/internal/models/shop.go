@@ -47,16 +47,16 @@ type Shop struct {
 }
 
 type CreateShopRequest struct {
-	Name                    string `json:"name" binding:"required"`
-	Type                    string `json:"type" binding:"required,oneof=PHYSICAL ONLINE"`
-	City                    string `json:"city"`
-	Address                 string `json:"address"`
-	Province                string `json:"province" binding:"required"`
-	Commune                 string `json:"commune" binding:"required"`
-	Street                  string `json:"street" binding:"required"`
-	BuildingNumber          string `json:"building_number" binding:"required"`
-	Landmark                string `json:"landmark"`
-	Phone                   string `json:"phone"`
+	Name                    string  `json:"name" binding:"required"`
+	Type                    string  `json:"type" binding:"required,oneof=PHYSICAL ONLINE"`
+	City                    string  `json:"city"`
+	Address                 string  `json:"address"`
+	Province                string  `json:"province" binding:"required"`
+	Commune                 string  `json:"commune" binding:"required"`
+	Street                  string  `json:"street" binding:"required"`
+	BuildingNumber          string  `json:"building_number" binding:"required"`
+	Landmark                string  `json:"landmark"`
+	Phone                   string  `json:"phone"`
 	SupportsShopDelivery    *bool   `json:"supports_shop_delivery"`
 	ShopDeliveryFee         float64 `json:"shop_delivery_fee"`
 	SupportsPartnerDelivery *bool   `json:"supports_partner_delivery"`
@@ -67,24 +67,24 @@ type CreateShopRequest struct {
 }
 
 type UpdateShopRequest struct {
-	Name                    *string `json:"name"`
-	Type                    *string `json:"type" binding:"omitempty,oneof=PHYSICAL ONLINE"`
-	City                    *string `json:"city"`
-	Address                 *string `json:"address"`
-	Province                *string `json:"province"`
-	Commune                 *string `json:"commune"`
-	Street                  *string `json:"street"`
-	BuildingNumber          *string `json:"building_number"`
-	Landmark                *string `json:"landmark"`
-	Phone                   *string `json:"phone"`
-	Status                  *string `json:"status"`
-	SupportsShopDelivery    *bool   `json:"supports_shop_delivery"`
+	Name                    *string  `json:"name"`
+	Type                    *string  `json:"type" binding:"omitempty,oneof=PHYSICAL ONLINE"`
+	City                    *string  `json:"city"`
+	Address                 *string  `json:"address"`
+	Province                *string  `json:"province"`
+	Commune                 *string  `json:"commune"`
+	Street                  *string  `json:"street"`
+	BuildingNumber          *string  `json:"building_number"`
+	Landmark                *string  `json:"landmark"`
+	Phone                   *string  `json:"phone"`
+	Status                  *string  `json:"status"`
+	SupportsShopDelivery    *bool    `json:"supports_shop_delivery"`
 	ShopDeliveryFee         *float64 `json:"shop_delivery_fee"`
-	SupportsPartnerDelivery *bool   `json:"supports_partner_delivery"`
+	SupportsPartnerDelivery *bool    `json:"supports_partner_delivery"`
 	PartnerDeliveryFee      *float64 `json:"partner_delivery_fee"`
-	PartnerDeliveryProvider *string `json:"partner_delivery_provider"`
-	DeliveryCity            *string `json:"delivery_city"`
-	DeliveryAddress         *string `json:"delivery_address"`
+	PartnerDeliveryProvider *string  `json:"partner_delivery_provider"`
+	DeliveryCity            *string  `json:"delivery_city"`
+	DeliveryAddress         *string  `json:"delivery_address"`
 }
 
 type ShopResponse struct {

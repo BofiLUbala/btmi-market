@@ -1250,10 +1250,16 @@ export interface AdminPaymentListItem {
   delivery_fee: number
   total_amount: number
   cash_due: number
+  /** Frozen history from the retired buyer/seller declaration rule. */
   buyer_confirmed_paid: boolean
   buyer_confirmed_at?: string
   seller_confirmed_received: boolean
   seller_confirmed_at?: string
+  payment_method: string
+  /** COURIER for cash taken at the door, PROVIDER for a settled mobile payment. */
+  confirmation_actor: string
+  confirmed_by_user_id?: string
+  paid_at?: string
   payment_status: string
   created_at: string
   verified_at?: string

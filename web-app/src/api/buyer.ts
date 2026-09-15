@@ -91,8 +91,8 @@ export const buyerApi = {
   /** Asks the provider to charge the buyer. Only its webhook can settle it. */
   initiatePayment: (orderId: string) => post<PaymentInitiation>(`/buyer/orders/${orderId}/payment/initiate`, {}),
 
-  buyerConfirmPayment: (paymentId: string) =>
-    post<BuyerPayment>(`/buyer/payments/${paymentId}/buyer-confirm`, {}),
+  // No buyerConfirmPayment: choosing cash at delivery is not paying, and the buyer
+  // saying they paid is not evidence. The courier confirms the cash at the door.
 
   confirmReceived: (orderId: string) =>
     post<BuyerOrder>(`/buyer/orders/${orderId}/confirm-receipt`, {}),

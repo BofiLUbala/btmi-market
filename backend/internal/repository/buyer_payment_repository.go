@@ -24,7 +24,8 @@ const buyerPaymentSelect = `
 	       delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
 	       cash_due, payment_markup, payment_markup_type, payment_markup_value, final_total, provider, provider_reference, payment_timing,
 	       buyer_confirmed, buyer_confirmed_at, seller_confirmed, seller_confirmed_by, seller_confirmed_at,
-	       status, verified_at,
+	       status, verified_at, paid_at, confirmed_by_user_id, confirmation_actor,
+	       cash_received_by, cash_received_at,
 	       created_at, updated_at
 	FROM buyer_payments`
 
@@ -36,7 +37,8 @@ func scanBuyerPayment(row interface{ Scan(...any) error }) (*models.BuyerPayment
 		&p.DeliveryFeeBase, &p.DeliveryPointsUsed, &p.DeliveryPointsDiscount, &p.DeliveryFeeFinal,
 		&p.CashDue, &p.PaymentMarkup, &p.PaymentMarkupType, &p.PaymentMarkupValue, &p.FinalTotal, &p.Provider, &p.ProviderReference, &p.PaymentTiming,
 		&p.BuyerConfirmed, &p.BuyerConfirmedAt, &p.SellerConfirmed, &p.SellerConfirmedBy, &p.SellerConfirmedAt,
-		&p.Status, &p.VerifiedAt,
+		&p.Status, &p.VerifiedAt, &p.PaidAt, &p.ConfirmedByUserID, &p.ConfirmationActor,
+		&p.CashReceivedBy, &p.CashReceivedAt,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -99,8 +101,11 @@ func (r *BuyerPaymentRepository) GetByOrderID(orderID uuid.UUID) (*models.BuyerP
 func (r *BuyerPaymentRepository) MarkProviderOutcome(id uuid.UUID, status models.BuyerPaymentStatus, reference, failureReason string, verifiedAt *time.Time) (bool, error) {
 	result, err := r.db.Exec(`
 		UPDATE buyer_payments
-		SET status=$2, provider_reference=COALESCE(NULLIF($3,''), provider_reference),
-		    payment_failure_reason=$4, verified_at=COALESCE($5, verified_at), updated_at=NOW()
+		SET status=$2::varchar, provider_reference=COALESCE(NULLIF($3,''), provider_reference),
+		    payment_failure_reason=$4, verified_at=COALESCE($5, verified_at),
+		    paid_at=CASE WHEN $2::varchar IN ('PAID','VERIFIED') THEN COALESCE($5, NOW()) ELSE paid_at END,
+		    confirmation_actor=CASE WHEN $2::varchar IN ('PAID','VERIFIED') THEN 'PROVIDER' ELSE confirmation_actor END,
+		    updated_at=NOW()
 		WHERE id=$1 AND status IN ('DUE','PROCESSING','PENDING')
 	`, id, status, reference, failureReason, verifiedAt)
 	if err != nil {
@@ -121,26 +126,46 @@ func (r *BuyerPaymentRepository) MarkInitiated(id uuid.UUID, reference string) e
 	return err
 }
 
+// Update writes the payment's lifecycle columns. The buyer/seller declaration flags
+// are deliberately absent: they are frozen history, and no current code path may set
+// them.
 func (r *BuyerPaymentRepository) Update(p *models.BuyerPayment) error {
 	query := `
 		UPDATE buyer_payments SET
-			buyer_confirmed = $2, buyer_confirmed_at = $3,
-			seller_confirmed = $4, seller_confirmed_by = $5, seller_confirmed_at = $6,
-			status = $7, verified_at = $8, updated_at = NOW()
+			status = $2, verified_at = $3, paid_at = $4,
+			confirmed_by_user_id = $5, confirmation_actor = $6, updated_at = NOW()
 		WHERE id = $1
 		RETURNING updated_at
 	`
 	var updatedAt time.Time
 	err := r.db.QueryRow(query,
-		p.ID, p.BuyerConfirmed, p.BuyerConfirmedAt,
-		p.SellerConfirmed, p.SellerConfirmedBy, p.SellerConfirmedAt,
-		p.Status, p.VerifiedAt,
+		p.ID, p.Status, p.VerifiedAt, p.PaidAt,
+		p.ConfirmedByUserID, p.ConfirmationActor,
 	).Scan(&updatedAt)
 	if err != nil {
 		return err
 	}
 	p.UpdatedAt = updatedAt
 	return nil
+}
+
+// SettleCashByCourier records that the assigned courier physically received the cash.
+//
+// The status guard is what makes a retried confirmation harmless: the second call
+// matches no row, so it neither re-credits points nor re-books commission. It reports
+// whether this call is the one that settled the payment.
+func (r *BuyerPaymentRepository) SettleCashByCourier(id, courierUserID uuid.UUID) (bool, error) {
+	result, err := r.db.Exec(`
+		UPDATE buyer_payments
+		SET status='PAID', paid_at=NOW(), verified_at=COALESCE(verified_at, NOW()),
+		    cash_received_by=$2, cash_received_at=NOW(),
+		    confirmed_by_user_id=$2, confirmation_actor='COURIER', updated_at=NOW()
+		WHERE id=$1 AND status NOT IN ('VERIFIED','PAID','REFUNDED','CANCELLED')`, id, courierUserID)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	return affected > 0, err
 }
 
 func (r *BuyerPaymentRepository) GetByShopID(shopID uuid.UUID, limit, offset int) ([]*models.BuyerPayment, error) {
