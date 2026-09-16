@@ -71,6 +71,19 @@ type BuyerPayment struct {
 	ProviderReference  string  `json:"provider_reference" db:"provider_reference"`
 	PaymentTiming      string  `json:"payment_timing" db:"payment_timing"`
 
+	// Our own reference, allocated before the operator is ever called, so a
+	// charge that is started but never answered is still traceable from our side.
+	InternalReference string `json:"internal_reference" db:"internal_reference"`
+	// The number the operator debits. Stored for the receipt and for support;
+	// it is the buyer's own number, never a credential.
+	PayerPhone       string     `json:"payer_phone" db:"payer_phone"`
+	ReceiptReference string     `json:"receipt_reference" db:"receipt_reference"`
+	ReceiptIssuedAt  *time.Time `json:"receipt_issued_at" db:"receipt_issued_at"`
+	// Non-sensitive operator echo, kept for support and reconciliation. Secrets
+	// and anything credential-shaped are filtered out before this is written.
+	ProviderMetadata JSONMap    `json:"provider_metadata" db:"provider_metadata"`
+	InitiatedAt      *time.Time `json:"initiated_at" db:"payment_initiated_at"`
+
 	// Legacy declaration flags. Nothing writes these any more: cash is settled by the
 	// courier at the door, not by the buyer and seller each declaring it happened.
 	// They are read-only history for rows written before that rule.
@@ -119,7 +132,13 @@ type BuyerPaymentResponse struct {
 	PaymentMarkupValue     float64    `json:"payment_markup_value"`
 	FinalTotal             float64    `json:"final_total"`
 	Provider               string     `json:"provider"`
+	ProviderLabel          string     `json:"provider_label,omitempty"`
 	ProviderReference      string     `json:"provider_reference,omitempty"`
+	InternalReference      string     `json:"internal_reference,omitempty"`
+	PayerPhone             string     `json:"payer_phone,omitempty"`
+	ReceiptReference       string     `json:"receipt_reference,omitempty"`
+	ReceiptIssuedAt        *time.Time `json:"receipt_issued_at,omitempty"`
+	InitiatedAt            *time.Time `json:"initiated_at,omitempty"`
 	PaymentTiming          string     `json:"payment_timing"`
 	BuyerConfirmed         bool       `json:"buyer_confirmed"`
 	BuyerConfirmedAt       *time.Time `json:"buyer_confirmed_at"`

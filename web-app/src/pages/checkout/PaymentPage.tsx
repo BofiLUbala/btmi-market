@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { marketplaceApi } from '@/api/marketplace'
-import { ApiError, type BuyerPayment, type CheckoutQuote, type DeliverySelectResponse, type OrderWithLines, type PublicProductDetail } from '@/api/types'
+import { ApiError, type BuyerPayment, type CheckoutQuote, type DeliverySelectResponse, type OrderWithLines, type PaymentProviderCode, type PublicProductDetail } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney } from '@/lib/format'
@@ -18,18 +18,24 @@ const METHOD_LABEL: Record<string, TranslationKey> = {
 }
 
 /**
- * The buyer's real choice is WHEN they pay, so the methods are presented under that
- * heading rather than as one flat list. Finance decides which methods exist and are
- * enabled; this only groups what the server quoted.
+ * The buyer's first decision is WHEN they pay, not which operator they use.
+ *
+ * Presenting every method flat - cash, mobile now, mobile at delivery - asked the
+ * buyer to compare two unrelated things at once: the moment money leaves them,
+ * and the rail it travels on. So this screen asks the timing question first, then
+ * the channel, then the operator. Finance still decides which methods exist; this
+ * only arranges what the server quoted.
  */
-const PAYMENT_GROUPS = [
+type Timing = 'NOW' | 'DELIVERY'
+
+const TIMING_CHOICES: { timing: Timing; title: string; hint: string }[] = [
   {
-    timing: 'NOW' as const,
+    timing: 'NOW',
     title: 'Payer maintenant',
-    hint: 'Paiement en ligne, confirmé par l’opérateur avant la livraison.'
+    hint: 'Paiement mobile immédiat, confirmé par l’opérateur avant la livraison.'
   },
   {
-    timing: 'DELIVERY' as const,
+    timing: 'DELIVERY',
     title: 'Payer à la livraison',
     hint: 'Rien n’est prélevé maintenant. Le montant est dû à la remise de la commande.'
   }
@@ -41,28 +47,47 @@ const METHOD_HINT: Record<string, string> = {
   MOBILE_PAY_NOW: 'Paiement mobile immédiat. Aucun paiement ne sera demandé à la livraison.'
 }
 
+/** The label a method carries in the grouped UI, where its timing is already known. */
+const METHOD_TITLE: Record<string, string> = {
+  CASH_ON_DELIVERY: 'Espèces',
+  MOBILE_AT_DELIVERY: 'Paiement mobile à la livraison',
+  MOBILE_PAY_NOW: 'Paiement mobile'
+}
+
+function isMobile(code: string) {
+  return code === 'MOBILE_PAY_NOW' || code === 'MOBILE_AT_DELIVERY'
+}
+
 function PaymentInner() {
   const navigate = useNavigate()
   const location = useLocation()
   const t = useT()
   const state = location.state as
-    | { orderId: string; summary?: DeliverySelectResponse }
+    | { orderId: string; orderIds?: string[]; checkoutGroupId?: string; summary?: DeliverySelectResponse }
     | null
   const orderId = state?.orderId
   const summary = state?.summary
+  // A multi-shop checkout produced one order per shop. The buyer makes one
+  // payment decision; it is recorded against each order, so each shop's payment
+  // keeps its own amount and Finance never has to split an ambiguous total.
+  const orderIds = state?.orderIds?.length ? state.orderIds : orderId ? [orderId] : []
 
   const methodLabel = (m: string) => (METHOD_LABEL[m] ? t(METHOD_LABEL[m]) : m.replace(/_/g, ' '))
 
-
   const [payment, setPayment] = useState<BuyerPayment | null>(null)
   const [quote, setQuote] = useState<CheckoutQuote | null>(null)
+  const [timing, setTiming] = useState<Timing | ''>('')
   const [paymentMethod, setPaymentMethod] = useState('')
+  const [provider, setProvider] = useState<PaymentProviderCode | ''>('')
+  const [payerPhone, setPayerPhone] = useState('')
   const [order, setOrder] = useState<OrderWithLines | null>(null)
   const [products, setProducts] = useState<Record<string, PublicProductDetail>>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [quoting, setQuoting] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [initiating, setInitiating] = useState(false)
+  const [instructions, setInstructions] = useState('')
   const selectedMethod = quote?.payment_methods.find(method => method.code === paymentMethod)
 
   // Read the address back from the order, so the recap survives a reload and a
@@ -80,8 +105,10 @@ function PaymentInner() {
       return
     }
     let mounted = true
+    // Nothing is preselected: the buyer picks the timing themselves, which is the
+    // whole point of asking that question first.
     Promise.all([buyerApi.checkoutQuote(orderId), buyerApi.orderDetail(orderId)]).then(
-      ([q, o]) => { if (mounted) { setQuote(q); setPaymentMethod(q.payment_methods[0]?.code || ''); setOrder(o) } },
+      ([q, o]) => { if (mounted) { setQuote(q); setOrder(o) } },
       (e: unknown) => mounted && setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare'))
     ).finally(() => mounted && setLoading(false))
     return () => {
@@ -112,22 +139,73 @@ function PaymentInner() {
     })
   }, [order])
 
+  function chooseTiming(next: Timing) {
+    setTiming(next)
+    setProvider('')
+    setInstructions('')
+    const available = (quote?.payment_methods ?? []).filter(method => method.timing === next)
+    // Only one method under a timing means there is nothing to choose: select it
+    // and let the buyer get on with the operator step.
+    setPaymentMethod(available.length === 1 ? available[0].code : '')
+  }
+
+  const needsProvider = isMobile(paymentMethod)
+  const providerChosen = !needsProvider || Boolean(provider)
+  // Pay-now charges the handset right here, so the number is required before the
+  // order is placed. Pay-at-delivery asks for it at the door instead.
+  const needsPhoneNow = paymentMethod === 'MOBILE_PAY_NOW'
+  const phoneReady = !needsPhoneNow || payerPhone.trim().length >= 9
+  const readyToPlace = Boolean(paymentMethod) && providerChosen && phoneReady
+
   /**
-   * Places the order with the chosen method. It records how the buyer intends to pay -
-   * nothing more. Every method starts DUE: cash is settled by the courier at the door,
-   * and mobile money by its operator, so confirming this screen can never make an order
-   * paid.
+   * Places the order with the chosen method, operator and - for pay-now - handset.
+   *
+   * It records how the buyer intends to pay, nothing more. Every method starts
+   * DUE: cash is settled by the courier at the door and mobile money by its
+   * operator, so confirming this screen can never make an order paid.
    */
   async function placeOrder() {
-    if (!orderId || !paymentMethod) return
+    if (!orderId || !readyToPlace) return
     setConfirming(true)
     setError('')
     try {
-      const created = payment || await buyerApi.createPayment(orderId, paymentMethod)
+      // One decision, recorded against every order this checkout produced.
+      const payments = await Promise.all(
+        orderIds.map(id =>
+          buyerApi.createPayment(id, paymentMethod, provider || undefined, payerPhone.trim() || undefined)
+        )
+      )
+      const created = payments.find(p => p.order_id === orderId) ?? payments[0]
       setPayment(created)
-      navigate(`/orders/${orderId}/success`, { state: { payment: created }, replace: true })
+
+      if (paymentMethod === 'MOBILE_PAY_NOW') {
+        // Stay here: the buyer still has to approve the operator's prompt, and
+        // the order is not paid until the operator says so.
+        await startMobilePayment()
+        return
+      }
+      navigate(`/orders/${orderId}/success`, { state: { payment: created, orderIds }, replace: true })
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('payment.couldNotConfirm'))
+      setConfirming(false)
+    }
+  }
+
+  /** Asks the operator to charge the buyer. Only its callback can settle it. */
+  async function startMobilePayment() {
+    if (!orderId) return
+    setInitiating(true)
+    try {
+      const results = await Promise.all(
+        orderIds.map(id => buyerApi.initiatePayment(id, payerPhone.trim() || undefined))
+      )
+      setInstructions(results[0]?.instructions || 'Validez la demande sur votre téléphone.')
+      const refreshed = await buyerApi.getPayment(orderId)
+      setPayment(refreshed)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Le paiement n’a pas pu être lancé.')
+    } finally {
+      setInitiating(false)
       setConfirming(false)
     }
   }
@@ -135,6 +213,13 @@ function PaymentInner() {
   if (loading) return <LoadingBlock label={t('payment.preparing')} />
   if (!quote)
     return <ErrorBox error={error || t('payment.noPayment')} onRetry={() => window.location.reload()} />
+
+  const methodsForTiming = timing ? quote.payment_methods.filter(method => method.timing === timing) : []
+  const providers = quote.providers ?? []
+
+  // Once a pay-now payment has been started, the screen becomes the status of
+  // that attempt rather than a form: there is nothing left to choose.
+  const awaitingProvider = Boolean(payment && payment.payment_method === 'MOBILE_PAY_NOW' && !['PAID', 'VERIFIED'].includes(payment.status))
 
   return (
     <div className="checkout-page fade-in">
@@ -147,33 +232,174 @@ function PaymentInner() {
         <div className="checkout-content stack">
           <section className="checkout-card">
             <div className="checkout-card-head"><h2>Mode de paiement</h2><span>Configuré par Finance</span></div>
-            {PAYMENT_GROUPS.map(group => {
-              const methods = quote.payment_methods.filter(method => method.timing === group.timing)
-              if (methods.length === 0) return null
-              return (
-                <div className="stack" key={group.timing} style={{ marginTop: 12 }}>
-                  <div>
-                    <strong>{group.title}</strong>
-                    <div><small className="muted">{group.hint}</small></div>
-                  </div>
-                  {methods.map(method => (
-                    <label className={`delivery-option payment-method-option ${paymentMethod === method.code ? 'selected' : ''}`} key={method.code}>
-                      <input type="radio" name="payment_method" value={method.code} checked={paymentMethod === method.code} onChange={() => setPaymentMethod(method.code)} />
-                      <span>
-                        <strong>{method.label}</strong><br/>
-                        <small className="muted">{METHOD_HINT[method.code] ?? group.hint}</small>
-                      </span>
-                      <span className="payment-method-markup">
-                        {method.markup_amount > 0 ? `+ ${formatMoney(method.markup_amount, quote.currency)}` : 'Sans frais'}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )
-            })}
+
+            {/* Step 1 — when. */}
+            <div className="stack" style={{ marginTop: 12 }}>
+              {TIMING_CHOICES.map(choice => {
+                const available = quote.payment_methods.some(method => method.timing === choice.timing)
+                if (!available) return null
+                return (
+                  <label
+                    className={`delivery-option payment-method-option ${timing === choice.timing ? 'selected' : ''}`}
+                    key={choice.timing}
+                  >
+                    <input
+                      type="radio"
+                      name="payment_timing"
+                      value={choice.timing}
+                      checked={timing === choice.timing}
+                      disabled={Boolean(payment)}
+                      onChange={() => chooseTiming(choice.timing)}
+                    />
+                    <span>
+                      <strong>{choice.title}</strong><br />
+                      <small className="muted">{choice.hint}</small>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+
+            {/* Step 2 — how, within that timing. Pay-now has a single mobile
+                group; pay-at-delivery has cash and mobile. */}
+            {timing && methodsForTiming.length > 0 && (
+              <div className="stack" style={{ marginTop: 16 }}>
+                <strong>{timing === 'NOW' ? 'Paiement mobile' : 'Comment payer à la livraison ?'}</strong>
+                {methodsForTiming.map(method => (
+                  <label
+                    className={`delivery-option payment-method-option ${paymentMethod === method.code ? 'selected' : ''}`}
+                    key={method.code}
+                  >
+                    <input
+                      type="radio"
+                      name="payment_method"
+                      value={method.code}
+                      checked={paymentMethod === method.code}
+                      disabled={Boolean(payment)}
+                      onChange={() => { setPaymentMethod(method.code); setProvider('') }}
+                    />
+                    <span>
+                      <strong>{METHOD_TITLE[method.code] ?? method.label}</strong><br />
+                      <small className="muted">{METHOD_HINT[method.code] ?? ''}</small>
+                    </span>
+                    <span className="payment-method-markup">
+                      {method.markup_amount > 0 ? `+ ${formatMoney(method.markup_amount, quote.currency)}` : 'Sans frais'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {/* Step 3 — which operator. Same list and same integration for both
+                mobile methods; only the moment of the charge differs. */}
+            {needsProvider && (
+              <div className="stack" style={{ marginTop: 16 }}>
+                <strong>Choisissez votre opérateur</strong>
+                {providers.length === 0 && (
+                  <p className="small muted">Aucun opérateur mobile n’est disponible actuellement.</p>
+                )}
+                {providers.map(option => (
+                  <label
+                    className={`delivery-option payment-method-option ${provider === option.code ? 'selected' : ''}`}
+                    key={option.code}
+                  >
+                    <input
+                      type="radio"
+                      name="payment_provider"
+                      value={option.code}
+                      checked={provider === option.code}
+                      disabled={Boolean(payment)}
+                      onChange={() => setProvider(option.code)}
+                    />
+                    <span><strong>{option.label}</strong></span>
+                  </label>
+                ))}
+              </div>
+            )}
           </section>
+
+          {/* The mobile payment checkout: operator, handset, and exactly what is
+              about to be charged. */}
+          {needsProvider && provider && (
+            <section className="checkout-card">
+              <div className="checkout-card-head">
+                <h2>Paiement mobile</h2>
+                <span>{providers.find(p => p.code === provider)?.label ?? provider}</span>
+              </div>
+              <div className="summary-lines">
+                <div><span>Opérateur</span><strong>{providers.find(p => p.code === provider)?.label ?? provider}</strong></div>
+                <div><span>Montant de la commande</span><strong>{formatMoney(quote.subtotal, quote.currency)}</strong></div>
+                <div><span>Livraison</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div>
+                {quote.points_discount > 0 && <div><span>Remise points</span><strong className="discount">−{formatMoney(quote.points_discount, quote.currency)}</strong></div>}
+                <div><span>Frais du mode de paiement</span><strong>{formatMoney(quote.payment_markup, quote.currency)}</strong></div>
+                <div><span>Montant final</span><strong>{formatMoney(quote.final_total, quote.currency)}</strong></div>
+              </div>
+
+              <label className="field" style={{ marginTop: 12, display: 'block' }}>
+                <span>Téléphone {needsPhoneNow ? '' : '(optionnel — demandé à la livraison)'}</span>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={payerPhone}
+                  disabled={Boolean(payment)}
+                  placeholder="+243 ..."
+                  onChange={(e) => setPayerPhone(e.target.value)}
+                />
+              </label>
+              {needsPhoneNow && !phoneReady && payerPhone.length > 0 && (
+                <p className="small muted">Entrez le numéro qui sera débité.</p>
+              )}
+
+              {paymentMethod === 'MOBILE_AT_DELIVERY' && (
+                <p className="small muted" style={{ marginTop: 8 }}>
+                  Rien n’est prélevé maintenant. Le Livreur sera présent, vous vérifierez le produit,
+                  puis vous lancerez le paiement. La commande n’est payée qu’une fois l’opérateur confirmé.
+                </p>
+              )}
+            </section>
+          )}
+
+          {/* Status of a started pay-now charge. PROCESSING is the honest state:
+              the operator has been asked, the buyer has not yet paid. */}
+          {awaitingProvider && (
+            <section className="checkout-card" role="status">
+              <div className="checkout-card-head"><h2>Paiement en attente</h2><span>{payment?.status}</span></div>
+              <p>{instructions || 'Validez la demande de paiement sur votre téléphone.'}</p>
+              <div className="summary-lines">
+                <div><span>Référence</span><strong>{payment?.internal_reference || '—'}</strong></div>
+                <div><span>Montant</span><strong>{formatMoney(payment?.final_total ?? 0, payment?.currency)}</strong></div>
+              </div>
+              <p className="small muted">
+                La commande ne sera marquée payée qu’après confirmation de l’opérateur.
+              </p>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <Button
+                  variant="outline"
+                  loading={initiating}
+                  onClick={async () => {
+                    if (!orderId) return
+                    const refreshed = await buyerApi.getPayment(orderId)
+                    setPayment(refreshed)
+                    if (['PAID', 'VERIFIED'].includes(refreshed.status)) {
+                      navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds }, replace: true })
+                    }
+                  }}
+                >
+                  Actualiser le statut
+                </Button>
+                <Button variant="ghost" onClick={() => navigate(`/orders/${orderId}`)}>Voir la commande</Button>
+              </div>
+            </section>
+          )}
+
           <section className="checkout-card"><div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{order?.order.total_items ?? 0} {order?.order.total_items === 1 ? t('cart.item') : t('cart.items')}</span></div>
           {order?.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); return <div className="review-order-line" key={line.id}><div><strong>{product?.name ?? t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong><span>{variant?.name || variant?.sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span></div><strong>{formatMoney((line.final_unit_price || line.unit_price) * line.quantity)}</strong></div> })}
+          {orderIds.length > 1 && (
+            <p className="small muted" style={{ marginTop: 8 }}>
+              Ce paiement couvre {orderIds.length} commandes, une par boutique. Chaque boutique
+              conserve son propre montant.
+            </p>
+          )}
           </section>
       {summary && (
         <section className="checkout-card">
@@ -222,12 +448,25 @@ function PaymentInner() {
         </div>
         <div className="summary-total"><span>Total</span><strong>{formatMoney(quote.final_total, quote.currency)}</strong><small>{quoting ? 'Recalcul du total…' : 'Le montant final est calculé par le serveur.'}</small></div>
         <div className="pay-note">
-          {selectedMethod?.timing === 'NOW'
-            ? 'Vous serez redirigé vers votre opérateur. La commande est payée une fois que l’opérateur le confirme.'
+          {!timing
+            ? 'Choisissez d’abord quand vous souhaitez payer.'
+            : selectedMethod?.timing === 'NOW'
+            ? 'Vous validerez la demande chez votre opérateur. La commande est payée une fois que l’opérateur le confirme.'
             : 'Aucun montant n’est prélevé maintenant : ce total est dû à la livraison.'}
         </div>
-        <Button variant="accent" size="lg" block onClick={placeOrder} loading={confirming} disabled={!paymentMethod || quoting || Boolean(payment)}>
-          {payment ? t('payment.orderConfirmed') : t('payment.placeOrder')}
+        <Button
+          variant="accent"
+          size="lg"
+          block
+          onClick={placeOrder}
+          loading={confirming || initiating}
+          disabled={!readyToPlace || quoting || Boolean(payment)}
+        >
+          {payment
+            ? t('payment.orderConfirmed')
+            : paymentMethod === 'MOBILE_PAY_NOW'
+            ? 'Payer maintenant'
+            : t('payment.placeOrder')}
         </Button>
       </aside>
       </div>

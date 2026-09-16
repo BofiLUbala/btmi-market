@@ -327,12 +327,18 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 			p.seller_confirmed, p.seller_confirmed_at,
 			p.status as payment_status, COALESCE(p.payment_method, '') as payment_method,
 			p.created_at, p.verified_at,
-			COALESCE(p.confirmation_actor, '') as confirmation_actor, p.confirmed_by_user_id, p.paid_at
+			COALESCE(p.confirmation_actor, '') as confirmation_actor, p.confirmed_by_user_id, p.paid_at,
+			COALESCE(p.provider, ''),
+			COALESCE(NULLIF(p.receipt_reference, ''), NULLIF(p.provider_reference, ''), p.internal_reference, ''),
+			COALESCE(p.payment_timing, ''),
+			COALESCE(o.delivery_status, ''), o.assigned_courier_id,
+			COALESCE(NULLIF(TRIM(cu.first_name || ' ' || cu.last_name), ''), cu.email, '')
 		FROM buyer_payments p
 		JOIN orders o ON p.order_id = o.id
 		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
+		LEFT JOIN users cu ON cu.id = o.assigned_courier_id
 		%s
 		ORDER BY p.created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -359,6 +365,8 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 			&item.SellerConfirmedReceived, &item.SellerConfirmedAt,
 			&item.PaymentStatus, &item.PaymentMethod, &item.CreatedAt, &item.VerifiedAt,
 			&item.ConfirmationActor, &item.ConfirmedByUserID, &item.PaidAt,
+			&item.Provider, &item.PaymentReference, &item.PaymentTiming,
+			&item.DeliveryStatus, &item.CourierID, &item.CourierName,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -417,12 +425,18 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 			p.seller_confirmed, p.seller_confirmed_at,
 			p.status as payment_status, COALESCE(p.payment_method, '') as payment_method,
 			p.created_at, p.verified_at,
-			COALESCE(p.confirmation_actor, '') as confirmation_actor, p.confirmed_by_user_id, p.paid_at
+			COALESCE(p.confirmation_actor, '') as confirmation_actor, p.confirmed_by_user_id, p.paid_at,
+			COALESCE(p.provider, ''),
+			COALESCE(NULLIF(p.receipt_reference, ''), NULLIF(p.provider_reference, ''), p.internal_reference, ''),
+			COALESCE(p.payment_timing, ''),
+			COALESCE(o.delivery_status, ''), o.assigned_courier_id,
+			COALESCE(NULLIF(TRIM(cu.first_name || ' ' || cu.last_name), ''), cu.email, '')
 		FROM buyer_payments p
 		JOIN orders o ON p.order_id = o.id
 		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
+		LEFT JOIN users cu ON cu.id = o.assigned_courier_id
 		%s
 	`, where)
 
@@ -438,6 +452,8 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 		&detail.SellerConfirmedReceived, &detail.SellerConfirmedAt,
 		&detail.PaymentStatus, &detail.PaymentMethod, &detail.CreatedAt, &detail.VerifiedAt,
 		&detail.ConfirmationActor, &detail.ConfirmedByUserID, &detail.PaidAt,
+		&detail.Provider, &detail.PaymentReference, &detail.PaymentTiming,
+		&detail.DeliveryStatus, &detail.CourierID, &detail.CourierName,
 	)
 	if err != nil {
 		return nil, err

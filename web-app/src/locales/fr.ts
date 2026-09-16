@@ -75,12 +75,12 @@ export const fr = {
   'nav.mobile': 'Navigation mobile',
 
   'footer.tagline':
-    'Achetez auprès de boutiques de confiance en RDC. Paiement à la livraison. Gagnez des points sur chaque achat vérifié.',
+    'Achetez auprès de boutiques de confiance en RDC. Payez maintenant par mobile money, ou à la livraison. Gagnez des points sur chaque achat vérifié.',
   'footer.yourAccount': 'Votre compte',
   'footer.sellWithUs': 'Vendez vos produits avec nous',
   'footer.sellerSpace': 'Espace vendeur',
   'footer.legal':
-    '© {year} TBK. Paiements en espèces uniquement (USD). Les prix affichés sont fixés par les vendeurs.',
+    '© {year} TBK. Paiements en USD par mobile money ou en espèces à la livraison. Les prix affichés sont fixés par les vendeurs.',
 
   /* ── Preferences (theme + language) ─────────────────────── */
   'prefs.theme': 'Thème',

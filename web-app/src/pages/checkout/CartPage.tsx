@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import { ApiError, type PointRedemptionPreviewResponse } from '@/api/types'
-import { useCart } from '@/store/cart'
+import { ApiError, type CartLineIssue, type CartPreview } from '@/api/types'
+import { lineKey, useCart, type CartLine } from '@/store/cart'
 import { useAuth } from '@/store/auth'
 import { useT } from '@/store/i18n'
 import { Button } from '@/components/ui/Button'
@@ -31,6 +31,15 @@ function previewErrorMessage(t: T, e: unknown): PreviewErrorResult {
   return { message: e.message, kind: 'other' }
 }
 
+/** Indexes the server's per-line problems by the line they belong to. */
+function issuesByLine(issues: CartLineIssue[]): Map<string, CartLineIssue> {
+  const map = new Map<string, CartLineIssue>()
+  for (const issue of issues) {
+    map.set(`${issue.product_id}::${issue.variant_id}::${issue.shop_id}`, issue)
+  }
+  return map
+}
+
 export default function CartPage() {
   const cart = useCart()
   const navigate = useNavigate()
@@ -38,22 +47,24 @@ export default function CartPage() {
   const isBuyNow = pathname === '/checkout/buy-now'
   const t = useT()
   const { user, buyerProfile, refreshUser } = useAuth()
-  const [preview, setPreview] = useState<PointRedemptionPreviewResponse | null>(null)
+  const [preview, setPreview] = useState<CartPreview | null>(null)
   const [busy, setBusy] = useState(false)
   const [placing, setPlacing] = useState(false)
   const [error, setError] = useState('')
   const [profileBlocked, setProfileBlocked] = useState(false)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
-  const [recentlyRemoved, setRecentlyRemoved] = useState<typeof cart.lines[0] | null>(null)
+  const [recentlyRemoved, setRecentlyRemoved] = useState<CartLine | null>(null)
 
   // Amazon-style guard: browsing and the cart itself stay open to everyone,
   // but checkout is blocked until the buyer has a phone number on file so
   // sellers/delivery can actually reach them about the order.
   const profileIncomplete = Boolean(user && !profileSaved && (!buyerProfile || !buyerProfile.phone.trim()))
-  // Authoritative totals come from the backend preview (logged-in only).
+
+  // Authoritative totals come from the backend preview (logged-in only). The whole
+  // cart is priced in one call, across every shop in it.
   useEffect(() => {
-    if (!user || cart.lines.length === 0 || !cart.shopId) {
+    if (!user || cart.lines.length === 0) {
       setPreview(null)
       return
     }
@@ -61,9 +72,16 @@ export default function CartPage() {
     setBusy(true)
     setError('')
     buyerApi
-      .previewOrder(cart.shopId, cart.items, cart.usePoints)
+      .previewCart(cart.items, cart.usePoints)
       .then(
-        (p) => mounted && setPreview(p),
+        (p) => {
+          if (!mounted) return
+          setPreview(p)
+          setProfileBlocked(false)
+          // Problems are shown against their own lines below, so the banner only
+          // carries the headline.
+          setError(p.issues.length > 0 ? t('cart.needsAttention') : '')
+        },
         (e: unknown) => {
           if (!mounted) return
           const { message, kind } = previewErrorMessage(t, e)
@@ -76,7 +94,7 @@ export default function CartPage() {
     return () => {
       mounted = false
     }
-  }, [user, cart.shopId, cart.items, cart.usePoints])
+  }, [user, cart.items, cart.usePoints])
 
   async function continueToCheckout() {
     if (!user) {
@@ -87,16 +105,25 @@ export default function CartPage() {
       setProfileModalOpen(true)
       return
     }
-    if (!cart.shopId) return
+    if (cart.lines.length === 0) return
     setPlacing(true)
     setError('')
     try {
       const idem = uuid()
-      const result = await buyerApi.createOrder(cart.shopId, cart.items, cart.usePoints, idem)
-      const orderId = result.order?.id
-      if (!orderId) throw new Error('Order created without an id')
+      const result = await buyerApi.createCheckout(cart.items, cart.usePoints, idem)
+      const [firstOrderId] = result.order_ids
+      if (!firstOrderId) throw new Error('Checkout created without an order')
       cart.clear()
-      navigate('/checkout/delivery', { state: { orderId }, replace: true })
+      // One checkout experience for the buyer even when it produced several
+      // orders: delivery is chosen once and applied down the group.
+      navigate('/checkout/delivery', {
+        state: {
+          orderId: firstOrderId,
+          orderIds: result.order_ids,
+          checkoutGroupId: result.checkout_group_id
+        },
+        replace: true
+      })
     } catch (e) {
       const { message, kind } = previewErrorMessage(t, e)
       setError(message)
@@ -119,15 +146,33 @@ export default function CartPage() {
     )
   }
 
+  const lineIssues = issuesByLine(preview?.issues ?? [])
+  const blockedByIssues = Boolean(preview && !preview.checkoutable)
+
   return (
     <div className="checkout-page fade-in">
       <CheckoutProgress current="Cart" />
       <header className="checkout-heading">
-        <div><h1>{t('cart.title')}</h1><p><strong>{t('cart.orderFrom', { shop: cart.shopName ?? '' })}</strong></p></div>
+        <div>
+          <h1>{t('cart.title')}</h1>
+          <p>
+            <strong>
+              {cart.isMultiShop
+                ? `${cart.shops.length} boutiques · une seule commande à payer`
+                : t('cart.orderFrom', { shop: cart.shops[0]?.shopName ?? '' })}
+            </strong>
+          </p>
+        </div>
         <span>{cart.totalQty} {cart.totalQty === 1 ? t('cart.item') : t('cart.items')}</span>
       </header>
 
-      {error && <div className="checkout-inline-error"><strong>{t('cart.needsAttention')}</strong><span>{error}</span>{profileBlocked && <button onClick={() => setProfileModalOpen(true)}>{t('cart.completeProfile')}</button>}</div>}
+      {error && (
+        <div className="checkout-inline-error">
+          <strong>{t('cart.needsAttention')}</strong>
+          <span>{error}</span>
+          {profileBlocked && <button onClick={() => setProfileModalOpen(true)}>{t('cart.completeProfile')}</button>}
+        </div>
+      )}
       {profileSaved && <div className="checkout-inline-success" role="status">Your buyer profile is complete. You can continue checkout.</div>}
 
       {recentlyRemoved && (
@@ -155,19 +200,7 @@ export default function CartPage() {
               className="btn btn-ghost btn-sm"
               style={{ color: 'var(--color-accent)', fontWeight: 700 }}
               onClick={() => {
-                cart.add({
-                  variantId: recentlyRemoved.variantId,
-                  productId: recentlyRemoved.productId,
-                  name: recentlyRemoved.name,
-                  variantName: recentlyRemoved.variantName,
-                  unitPrice: recentlyRemoved.unitPrice,
-                  currency: recentlyRemoved.currency,
-                  shopId: recentlyRemoved.shopId,
-                  shopName: recentlyRemoved.shopName,
-                  image: recentlyRemoved.image,
-                  unit: recentlyRemoved.unit,
-                  quantity: recentlyRemoved.quantity
-                })
+                cart.add(recentlyRemoved)
                 setRecentlyRemoved(null)
               }}
             >
@@ -187,10 +220,25 @@ export default function CartPage() {
 
       <div className="checkout-layout">
         <div className="checkout-content">
-        <section className="checkout-card cart-products">
-          <div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{cart.shopName}</span></div>
-          {cart.lines.map((l) => (
-            <article key={l.variantId} className="cart-product-row">
+        {/* One card per shop. Each becomes its own order, which is what the
+            seller will see, so the split is shown here rather than sprung on
+            the buyer at the end. */}
+        {cart.shops.map((shop) => (
+        <section className="checkout-card cart-products" key={shop.shopId}>
+          <div className="checkout-card-head">
+            <h2>{shop.shopName}</h2>
+            <span>{shop.itemCount} {shop.itemCount === 1 ? t('cart.item') : t('cart.items')} · {formatMoney(shop.subtotal)}</span>
+          </div>
+          {cart.isMultiShop && (
+            <p className="small muted" style={{ margin: '0 0 8px' }}>
+              Commande séparée pour cette boutique, livrée et suivie séparément.
+            </p>
+          )}
+          {shop.lines.map((l) => {
+            const key = lineKey(l)
+            const issue = lineIssues.get(key)
+            return (
+            <article key={key} className="cart-product-row">
               <div
                 className="cart-product-image"
                 style={{
@@ -208,19 +256,38 @@ export default function CartPage() {
                 <p>{l.variantName}</p>
                 <small>{t('product.soldBy')} {l.shopName}</small>
                 <strong className="cart-unit-price">{formatMoney(l.unitPrice)}</strong>
+                {/* The problem is shown on the line that has it. The rest of the
+                    cart stays usable. */}
+                {issue && (
+                  <p role="alert" className="small" style={{ color: 'var(--color-danger, #c0392b)', marginTop: 6 }}>
+                    {issue.message}
+                    {issue.available > 0 && issue.code === 'INSUFFICIENT_STOCK' && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => cart.setQuantity(key, issue.available)}
+                        >
+                          Réduire à {issue.available}
+                        </button>
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="cart-product-controls">
                 <label>{t('common.quantity')}</label>
                 <div className="stepper" role="group" aria-label={t('cart.quantityFor', { name: l.name })}>
                   <button
-                    onClick={() => cart.setQuantity(l.variantId, l.quantity - 1)}
+                    onClick={() => cart.setQuantity(key, l.quantity - 1)}
                     disabled={l.quantity <= 1}
                     aria-label={t('cart.decreaseQuantity')}
                   >
                     −
                   </button>
                   <span className="stepper-qty" aria-live="polite">{l.quantity}</span>
-                  <button onClick={() => cart.setQuantity(l.variantId, l.quantity + 1)} aria-label={t('cart.increaseQuantity')}>
+                  <button onClick={() => cart.setQuantity(key, l.quantity + 1)} aria-label={t('cart.increaseQuantity')}>
                     +
                   </button>
                 </div>
@@ -228,7 +295,7 @@ export default function CartPage() {
                   className="cart-remove"
                   onClick={() => {
                     setRecentlyRemoved({ ...l })
-                    cart.remove(l.variantId)
+                    cart.remove(key)
                   }}
                 >
                   {t('common.remove')}
@@ -236,15 +303,18 @@ export default function CartPage() {
               </div>
               <div className="cart-product-total"><span>{t('common.subtotal')}</span><strong>{formatMoney(l.unitPrice * l.quantity)}</strong></div>
             </article>
-          ))}
-          {user && (
-            <section className={`rewards-card ${cart.usePoints ? 'active' : ''}`}>
-              <div><span className="eyebrow">{t('points.title')}</span><h2>{busy && !preview ? t('points.loading') : t('points.available', { count: (preview?.available_points ?? 0).toLocaleString() })}</h2><p>{(preview?.available_points ?? 0) > 0 ? t('points.applyToOrder') : t('points.earnByPurchase')}</p></div>
-              <button type="button" role="switch" aria-label={t('points.useOnPurchase')} aria-checked={cart.usePoints} disabled={busy || !preview || preview.available_points <= 0} className={`toggle-switch ${cart.usePoints ? 'on' : ''}`} onClick={() => cart.setUsePoints(!cart.usePoints)}><span /></button>
-              {cart.usePoints && preview && <div className="rewards-result"><strong>{t('points.applied')}</strong><span>{t('points.youSave', { amount: formatMoney(preview.points_discount_amount, preview.currency) })}</span><span>{t('points.newTotal', { amount: formatMoney(preview.final_total, preview.currency) })}</span><button onClick={() => cart.setUsePoints(false)}>{t('points.remove')}</button></div>}
-            </section>
-          )}
+            )
+          })}
         </section>
+        ))}
+
+        {user && (
+          <section className={`rewards-card ${cart.usePoints ? 'active' : ''}`}>
+            <div><span className="eyebrow">{t('points.title')}</span><h2>{busy && !preview ? t('points.loading') : t('points.available', { count: (preview?.available_points ?? 0).toLocaleString() })}</h2><p>{(preview?.available_points ?? 0) > 0 ? t('points.applyToOrder') : t('points.earnByPurchase')}</p></div>
+            <button type="button" role="switch" aria-label={t('points.useOnPurchase')} aria-checked={cart.usePoints} disabled={busy || !preview || preview.available_points <= 0} className={`toggle-switch ${cart.usePoints ? 'on' : ''}`} onClick={() => cart.setUsePoints(!cart.usePoints)}><span /></button>
+            {cart.usePoints && preview && preview.points_discount_amount > 0 && <div className="rewards-result"><strong>{t('points.applied')}</strong><span>{t('points.youSave', { amount: formatMoney(preview.points_discount_amount, preview.currency) })}</span><span>{t('points.newTotal', { amount: formatMoney(preview.final_total, preview.currency) })}</span><button onClick={() => cart.setUsePoints(false)}>{t('points.remove')}</button></div>}
+          </section>
+        )}
         </div>
 
         <aside className="checkout-card checkout-summary">
@@ -271,9 +341,15 @@ export default function CartPage() {
           ) : preview ? (
             <>
               <div className="summary-lines">
-                <div><span>{t('cart.itemsSubtotal')}</span><strong>{formatMoney(preview.base_total, preview.currency)}</strong></div>
+                <div><span>{t('cart.itemsSubtotal')}</span><strong>{formatMoney(preview.subtotal, preview.currency)}</strong></div>
+                {/* Each shop's share, so a multi-shop cart never shows one
+                    ambiguous total. */}
+                {cart.isMultiShop && preview.shops.map((shop) => (
+                  <div key={shop.shop_id}><span className="muted">{shop.shop_name}</span><span>{formatMoney(shop.subtotal, preview.currency)}</span></div>
+                ))}
                 {preview.points_discount_amount > 0 && <div><span>{t('cart.pointsDiscount')}</span><strong className="discount">−{formatMoney(preview.points_discount_amount, preview.currency)}</strong></div>}
                 <div><span>{t('product.delivery')}</span><strong>{t('cart.calculatedNext')}</strong></div>
+                <div><span>Frais du mode de paiement</span><strong>{t('cart.calculatedNext')}</strong></div>
               </div>
               <div className="summary-total">
                 <span>{t('cart.totalProducts')}</span>
@@ -292,10 +368,16 @@ export default function CartPage() {
                 size="lg"
                 block
                 loading={placing}
+                disabled={blockedByIssues}
                 onClick={continueToCheckout}
               >
                 {profileIncomplete ? t('cart.completeProfile') : t('cart.continueToCheckout')}
               </Button>
+              {blockedByIssues && (
+                <p className="small muted" style={{ marginTop: 8 }}>
+                  Corrigez les lignes signalées ci-dessus pour continuer.
+                </p>
+              )}
             </>
           ) : null}
           <Link to="/search" className="checkout-secondary">{t('cart.continueShopping')}</Link>

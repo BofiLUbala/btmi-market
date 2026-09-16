@@ -76,12 +76,12 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'nav.mobile': 'Mobile',
 
   'footer.tagline':
-    'Buy from trusted shops across the DRC. Cash on delivery. Earn points on every verified purchase.',
+    'Buy from trusted shops across the DRC. Pay now by mobile money, or on delivery. Earn points on every verified purchase.',
   'footer.yourAccount': 'Your account',
   'footer.sellWithUs': 'Sell your products with us',
   'footer.sellerSpace': 'Seller space',
   'footer.legal':
-    '© {year} TBK. Payments are cash-only (USD). Prices shown are set by sellers.',
+    '© {year} TBK. Payments in USD by mobile money or cash on delivery. Prices shown are set by sellers.',
 
   /* ── Preferences (theme + language) ─────────────────────── */
   'prefs.theme': 'Theme',

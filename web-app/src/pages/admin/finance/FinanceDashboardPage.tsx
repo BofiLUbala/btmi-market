@@ -519,7 +519,16 @@ if (tab === 'overview') {
               <MetricCard title="Ventes brutes (marchandise)" value={financeReport!.totals_by_currency.map(x => financeMoney(x.gross_sales, x.currency)).join(' · ')} sub={`${financeReport!.verified_sales} sales verified`} color="#60a5fa" />
               <MetricCard title={`Commission TBK (${financeReport!.commission_rate.toFixed(2)}%)`} value={financeReport!.totals_by_currency.map(x => financeMoney(x.commission_amount, x.currency)).join(' · ')} sub="DUE / COLLECTED tracked separately" color="#f87171" />
               <MetricCard title="Revenu net vendeur" value={financeReport!.totals_by_currency.map(x => financeMoney(x.seller_net_amount, x.currency)).join(' · ')} sub={`Gross − commission`} color="#34d399" />
-              <MetricCard title="Cash collecté (avec livraison)" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.collected_cash, financeReport!.currency || 'USD')} sub={`verified payments · cash_due`} color="#fbbf24" />
+              {/* Cash and mobile money are reported separately: one figure for
+                  both made an operator settlement indistinguishable from notes
+                  handed to a courier. */}
+              <MetricCard title="Espèces collectées" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.collected_cash, financeReport!.currency || 'USD')} sub="remises au Livreur · avec livraison" color="#fbbf24" />
+              <MetricCard
+                title="Mobile money collecté"
+                value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.collected_mobile ?? 0, financeReport!.currency || 'USD')}
+                sub={(financeReport!.collected_by_provider ?? []).map(p => `${p.provider.replace(/_/g, ' ')} ${financeMoney(p.amount, p.currency || financeReport!.currency || 'USD')}`).join(' · ') || 'confirmé par l’opérateur'}
+                color="#34d399"
+              />
               <MetricCard title="Commission annulée (remboursements)" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.waived_commission, financeReport!.currency || 'USD')} sub={`${financeReport!.refunded_sales} refunded sales`} color="#a78bfa" />
               <MetricCard title="Ventes en attente" value={String(financeReport!.pending_orders)} sub="no verified payment yet" color="#94a3b8" />
               {/* Axe acheteur — encaissé / restant dû — distinct de l'axe
@@ -664,7 +673,16 @@ if (tab === 'overview') {
                     <div style={{ fontSize: 11, color: '#64748b' }}>{p.business_name}</div>
                   </td>
                   <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>${p.total_amount.toFixed(2)}</td>
-                  <td style={{ padding: '12px 14px' }}>{p.payment_method || '—'}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <div>{p.payment_method || '—'}</div>
+                    {p.provider && <div style={{ fontSize: 11, fontWeight: 700 }}>{p.provider.replace(/_/g, ' ')}</div>}
+                    {p.payment_reference && <div style={{ fontSize: 10, color: '#64748b' }}>{p.payment_reference}</div>}
+                    {p.delivery_status && (
+                      <div style={{ fontSize: 10, color: '#64748b' }}>
+                        {p.delivery_status}{p.courier_name ? ` · ${p.courier_name}` : ''}
+                      </div>
+                    )}
+                  </td>
                   <td style={{ padding: '12px 14px' }}>
                     {/* Cash is settled by the assigned courier, mobile money by the
                         operator. A settled payment naming neither is the anomaly. */}

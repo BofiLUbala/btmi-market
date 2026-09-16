@@ -182,11 +182,11 @@ func newHandoverFixture(t *testing.T, paymentMethod string) *handoverFixture {
 	mustExec(`INSERT INTO buyer_payments (id,order_id,business_id,shop_id,buyer_profile_id,payment_method,currency,
 		products_final_total,cash_due,final_total,status,provider,payment_timing,verified_at,paid_at,
 		confirmation_actor)
-		VALUES ($1,$2,$3,$4,$5,$6,'USD',100,100,100,$7,'TEST_PROVIDER',$8,
+		VALUES ($1,$2,$3,$4,$5,$6,'USD',100,100,100,$7,$10,$8,
 		        $9::timestamptz,$9::timestamptz,
 		        CASE WHEN $9::timestamptz IS NULL THEN '' ELSE 'PROVIDER' END)`,
 		f.paymentID, f.orderID, f.businessID, f.shopID, f.buyerProfID, paymentMethod, status,
-		timingFor(paymentMethod), verifiedAt)
+		timingFor(paymentMethod), verifiedAt, providerFor(paymentMethod))
 
 	t.Cleanup(func() {
 		_, _ = db.Exec(`DELETE FROM orders WHERE id=$1`, f.orderID)
@@ -217,6 +217,16 @@ func timingFor(method string) string {
 	return "DELIVERY"
 }
 
+// providerFor is the operator a fixture payment is made through. Cash has none:
+// the schema refuses a cash payment that names an operator, because a cash row
+// counted as mobile money would corrupt every settlement report.
+func providerFor(method string) string {
+	if models.IsMobileMethod(method) {
+		return models.PaymentProviderMPesa
+	}
+	return ""
+}
+
 func (f *handoverFixture) wireServices(t *testing.T) {
 	t.Helper()
 	db := f.db
@@ -235,6 +245,14 @@ func (f *handoverFixture) wireServices(t *testing.T) {
 	f.pay.SetCommissionService(NewCommissionService(
 		repository.NewCommissionRepository(db.DB), orderRepo, paymentRepo, businessRepo))
 	f.pay.SetWebhookDependencies(repository.NewPaymentWebhookRepository(db), handoverTestSecret)
+	// Wire the operator catalog and the payment trail too, so the handover tests
+	// exercise the same code path production runs - including the audit row the
+	// cash settlement writes.
+	f.pay.SetProviderDependencies(
+		repository.NewPaymentProviderRepository(db),
+		repository.NewPaymentAuditRepository(db),
+		nil,
+	)
 
 	f.qr = NewQRService(db, repository.NewMembershipRepository(db), repository.NewAssignmentRepository(db),
 		repository.NewEmployeeRepository(db), nil)
@@ -245,6 +263,22 @@ func (f *handoverFixture) wireServices(t *testing.T) {
 		repository.NewCustomerRepository(db), repository.NewCashRepository(db), buyerProfileRepo,
 		paymentRepo, nil, db))
 	f.qr.SetHandoverDependencies(f.pay, paymentRepo)
+}
+
+// assertAudited fails unless the payment trail carries this event for this
+// order, recorded against the actor that is allowed to cause it.
+func (f *handoverFixture) assertAudited(t *testing.T, eventType, actorType string) {
+	t.Helper()
+	var count int
+	if err := f.db.QueryRow(
+		`SELECT COUNT(*) FROM payment_audit_events WHERE order_id=$1 AND event_type=$2 AND actor_type=$3`,
+		f.orderID, eventType, actorType,
+	).Scan(&count); err != nil {
+		t.Fatalf("reading payment audit trail: %v", err)
+	}
+	if count == 0 {
+		t.Fatalf("no %s event recorded for %s by %s", eventType, f.orderID, actorType)
+	}
 }
 
 func (f *handoverFixture) tokenForVariant(t *testing.T, productID, variantID uuid.UUID) string {
@@ -536,6 +570,10 @@ func TestCashOnDeliveryHandoverEndToEnd(t *testing.T) {
 		t.Fatalf("commission should stay DUE after a cash handover, got %s", cash.CommissionStatus)
 	}
 
+	// The cash trail: who took the money, for which order, how much. Finance can
+	// reconstruct a cash settlement without joining back through the payment.
+	f.assertAudited(t, models.PaymentEventCashCollected, models.PaymentActorCourier)
+
 	if err := f.qr.ConfirmReceipt(f.buyerUserID, f.orderID); err != nil {
 		t.Fatalf("buyer receipt confirmation: %v", err)
 	}
@@ -604,7 +642,7 @@ func TestMobileAtDeliveryRequiresProviderConfirmation(t *testing.T) {
 	mac.Write(body)
 	signature := hex.EncodeToString(mac.Sum(nil))
 
-	if err := f.pay.HandleProviderWebhook("TEST_PROVIDER", body, "sha256="+signature); err != nil {
+	if err := f.pay.HandleProviderWebhook(models.PaymentProviderMPesa, body, "sha256="+signature); err != nil {
 		t.Fatalf("signed provider webhook rejected: %v", err)
 	}
 	if f.paymentStatus(t) != "PAID" {
@@ -630,7 +668,7 @@ func TestUnsignedPaymentCallbackCannotSettleDelivery(t *testing.T) {
 		EventID: uuid.NewString(), PaymentID: f.paymentID.String(),
 		Status: models.ProviderPaymentSucceeded, Amount: 100, Currency: "USD",
 	})
-	if err := f.pay.HandleProviderWebhook("TEST_PROVIDER", body, "sha256=deadbeef"); err == nil {
+	if err := f.pay.HandleProviderWebhook(models.PaymentProviderMPesa, body, "sha256=deadbeef"); err == nil {
 		t.Fatal("an unsigned webhook was accepted")
 	}
 	if f.paymentStatus(t) != "PENDING" {

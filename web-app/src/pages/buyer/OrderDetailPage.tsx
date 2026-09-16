@@ -154,6 +154,14 @@ function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment
       <h2 style={{ fontSize: '1.1rem' }}>{t('orders.paymentDetail')}</h2>
       <div className="info-row"><span className="k">{t('orders.orderNumber', { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</span><span className="v">{formatDateTime(o.created_at)}</span></div>
       <div className="info-row"><span className="k">{t('orders.paymentMethod')}</span><span className="v">{t(paymentMethodKey(payment.payment_method))}</span></div>
+      {/* The operator, for a mobile payment. Cash has none, so the row is absent
+          rather than blank. */}
+      {payment.provider && (
+        <div className="info-row">
+          <span className="k">Opérateur</span>
+          <span className="v">{payment.provider_label || payment.provider}</span>
+        </div>
+      )}
       <div className="info-row"><span className="k">{t('orders.amountDue')}</span><span className="v bold">{formatMoney(payment.cash_due, payment.currency)}</span></div>
       <div className="info-row"><span className="k">{t('orders.paymentMarkup')}</span><span className="v">{formatMoney(Math.max(markup, 0), payment.currency)}</span></div>
       <div className="info-row"><span className="k">{t('orders.totalDue')}</span><span className="v bold">{formatMoney(payment.final_total, payment.currency)}</span></div>
@@ -165,7 +173,20 @@ function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment
         </div>
       )}
       <div className="info-row"><span className="k">{t('orders.createdAtLabel')}</span><span className="v">{formatDateTime(payment.created_at)}</span></div>
-      <div className="info-row"><span className="k">{t('orders.reference')}</span><span className="v small">{payment.id.slice(0, 8).toUpperCase()}</span></div>
+      {/* The reference the buyer can actually quote: ours from the moment the
+          payment exists, replaced by the operator's once it settles. */}
+      <div className="info-row">
+        <span className="k">{t('orders.reference')}</span>
+        <span className="v small">
+          {payment.receipt_reference || payment.internal_reference || payment.provider_reference || payment.id.slice(0, 8).toUpperCase()}
+        </span>
+      </div>
+      {payment.receipt_issued_at && (
+        <div className="info-row">
+          <span className="k">Reçu émis le</span>
+          <span className="v">{formatDateTime(payment.receipt_issued_at)}</span>
+        </div>
+      )}
       <div className="info-row"><span className="k">{t('orders.lastUpdate')}</span><span className="v">{formatDateTime(payment.updated_at)}</span></div>
       {refundStatus && (
         <div className="info-row">

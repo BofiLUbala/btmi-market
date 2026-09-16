@@ -63,8 +63,18 @@ type AdminPaymentListItem struct {
 	SellerConfirmedAt       *time.Time `json:"seller_confirmed_at,omitempty"`
 	PaymentStatus           string     `json:"payment_status"`
 	PaymentMethod           string     `json:"payment_method"`
-	CreatedAt               time.Time  `json:"created_at"`
-	VerifiedAt              *time.Time `json:"verified_at,omitempty"`
+	// Which operator settled it (blank for cash), the reference to quote when
+	// chasing it, and where the delivery had got to. Without these an admin
+	// looking at a payment cannot answer the two questions they are always
+	// asked: who has the money, and where is the order.
+	Provider         string     `json:"provider,omitempty"`
+	PaymentReference string     `json:"payment_reference,omitempty"`
+	PaymentTiming    string     `json:"payment_timing,omitempty"`
+	DeliveryStatus   string     `json:"delivery_status,omitempty"`
+	CourierID        *uuid.UUID `json:"courier_id,omitempty"`
+	CourierName      string     `json:"courier_name,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	VerifiedAt       *time.Time `json:"verified_at,omitempty"`
 	// Who settled the payment: the courier who took the cash, or the provider that
 	// confirmed the transfer. LEGACY_DECLARATION marks rows settled under the old
 	// buyer+seller declaration rule, which no longer exists.

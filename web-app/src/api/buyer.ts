@@ -2,7 +2,11 @@ import { del, get, patch, post } from './client'
 import type {
   BuyerOrder,
   BuyerPayment,
+  CartLineInput,
+  CartPreview,
+  CheckoutCreated,
   CheckoutQuote,
+  PaymentProviderCode,
   PaymentInitiation,
   BuyerProfile,
   BuyerPointsSummary,
@@ -40,6 +44,24 @@ export const buyerApi = {
   pendingPurchases: () => get<PendingPurchase[]>('/buyer/purchases/pending'),
   confirmPurchase: (purchaseId: string, orderId: string) =>
     post<unknown>(`/buyer/purchases/${purchaseId}/confirm`, { order_id: orderId }),
+
+  /* multi-shop cart */
+
+  /**
+   * Prices the whole cart across every shop in it. Returns 200 even when lines
+   * have problems - each issue names its own line, so the buyer fixes one line
+   * instead of losing the cart.
+   */
+  previewCart: (items: CartLineInput[], usePoints: boolean) =>
+    post<CartPreview>('/buyer/cart/preview', { items, use_points: usePoints }),
+
+  /** Turns the cart into one order per shop, tied together by a checkout group. */
+  createCheckout: (items: CartLineInput[], usePoints: boolean, idempotencyKey: string) =>
+    post<CheckoutCreated>('/buyer/checkout', {
+      items,
+      use_points: usePoints,
+      idempotency_key: idempotencyKey
+    }),
 
   /* order pipeline */
   previewOrder: (shopId: string, items: OrderLineInput[], usePoints: boolean) =>
@@ -84,12 +106,28 @@ export const buyerApi = {
   checkoutQuote: (orderId: string, paymentMethod?: string) =>
     get<CheckoutQuote>(`/buyer/orders/${orderId}/checkout-quote${paymentMethod ? `?payment_method=${encodeURIComponent(paymentMethod)}` : ''}`),
 
-  createPayment: (orderId: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${orderId}/payment`, { payment_method: paymentMethod }),
+  /**
+   * Records how the buyer intends to pay. Provider is required for both mobile
+   * methods and must be absent for cash. Whatever is chosen, the payment is
+   * created DUE - selecting a method is not paying.
+   */
+  createPayment: (
+    orderId: string,
+    paymentMethod = 'CASH_ON_DELIVERY',
+    provider?: PaymentProviderCode | '',
+    payerPhone?: string
+  ) =>
+    post<BuyerPayment>(`/buyer/orders/${orderId}/payment`, {
+      payment_method: paymentMethod,
+      ...(provider ? { provider } : {}),
+      ...(payerPhone ? { payer_phone: payerPhone } : {})
+    }),
 
   getPayment: (orderId: string) => get<BuyerPayment>(`/buyer/orders/${orderId}/payment`),
 
   /** Asks the provider to charge the buyer. Only its webhook can settle it. */
-  initiatePayment: (orderId: string) => post<PaymentInitiation>(`/buyer/orders/${orderId}/payment/initiate`, {}),
+  initiatePayment: (orderId: string, payerPhone?: string) =>
+    post<PaymentInitiation>(`/buyer/orders/${orderId}/payment/initiate`, payerPhone ? { payer_phone: payerPhone } : {}),
 
   // No buyerConfirmPayment: choosing cash at delivery is not paying, and the buyer
   // saying they paid is not evidence. The courier confirms the cash at the door.

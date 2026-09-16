@@ -33,8 +33,34 @@ type PaymentService struct {
 	commService        *CommissionService
 	webhookRepo        *repository.PaymentWebhookRepository
 	webhookSecret      string
+	providerRepo       *repository.PaymentProviderRepository
+	auditRepo          *repository.PaymentAuditRepository
+	driver             PaymentProviderDriver
 	asynqClient        *asynq.Client
 	db                 *database.DB
+}
+
+// SetProviderDependencies wires the operator catalog, the payment audit trail and
+// the driver that actually talks to an operator. A nil driver is the honest
+// default: checkout can still record how the buyer intends to pay, but asking to
+// be charged returns PAYMENT_PROVIDER_NOT_CONFIGURED rather than pretending.
+func (s *PaymentService) SetProviderDependencies(
+	providerRepo *repository.PaymentProviderRepository,
+	auditRepo *repository.PaymentAuditRepository,
+	driver PaymentProviderDriver,
+) {
+	s.providerRepo = providerRepo
+	s.auditRepo = auditRepo
+	s.driver = driver
+}
+
+// audit appends to the payment trail. It never returns an error: a trail that
+// cannot be written must not take a real payment down with it.
+func (s *PaymentService) audit(e *models.PaymentAuditEvent) {
+	if s.auditRepo == nil {
+		return
+	}
+	_ = s.auditRepo.Record(e)
 }
 
 func NewPaymentService(
@@ -136,12 +162,56 @@ func (s *PaymentService) requireShopAccess(userID, shopID uuid.UUID) error {
 	return nil
 }
 
-// CreatePayment creates a CASH payment for an order, deriving every amount from
-// the Order + Delivery snapshot. The client never sends amounts.
-func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, requestedMethod ...string) (*models.BuyerPaymentResponse, error) {
+// resolveProvider validates the operator the buyer picked against the catalog and
+// against the method they picked it for.
+//
+// The rule is symmetric and deliberate: cash has no operator, and mobile money
+// without one is not a decision anyone can act on. Rejecting both shapes here is
+// what keeps every downstream cash-vs-mobile split honest, rather than leaving a
+// report to guess what an empty provider on a mobile payment meant.
+func (s *PaymentService) resolveProvider(method, requested string) (string, error) {
+	requested = strings.ToUpper(strings.TrimSpace(requested))
+
+	if !models.IsMobileMethod(method) {
+		if requested != "" {
+			return "", errors.New("PROVIDER_NOT_APPLICABLE")
+		}
+		return "", nil
+	}
+	if requested == "" {
+		return "", errors.New("PAYMENT_PROVIDER_REQUIRED")
+	}
+	if s.providerRepo == nil {
+		return "", errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
+	}
+	provider, err := s.providerRepo.Get(requested)
+	if err != nil {
+		return "", err
+	}
+	if provider == nil {
+		return "", errors.New("PAYMENT_PROVIDER_UNKNOWN")
+	}
+	if !provider.Enabled {
+		return "", errors.New("PAYMENT_PROVIDER_UNAVAILABLE")
+	}
+	return provider.Code, nil
+}
+
+// CreatePayment records how the buyer intends to pay for an order, deriving every
+// amount from the Order + Delivery snapshot. The client never sends amounts.
+//
+// Whatever the method, the payment is created DUE. Choosing how you will pay is
+// not paying: cash is settled by the courier at the door and mobile money by its
+// operator's callback, so nothing on this path can mark an order paid.
+func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, req *models.CreatePaymentRequest) (*models.BuyerPaymentResponse, error) {
 	paymentMethod := models.PaymentMethodCashOnDelivery
-	if len(requestedMethod) > 0 && strings.TrimSpace(requestedMethod[0]) != "" {
-		paymentMethod = strings.TrimSpace(requestedMethod[0])
+	requestedProvider, payerPhone := "", ""
+	if req != nil {
+		if method := strings.TrimSpace(req.PaymentMethod); method != "" {
+			paymentMethod = method
+		}
+		requestedProvider = req.Provider
+		payerPhone = strings.TrimSpace(req.PayerPhone)
 	}
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
@@ -179,8 +249,13 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, reques
 	if config == nil || !config.Enabled {
 		return nil, errors.New("PAYMENT_METHOD_UNAVAILABLE")
 	}
-	if config.Timing == "NOW" && strings.TrimSpace(config.Provider) == "" {
-		return nil, errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
+
+	// The operator comes from the buyer, not from the method config. A method no
+	// longer implies an operator: that is what let a single platform-wide
+	// provider stand in for the buyer's actual choice.
+	provider, err := s.resolveProvider(paymentMethod, requestedProvider)
+	if err != nil {
+		return nil, err
 	}
 
 	baseDue := models.RoundMoney(order.FinalTotal + order.DeliveryFeeFinal)
@@ -213,16 +288,42 @@ func (s *PaymentService) CreatePayment(buyerProfileID, orderID uuid.UUID, reques
 		PaymentMarkupType:      config.MarkupType,
 		PaymentMarkupValue:     config.MarkupValue,
 		FinalTotal:             cashDue,
-		Provider:               config.Provider,
+		Provider:               provider,
+		PayerPhone:             payerPhone,
 		PaymentTiming:          config.Timing,
-		Status:                 models.BuyerPaymentStatusDue,
+		// DUE, always. See the doc comment: selecting a method is not paying.
+		Status: models.BuyerPaymentStatusDue,
 	}
+	// Our own reference exists from the moment the payment does, so a charge that
+	// is later started and never answered is still traceable from our side.
+	payment.InternalReference = newInternalReference()
 
 	if err := s.paymentRepo.Create(payment); err != nil {
 		return nil, err
 	}
 
+	s.audit(&models.PaymentAuditEvent{
+		PaymentID: &payment.ID, OrderID: &orderID,
+		EventType: models.PaymentEventMethodSelected, ActorType: models.PaymentActorBuyer,
+		Provider: provider, Amount: &payment.FinalTotal, Currency: payment.Currency,
+		Reference: payment.InternalReference,
+		Detail:    models.JSONMap{"payment_method": paymentMethod, "timing": config.Timing},
+	})
+	if provider != "" {
+		s.audit(&models.PaymentAuditEvent{
+			PaymentID: &payment.ID, OrderID: &orderID,
+			EventType: models.PaymentEventProviderSelected, ActorType: models.PaymentActorBuyer,
+			Provider: provider, Currency: payment.Currency, Reference: payment.InternalReference,
+		})
+	}
+
 	return s.toResponse(payment), nil
+}
+
+// newInternalReference is our own handle on a payment: short enough to read back
+// over the phone, unique enough to key support on.
+func newInternalReference() string {
+	return "TBK-" + strings.ToUpper(uuid.NewString()[:8])
 }
 
 // Quote is the authoritative checkout price. It prices every enabled method so
@@ -262,9 +363,18 @@ func (s *PaymentService) Quote(buyerProfileID, orderID uuid.UUID, selectedMethod
 	if len(selectedMethod) > 0 {
 		selected = strings.TrimSpace(selectedMethod[0])
 	}
+	// The operators travel with the quote so the client renders the provider step
+	// from the live catalog instead of a hardcoded list.
+	providers := []models.PaymentProvider{}
+	if s.providerRepo != nil {
+		if enabled, err := s.providerRepo.List(true); err == nil {
+			providers = enabled
+		}
+	}
+
 	quote := &models.CheckoutQuote{OrderID: order.ID.String(), Currency: orderCurrency(order), Subtotal: order.BaseTotal, Discount: 0,
 		PointsDiscount: order.PointsDiscountAmount + order.DeliveryPointsDiscount, DeliveryFee: order.DeliveryFeeFinal,
-		FinalTotal: baseDue, PaymentMethods: methods}
+		FinalTotal: baseDue, PaymentMethods: methods, Providers: providers}
 	for _, method := range methods {
 		if method.Code == selected {
 			quote.SelectedPaymentMethod = method.Code
@@ -484,6 +594,19 @@ func (s *PaymentService) ProcessVerifiedPayment(paymentID uuid.UUID) error {
 	return nil
 }
 
+// providerLabel turns a stored operator code into the name the buyer knows it
+// by. It falls back to the code so a withdrawn operator still reads sensibly on
+// an old payment rather than showing up blank.
+func (s *PaymentService) providerLabel(code string) string {
+	if code == "" || s.providerRepo == nil {
+		return ""
+	}
+	if provider, err := s.providerRepo.Get(code); err == nil && provider != nil {
+		return provider.Label
+	}
+	return code
+}
+
 func (s *PaymentService) toResponse(p *models.BuyerPayment) *models.BuyerPaymentResponse {
 	shopName := ""
 	if shop, err := s.shopRepo.GetByID(p.ShopID); err == nil && shop != nil {
@@ -512,7 +635,13 @@ func (s *PaymentService) toResponse(p *models.BuyerPayment) *models.BuyerPayment
 		PaymentMarkupValue:     p.PaymentMarkupValue,
 		FinalTotal:             p.FinalTotal,
 		Provider:               p.Provider,
+		ProviderLabel:          s.providerLabel(p.Provider),
 		ProviderReference:      p.ProviderReference,
+		InternalReference:      p.InternalReference,
+		PayerPhone:             p.PayerPhone,
+		ReceiptReference:       p.ReceiptReference,
+		ReceiptIssuedAt:        p.ReceiptIssuedAt,
+		InitiatedAt:            p.InitiatedAt,
 		PaymentTiming:          p.PaymentTiming,
 		BuyerConfirmed:         p.BuyerConfirmed,
 		BuyerConfirmedAt:       p.BuyerConfirmedAt,

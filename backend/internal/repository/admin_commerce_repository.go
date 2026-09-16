@@ -634,6 +634,9 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 			COALESCE(o.delivery_address, ''), COALESCE(o.delivery_notes, ''),
 			o.courier_assigned_at, COALESCE(o.courier_notes, ''),
 			COALESCE(pay.status, 'UNPAID') AS payment_status,
+			COALESCE(pay.payment_method, ''), COALESCE(pay.provider, ''),
+			COALESCE(NULLIF(pay.receipt_reference, ''), NULLIF(pay.provider_reference, ''), pay.internal_reference, ''),
+			COALESCE(pay.payment_timing, ''), pay.paid_at,
 			o.created_at, o.updated_at,
 			CASE 
 				WHEN (o.status = 'PENDING' AND o.created_at < NOW() - INTERVAL '24 hours') THEN true
@@ -651,9 +654,7 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
 		LEFT JOIN buyer_profiles bp ON o.buyer_profile_id = bp.id
-		LEFT JOIN (
-			SELECT order_id, status FROM buyer_payments ORDER BY created_at DESC LIMIT 1
-		) pay ON o.id = pay.order_id
+		LEFT JOIN buyer_payments pay ON pay.order_id = o.id
 		WHERE %s
 		ORDER BY o.created_at DESC
 		LIMIT $%d OFFSET $%d
@@ -679,6 +680,8 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 			&item.DeliveryMethod, &item.DeliveryStatus, &item.AssignedCourierID,
 			&item.DeliveryContactName, &item.DeliveryPhone, &item.DeliveryAddress, &item.DeliveryNotes,
 			&item.CourierAssignedAt, &item.CourierNotes, &item.PaymentStatus,
+			&item.PaymentMethod, &item.PaymentProvider, &item.PaymentReference,
+			&item.PaymentTiming, &item.PaidAt,
 			&item.CreatedAt, &item.UpdatedAt,
 			&item.IsStuck, &stuckReason,
 		)
@@ -713,9 +716,7 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
 		LEFT JOIN buyer_profiles bp ON o.buyer_profile_id = bp.id
-		LEFT JOIN (
-			SELECT order_id, status FROM buyer_payments ORDER BY created_at DESC LIMIT 1
-		) pay ON o.id = pay.order_id
+		LEFT JOIN buyer_payments pay ON pay.order_id = o.id
 		WHERE o.id = $1
 	`
 	err := r.db.QueryRow(orderQuery, id).Scan(

@@ -87,6 +87,9 @@ func main() {
 	pointConfigRepo := repository.NewPointConfigRepository(db)
 	buyerPaymentRepo := repository.NewBuyerPaymentRepository(db)
 	paymentConfigRepo := repository.NewPaymentConfigRepository(db)
+	paymentProviderRepo := repository.NewPaymentProviderRepository(db)
+	paymentAuditRepo := repository.NewPaymentAuditRepository(db)
+	checkoutGroupRepo := repository.NewCheckoutGroupRepository(db)
 	locationRepo := repository.NewLocationRepository(db)
 	paymentWebhookRepo := repository.NewPaymentWebhookRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
@@ -144,6 +147,20 @@ func main() {
 	purchaseConfirmationService := service.NewPurchaseConfirmationService(confirmRepo, verifiedTxnRepo, orderRepo, shopRepo, cashRepo, pointService, trustRepo, asynqClient)
 	paymentService := service.NewPaymentService(buyerPaymentRepo, paymentConfigRepo, orderRepo, shopRepo, pointAccountRepo, pointTxnRepo, levelRepo, buyerProfileRepo, pointConfigRepo, pointRedemptionService, pointService, verifiedTxnRepo, trustRepo, membershipRepo, employeeRepo, assignmentRepo, asynqClient, db)
 	paymentService.SetWebhookDependencies(paymentWebhookRepo, cfg.PaymentWebhookSecret)
+
+	// The driver is built over the operators Finance has enabled. It can start a
+	// charge and nothing more: settlement reaches us only through the signed
+	// webhook above, so no driver can mark an order paid.
+	enabledProviders, err := paymentProviderRepo.List(true)
+	if err != nil {
+		log.Printf("payment providers unavailable, mobile money disabled: %v", err)
+		enabledProviders = nil
+	}
+	paymentService.SetProviderDependencies(
+		paymentProviderRepo,
+		paymentAuditRepo,
+		service.NewPendingProviderDriver(enabledProviders),
+	)
 	marketplaceService := service.NewMarketplaceService(marketplaceRepo, pointService)
 	productImageRepo := repository.NewProductImageRepository(db)
 	marketplaceService.SetProductImageRepo(productImageRepo)
@@ -189,6 +206,13 @@ func main() {
 	employeeHandler := employees.NewHandler(employeeService)
 	inventoryHandler := inventory.NewHandler(inventoryService, productImageService)
 	orderHandler := orders.NewHandler(orderService, pointRedemptionService, buyerProfileService, paymentService)
+	// The cart spans shops, so checkout validates each line against its own shop
+	// and fans the cart out to one order per shop.
+	checkoutService := service.NewCheckoutService(
+		orderService, checkoutGroupRepo, shopRepo, productRepo, variantRepo,
+		inventoryRepo, buyerProfileRepo, pointRedemptionService,
+	)
+	orderHandler.SetCheckoutService(checkoutService)
 	reviewHandler := orders.NewReviewHandler(reviewService, buyerProfileService, adminPlatformRepo)
 	customerHandler := customers.NewHandler(customerService)
 	cashHandler := cash.NewHandler(cashService)
@@ -475,6 +499,10 @@ func main() {
 			buyerGroup.POST("/purchases/:purchase_id/confirm", buyerHandler.ConfirmPurchase)
 
 			// Buyer order endpoints
+			// Multi-shop cart. The per-order endpoints below stay for a single-shop
+			// checkout and for every order already placed.
+			buyerGroup.POST("/cart/preview", orderHandler.PreviewCart)
+			buyerGroup.POST("/checkout", orderHandler.CreateCheckout)
 			buyerGroup.POST("/orders/preview", orderHandler.PreviewOrder)
 			buyerGroup.POST("/orders", orderHandler.CreateBuyerOrder)
 			buyerGroup.GET("/orders", orderHandler.ListBuyerOrders)
