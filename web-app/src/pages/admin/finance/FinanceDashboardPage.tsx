@@ -197,7 +197,11 @@ export default function FinanceDashboardPage() {
       start.setDate(1)
       start.setHours(0, 0, 0, 0)
     }
-    const iso = (d: Date) => d.toISOString().slice(0, 10)
+    // The calendar day as the admin sees it. toISOString() converts to UTC first,
+    // which east of Greenwich turns local midnight into yesterday - so "Today"
+    // used to show the previous day and none of today's sales.
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     return { date_from: iso(start), date_to: iso(end) }
   }
 

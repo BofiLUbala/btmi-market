@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
 import { buyerApi } from '@/api/buyer'
 import { ApiError, type BuyerPayment, type OrderLine, type OrderWithLines, type ProductVerification } from '@/api/types'
 import { Button } from '@/components/ui/Button'
@@ -212,17 +213,20 @@ function PayNowCard({ orderId, payment, onDone }: { orderId: string; payment: Bu
   const [error, setError] = useState('')
 
   const [instructions, setInstructions] = useState('')
+  const [phone, setPhone] = useState(payment?.payer_phone ?? '')
 
   if (!payment || payment.payment_method === CASH_ON_DELIVERY) return null
   if (payment.payable_reason === 'ALREADY_PAID' || payment.payable_reason === 'PAYMENT_CLOSED') return null
 
   const waiting = payment.payable_reason === 'AWAITING_DELIVERY_STAGE'
+  const awaitingVerification = payment.payable_reason === 'AWAITING_PRODUCT_VERIFICATION'
+  const processing = payment.status === 'PROCESSING' || payment.status === 'PENDING'
   const noProvider = payment.payable_reason === 'PAYMENT_PROVIDER_NOT_CONFIGURED'
 
   async function payNow() {
     setBusy(true); setError(''); setInstructions('')
     try {
-      const started = await buyerApi.initiatePayment(orderId)
+      const started = await buyerApi.initiatePayment(orderId, phone.trim() || undefined)
       if (started.redirect_url) { window.location.href = started.redirect_url; return }
       setInstructions(started.instructions || t('orders.payNowStarted'))
       onDone()
@@ -240,9 +244,23 @@ function PayNowCard({ orderId, payment, onDone }: { orderId: string; payment: Bu
       </div>
       {error && <ErrorBox error={error} />}
       {instructions && <p className="small">{instructions}</p>}
+      {payment.provider && (
+        <div className="info-row">
+          <span className="k">Opérateur</span>
+          <span className="v">{payment.provider_label || payment.provider}</span>
+        </div>
+      )}
       {waiting && <p className="small muted">{t('orders.payNowWaitingDelivery')}</p>}
+      {awaitingVerification && <p className="small muted">Le Livreur est arrivé : le paiement sera possible dès que le produit aura été vérifié.</p>}
       {noProvider && <p className="small muted">{t('orders.payNowNoProvider')}</p>}
-      <Button size="lg" block loading={busy} disabled={!payment.payable} onClick={payNow}>
+      {processing && <p className="small muted">Paiement lancé : validez la demande sur votre téléphone. La commande sera payée une fois l’opérateur confirmé.</p>}
+      {payment.payable && (
+        <label className="field">
+          <span>Téléphone à débiter</span>
+          <input type="tel" inputMode="tel" name="payer_phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+243 ..." />
+        </label>
+      )}
+      <Button size="lg" block loading={busy} disabled={!payment.payable || !phone.trim()} onClick={payNow}>
         {t('orders.payNowAction')}
       </Button>
     </div>
@@ -607,6 +625,7 @@ function OrderInner() {
             </> : o.delivery_method ? <Button loading={busy} onClick={ensurePayment}>{t('orders.prepareCashPayment')}</Button> : <p className="small muted">{t('orders.selectDeliveryFirst')}</p>}
           </div>
 
+          <BuyerHandoverPanel orderId={o.id} deliveryStatus={o.delivery_status} onChanged={() => void load(true)} />
           <PayNowCard orderId={o.id} payment={payment} onDone={() => load(true)} />
           <PaymentDetailCard o={o} payment={payment} />
           <PaymentAttempts o={o} payment={payment} />
@@ -638,9 +657,13 @@ function OrderInner() {
                     {t('orders.continueCheckout')}
                   </Button>
                 )}
-                <Button variant="danger" onClick={cancel} loading={busy}>
-                  {t('orders.cancelOrder')}
-                </Button>
+                {/* Once money has moved (or is moving) the order is refunded through
+                    support, not cancelled from here - the server refuses it too. */}
+                {!(payment && ['PAID', 'VERIFIED', 'PROCESSING'].includes(payment.status)) && (
+                  <Button variant="danger" onClick={cancel} loading={busy}>
+                    {t('orders.cancelOrder')}
+                  </Button>
+                )}
               </>
             )}
             {!needsDelivery && (o.status === 'PENDING' || o.status === 'ACCEPTED' || o.status === 'PREPARING' || o.status === 'READY') && (

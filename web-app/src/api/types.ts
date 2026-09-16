@@ -1598,6 +1598,8 @@ export interface HandoverState {
   payment_method: string
   payment_status: string
   payment_timing?: string
+  /** Operator behind a mobile payment; absent for cash. */
+  payment_provider?: string
   amount_due: number
   currency: string
   payment_verified: boolean

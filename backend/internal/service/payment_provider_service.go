@@ -15,12 +15,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Delivery stages at which a "pay on delivery by mobile money" payment becomes
-// payable: the courier is on the way or already there.
+// Delivery stages at which a "pay on delivery by mobile money" payment may be
+// charged: the courier is at the door and the handover is under way. These are
+// the same stages the handover itself runs in. Paying while the courier is still
+// in transit would be paying for goods nobody has checked yet.
 var payableAtDeliveryStages = map[string]bool{
-	models.DeliveryStatusInTransit: true,
-	models.DeliveryStatusDelivered: true,
-	models.DeliveryStatusReceived:  true,
+	"COURIER_ARRIVED":             true,
+	"DELIVERY_SCAN_SUCCESS":       true,
+	"AWAITING_BUYER_CONFIRMATION": true,
 }
 
 // SetWebhookDependencies wires the provider side of payments. The secret is the
@@ -45,12 +47,34 @@ func (s *PaymentService) Payability(payment *models.BuyerPayment, order *models.
 	if strings.TrimSpace(payment.Provider) == "" {
 		return models.PaymentPayability{Payable: false, Reason: "PAYMENT_PROVIDER_NOT_CONFIGURED"}
 	}
-	// Pay-now is payable from checkout; pay-at-delivery only once the courier is
-	// actually bringing the order.
-	if payment.PaymentTiming == "DELIVERY" && !payableAtDeliveryStages[order.DeliveryStatus] {
-		return models.PaymentPayability{Payable: false, Reason: "AWAITING_DELIVERY_STAGE"}
+	// Pay-now is payable from checkout. Pay-at-delivery only once the courier is
+	// at the door AND the goods have been checked against the order: the buyer
+	// pays for what they have verified, never for a parcel still on the road.
+	if payment.PaymentTiming == "DELIVERY" {
+		if !payableAtDeliveryStages[order.DeliveryStatus] {
+			return models.PaymentPayability{Payable: false, Reason: "AWAITING_DELIVERY_STAGE"}
+		}
+		if !s.allProductsVerified(order.ID) {
+			return models.PaymentPayability{Payable: false, Reason: "AWAITING_PRODUCT_VERIFICATION"}
+		}
 	}
 	return models.PaymentPayability{Payable: true}
+}
+
+// allProductsVerified reports whether every line of an order has a successful
+// product verification at the door - the same fact the handover gates read.
+func (s *PaymentService) allProductsVerified(orderID uuid.UUID) bool {
+	if s.db == nil {
+		return false
+	}
+	var lines, unverified int
+	err := s.db.QueryRow(`
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE NOT EXISTS (
+		           SELECT 1 FROM product_handover_verifications v
+		           WHERE v.order_line_id = l.id AND v.result = 'SUCCESS'))
+		FROM order_lines l WHERE l.order_id = $1`, orderID).Scan(&lines, &unverified)
+	return err == nil && lines > 0 && unverified == 0
 }
 
 // InitiatePayment asks the configured provider to charge the buyer. It never

@@ -146,10 +146,15 @@ type AdminOrderItem struct {
 	PaymentReference string     `json:"payment_reference,omitempty"`
 	PaymentTiming    string     `json:"payment_timing,omitempty"`
 	PaidAt           *time.Time `json:"paid_at,omitempty"`
-	IsStuck          bool       `json:"is_stuck"`
-	StuckReason      string     `json:"stuck_reason,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	// Who is carrying it and who is selling it, by name, for the detail view.
+	CourierName string `json:"courier_name,omitempty"`
+	SellerName  string `json:"seller_name,omitempty"`
+	// Who settled the payment: COURIER for cash, PROVIDER for mobile money.
+	PaymentConfirmationActor string    `json:"payment_confirmation_actor,omitempty"`
+	IsStuck                  bool      `json:"is_stuck"`
+	StuckReason              string    `json:"stuck_reason,omitempty"`
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
 }
 
 type AdminOrderDetail struct {

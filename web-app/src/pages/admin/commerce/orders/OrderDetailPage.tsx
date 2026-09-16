@@ -106,8 +106,17 @@ export default function OrderDetailPage() {
             <Field label={t('admin.orders.fieldBaseTotal')} value={`$${order.order.base_total.toFixed(2)}`} />
             <Field label={t('admin.orders.fieldDeliveryFee')} value={`$${order.order.delivery_fee.toFixed(2)}`} />
             <Field label={t('admin.orders.fieldPointsDiscount')} value={order.order.points_discount > 0 ? `-$${order.order.points_discount.toFixed(2)}` : '$0.00'} />
-            {order.payment && <Field label={t('admin.orders.fieldPaymentMethod')} value={order.payment.payment_method} />}
+            <Field label={t('admin.orders.fieldPaymentMethod')} value={order.order.payment_method || order.payment?.payment_method || '-'} />
+            {order.order.payment_provider && <Field label="Opérateur" value={order.order.payment_provider.replace(/_/g, ' ')} />}
             <Field label={t('admin.orders.fieldPaymentStatus')} value={<StatusBadge status={order.order.payment_status} />} />
+            {order.order.payment_reference && <Field label="Référence paiement" value={order.order.payment_reference} />}
+            {order.order.paid_at && (
+              <Field
+                label="Paiement confirmé le"
+                value={`${new Date(order.order.paid_at).toLocaleString()}${order.order.payment_confirmation_actor ? ` · ${order.order.payment_confirmation_actor}` : ''}`}
+              />
+            )}
+            {order.order.seller_name && <Field label="Vendeur" value={order.order.seller_name} />}
             <Field label={t('admin.orders.fieldDeliveryMethod')} value={order.order.delivery_method || t('admin.common.notAvailable')} />
             {order.order.is_stuck && <Field label={t('admin.orders.fieldStuckReason')} value={order.order.stuck_reason || t('admin.orders.stuckReasonDefault')} />}
           </Section>
@@ -121,7 +130,7 @@ export default function OrderDetailPage() {
             {order.order.delivery_notes && <Field label={t('admin.orders.deliveryCustomerNotes')} value={order.order.delivery_notes} />}
             {order.order.assigned_courier_id && (
               <>
-                <Field label={t('admin.orders.assignedCourierId')} value={order.order.assigned_courier_id} />
+                <Field label={t('admin.orders.assignedCourierId')} value={order.order.courier_name ? `${order.order.courier_name} · ${order.order.assigned_courier_id}` : order.order.assigned_courier_id} />
                 {order.order.courier_assigned_at && (
                   <Field label={t('admin.orders.assignedAt')} value={new Date(order.order.courier_assigned_at).toLocaleString()} />
                 )}

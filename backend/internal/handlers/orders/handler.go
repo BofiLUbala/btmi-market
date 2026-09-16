@@ -1140,6 +1140,10 @@ func (h *Handler) CancelBuyerOrder(c *gin.Context) {
 		case "INVALID_STATUS_TRANSITION":
 			statusCode = http.StatusBadRequest
 			errorCode = "INVALID_STATUS_TRANSITION"
+		case "PAYMENT_ALREADY_SETTLED", "PAYMENT_IN_PROGRESS":
+			// A paid or in-flight order goes through a refund, not a cancel.
+			statusCode = http.StatusConflict
+			errorCode = err.Error()
 		}
 		h.errResponse(c, statusCode, errorCode, err.Error())
 		return
@@ -1182,7 +1186,7 @@ func (h *Handler) InitiateBuyerPayment(c *gin.Context) {
 			status = http.StatusServiceUnavailable
 		case "PAYER_PHONE_REQUIRED", "INVALID_PAYMENT_AMOUNT":
 			status = http.StatusBadRequest
-		case "AWAITING_DELIVERY_STAGE", "ALREADY_PAID", "CASH_ON_DELIVERY", "PAYMENT_CLOSED":
+		case "AWAITING_DELIVERY_STAGE", "AWAITING_PRODUCT_VERIFICATION", "ALREADY_PAID", "CASH_ON_DELIVERY", "PAYMENT_CLOSED":
 			status = http.StatusConflict
 		}
 		h.errResponse(c, status, err.Error(), err.Error())

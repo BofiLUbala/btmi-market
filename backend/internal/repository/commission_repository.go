@@ -229,7 +229,9 @@ func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) 
 		argIdx++
 	}
 	if filter.DateTo != "" {
-		where = append(where, fmt.Sprintf("c.calculated_at <= $%d", argIdx))
+		// date_to is a calendar day and includes all of it: "<= '2026-09-16'" would
+		// stop at midnight and drop every sale made on the 16th.
+		where = append(where, fmt.Sprintf("c.calculated_at < ($%d::date + INTERVAL '1 day')", argIdx))
 		args = append(args, filter.DateTo)
 		argIdx++
 	}
@@ -637,7 +639,9 @@ func commissionReportWhere(filter *models.FinanceReportFilter) (string, []interf
 		argIdx++
 	}
 	if filter.DateTo != "" {
-		where = append(where, fmt.Sprintf("c.calculated_at <= $%d", argIdx))
+		// date_to is a calendar day and includes all of it: "<= '2026-09-16'" would
+		// stop at midnight and drop every sale made on the 16th.
+		where = append(where, fmt.Sprintf("c.calculated_at < ($%d::date + INTERVAL '1 day')", argIdx))
 		args = append(args, filter.DateTo)
 		argIdx++
 	}
@@ -815,7 +819,7 @@ func orderScopeQuery(base string, filter *models.FinanceReportFilter) (string, [
 		idx++
 	}
 	if filter.DateTo != "" {
-		base += fmt.Sprintf(" AND o.created_at <= $%d", idx)
+		base += fmt.Sprintf(" AND o.created_at < ($%d::date + INTERVAL '1 day')", idx)
 		args = append(args, filter.DateTo)
 		idx++
 	}

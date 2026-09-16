@@ -210,6 +210,29 @@ function PaymentInner() {
     }
   }
 
+  // While a pay-now charge is with the operator, poll for its outcome so the
+  // screen moves to "paid" by itself once the operator's confirmation lands -
+  // the buyer is approving a prompt on their phone, not watching this tab.
+  const pendingPaymentId = payment && payment.payment_method === 'MOBILE_PAY_NOW' && !['PAID', 'VERIFIED', 'FAILED'].includes(payment.status)
+    ? payment.id
+    : ''
+  useEffect(() => {
+    if (!pendingPaymentId || !orderId) return
+    let stopped = false
+    const timer = window.setInterval(async () => {
+      try {
+        const refreshed = await buyerApi.getPayment(orderId)
+        if (stopped) return
+        setPayment(refreshed)
+        if (['PAID', 'VERIFIED'].includes(refreshed.status)) {
+          window.clearInterval(timer)
+          navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds }, replace: true })
+        }
+      } catch { /* keep polling; a transient error is not an outcome */ }
+    }, 5_000)
+    return () => { stopped = true; window.clearInterval(timer) }
+  }, [pendingPaymentId, orderId])
+
   if (loading) return <LoadingBlock label={t('payment.preparing')} />
   if (!quote)
     return <ErrorBox error={error || t('payment.noPayment')} onRetry={() => window.location.reload()} />

@@ -38,3 +38,14 @@
 }
 
 @media(min-width:821px) and (max-width:1040px){.courier-workspace{grid-template-columns:220px minmax(0,1fr)}}
+
+/* Handover panel and mission page. These classes were used without any styles, so
+   each label ran straight into its value ("Montant à encaisser114 490,00 USD"). */
+.courier-card{padding:18px;border:1px solid rgba(255,255,255,.65);border-radius:19px;background:rgba(255,255,255,.3);box-shadow:inset 0 1px rgba(255,255,255,.6)}
+.courier-card h2{margin:0 0 14px;font-size:16px;letter-spacing:-.02em}
+.courier-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 20px;margin:12px 0}
+.courier-detail{min-width:0;overflow-wrap:anywhere;font-size:12px;font-weight:700;line-height:1.45}
+.courier-detail label{display:block;margin-bottom:4px;color:var(--color-text-muted);font-size:9px;font-weight:750;letter-spacing:.05em;text-transform:uppercase}
+.courier-card input{width:100%;box-sizing:border-box;border:1px solid rgba(0,0,0,.14);font:inherit;font-size:13px}
+.courier-muted{margin:10px 0;color:var(--color-text-muted);font-size:12px}
+.courier-error{margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(253,240,238,.8);color:var(--color-danger);font-size:12px;font-weight:700}

@@ -469,6 +469,16 @@ export interface AdminOrderItem {
   courier_assigned_at?: string
   courier_notes?: string
   payment_status: string
+  /** How the buyer pays, through which operator, and the reference to quote. */
+  payment_method?: string
+  payment_provider?: string
+  payment_reference?: string
+  payment_timing?: string
+  /** When the payment actually settled, and who settled it (COURIER / PROVIDER). */
+  paid_at?: string
+  payment_confirmation_actor?: string
+  courier_name?: string
+  seller_name?: string
   is_stuck: boolean
   stuck_reason?: string
   created_at: string

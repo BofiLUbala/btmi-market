@@ -711,12 +711,27 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 			o.status, o.total_items, o.base_total, o.points_discount_amount, o.delivery_fee_final, o.final_total,
 			COALESCE(o.delivery_method, 'PICKUP'),
 			COALESCE(pay.status, 'UNPAID') AS payment_status,
-			o.created_at, o.updated_at
+			o.created_at, o.updated_at,
+			-- The delivery and payment facts the detail page shows. Previously
+			-- none of these were selected, so the page fell back to "pending
+			-- assignment" and showed no payment detail for every order.
+			COALESCE(o.delivery_status, ''), o.assigned_courier_id,
+			COALESCE(o.delivery_contact_name, ''), COALESCE(o.delivery_phone, ''),
+			COALESCE(o.delivery_address, ''), COALESCE(o.delivery_notes, ''),
+			o.courier_assigned_at, COALESCE(o.courier_notes, ''),
+			COALESCE(pay.payment_method, ''), COALESCE(pay.provider, ''),
+			COALESCE(NULLIF(pay.receipt_reference, ''), NULLIF(pay.provider_reference, ''), pay.internal_reference, ''),
+			COALESCE(pay.payment_timing, ''), pay.paid_at, COALESCE(pay.confirmation_actor, ''),
+			COALESCE(NULLIF(TRIM(cu.first_name || ' ' || cu.last_name), ''), cu.email, ''),
+			COALESCE((SELECT NULLIF(TRIM(u.first_name || ' ' || u.last_name), '')
+			          FROM business_memberships m JOIN users u ON u.id = m.user_id
+			          WHERE m.business_id = o.business_id AND m.role = 'OWNER' LIMIT 1), '')
 		FROM orders o
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
 		LEFT JOIN buyer_profiles bp ON o.buyer_profile_id = bp.id
 		LEFT JOIN buyer_payments pay ON pay.order_id = o.id
+		LEFT JOIN users cu ON cu.id = o.assigned_courier_id
 		WHERE o.id = $1
 	`
 	err := r.db.QueryRow(orderQuery, id).Scan(
@@ -726,6 +741,14 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 		&detail.Order.Status, &detail.Order.TotalItems, &detail.Order.BaseTotal, &detail.Order.PointsDiscount, &detail.Order.DeliveryFee, &detail.Order.FinalTotal,
 		&detail.Order.DeliveryMethod, &detail.Order.PaymentStatus,
 		&detail.Order.CreatedAt, &detail.Order.UpdatedAt,
+		&detail.Order.DeliveryStatus, &detail.Order.AssignedCourierID,
+		&detail.Order.DeliveryContactName, &detail.Order.DeliveryPhone,
+		&detail.Order.DeliveryAddress, &detail.Order.DeliveryNotes,
+		&detail.Order.CourierAssignedAt, &detail.Order.CourierNotes,
+		&detail.Order.PaymentMethod, &detail.Order.PaymentProvider,
+		&detail.Order.PaymentReference, &detail.Order.PaymentTiming, &detail.Order.PaidAt,
+		&detail.Order.PaymentConfirmationActor,
+		&detail.Order.CourierName, &detail.Order.SellerName,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("ORDER_NOT_FOUND")

@@ -268,6 +268,7 @@ func (s *QRService) HandoverState(orderID, userID uuid.UUID, role string) (*mode
 			state.PaymentMethod = payment.PaymentMethod
 			state.PaymentStatus = string(payment.Status)
 			state.PaymentTiming = payment.PaymentTiming
+			state.PaymentProvider = payment.Provider
 			state.AmountDue = payment.FinalTotal
 			state.Currency = payment.Currency
 			state.PaymentVerified = paymentSettled(payment.Status)
@@ -284,7 +285,9 @@ func (s *QRService) HandoverState(orderID, userID uuid.UUID, role string) (*mode
 		orderID).Scan(&scanned, &confirmed)
 	state.DeliveryScanned = scanned != nil
 	state.ReceiptConfirmed = confirmed != nil
-	state.CourierArrived = handoverActiveStages[ctx.deliveryStatus]
+	// Arrival is a fact that stays true once the handover is over: a received
+	// order was, by definition, reached by its courier.
+	state.CourierArrived = handoverActiveStages[ctx.deliveryStatus] || ctx.deliveryStatus == models.DeliveryStatusReceived
 
 	s.applyHandoverGates(state)
 	return state, nil
