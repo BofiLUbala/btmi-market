@@ -270,6 +270,9 @@ export interface SellerFinanceDashboard {
   /** Buyer-payment axis, kept separate from the commission axis above. */
   payments_collected: number
   payments_due: number
+  /** Strict subset of payments_due: awaiting an operator's answer. */
+  payments_pending?: number
+  refunded_amount?: number
   units_sold: number
   verified_sales: number
   refunded_sales: number

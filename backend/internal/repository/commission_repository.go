@@ -667,6 +667,15 @@ const orderLineUnitsJoin = `
 const settledPaymentStatuses = `('VERIFIED', 'PAID')`
 const unsettledPaymentStatuses = `('PENDING', 'CONFIRMED', 'DUE', 'PROCESSING')`
 
+// inFlightPaymentStatuses is the subset of the unsettled ones where a charge has
+// actually been raised and we are waiting on an answer, as opposed to money the
+// buyer simply has not been asked for yet. It is a strict subset: "pending" is
+// part of "due", never a figure alongside it.
+const inFlightPaymentStatuses = `('PENDING', 'PROCESSING')`
+
+// refundedPaymentStatuses is money that went back to the buyer.
+const refundedPaymentStatuses = `('REFUNDED')`
+
 // GetDashboardReport builds the real-totals finance dashboard for Finance
 // Admin and sellers from per-sale commission snapshots and buyer payments.
 func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFilter) (*models.FinanceDashboardReport, error) {
@@ -825,12 +834,15 @@ func (r *CommissionRepository) loadPaymentTotals(filter *models.FinanceReportFil
 		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0),
 		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0),
 		       COALESCE(SUM(CASE WHEN p.status IN %s AND p.payment_method = 'CASH_ON_DELIVERY' THEN p.cash_due ELSE 0 END), 0),
-		       COALESCE(SUM(CASE WHEN p.status IN %s AND p.payment_method <> 'CASH_ON_DELIVERY' THEN p.cash_due ELSE 0 END), 0)
+		       COALESCE(SUM(CASE WHEN p.status IN %s AND p.payment_method <> 'CASH_ON_DELIVERY' THEN p.cash_due ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0)
 		FROM buyer_payments p
 		JOIN orders o ON o.id = p.order_id
 		WHERE o.status NOT IN ('CANCELLED', 'REJECTED')`,
 		settledPaymentStatuses, unsettledPaymentStatuses,
-		settledPaymentStatuses, settledPaymentStatuses)
+		settledPaymentStatuses, settledPaymentStatuses,
+		inFlightPaymentStatuses, refundedPaymentStatuses)
 	if filter.PaymentStatus != "" {
 		base += " AND p.status = '" + sanitizeStatusLiteral(filter.PaymentStatus) + "'"
 	}
@@ -844,12 +856,14 @@ func (r *CommissionRepository) loadPaymentTotals(filter *models.FinanceReportFil
 	defer rows.Close()
 	for rows.Next() {
 		var currency string
-		var collected, due, cash, mobile float64
-		if err := rows.Scan(&currency, &collected, &due, &cash, &mobile); err != nil {
+		var collected, due, cash, mobile, pending, refunded float64
+		if err := rows.Scan(&currency, &collected, &due, &cash, &mobile, &pending, &refunded); err != nil {
 			return err
 		}
 		report.PaymentsCollected = models.RoundMoney(report.PaymentsCollected + collected)
 		report.PaymentsDue = models.RoundMoney(report.PaymentsDue + due)
+		report.PaymentsPending = models.RoundMoney(report.PaymentsPending + pending)
+		report.RefundedAmount = models.RoundMoney(report.RefundedAmount + refunded)
 		report.CollectedCash = models.RoundMoney(report.CollectedCash + cash)
 		report.CollectedMobile = models.RoundMoney(report.CollectedMobile + mobile)
 		if idx, ok := byCurrency[currency]; ok {

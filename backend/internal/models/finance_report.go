@@ -76,14 +76,21 @@ type FinanceDashboardReport struct {
 	CollectedByProvider []FinanceProviderTotal `json:"collected_by_provider"`
 	PaymentsCollected   float64                `json:"payments_collected"` // Σ cash_due of VERIFIED buyer payments
 	PaymentsDue         float64                `json:"payments_due"`       // Σ cash_due still awaiting verification
-	UnitsSold           int                    `json:"units_sold"`         // Σ order_lines.quantity on non-WAIVED sales
-	VerifiedSales       int                    `json:"verified_sales"`     // number of verified sales snapshots (excl. WAIVED)
-	RefundedSales       int                    `json:"refunded_sales"`     // number of WAIVED / refunded snapshots
-	PendingOrders       int                    `json:"pending_orders"`     // orders with no VERIFIED payment yet
-	CommissionRate      float64                `json:"commission_rate"`    // current platform rate (informational)
-	Currency            string                 `json:"currency,omitempty"` // populated when the result has one currency
-	MixedCurrency       bool                   `json:"mixed_currency"`
-	TotalsByCurrency    []FinanceCurrencyTotal `json:"totals_by_currency"`
+	// A strict subset of PaymentsDue: a charge has been raised with an operator
+	// and we are waiting on the answer, as opposed to money the buyer has simply
+	// not been asked for yet. Never add this to PaymentsDue.
+	PaymentsPending float64 `json:"payments_pending"`
+	// Money returned to the buyer. Kept apart from every "collected" figure so a
+	// refund can never read as revenue.
+	RefundedAmount   float64                `json:"refunded_amount"`
+	UnitsSold        int                    `json:"units_sold"`         // Σ order_lines.quantity on non-WAIVED sales
+	VerifiedSales    int                    `json:"verified_sales"`     // number of verified sales snapshots (excl. WAIVED)
+	RefundedSales    int                    `json:"refunded_sales"`     // number of WAIVED / refunded snapshots
+	PendingOrders    int                    `json:"pending_orders"`     // orders with no VERIFIED payment yet
+	CommissionRate   float64                `json:"commission_rate"`    // current platform rate (informational)
+	Currency         string                 `json:"currency,omitempty"` // populated when the result has one currency
+	MixedCurrency    bool                   `json:"mixed_currency"`
+	TotalsByCurrency []FinanceCurrencyTotal `json:"totals_by_currency"`
 }
 
 // FinanceProviderTotal is what one mobile money operator actually settled.

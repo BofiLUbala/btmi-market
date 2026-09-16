@@ -535,6 +535,10 @@ if (tab === 'overview') {
                   commission TBK (due / encaissée) au-dessus. */}
               <MetricCard title="Paiements encaissés" value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_collected, x.currency)).join(' · ') || financeMoney(financeReport!.payments_collected, financeReport!.currency || 'USD')} sub="réglés par les acheteurs" color="#facc15" />
               <MetricCard title="Paiements dus" value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_due, x.currency)).join(' · ') || financeMoney(financeReport!.payments_due, financeReport!.currency || 'USD')} sub="restant dû par les acheteurs" color="#fb923c" />
+              {/* A subset of "dus", not a figure to add to it: the operator has
+                  been asked and has not answered yet. */}
+              <MetricCard title="Paiements en attente" value={financeMoney(financeReport!.payments_pending ?? 0, financeReport!.currency || 'USD')} sub="dont opérateur en attente de confirmation" color="#a78bfa" />
+              <MetricCard title="Remboursements" value={financeMoney(financeReport!.refunded_amount ?? 0, financeReport!.currency || 'USD')} sub={`${financeReport!.refunded_sales} vente(s) remboursée(s)`} color="#f87171" />
               <MetricCard title="Unités vendues" value={String(financeReport!.units_sold)} sub="order line quantities" color="#e2e8f0" />
             </div>
 

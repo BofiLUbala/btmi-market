@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderDetail, type AdminDeliveryHandover } from '@/api/admin'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
@@ -37,16 +37,27 @@ export default function OrderDetailPage() {
   const [assignError, setAssignError] = useState('')
   const [handover, setHandover] = useState<AdminDeliveryHandover | null>(null)
 
-  useEffect(() => {
+  const loadOrder = useCallback((background = false) => {
     if (!id) return
-    setLoading(true)
+    if (!background) setLoading(true)
     adminCommerceApi.getOrder(id)
       .then((res) => setOrder(res))
-      .catch(() => navigate('/admin/commerce/orders'))
-      .finally(() => setLoading(false))
+      // A failed background refresh must not eject the admin from the page they
+      // are reading; only the first load navigates away.
+      .catch(() => { if (!background) navigate('/admin/commerce/orders') })
+      .finally(() => { if (!background) setLoading(false) })
     // The handover view is supplementary: an order without a package yet must still render.
     adminCommerceApi.getDeliveryHandover(id).then(setHandover).catch(() => setHandover(null))
   }, [id, navigate])
+
+  useEffect(() => { loadOrder() }, [loadOrder])
+
+  // The payment on this order can be settled by a courier or an operator while
+  // it is on screen, so the payment card refreshes itself.
+  useEffect(() => {
+    const timer = window.setInterval(() => loadOrder(true), 30_000)
+    return () => window.clearInterval(timer)
+  }, [loadOrder])
 
   async function handleAssignCourier() {
     if (!id || !courierId.trim()) return

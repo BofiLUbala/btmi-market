@@ -38,6 +38,14 @@ export default function OrderListPage() {
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
+  // Payment state moves without anyone touching this screen: a courier takes
+  // cash at the door, an operator confirms a transfer. Poll on the same cadence
+  // as Finance and Seller Finance so all three tell the same story.
+  useEffect(() => {
+    const timer = window.setInterval(() => { void fetchOrders() }, 30_000)
+    return () => window.clearInterval(timer)
+  }, [fetchOrders])
+
   const totalPages = Math.ceil(total / limit)
 
   return (

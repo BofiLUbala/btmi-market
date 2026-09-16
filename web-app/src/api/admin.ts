@@ -1150,6 +1150,10 @@ export interface FinanceDashboardReport {
   /** Buyer-payment axis, independent of the commission axis above. */
   payments_collected: number
   payments_due: number
+  /** Strict subset of payments_due: a charge is raised and awaiting an answer. */
+  payments_pending: number
+  /** Money returned to buyers, kept apart from every collected figure. */
+  refunded_amount: number
   units_sold: number
   verified_sales: number
   refunded_sales: number
