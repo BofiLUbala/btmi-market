@@ -1930,6 +1930,13 @@ func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, er
 		return nil, err
 	}
 
+	// Checked after access, so only the shop can learn the payment state. Same rule as a buyer cancellation: once money has settled or a charge is in
+	// flight, cancelling would leave a PAID payment with no refund and drop the
+	// collected money out of every finance total. That goes through a refund.
+	if err := s.refuseCancelWithMoney(orderID); err != nil {
+		return nil, err
+	}
+
 	employee, _ := s.employeeRepo.GetByLinkedUserID(userID)
 	changedBy := &userID
 	if employee != nil {
@@ -1997,6 +2004,29 @@ func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, er
 }
 
 // CancelBuyerOrder allows a buyer to cancel their own PENDING/ACCEPTED order.
+// refuseCancelWithMoney blocks cancelling an order whose money has moved or is
+// moving. Cancelling a paid order used to release the stock and void the
+// commission while the payment stayed PAID with no refund - and since cancelled
+// orders are excluded from finance totals, the collected money silently vanished
+// from every report. A settled or in-flight payment is refunded by support,
+// which records the refund; neither buyer nor seller can skip that.
+func (s *OrderService) refuseCancelWithMoney(orderID uuid.UUID) error {
+	if s.paymentRepo == nil {
+		return nil
+	}
+	payment, err := s.paymentRepo.GetByOrderID(orderID)
+	if err != nil || payment == nil {
+		return nil
+	}
+	switch payment.Status {
+	case models.BuyerPaymentStatusPaid, models.BuyerPaymentStatusVerified:
+		return errors.New("PAYMENT_ALREADY_SETTLED")
+	case models.BuyerPaymentStatusProcessing:
+		return errors.New("PAYMENT_IN_PROGRESS")
+	}
+	return nil
+}
+
 func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.getBuyerOrder(buyerProfileID, orderID)
 	if err != nil {
@@ -2006,21 +2036,8 @@ func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*mod
 		return nil, errors.New("INVALID_STATUS_TRANSITION")
 	}
 
-	// Money that has moved, or is moving, cannot be walked away from with a
-	// cancel button. Cancelling a paid order used to release the stock and void
-	// the commission while the payment stayed PAID with no refund - and since
-	// cancelled orders are excluded from finance totals, the collected money
-	// silently vanished from every report. A settled or in-flight payment has to
-	// be refunded by support, which records the refund; the buyer cannot skip it.
-	if s.paymentRepo != nil {
-		if payment, perr := s.paymentRepo.GetByOrderID(orderID); perr == nil && payment != nil {
-			switch payment.Status {
-			case models.BuyerPaymentStatusPaid, models.BuyerPaymentStatusVerified:
-				return nil, errors.New("PAYMENT_ALREADY_SETTLED")
-			case models.BuyerPaymentStatusProcessing:
-				return nil, errors.New("PAYMENT_IN_PROGRESS")
-			}
-		}
+	if err := s.refuseCancelWithMoney(orderID); err != nil {
+		return nil, err
 	}
 
 	history := &models.OrderStatusHistory{

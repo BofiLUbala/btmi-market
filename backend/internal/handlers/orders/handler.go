@@ -544,6 +544,10 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 		case "INVALID_STATUS_TRANSITION":
 			statusCode = http.StatusBadRequest
 			errorCode = "INVALID_STATUS_TRANSITION"
+		case "PAYMENT_ALREADY_SETTLED", "PAYMENT_IN_PROGRESS":
+			// A paid or in-flight order goes through a refund, not a cancel.
+			statusCode = http.StatusConflict
+			errorCode = err.Error()
 		}
 
 		h.errResponse(c, statusCode, errorCode, err.Error())

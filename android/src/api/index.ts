@@ -13,8 +13,7 @@ import type {
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   QRScanRequest, QRScanResponse, ProductVerification,
-  TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User,
-} from '../types'
+  TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR } from '../types'
 
 const list = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[]
@@ -183,6 +182,8 @@ export const sellerApi = {
   cancelOrder: (id: string) => post<SellerOrder>(`/orders/${id}/cancel`, {}),
   sellerTransition: (id: string, status: string, notes?: string) => post(`/orders/${id}/tracking/status`, { status, notes }),
   getOrderPayment: (id: string) => get<BuyerPayment>(`/orders/${id}/payment`),
+  /** Package label metadata; the PNG itself is /orders/:id/package-qr/label. */
+  packageQR: (id: string) => get<PackageQR>(`/orders/${id}/package-qr`),
   // No sellerConfirmPayment: a seller is not at the handover, so they cannot attest
   // that cash changed hands. The assigned courier confirms it from their own app.
 

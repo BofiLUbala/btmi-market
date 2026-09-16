@@ -32,9 +32,23 @@
         "buildType": "app-bundle"
       },
       "channel": "production"
+    },
+    "playtest": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "environment": "preview",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "channel": "playtest"
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "playtest": {
+      "android": {
+        "track": "internal"
+      }
+    }
   }
 }

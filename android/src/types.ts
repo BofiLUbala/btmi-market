@@ -226,8 +226,12 @@ export interface BuyerPayment {
   delivery_fee_base: number; delivery_points_used: number
   delivery_points_discount: number; delivery_fee_final: number
   cash_due: number
-  payment_markup: number; final_total: number; provider?: string
+  payment_markup: number; final_total: number
+  /** MPESA | AIRTEL_MONEY | ORANGE_MONEY for mobile money; empty for cash. */
+  provider?: string; provider_label?: string
   provider_reference?: string; payment_timing: 'NOW' | 'DELIVERY'
+  /** Our reference from creation; replaced on receipts by the operator's once settled. */
+  internal_reference?: string; receipt_reference?: string; receipt_issued_at?: string | null
   /** Frozen history from the retired buyer/seller declaration rule. */
   buyer_confirmed: boolean; buyer_confirmed_at?: string | null
   seller_confirmed: boolean; seller_confirmed_at?: string | null
@@ -241,6 +245,8 @@ export interface BuyerPayment {
 }
 export interface PaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_amount: number; quoted_total: number; provider?: string }
 export interface CheckoutQuote { order_id: string; currency: string; subtotal: number; discount: number; points_discount: number; delivery_fee: number; payment_markup: number; final_total: number; selected_payment_method: string; payment_methods: PaymentMethodConfig[] }
+/** The package label the courier scans at pickup (GET /orders/:id/package-qr). */
+export interface PackageQR { reference: string; status: string; package_number: number; operational: boolean; pickup_verified_at?: string | null; delivery_scanned_at?: string | null }
 export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: OrderStatusHistory[]; shop_name: string }
 
 /* ---------- Checkout pipeline ----------
