@@ -218,6 +218,7 @@ function PaymentInner() {
   // Pay-now charges the handset right here, so the number is required before the
   // order is placed. Pay-at-delivery asks for it at the door instead.
   const needsPhoneNow = paymentMethod === 'MOBILE_PAY_NOW'
+  const phoneReady = !needsPhoneNow || payerPhone.trim().length >= 9
   const quoteReady = Boolean(quote?.selected_payment_method === paymentMethod) && !quoting
   const validationError = validationMessage({
     orderIds, orders, timing, paymentMethod, needsProvider, provider,
@@ -445,7 +446,7 @@ function PaymentInner() {
                   onChange={(e) => setPayerPhone(e.target.value)}
                 />
               </label>
-              {needsPhoneNow && !phoneReady && payerPhone.length > 0 && (
+              {needsPhoneNow && !phoneReady && payerPhone.trim().length > 0 && (
                 <p className="small muted">Entrez le numéro qui sera débité.</p>
               )}
 
