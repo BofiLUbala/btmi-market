@@ -12,31 +12,45 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: btmi_market
-          POSTGRES_USER: btmi_user
-          POSTGRES_PASSWORD: btmi_secret_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd redis-cli ping
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
+      - name: Start PostgreSQL
+        run: |
+          docker run -d --name pg-test \
+            -e POSTGRES_DB=btmi_market \
+            -e POSTGRES_USER=btmi_user \
+            -e POSTGRES_PASSWORD=btmi_secret_password \
+            -p 5432:5432 \
+            --health-cmd "pg_isready -U btmi_user -d btmi_market" \
+            --health-interval 10s \
+            --health-timeout 5s \
+            --health-retries 5 \
+            postgres:16-alpine
+          for i in $(seq 1 30); do
+            if docker exec pg-test pg_isready -U btmi_user -d btmi_market 2>/dev/null; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL $i/30"
+            sleep 2
+          done
+      - name: Start Redis
+        run: |
+          docker run -d --name redis-test \
+            -p 6379:6379 \
+            --health-cmd "redis-cli ping" \
+            --health-interval 10s \
+            --health-timeout 5s \
+            --health-retries 5 \
+            redis:7-alpine
+          for i in $(seq 1 15); do
+            if docker exec redis-test redis-cli ping 2>/dev/null | grep -q PONG; then
+              echo "Redis is ready"
+              break
+            fi
+            echo "Waiting for Redis $i/15"
+            sleep 1
+          done
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend/go.mod
@@ -61,6 +75,11 @@ jobs:
           REDIS_ADDR: localhost:6379
           REDIS_PASSWORD: ""
           REDIS_DB: "0"
+      - name: Stop containers
+        if: always()
+        run: |
+          docker stop pg-test redis-test 2>/dev/null || true
+          docker rm pg-test redis-test 2>/dev/null || true
 
   web:
     runs-on: ubuntu-latest
