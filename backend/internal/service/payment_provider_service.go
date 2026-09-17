@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,12 +15,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Delivery stages at which a "pay on delivery by mobile money" payment becomes
-// payable: the courier is on the way or already there.
+// Delivery stages at which a "pay on delivery by mobile money" payment may be
+// charged: the courier is at the door and the handover is under way. These are
+// the same stages the handover itself runs in. Paying while the courier is still
+// in transit would be paying for goods nobody has checked yet.
 var payableAtDeliveryStages = map[string]bool{
-	models.DeliveryStatusInTransit: true,
-	models.DeliveryStatusDelivered: true,
-	models.DeliveryStatusReceived:  true,
+	"COURIER_ARRIVED":             true,
+	"DELIVERY_SCAN_SUCCESS":       true,
+	"AWAITING_BUYER_CONFIRMATION": true,
 }
 
 // SetWebhookDependencies wires the provider side of payments. The secret is the
@@ -44,17 +47,39 @@ func (s *PaymentService) Payability(payment *models.BuyerPayment, order *models.
 	if strings.TrimSpace(payment.Provider) == "" {
 		return models.PaymentPayability{Payable: false, Reason: "PAYMENT_PROVIDER_NOT_CONFIGURED"}
 	}
-	// Pay-now is payable from checkout; pay-at-delivery only once the courier is
-	// actually bringing the order.
-	if payment.PaymentTiming == "DELIVERY" && !payableAtDeliveryStages[order.DeliveryStatus] {
-		return models.PaymentPayability{Payable: false, Reason: "AWAITING_DELIVERY_STAGE"}
+	// Pay-now is payable from checkout. Pay-at-delivery only once the courier is
+	// at the door AND the goods have been checked against the order: the buyer
+	// pays for what they have verified, never for a parcel still on the road.
+	if payment.PaymentTiming == "DELIVERY" {
+		if !payableAtDeliveryStages[order.DeliveryStatus] {
+			return models.PaymentPayability{Payable: false, Reason: "AWAITING_DELIVERY_STAGE"}
+		}
+		if !s.allProductsVerified(order.ID) {
+			return models.PaymentPayability{Payable: false, Reason: "AWAITING_PRODUCT_VERIFICATION"}
+		}
 	}
 	return models.PaymentPayability{Payable: true}
 }
 
+// allProductsVerified reports whether every line of an order has a successful
+// product verification at the door - the same fact the handover gates read.
+func (s *PaymentService) allProductsVerified(orderID uuid.UUID) bool {
+	if s.db == nil {
+		return false
+	}
+	var lines, unverified int
+	err := s.db.QueryRow(`
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE NOT EXISTS (
+		           SELECT 1 FROM product_handover_verifications v
+		           WHERE v.order_line_id = l.id AND v.result = 'SUCCESS'))
+		FROM order_lines l WHERE l.order_id = $1`, orderID).Scan(&lines, &unverified)
+	return err == nil && lines > 0 && unverified == 0
+}
+
 // InitiatePayment asks the configured provider to charge the buyer. It never
 // settles the payment itself: success is only ever recorded by the webhook.
-func (s *PaymentService) InitiatePayment(buyerProfileID, orderID uuid.UUID) (*models.PaymentInitiation, error) {
+func (s *PaymentService) InitiatePayment(buyerProfileID, orderID uuid.UUID, req *models.InitiatePaymentRequest) (*models.PaymentInitiation, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
 		return nil, mapOrderNotFoundErr(err)
@@ -75,11 +100,50 @@ func (s *PaymentService) InitiatePayment(buyerProfileID, orderID uuid.UUID) (*mo
 		return nil, errors.New(payability.Reason)
 	}
 
-	// The provider driver belongs here: it would open a charge and hand back its
-	// reference plus whatever the buyer must do next, then MarkInitiated moves
-	// the payment to PROCESSING. Until one is wired up we say so rather than
-	// pretending a charge was started.
-	return nil, errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
+	if s.driver == nil {
+		return nil, errors.New("PAYMENT_PROVIDER_NOT_CONFIGURED")
+	}
+
+	// The buyer may supply the number here rather than at checkout, which is what
+	// a pay-at-delivery payment does: the operator is chosen when the order is
+	// placed, the handset is named when the courier is actually at the door.
+	payerPhone := strings.TrimSpace(payment.PayerPhone)
+	if req != nil && strings.TrimSpace(req.PayerPhone) != "" {
+		payerPhone = strings.TrimSpace(req.PayerPhone)
+	}
+	if payerPhone == "" {
+		return nil, errors.New("PAYER_PHONE_REQUIRED")
+	}
+
+	initiation, err := s.driver.Charge(PaymentChargeRequest{
+		PaymentID:         payment.ID.String(),
+		Provider:          payment.Provider,
+		PayerPhone:        payerPhone,
+		Amount:            payment.FinalTotal,
+		Currency:          payment.Currency,
+		InternalReference: payment.InternalReference,
+		OrderNumber:       order.OrderNumber,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// PROCESSING: the operator has been asked. Nothing here says the buyer paid -
+	// only HandleProviderWebhook can say that.
+	if err := s.paymentRepo.MarkInitiated(payment.ID, initiation.Reference, payerPhone); err != nil {
+		return nil, err
+	}
+
+	initiation.PaymentID = payment.ID
+	s.audit(&models.PaymentAuditEvent{
+		PaymentID: &payment.ID, OrderID: &orderID,
+		EventType: models.PaymentEventInitiated, ActorType: models.PaymentActorBuyer,
+		Provider: payment.Provider, Amount: &payment.FinalTotal, Currency: payment.Currency,
+		Reference: initiation.Reference,
+		Detail:    models.JSONMap{"payment_method": payment.PaymentMethod, "timing": payment.PaymentTiming},
+	})
+
+	return initiation, nil
 }
 
 // verifyWebhookSignature checks an HMAC-SHA256 over the exact bytes received.
@@ -187,6 +251,16 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 			return nil
 		}
 		_ = s.webhookRepo.Settle(record.ID, true, "")
+
+		// Proof of the payment, written only now that it has actually settled.
+		// The operator's own reference is what the buyer can quote back, so it is
+		// preferred over ours when it sent one.
+		receiptReference := strings.TrimSpace(event.Reference)
+		if receiptReference == "" {
+			receiptReference = payment.InternalReference
+		}
+		_ = s.paymentRepo.RecordReceipt(payment.ID, receiptReference, safeProviderMetadata(event, provider))
+
 		// Points, commission and the verified-transaction record follow the same
 		// path as any other verified payment.
 		payment.Status = models.BuyerPaymentStatusPaid
@@ -194,8 +268,21 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 		payment.PaidAt = &now
 		payment.ConfirmationActor = models.PaymentConfirmationActorProvider
 		s.enqueueVerified(payment)
+		s.audit(&models.PaymentAuditEvent{
+			PaymentID: &payment.ID, OrderID: &payment.OrderID,
+			EventType: models.PaymentEventConfirmed, ActorType: models.PaymentActorProvider,
+			Provider: provider, Amount: &event.Amount, Currency: payment.Currency,
+			Reference: receiptReference,
+			Detail:    models.JSONMap{"webhook_event_id": event.EventID},
+		})
 		if s.commService != nil {
-			_, _ = s.commService.CalculateAndRecordCommission(payment.OrderID)
+			if _, err := s.commService.CalculateAndRecordCommission(payment.OrderID); err == nil {
+				s.audit(&models.PaymentAuditEvent{
+					PaymentID: &payment.ID, OrderID: &payment.OrderID,
+					EventType: models.PaymentEventCommissionComputed, ActorType: models.PaymentActorSystem,
+					Currency: payment.Currency, Reference: receiptReference,
+				})
+			}
 		}
 		return nil
 	case models.ProviderPaymentFailed:
@@ -207,8 +294,38 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 			return err
 		}
 		_ = s.webhookRepo.Settle(record.ID, true, "")
+		s.audit(&models.PaymentAuditEvent{
+			PaymentID: &payment.ID, OrderID: &payment.OrderID,
+			EventType: models.PaymentEventFailed, ActorType: models.PaymentActorProvider,
+			Provider: provider, Currency: payment.Currency, Reference: event.Reference,
+			Detail: models.JSONMap{"reason": reason, "webhook_event_id": event.EventID},
+		})
 		return nil
 	default:
 		return reject("UNSUPPORTED_WEBHOOK_STATUS")
 	}
+}
+
+// safeProviderMetadata keeps the handful of operator fields that are useful for
+// support and reconciliation, and nothing else.
+//
+// It is an allowlist rather than a denylist on purpose: this data is echoed back
+// by a third party into a JSONB column that admins read, so the safe default for
+// an unrecognised field is to drop it. Nothing credential-shaped - a PIN, a
+// token, a signature, a full account number - has a name on this list.
+func safeProviderMetadata(event models.ProviderPaymentEvent, provider string) models.JSONMap {
+	metadata := models.JSONMap{
+		"provider":        provider,
+		"event_id":        strings.TrimSpace(event.EventID),
+		"reported_status": strings.ToUpper(strings.TrimSpace(event.Status)),
+	}
+	if reference := strings.TrimSpace(event.Reference); reference != "" {
+		metadata["provider_reference"] = reference
+	}
+	if currency := strings.TrimSpace(event.Currency); currency != "" {
+		metadata["currency"] = currency
+	}
+	metadata["amount"] = strconv.FormatFloat(event.Amount, 'f', 2, 64)
+	metadata["confirmed_at"] = time.Now().UTC().Format(time.RFC3339)
+	return metadata
 }

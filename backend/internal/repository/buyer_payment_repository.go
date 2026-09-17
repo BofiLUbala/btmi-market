@@ -23,6 +23,7 @@ const buyerPaymentSelect = `
 	       products_base_total, products_points_used, products_points_discount, products_final_total,
 	       delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
 	       cash_due, payment_markup, payment_markup_type, payment_markup_value, final_total, provider, provider_reference, payment_timing,
+	       internal_reference, payer_phone, receipt_reference, receipt_issued_at, provider_metadata, payment_initiated_at,
 	       buyer_confirmed, buyer_confirmed_at, seller_confirmed, seller_confirmed_by, seller_confirmed_at,
 	       status, verified_at, paid_at, confirmed_by_user_id, confirmation_actor,
 	       cash_received_by, cash_received_at,
@@ -36,6 +37,7 @@ func scanBuyerPayment(row interface{ Scan(...any) error }) (*models.BuyerPayment
 		&p.ProductsBaseTotal, &p.ProductsPointsUsed, &p.ProductsPointsDiscount, &p.ProductsFinalTotal,
 		&p.DeliveryFeeBase, &p.DeliveryPointsUsed, &p.DeliveryPointsDiscount, &p.DeliveryFeeFinal,
 		&p.CashDue, &p.PaymentMarkup, &p.PaymentMarkupType, &p.PaymentMarkupValue, &p.FinalTotal, &p.Provider, &p.ProviderReference, &p.PaymentTiming,
+		&p.InternalReference, &p.PayerPhone, &p.ReceiptReference, &p.ReceiptIssuedAt, &p.ProviderMetadata, &p.InitiatedAt,
 		&p.BuyerConfirmed, &p.BuyerConfirmedAt, &p.SellerConfirmed, &p.SellerConfirmedBy, &p.SellerConfirmedAt,
 		&p.Status, &p.VerifiedAt, &p.PaidAt, &p.ConfirmedByUserID, &p.ConfirmationActor,
 		&p.CashReceivedBy, &p.CashReceivedAt,
@@ -56,9 +58,10 @@ func (r *BuyerPaymentRepository) Create(p *models.BuyerPayment) error {
 		       products_base_total, products_points_used, products_points_discount, products_final_total,
 		       delivery_fee_base, delivery_points_used, delivery_points_discount, delivery_fee_final,
 		       cash_due, payment_markup, payment_markup_type, payment_markup_value, final_total, provider, provider_reference, payment_timing,
+		       internal_reference, payer_phone,
 		       buyer_confirmed, buyer_confirmed_at, seller_confirmed, seller_confirmed_by, seller_confirmed_at,
 		       status, verified_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)
 		RETURNING created_at, updated_at
 	`
 	if p.ID == uuid.Nil {
@@ -81,6 +84,7 @@ func (r *BuyerPaymentRepository) Create(p *models.BuyerPayment) error {
 		p.ProductsBaseTotal, p.ProductsPointsUsed, p.ProductsPointsDiscount, p.ProductsFinalTotal,
 		p.DeliveryFeeBase, p.DeliveryPointsUsed, p.DeliveryPointsDiscount, p.DeliveryFeeFinal,
 		p.CashDue, p.PaymentMarkup, p.PaymentMarkupType, p.PaymentMarkupValue, p.FinalTotal, p.Provider, p.ProviderReference, p.PaymentTiming,
+		p.InternalReference, p.PayerPhone,
 		p.BuyerConfirmed, p.BuyerConfirmedAt, p.SellerConfirmed, p.SellerConfirmedBy, p.SellerConfirmedAt,
 		p.Status, p.VerifiedAt,
 	).Scan(&p.CreatedAt, &p.UpdatedAt)
@@ -116,13 +120,46 @@ func (r *BuyerPaymentRepository) MarkProviderOutcome(id uuid.UUID, status models
 }
 
 // MarkInitiated records that the buyer asked the provider to charge them.
-func (r *BuyerPaymentRepository) MarkInitiated(id uuid.UUID, reference string) error {
+//
+// This is as far as starting a payment ever gets it: PROCESSING means "the
+// operator has been asked", never "the buyer has paid". Only a verified webhook
+// moves it on from here.
+func (r *BuyerPaymentRepository) MarkInitiated(id uuid.UUID, reference, payerPhone string) error {
 	_, err := r.db.Exec(`
 		UPDATE buyer_payments
 		SET status='PROCESSING', provider_reference=COALESCE(NULLIF($2,''), provider_reference),
+		    payer_phone=COALESCE(NULLIF($3,''), payer_phone),
 		    payment_initiated_at=COALESCE(payment_initiated_at, NOW()), updated_at=NOW()
 		WHERE id=$1 AND status IN ('DUE','PENDING','PROCESSING')
-	`, id, reference)
+	`, id, reference, payerPhone)
+	return err
+}
+
+// SetInternalReference stamps our own reference on a payment at creation time.
+func (r *BuyerPaymentRepository) SetInternalReference(id uuid.UUID, reference string) error {
+	_, err := r.db.Exec(
+		`UPDATE buyer_payments SET internal_reference=$2, updated_at=NOW() WHERE id=$1 AND internal_reference=''`,
+		id, reference,
+	)
+	return err
+}
+
+// RecordReceipt attaches the proof of a settled payment: the reference the buyer
+// can quote back, when it was issued, and whatever the operator echoed that is
+// safe to keep. Written once, after settlement - never before, because a receipt
+// for a payment that has not happened is exactly the fiction this system must
+// not produce.
+func (r *BuyerPaymentRepository) RecordReceipt(id uuid.UUID, reference string, metadata models.JSONMap) error {
+	if metadata == nil {
+		metadata = models.JSONMap{}
+	}
+	_, err := r.db.Exec(`
+		UPDATE buyer_payments
+		SET receipt_reference=COALESCE(NULLIF($2,''), receipt_reference),
+		    receipt_issued_at=COALESCE(receipt_issued_at, NOW()),
+		    provider_metadata=$3, updated_at=NOW()
+		WHERE id=$1 AND status IN ('PAID','VERIFIED')
+	`, id, reference, metadata)
 	return err
 }
 

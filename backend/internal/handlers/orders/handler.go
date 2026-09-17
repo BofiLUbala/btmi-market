@@ -17,6 +17,7 @@ type Handler struct {
 	pointRedemptionSvc  *service.PointRedemptionService
 	buyerProfileService *service.BuyerProfileService
 	paymentService      *service.PaymentService
+	checkoutService     *service.CheckoutService
 }
 
 func NewHandler(orderService *service.OrderService, pointRedemptionSvc *service.PointRedemptionService, buyerProfileService *service.BuyerProfileService, paymentService *service.PaymentService) *Handler {
@@ -543,6 +544,10 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 		case "INVALID_STATUS_TRANSITION":
 			statusCode = http.StatusBadRequest
 			errorCode = "INVALID_STATUS_TRANSITION"
+		case "PAYMENT_ALREADY_SETTLED", "PAYMENT_IN_PROGRESS":
+			// A paid or in-flight order goes through a refund, not a cancel.
+			statusCode = http.StatusConflict
+			errorCode = err.Error()
 		}
 
 		h.errResponse(c, statusCode, errorCode, err.Error())
@@ -983,7 +988,7 @@ func (h *Handler) CreateBuyerPayment(c *gin.Context) {
 		h.errResponse(c, http.StatusBadRequest, "INVALID_PAYMENT_METHOD", err.Error())
 		return
 	}
-	result, err := h.paymentService.CreatePayment(buyerProfileID, orderID, req.PaymentMethod)
+	result, err := h.paymentService.CreatePayment(buyerProfileID, orderID, &req)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"
@@ -994,7 +999,13 @@ func (h *Handler) CreateBuyerPayment(c *gin.Context) {
 		case "FORBIDDEN":
 			statusCode = http.StatusForbidden
 			errorCode = "FORBIDDEN"
-		case "INVALID_STATUS_TRANSITION", "DELIVERY_NOT_SELECTED", "PAYMENT_METHOD_UNAVAILABLE", "PAYMENT_PROVIDER_NOT_CONFIGURED", "PAYMENT_ALREADY_SELECTED":
+		case "INVALID_STATUS_TRANSITION", "DELIVERY_NOT_SELECTED", "DELIVERY_DETAILS_INCOMPLETE",
+			"PAYMENT_METHOD_UNAVAILABLE", "PAYMENT_PROVIDER_NOT_CONFIGURED", "PAYMENT_ALREADY_SELECTED",
+			// The buyer picked a mobile method without naming an operator, named
+			// one for cash, or named one we do not settle through. Each is a
+			// correctable choice, so each gets its own code rather than a 500.
+			"PAYMENT_PROVIDER_REQUIRED", "PROVIDER_NOT_APPLICABLE", "PAYMENT_PROVIDER_UNKNOWN",
+			"PAYMENT_PROVIDER_UNAVAILABLE", "MARKUP_CURRENCY_MISMATCH":
 			statusCode = http.StatusBadRequest
 			errorCode = err.Error()
 		}
@@ -1133,6 +1144,10 @@ func (h *Handler) CancelBuyerOrder(c *gin.Context) {
 		case "INVALID_STATUS_TRANSITION":
 			statusCode = http.StatusBadRequest
 			errorCode = "INVALID_STATUS_TRANSITION"
+		case "PAYMENT_ALREADY_SETTLED", "PAYMENT_IN_PROGRESS":
+			// A paid or in-flight order goes through a refund, not a cancel.
+			statusCode = http.StatusConflict
+			errorCode = err.Error()
 		}
 		h.errResponse(c, statusCode, errorCode, err.Error())
 		return
@@ -1157,7 +1172,13 @@ func (h *Handler) InitiateBuyerPayment(c *gin.Context) {
 		return
 	}
 
-	result, err := h.paymentService.InitiatePayment(buyerProfileID, orderID)
+	// The phone may be named here rather than at checkout, which is what a
+	// pay-at-delivery payment does. An empty body is legal: the number chosen at
+	// checkout then stands.
+	var req models.InitiatePaymentRequest
+	_ = c.ShouldBindJSON(&req)
+
+	result, err := h.paymentService.InitiatePayment(buyerProfileID, orderID, &req)
 	if err != nil {
 		status := http.StatusBadRequest
 		switch err.Error() {
@@ -1167,7 +1188,9 @@ func (h *Handler) InitiateBuyerPayment(c *gin.Context) {
 			status = http.StatusForbidden
 		case "PAYMENT_PROVIDER_NOT_CONFIGURED":
 			status = http.StatusServiceUnavailable
-		case "AWAITING_DELIVERY_STAGE", "ALREADY_PAID", "CASH_ON_DELIVERY", "PAYMENT_CLOSED":
+		case "PAYER_PHONE_REQUIRED", "INVALID_PAYMENT_AMOUNT":
+			status = http.StatusBadRequest
+		case "AWAITING_DELIVERY_STAGE", "AWAITING_PRODUCT_VERIFICATION", "ALREADY_PAID", "CASH_ON_DELIVERY", "PAYMENT_CLOSED":
 			status = http.StatusConflict
 		}
 		h.errResponse(c, status, err.Error(), err.Error())

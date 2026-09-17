@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderDetail, type AdminDeliveryHandover } from '@/api/admin'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
@@ -37,16 +37,27 @@ export default function OrderDetailPage() {
   const [assignError, setAssignError] = useState('')
   const [handover, setHandover] = useState<AdminDeliveryHandover | null>(null)
 
-  useEffect(() => {
+  const loadOrder = useCallback((background = false) => {
     if (!id) return
-    setLoading(true)
+    if (!background) setLoading(true)
     adminCommerceApi.getOrder(id)
       .then((res) => setOrder(res))
-      .catch(() => navigate('/admin/commerce/orders'))
-      .finally(() => setLoading(false))
+      // A failed background refresh must not eject the admin from the page they
+      // are reading; only the first load navigates away.
+      .catch(() => { if (!background) navigate('/admin/commerce/orders') })
+      .finally(() => { if (!background) setLoading(false) })
     // The handover view is supplementary: an order without a package yet must still render.
     adminCommerceApi.getDeliveryHandover(id).then(setHandover).catch(() => setHandover(null))
   }, [id, navigate])
+
+  useEffect(() => { loadOrder() }, [loadOrder])
+
+  // The payment on this order can be settled by a courier or an operator while
+  // it is on screen, so the payment card refreshes itself.
+  useEffect(() => {
+    const timer = window.setInterval(() => loadOrder(true), 30_000)
+    return () => window.clearInterval(timer)
+  }, [loadOrder])
 
   async function handleAssignCourier() {
     if (!id || !courierId.trim()) return
@@ -95,8 +106,17 @@ export default function OrderDetailPage() {
             <Field label={t('admin.orders.fieldBaseTotal')} value={`$${order.order.base_total.toFixed(2)}`} />
             <Field label={t('admin.orders.fieldDeliveryFee')} value={`$${order.order.delivery_fee.toFixed(2)}`} />
             <Field label={t('admin.orders.fieldPointsDiscount')} value={order.order.points_discount > 0 ? `-$${order.order.points_discount.toFixed(2)}` : '$0.00'} />
-            {order.payment && <Field label={t('admin.orders.fieldPaymentMethod')} value={order.payment.payment_method} />}
+            <Field label={t('admin.orders.fieldPaymentMethod')} value={order.order.payment_method || order.payment?.payment_method || '-'} />
+            {order.order.payment_provider && <Field label="Opérateur" value={order.order.payment_provider.replace(/_/g, ' ')} />}
             <Field label={t('admin.orders.fieldPaymentStatus')} value={<StatusBadge status={order.order.payment_status} />} />
+            {order.order.payment_reference && <Field label="Référence paiement" value={order.order.payment_reference} />}
+            {order.order.paid_at && (
+              <Field
+                label="Paiement confirmé le"
+                value={`${new Date(order.order.paid_at).toLocaleString()}${order.order.payment_confirmation_actor ? ` · ${order.order.payment_confirmation_actor}` : ''}`}
+              />
+            )}
+            {order.order.seller_name && <Field label="Vendeur" value={order.order.seller_name} />}
             <Field label={t('admin.orders.fieldDeliveryMethod')} value={order.order.delivery_method || t('admin.common.notAvailable')} />
             {order.order.is_stuck && <Field label={t('admin.orders.fieldStuckReason')} value={order.order.stuck_reason || t('admin.orders.stuckReasonDefault')} />}
           </Section>
@@ -110,7 +130,7 @@ export default function OrderDetailPage() {
             {order.order.delivery_notes && <Field label={t('admin.orders.deliveryCustomerNotes')} value={order.order.delivery_notes} />}
             {order.order.assigned_courier_id && (
               <>
-                <Field label={t('admin.orders.assignedCourierId')} value={order.order.assigned_courier_id} />
+                <Field label={t('admin.orders.assignedCourierId')} value={order.order.courier_name ? `${order.order.courier_name} · ${order.order.assigned_courier_id}` : order.order.assigned_courier_id} />
                 {order.order.courier_assigned_at && (
                   <Field label={t('admin.orders.assignedAt')} value={new Date(order.order.courier_assigned_at).toLocaleString()} />
                 )}

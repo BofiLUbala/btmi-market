@@ -306,7 +306,7 @@ func TestTBKCentralizedDeliveryFlow(t *testing.T) {
 
 	// 4. Test Payment continuation is unblocked
 	t.Run("Payment continuation works once delivery is saved", func(t *testing.T) {
-		payment, err := paymentService.CreatePayment(buyerProfile.ID, orderID)
+		payment, err := paymentService.CreatePayment(buyerProfile.ID, orderID, &models.CreatePaymentRequest{PaymentMethod: models.PaymentMethodCashOnDelivery})
 		if err != nil {
 			t.Fatalf("payment creation failed: %v", err)
 		}

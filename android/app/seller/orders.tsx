@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native'
+import { Image } from 'expo-image'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
-import { ApiError } from '../../src/api/client'
+import { API_URL, ApiError } from '../../src/api/client'
+import { tokenStore } from '../../src/api/tokenStore'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
-import type { SellerOrder } from '../../src/types'
+import type { BuyerPayment, SellerOrder } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
 import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
@@ -35,12 +37,40 @@ function nextActions(order: SellerOrder): SellerAction[] {
   if (order.status === 'PREPARING') {
     return order.delivery_method === 'PICKUP'
       ? [{ label: 'seller.readyForPickup', status: 'READY_FOR_PICKUP' }]
-      : [{ label: 'seller.ready', status: 'READY' }]
+      : [{ label: 'seller.readyForTbkPickup', status: 'READY' }]
   }
   if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: 'seller.ship', status: 'OUT_FOR_DELIVERY' }]
   if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: 'seller.handToCourier', status: 'HANDED_TO_PARTNER' }]
   if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: 'seller.markDelivered', status: 'DELIVERED' }]
   return []
+}
+
+/** Statuses in which the package label exists and the courier may still need it. */
+const PACKAGE_QR_STATUSES = ['READY', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+/** The seller-cancel endpoint only accepts these; offering it later just fails. */
+const CANCELLABLE = ['PENDING', 'ACCEPTED']
+const SETTLED = ['PAID', 'VERIFIED']
+const METHOD_KEYS: Record<string, TranslationKey> = {
+  CASH_ON_DELIVERY: 'seller.method.CASH_ON_DELIVERY',
+  MOBILE_PAY_NOW: 'seller.method.MOBILE_PAY_NOW',
+  MOBILE_AT_DELIVERY: 'seller.method.MOBILE_AT_DELIVERY',
+}
+const PROVIDER_LABELS: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 'Airtel Money', ORANGE_MONEY: 'Orange Money' }
+
+type Translate = ReturnType<typeof useI18n>['t']
+function deliveryStatusLabel(t: Translate, status?: string): string {
+  if (!status) return '—'
+  const key = `delivery.status.${status}` as TranslationKey
+  const label = t(key)
+  return label === key ? status.replaceAll('_', ' ') : label
+}
+
+/** Who settles this payment and whether they already have - never a guess from the method name alone. */
+function paymentNote(t: Translate, payment: BuyerPayment): string {
+  if (SETTLED.includes(payment.status)) {
+    return payment.confirmation_actor === 'COURIER' ? t('seller.paidByCourier') : t('seller.paidByProvider')
+  }
+  return payment.payment_method === 'CASH_ON_DELIVERY' ? t('seller.awaitingCourierCash') : t('seller.awaitingProvider')
 }
 
 export default function SellerOrders() {
@@ -69,7 +99,12 @@ export default function SellerOrders() {
     },
   })
 
-  const invalidateOrders = () => { void queryClient.invalidateQueries({ queryKey: ['seller', 'orders'] }) }
+  // An action changes the list, the expanded detail, the payment card, the package
+  // label and the dashboard counters, so all of them refetch from the backend.
+  const invalidateOrders = (id?: string) => {
+    for (const key of ['orders', 'cashSummary', 'growth']) void queryClient.invalidateQueries({ queryKey: ['seller', key] })
+    if (id) for (const key of ['orderDetail', 'payment', 'packageQR']) void queryClient.invalidateQueries({ queryKey: ['seller', key, id] })
+  }
 
   const transition = useMutation({
     mutationFn: ({ id, action }: { id: string; action: SellerAction }) => {
@@ -78,14 +113,14 @@ export default function SellerOrders() {
       if (action.kind === 'prepare') return sellerApi.prepareOrder(id)
       return sellerApi.sellerTransition(id, action.status)
     },
-    onSuccess: invalidateOrders,
-    onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')),
+    onSuccess: (_data, variables) => invalidateOrders(variables.id),
+    onError: (e) => { setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')); invalidateOrders() },
   })
 
   const cancel = useMutation({
     mutationFn: (id: string) => sellerApi.cancelOrder(id),
-    onSuccess: invalidateOrders,
-    onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')),
+    onSuccess: (_data, id) => invalidateOrders(id),
+    onError: (e) => { setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')); invalidateOrders() },
   })
 
   const groups = useMemo(() => {
@@ -103,12 +138,21 @@ export default function SellerOrders() {
 
   const runAction = (order: SellerOrder, action: SellerAction) => {
     setActionError('')
+    if (action.kind === 'reject') {
+      Alert.alert(t('seller.rejectConfirmTitle'), t('seller.rejectConfirmBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('seller.reject'), style: 'destructive', onPress: () => transition.mutate({ id: order.id, action }) },
+      ])
+      return
+    }
     transition.mutate({ id: order.id, action })
   }
-  const CANCELLABLE = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY']
   const runCancel = (order: SellerOrder) => {
     setActionError('')
-    cancel.mutate(order.id)
+    Alert.alert(t('seller.cancelConfirmTitle'), t('seller.cancelConfirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('seller.cancelOrder'), style: 'destructive', onPress: () => cancel.mutate(order.id) },
+    ])
   }
 
   if (businesses.isLoading || shops.isLoading) return <Loading label={t('seller.loadingBusinesses')}/>
@@ -167,9 +211,20 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
     enabled: expanded,
     retry: false,
   })
+  // The courier scans this label at pickup. It was only shown on the web
+  // dashboard, so a seller working from the phone had nothing to present.
+  const showPackageQR = expanded && PACKAGE_QR_STATUSES.includes(order.status)
+  const packageQR = useQuery({
+    queryKey: ['seller','packageQR',order.id],
+    queryFn: () => sellerApi.packageQR(order.id),
+    enabled: showPackageQR,
+    retry: false,
+  })
+  const accessToken = useQuery({ queryKey: ['auth','accessToken'], queryFn: () => tokenStore.getAccess(), enabled: showPackageQR, staleTime: 60_000 })
   return <Card>
     <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text></View>
     <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{formatMoney(order.final_total, order.currency)}</Text></View>
+    {order.delivery_status ? <Text style={styles.muted}>{t('seller.deliveryStatus')} : {deliveryStatusLabel(t, order.delivery_status)}</Text> : null}
     <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
     {actions.length ? actions.map((action) => (
       <Button key={action.status} variant={action.destructive ? 'outline' : 'primary'} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
@@ -188,17 +243,37 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
           </Text>
         ))}
         <Text style={styles.detailHeading}>{t('checkout.delivery')}</Text>
+        <Text style={styles.muted}>{t('seller.deliveryStatus')} : {deliveryStatusLabel(t, detail.data.order.delivery_status || order.delivery_status || 'PENDING_TBK_ASSIGNMENT')}</Text>
         <Text style={styles.muted}>{detail.data.order.delivery_contact_name || '—'}{detail.data.order.delivery_phone ? ` · ${detail.data.order.delivery_phone}` : ''}</Text>
         <Text style={styles.muted}>{detail.data.order.delivery_address || '—'}</Text>
         {detail.data.order.delivery_notes ? <Text style={styles.muted}>{detail.data.order.delivery_notes}</Text> : null}
         <Text style={styles.muted}>{t('orders.deliveryFee')} : {formatMoney(detail.data.order.delivery_fee_final ?? 0, orderCurrency)}</Text>
         <Text style={styles.detailTotal}>{t('common.total')} : {formatMoney(order.final_total, orderCurrency)}</Text>
       </> : detail.isLoading ? <Text style={styles.muted}>{t('common.loading')}</Text> : null}
+      <Text style={styles.detailHeading}>{t('seller.paymentHeading')}</Text>
       {payment.isLoading ? <Text style={styles.muted}>{t('seller.loadingPayment')}</Text> : payment.data ? <>
+        <Text style={styles.muted}>{t('seller.paymentMode')} : {METHOD_KEYS[payment.data.payment_method] ? t(METHOD_KEYS[payment.data.payment_method]) : payment.data.payment_method}</Text>
+        {payment.data.provider ? <Text style={styles.muted}>{t('seller.paymentOperator')} : {payment.data.provider_label || PROVIDER_LABELS[payment.data.provider] || payment.data.provider}</Text> : null}
         <Text style={styles.muted}>{t('orders.amountDue', { amount: formatMoney(payment.data.cash_due, payment.data.currency) })}</Text>
-        <Text style={styles.muted}>{t('orders.status')} : {statusLabel(t, payment.data.status)}</Text>
-        <Text style={styles.muted}>{t('orders.cashConfirmedByCourier')}</Text>
+        <Text style={styles.muted}>{t('seller.paymentMarkup')} : {formatMoney(payment.data.payment_markup ?? 0, payment.data.currency)}</Text>
+        <Text style={styles.detailTotal}>{t('seller.paymentTotal')} : {formatMoney(payment.data.final_total, payment.data.currency)}</Text>
+        <Text style={styles.muted}>{t('seller.paymentStatus')} : {statusLabel(t, payment.data.status)}</Text>
+        {(payment.data.receipt_reference || payment.data.internal_reference) ? <Text style={styles.muted}>{t('seller.paymentReference')} : {payment.data.receipt_reference || payment.data.internal_reference}</Text> : null}
+        <Text style={styles.muted}>{paymentNote(t, payment.data)}</Text>
       </> : <Text style={styles.muted}>{t('seller.noPayment')}</Text>}
+      {showPackageQR ? <View style={styles.qrBox}>
+        <Text style={styles.detailHeading}>{t('seller.packageQr')}</Text>
+        {packageQR.data && accessToken.data ? <>
+          <Image
+            source={{ uri: `${API_URL}/orders/${order.id}/package-qr/label`, headers: { Authorization: `Bearer ${accessToken.data}` } }}
+            style={styles.qrImage}
+            contentFit="contain"
+            accessibilityLabel={t('seller.packageQr')}
+          />
+          <Text style={styles.number}>{packageQR.data.reference} · #{packageQR.data.package_number}</Text>
+          <Text style={styles.muted}>{t('seller.packageQrHint')}</Text>
+        </> : packageQR.isLoading || accessToken.isLoading ? <Text style={styles.muted}>{t('common.loading')}</Text> : <Text style={styles.muted}>{t('seller.packageQrUnavailable')}</Text>}
+      </View> : null}
     </View>}
   </Card>
 }
@@ -230,6 +305,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   details: { gap: spacing.xs, paddingTop: spacing.xs },
   detailHeading: { color: colors.ink, fontWeight: '900', marginTop: spacing.xs },
   detailTotal: { color: colors.ink, fontWeight: '900' },
+  qrBox: { alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  qrImage: { width: 220, height: 220, maxWidth: '100%' },
   muted: { color: colors.muted },
   error: { color: colors.danger },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },

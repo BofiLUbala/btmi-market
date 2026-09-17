@@ -63,9 +63,12 @@ type SaleFinanceLine struct {
 // order, payment, buyer and order-line snapshots. Both seller and Finance Admin
 // endpoints return this exact model.
 type SaleFinanceDetail struct {
-	Sale             SaleCommission    `json:"sale"`
-	BuyerName        string            `json:"buyer_name"`
-	PaymentMethod    string            `json:"payment_method"`
+	Sale          SaleCommission `json:"sale"`
+	BuyerName     string         `json:"buyer_name"`
+	PaymentMethod string         `json:"payment_method"`
+	// The operator behind the payment, and the reference the buyer can quote.
+	Provider         string            `json:"provider,omitempty"`
+	PaymentReference string            `json:"payment_reference,omitempty"`
 	PaymentStatus    string            `json:"payment_status"`
 	OrderStatus      string            `json:"order_status"`
 	DeliveryMethod   string            `json:"delivery_method"`
@@ -84,14 +87,19 @@ type SaleFinanceDetail struct {
 // history tables show. Seller Finance and Finance Admin read the same rows.
 type SaleHistoryItem struct {
 	SaleCommission
-	BuyerName      string            `json:"buyer_name"`
-	PaymentMethod  string            `json:"payment_method"`
-	PaymentStatus  string            `json:"payment_status"`
-	OrderStatus    string            `json:"order_status"`
-	DeliveryMethod string            `json:"delivery_method"`
-	DeliveryStatus string            `json:"delivery_status"`
-	TotalQuantity  int               `json:"total_quantity"`
-	Lines          []SaleFinanceLine `json:"lines"`
+	BuyerName     string `json:"buyer_name"`
+	PaymentMethod string `json:"payment_method"`
+	// The operator the buyer paid with, blank for cash. A sale row that names the
+	// method but not the operator cannot be reconciled against an operator's
+	// statement, which is most of what this history is read for.
+	Provider         string            `json:"provider,omitempty"`
+	PaymentReference string            `json:"payment_reference,omitempty"`
+	PaymentStatus    string            `json:"payment_status"`
+	OrderStatus      string            `json:"order_status"`
+	DeliveryMethod   string            `json:"delivery_method"`
+	DeliveryStatus   string            `json:"delivery_status"`
+	TotalQuantity    int               `json:"total_quantity"`
+	Lines            []SaleFinanceLine `json:"lines"`
 }
 
 // CommissionConfig represents the global platform commission configuration.

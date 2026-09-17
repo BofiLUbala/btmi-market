@@ -109,9 +109,36 @@ func (s *QRService) CourierConfirmCash(courierUserID, orderID uuid.UUID, req mod
 			payment.Currency, payment.FinalTotal, ctx.orderNumber, payment.ID, payment.PaymentMethod))
 
 	if s.paymentSvc != nil {
+		// Cash has no operator reference, so our own is what the buyer sees on the
+		// receipt. It is written only now, once the money has actually changed
+		// hands at the door.
+		receiptReference := payment.InternalReference
+		if receiptReference == "" {
+			receiptReference = ctx.orderNumber
+		}
+		_ = s.paymentRepo.RecordReceipt(payment.ID, receiptReference, models.JSONMap{
+			"settled_by":   "COURIER",
+			"method":       payment.PaymentMethod,
+			"collected_at": now.UTC().Format(time.RFC3339),
+		})
+
+		s.paymentSvc.audit(&models.PaymentAuditEvent{
+			PaymentID: &payment.ID, OrderID: &orderID,
+			EventType: models.PaymentEventCashCollected, ActorType: models.PaymentActorCourier,
+			ActorID: &courierUserID, Amount: &payment.FinalTotal, Currency: payment.Currency,
+			Reference: receiptReference,
+			Detail:    models.JSONMap{"order_number": ctx.orderNumber},
+		})
+
 		s.paymentSvc.enqueueVerified(payment)
 		if s.paymentSvc.commService != nil {
-			_, _ = s.paymentSvc.commService.CalculateAndRecordCommission(orderID)
+			if _, err := s.paymentSvc.commService.CalculateAndRecordCommission(orderID); err == nil {
+				s.paymentSvc.audit(&models.PaymentAuditEvent{
+					PaymentID: &payment.ID, OrderID: &orderID,
+					EventType: models.PaymentEventCommissionComputed, ActorType: models.PaymentActorSystem,
+					Currency: payment.Currency, Reference: receiptReference,
+				})
+			}
 		}
 	}
 	s.fillCommission(orderID, response)
@@ -241,6 +268,7 @@ func (s *QRService) HandoverState(orderID, userID uuid.UUID, role string) (*mode
 			state.PaymentMethod = payment.PaymentMethod
 			state.PaymentStatus = string(payment.Status)
 			state.PaymentTiming = payment.PaymentTiming
+			state.PaymentProvider = payment.Provider
 			state.AmountDue = payment.FinalTotal
 			state.Currency = payment.Currency
 			state.PaymentVerified = paymentSettled(payment.Status)
@@ -257,7 +285,9 @@ func (s *QRService) HandoverState(orderID, userID uuid.UUID, role string) (*mode
 		orderID).Scan(&scanned, &confirmed)
 	state.DeliveryScanned = scanned != nil
 	state.ReceiptConfirmed = confirmed != nil
-	state.CourierArrived = handoverActiveStages[ctx.deliveryStatus]
+	// Arrival is a fact that stays true once the handover is over: a received
+	// order was, by definition, reached by its courier.
+	state.CourierArrived = handoverActiveStages[ctx.deliveryStatus] || ctx.deliveryStatus == models.DeliveryStatusReceived
 
 	s.applyHandoverGates(state)
 	return state, nil

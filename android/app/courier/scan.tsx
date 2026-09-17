@@ -1,16 +1,19 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import NetInfo from '@react-native-community/netinfo'
+import { useQueryClient } from '@tanstack/react-query'
 import { courierApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { useColors } from '../../src/store/theme'
-import { useI18n } from '../../src/store/i18n'
+import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { statusLabel } from '../../src/lib/statusLabels'
-import type { QRScanResponse } from '../../src/types'
+import { invalidateCourierMission, productVerificationBody } from '../../src/lib/courier'
+import type { HandoverVerificationResult, QRScanResponse } from '../../src/types'
 
-type ScanType = 'PICKUP' | 'DELIVERY'
+/** PICKUP / DELIVERY scan the package QR; PRODUCT checks a product label at the door. */
+type ScanType = 'PICKUP' | 'DELIVERY' | 'PRODUCT'
 
 /** What the courier is shown. `pending` is the offline state: captured, not yet confirmed. */
 type Outcome =
@@ -18,6 +21,7 @@ type Outcome =
   | { kind: 'sending' }
   | { kind: 'pending'; token: string; message: string }
   | { kind: 'done'; response: QRScanResponse }
+  | { kind: 'verified'; result: HandoverVerificationResult }
   | { kind: 'error'; message: string }
 
 /**
@@ -35,7 +39,10 @@ export default function CourierScanScreen() {
   const styles = useMemo(() => makeStyles(c), [c])
   const router = useRouter()
   const params = useLocalSearchParams<{ type?: string; order_id?: string }>()
-  const scanType: ScanType = params.type === 'DELIVERY' ? 'DELIVERY' : 'PICKUP'
+  const scanType: ScanType = params.type === 'DELIVERY' ? 'DELIVERY' : params.type === 'PRODUCT' ? 'PRODUCT' : 'PICKUP'
+  const queryClient = useQueryClient()
+  // Typed fallback when the camera cannot read the label: same endpoints, same checks.
+  const [manualCode, setManualCode] = useState('')
 
   const [permission, requestPermission] = useCameraPermissions()
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' })
@@ -48,6 +55,15 @@ export default function CourierScanScreen() {
     async (token: string, key: string) => {
       setOutcome({ kind: 'sending' })
       try {
+        if (scanType === 'PRODUCT') {
+          if (!params.order_id) throw new ApiError(400, 'QR_INVALID', t('courier.scan.invalid'))
+          const result = await courierApi.verifyProduct(params.order_id, productVerificationBody(token))
+          invalidateCourierMission(queryClient, params.order_id)
+          // A mismatch is a verdict, not a transport error: show which kind it was.
+          if (result.result === 'VALID' || result.result === 'ALREADY_USED') setOutcome({ kind: 'verified', result })
+          else setOutcome({ kind: 'error', message: t(`courier.verdict.${result.result}` as TranslationKey) })
+          return
+        }
         const scan = scanType === 'PICKUP' ? courierApi.scanPickup : courierApi.scanDelivery
         const response = await scan({
           token,
@@ -56,6 +72,7 @@ export default function CourierScanScreen() {
           device_metadata: { scan_type: scanType },
         })
         setOutcome({ kind: 'done', response })
+        invalidateCourierMission(queryClient, params.order_id || response.order_id)
       } catch (e) {
         // A transport failure is NOT a rejection: the scan may or may not have landed.
         // Say so honestly and let the courier retry under the same idempotency key.
@@ -73,11 +90,12 @@ export default function CourierScanScreen() {
               ? t('courier.scan.invalid')
               : t('courier.scan.rejected')
         setOutcome({ kind: 'error', message })
+        invalidateCourierMission(queryClient, params.order_id)
       } finally {
         busy.current = false
       }
     },
-    [params.order_id, scanType, t]
+    [params.order_id, queryClient, scanType, t]
   )
 
   const onScanned = useCallback(
@@ -89,6 +107,15 @@ export default function CourierScanScreen() {
     },
     [scanType, submit]
   )
+
+  function submitManual() {
+    const code = manualCode.trim()
+    if (busy.current || !code) return
+    busy.current = true
+    idempotencyKey.current = scanType + ':' + code + ':' + Date.now()
+    setManualCode('')
+    void submit(code, idempotencyKey.current)
+  }
 
   function reset() {
     busy.current = false
@@ -132,10 +159,30 @@ export default function CourierScanScreen() {
 
       <View style={styles.overlay} pointerEvents="box-none">
         <Text style={styles.heading}>
-          {t(scanType === 'PICKUP' ? 'courier.scan.pickupTitle' : 'courier.scan.deliveryTitle')}
+          {t(scanType === 'PICKUP' ? 'courier.scan.pickupTitle' : scanType === 'PRODUCT' ? 'courier.scan.productTitle' : 'courier.scan.deliveryTitle')}
         </Text>
 
         {scanning && <View style={styles.reticle} />}
+
+        {scanning && (
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.manual}>
+            <Text style={styles.body}>{t(scanType === 'PRODUCT' ? 'courier.manualCode' : 'courier.scan.manualLabel')}</Text>
+            <TextInput
+              value={manualCode}
+              onChangeText={setManualCode}
+              autoCapitalize={scanType === 'PRODUCT' ? 'characters' : 'none'}
+              autoCorrect={false}
+              placeholder={scanType === 'PRODUCT' ? 'PRD-… / VAR-…' : 'tbk.…'}
+              placeholderTextColor={c.muted}
+              style={styles.input}
+              onSubmitEditing={submitManual}
+              returnKeyType="done"
+            />
+            <Pressable style={[styles.primary, !manualCode.trim() && styles.disabled]} disabled={!manualCode.trim()} onPress={submitManual}>
+              <Text style={styles.primaryText}>{t('courier.verifyCode')}</Text>
+            </Pressable>
+          </KeyboardAvoidingView>
+        )}
 
         {outcome.kind === 'sending' && (
           <View style={styles.panel}>
@@ -171,6 +218,19 @@ export default function CourierScanScreen() {
           </View>
         )}
 
+        {outcome.kind === 'verified' && (
+          <View style={styles.panel}>
+            <Text style={styles.success}>{t(`courier.verdict.${outcome.result.result}` as TranslationKey)}</Text>
+            {outcome.result.product_name ? <Text style={styles.body}>{outcome.result.product_name}{outcome.result.variant_name ? ` · ${outcome.result.variant_name}` : ''}</Text> : null}
+            <Pressable style={styles.primary} onPress={reset}>
+              <Text style={styles.primaryText}>{t('courier.scan.scanAgain')}</Text>
+            </Pressable>
+            <Pressable style={styles.primary} onPress={() => router.back()}>
+              <Text style={styles.primaryText}>{t('courier.scan.finish')}</Text>
+            </Pressable>
+          </View>
+        )}
+
         {outcome.kind === 'error' && (
           <View style={styles.panel}>
             <Text style={styles.error}>{outcome.message}</Text>
@@ -199,5 +259,8 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     error: { fontSize: 16, fontWeight: '700', color: '#B3261E', textAlign: 'center' },
     primary: { backgroundColor: c.green, paddingVertical: 12, paddingHorizontal: 22, borderRadius: 10, marginTop: 4 },
     primaryText: { color: c.white, fontWeight: '700', fontSize: 15 },
+    disabled: { opacity: 0.5 },
+    manual: { width: '100%', backgroundColor: c.white, borderRadius: 14, padding: 14, gap: 8, alignItems: 'stretch' },
+    input: { minHeight: 44, borderWidth: 1, borderColor: c.border, borderRadius: 10, paddingHorizontal: 12, color: c.ink, backgroundColor: c.cream },
   })
 }

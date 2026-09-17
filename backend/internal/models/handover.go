@@ -93,9 +93,12 @@ type HandoverState struct {
 	ShopName        string `json:"shop_name,omitempty"`
 	SellerName      string `json:"seller_name,omitempty"`
 
-	PaymentMethod   string  `json:"payment_method"`
-	PaymentStatus   string  `json:"payment_status"`
-	PaymentTiming   string  `json:"payment_timing,omitempty"`
+	PaymentMethod string `json:"payment_method"`
+	PaymentStatus string `json:"payment_status"`
+	PaymentTiming string `json:"payment_timing,omitempty"`
+	// The operator behind a mobile payment, so the courier can tell the buyer
+	// which one to approve on their handset. Blank for cash.
+	PaymentProvider string  `json:"payment_provider,omitempty"`
 	AmountDue       float64 `json:"amount_due"`
 	Currency        string  `json:"currency"`
 	PaymentVerified bool    `json:"payment_verified"`

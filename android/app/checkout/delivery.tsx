@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi } from '../../src/api'
 import { useAuth } from '../../src/store/auth'
@@ -27,12 +27,16 @@ function savedAddressFromProfile(profile: any): StructuredAddressValue | null {
 export default function DeliveryScreen() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
-  const { orderId } = useLocalSearchParams<{ orderId?: string }>()
+  const { orderId, orderIds: orderIdsParam, checkoutGroupId } = useLocalSearchParams<{ orderId?: string; orderIds?: string; checkoutGroupId?: string }>()
+  // A multi-shop checkout is one order per shop; the buyer chooses delivery once.
+  const orderIds = useMemo(() => {
+    const ids = (orderIdsParam || '').split(',').filter(Boolean)
+    return ids.length ? ids : orderId ? [orderId] : []
+  }, [orderIdsParam, orderId])
   const user = useAuth((state) => state.user)
   const { t } = useI18n()
 
   const [usePoints, setUsePoints] = useState(false)
-  const [previewFee, setPreviewFee] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [contact, setContact] = useState({
     contact_name: user ? `${user.first_name} ${user.last_name}`.trim() : '',
@@ -72,22 +76,41 @@ export default function DeliveryScreen() {
     enabled: Boolean(orderId),
   })
 
-  const option = options.data?.options?.[0]
-  const baseFee = option?.fee ?? 0
-  const displayedFee = previewFee !== null ? previewFee : baseFee
+  // Every order of the checkout group has its own delivery fee, priced by the backend.
+  const groupOptions = useQueries({
+    queries: orderIds.map((id) => ({
+      queryKey: ['checkout', 'delivery-options', id],
+      queryFn: () => buyerApi.deliveryOptions(id),
+    })),
+  })
+  const baseFee = groupOptions.reduce((sum, q) => sum + (q.data?.options?.[0]?.fee ?? 0), 0)
+
+  // Points preview for each order, straight from the backend rule. Nothing is recomputed here.
+  const pointsPreviews = useQueries({
+    queries: orderIds.map((id) => ({
+      queryKey: ['checkout', 'delivery-points-preview', id],
+      queryFn: () => buyerApi.deliveryPointsPreview(id, true),
+      enabled: usePoints,
+      retry: false,
+    })),
+  })
+  const previewsReady = usePoints && pointsPreviews.length > 0 && pointsPreviews.every((q) => q.data)
+  const previewFee = previewsReady ? pointsPreviews.reduce((sum, q) => sum + q.data!.fee_final, 0) : null
+  const previewPointsUsed = previewsReady ? pointsPreviews.reduce((sum, q) => sum + q.data!.points_used, 0) : 0
+  const availablePoints = pointsPreviews.find((q) => q.data)?.data?.available_points ?? 0
+  // Each preview is priced against the full balance, while confirming reserves points
+  // order by order. When the group needs more points than the buyer has, the summed
+  // preview is not what will be charged: say so rather than show a wrong total. The
+  // payment step shows the backend's per-order amounts after reservation.
+  const pointsShortForGroup = orderIds.length > 1 && previewsReady && previewPointsUsed > availablePoints
+  const displayedFee = previewFee !== null && !pointsShortForGroup ? previewFee : baseFee
 
   const formInvalid = !contact.contact_name.trim() || !contact.phone.trim() ||
     (mode === 'custom' && !isStructuredAddressComplete(address))
 
-  const pointsMutation = useMutation({
-    mutationFn: (next: boolean) => buyerApi.deliveryPointsPreview(orderId!, next),
-    onSuccess: (data) => setPreviewFee(data.fee_final),
-    onError: () => setPreviewFee(null),
-  })
-
   const selectMutation = useMutation({
-    mutationFn: () =>
-      buyerApi.selectDelivery(orderId!, {
+    mutationFn: async () => {
+      const body = (saveAddress: boolean) => ({
         method: 'TBK_STANDARD',
         use_points_for_delivery: usePoints,
         contact_name: contact.contact_name.trim(),
@@ -97,9 +120,16 @@ export default function DeliveryScreen() {
         province: address.province, city: address.city, commune: address.commune,
         street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
         notes: contact.notes.trim(),
-        save_address: mode === 'saved' ? false : savePrimary,
-      }),
-    onSuccess: () => router.push({ pathname: '/checkout/payment', params: { orderId } }),
+        save_address: saveAddress,
+      })
+      const first = await buyerApi.selectDelivery(orderId!, body(mode === 'saved' ? false : savePrimary))
+      // The other orders of the group get the same address, applied by the same endpoint.
+      for (const siblingId of orderIds.filter((id) => id !== orderId)) {
+        await buyerApi.selectDelivery(siblingId, body(false))
+      }
+      return first
+    },
+    onSuccess: () => router.push({ pathname: '/checkout/payment', params: { orderId, orderIds: orderIds.join(','), ...(checkoutGroupId ? { checkoutGroupId } : {}) } }),
     onError: (err: any) => {
       const msg = err?.response?.data?.message || err?.message || t('checkout.deliverySaveFailed')
       setError(msg)
@@ -107,9 +137,7 @@ export default function DeliveryScreen() {
   })
 
   function togglePoints() {
-    const next = !usePoints
-    setUsePoints(next)
-    if (orderId) pointsMutation.mutate(next)
+    setUsePoints(!usePoints)
   }
 
   function submit() {
@@ -171,11 +199,15 @@ export default function DeliveryScreen() {
                 onPress={togglePoints}
               />
             </View>
-            {usePoints && previewFee !== null ? (
+            {usePoints && previewFee !== null && !pointsShortForGroup ? (
               <Text style={[styles.pointsNote, { marginTop: spacing.xs }]}>
                 {t('checkout.deliveryFee', { from: money(baseFee), to: money(previewFee) })}
               </Text>
             ) : null}
+            {usePoints && pointsShortForGroup ? (
+              <Text style={[styles.muted, { marginTop: spacing.xs }]}>{t('checkout.pointsSplitAcrossOrders', { points: availablePoints })}</Text>
+            ) : null}
+            {orderIds.length > 1 ? <Text style={[styles.muted, { marginTop: spacing.xs }]}>{t('checkout.deliveryFeesForOrders', { count: orderIds.length })}</Text> : null}
           </Card>
         ) : null}
 
@@ -204,14 +236,14 @@ export default function DeliveryScreen() {
 
         {mode === 'saved' && savedAddress && (
           <Card>
-            <Text style={styles.savedLabel}>Adresse enregistrée</Text>
+            <Text style={styles.savedLabel}>{t('delivery.savedAddress')}</Text>
             <Text style={styles.savedValue}>{savedAddress.street}, {savedAddress.building_number}</Text>
             <Text style={styles.savedValue}>{savedAddress.commune}, {savedAddress.city}</Text>
             <Text style={styles.savedValue}>{savedAddress.province}</Text>
             {savedAddress.landmark ? <Text style={[styles.savedValue, { marginTop: 4 }]}>Repère : {savedAddress.landmark}</Text> : null}
-            <Button title="Utiliser cette adresse" onPress={submit} loading={selectMutation.isPending} />
+            <Button title={t('delivery.useSavedAddress')} onPress={submit} loading={selectMutation.isPending} />
             <TouchableOpacity onPress={() => { setError(''); setMode('custom') }}>
-              <Text style={styles.customLink}>Utiliser une autre adresse</Text>
+              <Text style={styles.customLink}>{t('delivery.useAnotherAddress')}</Text>
             </TouchableOpacity>
           </Card>
         )}
@@ -230,10 +262,10 @@ export default function DeliveryScreen() {
             </TouchableOpacity>
             {savedAddress && (
               <TouchableOpacity onPress={() => { setError(''); setMode('saved') }}>
-                <Text style={styles.customLink}>Revenir à l'adresse enregistrée</Text>
+                <Text style={styles.customLink}>{t('delivery.backToSavedAddress')}</Text>
               </TouchableOpacity>
             )}
-            <Button title={t('checkout.continueToPayment')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
+            <Button title={t('delivery.continueToReview')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
           </Card>
         )}
 

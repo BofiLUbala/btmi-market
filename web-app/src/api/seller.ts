@@ -263,10 +263,16 @@ export interface SellerFinanceDashboard {
   collected_commission: number
   due_commission: number
   waived_commission: number
+  /** Settled money split by rail: the two always sum to payments_collected. */
   collected_cash: number
+  collected_mobile: number
+  collected_by_provider?: { provider: string; label?: string; amount: number; payments: number; currency?: string }[]
   /** Buyer-payment axis, kept separate from the commission axis above. */
   payments_collected: number
   payments_due: number
+  /** Strict subset of payments_due: awaiting an operator's answer. */
+  payments_pending?: number
+  refunded_amount?: number
   units_sold: number
   verified_sales: number
   refunded_sales: number
@@ -301,6 +307,9 @@ export interface SellerFinanceBreakdownItem {
   seller_net_amount: number
   collected: number
   due: number
+  /** Buyer axis on the same row: what this shop/product has been paid, and what is still owed. */
+  payments_collected?: number
+  payments_due?: number
   sales_count: number
   units_sold: number
   currency: string
@@ -365,6 +374,10 @@ export interface SaleFinanceLine {
 export interface SaleHistoryItem extends SellerSaleCommissionItem {
   buyer_name: string
   payment_method: string
+  /** Operator behind a mobile payment; absent for cash. */
+  provider?: string
+  /** The reference the buyer can quote back. */
+  payment_reference?: string
   payment_status: string
   order_status: string
   delivery_method: string
@@ -377,6 +390,8 @@ export interface SaleFinanceDetail {
   sale: SellerSaleCommissionItem
   buyer_name: string
   payment_method: string
+  provider?: string
+  payment_reference?: string
   payment_status: string
   order_status: string
   delivery_method: string

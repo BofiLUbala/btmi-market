@@ -31,7 +31,7 @@ export default function SellerBusinessScreen() {
     setForm({
       name: activeBusiness.name, category: activeBusiness.category ?? '', phone: activeBusiness.phone ?? '',
       whatsapp: activeBusiness.whatsapp ?? '', email: activeBusiness.email ?? '', city: activeBusiness.city ?? '',
-      country: activeBusiness.country ?? '', default_currency: activeBusiness.default_currency ?? 'CDF',
+      country: activeBusiness.country ?? '', default_currency: activeBusiness.default_currency ?? 'USD',
     })
   }, [activeBusiness?.id])
 

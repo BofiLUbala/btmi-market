@@ -703,7 +703,17 @@ export interface BuyerPayment {
   delivery_points_discount: number
   delivery_fee_final: number
   cash_due: number
-  payment_markup: number; final_total: number; provider?: string
+  payment_markup: number; final_total: number
+  /** Normalised operator: MPESA | AIRTEL_MONEY | ORANGE_MONEY, or absent for cash. */
+  provider?: PaymentProviderCode | ''
+  provider_label?: string
+  /** Our own reference, allocated when the payment is created. */
+  internal_reference?: string
+  payer_phone?: string
+  /** Proof of a settled payment. Absent until it actually settles. */
+  receipt_reference?: string
+  receipt_issued_at?: string | null
+  initiated_at?: string | null
   payment_markup_type?: 'NONE' | 'PERCENTAGE' | 'FIXED'; payment_markup_value?: number
   provider_reference?: string; payment_timing: 'NOW' | 'DELIVERY'
   /** Server-decided: may the buyer start paying this right now, and if not why. */
@@ -740,7 +750,53 @@ export interface PaymentInitiation {
   instructions?: string
 }
 export interface PaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_amount: number; quoted_total: number; provider?: string }
-export interface CheckoutQuote { order_id: string; currency: string; subtotal: number; discount: number; points_discount: number; delivery_fee: number; payment_markup: number; final_total: number; selected_payment_method: string; payment_methods: PaymentMethodConfig[] }
+
+/** The three mobile money operators. The backend enforces the same set. */
+export type PaymentProviderCode = 'MPESA' | 'AIRTEL_MONEY' | 'ORANGE_MONEY'
+
+export interface PaymentProvider { code: PaymentProviderCode; label: string; enabled: boolean; display_order: number }
+
+export interface CheckoutQuote {
+  order_id: string; currency: string; subtotal: number; discount: number
+  points_discount: number; delivery_fee: number; payment_markup: number; final_total: number
+  selected_payment_method: string; payment_methods: PaymentMethodConfig[]
+  /** Operators the buyer may pick, straight from the live catalog. */
+  providers: PaymentProvider[]
+}
+
+/* ---------- Multi-shop cart ---------- */
+
+/**
+ * A cart line carries its own shop. Without it the client had to guess which
+ * shop a variant came from - it used the first line's - which is what made a
+ * second shop's product impossible to check out with.
+ */
+export interface CartLineInput { product_id: string; variant_id: string; shop_id: string; quantity: number }
+
+/** A problem with one specific line. The rest of the cart stays valid. */
+export interface CartLineIssue {
+  product_id: string; variant_id: string; shop_id: string
+  product_name?: string; variant_name?: string
+  code: string; message: string; available: number; requested: number
+}
+
+export interface CartShopGroup {
+  shop_id: string; shop_name: string; currency: string
+  subtotal: number; item_count: number
+  order_id?: string; order_number?: string
+  lines: CartLineInput[]
+}
+
+export interface CartPreview {
+  currency: string; subtotal: number; item_count: number; shop_count: number
+  shops: CartShopGroup[]; issues: CartLineIssue[]; checkoutable: boolean
+  available_points: number; points_discount_amount: number; final_total: number
+}
+
+export interface CheckoutCreated {
+  checkout_group_id: string; currency: string; subtotal: number
+  shop_count: number; shops: CartShopGroup[]; order_ids: string[]
+}
 
 /* ---------- Tracking ---------- */
 
@@ -1542,6 +1598,8 @@ export interface HandoverState {
   payment_method: string
   payment_status: string
   payment_timing?: string
+  /** Operator behind a mobile payment; absent for cash. */
+  payment_provider?: string
   amount_due: number
   currency: string
   payment_verified: boolean

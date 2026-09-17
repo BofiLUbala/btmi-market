@@ -469,6 +469,16 @@ export interface AdminOrderItem {
   courier_assigned_at?: string
   courier_notes?: string
   payment_status: string
+  /** How the buyer pays, through which operator, and the reference to quote. */
+  payment_method?: string
+  payment_provider?: string
+  payment_reference?: string
+  payment_timing?: string
+  /** When the payment actually settled, and who settled it (COURIER / PROVIDER). */
+  paid_at?: string
+  payment_confirmation_actor?: string
+  courier_name?: string
+  seller_name?: string
   is_stuck: boolean
   stuck_reason?: string
   created_at: string
@@ -1143,10 +1153,17 @@ export interface FinanceDashboardReport {
   collected_commission: number
   due_commission: number
   waived_commission: number
+  /** Settled money split by rail: these two always sum to payments_collected. */
   collected_cash: number
+  collected_mobile: number
+  collected_by_provider?: { provider: string; label?: string; amount: number; payments: number; currency?: string }[]
   /** Buyer-payment axis, independent of the commission axis above. */
   payments_collected: number
   payments_due: number
+  /** Strict subset of payments_due: a charge is raised and awaiting an answer. */
+  payments_pending: number
+  /** Money returned to buyers, kept apart from every collected figure. */
+  refunded_amount: number
   units_sold: number
   verified_sales: number
   refunded_sales: number
@@ -1256,6 +1273,14 @@ export interface AdminPaymentListItem {
   seller_confirmed_received: boolean
   seller_confirmed_at?: string
   payment_method: string
+  /** Operator behind a mobile payment, blank for cash; the reference to quote;
+   *  and where the delivery had got to, with the courier carrying it. */
+  provider?: string
+  payment_reference?: string
+  payment_timing?: string
+  delivery_status?: string
+  courier_id?: string
+  courier_name?: string
   /** COURIER for cash taken at the door, PROVIDER for a settled mobile payment. */
   confirmation_actor: string
   confirmed_by_user_id?: string

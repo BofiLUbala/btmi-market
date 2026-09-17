@@ -415,7 +415,15 @@ export default function SellerFinancesPage() {
                   </td>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ fontWeight: 600 }}>{item.payment_method || '—'}</div>
+                    {/* The operator, so a mobile sale can be reconciled against
+                        that operator's own statement. */}
+                    {item.provider && (
+                      <div style={{ fontSize: 11, fontWeight: 600 }}>{item.provider.replace(/_/g, ' ')}</div>
+                    )}
                     <div style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>{item.payment_status || '—'}</div>
+                    {item.payment_reference && (
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted, #94a3b8)' }}>{item.payment_reference}</div>
+                    )}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 16px', fontSize: 12 }}>
                     {item.delivery_status || item.delivery_method || item.order_status || '—'}
@@ -479,7 +487,11 @@ export default function SellerFinancesPage() {
             <div style={{ marginBottom: 16, fontSize: 13, lineHeight: 1.7 }}>
               <div><strong>Acheteur :</strong> {selectedSale.buyer_name || '—'}</div>
               <div><strong>Entreprise / boutique :</strong> {selectedSale.sale.business_name} / {selectedSale.sale.shop_name}</div>
-              <div><strong>Paiement :</strong> {selectedSale.payment_method || '—'} · {selectedSale.payment_status || '—'}</div>
+              <div>
+                <strong>Paiement :</strong> {selectedSale.payment_method || '—'}
+                {selectedSale.provider ? ` · ${selectedSale.provider.replace(/_/g, ' ')}` : ''} · {selectedSale.payment_status || '—'}
+                {selectedSale.payment_reference ? ` · réf. ${selectedSale.payment_reference}` : ''}
+              </div>
               <div><strong>Commande / livraison :</strong> {selectedSale.order_status} · {selectedSale.delivery_status || selectedSale.delivery_method || '—'}</div>
               <div><strong>Date :</strong> {new Date(selectedSale.ordered_at).toLocaleString()}</div>
             </div>

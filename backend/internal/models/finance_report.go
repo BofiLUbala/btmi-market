@@ -61,23 +61,45 @@ const (
 // snapshots) joined to orders and buyer_payments, so none of it is a
 // client-side estimate. GROSS - COMMISSION = SELLER NET always holds.
 type FinanceDashboardReport struct {
-	GrossSales          float64                `json:"gross_sales"`          // Σ commission_base (merchandise, after points discount)
-	CommissionAmount    float64                `json:"commission_amount"`    // Σ commission_amount, excl. WAIVED
-	SellerNetAmount     float64                `json:"seller_net_amount"`    // Σ seller_net_amount, excl. WAIVED
-	CollectedCommission float64                `json:"collected_commission"` // commission paid by sellers
-	DueCommission       float64                `json:"due_commission"`       // commission pending collection
-	WaivedCommission    float64                `json:"waived_commission"`    // commission on refunded/voided sales
-	CollectedCash       float64                `json:"collected_cash"`       // Σ buyer_payments.cash_due (incl. delivery fees)
-	PaymentsCollected   float64                `json:"payments_collected"`   // Σ cash_due of VERIFIED buyer payments
-	PaymentsDue         float64                `json:"payments_due"`         // Σ cash_due still awaiting verification
-	UnitsSold           int                    `json:"units_sold"`           // Σ order_lines.quantity on non-WAIVED sales
-	VerifiedSales       int                    `json:"verified_sales"`       // number of verified sales snapshots (excl. WAIVED)
-	RefundedSales       int                    `json:"refunded_sales"`       // number of WAIVED / refunded snapshots
-	PendingOrders       int                    `json:"pending_orders"`       // orders with no VERIFIED payment yet
-	CommissionRate      float64                `json:"commission_rate"`      // current platform rate (informational)
-	Currency            string                 `json:"currency,omitempty"`   // populated when the result has one currency
-	MixedCurrency       bool                   `json:"mixed_currency"`
-	TotalsByCurrency    []FinanceCurrencyTotal `json:"totals_by_currency"`
+	GrossSales          float64 `json:"gross_sales"`          // Σ commission_base (merchandise, after points discount)
+	CommissionAmount    float64 `json:"commission_amount"`    // Σ commission_amount, excl. WAIVED
+	SellerNetAmount     float64 `json:"seller_net_amount"`    // Σ seller_net_amount, excl. WAIVED
+	CollectedCommission float64 `json:"collected_commission"` // commission paid by sellers
+	DueCommission       float64 `json:"due_commission"`       // commission pending collection
+	WaivedCommission    float64 `json:"waived_commission"`    // commission on refunded/voided sales
+	// Settled money, split by the rail it arrived on. Cash is counted only for
+	// CASH_ON_DELIVERY and mobile only for the two mobile methods, so the two
+	// always sum to PaymentsCollected and neither can be read as the other.
+	CollectedCash   float64 `json:"collected_cash"`   // Σ cash_due of settled CASH_ON_DELIVERY payments
+	CollectedMobile float64 `json:"collected_mobile"` // Σ cash_due of settled mobile money payments
+	// Settled money per operator, for reconciling against each one's statement.
+	CollectedByProvider []FinanceProviderTotal `json:"collected_by_provider"`
+	PaymentsCollected   float64                `json:"payments_collected"` // Σ cash_due of VERIFIED buyer payments
+	PaymentsDue         float64                `json:"payments_due"`       // Σ cash_due still awaiting verification
+	// A strict subset of PaymentsDue: a charge has been raised with an operator
+	// and we are waiting on the answer, as opposed to money the buyer has simply
+	// not been asked for yet. Never add this to PaymentsDue.
+	PaymentsPending float64 `json:"payments_pending"`
+	// Money returned to the buyer. Kept apart from every "collected" figure so a
+	// refund can never read as revenue.
+	RefundedAmount   float64                `json:"refunded_amount"`
+	UnitsSold        int                    `json:"units_sold"`         // Σ order_lines.quantity on non-WAIVED sales
+	VerifiedSales    int                    `json:"verified_sales"`     // number of verified sales snapshots (excl. WAIVED)
+	RefundedSales    int                    `json:"refunded_sales"`     // number of WAIVED / refunded snapshots
+	PendingOrders    int                    `json:"pending_orders"`     // orders with no VERIFIED payment yet
+	CommissionRate   float64                `json:"commission_rate"`    // current platform rate (informational)
+	Currency         string                 `json:"currency,omitempty"` // populated when the result has one currency
+	MixedCurrency    bool                   `json:"mixed_currency"`
+	TotalsByCurrency []FinanceCurrencyTotal `json:"totals_by_currency"`
+}
+
+// FinanceProviderTotal is what one mobile money operator actually settled.
+type FinanceProviderTotal struct {
+	Provider string  `json:"provider"`
+	Label    string  `json:"label,omitempty"`
+	Amount   float64 `json:"amount"`
+	Payments int     `json:"payments"`
+	Currency string  `json:"currency,omitempty"`
 }
 
 type FinanceCurrencyTotal struct {
@@ -104,11 +126,16 @@ type FinanceBreakdownItem struct {
 	GrossSales       float64 `json:"gross_sales"`
 	CommissionAmount float64 `json:"commission_amount"`
 	SellerNetAmount  float64 `json:"seller_net_amount"`
-	Collected        float64 `json:"collected"`
-	Due              float64 `json:"due"`
-	SalesCount       int     `json:"sales_count"`
-	UnitsSold        int     `json:"units_sold"`
-	Currency         string  `json:"currency"`
+	// Commission collected from / still owed by the seller. These are the TBK
+	// axis; the two below are the buyer axis. Keeping both on the row is what
+	// lets a shop be read without a second query.
+	Collected         float64 `json:"collected"`
+	Due               float64 `json:"due"`
+	PaymentsCollected float64 `json:"payments_collected"`
+	PaymentsDue       float64 `json:"payments_due"`
+	SalesCount        int     `json:"sales_count"`
+	UnitsSold         int     `json:"units_sold"`
+	Currency          string  `json:"currency"`
 }
 
 // FinanceTimeseriesPoint is one bucket of the finance chart series. Charts

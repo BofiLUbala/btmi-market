@@ -138,10 +138,23 @@ type AdminOrderItem struct {
 	CourierAssignedAt   *time.Time `json:"courier_assigned_at,omitempty"`
 	CourierNotes        string     `json:"courier_notes,omitempty"`
 	PaymentStatus       string     `json:"payment_status"`
-	IsStuck             bool       `json:"is_stuck"`
-	StuckReason         string     `json:"stuck_reason,omitempty"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	// How the buyer is paying, through which operator, under which reference, and
+	// when it actually settled. Without these the order list can say a payment is
+	// outstanding but not who is expected to settle it or how to chase it.
+	PaymentMethod    string     `json:"payment_method,omitempty"`
+	PaymentProvider  string     `json:"payment_provider,omitempty"`
+	PaymentReference string     `json:"payment_reference,omitempty"`
+	PaymentTiming    string     `json:"payment_timing,omitempty"`
+	PaidAt           *time.Time `json:"paid_at,omitempty"`
+	// Who is carrying it and who is selling it, by name, for the detail view.
+	CourierName string `json:"courier_name,omitempty"`
+	SellerName  string `json:"seller_name,omitempty"`
+	// Who settled the payment: COURIER for cash, PROVIDER for mobile money.
+	PaymentConfirmationActor string    `json:"payment_confirmation_actor,omitempty"`
+	IsStuck                  bool      `json:"is_stuck"`
+	StuckReason              string    `json:"stuck_reason,omitempty"`
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
 }
 
 type AdminOrderDetail struct {

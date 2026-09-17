@@ -31,7 +31,24 @@ function SuccessInner() {
 
   if (!order) return <LoadingBlock label={t('payment.confirmingOrder')} />
 
-  const amount = payment?.cash_due ?? order.order.final_total + order.order.delivery_fee_final
+  const amount = payment?.final_total ?? payment?.cash_due ?? order.order.final_total + order.order.delivery_fee_final
+  // The headline has to match how this order is actually being paid. It used to
+  // say "to pay in cash" for everything, including an order the operator had
+  // just confirmed as paid by mobile money.
+  const provider = payment?.provider_label || payment?.provider || ''
+  const paid = payment ? ['PAID', 'VERIFIED'].includes(payment.status) : false
+  const headline = paid
+    ? t('success.amountPaid')
+    : payment?.payment_method === 'MOBILE_AT_DELIVERY'
+    ? t('success.amountDueMobileAtDelivery')
+    : payment?.payment_method === 'MOBILE_PAY_NOW'
+    ? t('success.awaitingOperator')
+    : t('success.amountToPay')
+  const note = paid && provider
+    ? t('success.paidBy', { provider })
+    : payment?.payment_method === 'MOBILE_AT_DELIVERY' && provider
+    ? t('success.mobileAtDeliveryHint', { provider })
+    : t('success.trackingHint')
 
   return (
     <div className="checkout-page fade-in">
@@ -44,9 +61,9 @@ function SuccessInner() {
           {t('success.shopNotified')}
         </p>
         <div className="pay-big" style={{ width: '100%', maxWidth: 380 }}>
-          <div className="small muted">{t('success.amountToPay')}</div>
+          <div className="small muted">{headline}</div>
           <div className="amount">{formatMoney(amount, payment?.currency ?? 'USD')}</div>
-          <div className="pay-note">{t('success.trackingHint')}</div>
+          <div className="pay-note">{note}</div>
         </div>
         <div className="row-between" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link to={`/orders/${orderId}/tracking`}>

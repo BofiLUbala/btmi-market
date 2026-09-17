@@ -37,7 +37,14 @@ function DeliveryInner() {
   const { user, buyerProfile } = useAuth()
   const t = useT()
   const location = useLocation()
-  const orderId = (location.state as { orderId?: string } | null)?.orderId
+  const checkoutState = location.state as
+    | { orderId?: string; orderIds?: string[]; checkoutGroupId?: string }
+    | null
+  const orderId = checkoutState?.orderId
+  // A cart spanning several shops produced several orders. The buyer chooses one
+  // address once; it is applied to every order in the checkout, so the split
+  // never becomes the buyer's problem.
+  const orderIds = checkoutState?.orderIds?.length ? checkoutState.orderIds : orderId ? [orderId] : []
 
   const [data, setData] = useState<DeliveryOptionsResponse | null>(null)
   const [usePointsForDelivery, setUsePointsForDelivery] = useState(false)
@@ -152,8 +159,25 @@ function DeliveryInner() {
         // on explicit opt-in.
         save_address: mode === 'saved' ? false : savePrimary
       })
+      // The remaining orders of a multi-shop checkout get the same address. They
+      // are applied after the first so its response is the one summarised.
+      for (const siblingId of orderIds.filter((id) => id !== orderId)) {
+        await buyerApi.selectDelivery(siblingId, {
+          method: 'TBK_STANDARD',
+          use_points_for_delivery: usePointsForDelivery,
+          contact_name: contact.contact_name.trim(),
+          phone: contact.phone.trim(),
+          address: [address.street.trim(), address.building_number.trim(), address.commune, address.city, address.province].filter(Boolean).join(', '),
+          province_id: address.province_id, city_id: address.city_id, commune_id: address.commune_id,
+          province: address.province, city: address.city, commune: address.commune,
+          street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
+          notes: contact.notes.trim(),
+          save_address: false
+        })
+      }
+
       navigate('/checkout/payment', {
-        state: { orderId, summary: res },
+        state: { orderId, orderIds, checkoutGroupId: checkoutState?.checkoutGroupId, summary: res },
         replace: true
       })
     } catch (e) {

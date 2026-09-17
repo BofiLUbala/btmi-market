@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { buyerApi, authApi } from '../../src/api'
+import { buyerApi, authApi, courierApi } from '../../src/api'
 import { ApiError, resolveMediaUrl } from '../../src/api/client'
 import { prepareAvatarUpload } from '../../src/lib/imageUpload'
 import { useAuth } from '../../src/store/auth'
@@ -119,6 +119,8 @@ export default function ProfileScreen() {
   const colors = useColors()
   const themed = useMemo(() => makeStyles(colors), [colors])
   const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: Boolean(user) && user?.account_type !== 'EMPLOYEE' })
+  // Courier space is shown only when the backend recognises this account as a courier.
+  const courierProfile = useQuery({ queryKey: ['courier', 'profile'], queryFn: courierApi.profile, enabled: Boolean(user), retry: false, staleTime: 5 * 60_000 })
   const becomeSeller = useMutation({ mutationFn: authApi.becomeSeller, onSuccess: async () => { await useAuth.getState().refresh(); router.push('/seller/onboarding') }, onError: () => Alert.alert(t('common.error'), t('seller.becomeFailed')) })
 
   if (!user) {
@@ -216,6 +218,7 @@ export default function ProfileScreen() {
       <Card>
         <Pressable onPress={() => router.push('/notifications')}><Text style={themed.item}>{t('notifications.title')}  ›</Text></Pressable>
         <Pressable onPress={() => router.push('/orders')}><Text style={themed.item}>{t('profile.myOrders')}  ›</Text></Pressable>
+        {courierProfile.data ? <Pressable onPress={() => router.push('/courier')}><Text style={themed.item}>{t('courier.spaceTitle')}  ›</Text></Pressable> : null}
         <Text style={themed.item}>{t('profile.myPoints')}</Text>
         <Pressable onPress={() => router.push('/reviews')}><Text style={themed.item}>{t('profile.myReviews')}  ›</Text></Pressable>
       </Card>

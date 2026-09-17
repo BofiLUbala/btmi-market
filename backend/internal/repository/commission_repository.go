@@ -229,7 +229,9 @@ func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) 
 		argIdx++
 	}
 	if filter.DateTo != "" {
-		where = append(where, fmt.Sprintf("c.calculated_at <= $%d", argIdx))
+		// date_to is a calendar day and includes all of it: "<= '2026-09-16'" would
+		// stop at midnight and drop every sale made on the 16th.
+		where = append(where, fmt.Sprintf("c.calculated_at < ($%d::date + INTERVAL '1 day')", argIdx))
 		args = append(args, filter.DateTo)
 		argIdx++
 	}
@@ -276,7 +278,9 @@ func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) 
 		       c.status, c.calculated_at, c.collected_at, c.collected_by, COALESCE(adm.first_name || ' ' || adm.last_name, adm.email, ''),
 		       c.notes, c.created_at, c.updated_at,
 		       COALESCE(bp.first_name || ' ' || bp.last_name, bp.email, ''),
-		       COALESCE(pay.payment_method, ''), COALESCE(pay.status::text, ''),
+		       COALESCE(pay.payment_method, ''), COALESCE(pay.provider, ''),
+		       COALESCE(NULLIF(pay.receipt_reference, ''), NULLIF(pay.provider_reference, ''), pay.internal_reference, ''),
+		       COALESCE(pay.status::text, ''),
 		       o.status::text, COALESCE(o.delivery_method, ''), COALESCE(o.delivery_status, '')
 		FROM sale_commissions c
 		JOIN orders o ON c.order_id = o.id
@@ -392,7 +396,7 @@ func (r *CommissionRepository) scanHistoryRow(rows *sql.Rows) (*models.SaleHisto
 		&c.GrossAmount, &c.CommissionBase, &c.CommissionRate, &c.CommissionAmount, &c.SellerNetAmount, &c.Currency,
 		&c.Status, &c.CalculatedAt, &collectedAt, &collectedBy, &c.CollectorName,
 		&c.Notes, &c.CreatedAt, &c.UpdatedAt,
-		&item.BuyerName, &item.PaymentMethod, &item.PaymentStatus,
+		&item.BuyerName, &item.PaymentMethod, &item.Provider, &item.PaymentReference, &item.PaymentStatus,
 		&item.OrderStatus, &item.DeliveryMethod, &item.DeliveryStatus,
 	)
 	if err != nil {
@@ -475,7 +479,9 @@ func (r *CommissionRepository) GetSaleFinanceDetail(orderID uuid.UUID) (*models.
 	var verifiedAt sql.NullTime
 	err = r.db.QueryRow(`
 		SELECT COALESCE(bp.first_name || ' ' || bp.last_name, bp.email, ''),
-		       COALESCE(pay.payment_method, ''), COALESCE(pay.status::text, ''),
+		       COALESCE(pay.payment_method, ''), COALESCE(pay.provider, ''),
+		       COALESCE(NULLIF(pay.receipt_reference, ''), NULLIF(pay.provider_reference, ''), pay.internal_reference, ''),
+		       COALESCE(pay.status::text, ''),
 		       o.status::text, COALESCE(o.delivery_method, ''), COALESCE(o.delivery_status, ''),
 		       COALESCE(pay.payment_markup, 0), COALESCE(pay.delivery_fee_final, o.delivery_fee_final, 0),
 		       COALESCE(pay.products_final_total, c.gross_amount), COALESCE(pay.final_total, o.final_total),
@@ -485,7 +491,7 @@ func (r *CommissionRepository) GetSaleFinanceDetail(orderID uuid.UUID) (*models.
 		LEFT JOIN buyer_payments pay ON pay.order_id = o.id
 		LEFT JOIN buyer_profiles bp ON bp.id = COALESCE(pay.buyer_profile_id, o.buyer_profile_id)
 		WHERE c.order_id = $1`, orderID).Scan(
-		&detail.BuyerName, &detail.PaymentMethod, &detail.PaymentStatus,
+		&detail.BuyerName, &detail.PaymentMethod, &detail.Provider, &detail.PaymentReference, &detail.PaymentStatus,
 		&detail.OrderStatus, &detail.DeliveryMethod, &detail.DeliveryStatus,
 		&detail.PaymentMarkup, &detail.DeliveryFee, &detail.ProductsSubtotal, &detail.FinalTotal,
 		&detail.OrderedAt, &verifiedAt,
@@ -633,7 +639,9 @@ func commissionReportWhere(filter *models.FinanceReportFilter) (string, []interf
 		argIdx++
 	}
 	if filter.DateTo != "" {
-		where = append(where, fmt.Sprintf("c.calculated_at <= $%d", argIdx))
+		// date_to is a calendar day and includes all of it: "<= '2026-09-16'" would
+		// stop at midnight and drop every sale made on the 16th.
+		where = append(where, fmt.Sprintf("c.calculated_at < ($%d::date + INTERVAL '1 day')", argIdx))
 		args = append(args, filter.DateTo)
 		argIdx++
 	}
@@ -647,17 +655,30 @@ func commissionReportWhere(filter *models.FinanceReportFilter) (string, []interf
 // orderLineUnitsJoin attaches one pre-aggregated units row per commission so
 // SUM(quantity) can sit beside SUM(gross_amount) without the join fanning the
 // money columns out across order lines.
+// orderLineUnitsJoin brings each commission's unit count and its buyer payment
+// alongside it. buyer_payments is unique per order, so the payment join can
+// never multiply a commission row into two.
 const orderLineUnitsJoin = `
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(SUM(l.quantity), 0) AS units
 			FROM order_lines l WHERE l.order_id = c.order_id
-		) olu ON true`
+		) olu ON true
+		LEFT JOIN buyer_payments bpay ON bpay.order_id = c.order_id`
 
 // settledPaymentStatuses are the states in which the buyer has actually paid.
 // unsettledPaymentStatuses are the states in which money is still owed by the
 // buyer; CANCELLED / FAILED / REFUNDED are owed by nobody and are in neither.
 const settledPaymentStatuses = `('VERIFIED', 'PAID')`
 const unsettledPaymentStatuses = `('PENDING', 'CONFIRMED', 'DUE', 'PROCESSING')`
+
+// inFlightPaymentStatuses is the subset of the unsettled ones where a charge has
+// actually been raised and we are waiting on an answer, as opposed to money the
+// buyer simply has not been asked for yet. It is a strict subset: "pending" is
+// part of "due", never a figure alongside it.
+const inFlightPaymentStatuses = `('PENDING', 'PROCESSING')`
+
+// refundedPaymentStatuses is money that went back to the buyer.
+const refundedPaymentStatuses = `('REFUNDED')`
 
 // GetDashboardReport builds the real-totals finance dashboard for Finance
 // Admin and sellers from per-sale commission snapshots and buyer payments.
@@ -725,24 +746,6 @@ func (r *CommissionRepository) GetDashboardReport(filter *models.FinanceReportFi
 		report.Currency = report.TotalsByCurrency[0].Currency
 	}
 	report.MixedCurrency = len(report.TotalsByCurrency) > 1
-
-	// Cash actually collected from buyers for the same commission population,
-	// including delivery fees the seller keeps.
-	cashWhere := strings.TrimPrefix(whereClause, "WHERE")
-	if cashWhere != "" {
-		cashWhere = " AND " + cashWhere
-	}
-	cashQuery := fmt.Sprintf(`
-		SELECT COALESCE(SUM(p.cash_due), 0)
-		FROM sale_commissions c
-		JOIN buyer_payments p ON p.order_id = c.order_id
-		WHERE p.status IN ('PAID', 'VERIFIED')
-		  AND c.status <> 'WAIVED'
-		%s
-	`, cashWhere)
-	if err := r.db.QueryRow(cashQuery, args...).Scan(&report.CollectedCash); err != nil {
-		return nil, err
-	}
 
 	// Buyer-side money movement, over ALL orders in scope rather than only the
 	// ones that already produced a commission snapshot: what buyers have paid
@@ -816,7 +819,7 @@ func orderScopeQuery(base string, filter *models.FinanceReportFilter) (string, [
 		idx++
 	}
 	if filter.DateTo != "" {
-		base += fmt.Sprintf(" AND o.created_at <= $%d", idx)
+		base += fmt.Sprintf(" AND o.created_at < ($%d::date + INTERVAL '1 day')", idx)
 		args = append(args, filter.DateTo)
 		idx++
 	}
@@ -826,14 +829,24 @@ func orderScopeQuery(base string, filter *models.FinanceReportFilter) (string, [
 // loadPaymentTotals fills the buyer-payment axis of the dashboard: cash already
 // settled and cash still owed, globally and per currency.
 func (r *CommissionRepository) loadPaymentTotals(filter *models.FinanceReportFilter, report *models.FinanceDashboardReport, byCurrency map[string]int) error {
+	// The settled total is also split by the rail the money arrived on. Both the
+	// split and the total are computed over this one population, so cash + mobile
+	// is always exactly PaymentsCollected rather than a near-miss decomposition
+	// of some other set of orders.
 	base := fmt.Sprintf(`
 		SELECT p.currency,
+		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN p.status IN %s AND p.payment_method = 'CASH_ON_DELIVERY' THEN p.cash_due ELSE 0 END), 0),
+		       COALESCE(SUM(CASE WHEN p.status IN %s AND p.payment_method <> 'CASH_ON_DELIVERY' THEN p.cash_due ELSE 0 END), 0),
 		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0),
 		       COALESCE(SUM(CASE WHEN p.status IN %s THEN p.cash_due ELSE 0 END), 0)
 		FROM buyer_payments p
 		JOIN orders o ON o.id = p.order_id
 		WHERE o.status NOT IN ('CANCELLED', 'REJECTED')`,
-		settledPaymentStatuses, unsettledPaymentStatuses)
+		settledPaymentStatuses, unsettledPaymentStatuses,
+		settledPaymentStatuses, settledPaymentStatuses,
+		inFlightPaymentStatuses, refundedPaymentStatuses)
 	if filter.PaymentStatus != "" {
 		base += " AND p.status = '" + sanitizeStatusLiteral(filter.PaymentStatus) + "'"
 	}
@@ -847,18 +860,52 @@ func (r *CommissionRepository) loadPaymentTotals(filter *models.FinanceReportFil
 	defer rows.Close()
 	for rows.Next() {
 		var currency string
-		var collected, due float64
-		if err := rows.Scan(&currency, &collected, &due); err != nil {
+		var collected, due, cash, mobile, pending, refunded float64
+		if err := rows.Scan(&currency, &collected, &due, &cash, &mobile, &pending, &refunded); err != nil {
 			return err
 		}
 		report.PaymentsCollected = models.RoundMoney(report.PaymentsCollected + collected)
 		report.PaymentsDue = models.RoundMoney(report.PaymentsDue + due)
+		report.PaymentsPending = models.RoundMoney(report.PaymentsPending + pending)
+		report.RefundedAmount = models.RoundMoney(report.RefundedAmount + refunded)
+		report.CollectedCash = models.RoundMoney(report.CollectedCash + cash)
+		report.CollectedMobile = models.RoundMoney(report.CollectedMobile + mobile)
 		if idx, ok := byCurrency[currency]; ok {
 			report.TotalsByCurrency[idx].PaymentsCollected = collected
 			report.TotalsByCurrency[idx].PaymentsDue = due
 		}
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	// And per operator, for reconciling against each one's statement. Legacy rows
+	// carry no operator and so appear in CollectedMobile without appearing here;
+	// that gap is the pre-catalog history, not a missing operator.
+	providerBase := fmt.Sprintf(`
+		SELECT p.provider, COALESCE(SUM(p.cash_due), 0), COUNT(*), MAX(p.currency)
+		FROM buyer_payments p
+		JOIN orders o ON o.id = p.order_id
+		WHERE o.status NOT IN ('CANCELLED', 'REJECTED')
+		  AND p.status IN %s
+		  AND p.provider <> ''`, settledPaymentStatuses)
+	providerQuery, providerArgs := orderScopeQuery(providerBase, filter)
+	providerQuery += " GROUP BY p.provider ORDER BY p.provider"
+
+	providerRows, err := r.db.Query(providerQuery, providerArgs...)
+	if err != nil {
+		return err
+	}
+	defer providerRows.Close()
+	report.CollectedByProvider = []models.FinanceProviderTotal{}
+	for providerRows.Next() {
+		var total models.FinanceProviderTotal
+		if err := providerRows.Scan(&total.Provider, &total.Amount, &total.Payments, &total.Currency); err != nil {
+			return err
+		}
+		report.CollectedByProvider = append(report.CollectedByProvider, total)
+	}
+	return providerRows.Err()
 }
 
 // sanitizeStatusLiteral keeps only the characters a status enum can contain, so
@@ -882,6 +929,8 @@ const orderLevelMetrics = `
 	COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount ELSE 0 END), 0),
 	COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount ELSE 0 END), 0),
 	COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount ELSE 0 END), 0),
+	COALESCE(SUM(CASE WHEN bpay.status IN ` + settledPaymentStatuses + ` THEN bpay.cash_due ELSE 0 END), 0),
+	COALESCE(SUM(CASE WHEN bpay.status IN ` + unsettledPaymentStatuses + ` THEN bpay.cash_due ELSE 0 END), 0),
 	COUNT(CASE WHEN c.status <> 'WAIVED' THEN 1 END),
 	COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN olu.units ELSE 0 END), 0)`
 
@@ -896,6 +945,8 @@ const lineLevelMetrics = `
 	COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN c.seller_net_amount * ` + lineShare + ` ELSE 0 END), 0),
 	COALESCE(SUM(CASE WHEN c.status = 'COLLECTED' THEN c.commission_amount * ` + lineShare + ` ELSE 0 END), 0),
 	COALESCE(SUM(CASE WHEN c.status = 'DUE' THEN c.commission_amount * ` + lineShare + ` ELSE 0 END), 0),
+	COALESCE(SUM(CASE WHEN bpay.status IN ` + settledPaymentStatuses + ` THEN bpay.cash_due * ` + lineShare + ` ELSE 0 END), 0),
+	COALESCE(SUM(CASE WHEN bpay.status IN ` + unsettledPaymentStatuses + ` THEN bpay.cash_due * ` + lineShare + ` ELSE 0 END), 0),
 	COUNT(DISTINCT CASE WHEN c.status <> 'WAIVED' THEN c.order_id END),
 	COALESCE(SUM(CASE WHEN c.status <> 'WAIVED' THEN ol.quantity ELSE 0 END), 0)`
 
@@ -907,7 +958,8 @@ const lineLevelFrom = `
 	JOIN LATERAL (
 		SELECT SUM(l2.final_unit_price * l2.quantity) AS order_gross
 		FROM order_lines l2 WHERE l2.order_id = c.order_id
-	) og ON true`
+	) og ON true
+	LEFT JOIN buyer_payments bpay ON bpay.order_id = c.order_id`
 
 // GetBreakdownReport groups the real sales figures by shop, product, variant,
 // seller or business, with the parent dimension carried in sub_label.
@@ -990,7 +1042,9 @@ func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownG
 	for rows.Next() {
 		var it models.FinanceBreakdownItem
 		if err := rows.Scan(&it.ID, &it.Label, &it.SubLabel, &it.GrossSales, &it.CommissionAmount,
-			&it.SellerNetAmount, &it.Collected, &it.Due, &it.SalesCount, &it.UnitsSold, &it.Currency); err != nil {
+			&it.SellerNetAmount, &it.Collected, &it.Due,
+			&it.PaymentsCollected, &it.PaymentsDue,
+			&it.SalesCount, &it.UnitsSold, &it.Currency); err != nil {
 			return nil, err
 		}
 		// Proportional attribution divides, so round back to the minor unit
@@ -1000,6 +1054,8 @@ func (r *CommissionRepository) GetBreakdownReport(group models.FinanceBreakdownG
 		it.SellerNetAmount = models.RoundMoney(it.SellerNetAmount)
 		it.Collected = models.RoundMoney(it.Collected)
 		it.Due = models.RoundMoney(it.Due)
+		it.PaymentsCollected = models.RoundMoney(it.PaymentsCollected)
+		it.PaymentsDue = models.RoundMoney(it.PaymentsDue)
 		items = append(items, it)
 	}
 	return items, rows.Err()
