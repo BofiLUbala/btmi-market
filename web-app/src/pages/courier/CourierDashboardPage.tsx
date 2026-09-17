@@ -98,7 +98,38 @@ export default function CourierDashboardPage(){
  function AvailabilityPanel(){return <section className="courier-glass courier-section courier-centered"><Heading title="Votre disponibilité" eyebrow="Statut en temps réel"/><div className={`courier-availability-orb ${profile?.availability==='AVAILABLE'?'is-online':''}`}><span/></div><h3>{profile?.status==='SUSPENDED'?'Compte suspendu':profile?.availability==='AVAILABLE'?'Vous êtes disponible':'Vous êtes indisponible'}</h3><p>{profile?.status==='SUSPENDED'?t('courier.dashboard.suspendedBody'):'Votre statut détermine si vous pouvez recevoir de nouvelles missions.'}</p><div className="courier-segmented">{(['AVAILABLE','UNAVAILABLE']as Availability[]).map(v=><button key={v} className={profile?.availability===v?'is-selected':''} disabled={busy==='availability'||profile?.status==='SUSPENDED'} onClick={()=>void availability(v)}>{t(`courier.availability.${v}`)}</button>)}</div></section>}
  function NotificationsPanel(){const read=async(n:Notice)=>{if(!n.is_read)await act(`/notifications/${n.id}/read`);if(n.reference_id){const mission=missions.find(m=>m.order_id===n.reference_id);if(mission){setSelected(mission);setView('detail')}}};return <section className="courier-glass courier-section"><Heading title="Notifications" eyebrow={`${unread} non lue${unread===1?'':'s'}`}/>{unread>0&&<button className="courier-btn courier-btn-quiet courier-read-all" onClick={()=>void act('/notifications/read-all',undefined,'Toutes les notifications sont marquées comme lues.')}>Tout marquer comme lu</button>}{noticeError&&<SectionError message={noticeError} retry={load}/>} {notices.length?<div className="courier-notices">{notices.map(n=><button key={n.id} className={!n.is_read?'is-unread':''} onClick={()=>void read(n)}><Icon name="notifications"/><div><strong>{n.title}</strong><p>{n.body}</p><time>{new Date(n.created_at).toLocaleString('fr-FR')}</time></div></button>)}</div>:!noticeError&&<Empty title="Aucune notification." body="Vos mises à jour de mission apparaîtront ici."/>}</section>}
  function ProfilePanel(){const addressParts=[profile?.building_number,profile?.street,profile?.commune,profile?.city,profile?.province].filter(Boolean);return <section className="courier-glass courier-section"><div className="courier-profile-head"><div className="courier-avatar courier-avatar-large">{initials||'TB'}</div><div><h2>{profile?.first_name} {profile?.last_name}</h2><p>{profile?.email}</p></div></div><div className="courier-profile-grid"><Fact label="Prénom" value={profile?.first_name}/><Fact label="Nom" value={profile?.last_name}/><Fact label="E-mail" value={profile?.email}/><Fact label="Téléphone" value={profile?.phone}/><Fact label="Transport" value={profile?.transport_type}/><Fact label="Véhicule" value={profile?.vehicle_info}/><Fact label="Zone de service" value={profile?.service_zone}/><Fact label="Adresse" value={addressParts.length?addressParts.join(', '):'—'}/>{profile?.landmark&&<Fact label="Point de repère" value={profile?.landmark}/>}<Fact label="Statut" value={profile?.status}/></div></section>}
- function ActionButtons({mission:m}:{mission:Mission}){return <div className="courier-actions">{['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(m.delivery_status)&&['READY','READY_FOR_PICKUP'].includes(m.status)&&<button className="courier-btn courier-btn-scan" onClick={()=>scan('PICKUP',m)}><Icon name="scanner"/>Scanner le QR vendeur</button>}{m.delivery_status==='PICKED_UP'&&<button className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`,undefined,t('courier.dashboard.started'))}>Commencer la livraison</button>}{m.delivery_status==='IN_TRANSIT'&&<button className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`,undefined,t('courier.dashboard.arrived'))}>Je suis arrivé</button>}{m.delivery_status==='COURIER_ARRIVED'&&<button className="courier-btn courier-btn-scan" onClick={()=>scan('DELIVERY',m)}><Icon name="scanner"/>Scanner le QR acheteur</button>}</div>}
+  function ActionButtons({mission:m}:{mission:Mission}){
+    const isPickingUp = busy.includes(`/missions/${m.order_id}/pickup`)
+    return (
+      <div className="courier-actions">
+        {['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY','READY_FOR_PICKUP'].includes(m.status) && (
+          <>
+            <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/pickup`, undefined, 'Récupération confirmée.')}>
+              {isPickingUp ? 'Confirmation...' : 'Confirmer la récupération'}
+            </button>
+            <button className="courier-btn courier-btn-scan" onClick={()=>scan('PICKUP',m)}>
+              <Icon name="scanner"/>Scanner le QR vendeur
+            </button>
+          </>
+        )}
+        {m.delivery_status==='PICKED_UP' && (
+          <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`,undefined,t('courier.dashboard.started'))}>
+            {busy.includes(`/missions/${m.order_id}/start`) ? 'Démarrage...' : 'Commencer la livraison'}
+          </button>
+        )}
+        {m.delivery_status==='IN_TRANSIT' && (
+          <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`,undefined,t('courier.dashboard.arrived'))}>
+            {busy.includes(`/missions/${m.order_id}/arrive`) ? 'Validation d\'arrivée...' : 'Je suis arrivé'}
+          </button>
+        )}
+        {m.delivery_status==='COURIER_ARRIVED' && (
+          <button className="courier-btn courier-btn-scan" onClick={()=>scan('DELIVERY',m)}>
+            <Icon name="scanner"/>Scanner le QR acheteur
+          </button>
+        )}
+      </div>
+    )
+  }
 }
 
 function Heading({title,eyebrow}:{title:string;eyebrow:string}){return <div className="courier-heading"><div><p className="courier-eyebrow">{eyebrow}</p><h2>{title}</h2></div></div>}

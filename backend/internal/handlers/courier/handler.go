@@ -352,6 +352,40 @@ func (h *Handler) RejectMission(c *gin.Context) {
 	})
 }
 
+// POST /api/v1/courier/missions/:id/pickup - Confirm pickup
+func (h *Handler) ConfirmPickup(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	orderID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+
+	if err := h.courierService.ConfirmPickup(userID, orderID); err != nil {
+		status := http.StatusBadRequest
+		code := "PICKUP_FAILED"
+		switch err {
+		case service.ErrCourierNotFound:
+			status = http.StatusNotFound
+			code = "COURIER_NOT_FOUND"
+		case service.ErrMissionNotFound:
+			status = http.StatusNotFound
+			code = "MISSION_NOT_FOUND"
+		case service.ErrInvalidStatusTransition:
+			code = "INVALID_STATUS_TRANSITION"
+		}
+		h.errResponse(c, status, code, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Pickup confirmed",
+	})
+}
+
 // POST /api/v1/courier/missions/:id/start - Start delivery
 func (h *Handler) StartDelivery(c *gin.Context) {
 	userID, ok := h.extractUserID(c)

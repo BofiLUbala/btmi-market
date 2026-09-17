@@ -561,6 +561,7 @@ func main() {
 			courierProtected.GET("/missions/:id", courierHandler.GetMission)
 			courierProtected.POST("/missions/:id/accept", courierHandler.AcceptMission)
 			courierProtected.POST("/missions/:id/reject", courierHandler.RejectMission)
+			courierProtected.POST("/missions/:id/pickup", courierHandler.ConfirmPickup)
 			courierProtected.POST("/missions/:id/start", courierHandler.StartDelivery)
 			courierProtected.POST("/missions/:id/arrive", courierHandler.ArriveAtDestination)
 			courierProtected.POST("/missions/:id/fail", courierHandler.FailDelivery)

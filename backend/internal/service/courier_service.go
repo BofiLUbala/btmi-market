@@ -582,6 +582,42 @@ func (s *CourierService) RejectMission(userID, orderID uuid.UUID, reason string)
 	return nil
 }
 
+// ConfirmPickup marks the mission as picked up (READY_FOR_PICKUP -> PICKED_UP)
+func (s *CourierService) ConfirmPickup(userID, orderID uuid.UUID) error {
+	courier, err := s.courierRepo.GetByUserID(userID)
+	if err != nil || courier == nil {
+		return ErrCourierNotFound
+	}
+
+	order, err := s.courierRepo.GetOrderByIDForCourier(userID, orderID)
+	if err != nil || order == nil {
+		return ErrMissionNotFound
+	}
+	if order.DeliveryStatus != "READY_FOR_PICKUP" && order.DeliveryStatus != "COURIER_ACCEPTED" {
+		return ErrInvalidStatusTransition
+	}
+
+	changed, err := s.courierRepo.TransitionMission(orderID, userID, order.DeliveryStatus, "PICKED_UP", "pickup_verified_at")
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return ErrInvalidStatusTransition
+	}
+	if s.qrSvc != nil {
+		s.qrSvc.RecordHandoverEvent(orderID, userID, "COURIER", "COURIER_PICKED_UP", "SUCCESS", "Courier confirmed pickup")
+	}
+
+	// Notify buyer, seller & admin
+	if s.commSvc != nil {
+		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierPickedUp, map[string]interface{}{
+			"courier_user_id": userID.String(),
+		})
+	}
+
+	return nil
+}
+
 // StartDelivery marks the delivery as started (IN_TRANSIT)
 func (s *CourierService) StartDelivery(userID, orderID uuid.UUID) error {
 	courier, err := s.courierRepo.GetByUserID(userID)

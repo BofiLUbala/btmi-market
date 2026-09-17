@@ -133,7 +133,7 @@ export default function CourierMissionPage(){
 
             {['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY','READY_FOR_PICKUP'].includes(m.status) && (
               <>
-                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/scans/pickup`,{token:m.order_number, order_id:id, idempotency_key:`PICKUP:${id}:${Date.now()}`},'Récupération confirmée.')}>
+                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/pickup`, undefined, 'Récupération confirmée.')}>
                   {isPickingUp ? 'Confirmation...' : 'Confirmer la récupération'}
                 </button>
                 <button className="courier-btn courier-btn-scan" onClick={()=>navigate(`/courier/scan?type=PICKUP&order_id=${id}`)}>
