@@ -98,6 +98,26 @@ func (r *BuyerPaymentRepository) GetByOrderID(orderID uuid.UUID) (*models.BuyerP
 	return scanBuyerPayment(r.db.QueryRow(buyerPaymentSelect+` WHERE order_id = $1`, orderID))
 }
 
+// GetByOrderIDForUpdate serializes cancellation with payment initiation and
+// provider settlement. A cancellation must never observe DUE and then race a
+// concurrent transition to PROCESSING/PAID.
+func (r *BuyerPaymentRepository) GetByOrderIDForUpdate(orderID uuid.UUID) (*models.BuyerPayment, error) {
+	return scanBuyerPayment(r.db.QueryRow(buyerPaymentSelect+` WHERE order_id = $1 FOR UPDATE`, orderID))
+}
+
+// CancelUnsettled closes an unpaid payment together with its order. The status
+// guard is defense in depth; callers also lock and inspect the row first.
+func (r *BuyerPaymentRepository) CancelUnsettled(id uuid.UUID) (bool, error) {
+	result, err := r.db.Exec(`
+		UPDATE buyer_payments SET status='CANCELLED', updated_at=NOW()
+		WHERE id=$1 AND status IN ('DUE','PENDING','FAILED','CONFIRMED')`, id)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	return affected > 0, err
+}
+
 // MarkProviderOutcome moves an online payment between provider-driven states.
 // It is guarded on the statuses a provider may still act on, so a late or
 // replayed webhook cannot resurrect a settled payment; it reports whether the
@@ -119,7 +139,24 @@ func (r *BuyerPaymentRepository) MarkProviderOutcome(id uuid.UUID, status models
 	return affected > 0, err
 }
 
-// MarkInitiated records that the buyer asked the provider to charge them.
+// ClaimInitiation records that the buyer asked the provider to charge them
+// before the external request is made. This closes the cancellation race: once
+// claimed, cancellation observes PROCESSING and requires the safe refund path.
+func (r *BuyerPaymentRepository) ClaimInitiation(id uuid.UUID, payerPhone string) (bool, error) {
+	result, err := r.db.Exec(`
+		UPDATE buyer_payments
+		SET status='PROCESSING', payer_phone=COALESCE(NULLIF($2,''), payer_phone),
+		    payment_initiated_at=COALESCE(payment_initiated_at, NOW()), updated_at=NOW()
+		WHERE id=$1 AND status IN ('DUE','PENDING','FAILED')
+	`, id, payerPhone)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	return affected > 0, err
+}
+
+// MarkInitiated attaches the provider's reference after a successful request.
 //
 // This is as far as starting a payment ever gets it: PROCESSING means "the
 // operator has been asked", never "the buyer has paid". Only a verified webhook
@@ -130,7 +167,7 @@ func (r *BuyerPaymentRepository) MarkInitiated(id uuid.UUID, reference, payerPho
 		SET status='PROCESSING', provider_reference=COALESCE(NULLIF($2,''), provider_reference),
 		    payer_phone=COALESCE(NULLIF($3,''), payer_phone),
 		    payment_initiated_at=COALESCE(payment_initiated_at, NOW()), updated_at=NOW()
-		WHERE id=$1 AND status IN ('DUE','PENDING','PROCESSING')
+		WHERE id=$1 AND status='PROCESSING'
 	`, id, reference, payerPhone)
 	return err
 }

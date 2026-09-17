@@ -193,7 +193,7 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 			COUNT(DISTINCT CASE WHEN p.status = 'DISPUTED' THEN p.id END) as disputed_payments_count
 		FROM orders o
 		LEFT JOIN buyer_payments p ON p.order_id = o.id
-		WHERE 1=1
+		WHERE o.status NOT IN ('CANCELLED', 'REJECTED')
 	`
 	args := []interface{}{}
 	argIdx := 1

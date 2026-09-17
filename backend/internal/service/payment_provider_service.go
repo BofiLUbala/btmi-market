@@ -115,6 +115,14 @@ func (s *PaymentService) InitiatePayment(buyerProfileID, orderID uuid.UUID, req 
 		return nil, errors.New("PAYER_PHONE_REQUIRED")
 	}
 
+	claimed, err := s.paymentRepo.ClaimInitiation(payment.ID, payerPhone)
+	if err != nil {
+		return nil, err
+	}
+	if !claimed {
+		return nil, errors.New("PAYMENT_STATE_CHANGED")
+	}
+
 	initiation, err := s.driver.Charge(PaymentChargeRequest{
 		PaymentID:         payment.ID.String(),
 		Provider:          payment.Provider,
@@ -125,6 +133,7 @@ func (s *PaymentService) InitiatePayment(buyerProfileID, orderID uuid.UUID, req 
 		OrderNumber:       order.OrderNumber,
 	})
 	if err != nil {
+		_, _ = s.paymentRepo.MarkProviderOutcome(payment.ID, models.BuyerPaymentStatusFailed, "", err.Error(), nil)
 		return nil, err
 	}
 

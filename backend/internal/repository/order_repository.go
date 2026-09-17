@@ -477,6 +477,7 @@ func (r *OrderRepository) UpdateStatus(id uuid.UUID, status models.OrderStatus) 
 	query := `
 		UPDATE orders
 		SET status = $2::order_status, updated_at = NOW(),
+		    delivery_status = CASE WHEN $2 = 'CANCELLED' THEN 'CANCELLED' ELSE delivery_status END,
 		    accepted_at = CASE WHEN $2 = 'ACCEPTED' THEN COALESCE(accepted_at, NOW()) ELSE accepted_at END,
 		    preparing_at = CASE WHEN $2 = 'PREPARING' THEN COALESCE(preparing_at, NOW()) ELSE preparing_at END,
 		    ready_at = CASE WHEN $2 IN ('READY', 'READY_FOR_PICKUP') THEN COALESCE(ready_at, NOW()) ELSE ready_at END,

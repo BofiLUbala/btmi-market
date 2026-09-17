@@ -1916,6 +1916,94 @@ func (s *OrderService) voidCommission(orderID uuid.UUID, reason string) {
 	_ = s.commissionSvc.VoidForRefund(orderID, reason)
 }
 
+// cancelOrderAtomic is the single mutation path shared by buyer and seller
+// cancellation. The order row, payment row, inventory reservations, points,
+// status and audit history change in one transaction or not at all.
+func (s *OrderService) cancelOrderAtomic(orderID uuid.UUID, changedBy *uuid.UUID, notes string) (*models.Order, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	txDB := &database.DB{Tx: tx}
+	orderRepo := repository.NewOrderRepository(txDB)
+	inventoryRepo := repository.NewInventoryRepository(txDB)
+	paymentRepo := repository.NewBuyerPaymentRepository(txDB)
+
+	order, err := orderRepo.GetByIDForUpdate(orderID)
+	if err != nil {
+		return nil, mapOrderNotFoundErr(err)
+	}
+	if order.Status != models.OrderStatusPending && order.Status != models.OrderStatusAccepted {
+		return nil, errors.New("INVALID_STATUS_TRANSITION")
+	}
+
+	payment, err := paymentRepo.GetByOrderIDForUpdate(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if payment != nil {
+		switch payment.Status {
+		case models.BuyerPaymentStatusPaid, models.BuyerPaymentStatusVerified, models.BuyerPaymentStatusRefunded:
+			return nil, errors.New("PAYMENT_ALREADY_SETTLED")
+		case models.BuyerPaymentStatusProcessing:
+			return nil, errors.New("PAYMENT_IN_PROGRESS")
+		}
+	}
+
+	lines, err := orderRepo.GetLinesByOrderID(orderID)
+	if err != nil {
+		return nil, err
+	}
+	for _, line := range lines {
+		if _, err := inventoryRepo.ReleaseAtomic(order.ShopID, line.VariantID, line.Quantity); err != nil {
+			return nil, err
+		}
+	}
+
+	if order.BuyerProfileID != nil && order.PointsUsed > 0 {
+		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*order.BuyerProfileID, orderID, order.PointsUsed, models.PointTransactionRefRedemptionProduct, txDB); err != nil {
+			return nil, err
+		}
+	}
+	if order.BuyerProfileID != nil && order.DeliveryPointsUsed > 0 {
+		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*order.BuyerProfileID, orderID, order.DeliveryPointsUsed, models.PointTransactionRefRedemptionDelivery, txDB); err != nil {
+			return nil, err
+		}
+	}
+
+	if payment != nil {
+		changed, err := paymentRepo.CancelUnsettled(payment.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !changed {
+			return nil, errors.New("PAYMENT_STATE_CHANGED")
+		}
+	}
+
+	updatedOrder, err := orderRepo.UpdateStatus(orderID, models.OrderStatusCancelled)
+	if err != nil {
+		return nil, err
+	}
+	if err := orderRepo.CreateStatusHistory(&models.OrderStatusHistory{
+		OrderID: orderID, Status: models.OrderStatusCancelled, ChangedBy: changedBy, Notes: notes,
+	}); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// Eligible cancellations are unpaid, so normally no commission exists. This
+	// remains an idempotent safety net for legacy provisional snapshots.
+	s.voidCommission(orderID, notes)
+	s.triggerStatusNotification(orderID, models.OrderStatusCancelled)
+	return updatedOrder, nil
+}
+
 func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
@@ -1930,103 +2018,18 @@ func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, er
 		return nil, err
 	}
 
-	// Checked after access, so only the shop can learn the payment state. Same rule as a buyer cancellation: once money has settled or a charge is in
-	// flight, cancelling would leave a PAID payment with no refund and drop the
-	// collected money out of every finance total. That goes through a refund.
-	if err := s.refuseCancelWithMoney(orderID); err != nil {
-		return nil, err
-	}
-
 	employee, _ := s.employeeRepo.GetByLinkedUserID(userID)
 	changedBy := &userID
 	if employee != nil {
 		changedBy = &employee.ID
 	}
 
-	history := &models.OrderStatusHistory{
-		OrderID:   orderID,
-		Status:    models.OrderStatusCancelled,
-		ChangedBy: changedBy,
-		Notes:     "Order cancelled",
-	}
-	if err := s.orderRepo.CreateStatusHistory(history); err != nil {
-		return nil, err
-	}
-
-	lines, err := s.orderRepo.GetLinesByOrderID(orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	inventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
-
-	for _, line := range lines {
-		_, err := inventoryRepo.ReleaseAtomic(order.ShopID, line.VariantID, line.Quantity)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Release reserved points if this was a buyer order with points
-	if order.BuyerProfileID != nil && order.PointsUsed > 0 {
-		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*order.BuyerProfileID, orderID, order.PointsUsed, models.PointTransactionRefRedemptionProduct, &database.DB{Tx: tx}); err != nil {
-			return nil, err
-		}
-	}
-	// Release reserved delivery points if any
-	if order.BuyerProfileID != nil && order.DeliveryPointsUsed > 0 {
-		if err := s.pointRedemptionSvc.ReleaseReservedPoints(*order.BuyerProfileID, orderID, order.DeliveryPointsUsed, models.PointTransactionRefRedemptionDelivery, &database.DB{Tx: tx}); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	updatedOrder, err := s.orderRepo.UpdateStatus(orderID, models.OrderStatusCancelled)
-	if err != nil {
-		return nil, err
-	}
-
-	// A cancelled order is not a sale: drop it out of every finance total.
-	s.voidCommission(orderID, "Order cancelled")
-
-	s.triggerStatusNotification(orderID, models.OrderStatusCancelled)
-
-	return updatedOrder, nil
+	return s.cancelOrderAtomic(orderID, changedBy, "Order cancelled by seller")
 }
 
-// CancelBuyerOrder allows a buyer to cancel their own PENDING/ACCEPTED order.
-// refuseCancelWithMoney blocks cancelling an order whose money has moved or is
-// moving. Cancelling a paid order used to release the stock and void the
-// commission while the payment stayed PAID with no refund - and since cancelled
-// orders are excluded from finance totals, the collected money silently vanished
-// from every report. A settled or in-flight payment is refunded by support,
-// which records the refund; neither buyer nor seller can skip that.
-func (s *OrderService) refuseCancelWithMoney(orderID uuid.UUID) error {
-	if s.paymentRepo == nil {
-		return nil
-	}
-	payment, err := s.paymentRepo.GetByOrderID(orderID)
-	if err != nil || payment == nil {
-		return nil
-	}
-	switch payment.Status {
-	case models.BuyerPaymentStatusPaid, models.BuyerPaymentStatusVerified:
-		return errors.New("PAYMENT_ALREADY_SETTLED")
-	case models.BuyerPaymentStatusProcessing:
-		return errors.New("PAYMENT_IN_PROGRESS")
-	}
-	return nil
-}
-
+// CancelBuyerOrder allows a buyer to cancel only their own unpaid
+// PENDING/ACCEPTED order. The atomic helper locks and revalidates both order and
+// payment, so a concurrent provider initiation cannot slip through.
 func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*models.Order, error) {
 	order, err := s.getBuyerOrder(buyerProfileID, orderID)
 	if err != nil {
@@ -2036,65 +2039,7 @@ func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*mod
 		return nil, errors.New("INVALID_STATUS_TRANSITION")
 	}
 
-	if err := s.refuseCancelWithMoney(orderID); err != nil {
-		return nil, err
-	}
-
-	history := &models.OrderStatusHistory{
-		OrderID: orderID,
-		Status:  models.OrderStatusCancelled,
-		Notes:   "Order cancelled by buyer",
-	}
-	if err := s.orderRepo.CreateStatusHistory(history); err != nil {
-		return nil, err
-	}
-
-	lines, err := s.orderRepo.GetLinesByOrderID(orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	inventoryRepo := repository.NewInventoryRepository(&database.DB{Tx: tx})
-
-	for _, line := range lines {
-		_, err := inventoryRepo.ReleaseAtomic(order.ShopID, line.VariantID, line.Quantity)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if order.PointsUsed > 0 {
-		if err := s.pointRedemptionSvc.ReleaseReservedPoints(buyerProfileID, orderID, order.PointsUsed, models.PointTransactionRefRedemptionProduct, &database.DB{Tx: tx}); err != nil {
-			return nil, err
-		}
-	}
-	if order.DeliveryPointsUsed > 0 {
-		if err := s.pointRedemptionSvc.ReleaseReservedPoints(buyerProfileID, orderID, order.DeliveryPointsUsed, models.PointTransactionRefRedemptionDelivery, &database.DB{Tx: tx}); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	updatedOrder, err := s.orderRepo.UpdateStatus(orderID, models.OrderStatusCancelled)
-	if err != nil {
-		return nil, err
-	}
-
-	// A cancelled order is not a sale: drop it out of every finance total.
-	s.voidCommission(orderID, "Order cancelled")
-
-	s.triggerStatusNotification(orderID, models.OrderStatusCancelled)
-
-	return updatedOrder, nil
+	return s.cancelOrderAtomic(orderID, nil, "Order cancelled by buyer")
 }
 
 func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse {
