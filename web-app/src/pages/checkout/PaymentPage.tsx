@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { marketplaceApi } from '@/api/marketplace'
@@ -58,6 +58,66 @@ function isMobile(code: string) {
   return code === 'MOBILE_PAY_NOW' || code === 'MOBILE_AT_DELIVERY'
 }
 
+function checkoutErrorMessage(error: unknown, fallback: string) {
+  if (!(error instanceof ApiError)) return fallback
+  const messages: Record<string, string> = {
+    PAYMENT_PROVIDER_REQUIRED: 'Veuillez sélectionner un opérateur Mobile Money.',
+    PAYMENT_PROVIDER_UNAVAILABLE: 'Cet opérateur Mobile Money est indisponible. Veuillez en choisir un autre.',
+    PAYMENT_METHOD_UNAVAILABLE: 'Ce mode de paiement est indisponible. Veuillez en choisir un autre.',
+    DELIVERY_NOT_SELECTED: 'Veuillez sélectionner une livraison avant de passer la commande.',
+    DELIVERY_DETAILS_INCOMPLETE: 'Veuillez renseigner une adresse de livraison valide.',
+    PAYER_PHONE_REQUIRED: 'Veuillez saisir le numéro Mobile Money qui sera débité.',
+    PAYMENT_ALREADY_SELECTED: 'Un autre mode de paiement est déjà associé à cette commande.',
+    AMOUNT_MISMATCH: 'Le montant de la commande a changé, veuillez réessayer.'
+  }
+  return messages[error.code] ?? error.message ?? fallback
+}
+
+function validationMessage(input: {
+  orderIds: string[]
+  orders: OrderWithLines[]
+  timing: Timing | ''
+  paymentMethod: string
+  needsProvider: boolean
+  provider: PaymentProviderCode | ''
+  needsPhoneNow: boolean
+  payerPhone: string
+  quoteReady: boolean
+}) {
+  if (input.orderIds.length === 0 || input.orders.length === 0 || input.orders.some(order => order.lines.length === 0)) {
+    return 'Votre panier ne contient aucun article à commander.'
+  }
+  if (input.orders.some(({ order }) => order.delivery_method !== 'PICKUP' && (
+    !order.delivery_contact_name?.trim() || !order.delivery_phone?.trim() || !order.delivery_address?.trim()
+  ))) {
+    return 'Veuillez renseigner une adresse de livraison valide.'
+  }
+  if (!input.timing) return 'Veuillez sélectionner quand vous souhaitez payer.'
+  if (!input.paymentMethod) return 'Veuillez sélectionner un mode de paiement.'
+  if (input.needsProvider && !input.provider) return 'Veuillez sélectionner un opérateur Mobile Money.'
+  if (input.needsPhoneNow && input.payerPhone.trim().length < 9) {
+    return 'Veuillez saisir le numéro Mobile Money qui sera débité.'
+  }
+  if (!input.quoteReady) return 'Le montant final est en cours de calcul. Veuillez réessayer.'
+  return ''
+}
+
+function aggregateQuotes(quotes: CheckoutQuote[]): CheckoutQuote | null {
+  if (quotes.length === 0) return null
+  const first = quotes[0]
+  return {
+    ...first,
+    order_id: first.order_id,
+    currency: first.currency,
+    subtotal: quotes.reduce((total, quote) => total + quote.subtotal, 0),
+    discount: quotes.reduce((total, quote) => total + quote.discount, 0),
+    points_discount: quotes.reduce((total, quote) => total + quote.points_discount, 0),
+    delivery_fee: quotes.reduce((total, quote) => total + quote.delivery_fee, 0),
+    payment_markup: quotes.reduce((total, quote) => total + quote.payment_markup, 0),
+    final_total: quotes.reduce((total, quote) => total + quote.final_total, 0)
+  }
+}
+
 function PaymentInner() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -75,12 +135,12 @@ function PaymentInner() {
   const methodLabel = (m: string) => (METHOD_LABEL[m] ? t(METHOD_LABEL[m]) : m.replace(/_/g, ' '))
 
   const [payment, setPayment] = useState<BuyerPayment | null>(null)
-  const [quote, setQuote] = useState<CheckoutQuote | null>(null)
+  const [quotes, setQuotes] = useState<CheckoutQuote[]>([])
   const [timing, setTiming] = useState<Timing | ''>('')
   const [paymentMethod, setPaymentMethod] = useState('')
   const [provider, setProvider] = useState<PaymentProviderCode | ''>('')
   const [payerPhone, setPayerPhone] = useState('')
-  const [order, setOrder] = useState<OrderWithLines | null>(null)
+  const [orders, setOrders] = useState<OrderWithLines[]>([])
   const [products, setProducts] = useState<Record<string, PublicProductDetail>>({})
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -88,6 +148,8 @@ function PaymentInner() {
   const [confirming, setConfirming] = useState(false)
   const [initiating, setInitiating] = useState(false)
   const [instructions, setInstructions] = useState('')
+  const quote = useMemo(() => aggregateQuotes(quotes), [quotes])
+  const order = orders[0] ?? null
   const selectedMethod = quote?.payment_methods.find(method => method.code === paymentMethod)
 
   // Read the address back from the order, so the recap survives a reload and a
@@ -107,8 +169,11 @@ function PaymentInner() {
     let mounted = true
     // Nothing is preselected: the buyer picks the timing themselves, which is the
     // whole point of asking that question first.
-    Promise.all([buyerApi.checkoutQuote(orderId), buyerApi.orderDetail(orderId)]).then(
-      ([q, o]) => { if (mounted) { setQuote(q); setOrder(o) } },
+    Promise.all([
+      Promise.all(orderIds.map(id => buyerApi.checkoutQuote(id))),
+      Promise.all(orderIds.map(id => buyerApi.orderDetail(id)))
+    ]).then(
+      ([loadedQuotes, loadedOrders]) => { if (mounted) { setQuotes(loadedQuotes); setOrders(loadedOrders) } },
       (e: unknown) => mounted && setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare'))
     ).finally(() => mounted && setLoading(false))
     return () => {
@@ -122,22 +187,22 @@ function PaymentInner() {
     if (!orderId || !paymentMethod || loading) return
     let mounted = true
     setQuoting(true)
-    buyerApi.checkoutQuote(orderId, paymentMethod).then(
-      q => { if (mounted) { setQuote(q); setError('') } },
+    Promise.all(orderIds.map(id => buyerApi.checkoutQuote(id, paymentMethod))).then(
+      loadedQuotes => { if (mounted) { setQuotes(loadedQuotes); setError('') } },
       (e: unknown) => { if (mounted) setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare')) }
     ).finally(() => { if (mounted) setQuoting(false) })
     return () => { mounted = false }
   }, [orderId, paymentMethod, loading])
 
   useEffect(() => {
-    if (!order) return
-    const ids = [...new Set(order.lines.map(line => line.product_id))]
+    if (orders.length === 0) return
+    const ids = [...new Set(orders.flatMap(current => current.lines.map(line => line.product_id)))]
     Promise.allSettled(ids.map(id => marketplaceApi.productDetail(id))).then(results => {
       const next: Record<string, PublicProductDetail> = {}
       results.forEach((result, index) => { if (result.status === 'fulfilled') next[ids[index]] = result.value })
       setProducts(next)
     })
-  }, [order])
+  }, [orders])
 
   function chooseTiming(next: Timing) {
     setTiming(next)
@@ -150,12 +215,15 @@ function PaymentInner() {
   }
 
   const needsProvider = isMobile(paymentMethod)
-  const providerChosen = !needsProvider || Boolean(provider)
   // Pay-now charges the handset right here, so the number is required before the
   // order is placed. Pay-at-delivery asks for it at the door instead.
   const needsPhoneNow = paymentMethod === 'MOBILE_PAY_NOW'
-  const phoneReady = !needsPhoneNow || payerPhone.trim().length >= 9
-  const readyToPlace = Boolean(paymentMethod) && providerChosen && phoneReady
+  const quoteReady = Boolean(quote?.selected_payment_method === paymentMethod) && !quoting
+  const validationError = validationMessage({
+    orderIds, orders, timing, paymentMethod, needsProvider, provider,
+    needsPhoneNow, payerPhone, quoteReady
+  })
+  const readyToPlace = validationError === ''
 
   /**
    * Places the order with the chosen method, operator and - for pay-now - handset.
@@ -165,7 +233,15 @@ function PaymentInner() {
    * operator, so confirming this screen can never make an order paid.
    */
   async function placeOrder() {
-    if (!orderId || !readyToPlace) return
+    if (confirming || initiating) return
+    if (!orderId) {
+      setError('Impossible de retrouver la commande. Veuillez reprendre le panier.')
+      return
+    }
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     setConfirming(true)
     setError('')
     try {
@@ -186,7 +262,7 @@ function PaymentInner() {
       }
       navigate(`/orders/${orderId}/success`, { state: { payment: created, orderIds }, replace: true })
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('payment.couldNotConfirm'))
+      setError(checkoutErrorMessage(e, t('payment.couldNotConfirm')))
       setConfirming(false)
     }
   }
@@ -203,7 +279,7 @@ function PaymentInner() {
       const refreshed = await buyerApi.getPayment(orderId)
       setPayment(refreshed)
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Le paiement n’a pas pu être lancé.')
+      setError(checkoutErrorMessage(e, 'Le paiement n’a pas pu être lancé.'))
     } finally {
       setInitiating(false)
       setConfirming(false)
@@ -415,8 +491,8 @@ function PaymentInner() {
             </section>
           )}
 
-          <section className="checkout-card"><div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{order?.order.total_items ?? 0} {order?.order.total_items === 1 ? t('cart.item') : t('cart.items')}</span></div>
-          {order?.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); return <div className="review-order-line" key={line.id}><div><strong>{product?.name ?? t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong><span>{variant?.name || variant?.sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span></div><strong>{formatMoney((line.final_unit_price || line.unit_price) * line.quantity)}</strong></div> })}
+          <section className="checkout-card"><div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{orders.reduce((total, current) => total + current.order.total_items, 0)} {orders.reduce((total, current) => total + current.order.total_items, 0) === 1 ? t('cart.item') : t('cart.items')}</span></div>
+          {orders.flatMap(current => current.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); const unitPrice = line.final_unit_price || line.unit_price; return <div className="review-order-line" key={line.id}><div><strong>{product?.name || line.product_name || t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong><span>{variant?.name || line.variant_name || variant?.sku || line.variant_sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span><span>Boutique : {current.shop_name || '—'} · Prix unitaire : {formatMoney(unitPrice, current.order.currency || 'USD')}</span></div><strong>{formatMoney(unitPrice * line.quantity, current.order.currency || 'USD')}</strong></div> }))}
           {orderIds.length > 1 && (
             <p className="small muted" style={{ marginTop: 8 }}>
               Ce paiement couvre {orderIds.length} commandes, une par boutique. Chaque boutique
@@ -470,6 +546,11 @@ function PaymentInner() {
           </div>
         </div>
         <div className="summary-total"><span>Total</span><strong>{formatMoney(quote.final_total, quote.currency)}</strong><small>{quoting ? 'Recalcul du total…' : 'Le montant final est calculé par le serveur.'}</small></div>
+        <div className="summary-lines" style={{ marginTop: 12 }}>
+          <div><span>Mode de paiement</span><strong>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ?? selectedMethod.label) : '—'}</strong></div>
+          <div><span>Opérateur</span><strong>{needsProvider ? (providers.find(item => item.code === provider)?.label ?? '—') : 'Non applicable'}</strong></div>
+          <div><span>Devise</span><strong>{quote.currency}</strong></div>
+        </div>
         <div className="pay-note">
           {!timing
             ? 'Choisissez d’abord quand vous souhaitez payer.'
@@ -477,15 +558,18 @@ function PaymentInner() {
             ? 'Vous validerez la demande chez votre opérateur. La commande est payée une fois que l’opérateur le confirme.'
             : 'Aucun montant n’est prélevé maintenant : ce total est dû à la livraison.'}
         </div>
+        {validationError && <p className="checkout-inline-error" role="alert" style={{ marginTop: 12 }}>{validationError}</p>}
         <Button
           variant="accent"
           size="lg"
           block
           onClick={placeOrder}
           loading={confirming || initiating}
-          disabled={!readyToPlace || quoting || Boolean(payment)}
+          disabled={!readyToPlace || Boolean(payment) || confirming || initiating}
         >
-          {payment
+          {confirming || initiating
+            ? 'Création de la commande...'
+            : payment
             ? t('payment.orderConfirmed')
             : paymentMethod === 'MOBILE_PAY_NOW'
             ? 'Payer maintenant'
