@@ -11,7 +11,7 @@ import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
-const POLL_INTERVAL = 15_000 // 15 seconds
+const POLL_INTERVAL = 3_000 // 3 seconds for live tracking auto-sync
 
 const FLOW_STEPS: Record<string, string[]> = {
   PICKUP: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'RECEIVED', 'COMPLETED'],

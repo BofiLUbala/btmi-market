@@ -1031,7 +1031,7 @@ export const fr = {
   'tracking.progress': 'Progression',
   'tracking.current': ' — actuel',
   'tracking.note':
-    'Le suivi est mis à jour par la boutique et le partenaire de livraison. Le paiement en espèces est confirmé lorsque le vendeur le vérifie.',
+    'Le suivi est mis à jour automatiquement par la boutique et le livreur TBK. En cas de paiement à la livraison, le livreur confirmera la réception des espèces après vérification de vos produits à votre adresse.',
 
   /* ── Localisation (RDC) ─────────────────────────────────── */
 

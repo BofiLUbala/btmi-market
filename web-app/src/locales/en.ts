@@ -1022,7 +1022,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'tracking.progress': 'Progress',
   'tracking.current': ' — current',
   'tracking.note':
-    'Tracking is updated by the shop and delivery partner. Cash payment is confirmed when the seller verifies it.',
+    'Tracking is automatically updated by the shop and TBK courier. For cash on delivery, the assigned courier confirms cash receipt after verifying your products at delivery.',
 
   /* ── DRC locations ──────────────────────────────────────── */
 
