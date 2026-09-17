@@ -236,14 +236,14 @@ export default function DeliveryScreen() {
 
         {mode === 'saved' && savedAddress && (
           <Card>
-            <Text style={styles.savedLabel}>Adresse enregistrée</Text>
+            <Text style={styles.savedLabel}>{t('delivery.savedAddress')}</Text>
             <Text style={styles.savedValue}>{savedAddress.street}, {savedAddress.building_number}</Text>
             <Text style={styles.savedValue}>{savedAddress.commune}, {savedAddress.city}</Text>
             <Text style={styles.savedValue}>{savedAddress.province}</Text>
             {savedAddress.landmark ? <Text style={[styles.savedValue, { marginTop: 4 }]}>Repère : {savedAddress.landmark}</Text> : null}
-            <Button title="Utiliser cette adresse" onPress={submit} loading={selectMutation.isPending} />
+            <Button title={t('delivery.useSavedAddress')} onPress={submit} loading={selectMutation.isPending} />
             <TouchableOpacity onPress={() => { setError(''); setMode('custom') }}>
-              <Text style={styles.customLink}>Utiliser une autre adresse</Text>
+              <Text style={styles.customLink}>{t('delivery.useAnotherAddress')}</Text>
             </TouchableOpacity>
           </Card>
         )}
@@ -262,10 +262,10 @@ export default function DeliveryScreen() {
             </TouchableOpacity>
             {savedAddress && (
               <TouchableOpacity onPress={() => { setError(''); setMode('saved') }}>
-                <Text style={styles.customLink}>Revenir à l'adresse enregistrée</Text>
+                <Text style={styles.customLink}>{t('delivery.backToSavedAddress')}</Text>
               </TouchableOpacity>
             )}
-            <Button title={t('checkout.continueToPayment')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
+            <Button title={t('delivery.continueToReview')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
           </Card>
         )}
 

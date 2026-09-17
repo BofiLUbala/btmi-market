@@ -484,6 +484,15 @@ export const fr = {
   'checkout.loadingOptions': 'Chargement des options de livraison…',
   'checkout.optionsFailed': 'Impossible de charger les options de livraison.',
   'checkout.continueToPayment': 'Continuer vers le paiement',
+
+  /* ── Livraison (checkout) ─────────────────────────── */
+  'delivery.savedAddressTitle': 'ADRESSE DE LIVRAISON',
+  'delivery.savedAddress': 'Adresse enregistrée',
+  'delivery.useSavedAddress': 'Utiliser cette adresse',
+  'delivery.useAnotherAddress': 'Utiliser une autre adresse',
+  'delivery.backToSavedAddress': 'Revenir à l\'adresse enregistrée',
+  'delivery.continueToReview': 'Continuer vers le paiement',
+
   'checkout.reviewOrder': 'Vérifiez votre commande',
   'checkout.products': 'Produits',
   'checkout.amountBreakdown': 'Détail du montant',

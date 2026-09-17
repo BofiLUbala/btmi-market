@@ -475,6 +475,15 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'checkout.loadingOptions': 'Loading delivery options…',
   'checkout.optionsFailed': 'Could not load delivery options.',
   'checkout.continueToPayment': 'Continue to payment',
+
+  /* ── Delivery (checkout) ──────────────────────────── */
+  'delivery.savedAddressTitle': 'DELIVERY ADDRESS',
+  'delivery.savedAddress': 'Saved address',
+  'delivery.useSavedAddress': 'Use this address',
+  'delivery.useAnotherAddress': 'Use a different address',
+  'delivery.backToSavedAddress': 'Back to saved address',
+  'delivery.continueToReview': 'Continue to payment',
+
   'checkout.reviewOrder': 'Review your order',
   'checkout.products': 'Products',
   'checkout.amountBreakdown': 'Amount breakdown',
