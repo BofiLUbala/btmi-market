@@ -54,7 +54,7 @@ export default function SellerOnboardingScreen() {
         email: businessForm.email.trim().toLowerCase(),
         country: businessForm.country.trim(),
         city: businessForm.city.trim(),
-        default_currency: 'CDF',
+        default_currency: 'USD',
       }),
     onMutate: () => setError(''),
     onSuccess: async (business) => {

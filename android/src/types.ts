@@ -228,7 +228,7 @@ export interface BuyerPayment {
   cash_due: number
   payment_markup: number; final_total: number
   /** MPESA | AIRTEL_MONEY | ORANGE_MONEY for mobile money; empty for cash. */
-  provider?: string; provider_label?: string
+  provider?: string; provider_label?: string; payer_phone?: string
   provider_reference?: string; payment_timing: 'NOW' | 'DELIVERY'
   /** Our reference from creation; replaced on receipts by the operator's once settled. */
   internal_reference?: string; receipt_reference?: string; receipt_issued_at?: string | null
@@ -244,7 +244,94 @@ export interface BuyerPayment {
   updated_at?: string
 }
 export interface PaymentMethodConfig { code: string; label: string; enabled: boolean; timing: 'NOW'|'DELIVERY'; channel: 'CASH'|'MOBILE'|'ONLINE'; markup_type: 'NONE'|'PERCENTAGE'|'FIXED'; markup_value: number; markup_amount: number; quoted_total: number; provider?: string }
-export interface CheckoutQuote { order_id: string; currency: string; subtotal: number; discount: number; points_discount: number; delivery_fee: number; payment_markup: number; final_total: number; selected_payment_method: string; payment_methods: PaymentMethodConfig[] }
+/** The three mobile money operators. The backend enforces the same set. */
+export type PaymentProviderCode = 'MPESA' | 'AIRTEL_MONEY' | 'ORANGE_MONEY'
+export interface PaymentProvider { code: PaymentProviderCode; label: string; enabled: boolean; display_order: number }
+export interface CheckoutQuote { order_id: string; currency: string; subtotal: number; discount: number; points_discount: number; delivery_fee: number; payment_markup: number; final_total: number; selected_payment_method: string; payment_methods: PaymentMethodConfig[]; providers?: PaymentProvider[] }
+export interface PaymentInitiation { payment_id: string; status: string; provider: string; reference: string; amount: number; currency: string; redirect_url?: string; instructions?: string }
+
+/* ---------- Multi-shop cart (same contract as the web) ---------- */
+/** A cart line carries its own shop; the backend groups lines into one order per shop. */
+export interface CartLineInput { product_id: string; variant_id: string; shop_id: string; quantity: number }
+/** A problem with one specific line. The rest of the cart stays valid. */
+export interface CartLineIssue {
+  product_id: string; variant_id: string; shop_id: string
+  product_name?: string; variant_name?: string
+  code: string; message: string; available: number; requested: number
+}
+export interface CartShopGroup {
+  shop_id: string; shop_name: string; currency: string
+  subtotal: number; item_count: number
+  order_id?: string; order_number?: string
+  lines: CartLineInput[]
+}
+export interface CartPreview {
+  currency: string; subtotal: number; item_count: number; shop_count: number
+  shops: CartShopGroup[]; issues: CartLineIssue[]; checkoutable: boolean
+  available_points: number; points_discount_amount: number; final_total: number
+}
+export interface CheckoutCreated {
+  checkout_group_id: string; currency: string; subtotal: number
+  shop_count: number; shops: CartShopGroup[]; order_ids: string[]
+}
+
+/* ---------- Handover at the door (buyer + courier) ---------- */
+export interface HandoverLine {
+  order_line_id: string; product_id: string; variant_id: string
+  product_name: string; variant_name: string; product_number: string
+  attributes?: Record<string, unknown>; image_url?: string
+  quantity: number; unit_price: number; line_total: number
+  product_verified: boolean; verified_at?: string; verified_by_role?: string
+  buyer_acknowledged: boolean
+}
+/**
+ * The server's own view of where the handover stands. Buttons are driven by the
+ * `*_can_*` flags, never re-derived, so the app cannot offer a refused step.
+ */
+export interface HandoverState {
+  order_id: string; order_number: string; order_status: string; delivery_status: string; stage: string
+  buyer_name?: string; buyer_phone?: string; delivery_address?: string; shop_name?: string; seller_name?: string
+  payment_method: string; payment_status: string; payment_timing?: string; payment_provider?: string
+  amount_due: number; currency: string; payment_verified: boolean
+  lines: HandoverLine[]
+  courier_arrived: boolean; all_products_verified: boolean; all_lines_acknowledged: boolean
+  delivery_scanned: boolean; receipt_confirmed: boolean
+  courier_can_verify_product: boolean; courier_can_confirm_cash: boolean
+  buyer_can_acknowledge: boolean; buyer_can_confirm_receipt: boolean
+  blocked_reason?: string
+}
+export interface HandoverLineAcknowledgement { order_line_id: string; product_received: boolean; matches_order: boolean; quantity_correct: boolean }
+export type HandoverResult = 'VALID' | 'ALREADY_USED' | 'WRONG_PRODUCT' | 'WRONG_VARIANT' | 'WRONG_ORDER' | 'WRONG_SHOP' | 'INVALID_QR'
+export interface HandoverVerificationResult {
+  result: HandoverResult; reason?: string; verification_method: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER'
+  order_id: string; order_number?: string; order_line_id?: string
+  product_id?: string; variant_id?: string; product_name?: string; product_number?: string; variant_name?: string
+  shop_name?: string; seller_name?: string; quantity?: number; unit_price?: number; line_total?: number; currency?: string; verified_at?: string
+}
+export interface ConfirmCashResponse {
+  order_id: string; payment_id: string; payment_status: string; amount_collected: number; currency: string
+  commission_status: string; commission_amount: number; commission_collected: boolean; already_confirmed: boolean
+}
+
+/* ---------- Courier missions ---------- */
+export type CourierAvailability = 'AVAILABLE' | 'BUSY' | 'UNAVAILABLE'
+export interface CourierProfile {
+  status: string; availability: CourierAvailability; first_name?: string; last_name?: string
+  transport_type?: string; service_zone?: string; completed_today?: number; total_deliveries?: number
+}
+/** GET /courier/history row, exactly as the backend returns it. */
+export interface CourierHistoryItem {
+  order_id: string; order_number: string; shop_name: string; delivery_address: string
+  assigned_at?: string | null; delivered_at?: string | null; final_status: string; incident_status?: string
+}
+export interface CourierMission {
+  order_id: string; order_number: string; status: string; delivery_status: string
+  shop_name: string; business_name: string; shop_address: string; service_zone: string; package_count: number
+  delivery_address: string; delivery_contact: string; delivery_phone: string; delivery_notes?: string
+  total_amount?: number; currency?: string; payment_method?: string; payment_status?: string
+  assigned_at?: string | null; accepted_at?: string | null; ready_at?: string | null; picked_up_at?: string | null
+  started_at?: string | null; arrived_at?: string | null; delivered_at?: string | null
+}
 /** The package label the courier scans at pickup (GET /orders/:id/package-qr). */
 export interface PackageQR { reference: string; status: string; package_number: number; operational: boolean; pickup_verified_at?: string | null; delivery_scanned_at?: string | null }
 export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: OrderStatusHistory[]; shop_name: string }

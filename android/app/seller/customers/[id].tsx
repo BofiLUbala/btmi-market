@@ -67,7 +67,7 @@ export default function SellerCustomerDetailScreen() {
         <Text style={styles.name}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text>
         <Text style={styles.muted}>{statusLabel(t, order.status)}</Text>
       </View>
-      <Text style={styles.muted}>{order.total_items} · {formatMoney(order.final_total)}</Text>
+      <Text style={styles.muted}>{order.total_items} · {formatMoney(order.final_total, order.currency)}</Text>
       <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString()}</Text>
     </Card>)}
   </ScrollView>

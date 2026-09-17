@@ -13,7 +13,9 @@ import type {
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   QRScanRequest, QRScanResponse, ProductVerification,
-  TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR } from '../types'
+  TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
+  CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
+  HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem } from '../types'
 
 const list = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[]
@@ -72,6 +74,13 @@ export const buyerApi = {
     patch<BuyerProfile>('/buyer/profile', body),
   points: () => get<unknown>('/buyer/points'),
 
+  /* multi-shop cart — the whole cart is priced in one call, across every shop in it */
+  previewCart: (items: CartLineInput[], usePoints: boolean) =>
+    post<CartPreview>('/buyer/cart/preview', { items, use_points: usePoints }),
+  /** Turns the cart into one order per shop, tied together by a checkout group. */
+  createCheckout: (items: CartLineInput[], usePoints: boolean, idempotencyKey: string) =>
+    post<CheckoutCreated>('/buyer/checkout', { items, use_points: usePoints, idempotency_key: idempotencyKey }),
+
   /* order pipeline — identical contract to the web app; the backend owns pricing */
   previewOrder: (shopId: string, items: OrderLineInput[], usePoints: boolean) =>
     post<PointRedemptionPreview>('/buyer/orders/preview', { shop_id: shopId, items, use_points: usePoints }),
@@ -88,10 +97,29 @@ export const buyerApi = {
   order: (id: string) => get<OrderDetail>(`/buyer/orders/${id}`),
   tracking: (id: string) => get<TrackingResponse>(`/buyer/orders/${id}/tracking`),
   confirmReceived: (id: string) => post(`/buyer/orders/${id}/confirm-receipt`),
+  /** Where the handover stands, and what the buyer may do next. */
+  handover: (id: string) => get<HandoverState>(`/buyer/orders/${id}/handover`),
+  /** Per-line receipt form. Answering does not close the delivery; confirming receipt does. */
+  acknowledgeHandover: (id: string, lines: HandoverLineAcknowledgement[]) =>
+    post<HandoverState>(`/buyer/orders/${id}/handover/acknowledge`, { lines }),
   verifyProduct: (id: string, body: { token?: string; product_number?: string }) => post<ProductVerification>(`/buyer/orders/${id}/verify-product`, body),
   cancelOrder: (id: string) => post(`/buyer/orders/${id}/cancel`),
-  checkoutQuote: (id: string) => get<CheckoutQuote>(`/buyer/orders/${id}/checkout-quote`),
-  createPayment: (id: string, paymentMethod = 'CASH_ON_DELIVERY') => post<BuyerPayment>(`/buyer/orders/${id}/payment`, { payment_method: paymentMethod }),
+  // The server prices the selected method; the client never adds a markup.
+  checkoutQuote: (id: string, paymentMethod?: string) =>
+    get<CheckoutQuote>(`/buyer/orders/${id}/checkout-quote${paymentMethod ? `?payment_method=${encodeURIComponent(paymentMethod)}` : ''}`),
+  /**
+   * Records how the buyer intends to pay. Provider is required for both mobile
+   * methods and must be absent for cash. The payment is created DUE: selecting is not paying.
+   */
+  createPayment: (id: string, paymentMethod = 'CASH_ON_DELIVERY', provider?: PaymentProviderCode | '', payerPhone?: string) =>
+    post<BuyerPayment>(`/buyer/orders/${id}/payment`, {
+      payment_method: paymentMethod,
+      ...(provider ? { provider } : {}),
+      ...(payerPhone ? { payer_phone: payerPhone } : {}),
+    }),
+  /** Asks the operator to charge the buyer. Only its signed webhook can settle it. */
+  initiatePayment: (id: string, payerPhone?: string) =>
+    post<PaymentInitiation>(`/buyer/orders/${id}/payment/initiate`, payerPhone ? { payer_phone: payerPhone } : {}),
   getPayment: (id: string) => get<BuyerPayment>(`/buyer/orders/${id}/payment`),
   // No buyerConfirmPayment: choosing cash at delivery is not paying, and the buyer
   // saying they paid is not evidence. The courier confirms the cash at the door.
@@ -242,6 +270,30 @@ export const employeeAuthApi = {
 export const courierApi = {
   scanPickup: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/pickup', payload),
   scanDelivery: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/delivery', payload),
+
+  /** 404 for accounts that are not couriers; used to show the courier space. */
+  profile: () => get<CourierProfile>('/courier/profile'),
+  /** AVAILABLE / UNAVAILABLE; the backend refuses it for a non-active courier. */
+  updateAvailability: (availability: CourierAvailability) => patch('/courier/availability', { availability }),
+  history: async (limit = 50) => list<CourierHistoryItem>(await get<unknown>(`/courier/history?limit=${limit}`)),
+
+  /* missions — the same endpoints the web courier dashboard uses */
+  missions: async () => list<CourierMission>(await get<unknown>('/courier/missions')),
+  mission: (orderId: string) => get<CourierMission>(`/courier/missions/${orderId}`),
+  acceptMission: (orderId: string) => post(`/courier/missions/${orderId}/accept`, {}),
+  rejectMission: (orderId: string, reason: string) => post(`/courier/missions/${orderId}/reject`, { order_id: orderId, reason }),
+  failDelivery: (orderId: string, reason: string, notes: string) => post(`/courier/missions/${orderId}/fail`, { order_id: orderId, reason, notes }),
+  startDelivery: (orderId: string) => post(`/courier/missions/${orderId}/start`, {}),
+  arrive: (orderId: string) => post(`/courier/missions/${orderId}/arrive`, {}),
+
+  /* handover at the door */
+  handover: (orderId: string) => get<HandoverState>(`/courier/missions/${orderId}/handover`),
+  /** By QR token or by the printed PRD-/VAR- reference. A mismatch is a verdict, not an error. */
+  verifyProduct: (orderId: string, body: { token?: string; product_number?: string }) =>
+    post<HandoverVerificationResult>(`/courier/missions/${orderId}/verify-product`, body),
+  /** Records cash actually received. There is deliberately no mobile-money equivalent. */
+  confirmCash: (orderId: string, idempotencyKey: string) =>
+    post<ConfirmCashResponse>(`/courier/missions/${orderId}/confirm-cash`, { confirmed: true, idempotency_key: idempotencyKey }),
 }
 
 export interface LocationProvince { id: string; name: string; code?: string }

@@ -216,7 +216,7 @@ export default function SellerProductDetailScreen() {
         <Button dense variant={p.publication_status === 'PUBLISHED' ? 'outline' : 'primary'} loading={togglePublish.isPending} title={p.publication_status === 'PUBLISHED' ? t('seller.productDetail.unpublish') : t('seller.productDetail.publishToMarketplace')} onPress={() => togglePublish.mutate()} />
       </View>
       {!editing ? <>
-        <Text style={styles.muted}>{t('seller.productDetail.basePrice', { price: (p.unit_price ?? 0).toLocaleString() })}</Text>
+        <Text style={styles.muted}>{t('seller.productDetail.basePrice', { price: formatMoney(p.unit_price ?? 0) })}</Text>
         <Text style={styles.muted}>{t('seller.productDetail.unitLabel', { unit: p.unit || 'PCS' })}</Text>
         <Text style={styles.muted}>{t('seller.productForm.categoryLabel')}: {categoryPath || t('seller.productList.generalCategory')}</Text>
         {p.description ? <Text style={styles.desc}>{p.description}</Text> : null}

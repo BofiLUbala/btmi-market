@@ -92,11 +92,11 @@ export default function SellerCashScreen() {
       </View>
       <Text style={styles.muted}>{[session.employee_first_name, session.employee_last_name].filter(Boolean).join(' ') || '—'}</Text>
       <View style={styles.statsRow}>
-        <Text style={styles.muted}>{t('seller.cash.openingColumn')}: {session.opening_amount.toLocaleString()}</Text>
-        <Text style={styles.muted}>{t('seller.cash.cashSales')}: {session.cash_sales_total.toLocaleString()}</Text>
-        <Text style={styles.muted}>{t('seller.cash.expected')}: {session.expected_amount.toLocaleString()}</Text>
+        <Text style={styles.muted}>{t('seller.cash.openingColumn')}: {formatMoney(session.opening_amount, session.currency)}</Text>
+        <Text style={styles.muted}>{t('seller.cash.cashSales')}: {formatMoney(session.cash_sales_total, session.currency)}</Text>
+        <Text style={styles.muted}>{t('seller.cash.expected')}: {formatMoney(session.expected_amount, session.currency)}</Text>
       </View>
-      {session.declared_closing_amount != null && <Text style={styles.muted}>{t('seller.cash.declared')}: {session.declared_closing_amount.toLocaleString()} · {t('seller.cash.difference')}: {session.difference?.toLocaleString() ?? '—'}</Text>}
+      {session.declared_closing_amount != null && <Text style={styles.muted}>{t('seller.cash.declared')}: {formatMoney(session.declared_closing_amount, session.currency)} · {t('seller.cash.difference')}: {session.difference != null ? formatMoney(session.difference, session.currency) : '—'}</Text>}
       <Text style={styles.date}>{t('seller.cash.opened')}: {new Date(session.opened_at).toLocaleDateString()}</Text>
       {session.status === 'OPEN' && <View style={styles.row}>
         <View style={styles.flex1}><Field label={t('seller.cash.counted')} value={closingAmounts[session.id] ?? ''} onChangeText={(v) => setClosingAmounts((prev) => ({ ...prev, [session.id]: v }))} keyboardType="numeric" /></View>
@@ -106,7 +106,7 @@ export default function SellerCashScreen() {
       <Button variant="outline" dense title={expandedSession === session.id ? t('seller.hideDetails') : t('seller.cash.viewPayments')} onPress={() => setExpandedSession(expandedSession === session.id ? null : session.id)} />
       {expandedSession === session.id && <Fragment>
         {payments.isLoading ? <Loading label={t('common.loading')} /> : !payments.data?.length ? <Text style={styles.muted}>{t('seller.cash.noPayments')}</Text> : payments.data.map((p) => (
-          <Text key={p.id} style={styles.muted}>{formatMoney(p.amount)} · {p.payment_method} · {new Date(p.created_at).toLocaleString()}</Text>
+          <Text key={p.id} style={styles.muted}>{formatMoney(p.amount, session.currency)} · {p.payment_method} · {new Date(p.created_at).toLocaleString()}</Text>
         ))}
       </Fragment>}
     </Card>))}

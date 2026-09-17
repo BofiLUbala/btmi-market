@@ -16,74 +16,56 @@ export interface CartLine {
   image?: string
 }
 
+/**
+ * A line is identified by product + variant + shop, the same identity the
+ * backend uses in POST /buyer/cart/preview. Keying by variant alone let a
+ * second shop's line overwrite or merge into the first.
+ */
+export const cartLineKey = (line: Pick<CartLine, 'productId' | 'variantId' | 'shopId'>) =>
+  `${line.shopId}:${line.productId}:${line.variantId}`
+
 interface CartState {
   lines: CartLine[]
-  /** Orders are shop-scoped, so a cart always belongs to exactly one shop. */
-  shopId: string | null
-  shopName: string | null
+  /** Always succeeds: a cart may hold products from several shops (one order per shop at checkout). */
   add: (line: CartLine) => boolean
-  setQuantity: (variantId: string, quantity: number) => void
-  remove: (variantId: string) => void
+  setQuantity: (key: string, quantity: number) => void
+  remove: (key: string) => void
+  /** Drops only the given lines, e.g. the ones that became orders. */
+  removeMany: (keys: string[]) => void
   clear: () => void
-}
-
-/** Shop context always follows the first remaining line. */
-function withShop(lines: CartLine[]) {
-  return {
-    lines,
-    shopId: lines[0]?.shopId ?? null,
-    shopName: lines[0]?.shopName ?? null,
-  }
 }
 
 export const useCart = create<CartState>()(
   persist(
     (set) => ({
       lines: [],
-      shopId: null,
-      shopName: null,
       add: (line) => {
-        let accepted = true
         set((state) => {
-          if (state.lines.length && state.lines[0].shopId !== line.shopId) {
-            accepted = false
-            return state
-          }
-          const found = state.lines.find((item) => item.variantId === line.variantId)
+          const key = cartLineKey(line)
+          const found = state.lines.some((item) => cartLineKey(item) === key)
           const lines = found
             ? state.lines.map((item) =>
-                item.variantId === line.variantId
-                  ? { ...item, quantity: item.quantity + line.quantity }
-                  : item
+                cartLineKey(item) === key ? { ...item, quantity: item.quantity + line.quantity } : item
               )
             : [...state.lines, line]
-          return withShop(lines)
+          return { lines }
         })
-        return accepted
+        return true
       },
-      setQuantity: (variantId, quantity) =>
-        set((state) =>
-          withShop(
-            state.lines
-              .map((item) => (item.variantId === variantId ? { ...item, quantity } : item))
-              .filter((item) => item.quantity > 0)
-          )
-        ),
-      remove: (variantId) =>
-        set((state) => withShop(state.lines.filter((item) => item.variantId !== variantId))),
-      clear: () => set({ lines: [], shopId: null, shopName: null }),
+      setQuantity: (key, quantity) =>
+        set((state) => ({
+          lines: state.lines
+            .map((item) => (cartLineKey(item) === key ? { ...item, quantity } : item))
+            .filter((item) => item.quantity > 0),
+        })),
+      remove: (key) => set((state) => ({ lines: state.lines.filter((item) => cartLineKey(item) !== key) })),
+      removeMany: (keys) => set((state) => ({ lines: state.lines.filter((item) => !keys.includes(cartLineKey(item))) })),
+      clear: () => set({ lines: [] }),
     }),
     {
       name: 'btmi.cart',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ lines: state.lines }) as unknown as CartState,
-      // Rebuild the derived shop context after rehydrating from storage.
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.shopId = state.lines[0]?.shopId ?? null
-          state.shopName = state.lines[0]?.shopName ?? null
-        }
-      },
     }
   )
 )

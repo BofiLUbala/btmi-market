@@ -6,6 +6,8 @@ import { buyerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
+import { BuyerHandoverCard, MobilePaymentCard } from '../../src/components/BuyerHandover'
+import { formatMoney } from '../../src/lib/money'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
@@ -156,12 +158,16 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
     queryFn: () => buyerApi.getPayment(id!),
     enabled: Boolean(id),
     retry: false,
+    // A payment with the operator settles by callback: follow it until it lands.
+    refetchInterval: (query) => ['PROCESSING', 'PENDING'].includes(query.state.data?.status || '') ? 5_000 : isPaymentPaid(query.state.data) ? false : POLL_INTERVAL,
   })
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['buyer','order',id] })
     void queryClient.invalidateQueries({ queryKey: ['buyer','tracking',id] })
     void queryClient.invalidateQueries({ queryKey: ['buyer','payment',id] })
+    void queryClient.invalidateQueries({ queryKey: ['buyer','handover',id] })
+    void queryClient.invalidateQueries({ queryKey: ['buyer','orders'] })
   }
 
   const receiveMutation = useMutation({ mutationFn: () => buyerApi.confirmReceived(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
@@ -187,7 +193,8 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const t2 = tracking.data
   const p = payment.data ?? null
   const deliveryMethod = o.delivery_method || t2?.delivery_method || ''
-  const canReceive = Boolean(productVerification) && ((deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP') || (deliveryMethod !== 'PICKUP' && o.status === 'DELIVERED'))
+  const canReceive = deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP'
+  const currency = p?.currency || o.currency
   const canVerify = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '')
   const canCancel = o.status === 'PENDING' || o.status === 'ACCEPTED'
 
@@ -213,7 +220,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       <Text style={styles.shop}>{order.data.shop_name} · {deliveryMethod ? deliveryLabel(t, deliveryMethod) : t('orders.deliveryToChoose')}</Text>
       <Card>
         <Text style={styles.status}>{statusLabel(t, t2?.current_status || o.status)}</Text>
-        <Text style={styles.total}>{o.final_total.toLocaleString()} FC</Text>
+        <Text style={styles.total}>{formatMoney(p?.final_total ?? o.final_total, currency)}</Text>
         {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
         {!isTerminal(o.status) && tracking.isFetching && <Text style={styles.hint}>{t('orders.updating')}</Text>}
       </Card>
@@ -234,8 +241,11 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         <Button variant="outline" title="Vérifier le numéro" loading={verifyMutation.isPending} disabled={!productNumber.trim()} onPress={() => verifyMutation.mutate('MANUAL_PRODUCT_NUMBER')} />
         <Field label="Contenu du QR produit" value={productToken} onChangeText={setProductToken} placeholder="tbk.p.…" />
         <Button variant="outline" title="Scanner / vérifier le QR" loading={verifyMutation.isPending} disabled={!productToken.trim()} onPress={() => verifyMutation.mutate('QR_SCAN')} />
-        {productVerification ? <Text style={styles.hint}>✓ {productVerification.product_name} · {productVerification.product_number} · {productVerification.quantity} × {productVerification.unit_price.toFixed(2)} {productVerification.currency}</Text> : null}
+        {productVerification ? <Text style={styles.hint}>✓ {productVerification.product_name} · {productVerification.product_number} · {productVerification.quantity} × {formatMoney(productVerification.unit_price, productVerification.currency)}</Text> : null}
       </Card>}
+
+      <BuyerHandoverCard orderId={id!} deliveryStatus={o.delivery_status} onChanged={invalidate} />
+      <MobilePaymentCard key={p?.id ?? 'none'} orderId={id!} payment={p} onChanged={invalidate} />
 
       {(canCancel || canReceive) && <Card>
         {canReceive && <Button title={t('orders.received')} loading={receiveMutation.isPending} onPress={()=>{ setActionError(''); receiveMutation.mutate() }}/>}
@@ -262,12 +272,13 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
           <Text style={styles.name}>{t(paymentMethodKey(p?.payment_method))}</Text>
           {p ? <>
             <Text style={[styles.muted,{fontWeight:'800'}]}>{t(paymentStatusKey(p))}</Text>
-            <Text style={styles.muted}>{t('orders.amountDue', { amount: `${p.final_total.toLocaleString()} ${p.currency}` })}</Text>
-            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsAmount')}</Text><Text style={styles.muted}>{p.products_final_total.toLocaleString()} {p.currency}</Text></View>
-            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.deliveryFee')}</Text><Text style={styles.muted}>{p.delivery_fee_final.toLocaleString()} {p.currency}</Text></View>
-            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMarkup')}</Text><Text style={styles.muted}>{Math.max(p.payment_markup, 0).toLocaleString()} {p.currency}</Text></View>
-            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.pointsDiscount')}</Text><Text style={styles.muted}>-{(p.products_points_discount + p.delivery_points_discount).toLocaleString()} {p.currency}</Text></View>
-            <View style={styles.breakRow}><Text style={[styles.muted,{fontWeight:'900'}]}>{t('orders.finalTotal')}</Text><Text style={[styles.muted,{fontWeight:'900'}]}>{p.final_total.toLocaleString()} {p.currency}</Text></View>
+            {p.provider ? <Text style={styles.muted}>{t('seller.paymentOperator')} : {p.provider_label || p.provider}</Text> : null}
+            <Text style={styles.muted}>{t('orders.amountDue', { amount: formatMoney(p.final_total, p.currency) })}</Text>
+            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsAmount')}</Text><Text style={styles.muted}>{formatMoney(p.products_final_total, p.currency)}</Text></View>
+            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.deliveryFee')}</Text><Text style={styles.muted}>{formatMoney(p.delivery_fee_final, p.currency)}</Text></View>
+            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMarkup')}</Text><Text style={styles.muted}>{formatMoney(Math.max(p.payment_markup, 0), p.currency)}</Text></View>
+            <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.pointsDiscount')}</Text><Text style={styles.muted}>-{formatMoney(p.products_points_discount + p.delivery_points_discount, p.currency)}</Text></View>
+            <View style={styles.breakRow}><Text style={[styles.muted,{fontWeight:'900'}]}>{t('orders.finalTotal')}</Text><Text style={[styles.muted,{fontWeight:'900'}]}>{formatMoney(p.final_total, p.currency)}</Text></View>
             {isPaymentPaid(p)
               ? <Text style={styles.hint}>✓ {t('orders.paymentPaid')}{confirmationActorKey(p.confirmation_actor) ? ` · ${t(confirmationActorKey(p.confirmation_actor)!)}` : ''}</Text>
               : isCashOnDelivery(p)
@@ -284,14 +295,14 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         {p ? <Card>
           <Text style={styles.name}>{t('orders.paymentDetail')}</Text>
           <Text style={styles.muted}>{t('orders.createdAtLabel')} : {formatDateTime(p.created_at, lang)}</Text>
-          <Text style={styles.muted}>{t('orders.reference')} : {p.id.slice(0, 8).toUpperCase()}</Text>
+          <Text style={styles.muted}>{t('orders.reference')} : {p.receipt_reference || p.internal_reference || p.id.slice(0, 8).toUpperCase()}</Text>
           {p.updated_at ? <Text style={styles.muted}>{t('orders.lastUpdate')} : {formatDateTime(p.updated_at, lang)}</Text> : null}
         </Card> : null}
 
         <PaymentAttempts p={p} o={o} lang={lang} t={t} styles={styles} />
       </> : null}
 
-      <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=>{const e=eligibility[i].data;return <Card key={line.id}><Text style={styles.name}>{line.product_name}</Text><Text style={styles.muted}>{line.variant_name||t('orders.standardOption')} · {t('orders.qty', { count: line.quantity })} · {(line.final_unit_price*line.quantity).toLocaleString()} FC</Text>{e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? t(REASON_KEYS[e.reason] ?? 'orders.reviewUnavailable') : t('orders.reviewUnavailable')}</Text>}</Card>})}
+      <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=>{const e=eligibility[i].data;return <Card key={line.id}><Text style={styles.name}>{line.product_name}</Text><Text style={styles.muted}>{line.variant_name||t('orders.standardOption')} · {t('orders.qty', { count: line.quantity })} · {formatMoney(line.final_unit_price*line.quantity, currency)}</Text>{e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? t(REASON_KEYS[e.reason] ?? 'orders.reviewUnavailable') : t('orders.reviewUnavailable')}</Text>}</Card>})}
       <SectionTitle title={t('orders.deliveryService')}/><Card><Text style={styles.muted}>{t('orders.deliveryServiceBody')}</Text>{service.data?.eligible?<Button variant="outline" title={t('orders.rateService')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,type:'service',productName:order.data.shop_name}})}/>:<Text style={styles.hint}>{service.data?.reason ? t(REASON_KEYS[service.data.reason] ?? 'orders.serviceReviewUnavailable') : t('orders.serviceReviewUnavailable')}</Text>}</Card>
     </ScrollView>
 

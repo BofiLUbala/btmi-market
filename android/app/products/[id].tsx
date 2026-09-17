@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Image } from 'expo-image'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useLocalSearchParams } from 'expo-router'
-import { Alert, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { marketplaceApi } from '../../src/api'
@@ -184,8 +184,9 @@ export default function ProductScreen() {
     0
   const onSale = promotion.phase === 'active' && promotion.discountPercent > 0
 
-  const addLine = () => {
-    const accepted = add({
+  // A cart may hold several shops: checkout creates one order per shop.
+  const addLine = () =>
+    add({
       productId: product.id,
       variantId: selected!.id,
       name: product.name,
@@ -196,14 +197,6 @@ export default function ProductScreen() {
       quantity,
       image,
     })
-    if (!accepted) {
-      Alert.alert(
-        t('cart.differentShop'),
-        t('cart.differentShopBody')
-      )
-    }
-    return accepted
-  }
 
   return (
     <View style={styles.screen}>
