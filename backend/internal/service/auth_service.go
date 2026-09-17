@@ -122,9 +122,9 @@ func (s *AuthService) populateCapabilities(user *models.User) {
 	capabilities.SellerOnboarding = user.AccountType == models.AccountTypeSeller && !capabilities.Seller
 	user.Capabilities = capabilities
 
-	if capabilities.Courier && !capabilities.Seller && user.AccountType != models.AccountTypeSeller {
+	if capabilities.Courier && !capabilities.Seller {
 		user.AccountType = models.AccountTypeCourier
-	} else if capabilities.Employee && !capabilities.Seller && user.AccountType != models.AccountTypeSeller && user.AccountType != models.AccountTypeCourier {
+	} else if capabilities.Employee && !capabilities.Seller && user.AccountType != models.AccountTypeCourier {
 		user.AccountType = models.AccountTypeEmployee
 	}
 }

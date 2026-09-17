@@ -957,9 +957,12 @@ func getMigrationsDir() string {
 	}
 
 	execPath, err := os.Executable()
-	if err != nil {
-		return "./migrations"
+	if err == nil {
+		dir := filepath.Join(filepath.Dir(execPath), "migrations")
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			return dir
+		}
 	}
 
-	return filepath.Join(filepath.Dir(execPath), "migrations")
+	return "./migrations"
 }
