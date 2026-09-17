@@ -527,6 +527,8 @@ export interface OrderLineInput {
 
 export interface BuyerOrder {
   id: string
+  checkout_group_id?: string | null
+  payment_method?: string
   business_id: string
   shop_id: string
   customer_id?: string | null

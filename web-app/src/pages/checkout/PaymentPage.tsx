@@ -144,9 +144,6 @@ function PaymentInner() {
     | null
   const orderId = state?.orderId
   const summary = state?.summary
-  // A multi-shop checkout produced one order per shop. The buyer makes one
-  // payment decision; it is recorded against each order, so each shop's payment
-  // keeps its own amount and Finance never has to split an ambiguous total.
   const orderIds = state?.orderIds?.length ? state.orderIds : orderId ? [orderId] : []
 
   const methodLabel = (m: string) => (METHOD_LABEL[m] ? t(METHOD_LABEL[m]) : m.replace(/_/g, ' '))
@@ -164,13 +161,15 @@ function PaymentInner() {
   const [quoting, setQuoting] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [initiating, setInitiating] = useState(false)
-  const [instructions, setInstructions] = useState('')
+  const [quoteChangedAlert, setQuoteChangedAlert] = useState('')
+
   const quote = useMemo(() => aggregateQuotes(quotes), [quotes])
   const order = orders[0] ?? null
   const selectedMethod = quote?.payment_methods.find(method => method.code === paymentMethod)
 
-  // Read the address back from the order, so the recap survives a reload and a
-  // later visit - the router state only exists on the first hop from Delivery.
+  // Track quote total changes for stale quote protection
+  const lastTotal = quote?.final_total
+
   const deliveryProvince = order?.order.delivery_province || summary?.delivery.province || ''
   const deliveryCity = order?.order.delivery_city || summary?.delivery.city || ''
   const deliveryCommune = order?.order.delivery_commune || summary?.delivery.commune || ''
@@ -184,13 +183,16 @@ function PaymentInner() {
       return
     }
     let mounted = true
-    // Nothing is preselected: the buyer picks the timing themselves, which is the
-    // whole point of asking that question first.
     Promise.all([
       Promise.all(orderIds.map(id => buyerApi.checkoutQuote(id))),
       Promise.all(orderIds.map(id => buyerApi.orderDetail(id)))
     ]).then(
-      ([loadedQuotes, loadedOrders]) => { if (mounted) { setQuotes(loadedQuotes); setOrders(loadedOrders) } },
+      ([loadedQuotes, loadedOrders]) => {
+        if (mounted) {
+          setQuotes(loadedQuotes)
+          setOrders(loadedOrders)
+        }
+      },
       (e: unknown) => mounted && setError(checkoutErrorMessage(e, t('payment.couldNotPrepare')))
     ).finally(() => mounted && setLoading(false))
     return () => {
@@ -198,14 +200,22 @@ function PaymentInner() {
     }
   }, [orderId, navigate])
 
-  // Every method change is re-priced by the server, so the total on screen is
-  // always the one the backend would charge - never a client-side sum.
+  // Re-quote when method changes
   useEffect(() => {
     if (!orderId || !paymentMethod || loading) return
     let mounted = true
     setQuoting(true)
     Promise.all(orderIds.map(id => buyerApi.checkoutQuote(id, paymentMethod))).then(
-      loadedQuotes => { if (mounted) { setQuotes(loadedQuotes); setError('') } },
+      loadedQuotes => {
+        if (mounted) {
+          const newAgg = aggregateQuotes(loadedQuotes)
+          if (lastTotal != null && newAgg?.final_total !== lastTotal) {
+            setQuoteChangedAlert('Le montant de votre commande a été mis à jour. Vérifiez le nouveau total avant de continuer.')
+          }
+          setQuotes(loadedQuotes)
+          setError('')
+        }
+      },
       (e: unknown) => { if (mounted) setError(checkoutErrorMessage(e, t('payment.couldNotPrepare'))) }
     ).finally(() => { if (mounted) setQuoting(false) })
     return () => { mounted = false }
@@ -224,16 +234,12 @@ function PaymentInner() {
   function chooseTiming(next: Timing) {
     setTiming(next)
     setProvider('')
-    setInstructions('')
+    setQuoteChangedAlert('')
     const available = (quote?.payment_methods ?? []).filter(method => method.timing === next)
-    // Only one method under a timing means there is nothing to choose: select it
-    // and let the buyer get on with the operator step.
     setPaymentMethod(available.length === 1 ? available[0].code : '')
   }
 
   const needsProvider = isMobile(paymentMethod)
-  // Pay-now charges the handset right here, so the number is required before the
-  // order is placed. Pay-at-delivery asks for it at the door instead.
   const needsPhoneNow = paymentMethod === 'MOBILE_PAY_NOW'
   const phoneReady = !needsPhoneNow || payerPhone.trim().length >= 9
   const quoteReady = Boolean(quote?.selected_payment_method === paymentMethod) && !quoting
@@ -243,13 +249,6 @@ function PaymentInner() {
   })
   const readyToPlace = validationError === ''
 
-  /**
-   * Places the order with the chosen method, operator and - for pay-now - handset.
-   *
-   * It records how the buyer intends to pay, nothing more. Every method starts
-   * DUE: cash is settled by the courier at the door and mobile money by its
-   * operator, so confirming this screen can never make an order paid.
-   */
   async function placeOrder() {
     if (confirming || initiating) return
     if (!orderId) {
@@ -262,8 +261,8 @@ function PaymentInner() {
     }
     setConfirming(true)
     setError('')
+    setQuoteChangedAlert('')
     try {
-      // One decision, recorded against every order this checkout produced.
       const payments = await Promise.all(
         orderIds.map(id =>
           buyerApi.createPayment(id, paymentMethod, provider || undefined, payerPhone.trim() || undefined)
@@ -273,59 +272,31 @@ function PaymentInner() {
       setPayment(created)
 
       if (paymentMethod === 'MOBILE_PAY_NOW') {
-        // Stay here: the buyer still has to approve the operator's prompt, and
-        // the order is not paid until the operator says so.
-        await startMobilePayment()
+        setInitiating(true)
+        try {
+          await Promise.all(
+            orderIds.map(id => buyerApi.initiatePayment(id, payerPhone.trim() || undefined))
+          )
+          const refreshed = await buyerApi.getPayment(orderId)
+          navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds, checkoutGroupId: state?.checkoutGroupId }, replace: true })
+        } catch (initErr) {
+          // If initiate fails, still navigate to Step 4 so buyer can view order and retry status
+          const refreshed = await buyerApi.getPayment(orderId).catch(() => created)
+          navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds, checkoutGroupId: state?.checkoutGroupId, error: checkoutErrorMessage(initErr, 'Erreur lors du lancement du paiement.') }, replace: true })
+        } finally {
+          setInitiating(false)
+          setConfirming(false)
+        }
         return
       }
-      navigate(`/orders/${orderId}/success`, { state: { payment: created, orderIds }, replace: true })
+
+      // For CASH_ON_DELIVERY and MOBILE_AT_DELIVERY, navigate immediately to Step 4 Order Success
+      navigate(`/orders/${orderId}/success`, { state: { payment: created, orderIds, checkoutGroupId: state?.checkoutGroupId }, replace: true })
     } catch (e) {
       setError(checkoutErrorMessage(e, t('payment.couldNotConfirm')))
       setConfirming(false)
     }
   }
-
-  /** Asks the operator to charge the buyer. Only its callback can settle it. */
-  async function startMobilePayment() {
-    if (!orderId) return
-    setInitiating(true)
-    try {
-      const results = await Promise.all(
-        orderIds.map(id => buyerApi.initiatePayment(id, payerPhone.trim() || undefined))
-      )
-      setInstructions(results[0]?.instructions || 'Validez la demande sur votre téléphone.')
-      const refreshed = await buyerApi.getPayment(orderId)
-      setPayment(refreshed)
-    } catch (e) {
-      setError(checkoutErrorMessage(e, 'Le paiement n’a pas pu être lancé.'))
-    } finally {
-      setInitiating(false)
-      setConfirming(false)
-    }
-  }
-
-  // While a pay-now charge is with the operator, poll for its outcome so the
-  // screen moves to "paid" by itself once the operator's confirmation lands -
-  // the buyer is approving a prompt on their phone, not watching this tab.
-  const pendingPaymentId = payment && payment.payment_method === 'MOBILE_PAY_NOW' && !['PAID', 'VERIFIED', 'FAILED'].includes(payment.status)
-    ? payment.id
-    : ''
-  useEffect(() => {
-    if (!pendingPaymentId || !orderId) return
-    let stopped = false
-    const timer = window.setInterval(async () => {
-      try {
-        const refreshed = await buyerApi.getPayment(orderId)
-        if (stopped) return
-        setPayment(refreshed)
-        if (['PAID', 'VERIFIED'].includes(refreshed.status)) {
-          window.clearInterval(timer)
-          navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds }, replace: true })
-        }
-      } catch { /* keep polling; a transient error is not an outcome */ }
-    }, 5_000)
-    return () => { stopped = true; window.clearInterval(timer) }
-  }, [pendingPaymentId, orderId])
 
   if (loading) return <LoadingBlock label={t('payment.preparing')} />
   if (!quote)
@@ -334,24 +305,51 @@ function PaymentInner() {
   const methodsForTiming = timing ? quote.payment_methods.filter(method => method.timing === timing) : []
   const providers = quote.providers ?? []
 
-  // Once a pay-now payment has been started, the screen becomes the status of
-  // that attempt rather than a form: there is nothing left to choose.
-  const awaitingProvider = Boolean(payment && payment.payment_method === 'MOBILE_PAY_NOW' && !['PAID', 'VERIFIED'].includes(payment.status))
+  // Dynamic button label according to server & client state
+  let ctaLabel = 'Confirmer la commande'
+  if (confirming || initiating) {
+    ctaLabel = 'Création de la commande...'
+  } else if (payment) {
+    if (['PAID', 'VERIFIED'].includes(payment.status)) {
+      ctaLabel = 'Voir la commande'
+    } else if (['PROCESSING', 'PENDING'].includes(payment.status) && payment.payment_method === 'MOBILE_PAY_NOW') {
+      ctaLabel = 'Paiement en cours...'
+    } else {
+      ctaLabel = 'Commande confirmée'
+    }
+  } else if (paymentMethod === 'MOBILE_PAY_NOW') {
+    ctaLabel = 'Payer maintenant'
+  }
 
   return (
     <div className="checkout-page fade-in">
       <CheckoutProgress current="Review" />
-      <header className="checkout-heading"><div><h1>{t('payment.title')}</h1><p>{t('payment.subtitle')}</p></div></header>
+      <header className="checkout-heading">
+        <div>
+          <h1>{t('payment.title')}</h1>
+          <p>{t('payment.subtitle')}</p>
+        </div>
+      </header>
 
       {error && <ErrorBox error={error} />}
+      {quoteChangedAlert && (
+        <div className="checkout-inline-error" role="alert">
+          <span>⚠️ {quoteChangedAlert}</span>
+        </div>
+      )}
 
       <div className="checkout-layout">
         <div className="checkout-content stack">
+          {/* SINGLE UNIFIED PAYMENT CARD */}
           <section className="checkout-card">
-            <div className="checkout-card-head"><h2>Mode de paiement</h2><span>Configuré par Finance</span></div>
+            <div className="checkout-card-head">
+              <h2>Mode de paiement</h2>
+              <span>Sélection sécurisée</span>
+            </div>
 
-            {/* Step 1 — when. */}
-            <div className="stack" style={{ marginTop: 12 }}>
+            {/* Step 1 — Timing */}
+            <div className="stack" style={{ marginTop: 16 }}>
+              <strong>1. Quand souhaitez-vous payer ?</strong>
               {TIMING_CHOICES.map(choice => {
                 const available = quote.payment_methods.some(method => method.timing === choice.timing)
                 if (!available) return null
@@ -377,11 +375,10 @@ function PaymentInner() {
               })}
             </div>
 
-            {/* Step 2 — how, within that timing. Pay-now has a single mobile
-                group; pay-at-delivery has cash and mobile. */}
+            {/* Step 2 — Method */}
             {timing && methodsForTiming.length > 0 && (
-              <div className="stack" style={{ marginTop: 16 }}>
-                <strong>{timing === 'NOW' ? 'Paiement mobile' : 'Comment payer à la livraison ?'}</strong>
+              <div className="stack" style={{ marginTop: 20 }}>
+                <strong>2. {timing === 'NOW' ? 'Paiement mobile immédiat' : 'Comment payer à la livraison ?'}</strong>
                 {methodsForTiming.map(method => (
                   <label
                     className={`delivery-option payment-method-option ${paymentMethod === method.code ? 'selected' : ''}`}
@@ -393,7 +390,7 @@ function PaymentInner() {
                       value={method.code}
                       checked={paymentMethod === method.code}
                       disabled={Boolean(payment)}
-                      onChange={() => { setPaymentMethod(method.code); setProvider('') }}
+                      onChange={() => { setPaymentMethod(method.code); setProvider(''); setQuoteChangedAlert('') }}
                     />
                     <span>
                       <strong>{METHOD_TITLE[method.code] ?? method.label}</strong><br />
@@ -407,193 +404,173 @@ function PaymentInner() {
               </div>
             )}
 
-            {/* Step 3 — which operator. Same list and same integration for both
-                mobile methods; only the moment of the charge differs. */}
+            {/* Step 3 — Operator */}
             {needsProvider && (
-              <div className="stack" style={{ marginTop: 16 }}>
-                <strong>Choisissez votre opérateur</strong>
+              <div className="stack" style={{ marginTop: 20 }}>
+                <strong>3. Choisissez votre opérateur Mobile Money</strong>
                 {providers.length === 0 && (
                   <p className="small muted">Aucun opérateur mobile n’est disponible actuellement.</p>
                 )}
-                {providers.map(option => (
-                  <label
-                    className={`delivery-option payment-method-option ${provider === option.code ? 'selected' : ''}`}
-                    key={option.code}
-                  >
-                    <input
-                      type="radio"
-                      name="payment_provider"
-                      value={option.code}
-                      checked={provider === option.code}
-                      disabled={Boolean(payment)}
-                      onChange={() => setProvider(option.code)}
-                    />
-                    <span><strong>{option.label}</strong></span>
-                  </label>
-                ))}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                  {providers.map(option => (
+                    <label
+                      className={`delivery-option payment-method-option ${provider === option.code ? 'selected' : ''}`}
+                      key={option.code}
+                      style={{ padding: 12, textAlign: 'center' }}
+                    >
+                      <input
+                        type="radio"
+                        name="payment_provider"
+                        value={option.code}
+                        checked={provider === option.code}
+                        disabled={Boolean(payment)}
+                        onChange={() => setProvider(option.code)}
+                      />
+                      <span><strong>{option.label}</strong></span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 4 — Handset Phone (if needed) */}
+            {needsProvider && provider && (
+              <div className="stack" style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+                <strong>4. Numéro de téléphone Mobile Money</strong>
+                <label className="field" style={{ display: 'block' }}>
+                  <span className="muted" style={{ fontSize: '0.85rem' }}>
+                    {needsPhoneNow ? 'Entrez le numéro qui recevra la demande de paiement :' : 'Numéro pour la livraison (optionnel) :'}
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={payerPhone}
+                    disabled={Boolean(payment)}
+                    placeholder="+243 ..."
+                    onChange={(e) => setPayerPhone(e.target.value)}
+                    style={{ width: '100%', marginTop: 6 }}
+                  />
+                </label>
+                {needsPhoneNow && !phoneReady && (
+                  <p className="small muted" style={{ color: 'var(--color-warning)' }}>
+                    Entrez le numéro Mobile Money qui sera débité (min. 9 chiffres).
+                  </p>
+                )}
+                {paymentMethod === 'MOBILE_AT_DELIVERY' && (
+                  <p className="small muted" style={{ marginTop: 6 }}>
+                    Rien n’est prélevé maintenant. Le Livreur sera présent lors du paiement à la livraison.
+                  </p>
+                )}
               </div>
             )}
           </section>
 
-          {/* The mobile payment checkout: operator, handset, and exactly what is
-              about to be charged. */}
-          {needsProvider && provider && (
+          {/* PRODUCTS LIST RECAP */}
+          <section className="checkout-card">
+            <div className="checkout-card-head">
+              <h2>{t('cart.products')}</h2>
+              <span>
+                {orders.reduce((total, current) => total + current.order.total_items, 0)}{' '}
+                {orders.reduce((total, current) => total + current.order.total_items, 0) === 1 ? t('cart.item') : t('cart.items')}
+              </span>
+            </div>
+            {orders.flatMap(current =>
+              current.lines.map(line => {
+                const product = products[line.product_id]
+                const variant = product?.variants?.find(item => item.id === line.variant_id)
+                const unitPrice = line.final_unit_price || line.unit_price
+                return (
+                  <div className="review-order-line" key={line.id}>
+                    <div>
+                      <strong>{product?.name || line.product_name || t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong>
+                      <span>{variant?.name || line.variant_name || variant?.sku || line.variant_sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span>
+                      <span>Boutique : {current.shop_name || '—'} · Prix unitaire : {formatMoney(unitPrice, current.order.currency || 'USD')}</span>
+                    </div>
+                    <strong>{formatMoney(unitPrice * line.quantity, current.order.currency || 'USD')}</strong>
+                  </div>
+                )
+              })
+            )}
+            {orderIds.length > 1 && (
+              <p className="small muted" style={{ marginTop: 10 }}>
+                Ce paiement couvre {orderIds.length} commandes boutiques distinctes.
+              </p>
+            )}
+          </section>
+
+          {/* DELIVERY ADDRESS RECAP */}
+          {summary && (
             <section className="checkout-card">
               <div className="checkout-card-head">
-                <h2>Paiement mobile</h2>
-                <span>{providers.find(p => p.code === provider)?.label ?? provider}</span>
+                <h2>{t('product.delivery')}</h2>
+                <span>{methodLabel(summary.delivery.method)}</span>
               </div>
-              <div className="summary-lines">
-                <div><span>Opérateur</span><strong>{providers.find(p => p.code === provider)?.label ?? provider}</strong></div>
-                <div><span>Montant de la commande</span><strong>{formatMoney(quote.subtotal, quote.currency)}</strong></div>
-                <div><span>Livraison</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div>
-                {quote.points_discount > 0 && <div><span>Remise points</span><strong className="discount">−{formatMoney(quote.points_discount, quote.currency)}</strong></div>}
-                <div><span>Frais du mode de paiement</span><strong>{formatMoney(quote.payment_markup, quote.currency)}</strong></div>
-                <div><span>Montant final</span><strong>{formatMoney(quote.final_total, quote.currency)}</strong></div>
-              </div>
-
-              <label className="field" style={{ marginTop: 12, display: 'block' }}>
-                <span>Téléphone {needsPhoneNow ? '' : '(optionnel — demandé à la livraison)'}</span>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={payerPhone}
-                  disabled={Boolean(payment)}
-                  placeholder="+243 ..."
-                  onChange={(e) => setPayerPhone(e.target.value)}
-                />
-              </label>
-              {needsPhoneNow && !phoneReady && payerPhone.trim().length > 0 && (
-                <p className="small muted">Entrez le numéro qui sera débité.</p>
+              {deliveryCommune && (
+                <dl className="address-summary">
+                  <div><dt>Province</dt><dd>{deliveryProvince}</dd></div>
+                  <div><dt>Ville</dt><dd>{deliveryCity}</dd></div>
+                  <div><dt>Commune</dt><dd>{deliveryCommune}</dd></div>
+                  <div><dt>Adresse</dt><dd>{deliveryStreet}</dd></div>
+                  <div><dt>Numéro</dt><dd>{deliveryBuildingNumber}</dd></div>
+                  {deliveryLandmark && <div><dt>Instructions</dt><dd>{deliveryLandmark}</dd></div>}
+                </dl>
               )}
-
-              {paymentMethod === 'MOBILE_AT_DELIVERY' && (
-                <p className="small muted" style={{ marginTop: 8 }}>
-                  Rien n’est prélevé maintenant. Le Livreur sera présent, vous vérifierez le produit,
-                  puis vous lancerez le paiement. La commande n’est payée qu’une fois l’opérateur confirmé.
-                </p>
-              )}
-            </section>
-          )}
-
-          {/* Status of a started pay-now charge. PROCESSING is the honest state:
-              the operator has been asked, the buyer has not yet paid. */}
-          {awaitingProvider && (
-            <section className="checkout-card" role="status">
-              <div className="checkout-card-head"><h2>Paiement en attente</h2><span>{payment?.status}</span></div>
-              <p>{instructions || 'Validez la demande de paiement sur votre téléphone.'}</p>
-              <div className="summary-lines">
-                <div><span>Référence</span><strong>{payment?.internal_reference || '—'}</strong></div>
-                <div><span>Montant</span><strong>{formatMoney(payment?.final_total ?? 0, payment?.currency)}</strong></div>
-              </div>
-              <p className="small muted">
-                La commande ne sera marquée payée qu’après confirmation de l’opérateur.
-              </p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <Button
-                  variant="outline"
-                  loading={initiating}
-                  onClick={async () => {
-                    if (!orderId) return
-                    const refreshed = await buyerApi.getPayment(orderId)
-                    setPayment(refreshed)
-                    if (['PAID', 'VERIFIED'].includes(refreshed.status)) {
-                      navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds }, replace: true })
-                    }
-                  }}
-                >
-                  Actualiser le statut
-                </Button>
-                <Button variant="ghost" onClick={() => navigate(`/orders/${orderId}`)}>Voir la commande</Button>
+              <div className="total-row" style={{ marginTop: 10 }}>
+                <span>Frais de livraison</span>
+                <span>{formatMoney(summary.delivery.fee_final)}</span>
               </div>
             </section>
           )}
-
-          <section className="checkout-card"><div className="checkout-card-head"><h2>{t('cart.products')}</h2><span>{orders.reduce((total, current) => total + current.order.total_items, 0)} {orders.reduce((total, current) => total + current.order.total_items, 0) === 1 ? t('cart.item') : t('cart.items')}</span></div>
-          {orders.flatMap(current => current.lines.map(line => { const product = products[line.product_id]; const variant = product?.variants?.find(item => item.id === line.variant_id); const unitPrice = line.final_unit_price || line.unit_price; return <div className="review-order-line" key={line.id}><div><strong>{product?.name || line.product_name || t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong><span>{variant?.name || line.variant_name || variant?.sku || line.variant_sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span><span>Boutique : {current.shop_name || '—'} · Prix unitaire : {formatMoney(unitPrice, current.order.currency || 'USD')}</span></div><strong>{formatMoney(unitPrice * line.quantity, current.order.currency || 'USD')}</strong></div> }))}
-          {orderIds.length > 1 && (
-            <p className="small muted" style={{ marginTop: 8 }}>
-              Ce paiement couvre {orderIds.length} commandes, une par boutique. Chaque boutique
-              conserve son propre montant.
-            </p>
-          )}
-          </section>
-      {summary && (
-        <section className="checkout-card">
-          <div className="checkout-card-head"><h2>{t('product.delivery')}</h2><span>{methodLabel(summary.delivery.method)}</span></div>
-          <div className="total-row">
-            <span>{t('cart.products')}</span>
-            <span>{formatMoney(summary.products_final_total)}</span>
-          </div>
-          {deliveryCommune && (
-            <dl className="address-summary">
-              <div><dt>Province</dt><dd>{deliveryProvince}</dd></div>
-              <div><dt>Ville</dt><dd>{deliveryCity}</dd></div>
-              <div><dt>Commune</dt><dd>{deliveryCommune}</dd></div>
-              <div><dt>Adresse</dt><dd>{deliveryStreet}</dd></div>
-              <div><dt>Numéro</dt><dd>{deliveryBuildingNumber}</dd></div>
-              {deliveryLandmark && <div><dt>Instructions</dt><dd>{deliveryLandmark}</dd></div>}
-            </dl>
-          )}
-          <div className="total-row">
-            <span>{t('product.delivery')} ({methodLabel(summary.delivery.method)})</span>
-            <span>
-              {summary.delivery.points_used > 0 ? (
-                <>
-                  <s className="muted">{formatMoney(summary.delivery.fee_base)}</s>{' '}
-                  {formatMoney(summary.delivery.fee_final)}
-                </>
-              ) : (
-                formatMoney(summary.delivery.fee_final)
-              )}
-            </span>
-          </div>
-        </section>
-      )}
         </div>
 
-      <aside className="checkout-card checkout-summary">
-        <span className="eyebrow">{t('payment.finalSummary')}</span>
-        <div className="summary-lines">
-          <div><span>{t('cart.products')}</span><strong>{formatMoney(quote.subtotal, quote.currency)}</strong></div>
-          <div><span>{t('payment.productPoints')}</span><strong className="discount">−{formatMoney(quote.points_discount, quote.currency)}</strong></div>
-          <div><span>{t('product.delivery')}</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div>
-          <div>
-            <span>Frais du mode de paiement{selectedMethod?.markup_type === 'PERCENTAGE' ? ` (${selectedMethod.markup_value}%)` : ''}</span>
-            <strong>{formatMoney(quote.payment_markup, quote.currency)}</strong>
+        {/* STICKY SUMMARY COLUMN */}
+        <aside className="checkout-card checkout-summary">
+          <span className="eyebrow">{t('payment.finalSummary')}</span>
+          <div className="summary-lines">
+            <div><span>{t('cart.products')}</span><strong>{formatMoney(quote.subtotal, quote.currency)}</strong></div>
+            {quote.points_discount > 0 && (
+              <div><span>{t('payment.productPoints')}</span><strong className="discount">−{formatMoney(quote.points_discount, quote.currency)}</strong></div>
+            )}
+            <div><span>{t('product.delivery')}</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div>
+            <div>
+              <span>Frais du mode de paiement</span>
+              <strong>{formatMoney(quote.payment_markup, quote.currency)}</strong>
+            </div>
           </div>
-        </div>
-        <div className="summary-total"><span>Total</span><strong>{formatMoney(quote.final_total, quote.currency)}</strong><small>{quoting ? 'Recalcul du total…' : 'Le montant final est calculé par le serveur.'}</small></div>
-        <div className="summary-lines" style={{ marginTop: 12 }}>
-          <div><span>Mode de paiement</span><strong>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ?? selectedMethod.label) : '—'}</strong></div>
-          <div><span>Opérateur</span><strong>{needsProvider ? (providers.find(item => item.code === provider)?.label ?? '—') : 'Non applicable'}</strong></div>
-          <div><span>Devise</span><strong>{quote.currency}</strong></div>
-        </div>
-        <div className="pay-note">
-          {!timing
-            ? 'Choisissez d’abord quand vous souhaitez payer.'
-            : selectedMethod?.timing === 'NOW'
-            ? 'Vous validerez la demande chez votre opérateur. La commande est payée une fois que l’opérateur le confirme.'
-            : 'Aucun montant n’est prélevé maintenant : ce total est dû à la livraison.'}
-        </div>
-        {validationError && <p className="checkout-inline-error" role="alert" style={{ marginTop: 12 }}>{validationError}</p>}
-        <Button
-          variant="accent"
-          size="lg"
-          block
-          onClick={placeOrder}
-          loading={confirming || initiating}
-          disabled={!readyToPlace || Boolean(payment) || confirming || initiating}
-        >
-          {confirming || initiating
-            ? 'Création de la commande...'
-            : payment
-            ? t('payment.orderConfirmed')
-            : paymentMethod === 'MOBILE_PAY_NOW'
-            ? 'Payer maintenant'
-            : t('payment.placeOrder')}
-        </Button>
-      </aside>
+
+          <div className="summary-total">
+            <span>Total final</span>
+            <strong>{formatMoney(quote.final_total, quote.currency)}</strong>
+            <small>{quoting ? 'Recalcul du total…' : 'Montant total calculé par le serveur'}</small>
+          </div>
+
+          <div className="summary-lines" style={{ marginTop: 12 }}>
+            <div><span>Timing</span><strong>{timing === 'NOW' ? 'Immédiat' : timing === 'DELIVERY' ? 'À la livraison' : '—'}</strong></div>
+            <div><span>Mode</span><strong>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ?? selectedMethod.label) : '—'}</strong></div>
+            <div><span>Opérateur</span><strong>{needsProvider ? (providers.find(item => item.code === provider)?.label ?? '—') : 'Sans objet'}</strong></div>
+          </div>
+
+          <div className="pay-note">
+            {!timing
+              ? 'Choisissez d’abord quand vous souhaitez payer.'
+              : selectedMethod?.timing === 'NOW'
+              ? 'Vous validerez la demande sur votre téléphone. La commande est confirmée dès validation.'
+              : 'Aucun montant n’est prélevé maintenant. Le total est dû à la livraison.'}
+          </div>
+
+          {validationError && <p className="checkout-inline-error" role="alert" style={{ marginTop: 12 }}>{validationError}</p>}
+
+          <Button
+            variant="accent"
+            size="lg"
+            block
+            onClick={placeOrder}
+            loading={confirming || initiating}
+            disabled={!readyToPlace || Boolean(payment) || confirming || initiating}
+          >
+            {ctaLabel}
+          </Button>
+        </aside>
       </div>
     </div>
   )
