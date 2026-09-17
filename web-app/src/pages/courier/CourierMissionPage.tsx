@@ -41,7 +41,7 @@ export default function CourierMissionPage(){
       }
     }
     void fetchMission()
-    const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void fetchMission()},15000)
+    const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void fetchMission()},4000)
     const visible=()=>{if(document.visibilityState==='visible')void fetchMission()}
     document.addEventListener('visibilitychange',visible)
     return ()=>{disposed=true;window.clearInterval(timer);document.removeEventListener('visibilitychange',visible)}
