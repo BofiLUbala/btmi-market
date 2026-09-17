@@ -268,10 +268,12 @@ func canActorSetStatus(actorType string, status models.OrderStatus) bool {
 func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.OrderStatus, notes, actorType string) error {
 	var currentStatus models.OrderStatus
 	var deliveryMethodNS sql.NullString
-	if err := tx.QueryRow("SELECT status, delivery_method FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethodNS); err != nil {
+	var deliveryStatusNS sql.NullString
+	if err := tx.QueryRow("SELECT status, delivery_method, delivery_status FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethodNS, &deliveryStatusNS); err != nil {
 		return mapOrderNotFoundErr(err)
 	}
 	deliveryMethod := deliveryMethodNS.String
+	deliveryStatus := deliveryStatusNS.String
 
 	if currentStatus == newStatus {
 		return nil
@@ -281,6 +283,15 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 	}
 	if !canActorSetStatus(actorType, newStatus) {
 		return errors.New("ACTOR_NOT_ALLOWED")
+	}
+
+	// A seller marking the order ready on a courier delivery flow (TBK_STANDARD
+	// or PICKUP) moves the delivery handover milestone so the courier can pick up.
+	newDeliveryStatus := deliveryStatus
+	if newStatus == models.OrderStatusReadyForPickup ||
+		(newStatus == models.OrderStatusReady && deliveryMethod == models.DeliveryMethodTBK &&
+			(deliveryStatus == "" || deliveryStatus == models.DeliveryStatusPendingTBK || deliveryStatus == models.DeliveryStatusCourierAssigned || deliveryStatus == "COURIER_ACCEPTED")) {
+		newDeliveryStatus = models.DeliveryStatusReadyForPickup
 	}
 
 	now := time.Now()
@@ -293,9 +304,10 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 		    out_for_delivery_at = CASE WHEN $2 = 'OUT_FOR_DELIVERY' THEN COALESCE(out_for_delivery_at, $3) ELSE out_for_delivery_at END,
 		    delivered_at = CASE WHEN $2 = 'DELIVERED' THEN COALESCE(delivered_at, $3) ELSE delivered_at END,
 		    received_at = CASE WHEN $2 = 'RECEIVED' THEN COALESCE(received_at, $3) ELSE received_at END,
-		    completed_at = CASE WHEN $2 = 'COMPLETED' THEN COALESCE(completed_at, $3) ELSE completed_at END
+		    completed_at = CASE WHEN $2 = 'COMPLETED' THEN COALESCE(completed_at, $3) ELSE completed_at END,
+		    delivery_status = $4::varchar
 		WHERE id = $1
-	`, orderID, newStatus, now)
+	`, orderID, newStatus, now, newDeliveryStatus)
 	if err != nil {
 		return err
 	}

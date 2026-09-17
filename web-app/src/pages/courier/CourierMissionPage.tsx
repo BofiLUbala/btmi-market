@@ -77,7 +77,7 @@ export default function CourierMissionPage(){
   const isRejecting = actionBusy.includes(`/missions/${id}/reject`)
   const isStarting = actionBusy.includes(`/missions/${id}/start`)
   const isArriving = actionBusy.includes(`/missions/${id}/arrive`)
-  const isPickingUp = actionBusy.includes('/scans/pickup')
+  const isConfirmingPickup = actionBusy.includes('/courier/missions') && actionBusy.includes('/pickup')
 
   return (
     <main className="courier-page">
@@ -95,7 +95,7 @@ export default function CourierMissionPage(){
           <div className="courier-details" style={{marginBottom:14}}>
             <Detail l="Acteur responsable" v={
               m.delivery_status === 'COURIER_ASSIGNED' ? 'Livreur (Vous)' :
-              m.delivery_status === 'COURIER_ACCEPTED' ? (['READY','READY_FOR_PICKUP'].includes(m.status) ? 'Livreur (Vous)' : 'Vendeur') :
+              m.delivery_status === 'COURIER_ACCEPTED' ? 'Vendeur' :
               m.delivery_status === 'READY_FOR_PICKUP' ? 'Livreur (Vous)' :
               m.delivery_status === 'PICKED_UP' ? 'Livreur (Vous)' :
               m.delivery_status === 'IN_TRANSIT' ? 'Livreur (Vous)' :
@@ -105,7 +105,7 @@ export default function CourierMissionPage(){
             } />
             <Detail l="Explication du statut" v={
               m.delivery_status === 'COURIER_ASSIGNED' ? 'Cette mission vous est attribuée. Vous devez l\'accepter ou la refuser.' :
-              m.delivery_status === 'COURIER_ACCEPTED' ? (['READY','READY_FOR_PICKUP'].includes(m.status) ? 'La commande est prête chez le vendeur. Récupérez les colis.' : 'En attente que le vendeur prépare la commande.') :
+              m.delivery_status === 'COURIER_ACCEPTED' ? 'Mission acceptée. En attente que le vendeur prépare la commande.' :
               m.delivery_status === 'READY_FOR_PICKUP' ? 'La commande est prête chez le vendeur. Récupérez les colis.' :
               m.delivery_status === 'PICKED_UP' ? 'Colis en votre possession. Démarrez la livraison.' :
               m.delivery_status === 'IN_TRANSIT' ? 'Trajet de livraison en cours. Validez votre arrivée une fois sur place.' :
@@ -118,23 +118,31 @@ export default function CourierMissionPage(){
           {actionError && <div className="courier-error" style={{marginBottom:12}}>{actionError}</div>}
           {actionSuccess && <div className="courier-muted" style={{color:'var(--color-success)', fontWeight:700, marginBottom:12}}>✓ {actionSuccess}</div>}
 
-          {/* Action buttons */}
-          <div className="courier-actions">
-            {m.delivery_status === 'COURIER_ASSIGNED' && (
-              <>
-                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/accept`, undefined, t('courier.dashboard.accepted'))}>
-                  {isAccepting ? 'Acceptation...' : 'Accepter la mission'}
-                </button>
-                <button disabled={!!actionBusy} className="courier-btn courier-btn-danger" onClick={reject}>
-                  {isRejecting ? 'Refus...' : 'Refuser la mission'}
-                </button>
-              </>
-            )}
+{/* Action buttons */}
+            <div className="courier-actions">
+              {m.delivery_status === 'COURIER_ASSIGNED' && (
+                <>
+                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/accept`, undefined, t('courier.dashboard.accepted'))}>
+                    {isAccepting ? 'Acceptation...' : 'Accepter la mission'}
+                  </button>
+                  <button disabled={!!actionBusy} className="courier-btn courier-btn-danger" onClick={reject}>
+                    {isRejecting ? 'Refus...' : 'Refuser la mission'}
+                  </button>
+                </>
+              )}
 
-            {['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY','READY_FOR_PICKUP'].includes(m.status) && (
+              {m.delivery_status === 'COURIER_ACCEPTED' && (
+                <div className="courier-waiting">
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
+                  <p>Responsable: <strong>Vendeur</strong></p>
+                  <p className="courier-muted">Mission acceptée. En attente que le vendeur prépare la commande.</p>
+                </div>
+              )}
+
+              {m.delivery_status === 'READY_FOR_PICKUP' && (
               <>
                 <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/pickup`, undefined, 'Récupération confirmée.')}>
-                  {isPickingUp ? 'Confirmation...' : 'Confirmer la récupération'}
+                  {isConfirmingPickup ? 'Confirmation...' : 'Confirmer la récupération'}
                 </button>
                 <button className="courier-btn courier-btn-scan" onClick={()=>navigate(`/courier/scan?type=PICKUP&order_id=${id}`)}>
                   Scanner le QR vendeur

@@ -593,11 +593,11 @@ func (s *CourierService) ConfirmPickup(userID, orderID uuid.UUID) error {
 	if err != nil || order == nil {
 		return ErrMissionNotFound
 	}
-	if order.DeliveryStatus != "READY_FOR_PICKUP" && order.DeliveryStatus != "COURIER_ACCEPTED" {
+	if order.DeliveryStatus != "READY_FOR_PICKUP" {
 		return ErrInvalidStatusTransition
 	}
 
-	changed, err := s.courierRepo.TransitionMission(orderID, userID, order.DeliveryStatus, "PICKED_UP", "pickup_verified_at")
+	changed, err := s.courierRepo.TransitionMission(orderID, userID, "READY_FOR_PICKUP", "PICKED_UP", "pickup_verified_at")
 	if err != nil {
 		return err
 	}

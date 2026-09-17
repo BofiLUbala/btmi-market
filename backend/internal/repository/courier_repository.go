@@ -289,7 +289,7 @@ func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.Cour
 		       o.final_total, COALESCE(o.currency,'CDF'),
 		       COALESCE(pay.payment_method,''), COALESCE(pay.status,'UNPAID'),
 		       o.courier_assigned_at, o.courier_accepted_at, 
-		       o.ready_at, dp.pickup_verified_at, o.courier_started_at, o.courier_arrived_at, o.delivered_at
+		       o.ready_at, COALESCE(o.pickup_verified_at, dp.pickup_verified_at), o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
 		JOIN businesses b ON b.id = o.business_id
@@ -330,7 +330,7 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 		       o.final_total, COALESCE(o.currency,'CDF'),
 		       COALESCE(pay.payment_method,''), COALESCE(pay.status,'UNPAID'),
 		       o.courier_assigned_at, o.courier_accepted_at,
-		       o.ready_at, dp.pickup_verified_at, o.courier_started_at, o.courier_arrived_at, o.delivered_at
+		       o.ready_at, COALESCE(o.pickup_verified_at, dp.pickup_verified_at), o.courier_started_at, o.courier_arrived_at, o.delivered_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
 		JOIN businesses b ON b.id = o.business_id
@@ -510,6 +510,7 @@ func (r *CourierRepository) TransitionMission(orderID, courierUserID uuid.UUID, 
 		"courier_accepted_at": true,
 		"courier_started_at":  true,
 		"courier_arrived_at":  true,
+		"pickup_verified_at":  true,
 	}
 	if !validTimestampFields[timestampField] {
 		return false, fmt.Errorf("invalid timestamp field: %s", timestampField)
