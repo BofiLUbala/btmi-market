@@ -8,7 +8,7 @@ import { CourierHandoverPanel } from '@/components/courier/CourierHandoverPanel'
 type MissionLine={id:string;product_name:string;variant_name:string;quantity:number;final_unit_price:number}
 type MissionHistory={id:string;status:string;notes?:string;created_at:string}
 type DeliveryHistory={id:string;previous_status:string;new_status:string;actor_role:string;created_at:string}
-type Mission={order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;total_amount:number;currency:string;payment_method:string;payment_status:string;lines?:MissionLine[];history?:MissionHistory[];delivery_history?:DeliveryHistory[];assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}
+type Mission={order_id:string;order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;total_amount:number;currency:string;payment_method:string;payment_status:string;lines?:MissionLine[];history?:MissionHistory[];delivery_history?:DeliveryHistory[];assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}
 
 export default function CourierMissionPage(){
   const {id=''}=useParams(), navigate=useNavigate(), {t,lang}=useI18n()
@@ -65,7 +65,7 @@ export default function CourierMissionPage(){
 
   const reject=()=>{
     const reason=window.prompt(t('courier.dashboard.rejectReason'))
-    if(reason?.trim()) void act(`/courier/missions/${id}/reject`, {reason:reason.trim()}, t('courier.dashboard.rejected'))
+    if(reason?.trim() && m) void act(`/courier/missions/${m.order_id}/reject`, {reason:reason.trim()}, t('courier.dashboard.rejected'))
   }
 
   if(error&&!m) return <main className="courier-page"><div className="courier-shell"><div className="courier-error">{error}</div><Link to="/courier/dashboard">← {t('common.back')}</Link></div></main>
@@ -73,11 +73,11 @@ export default function CourierMissionPage(){
 
   const steps=[['courier.timeline.assigned',m.assigned_at],['courier.timeline.accepted',m.accepted_at],['courier.timeline.ready',m.ready_at],['courier.timeline.picked',m.picked_up_at],['courier.timeline.transit',m.started_at],['courier.timeline.arrived',m.arrived_at],['courier.timeline.handover',m.delivered_at]] as const
 
-  const isAccepting = actionBusy.includes(`/missions/${id}/accept`)
-  const isRejecting = actionBusy.includes(`/missions/${id}/reject`)
-  const isStarting = actionBusy.includes(`/missions/${id}/start`)
-  const isArriving = actionBusy.includes(`/missions/${id}/arrive`)
-  const isConfirmingPickup = actionBusy.includes('/courier/missions') && actionBusy.includes('/pickup')
+  const isAccepting = m && actionBusy.includes(`/missions/${m.order_id}/accept`)
+  const isRejecting = m && actionBusy.includes(`/missions/${m.order_id}/reject`)
+  const isStarting = m && actionBusy.includes(`/missions/${m.order_id}/start`)
+  const isArriving = m && actionBusy.includes(`/missions/${m.order_id}/arrive`)
+  const isConfirmingPickup = m && actionBusy.includes(`/courier/missions/${m.order_id}/pickup`)
 
   return (
     <main className="courier-page">
@@ -120,9 +120,9 @@ export default function CourierMissionPage(){
 
 {/* Action buttons */}
             <div className="courier-actions">
-              {m.delivery_status === 'COURIER_ASSIGNED' && (
+              {m.delivery_status === 'COURIER_ASSIGNED' && m && (
                 <>
-                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/accept`, undefined, t('courier.dashboard.accepted'))}>
+                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/accept`, undefined, t('courier.dashboard.accepted'))}>
                     {isAccepting ? 'Acceptation...' : 'Accepter la mission'}
                   </button>
                   <button disabled={!!actionBusy} className="courier-btn courier-btn-danger" onClick={reject}>
@@ -139,31 +139,31 @@ export default function CourierMissionPage(){
                 </div>
               )}
 
-              {m.delivery_status === 'READY_FOR_PICKUP' && (
+{m.delivery_status === 'READY_FOR_PICKUP' && m && (
               <>
-                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/pickup`, undefined, 'Récupération confirmée.')}>
+                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/pickup`, undefined, 'Récupération confirmée.')}>
                   {isConfirmingPickup ? 'Confirmation...' : 'Confirmer la récupération'}
                 </button>
-                <button className="courier-btn courier-btn-scan" onClick={()=>navigate(`/courier/scan?type=PICKUP&order_id=${id}`)}>
+                <button className="courier-btn courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=PICKUP&order_id=${m.order_id}`)}>
                   Scanner le QR vendeur
                 </button>
               </>
             )}
 
-            {m.delivery_status === 'PICKED_UP' && (
-              <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/start`, undefined, t('courier.dashboard.started'))}>
+            {m.delivery_status === 'PICKED_UP' && m && (
+              <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`, undefined, t('courier.dashboard.started'))}>
                 {isStarting ? 'Démarrage...' : 'Démarrer la livraison'}
               </button>
             )}
 
-            {m.delivery_status === 'IN_TRANSIT' && (
-              <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${id}/arrive`, undefined, t('courier.dashboard.arrived'))}>
+            {m.delivery_status === 'IN_TRANSIT' && m && (
+              <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`, undefined, t('courier.dashboard.arrived'))}>
                 {isArriving ? 'Validation d\'arrivée...' : 'Je suis arrivé à destination'}
               </button>
             )}
 
-            {m.delivery_status === 'COURIER_ARRIVED' && (
-              <button className="courier-btn courier-btn-scan" onClick={()=>navigate(`/courier/scan?type=DELIVERY&order_id=${id}`)}>
+            {m.delivery_status === 'COURIER_ARRIVED' && m && (
+              <button className="courier-btn courier-btn-scan" onClick={()=>navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
                 Scanner le QR acheteur
               </button>
             )}
@@ -195,7 +195,7 @@ export default function CourierMissionPage(){
           </>}
 
           {/* Handover Panel for product check & cash confirmation */}
-          <CourierHandoverPanel orderId={id}/>
+          <CourierHandoverPanel orderId={m?.order_id || ''}/>
 
           <h2>{t('courier.timeline.title')}</h2>
           <ol style={{paddingLeft:0, listStyle:'none'}}>

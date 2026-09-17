@@ -136,20 +136,17 @@ type UpdateCourierAvailabilityRequest struct {
 
 // AcceptMissionRequest is the request body for accepting a mission
 type AcceptMissionRequest struct {
-	OrderID string `json:"order_id" binding:"required"`
 }
 
 // RejectMissionRequest is the request body for rejecting a mission
 type RejectMissionRequest struct {
-	OrderID string `json:"order_id" binding:"required"`
-	Reason  string `json:"reason" binding:"required"`
+	Reason string `json:"reason" binding:"required"`
 }
 
 // FailDeliveryRequest is the request body for failing a delivery
 type FailDeliveryRequest struct {
-	OrderID string `json:"order_id" binding:"required"`
-	Reason  string `json:"reason" binding:"required"`
-	Notes   string `json:"notes"`
+	Reason string `json:"reason" binding:"required"`
+	Notes  string `json:"notes"`
 }
 
 // CourierMissionResponse is a single mission in the courier's list
