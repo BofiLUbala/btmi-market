@@ -62,15 +62,32 @@ function checkoutErrorMessage(error: unknown, fallback: string) {
   if (!(error instanceof ApiError)) return fallback
   const messages: Record<string, string> = {
     PAYMENT_PROVIDER_REQUIRED: 'Veuillez sélectionner un opérateur Mobile Money.',
+    PAYMENT_PROVIDER_NOT_CONFIGURED: 'Le paiement mobile est temporairement indisponible.',
+    PAYMENT_PROVIDER_UNKNOWN: 'Opérateur Mobile Money non reconnu. Veuillez en choisir un autre.',
     PAYMENT_PROVIDER_UNAVAILABLE: 'Cet opérateur Mobile Money est indisponible. Veuillez en choisir un autre.',
     PAYMENT_METHOD_UNAVAILABLE: 'Ce mode de paiement est indisponible. Veuillez en choisir un autre.',
     DELIVERY_NOT_SELECTED: 'Veuillez sélectionner une livraison avant de passer la commande.',
     DELIVERY_DETAILS_INCOMPLETE: 'Veuillez renseigner une adresse de livraison valide.',
     PAYER_PHONE_REQUIRED: 'Veuillez saisir le numéro Mobile Money qui sera débité.',
     PAYMENT_ALREADY_SELECTED: 'Un autre mode de paiement est déjà associé à cette commande.',
-    AMOUNT_MISMATCH: 'Le montant de la commande a changé, veuillez réessayer.'
+    PAYMENT_ALREADY_CREATED: 'Un paiement est déjà associé à cette commande.',
+    PAYMENT_ALREADY_SETTLED: 'Cette commande a déjà été réglée.',
+    PAYMENT_IN_PROGRESS: 'Un traitement de paiement est déjà en cours.',
+    PAYMENT_STATE_CHANGED: 'Le statut de la commande a évolué. Veuillez rafraîchir la page.',
+    PAYMENT_NOT_FOUND: 'Impossible de retrouver le paiement associé.',
+    PAYMENT_NOT_CONFIGURED: 'Le mode de paiement sélectionné n’est pas configuré.',
+    PAYMENT_CLOSED: 'Ce paiement n’est plus accessible.',
+    AMOUNT_MISMATCH: 'Le montant de la commande a changé, veuillez réessayer.',
+    INVALID_STATE: 'L’état de la commande ne permet pas cette action. Veuillez rafraîchir la page.',
+    INVALID_STATE_TRANSITION: 'L’état de la commande ne permet pas cette action. Veuillez rafraîchir la page.',
+    ORDER_NOT_FOUND: 'Impossible de retrouver la commande.',
+    ORDER_CANCELLED: 'Cette commande a été annulée.',
+    ORDER_COMPLETED: 'Cette commande est déjà terminée.',
+    CHECKOUT_GROUP_NOT_FOUND: 'Session de commande introuvable. Veuillez reprendre depuis le panier.'
   }
-  return messages[error.code] ?? error.message ?? fallback
+  const code = error.code ?? ''
+  const msg = error.message ?? ''
+  return messages[code] ?? messages[msg] ?? (msg && msg !== code ? msg : fallback)
 }
 
 function validationMessage(input: {
@@ -174,7 +191,7 @@ function PaymentInner() {
       Promise.all(orderIds.map(id => buyerApi.orderDetail(id)))
     ]).then(
       ([loadedQuotes, loadedOrders]) => { if (mounted) { setQuotes(loadedQuotes); setOrders(loadedOrders) } },
-      (e: unknown) => mounted && setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare'))
+      (e: unknown) => mounted && setError(checkoutErrorMessage(e, t('payment.couldNotPrepare')))
     ).finally(() => mounted && setLoading(false))
     return () => {
       mounted = false
@@ -189,7 +206,7 @@ function PaymentInner() {
     setQuoting(true)
     Promise.all(orderIds.map(id => buyerApi.checkoutQuote(id, paymentMethod))).then(
       loadedQuotes => { if (mounted) { setQuotes(loadedQuotes); setError('') } },
-      (e: unknown) => { if (mounted) setError(e instanceof ApiError ? e.message : t('payment.couldNotPrepare')) }
+      (e: unknown) => { if (mounted) setError(checkoutErrorMessage(e, t('payment.couldNotPrepare'))) }
     ).finally(() => { if (mounted) setQuoting(false) })
     return () => { mounted = false }
   }, [orderId, paymentMethod, loading])
