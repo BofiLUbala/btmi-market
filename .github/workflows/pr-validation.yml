@@ -4,9 +4,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches-ignore:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -63,6 +60,15 @@ jobs:
       - name: Vet
         run: go vet ./...
         working-directory: backend
+      - name: Run migrations
+        run: go run scripts/run_migrations.go
+        working-directory: backend
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: btmi_market
+          DB_USER: btmi_user
+          DB_PASSWORD: btmi_secret_password
       - name: Test
         run: go test ./...
         working-directory: backend
