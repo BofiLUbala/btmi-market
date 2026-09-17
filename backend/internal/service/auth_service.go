@@ -41,6 +41,8 @@ type AuthService struct {
 	refreshTokenRepo  *repository.RefreshTokenRepository
 	buyerProfileRepo  *repository.BuyerProfileRepository
 	membershipRepo    *repository.MembershipRepository
+	courierRepo       *repository.CourierRepository
+	employeeRepo      *repository.EmployeeRepository
 	emailService      *email.Service
 	config            *config.Config
 }
@@ -71,6 +73,14 @@ func (s *AuthService) SetMembershipRepo(repo *repository.MembershipRepository) {
 	s.membershipRepo = repo
 }
 
+func (s *AuthService) SetCourierRepo(repo *repository.CourierRepository) {
+	s.courierRepo = repo
+}
+
+func (s *AuthService) SetEmployeeRepo(repo *repository.EmployeeRepository) {
+	s.employeeRepo = repo
+}
+
 func (s *AuthService) Register(req *models.RegisterRequest) (*models.User, error) {
 	return s.registerWithAccountType(req, models.AccountTypeBuyer)
 }
@@ -97,10 +107,26 @@ func (s *AuthService) populateCapabilities(user *models.User) {
 			capabilities.Seller = seller
 		}
 	}
+	if s.courierRepo != nil {
+		if courier, err := s.courierRepo.GetByUserID(user.ID); err == nil && courier != nil && courier.Status != models.CourierStatusDisabled {
+			capabilities.Courier = true
+		}
+	}
+	if s.employeeRepo != nil {
+		if emp, err := s.employeeRepo.GetByLinkedUserID(user.ID); err == nil && emp != nil && emp.Status == models.EmployeeStatusActive {
+			capabilities.Employee = true
+		}
+	}
 	// SELLER is retained as a server-owned onboarding marker for a new seller
 	// or buyer who has opted in but has not created a business yet.
 	capabilities.SellerOnboarding = user.AccountType == models.AccountTypeSeller && !capabilities.Seller
 	user.Capabilities = capabilities
+
+	if capabilities.Courier && !capabilities.Seller && user.AccountType != models.AccountTypeSeller {
+		user.AccountType = models.AccountTypeCourier
+	} else if capabilities.Employee && !capabilities.Seller && user.AccountType != models.AccountTypeSeller && user.AccountType != models.AccountTypeCourier {
+		user.AccountType = models.AccountTypeEmployee
+	}
 }
 
 // UploadAvatar stores a new profile picture for the user and replaces any
@@ -689,6 +715,8 @@ func (s *AuthService) sendActivationEmail(user *models.User) error {
 }
 
 func (s *AuthService) generateTokenPair(user *models.User, userAgent, ipAddress string) (*models.LoginResponse, error) {
+	s.populateCapabilities(user)
+
 	accessToken, err := s.generateAccessToken(user)
 	if err != nil {
 		return nil, err
@@ -723,10 +751,11 @@ func (s *AuthService) generateTokenPair(user *models.User, userAgent, ipAddress 
 		Status:        user.Status,
 		EmailVerified: user.EmailVerified,
 		AccountType:   user.AccountType,
+		Capabilities:  user.Capabilities,
+		AvatarURL:     user.AvatarURL,
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
 	}
-	s.populateCapabilities(userResp)
 
 	return &models.LoginResponse{
 		AccessToken:  accessToken,

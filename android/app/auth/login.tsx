@@ -31,6 +31,11 @@ export default function LoginScreen() {
         router.replace('/seller/onboarding')
         return
       }
+      const u = useAuth.getState().user
+      if (u?.capabilities?.courier || u?.account_type === 'COURIER') {
+        router.replace('/courier')
+        return
+      }
       router.replace('/(buyer)')
     } catch (cause) {
       if (cause instanceof ApiError) {

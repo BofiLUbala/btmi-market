@@ -6,7 +6,7 @@ import { CartProvider } from '@/store/cart'
 import { ThemeProvider } from '@/store/theme'
 import { I18nProvider, useI18n } from '@/store/i18n'
 import { Layout } from '@/components/layout/Layout'
-import { PublicOnly, RequireAuth, RequireBuyer, RequireSeller, RequireEmployee, SellerIndexRedirect } from '@/components/auth/Guards'
+import { PublicOnly, RequireAuth, RequireBuyer, RequireSeller, RequireEmployee, RequireCourier, SellerIndexRedirect } from '@/components/auth/Guards'
 import { Button } from '@/components/ui/Button'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { RequireAdminAuth, RequireAdminRole, AdminPublicOnly } from '@/components/admin/AdminGuards'
@@ -244,7 +244,7 @@ export default function App() {
               <Route element={<PublicOnly />}>
                 <Route path="/livreur/login" element={<CourierLoginPage />} />
               </Route>
-              <Route element={<RequireAuth />}>
+              <Route element={<RequireCourier />}>
                 <Route path="/courier/dashboard" element={<CourierDashboardPage />} />
                 <Route path="/courier/scan" element={<CourierScanPage />} />
                 <Route path="/courier/missions/:id" element={<CourierMissionPage />} />

@@ -24,7 +24,9 @@ export default function EmployeeLoginPage() {
     setBusy(true)
     try {
       const result = await login(email.trim(), password)
-      if (result.accountType === 'EMPLOYEE') {
+      if (result.accountType === 'COURIER' || result.user?.capabilities?.courier) {
+        navigate('/courier/dashboard', { replace: true })
+      } else if (result.accountType === 'EMPLOYEE') {
         navigate(from, { replace: true })
       } else if (result.accountType === 'SELLER') {
         navigate('/seller/dashboard', { replace: true })

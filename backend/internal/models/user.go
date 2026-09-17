@@ -21,6 +21,7 @@ const (
 	AccountTypeBuyer    AccountType = "BUYER"
 	AccountTypeSeller   AccountType = "SELLER"
 	AccountTypeEmployee AccountType = "EMPLOYEE"
+	AccountTypeCourier  AccountType = "COURIER"
 )
 
 type User struct {
@@ -47,6 +48,8 @@ type UserCapabilities struct {
 	Buyer            bool `json:"buyer"`
 	Seller           bool `json:"seller"`
 	SellerOnboarding bool `json:"seller_onboarding"`
+	Courier          bool `json:"courier"`
+	Employee         bool `json:"employee"`
 }
 
 type RegisterRequest struct {

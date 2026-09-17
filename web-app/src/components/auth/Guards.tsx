@@ -35,6 +35,9 @@ export function RequireBuyer({ children }: { children?: ReactNode }) {
     )
   }
   if (!(user.capabilities?.buyer || accountType === 'BUYER')) {
+    if (accountType === 'COURIER' || user.capabilities?.courier) {
+      return <Navigate to="/courier/dashboard" replace />
+    }
     if (accountType === 'SELLER') {
       return <Navigate to="/seller/dashboard" replace />
     }
@@ -51,6 +54,7 @@ export function PublicOnly({ children }: { children?: ReactNode }) {
   const { t } = useI18n()
   if (loading) return <LoadingBlock label={t('common.loading')} />
   if (user) {
+    if (accountType === 'COURIER' || user.capabilities?.courier) return <Navigate to="/courier/dashboard" replace />
     if (accountType === 'SELLER') return <Navigate to="/seller/dashboard" replace />
     if (accountType === 'EMPLOYEE') return <Navigate to="/employee/dashboard" replace />
     return <Navigate to="/" replace />
@@ -63,6 +67,7 @@ export function SellerIndexRedirect() {
   const { t } = useI18n()
   if (loading) return <LoadingBlock label={t('feedback.checkingSession')} />
   if (!user) return <SellerEntryPage />
+  if (accountType === 'COURIER' || user.capabilities?.courier) return <Navigate to="/courier/dashboard" replace />
   if (accountType === 'SELLER') return <Navigate to="/seller/dashboard" replace />
   if (accountType === 'EMPLOYEE') return <Navigate to="/employee/dashboard" replace />
   return <SellerEntryPage />
@@ -77,6 +82,9 @@ export function RequireSeller({ children }: { children?: ReactNode }) {
     return <Navigate to="/seller/login" state={{ from: location.pathname }} replace />
   }
   if (!(user.capabilities?.seller || accountType === 'SELLER')) {
+    if (accountType === 'COURIER' || user.capabilities?.courier) {
+      return <Navigate to="/courier/dashboard" replace />
+    }
     if (accountType === 'EMPLOYEE') {
       return <Navigate to="/employee/dashboard" replace />
     }
@@ -93,8 +101,31 @@ export function RequireEmployee({ children }: { children?: ReactNode }) {
   if (!user) {
     return <Navigate to="/employee/login" state={{ from: location.pathname }} replace />
   }
-  if (accountType !== 'EMPLOYEE') {
+  if (accountType === 'COURIER' || user.capabilities?.courier) {
+    return <Navigate to="/courier/dashboard" replace />
+  }
+  if (!(user.capabilities?.employee || accountType === 'EMPLOYEE')) {
     return <Navigate to="/employee/login" state={{ from: location.pathname }} replace />
+  }
+  return children ?? <Outlet />
+}
+
+export function RequireCourier({ children }: { children?: ReactNode }) {
+  const { user, loading, accountType } = useAuth()
+  const { t } = useI18n()
+  const location = useLocation()
+  if (loading) return <LoadingBlock label={t('feedback.checkingSession')} />
+  if (!user) {
+    return <Navigate to="/courier/login" state={{ from: location.pathname }} replace />
+  }
+  if (!(user.capabilities?.courier || accountType === 'COURIER')) {
+    if (accountType === 'SELLER') {
+      return <Navigate to="/seller/dashboard" replace />
+    }
+    if (accountType === 'EMPLOYEE') {
+      return <Navigate to="/employee/dashboard" replace />
+    }
+    return <Navigate to="/" replace />
   }
   return children ?? <Outlet />
 }

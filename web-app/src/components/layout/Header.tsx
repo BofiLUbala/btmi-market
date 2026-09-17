@@ -140,7 +140,11 @@ export function Header() {
           <PreferenceToggles />
 
           {user ? (
-            user.account_type === 'SELLER' ? (
+            user.account_type === 'COURIER' || user.capabilities?.courier ? (
+              <Link to="/courier/dashboard" className="header-link header-link-user">
+                {user.avatar_url ? <HeaderAvatar user={user} /> : `Livreur (${user.first_name})`}
+              </Link>
+            ) : user.account_type === 'SELLER' ? (
               <Link to="/seller/dashboard" className="header-link header-link-user">
                 {user.avatar_url ? <HeaderAvatar user={user} /> : `${t('nav.sellerHub')} (${user.first_name})`}
               </Link>
@@ -184,7 +188,7 @@ export function Header() {
                 ✕
               </button>
             </div>
-<nav className="drawer-nav" onClick={() => setDrawer(false)}>
+            <nav className="drawer-nav" onClick={() => setDrawer(false)}>
               {PUBLIC_NAV_LINKS.map((l) => (
                 <Link key={l.to} to={l.to} className="dnav-link">
                   <span className="dnav-icon">{l.icon}</span> {t(l.key)}
@@ -238,7 +242,11 @@ export function Header() {
                 </Link>
               )}
               {user ? (
-                user.account_type === 'SELLER' ? (
+                user.account_type === 'COURIER' || user.capabilities?.courier ? (
+                  <Link to="/courier/dashboard" className="dnav-link">
+                    {user.avatar_url ? <HeaderAvatar user={user} /> : `Livreur (${user.first_name})`}
+                  </Link>
+                ) : user.account_type === 'SELLER' ? (
                   <Link to="/seller/dashboard" className="dnav-link">
                     {user.avatar_url ? <HeaderAvatar user={user} /> : `${t('nav.sellerHub')} (${user.first_name})`}
                   </Link>
@@ -277,9 +285,9 @@ export function MobileNav() {
     { to: '/search', label: t('nav.search'), icon: '🔍', end: false },
   ]
   const accountTab = {
-    to: user?.account_type === 'SELLER' ? '/seller/dashboard' : user?.account_type === 'EMPLOYEE' ? '/employee/dashboard' : '/account',
-    label: user?.account_type === 'SELLER' ? t('nav.sellerHub') : user?.account_type === 'EMPLOYEE' ? t('nav.workspace') : t('nav.account'),
-    icon: user?.account_type === 'SELLER' ? '🏪' : user?.account_type === 'EMPLOYEE' ? '💼' : '👤',
+    to: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? '/courier/dashboard' : user?.account_type === 'SELLER' ? '/seller/dashboard' : user?.account_type === 'EMPLOYEE' ? '/employee/dashboard' : '/account',
+    label: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? 'Livreur' : user?.account_type === 'SELLER' ? t('nav.sellerHub') : user?.account_type === 'EMPLOYEE' ? t('nav.workspace') : t('nav.account'),
+    icon: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? '🚚' : user?.account_type === 'SELLER' ? '🏪' : user?.account_type === 'EMPLOYEE' ? '💼' : '👤',
     end: false
   }
   const protectedTabs = [

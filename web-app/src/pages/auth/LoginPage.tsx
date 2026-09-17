@@ -32,7 +32,13 @@ export default function LoginPage() {
     setBusy(true)
     try {
       const session = await login(email.trim(), password)
-      if (session.accountType === 'SELLER') {
+      if (session.accountType === 'COURIER' || session.user?.capabilities?.courier) {
+        if (returnTo && returnTo.startsWith('/courier')) {
+          navigate(returnTo, { replace: true })
+        } else {
+          navigate('/courier/dashboard', { replace: true })
+        }
+      } else if (session.accountType === 'SELLER') {
         if (returnTo && returnTo !== '/' && !returnTo.startsWith('/account') && !returnTo.startsWith('/orders') && !returnTo.startsWith('/points')) {
           navigate(returnTo, { replace: true })
         } else {
@@ -45,7 +51,7 @@ export default function LoginPage() {
           navigate('/employee/dashboard', { replace: true })
         }
       } else {
-        if (returnTo && !returnTo.startsWith('/seller') && !returnTo.startsWith('/employee')) {
+        if (returnTo && !returnTo.startsWith('/seller') && !returnTo.startsWith('/employee') && !returnTo.startsWith('/courier')) {
           navigate(returnTo, { replace: true })
         } else {
           navigate('/', { replace: true })

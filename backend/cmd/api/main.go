@@ -124,6 +124,8 @@ func main() {
 	authService := service.NewAuthService(userRepo, activationRepo, passwordResetRepo, refreshTokenRepo, emailService, cfg)
 	authService.SetBuyerProfileRepo(buyerProfileRepo)
 	authService.SetMembershipRepo(membershipRepo)
+	authService.SetCourierRepo(courierRepo)
+	authService.SetEmployeeRepo(employeeRepo)
 	businessService := service.NewBusinessService(userRepo, businessRepo, membershipRepo, db)
 	shopService := service.NewShopService(shopRepo, membershipRepo, db, asynqClient)
 	employeeService := service.NewEmployeeService(

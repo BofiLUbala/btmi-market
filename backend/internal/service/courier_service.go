@@ -207,7 +207,7 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 			Phone:         "",
 			Email:         inv.Email,
 			Status:        models.UserStatusActive,
-			AccountType:   models.AccountTypeEmployee,
+			AccountType:   models.AccountTypeCourier,
 			EmailVerified: true,
 		}
 		if inv.Phone != nil {

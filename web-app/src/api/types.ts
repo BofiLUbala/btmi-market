@@ -864,7 +864,7 @@ export interface PendingPurchase {
 
 /* ---------- Seller / Business ---------- */
 
-export type AccountType = 'BUYER' | 'SELLER' | 'EMPLOYEE'
+export type AccountType = 'BUYER' | 'SELLER' | 'EMPLOYEE' | 'COURIER'
 
 export interface User {
   id: string
@@ -880,6 +880,8 @@ export interface User {
     buyer: boolean
     seller: boolean
     seller_onboarding: boolean
+    courier?: boolean
+    employee?: boolean
   }
   avatar_url?: string | null
   created_at: string
