@@ -11,7 +11,7 @@ import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
-const POLL_INTERVAL = 3_000 // 3 seconds for live tracking auto-sync
+const POLL_INTERVAL = 4_000 // 4 seconds for live tracking auto-sync (3-5s range)
 
 const FLOW_STEPS: Record<string, string[]> = {
   PICKUP: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'RECEIVED', 'COMPLETED'],
@@ -80,7 +80,7 @@ function TrackInner() {
 
   // Auto-polling with tab visibility — stops once the Order reaches a final state
   const effectiveStatus = data?.delivery_status || data?.current_status
-  const terminal = effectiveStatus === 'RECEIVED' || isTerminalOrderStatus(data?.current_status)
+  const terminal = isTerminalOrderStatus(effectiveStatus) || isTerminalOrderStatus(data?.current_status)
   useEffect(() => {
     function startPolling() {
       stopPolling()

@@ -1,4 +1,4 @@
-export const TERMINAL_ORDER_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED'] as const
+export const TERMINAL_ORDER_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED', 'DELIVERED', 'RECEIVED'] as const
 
 export function isTerminalOrderStatus(status?: string | null): boolean {
   return !!status && (TERMINAL_ORDER_STATUSES as readonly string[]).includes(status)
