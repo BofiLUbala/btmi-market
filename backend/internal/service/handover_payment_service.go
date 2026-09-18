@@ -368,6 +368,10 @@ func (s *QRService) applyHandoverGates(state *models.HandoverState) {
 	state.BuyerCanAcknowledge = state.CourierArrived && !state.AllLinesAcknowledged
 	state.CourierCanConfirmCash = state.CourierArrived && state.AllProductsVerified &&
 		state.PaymentMethod == models.PaymentMethodCashOnDelivery && !state.PaymentVerified
+	// The buyer's delivery QR is scanned only once the goods are checked and the money
+	// is settled: scanning it earlier would mark a handover complete that was not.
+	state.CourierCanScanDelivery = state.CourierArrived && state.AllProductsVerified &&
+		state.PaymentVerified && !state.DeliveryScanned && !state.ReceiptConfirmed
 	state.BuyerCanConfirmReceipt = state.CourierArrived && state.AllProductsVerified &&
 		state.AllLinesAcknowledged && state.PaymentVerified && state.DeliveryScanned
 

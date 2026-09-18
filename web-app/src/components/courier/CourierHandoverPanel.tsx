@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, forwardRef } from 'react'
 import { courierApi } from '@/api/courier'
 import { ApiError, type ConfirmCashResponse, type HandoverState, type HandoverVerificationResult } from '@/api/types'
 import { useI18n } from '@/store/i18n'
@@ -18,6 +18,19 @@ function money(amount: number, currency: string, lang: string): string {
 
 const VERDICTS: string[] = ['VALID', 'ALREADY_USED', 'WRONG_ORDER', 'WRONG_PRODUCT', 'WRONG_VARIANT', 'WRONG_SHOP', 'INVALID_QR']
 
+type StepState = 'COMPLETED' | 'CURRENT_ACTION' | 'WAITING_FOR_OTHER' | 'LOCKED'
+
+interface StepInfo {
+  key: string
+  label: string
+  state: StepState
+  responsibleActor: string
+  actionType?: 'VERIFY_PRODUCT' | 'CONFIRM_CASH' | 'SCAN_DELIVERY' | 'WAIT_PAYMENT' | 'WAIT_BUYER' | 'COMPLETED'
+  primaryButtonText?: string
+  canAct: boolean
+  reason?: string
+}
+
 /**
  * The courier's side of the physical handover.
  *
@@ -29,7 +42,10 @@ const VERDICTS: string[] = ['VALID', 'ALREADY_USED', 'WRONG_ORDER', 'WRONG_PRODU
  * deliberately not confirmable here - a courier tapping a button is not evidence
  * that an operator moved funds.
  */
-export function CourierHandoverPanel({ orderId }: { orderId: string }) {
+export const CourierHandoverPanel = forwardRef<HTMLElement, {
+  orderId: string
+  onActionReady?: () => void
+}>(({ orderId, onActionReady }, ref) => {
   const { t, lang } = useI18n()
   const [state, setState] = useState<HandoverState | null>(null)
   const [asking, setAsking] = useState(false)
@@ -56,6 +72,18 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
     const timer = window.setInterval(() => { void load() }, 10_000)
     return () => window.clearInterval(timer)
   }, [load])
+
+  // Notify parent when a new actionable step becomes available
+  useEffect(() => {
+    if (state && onActionReady) {
+      const hasActiveAction = state.courier_can_verify_product ||
+                              state.courier_can_confirm_cash ||
+                              state.courier_can_scan_delivery
+      if (hasActiveAction) {
+        onActionReady()
+      }
+    }
+  }, [state, onActionReady])
 
   /**
    * Checks the parcel in hand against the order: the QR on the product label, or
@@ -89,8 +117,6 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
     setBusy(true)
     setError('')
     try {
-      // A fresh key per confirmation, so a retried request is recognised by the server
-      // as the same collection rather than counted as a second one.
       const result = await courierApi.confirmCash(orderId, crypto.randomUUID())
       setReceipt(result)
       setAsking(false)
@@ -100,6 +126,11 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function scanDelivery() {
+    // Navigate to the delivery scan page - the actual QR scanning happens there
+    window.location.href = `/courier/scan?type=DELIVERY&order_id=${orderId}`
   }
 
   if (!state) return null
@@ -115,8 +146,77 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
   const amount = money(state.amount_due, state.currency, lang)
   const verifiedCount = state.lines.filter((line) => line.product_verified).length
 
+  // Build operational step list
+  const steps: StepInfo[] = [
+    {
+      key: 'arrived',
+      label: t('courier.handover.stepArrived'),
+      state: state.courier_arrived ? 'COMPLETED' : 'LOCKED',
+      responsibleActor: 'Livreur (Vous)',
+      canAct: false,
+      reason: state.courier_arrived ? undefined : 'Non encore arrivé'
+    },
+    {
+      key: 'products_verified',
+      label: `${t('courier.handover.stepVerified')} (${verifiedCount}/${state.lines.length})`,
+      state: state.all_products_verified ? 'COMPLETED' :
+             state.courier_arrived && !state.all_products_verified ? 'CURRENT_ACTION' : 'LOCKED',
+      responsibleActor: 'Livreur (Vous)',
+      actionType: 'VERIFY_PRODUCT',
+      primaryButtonText: t('courier.handover.verifyTitle'),
+      canAct: state.courier_can_verify_product === true,
+      reason: state.courier_can_verify_product ? undefined : 'Produits non encore vérifiés'
+    },
+    {
+      key: 'payment',
+      label: isCash ? t('courier.handover.stepCashReceived') : t('courier.handover.stepProviderConfirmed'),
+      state: state.payment_verified ? 'COMPLETED' :
+             state.all_products_verified && !state.payment_verified ? 'CURRENT_ACTION' : 'LOCKED',
+      responsibleActor: isCash ? 'Livreur (Vous)' : 'Acheteur / Opérateur',
+      actionType: isCash ? 'CONFIRM_CASH' : 'WAIT_PAYMENT',
+      primaryButtonText: isCash ? t('courier.handover.confirmCashAction') : undefined,
+      canAct: state.courier_can_confirm_cash === true,
+      reason: !state.all_products_verified ? 'Vérifiez d\'abord les produits' :
+              state.payment_verified ? undefined :
+              isCash ? 'En attente de confirmation espèces' : 'En attente de confirmation opérateur'
+    },
+    {
+      key: 'scan_delivery',
+      label: t('courier.handover.stepDeliveryScanned'),
+      state: state.delivery_scanned ? 'COMPLETED' :
+             state.all_products_verified && state.payment_verified && !state.delivery_scanned ? 'CURRENT_ACTION' : 'LOCKED',
+      responsibleActor: 'Livreur (Vous)',
+      actionType: 'SCAN_DELIVERY',
+      primaryButtonText: 'Scanner le QR acheteur',
+      canAct: state.courier_can_scan_delivery === true,
+      reason: state.courier_can_scan_delivery ? undefined : 'Produits et paiement requis'
+    },
+    {
+      key: 'buyer_acknowledged',
+      label: t('courier.handover.stepBuyerAcknowledged'),
+      state: state.all_lines_acknowledged ? 'COMPLETED' :
+             state.delivery_scanned && !state.all_lines_acknowledged ? 'WAITING_FOR_OTHER' : 'LOCKED',
+      responsibleActor: 'Acheteur',
+      actionType: 'WAIT_BUYER',
+      canAct: false,
+      reason: state.all_lines_acknowledged ? undefined : 'Acheteur doit confirmer les articles'
+    },
+    {
+      key: 'delivered',
+      label: t('courier.handover.stepDelivered'),
+      state: state.receipt_confirmed ? 'COMPLETED' :
+             state.all_lines_acknowledged && state.delivery_scanned && state.payment_verified ? 'CURRENT_ACTION' : 'LOCKED',
+      responsibleActor: 'Acheteur',
+      actionType: 'WAIT_BUYER',
+      canAct: false,
+      reason: state.receipt_confirmed ? undefined : 'Confirmation acheteur requise'
+    }
+  ]
+
+  steps.find(s => s.state === 'CURRENT_ACTION')
+
   return (
-    <section className="courier-card" style={{ marginTop: 16 }}>
+    <section ref={ref} className="courier-card" style={{ marginTop: 16 }}>
       <h2>{t('courier.handover.title')}</h2>
 
       <div className="courier-details">
@@ -127,16 +227,14 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
         <Row label={t('courier.handover.paymentStatus')} value={state.payment_verified ? t('courier.handover.paid') : state.payment_status} />
       </div>
 
+      {/* Operational step list with clear states */}
       <ol style={{ listStyle: 'none', margin: '12px 0', padding: 0 }}>
-        <Step done={state.courier_arrived} label={t('courier.handover.stepArrived')} />
-        <Step done={state.all_products_verified} label={`${t('courier.handover.stepVerified')} (${verifiedCount}/${state.lines.length})`} />
-        <Step
-          done={state.payment_verified}
-          label={t(isCash ? 'courier.handover.stepCashReceived' : 'courier.handover.stepProviderConfirmed')}
-        />
-        <Step done={state.delivery_scanned} label={t('courier.handover.stepDeliveryScanned')} />
-        <Step done={state.all_lines_acknowledged} label={t('courier.handover.stepBuyerAcknowledged')} />
-        <Step done={state.receipt_confirmed} label={t('courier.handover.stepDelivered')} />
+        {steps.map((step) => (
+          <StepItem
+            key={step.key}
+            step={step}
+          />
+        ))}
       </ol>
 
       {/* Product check at the door. */}
@@ -152,6 +250,7 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
         </div>
       )}
 
+      {/* Product verification input — only when actionable */}
       {state.courier_can_verify_product && (
         <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
           <label htmlFor={`verify-${orderId}`}><strong>{t('courier.handover.verifyTitle')}</strong></label>
@@ -184,21 +283,19 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
       {receipt && (
         <p className="courier-muted">
           ✓ {t('courier.handover.cashRecorded', { amount: money(receipt.amount_collected, receipt.currency, lang) })}
-          {/* The buyer is settled; TBK's own commission is a separate ledger. */}
           {receipt.commission_status && !receipt.commission_collected
             ? ` · ${t('courier.handover.commissionStillDue')}`
             : ''}
         </p>
       )}
 
-      {/* Cash: the button is always visible once there is cash to collect, and only
-          usable when the server says the goods have been checked. */}
-      {isCash && !state.payment_verified && !asking && (
+      {/* Cash confirmation — only when actionable */}
+      {isCash && !state.payment_verified && !asking && state.courier_can_confirm_cash && (
         <button
           className="courier-btn courier-btn-primary"
           onClick={() => setAsking(true)}
-          disabled={busy || !state.courier_can_confirm_cash}
-          aria-disabled={busy || !state.courier_can_confirm_cash}
+          disabled={busy}
+          aria-disabled={busy}
         >
           {t('courier.handover.confirmCashAction')}
         </button>
@@ -218,6 +315,17 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
         </div>
       )}
 
+      {/* Delivery scan button — only when actionable */}
+      {state.courier_can_scan_delivery && (
+        <button
+          className="courier-btn courier-btn-primary courier-btn-scan"
+          onClick={() => void scanDelivery()}
+          disabled={busy}
+        >
+          {t('courier.handover.stepDeliveryScanned')}
+        </button>
+      )}
+
       {/* Why the button is not usable yet, so the courier is never left guessing. */}
       {isCash && !state.courier_can_confirm_cash && !state.payment_verified && (
         <p className="courier-muted">
@@ -231,7 +339,7 @@ export function CourierHandoverPanel({ orderId }: { orderId: string }) {
       )}
     </section>
   )
-}
+})
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -242,10 +350,24 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Step({ done, label }: { done: boolean; label: string }) {
+function StepItem({ step }: { step: StepInfo }) {
+  const stateStyles: Record<StepState, { opacity: number; prefix: string }> = {
+    COMPLETED: { opacity: 1, prefix: '✓' },
+    CURRENT_ACTION: { opacity: 1, prefix: '●' },
+    WAITING_FOR_OTHER: { opacity: 0.6, prefix: '⟳' },
+    LOCKED: { opacity: 0.35, prefix: '🔒' }
+  }
+  const style = stateStyles[step.state]
+
   return (
-    <li style={{ padding: '6px 0', opacity: done ? 1 : 0.45 }}>
-      <strong>{done ? '✓' : '○'} {label}</strong>
+    <li style={{ padding: '6px 0', opacity: style.opacity }}>
+      <strong>{style.prefix} {step.label}</strong>
+      <div className="courier-muted" style={{ fontSize: '0.85rem', marginTop: 2 }}>
+        {step.responsibleActor && `Responsable: ${step.responsibleActor}`}
+        {step.reason && ` · ${step.reason}`}
+      </div>
     </li>
   )
 }
+
+CourierHandoverPanel.displayName = 'CourierHandoverPanel'

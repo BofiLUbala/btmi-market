@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api/client'
 import { useI18n } from '@/store/i18n'
+import { getCourierWorkflow } from '@/lib/courierWorkflow'
 import './courier.css'
 import { CourierHandoverPanel } from '@/components/courier/CourierHandoverPanel'
 
@@ -14,22 +15,33 @@ export default function CourierMissionPage(){
   const {id=''}=useParams(), navigate=useNavigate(), {t,lang}=useI18n()
   const [m,setM]=useState<Mission|null>(null), [error,setError]=useState('')
   const [actionBusy,setActionBusy]=useState(''), [actionError,setActionError]=useState(''), [actionSuccess,setActionSuccess]=useState('')
+  const handoverRef = useRef<HTMLElement>(null)
 
   const load=async()=>{
     try {
       const data = await api<Mission>(`/courier/missions/${id}`)
+      if (!data || data.order_id !== id) throw new Error('MISSION_NOT_FOUND')
       setM(data)
       setError('')
     } catch {
+      setM(null)
       setError(t('courier.dashboard.loadError'))
     }
   }
 
+  // Auto-scroll to handover panel when the next action lands there
+  const scrollToHandover = useCallback(() => {
+    handoverRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
   useEffect(()=>{
+    setM(null)
+    setError('')
     let disposed=false
     const fetchMission=async()=>{
       try {
         const data = await api<Mission>(`/courier/missions/${id}`)
+        if (!data || data.order_id !== id) throw new Error('MISSION_NOT_FOUND')
         if (!disposed) {
           setM(data)
           setError('')
@@ -79,96 +91,154 @@ export default function CourierMissionPage(){
   const isArriving = m && actionBusy.includes(`/missions/${m.order_id}/arrive`)
   const isConfirmingPickup = m && actionBusy.includes(`/courier/missions/${m.order_id}/pickup`)
 
+  // Central workflow resolver - pass handover state when available
+  const workflow = m ? getCourierWorkflow(
+    m.delivery_status,
+    m.status,
+    m.payment_method,
+    {
+      allProductsVerified: false, // will be updated from handover panel context
+      courierCanVerifyProduct: false,
+      courierCanConfirmCash: false,
+      courierCanScanDelivery: false,
+      allLinesAcknowledged: false,
+      deliveryScanned: false,
+      receiptConfirmed: false,
+      blockedReason: undefined
+    }
+  ) : null
+
   return (
     <main className="courier-page">
       <div className="courier-shell">
         <Link to="/courier/dashboard" style={{fontWeight:700, color:'var(--color-text)'}}>← {t('common.back')}</Link>
-        
-        {/* Dedicated Action Card near the top */}
-        <section className="courier-card" style={{marginTop:16, borderLeft:'4px solid var(--color-accent)'}}>
-          <p className="courier-eyebrow">Action requise & Statut</p>
-          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginBottom:12}}>
-            <h2 style={{margin:0}}>Fiche Mission #{m.order_number}</h2>
-            <span className="courier-status">{t(`courier.status.${m.delivery_status}`)}</span>
-          </div>
 
-          <div className="courier-details" style={{marginBottom:14}}>
-            <Detail l="Acteur responsable" v={
-              m.delivery_status === 'COURIER_ASSIGNED' ? 'Livreur (Vous)' :
-              m.delivery_status === 'COURIER_ACCEPTED' ? 'Vendeur' :
-              m.delivery_status === 'READY_FOR_PICKUP' ? 'Livreur (Vous)' :
-              m.delivery_status === 'PICKED_UP' ? 'Livreur (Vous)' :
-              m.delivery_status === 'IN_TRANSIT' ? 'Livreur (Vous)' :
-              m.delivery_status === 'COURIER_ARRIVED' ? 'Livreur (Vous)' :
-              m.delivery_status === 'PRODUCT_VERIFIED' ? (m.payment_method === 'CASH_ON_DELIVERY' ? 'Livreur (Vous)' : 'Opérateur / Acheteur') :
-              ['DELIVERED','COMPLETED','RECEIVED'].includes(m.delivery_status) ? 'Aucun (Terminé)' : 'Système'
-            } />
-            <Detail l="Explication du statut" v={
-              m.delivery_status === 'COURIER_ASSIGNED' ? 'Cette mission vous est attribuée. Vous devez l\'accepter ou la refuser.' :
-              m.delivery_status === 'COURIER_ACCEPTED' ? 'Mission acceptée. En attente que le vendeur prépare la commande.' :
-              m.delivery_status === 'READY_FOR_PICKUP' ? 'La commande est prête chez le vendeur. Récupérez les colis.' :
-              m.delivery_status === 'PICKED_UP' ? 'Colis en votre possession. Démarrez la livraison.' :
-              m.delivery_status === 'IN_TRANSIT' ? 'Trajet de livraison en cours. Validez votre arrivée une fois sur place.' :
-              m.delivery_status === 'COURIER_ARRIVED' ? 'Vous êtes sur place chez l\'acheteur. Procédez aux vérifications de produits et au paiement.' :
-              m.delivery_status === 'PRODUCT_VERIFIED' ? 'Produits vérifiés avec succès.' :
-              ['DELIVERED','COMPLETED','RECEIVED'].includes(m.delivery_status) ? 'Livraison finalisée.' : 'Suivi de commande.'
-            } />
-          </div>
+        {/* Action Panel — always visible at the top */}
+        {workflow && (
+          <section className="courier-card" style={{marginTop:16, borderLeft:'4px solid var(--color-accent)'}}>
+            <p className="courier-eyebrow">Action requise & Statut</p>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginBottom:12}}>
+              <h2 style={{margin:0}}>Fiche Mission #{m.order_number}</h2>
+              <span className="courier-status">{t(`courier.status.${m.delivery_status}`)}</span>
+            </div>
 
-          {actionError && <div className="courier-error" style={{marginBottom:12}}>{actionError}</div>}
-          {actionSuccess && <div className="courier-muted" style={{color:'var(--color-success)', fontWeight:700, marginBottom:12}}>✓ {actionSuccess}</div>}
+            <div className="courier-details" style={{marginBottom:14}}>
+              <Detail l="Acteur responsable" v={workflow.responsibleActor} />
+              <Detail l="Explication du statut" v={workflow.explanation} />
+            </div>
 
-{/* Action buttons */}
+            {actionError && <div className="courier-error" style={{marginBottom:12}}>{actionError}</div>}
+            {actionSuccess && <div className="courier-muted" style={{color:'var(--color-success)', fontWeight:700, marginBottom:12}}>✓ {actionSuccess}</div>}
+
+            {/* Dynamic action buttons from workflow resolver */}
             <div className="courier-actions">
-              {m.delivery_status === 'COURIER_ASSIGNED' && m && (
+              {workflow.actionType === 'ACCEPT_REJECT' && m && (
                 <>
                   <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/accept`, undefined, t('courier.dashboard.accepted'))}>
-                    {isAccepting ? 'Acceptation...' : 'Accepter la mission'}
+                    {isAccepting ? 'Acceptation...' : (workflow.primaryButtonText || 'Accepter')}
                   </button>
                   <button disabled={!!actionBusy} className="courier-btn courier-btn-danger" onClick={reject}>
-                    {isRejecting ? 'Refus...' : 'Refuser la mission'}
+                    {isRejecting ? 'Refus...' : (workflow.secondaryButtonText || 'Refuser')}
                   </button>
                 </>
               )}
 
-              {m.delivery_status === 'COURIER_ACCEPTED' && (
+              {workflow.actionType === 'WAIT_SELLER' && (
                 <div className="courier-waiting">
                   <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
-                  <p>Responsable: <strong>Vendeur</strong></p>
-                  <p className="courier-muted">Mission acceptée. En attente que le vendeur prépare la commande.</p>
+                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p className="courier-muted">{workflow.explanation}</p>
                 </div>
               )}
 
-{m.delivery_status === 'READY_FOR_PICKUP' && m && (
-              <>
-                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/pickup`, undefined, 'Récupération confirmée.')}>
-                  {isConfirmingPickup ? 'Confirmation...' : 'Confirmer la récupération'}
+              {workflow.actionType === 'PICKUP' && m && (
+                <>
+                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/pickup`, undefined, 'Récupération confirmée.')}>
+                    {isConfirmingPickup ? 'Confirmation...' : (workflow.primaryButtonText || 'Confirmer la récupération')}
+                  </button>
+                  <button className="courier-btn courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=PICKUP&order_id=${m.order_id}`)}>
+                    {workflow.secondaryButtonText || 'Scanner le QR vendeur'}
+                  </button>
+                </>
+              )}
+
+              {workflow.actionType === 'START_DELIVERY' && m && (
+                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`, undefined, t('courier.dashboard.started'))}>
+                  {isStarting ? 'Démarrage...' : (workflow.primaryButtonText || 'Démarrer la livraison')}
                 </button>
-                <button className="courier-btn courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=PICKUP&order_id=${m.order_id}`)}>
-                  Scanner le QR vendeur
+              )}
+
+              {workflow.actionType === 'ARRIVE' && m && (
+                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`, undefined, t('courier.dashboard.arrived'))}>
+                  {isArriving ? 'Validation d\'arrivée...' : (workflow.primaryButtonText || 'Je suis arrivé')}
                 </button>
-              </>
-            )}
+              )}
 
-            {m.delivery_status === 'PICKED_UP' && m && (
-              <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`, undefined, t('courier.dashboard.started'))}>
-                {isStarting ? 'Démarrage...' : 'Démarrer la livraison'}
-              </button>
-            )}
+              {workflow.actionType === 'VERIFY_PRODUCT' && m && (
+                <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
+                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p className="courier-muted">{workflow.explanation}</p>
+                  <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:8}}>
+                    <input
+                      type="text"
+                      placeholder={t('courier.handover.verifyPlaceholder')}
+                      style={{minHeight:44, padding:'0 12px', borderRadius:10, flex:1, minWidth:200}}
+                    />
+                    <button disabled={!!actionBusy} className="courier-btn courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
+                      {t('courier.handover.verifyTitle')}
+                    </button>
+                  </div>
+                </div>
+              )}
 
-            {m.delivery_status === 'IN_TRANSIT' && m && (
-              <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`, undefined, t('courier.dashboard.arrived'))}>
-                {isArriving ? 'Validation d\'arrivée...' : 'Je suis arrivé à destination'}
-              </button>
-            )}
+              {workflow.actionType === 'CONFIRM_CASH' && m && (
+                <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
+                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p className="courier-muted">{workflow.explanation}</p>
+                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/confirm-cash`, {confirmed:true, idempotency_key:crypto.randomUUID()}, t('courier.handover.confirmCashSubmit'))}>
+                    {workflow.primaryButtonText || t('courier.handover.confirmCashAction')}
+                  </button>
+                </div>
+              )}
 
-            {m.delivery_status === 'COURIER_ARRIVED' && m && (
-              <button className="courier-btn courier-btn-scan" onClick={()=>navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
-                Scanner le QR acheteur
-              </button>
-            )}
-          </div>
-        </section>
+              {workflow.actionType === 'SCAN_DELIVERY' && m && (
+                <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
+                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p className="courier-muted">{workflow.explanation}</p>
+                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
+                    {workflow.primaryButtonText || t('courier.handover.stepDeliveryScanned')}
+                  </button>
+                </div>
+              )}
+
+              {workflow.actionType === 'WAIT_PAYMENT' && (
+                <div className="courier-waiting">
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
+                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p className="courier-muted">{workflow.explanation}</p>
+                </div>
+              )}
+
+              {workflow.actionType === 'WAIT_BUYER' && (
+                <div className="courier-waiting">
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
+                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p className="courier-muted">{workflow.explanation}</p>
+                </div>
+              )}
+
+              {workflow.actionType === 'COMPLETED' && (
+                <div className="courier-waiting">
+                  <p style={{fontWeight:700, color:'var(--color-success)'}}>✓ Livraison terminée</p>
+                  <p className="courier-muted">{workflow.explanation}</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Full Details Card */}
         <section className="courier-card" style={{marginTop:16}}>
@@ -194,8 +264,12 @@ export default function CourierMissionPage(){
             </div>
           </>}
 
-          {/* Handover Panel for product check & cash confirmation */}
-          <CourierHandoverPanel orderId={m?.order_id || ''}/>
+          {/* Handover Panel — auto-scroll when next action is product/payment/delivery scan */}
+          <CourierHandoverPanel 
+            orderId={m?.order_id || ''} 
+            ref={handoverRef}
+            onActionReady={scrollToHandover}
+          />
 
           <h2>{t('courier.timeline.title')}</h2>
           <ol style={{paddingLeft:0, listStyle:'none'}}>

@@ -188,6 +188,7 @@ func main() {
 	// the scans, the payment and the buyer's confirmation.
 	courierService.SetQRService(qrService)
 	courierService.SetEmailService(emailService)
+	courierService.SetOrderService(orderService)
 
 	adminCommissionHandler := adminhandlers.NewAdminCommissionHandler(commissionService)
 	sellerFinanceHandler := sellerhandlers.NewSellerFinanceHandler(commissionService)

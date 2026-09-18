@@ -115,6 +115,7 @@ type HandoverState struct {
 	// rather than inferring permission from the stage themselves.
 	CourierCanVerifyProduct bool   `json:"courier_can_verify_product"`
 	CourierCanConfirmCash   bool   `json:"courier_can_confirm_cash"`
+	CourierCanScanDelivery  bool   `json:"courier_can_scan_delivery"`
 	BuyerCanAcknowledge     bool   `json:"buyer_can_acknowledge"`
 	BuyerCanConfirmReceipt  bool   `json:"buyer_can_confirm_receipt"`
 	BlockedReason           string `json:"blocked_reason,omitempty"`

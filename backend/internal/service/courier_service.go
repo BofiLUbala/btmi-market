@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -42,6 +43,7 @@ type CourierService struct {
 	db           *database.DB
 	emailService *email.Service
 	qrSvc        *QRService
+	orderSvc     *OrderService
 }
 
 // SetQRService gives the courier service the handover timeline to write arrivals to.
@@ -61,6 +63,10 @@ func NewCourierService(
 		auditRepo:   auditRepo,
 		db:          db,
 	}
+}
+
+func (s *CourierService) SetOrderService(orderSvc *OrderService) {
+	s.orderSvc = orderSvc
 }
 
 func (s *CourierService) SetCommunicationService(commSvc *CommunicationService) {
@@ -435,8 +441,11 @@ func (s *CourierService) GetMissionByID(userID, orderID uuid.UUID) (*models.Cour
 		return nil, ErrCourierNotFound
 	}
 	mission, err := s.courierRepo.GetMissionByID(userID, orderID)
-	if err != nil || mission == nil {
-		return mission, err
+	if err != nil {
+		return nil, err
+	}
+	if mission == nil {
+		return nil, ErrMissionNotFound
 	}
 	orderRepo := repository.NewOrderRepository(s.db)
 	lines, err := orderRepo.GetLinesByOrderID(orderID)
@@ -604,8 +613,19 @@ func (s *CourierService) ConfirmPickup(userID, orderID uuid.UUID) error {
 	if !changed {
 		return ErrInvalidStatusTransition
 	}
+	// Also update the delivery package pickup time for QR scan validation
 	if s.qrSvc != nil {
+		if err := s.qrSvc.UpdatePackagePickupTime(orderID); err != nil {
+			return err
+		}
 		s.qrSvc.RecordHandoverEvent(orderID, userID, "COURIER", "COURIER_PICKED_UP", "SUCCESS", "Courier confirmed pickup")
+	}
+
+	// Transition order status to OUT_FOR_DELIVERY if it's still READY (courier API path)
+	if s.orderSvc != nil && order.Status == models.OrderStatusReady {
+		if _, err := s.orderSvc.TransitionOrderNoAuth(orderID, models.OrderStatusOutForDelivery, "Courier confirmed pickup", "COURIER"); err != nil {
+			log.Printf("CourierService.ConfirmPickup: failed to transition order %s to OUT_FOR_DELIVERY: %v", orderID, err)
+		}
 	}
 
 	// Notify buyer, seller & admin

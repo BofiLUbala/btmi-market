@@ -100,6 +100,7 @@ export default function CourierDashboardPage(){
  function ProfilePanel(){const addressParts=[profile?.building_number,profile?.street,profile?.commune,profile?.city,profile?.province].filter(Boolean);return <section className="courier-glass courier-section"><div className="courier-profile-head"><div className="courier-avatar courier-avatar-large">{initials||'TB'}</div><div><h2>{profile?.first_name} {profile?.last_name}</h2><p>{profile?.email}</p></div></div><div className="courier-profile-grid"><Fact label="Prénom" value={profile?.first_name}/><Fact label="Nom" value={profile?.last_name}/><Fact label="E-mail" value={profile?.email}/><Fact label="Téléphone" value={profile?.phone}/><Fact label="Transport" value={profile?.transport_type}/><Fact label="Véhicule" value={profile?.vehicle_info}/><Fact label="Zone de service" value={profile?.service_zone}/><Fact label="Adresse" value={addressParts.length?addressParts.join(', '):'—'}/>{profile?.landmark&&<Fact label="Point de repère" value={profile?.landmark}/>}<Fact label="Statut" value={profile?.status}/></div></section>}
   function ActionButtons({mission:m}:{mission:Mission}){
     const isPickingUp = busy.includes(`/missions/${m.order_id}/pickup`)
+    const isArriving = busy.includes(`/missions/${m.order_id}/arrive`)
     return (
       <div className="courier-actions">
         {['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY','READY_FOR_PICKUP'].includes(m.status) && (
@@ -119,13 +120,18 @@ export default function CourierDashboardPage(){
         )}
         {m.delivery_status==='IN_TRANSIT' && (
           <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`,undefined,t('courier.dashboard.arrived'))}>
-            {busy.includes(`/missions/${m.order_id}/arrive`) ? 'Validation d\'arrivée...' : 'Je suis arrivé'}
+            {isArriving ? 'Validation d\'arrivée...' : 'Je suis arrivé'}
           </button>
         )}
         {m.delivery_status==='COURIER_ARRIVED' && (
-          <button className="courier-btn courier-btn-scan" onClick={()=>scan('DELIVERY',m)}>
-            <Icon name="scanner"/>Scanner le QR acheteur
-          </button>
+          <>
+            <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
+              <Icon name="scanner"/>Vérifier les produits
+            </button>
+            <button className="courier-btn courier-btn-scan" onClick={()=>scan('DELIVERY',m)}>
+              <Icon name="scanner"/>Scanner le QR acheteur
+            </button>
+          </>
         )}
       </div>
     )

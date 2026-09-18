@@ -453,13 +453,13 @@ func (r *CourierRepository) ListPendingInvitations() ([]*models.CourierInvitatio
 func (r *CourierRepository) GetOrderByIDForCourier(courierUserID, orderID uuid.UUID) (*models.Order, error) {
 	var o models.Order
 	err := r.db.QueryRow(`
-		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes,
-		       created_by, base_total, points_used, points_discount_amount, final_total,
-		       idempotency_key, order_number, delivery_method, delivery_fee_base,
-		       delivery_points_used, delivery_points_discount, delivery_fee_final,
-		       delivery_contact_name, delivery_phone, delivery_address, delivery_notes,
+		SELECT id, business_id, shop_id, customer_id, buyer_profile_id, status, COALESCE(total_items,0), COALESCE(notes,''),
+		       created_by, COALESCE(base_total,0), COALESCE(points_used,0), COALESCE(points_discount_amount,0), COALESCE(final_total,0),
+		       idempotency_key, order_number, COALESCE(delivery_method,''), COALESCE(delivery_fee_base,0),
+		       COALESCE(delivery_points_used,0), COALESCE(delivery_points_discount,0), COALESCE(delivery_fee_final,0),
+		       COALESCE(delivery_contact_name,''), COALESCE(delivery_phone,''), COALESCE(delivery_address,''), COALESCE(delivery_notes,''),
 		       delivery_status, assigned_courier_id, delivery_latitude, delivery_longitude,
-		       courier_assigned_at, courier_notes, points_finalized, inventory_claimed,
+		       courier_assigned_at, COALESCE(courier_notes,''), COALESCE(points_finalized,FALSE), COALESCE(inventory_claimed,FALSE),
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at,
 		       received_at, completed_at, created_at, updated_at
 		FROM orders WHERE assigned_courier_id = $1 AND id = $2`, courierUserID, orderID).Scan(

@@ -530,3 +530,10 @@ func (s *QRService) ScanHistory(orderID uuid.UUID) ([]models.DeliveryScanEvent, 
 	}
 	return out, rows.Err()
 }
+
+// UpdatePackagePickupTime updates the pickup_verified_at timestamp on the delivery package.
+// This is called when the courier confirms pickup via the API (not QR scan).
+func (s *QRService) UpdatePackagePickupTime(orderID uuid.UUID) error {
+	_, err := s.db.Exec(`UPDATE delivery_packages SET pickup_verified_at = COALESCE(pickup_verified_at, NOW()), updated_at = NOW() WHERE order_id = $1 AND qr_status = 'ACTIVE'`, orderID)
+	return err
+}

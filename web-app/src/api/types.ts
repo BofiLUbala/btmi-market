@@ -1615,6 +1615,7 @@ export interface HandoverState {
   receipt_confirmed: boolean
   courier_can_verify_product: boolean
   courier_can_confirm_cash: boolean
+  courier_can_scan_delivery: boolean
   buyer_can_acknowledge: boolean
   buyer_can_confirm_receipt: boolean
   blocked_reason?: string
