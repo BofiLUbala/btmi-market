@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/api/client'
 import { useAuth } from '@/store/auth'
@@ -30,9 +30,57 @@ function Icon({name}:{name:IconName}){return <svg className="courier-icon" viewB
 const nav:Array<{id:View;label:string;icon:IconName}>=[{id:'dashboard',label:'Tableau de bord',icon:'dashboard'},{id:'assigned',label:'Missions assignées',icon:'assigned'},{id:'active',label:'Mission active',icon:'active'},{id:'scanner',label:'Scanner QR',icon:'scanner'},{id:'history',label:'Historique',icon:'history'},{id:'availability',label:'Disponibilité',icon:'availability'},{id:'notifications',label:'Notifications',icon:'notifications'},{id:'profile',label:'Profil',icon:'profile'}]
 
 export default function CourierDashboardPage(){
- const {logout}=useAuth(),navigate=useNavigate();const[view,setView]=useState<View>('dashboard'),[selected,setSelected]=useState<Mission|null>(null),[profile,setProfile]=useState<Profile|null>(null),[missions,setMissions]=useState<Mission[]>([]),[history,setHistory]=useState<History[]>([]),[notices,setNotices]=useState<Notice[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[missionError,setMissionError]=useState(''),[historyError,setHistoryError]=useState(''),[noticeError,setNoticeError]=useState(''),[success,setSuccess]=useState('')
- const request=useCallback(async<T,>(path:string,init?:RequestInit):Promise<T>=>unwrap<T>(await api<unknown>(path,init)),[])
- const load=useCallback(async()=>{setLoading(true);setError('');try{const p=await request<Profile>('/courier/profile');setProfile(p);if(p.status==='SUSPENDED'){setMissions([]);setHistory([])}else{setMissionError('');setHistoryError('');const[m,h]=await Promise.all([request<Mission[]>('/courier/missions').catch(()=>{setMissionError('Impossible de charger les missions.');return null}),request<History[]>('/courier/history?limit=30').catch(()=>{setHistoryError('Impossible de charger l’historique.');return null})]);setMissions(Array.isArray(m)?m:[]);setHistory(Array.isArray(h)?h:[])}setNoticeError('');const n=await request<{items?:Notice[];notifications?:Notice[]}>('/notifications?limit=50&offset=0').catch(():{items?:Notice[];notifications?:Notice[]}=>{setNoticeError('Impossible de charger les notifications.');return{items:[]}});setNotices(n.items??n.notifications??[])}catch{setError('Impossible de charger le profil livreur.')}finally{setLoading(false)}},[request])
+  const {logout}=useAuth(),navigate=useNavigate();const[view,setView]=useState<View>('dashboard'),[selected,setSelected]=useState<Mission|null>(null),[profile,setProfile]=useState<Profile|null>(null),[missions,setMissions]=useState<Mission[]>([]),[history,setHistory]=useState<History[]>([]),[notices,setNotices]=useState<Notice[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[missionError,setMissionError]=useState(''),[historyError,setHistoryError]=useState(''),[noticeError,setNoticeError]=useState(''),[success,setSuccess]=useState('')
+  const seenNotificationIds=useRef<Set<string>>(new Set()),[toast,setToast]=useState<{message:string;type:'info'|'success'} | null>(null)
+const showToast=(message:string,type:'info'|'success'='info')=>{setToast({message,type});setTimeout(()=>setToast(null),5000)}
+
+  const request=useCallback(async<T,>(path:string,init?:RequestInit):Promise<T>=>unwrap<T>(await api<unknown>(path,init)),[])
+
+  const load=useCallback(async()=>{
+    setLoading(true);setError('');
+    try{
+      const p=await request<Profile>('/courier/profile');
+      setProfile(p);
+      if(p.status==='SUSPENDED'){
+        setMissions([]);setHistory([]);
+      }else{
+        setMissionError('');setHistoryError('');
+        const[m,h]=await Promise.all([
+          request<Mission[]>('/courier/missions').catch(()=>{setMissionError('Impossible de charger les missions.');return null}),
+          request<History[]>('/courier/history?limit=30').catch(()=>{setHistoryError('Impossible de charger l\'historique.');return null})
+        ]);
+        setMissions(Array.isArray(m)?m:[]);setHistory(Array.isArray(h)?h:[])
+      }
+      setNoticeError('');
+      const n=await request<{items?:Notice[];notifications?:Notice[]}>('/notifications?limit=50&offset=0').catch(():{items?:Notice[];notifications?:Notice[]}=>{setNoticeError('Impossible de charger les notifications.');return{items:[]}});
+      const newNotices=n.items??n.notifications??[];
+      
+      setNotices(newNotices);
+      
+      // Detect new COURIER_ASSIGNED notifications and show toast
+      const newAssignments=newNotices.filter(n=>
+        n.type==='COURIER_ASSIGNED' &&
+        !n.is_read &&
+        !seenNotificationIds.current.has(n.id)
+      );
+      
+      if(newAssignments.length>0){
+        newAssignments.forEach(n=>seenNotificationIds.current.add(n.id));
+        // Show toast for the first new assignment
+        showToast('Nouvelle mission assignée !', 'info');
+        // Auto-refresh missions to show the new assignment immediately
+        try{
+          const m=await request<Mission[]>('/courier/missions');
+          if(Array.isArray(m)) setMissions(m);
+        }catch{}
+      }
+      
+      // Clean up seen notifications that are now read
+      const currentReadIds=new Set(newNotices.filter(n=>n.is_read).map(n=>n.id));
+      seenNotificationIds.current=new Set([...seenNotificationIds.current].filter(id=>!currentReadIds.has(id)));
+      
+    }catch{setError('Impossible de charger le profil livreur.')}finally{setLoading(false)}
+  },[request,notices])
  useEffect(()=>{void load();const timer=window.setInterval(()=>void load(),4000);return()=>window.clearInterval(timer)},[load])
  const assigned=missions.filter(m=>m.delivery_status==='COURIER_ASSIGNED'),active=missions.filter(m=>m.delivery_status!=='COURIER_ASSIGNED'&&!['RECEIVED','DELIVERED','COMPLETED','CANCELLED','COURIER_REJECTED'].includes(m.delivery_status)&&!['RECEIVED','COMPLETED','CANCELLED'].includes(m.status)),current=active[0],unread=notices.filter(n=>!n.is_read).length
  const act=async(path:string,body?:unknown,message?:string)=>{setBusy(path);setError('');setSuccess('');try{await request(path,{method:'POST',body:body?JSON.stringify(body):undefined});setSuccess(message||'Action effectuée avec succès.');if(path.includes('/accept')){setView('active')}await load()}catch(err:any){const msg=err?.message||err?.error||t('courier.dashboard.actionError');setError(`Impossible d'effectuer cette action : ${msg}`)}finally{setBusy('')}}
@@ -44,7 +92,7 @@ export default function CourierDashboardPage(){
  const title=view==='detail'?'Détails de la mission':nav.find(n=>n.id===view)?.label||'Tableau de bord',initials=`${profile?.first_name?.[0]||''}${profile?.last_name?.[0]||''}`.toUpperCase()
  return <main className="courier-page"><div className="courier-orb courier-orb-one"/><div className="courier-orb courier-orb-two"/><div className="courier-workspace">
   <aside className="courier-glass courier-sidebar"><div className="courier-brand"><div className="courier-brand-mark">TB</div><div><strong>TBK Livreur</strong><span>Espace de livraison</span></div></div><nav aria-label="Navigation livreur">{nav.map(item=><button key={item.id} className={view===item.id?'is-selected':''} aria-current={view===item.id?'page':undefined} onClick={()=>choose(item.id)}><Icon name={item.icon}/><span>{item.label}</span>{item.id==='assigned'&&assigned.length>0&&<b>{assigned.length}</b>}{item.id==='notifications'&&unread>0&&<b>{unread}</b>}</button>)}</nav><div className="courier-sidebar-user"><div className="courier-avatar">{initials||'TB'}</div><div><strong>{profile?.first_name} {profile?.last_name}</strong><span className={profile?.availability==='AVAILABLE'?'is-online':''}>{profile?.availability==='AVAILABLE'?'Disponible':'Indisponible'}</span></div></div><button className="courier-logout" onClick={()=>void logout().then(()=>navigate('/livreur/login'))}><Icon name="logout"/>Déconnexion</button></aside>
-  <section className="courier-content"><header className="courier-content-header"><div><p className="courier-eyebrow">TBK Livreur</p><h1>{title}</h1></div><div className={`courier-presence ${profile?.availability==='AVAILABLE'?'is-online':''}`}><span/>{profile?.status==='SUSPENDED'?'Suspendu':profile?.availability==='AVAILABLE'?'Disponible':'Indisponible'}</div></header>{error&&<div className="courier-glass courier-alert courier-alert-error"><span>{error}</span><button onClick={()=>void load()}>Réessayer</button></div>}{success&&<div className="courier-glass courier-alert courier-alert-success">{success}</div>}<div className="courier-panel">{renderView()}</div></section>
+  <section className="courier-content"><header className="courier-content-header"><div><p className="courier-eyebrow">TBK Livreur</p><h1>{title}</h1></div><div className={`courier-presence ${profile?.availability==='AVAILABLE'?'is-online':''}`}><span/>{profile?.status==='SUSPENDED'?'Suspendu':profile?.availability==='AVAILABLE'?'Disponible':'Indisponible'}</div></header>{error&&<div className="courier-glass courier-alert courier-alert-error"><span>{error}</span><button onClick={()=>void load()}>Réessayer</button></div>}{success&&<div className="courier-glass courier-alert courier-alert-success">{success}</div>}{toast&&<div className={`courier-glass courier-alert courier-alert-${toast.type}`} style={{position:'fixed',top:20,right:20,zIndex:1000,minWidth:280,maxWidth:400,boxShadow:'0 4px 12px rgba(0,0,0,0.15)'}}><span>{toast.message}</span></div>}<div className="courier-panel">{renderView()}</div></section>
   <nav className="courier-mobile-nav" aria-label="Navigation mobile">{nav.filter(n=>['dashboard','assigned','scanner','history','profile'].includes(n.id)).map(item=><button key={item.id} className={view===item.id?'is-selected':''} onClick={()=>choose(item.id)}><Icon name={item.icon}/><span>{item.id==='dashboard'?'Accueil':item.id==='assigned'?'Missions':item.label}</span>{item.id==='assigned'&&assigned.length>0&&<b>{assigned.length}</b>}</button>)}</nav>
  </div></main>
 
@@ -96,7 +144,7 @@ export default function CourierDashboardPage(){
  function Scanner(){const pickup=current&&['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(current.delivery_status)&&['READY','READY_FOR_PICKUP'].includes(current.status),delivery=current?.delivery_status==='COURIER_ARRIVED';return <section className="courier-scanner-grid"><ScanCard title="Chez le vendeur" body="Scannez le QR de collecte lorsque la commande est prête." enabled={!!pickup} onClick={()=>current&&scan('PICKUP',current)}/><ScanCard title="Chez l’acheteur" body="Scannez le QR de remise après avoir confirmé votre arrivée." enabled={!!delivery} onClick={()=>current&&scan('DELIVERY',current)}/>{!pickup&&!delivery&&<div className="courier-glass courier-empty-wide">Aucune mission ne nécessite un scan actuellement.</div>}</section>}
  function HistoryPanel(){return <section className="courier-glass courier-section"><Heading title="Historique des missions" eyebrow={`${history.length} élément${history.length===1?'':'s'}`}/>{historyError&&<SectionError message={historyError} retry={load}/>} {history.length?<div className="courier-history-list">{history.map(h=><article key={h.order_id}><Icon name="history"/><div><strong>Commande #{h.order_number}</strong><p>{h.shop_name} · {h.delivery_address}</p></div><div><span>{t(`courier.status.${h.final_status}`)}</span><time>{h.delivered_at?new Date(h.delivered_at).toLocaleDateString('fr-FR'):'—'}</time></div></article>)}</div>:!historyError&&<Empty title="Aucune livraison terminée." body="Vos missions terminées ou refusées apparaîtront ici."/>}</section>}
  function AvailabilityPanel(){return <section className="courier-glass courier-section courier-centered"><Heading title="Votre disponibilité" eyebrow="Statut en temps réel"/><div className={`courier-availability-orb ${profile?.availability==='AVAILABLE'?'is-online':''}`}><span/></div><h3>{profile?.status==='SUSPENDED'?'Compte suspendu':profile?.availability==='AVAILABLE'?'Vous êtes disponible':'Vous êtes indisponible'}</h3><p>{profile?.status==='SUSPENDED'?t('courier.dashboard.suspendedBody'):'Votre statut détermine si vous pouvez recevoir de nouvelles missions.'}</p><div className="courier-segmented">{(['AVAILABLE','UNAVAILABLE']as Availability[]).map(v=><button key={v} className={profile?.availability===v?'is-selected':''} disabled={busy==='availability'||profile?.status==='SUSPENDED'} onClick={()=>void availability(v)}>{t(`courier.availability.${v}`)}</button>)}</div></section>}
- function NotificationsPanel(){const read=async(n:Notice)=>{if(!n.is_read)await act(`/notifications/${n.id}/read`);if(n.reference_id){const mission=missions.find(m=>m.order_id===n.reference_id);if(mission){setSelected(mission);setView('detail')}}};return <section className="courier-glass courier-section"><Heading title="Notifications" eyebrow={`${unread} non lue${unread===1?'':'s'}`}/>{unread>0&&<button className="courier-btn courier-btn-quiet courier-read-all" onClick={()=>void act('/notifications/read-all',undefined,'Toutes les notifications sont marquées comme lues.')}>Tout marquer comme lu</button>}{noticeError&&<SectionError message={noticeError} retry={load}/>} {notices.length?<div className="courier-notices">{notices.map(n=><button key={n.id} className={!n.is_read?'is-unread':''} onClick={()=>void read(n)}><Icon name="notifications"/><div><strong>{n.title}</strong><p>{n.body}</p><time>{new Date(n.created_at).toLocaleString('fr-FR')}</time></div></button>)}</div>:!noticeError&&<Empty title="Aucune notification." body="Vos mises à jour de mission apparaîtront ici."/>}</section>}
+ function NotificationsPanel(){const handleNotificationClick=(n:Notice)=>{if(!n.is_read)void act(`/notifications/${n.id}/read`);if(n.reference_id && n.type==='COURIER_ASSIGNED'){const mission=missions.find(m=>m.order_id===n.reference_id);if(mission){setSelected(mission);setView('detail');return}navigate(`/courier/missions/${n.reference_id}`)}};return <section className="courier-glass courier-section"><Heading title="Notifications" eyebrow={`${unread} non lue${unread===1?'':'s'}`}/>{unread>0&&<button className="courier-btn courier-btn-quiet courier-read-all" onClick={()=>void act('/notifications/read-all',undefined,'Toutes les notifications sont marquées comme lues.')}>Tout marquer comme lu</button>}{noticeError&&<SectionError message={noticeError} retry={load}/>} {notices.length?<div className="courier-notices">{notices.map(n=><button key={n.id} className={!n.is_read?'is-unread':''} onClick={()=>void handleNotificationClick(n)}><Icon name="notifications"/><div><strong>{n.title}</strong><p>{n.body}</p><time>{new Date(n.created_at).toLocaleString('fr-FR')}</time></div></button>)}</div>:!noticeError&&<Empty title="Aucune notification." body="Vos mises à jour de mission apparaîtront ici."/>}</section>}
  function ProfilePanel(){const addressParts=[profile?.building_number,profile?.street,profile?.commune,profile?.city,profile?.province].filter(Boolean);return <section className="courier-glass courier-section"><div className="courier-profile-head"><div className="courier-avatar courier-avatar-large">{initials||'TB'}</div><div><h2>{profile?.first_name} {profile?.last_name}</h2><p>{profile?.email}</p></div></div><div className="courier-profile-grid"><Fact label="Prénom" value={profile?.first_name}/><Fact label="Nom" value={profile?.last_name}/><Fact label="E-mail" value={profile?.email}/><Fact label="Téléphone" value={profile?.phone}/><Fact label="Transport" value={profile?.transport_type}/><Fact label="Véhicule" value={profile?.vehicle_info}/><Fact label="Zone de service" value={profile?.service_zone}/><Fact label="Adresse" value={addressParts.length?addressParts.join(', '):'—'}/>{profile?.landmark&&<Fact label="Point de repère" value={profile?.landmark}/>}<Fact label="Statut" value={profile?.status}/></div></section>}
   function ActionButtons({mission:m}:{mission:Mission}){
     const isPickingUp = busy.includes(`/missions/${m.order_id}/pickup`)

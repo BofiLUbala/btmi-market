@@ -224,6 +224,11 @@ html, body, #root {
 .courier-muted { margin: 8px 0; color: var(--color-text-muted); font-size: 11px; }
 .courier-error { margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: rgba(253, 240, 238, .8); color: var(--color-danger); font-size: 11px; font-weight: 700; }
 
+.courier-alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+.courier-alert-error { background: rgba(253, 240, 238, .9); color: var(--color-danger); }
+.courier-alert-success { background: rgba(234, 249, 238, .9); color: var(--color-success); }
+.courier-alert-info { background: rgba(224, 242, 254, .9); color: var(--color-info); }
+
 .courier-mobile-nav { display: none; }
 .courier-loading { display: grid; grid-template-columns: 260px 1fr; gap: 16px; }
 
