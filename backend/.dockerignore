@@ -46,3 +46,5 @@ Dockerfile*
 
 # Go module cache/vendor if ever present locally
 vendor/
+.gocache/
+bin/

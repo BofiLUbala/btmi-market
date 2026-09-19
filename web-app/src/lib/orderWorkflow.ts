@@ -24,8 +24,13 @@ export const TBK_DELIVERY_STEPS = [
   'PICKED_UP',
   'IN_TRANSIT',
   'COURIER_ARRIVED',
+  'PRODUCT_VERIFIED',
+  'PAYMENT_VERIFIED',
   'DELIVERY_SCAN_SUCCESS',
+  'AWAITING_BUYER_CONFIRMATION',
   'RECEIVED',
+  'COMPLETED',
+  'FAILED',
 ]
 
 /** Step order used in the buyer's order lifecycle timeline. */
@@ -47,12 +52,22 @@ export function prettifyStatus(status: string): string {
 }
 
 /**
+ * Delivery status is normally the more precise live milestone for a TBK order.
+ * Once the order itself is finally closed, however, COMPLETED/CANCELLED/REJECTED
+ * must win so buyer tracking does not stop at an earlier delivery milestone.
+ */
+export function getTrackingDisplayStatus(currentStatus: string, deliveryStatus?: string | null): string {
+  if (['COMPLETED', 'CANCELLED', 'REJECTED'].includes(currentStatus)) return currentStatus
+  return deliveryStatus || currentStatus
+}
+
+/**
  * Build the ordered step list for a given delivery method.
  * If the current status isn't in the list, it's appended so it renders at the end.
  */
 export function getDeliverySteps(deliveryMethod: string | null, currentStatus: string): string[] {
   const base =
-    deliveryMethod === 'TBK_STANDARD'
+    ['TBK_STANDARD', 'TBK_DELIVERY', 'TBK'].includes(deliveryMethod ?? '')
       ? TBK_DELIVERY_STEPS
       : (DELIVERY_METHOD_STEPS[deliveryMethod ?? ''] ?? [currentStatus])
   return base.includes(currentStatus) ? base : [...base, currentStatus]

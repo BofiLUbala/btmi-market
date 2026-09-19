@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/ui/Badges'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
-import { getDeliverySteps, prettifyStatus } from '@/lib/orderWorkflow'
+import { getDeliverySteps, getTrackingDisplayStatus, prettifyStatus } from '@/lib/orderWorkflow'
 import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
@@ -48,7 +48,9 @@ function TrackInner() {
     try {
       const t = await buyerApi.tracking(orderId)
       const normalized = t ? { ...t, history: asArray(t.history) } : t
-      const effectiveStatus = normalized?.delivery_status || normalized?.current_status
+      const effectiveStatus = normalized
+        ? getTrackingDisplayStatus(normalized.current_status, normalized.delivery_status)
+        : undefined
       if (effectiveStatus && prevStatusRef.current && prevStatusRef.current !== effectiveStatus) {
         setStatusFlash(true)
         setTimeout(() => setStatusFlash(false), 1500)
@@ -72,7 +74,9 @@ function TrackInner() {
   }, [fetchTracking])
 
   // Auto-polling with tab visibility — stops once the Order reaches a final state
-  const effectiveStatus = data?.delivery_status || data?.current_status
+  const effectiveStatus = data
+    ? getTrackingDisplayStatus(data.current_status, data.delivery_status)
+    : undefined
   const terminal = isTerminalOrderStatus(effectiveStatus) || isTerminalOrderStatus(data?.current_status)
   useEffect(() => {
     function startPolling() {
@@ -108,7 +112,7 @@ function TrackInner() {
   if (loading) return <LoadingBlock label={t('tracking.loading')} />
   if (error || !data) return <ErrorBox error={error || t('tracking.noData')} onRetry={() => void fetchTracking()} />
 
-  const currentStatus = data.delivery_status || data.current_status
+  const currentStatus = getTrackingDisplayStatus(data.current_status, data.delivery_status)
   const statusSteps = getDeliverySteps(data.delivery_method, currentStatus)
   const currentIdx = statusSteps.indexOf(currentStatus)
 

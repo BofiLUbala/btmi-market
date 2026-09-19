@@ -133,6 +133,30 @@ func TestSellerReadyAdvancesCourierMilestoneForTBKDelivery(t *testing.T) {
 	}
 }
 
+// TBK_STANDARD is the delivery_method on the live order that exposed the bug.
+// Cover the complete persisted transition, not only the courier-flow predicate.
+func TestSellerReadyAdvancesCourierMilestoneForTBKStandard(t *testing.T) {
+	f := newSellerReadyFixture(t, "TBK_STANDARD", "COURIER_ACCEPTED", true)
+
+	updated, err := f.orderSvc.TransitionOrder(f.orderID, f.sellerID, models.OrderStatusReady, "", "SELLER")
+	if err != nil {
+		t.Fatalf("seller READY transition failed: %v", err)
+	}
+	if updated.Status != models.OrderStatusReady || updated.DeliveryStatus != models.DeliveryStatusReadyForPickup || updated.ReadyAt == nil {
+		t.Fatalf("response: status=%s delivery_status=%s ready_at=%v", updated.Status, updated.DeliveryStatus, updated.ReadyAt)
+	}
+
+	var status, deliveryStatus string
+	var readyAtPresent bool
+	if err := f.db.QueryRow(`SELECT status, COALESCE(delivery_status, ''), ready_at IS NOT NULL FROM orders WHERE id=$1`, f.orderID).
+		Scan(&status, &deliveryStatus, &readyAtPresent); err != nil {
+		t.Fatal(err)
+	}
+	if status != string(models.OrderStatusReady) || deliveryStatus != models.DeliveryStatusReadyForPickup || !readyAtPresent {
+		t.Fatalf("persisted: status=%s delivery_status=%s ready_at_present=%v", status, deliveryStatus, readyAtPresent)
+	}
+}
+
 // The legacy empty-method spelling still on old courier orders must behave the same when a
 // courier is already assigned: readiness is courier business, not a method string.
 func TestSellerReadyAdvancesCourierMilestoneForLegacyMethodWithCourier(t *testing.T) {

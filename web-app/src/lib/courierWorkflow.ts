@@ -72,7 +72,7 @@ export function getCourierWorkflow(
   paymentMethod?: string,
   handoverFlags?: CourierWorkflowState['handoverFlags']
 ): CourierWorkflowState {
-  const isReady = ['READY', 'READY_FOR_PICKUP'].includes(orderStatus || '')
+  // The persisted delivery milestone alone authorizes courier actions.
   const isCash = paymentMethod === 'CASH_ON_DELIVERY'
   const flags = handoverFlags || {}
   const isTerminalMission = ['FAILED', 'COURIER_REJECTED'].includes(deliveryStatus)
@@ -97,10 +97,8 @@ export function getCourierWorkflow(
       state: deliveryStatus === 'COURIER_ACCEPTED' ? 'CURRENT_ACTION' :
         ['READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
       responsibleActor: 'Livreur (Vous)',
-      actionType: isReady ? 'PICKUP' : 'WAIT_SELLER',
-      primaryButtonText: isReady ? 'Confirmer la récupération' : undefined,
-      secondaryButtonText: isReady ? 'Scanner le QR vendeur' : undefined,
-      canAct: deliveryStatus === 'COURIER_ACCEPTED' && isReady,
+      actionType: 'WAIT_SELLER',
+      canAct: false,
       prerequisites: ['assigned']
     },
     {
@@ -108,7 +106,7 @@ export function getCourierWorkflow(
       label: 'Commande prête pour récupération',
       state: deliveryStatus === 'READY_FOR_PICKUP' ? 'CURRENT_ACTION' :
         ['PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
-      responsibleActor: isReady ? 'Vendeur' : 'Livreur (Vous)',
+      responsibleActor: 'Livreur (Vous)',
       actionType: 'PICKUP',
       primaryButtonText: 'Confirmer la récupération',
       secondaryButtonText: 'Scanner le QR vendeur',
@@ -240,17 +238,9 @@ export function getCourierWorkflow(
       secondaryButtonText = 'Refuser la mission'
       break
     case 'COURIER_ACCEPTED':
-      if (isReady) {
-        responsibleActor = 'Livreur (Vous)'
-        explanation = 'La commande est prête chez le vendeur. Confirmez la récupération des colis.'
-        actionType = 'PICKUP'
-        primaryButtonText = 'Confirmer la récupération'
-        secondaryButtonText = 'Scanner le QR vendeur'
-      } else {
-        responsibleActor = 'Vendeur'
-        explanation = 'Mission acceptée. En attente que le vendeur prépare la commande.'
-        actionType = 'WAIT_SELLER'
-      }
+      responsibleActor = 'Vendeur'
+      explanation = 'Mission acceptée. En attente que le vendeur prépare la commande.'
+      actionType = 'WAIT_SELLER'
       break
     case 'READY_FOR_PICKUP':
       responsibleActor = 'Livreur (Vous)'

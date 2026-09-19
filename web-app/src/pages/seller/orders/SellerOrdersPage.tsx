@@ -165,6 +165,10 @@ export default function SellerOrdersPage() {
     try {
       await fn()
       await loadOrders()
+      if (expandedId === order.id) {
+        const detail = await orderApi.get(order.id)
+        setDetails((prev) => ({ ...prev, [order.id]: detail }))
+      }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('seller.orders.actionFailed'))
     } finally {
@@ -333,7 +337,7 @@ export default function SellerOrdersPage() {
                               <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
                               {detail?.order && <div className="seller-payment-box">
                                 <strong>Livraison</strong>
-                                <div>Statut: <strong>{detail.order.delivery_status || order.delivery_status || 'PENDING_TBK_ASSIGNMENT'}</strong></div>
+                                <div>Statut: <strong>{detail.order.delivery_status || '—'}</strong></div>
                                 <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
                                 <div>Adresse: {detail.order.delivery_address || '—'}</div>
                                 {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
