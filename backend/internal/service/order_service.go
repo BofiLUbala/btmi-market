@@ -261,6 +261,27 @@ func canActorSetStatus(actorType string, status models.OrderStatus) bool {
 	}
 }
 
+// isCourierPickupReady reports whether an order with a seller READY transition belongs
+// to the TBK courier pickup flow, i.e. a READY_FOR_PICKUP delivery milestone must be set
+// in the same transaction so the courier can unlock pickup. The delivery method on real
+// rows is written in several legacy spellings (TBK_STANDARD, TBK_DELIVERY, TBK and empty
+// values on older orders), so the courier facts are the source of truth: a TBK method, an
+// assigned courier, or an in-progress courier handover state all mark the flow.
+func isCourierPickupReady(deliveryMethod, deliveryStatus string, hasAssignedCourier bool) bool {
+	switch deliveryMethod {
+	case models.DeliveryMethodTBK, models.DeliveryMethodTBKDelivery, models.DeliveryMethodTBKLegacy:
+		return true
+	}
+	if hasAssignedCourier {
+		return true
+	}
+	switch deliveryStatus {
+	case models.DeliveryStatusPendingTBK, models.DeliveryStatusCourierAssigned, "COURIER_ACCEPTED":
+		return true
+	}
+	return false
+}
+
 // applyTransitionTx locks the order, validates the transition and the actor, then writes
 // the new status plus its phase timestamp and an order_status_history row inside tx.
 // It is the single place order status changes are applied, so every caller — seller action,
@@ -269,11 +290,13 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 	var currentStatus models.OrderStatus
 	var deliveryMethodNS sql.NullString
 	var deliveryStatusNS sql.NullString
-	if err := tx.QueryRow("SELECT status, delivery_method, delivery_status FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethodNS, &deliveryStatusNS); err != nil {
+	var assignedCourierNS sql.NullString
+	if err := tx.QueryRow("SELECT status, delivery_method, delivery_status, assigned_courier_id FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&currentStatus, &deliveryMethodNS, &deliveryStatusNS, &assignedCourierNS); err != nil {
 		return mapOrderNotFoundErr(err)
 	}
 	deliveryMethod := deliveryMethodNS.String
 	deliveryStatus := deliveryStatusNS.String
+	hasAssignedCourier := assignedCourierNS.Valid
 
 	if currentStatus == newStatus {
 		return nil
@@ -285,12 +308,14 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 		return errors.New("ACTOR_NOT_ALLOWED")
 	}
 
-	// A seller marking the order ready on a courier delivery flow (TBK_STANDARD
-	// or PICKUP) moves the delivery handover milestone so the courier can pick up.
+	// A seller marking the order ready on a courier delivery flow advances the
+	// delivery handover milestone so the assigned courier can pick the package up.
+	// Real order rows carry several spellings of the TBK courier method
+	// (TBK_STANDARD, TBK_DELIVERY, TBK and empty legacy values), so the ready
+	// milestone is keyed off courier business facts rather than one exact method.
 	newDeliveryStatus := deliveryStatus
 	if newStatus == models.OrderStatusReadyForPickup ||
-		(newStatus == models.OrderStatusReady && deliveryMethod == models.DeliveryMethodTBK &&
-			(deliveryStatus == "" || deliveryStatus == models.DeliveryStatusPendingTBK || deliveryStatus == models.DeliveryStatusCourierAssigned || deliveryStatus == "COURIER_ACCEPTED")) {
+		(newStatus == models.OrderStatusReady && isCourierPickupReady(deliveryMethod, deliveryStatus, hasAssignedCourier)) {
 		newDeliveryStatus = models.DeliveryStatusReadyForPickup
 	}
 

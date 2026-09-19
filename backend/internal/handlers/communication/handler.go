@@ -71,14 +71,14 @@ func (h *Handler) parseUUIDParam(c *gin.Context, paramName string) (uuid.UUID, b
 	return id, true
 }
 
-// GetOrderConversation handles GET /api/v1/orders/:id/conversation
+// GetOrderConversation handles GET /api/v1/orders/:order_id/conversation
 func (h *Handler) GetOrderConversation(c *gin.Context) {
 	userID, ok := h.extractUserID(c)
 	if !ok {
 		return
 	}
 
-	orderID, ok := h.parseUUIDParam(c, "id")
+	orderID, ok := h.parseUUIDParam(c, "order_id")
 	if !ok {
 		return
 	}
@@ -96,14 +96,14 @@ func (h *Handler) GetOrderConversation(c *gin.Context) {
 	c.JSON(http.StatusOK, detail)
 }
 
-// SendMessage handles POST /api/v1/orders/:id/messages
+// SendMessage handles POST /api/v1/orders/:order_id/messages
 func (h *Handler) SendMessage(c *gin.Context) {
 	userID, ok := h.extractUserID(c)
 	if !ok {
 		return
 	}
 
-	orderID, ok := h.parseUUIDParam(c, "id")
+	orderID, ok := h.parseUUIDParam(c, "order_id")
 	if !ok {
 		return
 	}
@@ -508,9 +508,9 @@ func (h *Handler) MarkAllAdminNotificationsRead(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-// ConfirmCourierArrival handles POST /api/v1/orders/:id/courier-arrived
+// ConfirmCourierArrival handles POST /api/v1/orders/:order_id/courier-arrived
 func (h *Handler) ConfirmCourierArrival(c *gin.Context) {
-	orderID, ok := h.parseUUIDParam(c, "id")
+	orderID, ok := h.parseUUIDParam(c, "order_id")
 	if !ok {
 		return
 	}
@@ -537,9 +537,9 @@ func (h *Handler) ConfirmCourierArrival(c *gin.Context) {
 	})
 }
 
-// ConfirmCourierPickedUp handles POST /api/v1/orders/:id/courier-picked-up
+// ConfirmCourierPickedUp handles POST /api/v1/orders/:order_id/courier-picked-up
 func (h *Handler) ConfirmCourierPickedUp(c *gin.Context) {
-	orderID, ok := h.parseUUIDParam(c, "id")
+	orderID, ok := h.parseUUIDParam(c, "order_id")
 	if !ok {
 		return
 	}
@@ -566,9 +566,9 @@ func (h *Handler) ConfirmCourierPickedUp(c *gin.Context) {
 	})
 }
 
-// ConfirmCourierNearDestination handles POST /api/v1/orders/:id/courier-near-destination
+// ConfirmCourierNearDestination handles POST /api/v1/orders/:order_id/courier-near-destination
 func (h *Handler) ConfirmCourierNearDestination(c *gin.Context) {
-	orderID, ok := h.parseUUIDParam(c, "id")
+	orderID, ok := h.parseUUIDParam(c, "order_id")
 	if !ok {
 		return
 	}

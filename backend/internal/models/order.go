@@ -234,6 +234,10 @@ const (
 	DeliveryMethodShopDelivery = "SHOP_DELIVERY"
 	DeliveryMethodPartner      = "PARTNER"
 	DeliveryMethodTBK          = "TBK_STANDARD"
+	// DeliveryMethodTBKDelivery and DeliveryMethodTBKLegacy are the real method
+	// spellings carried by production orders for the same TBK courier product.
+	DeliveryMethodTBKDelivery = "TBK_DELIVERY"
+	DeliveryMethodTBKLegacy   = "TBK"
 
 	DeliveryStatusPendingTBK      = "PENDING_TBK_ASSIGNMENT"
 	DeliveryStatusCourierAssigned = "COURIER_ASSIGNED"
