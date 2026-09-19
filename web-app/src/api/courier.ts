@@ -1,9 +1,13 @@
-import { get, post } from './client'
+import { get, post, patch } from './client'
 import type {
   ConfirmCashResponse,
   HandoverState,
   HandoverVerificationResult,
-  ProductVerificationRequestBody
+  ProductVerificationRequestBody,
+  CourierProfile,
+  CourierMission,
+  CourierHistory,
+  QRScanResponse
 } from './types'
 
 /**
@@ -15,6 +19,23 @@ import type {
  * settles the buyer's payment, never TBK's commission.
  */
 export const courierApi = {
+  /** Get the courier's profile information. */
+  getProfile: () => get<CourierProfile>('/courier/profile'),
+
+  /** Update the courier's availability status. */
+  updateAvailability: (availability: 'AVAILABLE' | 'BUSY' | 'UNAVAILABLE') =>
+    patch('/courier/availability', { availability }),
+
+  /** Get all missions assigned to the courier. */
+  getMissions: () => get<CourierMission[]>(`/courier/missions`),
+
+  /** Get a single mission by order ID. */
+  getMission: (orderId: string) => get<CourierMission>(`/courier/missions/${orderId}`),
+
+  /** Get the courier's delivery history. */
+  getHistory: (limit?: number) =>
+    get<CourierHistory[]>(`/courier/history${limit ? `?limit=${limit}` : ''}`),
+
   /** Where the handover stands, and what the courier is allowed to do next. */
   handover: (orderId: string) => get<HandoverState>(`/courier/missions/${orderId}/handover`),
 
@@ -31,5 +52,47 @@ export const courierApi = {
     post<ConfirmCashResponse>(`/courier/missions/${orderId}/confirm-cash`, {
       confirmed: true,
       idempotency_key: idempotencyKey
-    })
+    }),
+
+  /** Accept a mission assigned to the courier. */
+  accept: (orderId: string) =>
+    post<{ message: string }>(`/courier/missions/${orderId}/accept`, {}),
+
+  /** Reject a mission assigned to the courier. */
+  reject: (orderId: string, reason: string) =>
+    post<{ message: string }>(`/courier/missions/${orderId}/reject`, { reason }),
+
+  /** Confirm pickup of the order at the seller's location. */
+  pickup: (orderId: string) =>
+    post<{ message: string }>(`/courier/missions/${orderId}/pickup`, {}),
+
+  /** Start the delivery (mark as in transit). */
+  start: (orderId: string) =>
+    post<{ message: string }>(`/courier/missions/${orderId}/start`, {}),
+
+  /** Arrive at the delivery destination. */
+  arrive: (orderId: string) =>
+    post<{ message: string }>(`/courier/missions/${orderId}/arrive`, {}),
+
+  /** Report a failed delivery. */
+  fail: (orderId: string, reason: string) =>
+    post<{ message: string }>(`/courier/missions/${orderId}/fail`, { reason }),
+
+  /** Scan a pickup QR code at the seller's location. */
+  scanPickup: (orderId: string, token: string) =>
+    post<QRScanResponse>(`/courier/scans/pickup`, {
+      token,
+      order_id: orderId,
+      idempotency_key: `pickup:${orderId}:${token}`,
+      device_metadata: { platform: 'web' }
+    }),
+
+  /** Scan a delivery QR code at the buyer's location. */
+  scanDelivery: (orderId: string, token: string) =>
+    post<QRScanResponse>(`/courier/scans/delivery`, {
+      token,
+      order_id: orderId,
+      idempotency_key: `delivery:${orderId}:${token}`,
+      device_metadata: { platform: 'web' }
+    }),
 }

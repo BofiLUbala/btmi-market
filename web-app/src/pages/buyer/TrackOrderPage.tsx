@@ -7,19 +7,12 @@ import { StatusBadge } from '@/components/ui/Badges'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
+import { getDeliverySteps, prettifyStatus } from '@/lib/orderWorkflow'
 import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
 const POLL_INTERVAL = 4_000 // 4 seconds for live tracking auto-sync (3-5s range)
-
-const FLOW_STEPS: Record<string, string[]> = {
-  PICKUP: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'RECEIVED', 'COMPLETED'],
-  SHOP_DELIVERY: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
-  PARTNER: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'HANDED_TO_PARTNER', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
-}
-
-const TBK_DELIVERY_STEPS = ['PENDING_TBK_ASSIGNMENT', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'RECEIVED']
 
 function actorLabel(actor: string | undefined, t: (key: TranslationKey, vars?: Record<string, string | number>) => string) {
   if (actor === 'SELLER') return t('tracking.byShop')
@@ -116,8 +109,7 @@ function TrackInner() {
   if (error || !data) return <ErrorBox error={error || t('tracking.noData')} onRetry={() => void fetchTracking()} />
 
   const currentStatus = data.delivery_status || data.current_status
-  const baseSteps = data.delivery_method === 'TBK_STANDARD' ? TBK_DELIVERY_STEPS : (FLOW_STEPS[data.delivery_method] ?? [currentStatus])
-  const statusSteps = baseSteps.includes(currentStatus) ? baseSteps : [...baseSteps, currentStatus]
+  const statusSteps = getDeliverySteps(data.delivery_method, currentStatus)
   const currentIdx = statusSteps.indexOf(currentStatus)
 
   return (
@@ -159,7 +151,7 @@ function TrackInner() {
             return (
               <li key={s} className={`${reached ? 'done' : ''} ${isCurrent ? 'current' : ''}`}>
                 <div className="t-status small">
-                  {s.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                  {prettifyStatus(s)}
                   {isCurrent && t('tracking.current')}
                 </div>
                 {event && <><div className="small muted">{actorLabel(event.actor_type, t)}{event.notes ? `${actorLabel(event.actor_type, t) ? ' · ' : ''}${event.notes}` : ''}</div><div className="t-time">{formatDateTime(event.created_at)}</div></>}

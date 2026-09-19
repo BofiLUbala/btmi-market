@@ -28,13 +28,25 @@ import {
 } from '../../src/lib/paymentStatus'
 
 const POLL_INTERVAL = 15_000
-const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
+// Order state that is final: the buyer stops polling here.  Matches the web
+// TERMINAL_ORDER_STATUSES (a RECEIVED order is closed for the buyer).
+const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED', 'DELIVERED', 'RECEIVED']
+// Delivery-level states that are terminal for this courier's work (FAILED can be
+// reassigned by an admin, so it is NOT a terminal order state).
+const TERMINAL_DELIVERY_STATUSES = ['DELIVERED', 'RECEIVED', 'COMPLETED', 'CANCELLED', 'FAILED', 'COURIER_REJECTED']
 const isTerminal = (status?: string) => !!status && TERMINAL_STATUSES.includes(status)
+const isTerminalDelivery = (status?: string) => !!status && TERMINAL_DELIVERY_STATUSES.includes(status)
 
 const FLOW_STEPS: Record<string, string[]> = {
   PICKUP: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'RECEIVED', 'COMPLETED'],
   SHOP_DELIVERY: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
   PARTNER: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'HANDED_TO_PARTNER', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
+  TBK_STANDARD: ['PENDING_TBK_ASSIGNMENT', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'RECEIVED'],
+}
+
+function getDeliverySteps(method: string, currentStatus: string): string[] {
+  const base = FLOW_STEPS[method] || [currentStatus]
+  return base.includes(currentStatus) ? base : [...base, currentStatus]
 }
 
 const ACTOR_KEYS: Record<string, TranslationKey> = {
@@ -151,7 +163,9 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
     queryKey: ['buyer','tracking',id],
     queryFn: () => buyerApi.tracking(id!),
     enabled: Boolean(id),
-    refetchInterval: (query) => isTerminal(query.state.data?.current_status) ? false : POLL_INTERVAL,
+    // current_status is the delivery_status: FAILED / COURIER_REJECTED are terminal
+    // for this delivery, so stop polling (the order itself may be reassigned later).
+    refetchInterval: (query) => isTerminalDelivery(query.state.data?.current_status) ? false : POLL_INTERVAL,
   })
   const payment = useQuery({
     queryKey: ['buyer','payment',id],
@@ -199,7 +213,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const canCancel = o.status === 'PENDING' || o.status === 'ACCEPTED'
 
   const history: OrderStatusHistory[] = t2?.history?.length ? [...t2.history].reverse() : (order.data.history ? [...order.data.history].reverse() : [])
-  const steps = FLOW_STEPS[deliveryMethod]
+  const steps = getDeliverySteps(deliveryMethod, t2?.current_status || '')
   const timeline = steps && t2
     ? (steps.includes(t2.current_status) ? steps : [...steps, t2.current_status]).map((status) => ({
         status,

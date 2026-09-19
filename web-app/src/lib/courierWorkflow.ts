@@ -75,6 +75,7 @@ export function getCourierWorkflow(
   const isReady = ['READY', 'READY_FOR_PICKUP'].includes(orderStatus || '')
   const isCash = paymentMethod === 'CASH_ON_DELIVERY'
   const flags = handoverFlags || {}
+  const isTerminalMission = ['FAILED', 'COURIER_REJECTED'].includes(deliveryStatus)
 
   // Build step definitions in order
   const steps: WorkflowStep[] = [
@@ -85,8 +86,8 @@ export function getCourierWorkflow(
         ['COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
       responsibleActor: 'Commerce Admin → Livreur',
       actionType: 'ACCEPT_REJECT',
-      primaryButtonText: 'Accepter',
-      secondaryButtonText: 'Refuser',
+      primaryButtonText: 'Accepter la mission',
+      secondaryButtonText: 'Refuser la mission',
       canAct: deliveryStatus === 'COURIER_ASSIGNED',
       prerequisites: []
     },
@@ -129,7 +130,7 @@ export function getCourierWorkflow(
       key: 'in_transit',
       label: 'En route',
       state: deliveryStatus === 'IN_TRANSIT' ? 'CURRENT_ACTION' :
-        ['COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
+        ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
       responsibleActor: 'Livreur (Vous)',
       actionType: 'ARRIVE',
       primaryButtonText: 'Je suis arrivé',
@@ -140,7 +141,7 @@ export function getCourierWorkflow(
       key: 'arrived',
       label: 'Livreur arrivé',
       state: deliveryStatus === 'COURIER_ARRIVED' ? 'CURRENT_ACTION' :
-        ['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
+        ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
       responsibleActor: 'Livreur (Vous)',
       actionType: 'VERIFY_PRODUCT',
       primaryButtonText: 'Vérifier les produits',
@@ -151,6 +152,7 @@ export function getCourierWorkflow(
       key: 'product_verified',
       label: 'Produits vérifiés',
       state: flags.allProductsVerified ? 'COMPLETED' :
+        ['PRODUCT_VERIFIED', 'PAYMENT_VERIFIED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus) ? 'COMPLETED' :
         deliveryStatus === 'COURIER_ARRIVED' ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: 'Livreur (Vous)',
       actionType: 'VERIFY_PRODUCT',
@@ -162,6 +164,7 @@ export function getCourierWorkflow(
       key: 'payment',
       label: isCash ? 'Espèces encaissées' : 'Paiement confirmé',
       state: flags.deliveryScanned || flags.receiptConfirmed ? 'COMPLETED' :
+        ['PAYMENT_VERIFIED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus) ? 'COMPLETED' :
         flags.paymentVerified ? 'COMPLETED' :
         flags.allProductsVerified ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: isCash ? 'Livreur (Vous)' : 'Acheteur / Opérateur',
@@ -174,6 +177,8 @@ export function getCourierWorkflow(
       key: 'scan_delivery',
       label: 'QR de remise scanné',
       state: flags.deliveryScanned ? 'COMPLETED' :
+        deliveryStatus === 'PAYMENT_VERIFIED' ? 'CURRENT_ACTION' :
+        deliveryStatus === 'DELIVERY_SCAN_SUCCESS' || deliveryStatus === 'AWAITING_BUYER_CONFIRMATION' ? 'COMPLETED' :
         flags.allProductsVerified && flags.paymentVerified && !flags.deliveryScanned ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: 'Livreur (Vous)',
       actionType: 'SCAN_DELIVERY',
@@ -185,6 +190,7 @@ export function getCourierWorkflow(
       key: 'buyer_acknowledged',
       label: 'Articles confirmés par l\'acheteur',
       state: flags.allLinesAcknowledged ? 'COMPLETED' :
+        deliveryStatus === 'DELIVERY_SCAN_SUCCESS' || deliveryStatus === 'AWAITING_BUYER_CONFIRMATION' ? 'CURRENT_ACTION' :
         flags.deliveryScanned ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: 'Acheteur',
       actionType: 'WAIT_BUYER',
@@ -204,14 +210,17 @@ export function getCourierWorkflow(
   ]
 
   // Determine current action step
-  const currentStep = steps.find(s => s.state === 'CURRENT_ACTION')
+  let currentStep = steps.find(s => s.state === 'CURRENT_ACTION')
+  if (isTerminalMission) {
+    currentStep = undefined
+  }
   const nextActionStep = currentStep || steps.find(s => s.state === 'LOCKED' && !flags.allProductsVerified && s.key === 'product_verified')
 
   // Stage classification
   let stage: CourierWorkflowState['stage'] = 'pre_handover'
-  if (['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus)) {
+  if (['COURIER_ARRIVED', 'PRODUCT_VERIFIED', 'PAYMENT_VERIFIED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus)) {
     stage = 'handover'
-  } else if (['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus)) {
+  } else if (['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) || isTerminalMission) {
     stage = 'completed'
   }
 
@@ -227,8 +236,8 @@ export function getCourierWorkflow(
       responsibleActor = 'Livreur (Vous)'
       explanation = 'Cette mission vous est attribuée. Vous devez l\'accepter ou la refuser.'
       actionType = 'ACCEPT_REJECT'
-      primaryButtonText = 'Accepter'
-      secondaryButtonText = 'Refuser'
+      primaryButtonText = 'Accepter la mission'
+      secondaryButtonText = 'Refuser la mission'
       break
     case 'COURIER_ACCEPTED':
       if (isReady) {
@@ -239,7 +248,7 @@ export function getCourierWorkflow(
         secondaryButtonText = 'Scanner le QR vendeur'
       } else {
         responsibleActor = 'Vendeur'
-        explanation = 'En attente que le vendeur prépare la commande.'
+        explanation = 'Mission acceptée. En attente que le vendeur prépare la commande.'
         actionType = 'WAIT_SELLER'
       }
       break
@@ -269,7 +278,6 @@ export function getCourierWorkflow(
       primaryButtonText = 'Vérifier les produits'
       break
     case 'PRODUCT_VERIFIED':
-    case 'PAYMENT_VERIFIED':
       if (isCash) {
         responsibleActor = 'Livreur (Vous)'
         explanation = 'Produits vérifiés. Encaissez le montant en espèces auprès de l\'acheteur.'
@@ -281,6 +289,18 @@ export function getCourierWorkflow(
         actionType = 'WAIT_PAYMENT'
       }
       break
+    case 'PAYMENT_VERIFIED':
+      responsibleActor = 'Livreur (Vous)'
+      explanation = 'Paiement confirmé. En attente de confirmation de réception par l\'acheteur.'
+      actionType = 'SCAN_DELIVERY'
+      primaryButtonText = 'Scanner le QR acheteur'
+      break
+    case 'DELIVERY_SCAN_SUCCESS':
+    case 'AWAITING_BUYER_CONFIRMATION':
+      responsibleActor = 'Acheteur'
+      explanation = 'En attente de confirmation des articles par l\'acheteur.'
+      actionType = 'WAIT_BUYER'
+      break
     case 'DELIVERED':
     case 'RECEIVED':
     case 'COMPLETED':
@@ -288,10 +308,53 @@ export function getCourierWorkflow(
       explanation = 'Livraison finalisée et clôturée.'
       actionType = 'COMPLETED'
       break
+    case 'FAILED':
+      responsibleActor = 'Aucun (Livraison échouée)'
+      explanation = 'La livraison a échoué. Cette mission est clôturée pour vous.'
+      actionType = 'COMPLETED'
+      break
+    case 'COURIER_REJECTED':
+      responsibleActor = 'Livreur (Vous)'
+      explanation = 'Vous avez refusé cette mission. Elle est désormais clôturée.'
+      actionType = 'COMPLETED'
+      break
     default:
       responsibleActor = 'Système'
       explanation = `Suivi de livraison (${deliveryStatus}).`
       actionType = 'WAIT_BUYER'
+  }
+
+  // The handover endpoint's permission flags are the server's single source of
+  // truth for what the courier may do next at the door. When the delivery status
+  // alone cannot tell (product verify, cash, remise all happen under
+  // COURIER_ARRIVED), drive the action panel from these instead of guessing.
+  // The override is restricted to the door states: once the status itself is
+  // definitive (payment confirmed, scan done, delivered), the status mapping
+  // above must win instead of the generic flag fallbacks.
+  if (deliveryStatus === 'COURIER_ARRIVED' || deliveryStatus === 'PRODUCT_VERIFIED') {
+    if (flags.courierCanScanDelivery) {
+      responsibleActor = 'Livreur (Vous)'
+      explanation = 'Paiement confirmé. En attente de confirmation de réception par l\'acheteur.'
+      actionType = 'SCAN_DELIVERY'
+      primaryButtonText = 'Scanner le QR acheteur'
+    } else if (flags.courierCanConfirmCash) {
+      responsibleActor = 'Livreur (Vous)'
+      explanation = 'Produits vérifiés. Encaissez le montant en espèces auprès de l\'acheteur.'
+      actionType = 'CONFIRM_CASH'
+      primaryButtonText = 'Confirmer réception des espèces'
+    } else if (flags.courierCanVerifyProduct) {
+      responsibleActor = 'Livreur (Vous)'
+      explanation = 'Vous êtes arrivé chez l\'acheteur. Procédez à la vérification des produits.'
+      actionType = 'VERIFY_PRODUCT'
+      primaryButtonText = 'Vérifier les produits'
+    } else if (flags.allProductsVerified && !isCash) {
+      // Mobile money is settled by the operator, not by a courier tap. Once every
+      // product is verified there is nothing for the courier to click until the
+      // payment is confirmed by the provider, so show a wait state, not a button.
+      responsibleActor = 'Acheteur / Opérateur'
+      explanation = 'En attente de confirmation du paiement mobile.'
+      actionType = 'WAIT_PAYMENT'
+    }
   }
 
   return {

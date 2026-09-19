@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api/client'
+import { courierApi } from '@/api/courier'
+import { ApiError, type HandoverState, type HandoverVerificationResult } from '@/api/types'
 import { useI18n } from '@/store/i18n'
 import { getCourierWorkflow } from '@/lib/courierWorkflow'
+import type { TranslationKey } from '@/locales/fr'
 import './courier.css'
 import { CourierHandoverPanel } from '@/components/courier/CourierHandoverPanel'
 
@@ -14,7 +17,9 @@ type Mission={order_id:string;order_number:string;status:string;delivery_status:
 export default function CourierMissionPage(){
   const {id=''}=useParams(), navigate=useNavigate(), {t,lang}=useI18n()
   const [m,setM]=useState<Mission|null>(null), [error,setError]=useState('')
+  const [handover,setHandover]=useState<HandoverState|null>(null)
   const [actionBusy,setActionBusy]=useState(''), [actionError,setActionError]=useState(''), [actionSuccess,setActionSuccess]=useState('')
+  const [productCode,setProductCode]=useState(''), [verifying,setVerifying]=useState(false), [verdict,setVerdict]=useState<HandoverVerificationResult|null>(null), [verifyError,setVerifyError]=useState('')
   const handoverRef = useRef<HTMLElement>(null)
 
   const load=async()=>{
@@ -46,6 +51,8 @@ export default function CourierMissionPage(){
           setM(data)
           setError('')
         }
+        const hs = await courierApi.handover(id)
+        if (!disposed) setHandover(hs)
       } catch {
         if (!disposed) {
           setError(t('courier.dashboard.loadError'))
@@ -80,6 +87,25 @@ export default function CourierMissionPage(){
     if(reason?.trim() && m) void act(`/courier/missions/${m.order_id}/reject`, {reason:reason.trim()}, t('courier.dashboard.rejected'))
   }
 
+  async function verifyProduct() {
+    const code = productCode.trim()
+    if (!code || !m) return
+    setVerifying(true); setVerifyError(''); setVerdict(null)
+    try {
+      const isQrToken = code.toLowerCase().startsWith('tbk.')
+      const result = await courierApi.verifyProduct(
+        m.order_id,
+        isQrToken ? { token: code } : { product_number: code }
+      )
+      setVerdict(result)
+      if (result.result === 'VALID' || result.result === 'ALREADY_USED') setProductCode('')
+    } catch (e) {
+      setVerifyError(e instanceof ApiError ? e.message : "Impossible de vérifier le produit.")
+    } finally {
+      setVerifying(false)
+    }
+  }
+
   if(error&&!m) return <main className="courier-page"><div className="courier-shell"><div className="courier-error">{error}</div><Link to="/courier/dashboard">← {t('common.back')}</Link></div></main>
   if(!m) return <main className="courier-page"><div className="courier-shell">{t('common.loading')}</div></main>
 
@@ -91,13 +117,24 @@ export default function CourierMissionPage(){
   const isArriving = m && actionBusy.includes(`/missions/${m.order_id}/arrive`)
   const isConfirmingPickup = m && actionBusy.includes(`/courier/missions/${m.order_id}/pickup`)
 
-  // Central workflow resolver - pass handover state when available
+  // Central workflow resolver - pass handover state when available so the action
+  // panel is driven by the server's permission flags, not by the delivery status alone.
   const workflow = m ? getCourierWorkflow(
     m.delivery_status,
     m.status,
     m.payment_method,
-    {
-      allProductsVerified: false, // will be updated from handover panel context
+    handover ? {
+      allProductsVerified: handover.all_products_verified,
+      allLinesAcknowledged: handover.all_lines_acknowledged,
+      deliveryScanned: handover.delivery_scanned,
+      receiptConfirmed: handover.receipt_confirmed,
+      paymentVerified: handover.payment_verified,
+      courierCanVerifyProduct: handover.courier_can_verify_product,
+      courierCanConfirmCash: handover.courier_can_confirm_cash,
+      courierCanScanDelivery: handover.courier_can_scan_delivery,
+      blockedReason: undefined
+    } : {
+      allProductsVerified: false,
       courierCanVerifyProduct: false,
       courierCanConfirmCash: false,
       courierCanScanDelivery: false,
@@ -116,7 +153,7 @@ export default function CourierMissionPage(){
         {/* Action Panel — always visible at the top */}
         {workflow && (
           <section className="courier-card" style={{marginTop:16, borderLeft:'4px solid var(--color-accent)'}}>
-            <p className="courier-eyebrow">Action requise & Statut</p>
+            <p className="courier-eyebrow">Statut actuel &amp; action requise</p>
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginBottom:12}}>
               <h2 style={{margin:0}}>Fiche Mission #{m.order_number}</h2>
               <span className="courier-status">{t(`courier.status.${m.delivery_status}`)}</span>
@@ -124,7 +161,7 @@ export default function CourierMissionPage(){
 
             <div className="courier-details" style={{marginBottom:14}}>
               <Detail l="Acteur responsable" v={workflow.responsibleActor} />
-              <Detail l="Explication du statut" v={workflow.explanation} />
+              <Detail l="Prochaine action" v={workflow.explanation} />
             </div>
 
             {actionError && <div className="courier-error" style={{marginBottom:12}}>{actionError}</div>}
@@ -179,16 +216,27 @@ export default function CourierMissionPage(){
                   <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
                   <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
                   <p className="courier-muted">{workflow.explanation}</p>
-                  <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:8}}>
+                  <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:8, width:'100%'}}>
                     <input
                       type="text"
+                      value={productCode}
+                      onChange={(e) => setProductCode(e.target.value)}
                       placeholder={t('courier.handover.verifyPlaceholder')}
+                      autoComplete="off"
                       style={{minHeight:44, padding:'0 12px', borderRadius:10, flex:1, minWidth:200}}
                     />
-                    <button disabled={!!actionBusy} className="courier-btn courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
-                      {t('courier.handover.verifyTitle')}
+                    <button disabled={verifying || !productCode.trim()} className="courier-btn courier-btn-scan" onClick={()=>void verifyProduct()}>
+                      {verifying ? t('common.loading') : t('courier.handover.verifyTitle')}
                     </button>
                   </div>
+                  {verifyError && <p className="courier-error" role="status">{verifyError}</p>}
+                  {verdict && (
+                    <p className={verdict.result === 'VALID' || verdict.result === 'ALREADY_USED' ? 'courier-muted' : 'courier-error'} role="status">
+                      {['VALID','ALREADY_USED','WRONG_ORDER','WRONG_PRODUCT','WRONG_VARIANT','WRONG_SHOP','INVALID_QR'].includes(verdict.result)
+                        ? t(`courier.handover.verdict.${verdict.result}` as TranslationKey)
+                        : verdict.result}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -196,7 +244,7 @@ export default function CourierMissionPage(){
                 <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
                   <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
                   <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
-                  <p className="courier-muted">{workflow.explanation}</p>
+                  <p className="courier-muted">{workflow.explanation} Montant à encaisser : <strong>{m.total_amount.toLocaleString(lang)} {m.currency}</strong></p>
                   <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/confirm-cash`, {confirmed:true, idempotency_key:crypto.randomUUID()}, t('courier.handover.confirmCashSubmit'))}>
                     {workflow.primaryButtonText || t('courier.handover.confirmCashAction')}
                   </button>

@@ -1,27 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/api/client'
+import { courierApi } from '@/api/courier'
 import { useAuth } from '@/store/auth'
-import { fr } from '@/locales/fr'
+import { useI18n } from '@/store/i18n'
+import { isTerminalDeliveryStatus, isTerminalOrderStatus } from '@/lib/orderStatus'
 import './courier.css'
 import { CourierHandoverPanel } from '@/components/courier/CourierHandoverPanel'
+
+import type { CourierMission, CourierProfile } from '@/api/types'
 
 // Delivery statuses in which the courier is at the buyer's door.
 const HANDOVER_STATUSES=['COURIER_ARRIVED','DELIVERY_SCAN_SUCCESS','AWAITING_BUYER_CONFIRMATION']
 
 type Availability='AVAILABLE'|'BUSY'|'UNAVAILABLE'
 type View='dashboard'|'assigned'|'active'|'scanner'|'history'|'availability'|'notifications'|'profile'|'detail'
-type Profile={first_name:string;last_name:string;email:string;phone?:string;status:string;availability:Availability;transport_type:string;vehicle_info?:string;service_zone?:string;province?:string;city?:string;commune?:string;street?:string;building_number?:string;landmark?:string;completed_today:number;total_deliveries:number}
-type Mission={order_id:string;order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}
+type Profile=CourierProfile
+type Mission=CourierMission
 type History={order_id:string;order_number:string;shop_name:string;delivery_address:string;final_status:string;delivered_at?:string}
 type Notice={id:string;title:string;body:string;type:string;is_read:boolean;created_at:string;reference_id?:string}
-type Translator=(key:string,vars?:Record<string,string|number|undefined|null>)=>string
-const t:Translator=(key,vars)=>{const template=(fr as Record<string,string>)[key]??key;return vars?template.replace(/\{(\w+)\}/g,(m,n)=>vars[n]!=null?String(vars[n]):m):template}
-const unwrap = <T,>(body: any): T => {
-  const d = body?.data?.courier ?? body?.data
-  if (d !== undefined) return d as T
-  return body as T
-}
 
 const iconPaths={dashboard:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></>,assigned:<><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>,active:<><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-5"/></>,scanner:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h4v4h-7v-3"/></>,history:<><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></>,availability:<><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></>,notifications:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,profile:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,logout:<><path d="M10 17l5-5-5-5M15 12H3M21 3v18h-7"/></>,arrow:<><path d="M5 12h14M15 8l4 4-4 4"/></>,empty:<><path d="M4 7h16v12H4zM4 7l3-4h10l3 4M9 12h6"/></>}
 type IconName=keyof typeof iconPaths
@@ -32,27 +29,26 @@ const nav:Array<{id:View;label:string;icon:IconName}>=[{id:'dashboard',label:'Ta
 export default function CourierDashboardPage(){
   const {logout}=useAuth(),navigate=useNavigate();const[view,setView]=useState<View>('dashboard'),[selected,setSelected]=useState<Mission|null>(null),[profile,setProfile]=useState<Profile|null>(null),[missions,setMissions]=useState<Mission[]>([]),[history,setHistory]=useState<History[]>([]),[notices,setNotices]=useState<Notice[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[missionError,setMissionError]=useState(''),[historyError,setHistoryError]=useState(''),[noticeError,setNoticeError]=useState(''),[success,setSuccess]=useState('')
   const seenNotificationIds=useRef<Set<string>>(new Set()),[toast,setToast]=useState<{message:string;type:'info'|'success'} | null>(null)
-const showToast=(message:string,type:'info'|'success'='info')=>{setToast({message,type});setTimeout(()=>setToast(null),5000)}
-
-  const request=useCallback(async<T,>(path:string,init?:RequestInit):Promise<T>=>unwrap<T>(await api<unknown>(path,init)),[])
+  const {t}=useI18n()
+  const showToast=(message:string,type:'info'|'success'='info')=>{setToast({message,type});setTimeout(()=>setToast(null),5000)}
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');
     try{
-      const p=await request<Profile>('/courier/profile');
+      const p=await courierApi.getProfile();
       setProfile(p);
       if(p.status==='SUSPENDED'){
         setMissions([]);setHistory([]);
       }else{
         setMissionError('');setHistoryError('');
         const[m,h]=await Promise.all([
-          request<Mission[]>('/courier/missions').catch(()=>{setMissionError('Impossible de charger les missions.');return null}),
-          request<History[]>('/courier/history?limit=30').catch(()=>{setHistoryError('Impossible de charger l\'historique.');return null})
+          courierApi.getMissions().catch(()=>{setMissionError('Impossible de charger les missions.');return null}),
+          courierApi.getHistory(30).catch(()=>{setHistoryError('Impossible de charger l\'historique.');return null})
         ]);
         setMissions(Array.isArray(m)?m:[]);setHistory(Array.isArray(h)?h:[])
       }
       setNoticeError('');
-      const n=await request<{items?:Notice[];notifications?:Notice[]}>('/notifications?limit=50&offset=0').catch(():{items?:Notice[];notifications?:Notice[]}=>{setNoticeError('Impossible de charger les notifications.');return{items:[]}});
+      const n=await api<{items?:Notice[];notifications?:Notice[]}>('/notifications?limit=50&offset=0').catch(():{items?:Notice[];notifications?:Notice[]}=>{setNoticeError('Impossible de charger les notifications.');return{items:[]}});
       const newNotices=n.items??n.notifications??[];
       
       setNotices(newNotices);
@@ -67,10 +63,10 @@ const showToast=(message:string,type:'info'|'success'='info')=>{setToast({messag
       if(newAssignments.length>0){
         newAssignments.forEach(n=>seenNotificationIds.current.add(n.id));
         // Show toast for the first new assignment
-        showToast('Nouvelle mission assignée !', 'info');
+        showToast(t('courier.dashboard.newMissionToast'), 'info');
         // Auto-refresh missions to show the new assignment immediately
         try{
-          const m=await request<Mission[]>('/courier/missions');
+          const m=await courierApi.getMissions();
           if(Array.isArray(m)) setMissions(m);
         }catch{}
       }
@@ -80,13 +76,14 @@ const showToast=(message:string,type:'info'|'success'='info')=>{setToast({messag
       seenNotificationIds.current=new Set([...seenNotificationIds.current].filter(id=>!currentReadIds.has(id)));
       
     }catch{setError('Impossible de charger le profil livreur.')}finally{setLoading(false)}
-  },[request,notices])
- useEffect(()=>{void load();const timer=window.setInterval(()=>void load(),4000);return()=>window.clearInterval(timer)},[load])
- const assigned=missions.filter(m=>m.delivery_status==='COURIER_ASSIGNED'),active=missions.filter(m=>m.delivery_status!=='COURIER_ASSIGNED'&&!['RECEIVED','DELIVERED','COMPLETED','CANCELLED','COURIER_REJECTED'].includes(m.delivery_status)&&!['RECEIVED','COMPLETED','CANCELLED'].includes(m.status)),current=active[0],unread=notices.filter(n=>!n.is_read).length
- const act=async(path:string,body?:unknown,message?:string)=>{setBusy(path);setError('');setSuccess('');try{await request(path,{method:'POST',body:body?JSON.stringify(body):undefined});setSuccess(message||'Action effectuée avec succès.');if(path.includes('/accept')){setView('active')}await load()}catch(err:any){const msg=err?.message||err?.error||t('courier.dashboard.actionError');setError(`Impossible d'effectuer cette action : ${msg}`)}finally{setBusy('')}}
- const reject=(m:Mission)=>{const reason=window.prompt(t('courier.dashboard.rejectReason'));if(reason?.trim())void act(`/courier/missions/${m.order_id}/reject`,{reason:reason.trim()},t('courier.dashboard.rejected'))}
- const availability=async(v:Availability)=>{setBusy('availability');try{await request('/courier/availability',{method:'PATCH',body:JSON.stringify({availability:v})});await load()}catch(err:any){const msg=err?.message||err?.error||t('courier.dashboard.actionError');setError(`Impossible de modifier la disponibilité : ${msg}`)}finally{setBusy('')}}
- const scan=(type:'PICKUP'|'DELIVERY',m:Mission)=>navigate(`/courier/scan?type=${type}&order_id=${m.order_id}`)
+  },[])
+  useEffect(()=>{void load();const timer=window.setInterval(()=>void load(),4000);return()=>window.clearInterval(timer)},[load])
+  const assigned=missions.filter(m=>m.delivery_status==='COURIER_ASSIGNED'),active=missions.filter(m=>m.delivery_status!=='COURIER_ASSIGNED'&&!isTerminalDeliveryStatus(m.delivery_status)&&!isTerminalOrderStatus(m.status)),current=active[0],unread=notices.filter(n=>!n.is_read).length
+  const runAction=async(key:string,fn:()=>Promise<unknown>,message?:string,goActive=false)=>{setBusy(key);setError('');setSuccess('');try{await fn();setSuccess(message||'Action effectuée avec succès.');if(goActive){setView('active')}await load()}catch(err:any){const msg=err?.message||err?.error||t('courier.dashboard.actionError');setError(`Impossible d'effectuer cette action : ${msg}`)}finally{setBusy('')}}
+  const act=async(path:string,body?:unknown,message?:string)=>{setBusy(path);setError('');setSuccess('');try{await api(path,{method:'POST',body:body?JSON.stringify(body):undefined});setSuccess(message||'Action effectuée avec succès.');await load()}catch(err:any){const msg=err?.message||err?.error||t('courier.dashboard.actionError');setError(`Impossible d'effectuer cette action : ${msg}`)}finally{setBusy('')}}
+  const reject=(m:Mission)=>{const reason=window.prompt(t('courier.dashboard.rejectReason'));if(reason?.trim())void runAction(`/courier/missions/${m.order_id}/reject`,()=>courierApi.reject(m.order_id,reason.trim()),t('courier.dashboard.rejected'))}
+  const availability=async(v:Availability)=>{setBusy('availability');try{await courierApi.updateAvailability(v);await load()}catch(err:any){const msg=err?.message||err?.error||t('courier.dashboard.actionError');setError(`Impossible de modifier la disponibilité : ${msg}`)}finally{setBusy('')}}
+  const scan=(type:'PICKUP'|'DELIVERY',m:Mission)=>navigate(`/courier/scan?type=${type}&order_id=${m.order_id}`)
  const choose=(next:View)=>{setView(next);setSuccess('');(document.querySelector('.courier-content') as HTMLElement|null)?.scrollTo({top:0,behavior:'smooth'})}
  if(loading&&!profile)return <main className="courier-page courier-loading"><div className="courier-glass courier-skeleton courier-skeleton-side"/><div className="courier-glass courier-skeleton courier-skeleton-main"/></main>
  const title=view==='detail'?'Détails de la mission':nav.find(n=>n.id===view)?.label||'Tableau de bord',initials=`${profile?.first_name?.[0]||''}${profile?.last_name?.[0]||''}`.toUpperCase()
@@ -138,7 +135,7 @@ const showToast=(message:string,type:'info'|'success'='info')=>{setToast({messag
   function MissionCard({mission:m,assignedMode=false}:{mission:Mission;assignedMode?:boolean}){
     const isAccepting = busy.includes(`/missions/${m.order_id}/accept`)
     const isRejecting = busy.includes(`/missions/${m.order_id}/reject`)
-    return <article className="courier-mission"><div className="courier-row"><div><p className="courier-eyebrow">Commande</p><h3>#{m.order_number}</h3></div><span className="courier-status">{t(`courier.status.${m.delivery_status}`)}</span></div><div className="courier-mission-facts"><Fact label="Boutique" value={m.shop_name}/><Fact label="Vendeur / entreprise" value={m.business_name}/><Fact label="Adresse de collecte" value={m.shop_address}/><Fact label="Acheteur" value={m.delivery_contact}/><Fact label="Téléphone" value={m.delivery_phone}/><Fact label="Adresse de livraison" value={m.delivery_address}/><Fact label="Date / heure" value={m.assigned_at?new Date(m.assigned_at).toLocaleString('fr-FR'):'—'}/>{m.delivery_notes&&<Fact label="Instructions" value={m.delivery_notes}/>}</div><div className="courier-actions">{(assignedMode || m.delivery_status === 'COURIER_ASSIGNED') &&<><button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/accept`,undefined,t('courier.dashboard.accepted'))}>{isAccepting ? 'Acceptation...' : 'Accepter'}</button><button disabled={!!busy} className="courier-btn courier-btn-danger" onClick={()=>reject(m)}>{isRejecting ? 'Refus...' : 'Refuser'}</button></>}<button className="courier-btn courier-btn-quiet" onClick={()=>{setSelected(m);setView('detail')}}>Voir les détails<Icon name="arrow"/></button></div></article>
+    return <article className="courier-mission"><div className="courier-row"><div><p className="courier-eyebrow">Commande</p><h3>#{m.order_number}</h3></div><span className="courier-status">{t(`courier.status.${m.delivery_status}`)}</span></div><div className="courier-mission-facts"><Fact label="Boutique" value={m.shop_name}/><Fact label="Vendeur / entreprise" value={m.business_name}/><Fact label="Adresse de collecte" value={m.shop_address}/><Fact label="Acheteur" value={m.delivery_contact}/><Fact label="Téléphone" value={m.delivery_phone}/><Fact label="Adresse de livraison" value={m.delivery_address}/><Fact label="Date / heure" value={m.assigned_at?new Date(m.assigned_at).toLocaleString('fr-FR'):'—'}/>{m.delivery_notes&&<Fact label="Instructions" value={m.delivery_notes}/>}</div><div className="courier-actions">{(assignedMode || m.delivery_status === 'COURIER_ASSIGNED') &&<><button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void runAction(`/courier/missions/${m.order_id}/accept`,()=>courierApi.accept(m.order_id),t('courier.dashboard.accepted'),true)}>{isAccepting ? 'Acceptation...' : 'Accepter la mission'}</button><button disabled={!!busy} className="courier-btn courier-btn-danger" onClick={()=>reject(m)}>{isRejecting ? 'Refus...' : 'Refuser la mission'}</button></>}<button className="courier-btn courier-btn-quiet" onClick={()=>{setSelected(m);setView('detail')}}>Voir les détails<Icon name="arrow"/></button></div></article>
   }
  function ActiveMission({mission:m}:{mission:Mission}){const atDoor=HANDOVER_STATUSES.includes(m.delivery_status);return <section className="courier-glass courier-section"><Heading title={`Commande #${m.order_number}`} eyebrow="Mission active"/><MissionCard mission={m}/><div className="courier-timeline"><Timeline m={m}/></div><div className="courier-next"><Heading title="Prochaine action" eyebrow={t(`courier.status.${m.delivery_status}`)}/><ActionButtons mission={m}/></div>{/* At the door the handover - product check, cash, remise - is the next action, so it lives here rather than behind a page nothing links to. */}{atDoor&&<CourierHandoverPanel key={m.order_id} orderId={m.order_id}/>}<div className="courier-actions" style={{marginTop:12}}><button className="courier-btn courier-btn-quiet" onClick={()=>navigate(`/courier/missions/${m.order_id}`)}>Ouvrir la fiche mission<Icon name="arrow"/></button></div></section>}
  function Scanner(){const pickup=current&&['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(current.delivery_status)&&['READY','READY_FOR_PICKUP'].includes(current.status),delivery=current?.delivery_status==='COURIER_ARRIVED';return <section className="courier-scanner-grid"><ScanCard title="Chez le vendeur" body="Scannez le QR de collecte lorsque la commande est prête." enabled={!!pickup} onClick={()=>current&&scan('PICKUP',current)}/><ScanCard title="Chez l’acheteur" body="Scannez le QR de remise après avoir confirmé votre arrivée." enabled={!!delivery} onClick={()=>current&&scan('DELIVERY',current)}/>{!pickup&&!delivery&&<div className="courier-glass courier-empty-wide">Aucune mission ne nécessite un scan actuellement.</div>}</section>}
@@ -153,7 +150,7 @@ const showToast=(message:string,type:'info'|'success'='info')=>{setToast({messag
       <div className="courier-actions">
         {['COURIER_ACCEPTED','READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY','READY_FOR_PICKUP'].includes(m.status) && (
           <>
-            <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/pickup`, undefined, 'Récupération confirmée.')}>
+            <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void runAction(`/courier/missions/${m.order_id}/pickup`,()=>courierApi.pickup(m.order_id),'Récupération confirmée.')}>
               {isPickingUp ? 'Confirmation...' : 'Confirmer la récupération'}
             </button>
             <button className="courier-btn courier-btn-scan" onClick={()=>scan('PICKUP',m)}>
@@ -162,24 +159,17 @@ const showToast=(message:string,type:'info'|'success'='info')=>{setToast({messag
           </>
         )}
         {m.delivery_status==='PICKED_UP' && (
-          <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`,undefined,t('courier.dashboard.started'))}>
-            {busy.includes(`/missions/${m.order_id}/start`) ? 'Démarrage...' : 'Commencer la livraison'}
+          <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void runAction(`/courier/missions/${m.order_id}/start`,()=>courierApi.start(m.order_id),t('courier.dashboard.started'))}>
+            {busy.includes(`/missions/${m.order_id}/start`) ? 'Démarrage...' : 'Démarrer la livraison'}
           </button>
         )}
         {m.delivery_status==='IN_TRANSIT' && (
-          <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`,undefined,t('courier.dashboard.arrived'))}>
+          <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>void runAction(`/courier/missions/${m.order_id}/arrive`,()=>courierApi.arrive(m.order_id),t('courier.dashboard.arrived'))}>
             {isArriving ? 'Validation d\'arrivée...' : 'Je suis arrivé'}
           </button>
         )}
         {m.delivery_status==='COURIER_ARRIVED' && (
-          <>
-            <button disabled={!!busy} className="courier-btn courier-btn-primary" onClick={()=>navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
-              <Icon name="scanner"/>Vérifier les produits
-            </button>
-            <button className="courier-btn courier-btn-scan" onClick={()=>scan('DELIVERY',m)}>
-              <Icon name="scanner"/>Scanner le QR acheteur
-            </button>
-          </>
+          <p className="courier-muted">Vous êtes arrivé : la vérification produit et la remise se font dans le panneau de remise ci-dessous.</p>
         )}
       </div>
     )

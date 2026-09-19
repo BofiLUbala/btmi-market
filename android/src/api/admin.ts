@@ -216,6 +216,97 @@ export const mobileAdminDirectionApi = {
   },
 }
 
+/** One order row as the commerce admin reads it. */
+export interface AdminOrderItem {
+  id: string
+  order_number: string
+  business_id: string
+  business_name: string
+  shop_id: string
+  shop_name: string
+  buyer_id?: string
+  buyer_name: string
+  buyer_phone: string
+  seller_name?: string
+  status: string
+  total_items: number
+  base_total: number
+  points_discount: number
+  delivery_fee: number
+  final_total: number
+  currency?: string
+  delivery_method: string
+  delivery_status?: string
+  assigned_courier_id?: string
+  courier_name?: string
+  delivery_contact_name?: string
+  delivery_phone?: string
+  delivery_address?: string
+  delivery_notes?: string
+  courier_assigned_at?: string
+  courier_notes?: string
+  payment_status: string
+  payment_method?: string
+  payment_provider?: string
+  payment_reference?: string
+  is_stuck: boolean
+  stuck_reason?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminOrderLine {
+  id: string
+  product_id: string
+  variant_id: string
+  quantity: number
+  unit_price: number
+  final_unit_price: number
+  product_name: string
+}
+
+export interface AdminOrderStatusEvent {
+  id: string
+  status: string
+  changed_by?: string
+  notes: string
+  created_at: string
+}
+
+export interface AdminOrderDetail {
+  order: AdminOrderItem
+  lines: AdminOrderLine[]
+  status_history: AdminOrderStatusEvent[]
+  payment?: {
+    id: string
+    payment_method: string
+    products_final_total: number
+    delivery_fee_final: number
+    cash_due: number
+    buyer_confirmed: boolean
+    seller_confirmed: boolean
+  }
+}
+
+export interface AdminCourierListItem {
+  id: string
+  user_id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+  status: string
+  availability: string
+  transport_type: string
+  vehicle_info?: string
+  service_zone?: string
+  rating?: number
+  total_deliveries: number
+  successful_deliveries: number
+  is_online: boolean
+  created_at: string
+}
+
 const commerceQuery = (params?: Record<string, unknown>) => {
   const q = new URLSearchParams()
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -226,7 +317,17 @@ const commerceQuery = (params?: Record<string, unknown>) => {
 
 export const adminCommerceApi = {
   listProducts: (params?: Record<string, unknown>) => adminApi<any>(`/admin/commerce/products?${commerceQuery(params)}`),
-  listOrders: (params?: Record<string, unknown>) => adminApi<any>(`/admin/commerce/orders?${commerceQuery(params)}`),
+  listOrders: async (params?: Record<string, unknown>) => {
+    const result = await adminApi<any>(`/admin/commerce/orders?${commerceQuery(params)}`)
+    return { ...result, orders: result.orders || result.items || [] }
+  },
+  getOrder: (id: string) => adminApi<AdminOrderDetail>(`/admin/commerce/orders/${id}`),
+  assignCourier: (id: string, payload: { courier_id: string; notes?: string }) =>
+    adminApi<{ message: string; order: AdminOrderItem }>(`/admin/commerce/orders/${id}/assign-courier`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  listAvailableCouriers: () => adminApi<AdminCourierListItem[]>('/admin/commerce/couriers/available'),
   listInventory: async (params?: Record<string, unknown>) => {
     const result = await adminApi<any>(`/admin/commerce/inventory?${commerceQuery(params)}`)
     return { ...result, items: result.items || result.inventory || [] }

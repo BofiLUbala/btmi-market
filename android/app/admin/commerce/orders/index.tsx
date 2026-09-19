@@ -1,13 +1,51 @@
 import { useState, useEffect, useCallback } from 'react'
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
-import { adminCommerceApi } from '../../../../src/api/admin'
-import { useI18n } from '../../../../src/store/i18n'
+import { adminCommerceApi, type AdminOrderItem } from '../../../../src/api/admin'
+import { useI18n, type TranslationKey } from '../../../../src/store/i18n'
+import { formatMoney } from '../../../../src/lib/money'
+
+const STATUS_COLORS: Record<string, string> = {
+  PENDING: '#fbbf24',
+  ACCEPTED: '#60a5fa',
+  PREPARING: '#c084fc',
+  READY: '#34d399',
+  READY_FOR_PICKUP: '#34d399',
+  OUT_FOR_DELIVERY: '#38bdf8',
+  DELIVERED: '#34d399',
+  RECEIVED: '#34d399',
+  COMPLETED: '#10b981',
+  CANCELLED: '#ef4444',
+  REJECTED: '#f97316',
+  FAILED: '#ef4444',
+}
+
+const ORDER_STATUS_KEYS: Record<string, TranslationKey> = {
+  PENDING: 'status.pending',
+  ACCEPTED: 'status.accepted',
+  PREPARING: 'status.preparing',
+  READY: 'status.ready',
+  READY_FOR_PICKUP: 'status.readyForPickup',
+  OUT_FOR_DELIVERY: 'status.outForDelivery',
+  HANDED_TO_PARTNER: 'status.handedToPartner',
+  DELIVERED: 'status.delivered',
+  RECEIVED: 'status.received',
+  COMPLETED: 'status.completed',
+  CANCELLED: 'status.cancelled',
+  REJECTED: 'status.rejected',
+  FAILED: 'status.failed',
+}
+
+function orderStatusLabel(t: (key: TranslationKey, vars?: Record<string, string | number>) => string, status: string): string {
+  const known = ORDER_STATUS_KEYS[status]
+  if (known) return t(known)
+  return status.replace(/_/g, ' ')
+}
 
 export default function MobileOrdersScreen() {
   const router = useRouter()
   const { t } = useI18n()
-  const [orders, setOrders] = useState<any[]>([])
+  const [orders, setOrders] = useState<AdminOrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -32,15 +70,13 @@ export default function MobileOrdersScreen() {
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
-  const statusColor = (status: string) => {
-    if (status === 'COMPLETED' || status === 'DELIVERED') return '#34d399'
-    if (status === 'PENDING') return '#fbbf24'
-    if (status === 'CANCELLED') return '#ef4444'
-    if (status === 'SHIPPED') return '#60a5fa'
-    return '#94a3b8'
+  const statusColor = (o: AdminOrderItem) => {
+    const delivery = o.delivery_status || ''
+    if (STATUS_COLORS[delivery]) return STATUS_COLORS[delivery]
+    return STATUS_COLORS[o.status] || '#94a3b8'
   }
 
-  const STATUS_OPTIONS = ['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELLED']
+  const STATUS_OPTIONS = ['', 'PENDING', 'ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED', 'CANCELLED']
 
   return (
     <View style={styles.container}>
@@ -64,7 +100,7 @@ export default function MobileOrdersScreen() {
               onPress={() => { setStatusFilter(item); setPage(0) }}
             >
               <Text style={[styles.filterBtnText, statusFilter === item && styles.filterBtnTextActive]}>
-                {item || t('admin.orders.all')}
+                {item ? orderStatusLabel(t, item) : t('admin.orders.all')}
               </Text>
             </TouchableOpacity>
           )}
@@ -90,19 +126,22 @@ export default function MobileOrdersScreen() {
             >
               <View style={styles.cardHeader}>
                 <Text style={styles.orderNum}>#{item.order_number}</Text>
-                <View style={[styles.badge, { backgroundColor: statusColor(item.fulfillment_status) + '20' }]}>
-                  <Text style={[styles.badgeText, { color: statusColor(item.fulfillment_status) }]}>{item.fulfillment_status}</Text>
+                <View style={[styles.badge, { backgroundColor: statusColor(item) + '20' }]}>
+                  <Text style={[styles.badgeText, { color: statusColor(item) }]}>
+                    {orderStatusLabel(t, item.delivery_status || item.status)}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.customer}>{item.customer_name}</Text>
+              <Text style={styles.customer}>{item.buyer_name}</Text>
               <View style={styles.cardMeta}>
                 <Text style={styles.metaText}>{item.shop_name}</Text>
-                <Text style={styles.price}>${item.total.toFixed(2)}</Text>
+                <Text style={styles.price}>{formatMoney(item.final_total, item.currency || 'USD')}</Text>
               </View>
               <View style={styles.cardMeta}>
-                <Text style={styles.metaText}>{t('admin.orders.items', { count: item.item_count })}</Text>
+                <Text style={styles.metaText}>{t('admin.orders.items', { count: item.total_items })}</Text>
                 <Text style={styles.metaText}>{item.delivery_method}</Text>
               </View>
+              {item.is_stuck ? <Text style={styles.stuck}>{t('admin.orders.stuckFlag')}</Text> : null}
             </TouchableOpacity>
           )}
           onEndReached={() => setPage(p => p + 20)}
@@ -135,4 +174,5 @@ const styles = StyleSheet.create({
   cardMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   metaText: { fontSize: 12, color: '#94a3b8' },
   price: { fontSize: 14, fontWeight: '700', color: '#f8fafc' },
+  stuck: { fontSize: 12, fontWeight: '800', color: '#fbbf24', marginTop: 6 },
 })

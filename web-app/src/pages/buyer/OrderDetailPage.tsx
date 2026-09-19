@@ -8,6 +8,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
+import { ORDER_LIFECYCLE_STEPS } from '@/lib/orderWorkflow'
 import {
   paymentStatusKey,
   paymentMethodKey,
@@ -27,7 +28,7 @@ import type { TranslationKey } from '@/locales/fr'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
-const ORDER_STAGES = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+const ORDER_STAGES: readonly string[] = ORDER_LIFECYCLE_STEPS
 
 function timeAgo(date: Date, t: (key: TranslationKey, vars?: Record<string, string | number>) => string): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)

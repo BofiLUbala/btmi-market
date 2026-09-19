@@ -1646,3 +1646,69 @@ export interface ProductVerificationRequestBody {
   token?: string
   product_number?: string
 }
+
+/** Courier profile information */
+export interface CourierProfile {
+  id: string
+  user_id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+  status: string
+  availability: string
+  transport_type: string
+  vehicle_info?: string
+  service_zone?: string
+  province?: string
+  city?: string
+  commune?: string
+  street?: string
+  building_number?: string
+  landmark?: string
+  completed_today: number
+  total_deliveries: number
+}
+
+/** Courier mission from the missions list */
+export interface CourierMission {
+  order_id: string
+  order_number: string
+  status: string
+  delivery_status: string
+  shop_name: string
+  business_name: string
+  shop_address: string
+  service_zone: string
+  package_count: number
+  delivery_address: string
+  delivery_contact: string
+  delivery_phone: string
+  delivery_notes?: string
+  assigned_at?: string
+  accepted_at?: string
+  ready_at?: string
+  picked_up_at?: string
+  started_at?: string
+  arrived_at?: string
+  delivered_at?: string
+}
+
+/** Courier delivery history item */
+export interface CourierHistory {
+  order_id: string
+  order_number: string
+  shop_name: string
+  delivery_address: string
+  final_status: string
+  delivered_at?: string
+}
+
+/** QR scan response for pickup/delivery scans */
+export interface QRScanResponse {
+  result: string
+  order_id: string
+  package_id?: string
+  delivery_status?: string
+  requires_buyer_confirmation?: boolean
+}

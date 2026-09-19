@@ -15,6 +15,7 @@ const STATUS_KEYS: Record<string, TranslationKey> = {
   RECEIVED: 'status.received',
   COMPLETED: 'status.completed',
   CANCELLED: 'status.cancelled',
+  FAILED: 'status.failed',
   CONFIRMED: 'status.confirmed',
   VERIFIED: 'status.verified',
   REFUNDED: 'status.refunded',
@@ -25,6 +26,16 @@ const STATUS_KEYS: Record<string, TranslationKey> = {
   RECONCILED: 'status.reconciled',
   DUE: 'status.due',
   COLLECTED: 'status.collected',
+  // TBK delivery movement shows in the buyer tracking timeline.
+  PENDING_TBK_ASSIGNMENT: 'delivery.status.PENDING_TBK_ASSIGNMENT',
+  COURIER_ASSIGNED: 'delivery.status.COURIER_ASSIGNED',
+  COURIER_ACCEPTED: 'delivery.status.COURIER_ACCEPTED',
+  COURIER_REJECTED: 'delivery.status.COURIER_REJECTED',
+  PICKED_UP: 'delivery.status.PICKED_UP',
+  IN_TRANSIT: 'delivery.status.IN_TRANSIT',
+  COURIER_ARRIVED: 'delivery.status.COURIER_ARRIVED',
+  DELIVERY_SCAN_SUCCESS: 'delivery.status.DELIVERY_SCAN_SUCCESS',
+  AWAITING_BUYER_CONFIRMATION: 'delivery.status.AWAITING_BUYER_CONFIRMATION',
 }
 
 export function statusLabel(t: Translate, value: string | null | undefined): string {

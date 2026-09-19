@@ -52,6 +52,7 @@ export default function SellerDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [unavailable, setUnavailable] = useState<Record<string, boolean>>({})
 
   const loadDashboard = useCallback(async () => {
     if (!activeBusiness) return
@@ -74,14 +75,25 @@ export default function SellerDashboardPage() {
         growthApi.getLevel(activeBusiness.id),
       ])
 
-      setData({
-        shops: shopsRes.status === 'fulfilled' && Array.isArray(shopsRes.value) ? shopsRes.value : [],
-        products: productsRes.status === 'fulfilled' && Array.isArray(productsRes.value) ? productsRes.value : [],
-        orders: ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value) ? ordersRes.value : [],
-        employees: employeesRes.status === 'fulfilled' && Array.isArray(employeesRes.value) ? employeesRes.value : [],
-        cashSummary: cashRes.status === 'fulfilled' ? cashRes.value : null,
-        growth: growthRes.status === 'fulfilled' ? growthRes.value : null,
+      setUnavailable({
+        shops: shopsRes.status !== 'fulfilled',
+        products: productsRes.status !== 'fulfilled',
+        orders: ordersRes.status !== 'fulfilled',
+        employees: employeesRes.status !== 'fulfilled',
+        cash: cashRes.status !== 'fulfilled',
+        growth: growthRes.status !== 'fulfilled',
       })
+
+      // A rejected request keeps the previously loaded slice rather than
+      // silently replacing it with an empty array that reads as "zero".
+      setData((prev) => ({
+        shops: shopsRes.status === 'fulfilled' && Array.isArray(shopsRes.value) ? shopsRes.value : prev?.shops ?? [],
+        products: productsRes.status === 'fulfilled' && Array.isArray(productsRes.value) ? productsRes.value : prev?.products ?? [],
+        orders: ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value) ? ordersRes.value : prev?.orders ?? [],
+        employees: employeesRes.status === 'fulfilled' && Array.isArray(employeesRes.value) ? employeesRes.value : prev?.employees ?? [],
+        cashSummary: cashRes.status === 'fulfilled' ? cashRes.value : prev?.cashSummary ?? null,
+        growth: growthRes.status === 'fulfilled' ? growthRes.value : prev?.growth ?? null,
+      }))
     } catch (err) {
       setError(err instanceof Error ? err.message : t('seller.dashboard.loadFailed'))
     } finally {
@@ -220,6 +232,15 @@ export default function SellerDashboardPage() {
   const trustStatus = data?.growth?.trust?.trust_status || 'NORMAL'
   const recentOrders = Array.isArray(data?.orders) ? data.orders : []
 
+  const partialFailureSections = [
+    unavailable.shops ? t('seller.shops') : null,
+    unavailable.products ? t('seller.products') : null,
+    unavailable.orders ? t('seller.orders') : null,
+    unavailable.employees ? t('seller.employees') : null,
+    unavailable.cash ? t('seller.cash.cashSales') : null,
+    unavailable.growth ? t('seller.growth') : null,
+  ].filter(Boolean) as string[]
+
   return (
     <div className="seller-dashboard-page">
       {/* ── Page Top Header ── */}
@@ -250,6 +271,18 @@ export default function SellerDashboardPage() {
 
       {error && <ErrorBox error={error} onRetry={loadDashboard} />}
 
+      {partialFailureSections.length > 0 && (
+        <div className="seller-partial-warning" role="alert">
+          <strong>{t('seller.dashboard.partialErrorTitle')}</strong>
+          <p>
+            {t('seller.dashboard.partialErrorBody', { sections: partialFailureSections.join(', ') })}
+          </p>
+          <button type="button" className="btn btn-outline btn-sm" onClick={loadDashboard} disabled={loading}>
+            <RefreshCwIcon /> {t('seller.dashboard.retrySections')}
+          </button>
+        </div>
+      )}
+
       {loading && !data && <LoadingBlock label={t('seller.dashboard.loadingMetrics')} />}
 
       {/* ── Metrics Grid (Row 1) ── */}
@@ -262,7 +295,7 @@ export default function SellerDashboardPage() {
               <StoreIcon />
             </span>
           </div>
-          <div className="stat-value">{shopsCount}</div>
+          <div className="stat-value">{unavailable.shops ? '—' : shopsCount}</div>
           <div className="stat-footer">
             <Link to="/seller/shops" className="stat-link">
               {t('seller.dashboard.manageShops')} <ArrowRightIcon />
@@ -278,7 +311,7 @@ export default function SellerDashboardPage() {
               <BoxIcon />
             </span>
           </div>
-          <div className="stat-value">{productsCount}</div>
+          <div className="stat-value">{unavailable.products ? '—' : productsCount}</div>
           <div className="stat-footer">
             <span className="muted small">{t('seller.dashboard.publishedCount', { count: publishedProducts })}</span>
             <Link to="/seller/products" className="stat-link">
@@ -295,7 +328,7 @@ export default function SellerDashboardPage() {
               <OrdersIcon />
             </span>
           </div>
-          <div className="stat-value">{ordersCount}</div>
+          <div className="stat-value">{unavailable.orders ? '—' : ordersCount}</div>
           <div className="stat-footer">
             <span className="muted small">{formatMoney(totalRevenue)}</span>
             <Link to="/seller/orders" className="stat-link">
@@ -312,7 +345,7 @@ export default function SellerDashboardPage() {
               <UsersIcon />
             </span>
           </div>
-          <div className="stat-value">{employeesCount}</div>
+          <div className="stat-value">{unavailable.employees ? '—' : employeesCount}</div>
           <div className="stat-footer">
             <Link to="/seller/employees" className="stat-link">
               {t('seller.dashboard.manageTeam')} <ArrowRightIcon />
@@ -328,7 +361,7 @@ export default function SellerDashboardPage() {
               <CashIcon />
             </span>
           </div>
-          <div className="stat-value">{formatMoney(cashTotal)}</div>
+          <div className="stat-value">{unavailable.cash ? '—' : formatMoney(cashTotal)}</div>
           <div className="stat-footer">
             <Link to="/seller/cash" className="stat-link">
               {t('seller.dashboard.cashSessions')} <ArrowRightIcon />
@@ -344,7 +377,7 @@ export default function SellerDashboardPage() {
               <GrowthIcon />
             </span>
           </div>
-          <div className="stat-value stat-value--tier">{sellerLevel}</div>
+          <div className="stat-value stat-value--tier">{unavailable.growth ? '—' : sellerLevel}</div>
           <div className="stat-footer">
             <span className="trust-pill">
               <ShieldCheckIcon /> {t(TRUST_STATUS_KEYS[trustStatus] ?? 'seller.growth.trust.NORMAL')} ({sellerPoints} pts)

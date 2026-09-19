@@ -1115,6 +1115,9 @@ export const fr = {
   'seller.dashboard.refreshTitle': 'Actualiser les données du tableau de bord',
   'seller.dashboard.addProduct': 'Ajouter un produit',
   'seller.dashboard.loadingMetrics': 'Chargement des indicateurs…',
+  'seller.dashboard.partialErrorTitle': 'Certaines données n’ont pas pu être chargées',
+  'seller.dashboard.partialErrorBody': 'Indicateurs indisponibles pour : {sections}. Les valeurs affichées peuvent être incomplètes.',
+  'seller.dashboard.retrySections': 'Réessayer',
   'seller.dashboard.manageShops': 'Gérer les boutiques',
   'seller.dashboard.publishedCount': '{count} publié(s)',
   'seller.dashboard.viewOrders': 'Voir les commandes',
@@ -2999,6 +3002,11 @@ export const fr = {
   'courier.status.RECEIVED': 'Réception confirmée',
   'courier.status.DELIVERED': 'Livrée',
   'courier.status.PENDING_TBK_ASSIGNMENT': 'En attente d’assignation',
+  'courier.status.FAILED': 'Échouée',
+  'courier.status.COMPLETED': 'Terminée',
+  'courier.status.PRODUCT_VERIFIED': 'Produits vérifiés',
+  'courier.status.PAYMENT_VERIFIED': 'Paiement vérifié',
+  'status.FAILED': 'Échouée',
   'courier.scan.pickupTitle': 'Scanner le QR chez le vendeur',
   'courier.scan.deliveryTitle': 'Scanner le QR chez l’acheteur',
   'courier.scan.verifying': 'Vérification en cours…',
@@ -3060,6 +3068,7 @@ export const fr = {
   'courier.handover.verdict.WRONG_VARIANT': 'Mauvaise déclinaison (taille, couleur…) pour cette commande.',
   'courier.handover.verdict.WRONG_SHOP': 'Ce produit ne vient pas de la boutique de cette commande.',
   'courier.handover.verdict.INVALID_QR': 'Code ou numéro produit non reconnu.',
+  'courier.dashboard.newMissionToast': 'Nouvelle mission assignée !',
 } as const
 
 export type TranslationKey = keyof typeof fr
