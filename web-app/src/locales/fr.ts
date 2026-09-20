@@ -576,6 +576,7 @@ export const fr = {
   'reviews.verifiedPurchase': 'Achat vérifié',
   'reviews.helpful': 'Utile',
   'reviews.writeReview': 'Publier un avis',
+  'reviews.completedOrderPrompt': 'Aidez les futurs acheteurs en notant les produits achetés et votre expérience avec cette boutique.',
   'reviews.editReview': 'Modifier mon avis',
   'reviews.reviewProduct': 'Noter ce produit',
   'reviews.productQuality': 'Qualité du produit',

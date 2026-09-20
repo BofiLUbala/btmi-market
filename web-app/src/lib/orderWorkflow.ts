@@ -30,7 +30,6 @@ export const TBK_DELIVERY_STEPS = [
   'AWAITING_BUYER_CONFIRMATION',
   'RECEIVED',
   'COMPLETED',
-  'FAILED',
 ]
 
 /** Step order used in the buyer's order lifecycle timeline. */

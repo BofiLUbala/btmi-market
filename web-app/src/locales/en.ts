@@ -574,6 +574,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'reviews.verifiedPurchase': 'Verified purchase',
   'reviews.helpful': 'Helpful',
   'reviews.writeReview': 'Write a review',
+  'reviews.completedOrderPrompt': 'Help future buyers by rating the purchased products and your experience with this shop.',
   'reviews.editReview': 'Edit your review',
   'reviews.reviewProduct': 'Review this product',
   'reviews.productQuality': 'Product quality',

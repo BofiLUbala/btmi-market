@@ -4,6 +4,7 @@ import { buyerApi } from '@/api/buyer'
 import type { TrackingResponse, DeliveryPackageQR } from '@/api/types'
 import { QRPanel } from '@/components/qr/QRPanel'
 import { StatusBadge } from '@/components/ui/Badges'
+import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
@@ -168,6 +169,20 @@ function TrackInner() {
       <p className="pay-note" style={{ marginTop: 12 }}>
         {t('tracking.note')}
       </p>
+      {data.current_status === 'COMPLETED' && (
+        <div className="card stack" style={{ marginTop: 12 }}>
+          <div>
+            <h2 style={{ fontSize: '1.1rem', marginBottom: 4 }}>{t('reviews.writeReview')}</h2>
+            <p className="small muted" style={{ margin: 0 }}>{t('reviews.completedOrderPrompt')}</p>
+          </div>
+          <Link to={`/orders/${orderId}#purchased-products`}>
+            <Button variant="accent" block>★ {t('orders.reviewPurchasedProducts')}</Button>
+          </Link>
+          <Link to={`/orders/${orderId}/review?type=service`}>
+            <Button variant="outline" block>★ {t('reviews.reviewDeliveryService')}</Button>
+          </Link>
+        </div>
+      )}
       {deliveryQR && <QRPanel qr={deliveryQR} title="Delivery verification QR" imagePath={`/buyer/orders/${orderId}/delivery-qr/image`} />}
       {deliveryQR?.delivery_scanned_at && !deliveryQR.receipt_confirmed_at && <button className="btn btn-primary" onClick={() => void buyerApi.confirmReceipt(orderId).then(() => fetchTracking())}>Confirmer que vous avez reçu votre commande</button>}
     </div>
