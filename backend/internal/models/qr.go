@@ -38,6 +38,12 @@ type QRScanRequest struct {
 	DeviceMetadata map[string]interface{} `json:"device_metadata"`
 }
 
+// ResolveOrderItemQRRequest is the scan payload for an ORDER_ITEM QR. The token is
+// the signed opaque tbk.oi.* reference; everything else resolves server-side.
+type ResolveOrderItemQRRequest struct {
+	Token string `json:"token" binding:"required"`
+}
+
 type QRScanResponse struct {
 	Result                    string    `json:"result"`
 	OrderID                   uuid.UUID `json:"order_id"`

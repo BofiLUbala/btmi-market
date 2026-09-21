@@ -5574,6 +5574,354 @@
           }
         }
       }
+    },
+    "/orders/{order_id}/items/{item_id}/qr": {
+      "get": {
+        "description": "Get the ORDER_ITEM QR identity for one ordered item (seller side). The seller must own the order's shop. The response carries only the signed opaque reference tbk.oi.<public_reference>.<signature> and the OI-XXXXXXXX label; no order, buyer or price data is embedded in the code itself. Resolving the code is done via POST /qr/resolve.",
+        "tags": [
+          "Order Item QR"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "QR identity for the ordered item",
+            "schema": {
+              "$ref": "#/definitions/OrderItemQRIdentityResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden - the seller does not own the order's shop",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Order or item not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity - invalid order or item identifier",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/orders/{order_id}/items/{item_id}/qr/image": {
+      "get": {
+        "description": "Print-ready PNG of the ORDER_ITEM QR label (seller side). The encoded payload is only the signed opaque tbk.oi.* reference.",
+        "tags": [
+          "Order Item QR"
+        ],
+        "produces": [
+          "image/png"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "QR label PNG"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - the seller does not own the order's shop"
+          },
+          "404": {
+            "description": "Order or item not found"
+          },
+          "422": {
+            "description": "Unprocessable entity - invalid order or item identifier"
+          }
+        }
+      }
+    },
+    "/buyer/orders/{order_id}/items/{item_id}/qr": {
+      "get": {
+        "description": "Get the ORDER_ITEM QR identity for one of the buyer's own ordered items. Only the buyer who placed the order may read it.",
+        "tags": [
+          "Order Item QR"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "QR identity for the ordered item",
+            "schema": {
+              "$ref": "#/definitions/OrderItemQRIdentityResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden - the order does not belong to the buyer",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Order or item not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity - invalid order or item identifier",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/buyer/orders/{order_id}/items/{item_id}/qr/image": {
+      "get": {
+        "description": "Print-ready PNG of the ORDER_ITEM QR label (buyer side). The encoded payload is only the signed opaque tbk.oi.* reference.",
+        "tags": [
+          "Order Item QR"
+        ],
+        "produces": [
+          "image/png"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "QR label PNG"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - the order does not belong to the buyer"
+          },
+          "404": {
+            "description": "Order or item not found"
+          },
+          "422": {
+            "description": "Unprocessable entity - invalid order or item identifier"
+          }
+        }
+      }
+    },
+    "/qr/resolve": {
+      "post": {
+        "description": "Resolve a scanned ORDER_ITEM QR code for an authenticated platform user. The endpoint validates the signed tbk.oi.* token, authenticates the caller, resolves their role on the order (BUYER, SELLER or COURIER) and returns only what that role may see. Prices and the delivery address are read from the order snapshot, never the current catalogue or profile. Admin console resolution uses POST /admin/qr/resolve.",
+        "tags": [
+          "Order Item QR"
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResolveOrderItemQRRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role-scoped resolution of the scanned order item",
+            "schema": {
+              "$ref": "#/definitions/OrderItemQRResolvedResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - malformed body",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden - the caller has no role on this order",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity - invalid, revoked or forged token",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/admin/qr/resolve": {
+      "post": {
+        "description": "Resolve a scanned ORDER_ITEM QR code in the admin console. Requires an active admin session (AdminAuthMiddleware). The admin receives the full operational context: the order item, the immutable pricing and delivery snapshot, the buyer identity and the payment state.",
+        "tags": [
+          "Order Item QR"
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResolveOrderItemQRRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full admin resolution of the scanned order item",
+            "schema": {
+              "$ref": "#/definitions/OrderItemQRResolvedResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - malformed body",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized - admin authentication required",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden - not an active admin",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "422": {
+            "description": "Unprocessable entity - invalid, revoked or forged token",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -9248,6 +9596,372 @@
         },
         "pagination": {
           "$ref": "#/definitions/PaginationData"
+        }
+      }
+    },
+    "ResolveOrderItemQRRequest": {
+      "type": "object",
+      "required": [
+        "token"
+      ],
+      "properties": {
+        "token": {
+          "type": "string",
+          "description": "The scanned payload tbk.oi.<public_reference>.<signature>"
+        }
+      }
+    },
+    "OrderItemQRIdentityData": {
+      "type": "object",
+      "description": "QR identity of one ordered item. Only the signed opaque reference is ever encoded in the printed code; every other field is database metadata read at fetch time.",
+      "properties": {
+        "reference": {
+          "type": "string",
+          "description": "Public label OI-XXXXXXXX"
+        },
+        "token": {
+          "type": "string",
+          "description": "Signed opaque reference tbk.oi.<public_reference>.<signature>"
+        },
+        "order_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "order_item_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "product_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "variant_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "REVOKED"
+          ]
+        },
+        "label_url": {
+          "type": "string",
+          "description": "The printable QR image endpoint of this label"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "OrderItemQRIdentityResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/OrderItemQRIdentityData"
+        }
+      }
+    },
+    "OrderItemQRBase": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "type": "string",
+          "description": "Public label OI-XXXXXXXX"
+        },
+        "order_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "order_item_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "REVOKED"
+          ]
+        }
+      }
+    },
+    "OrderItemQRProduct": {
+      "type": "object",
+      "description": "Immutable product/variant snapshot stored on the order line. Never reads the current catalogue.",
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "product_number": {
+          "type": "string",
+          "description": "PRD-XXXXXXXX or VAR-XXXXXXXX label when the product still exists"
+        },
+        "product_name": {
+          "type": "string"
+        },
+        "product_image": {
+          "type": "string"
+        },
+        "product_sku": {
+          "type": "string"
+        },
+        "variant_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "variant_name": {
+          "type": "string"
+        },
+        "variant_sku": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "object",
+          "description": "Variant attribute snapshot from the order line"
+        },
+        "quantity": {
+          "type": "integer"
+        }
+      }
+    },
+    "OrderItemQRShop": {
+      "type": "object",
+      "properties": {
+        "shop_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "shop_name": {
+          "type": "string"
+        },
+        "shop_reference": {
+          "type": "string",
+          "description": "Public label SHP-XXXXXXXX"
+        },
+        "business_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "seller_name": {
+          "type": "string"
+        }
+      }
+    },
+    "OrderItemQROrder": {
+      "type": "object",
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "order_number": {
+          "type": "string"
+        },
+        "order_item_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "order_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "order_status": {
+          "type": "string"
+        },
+        "delivery_status": {
+          "type": "string"
+        },
+        "delivery_method": {
+          "type": "string"
+        },
+        "payment_method": {
+          "type": "string"
+        },
+        "payment_status": {
+          "type": "string"
+        },
+        "payment_timing": {
+          "type": "string",
+          "enum": [
+            "NOW",
+            "DELIVERY"
+          ]
+        }
+      }
+    },
+    "OrderItemQRPrice": {
+      "type": "object",
+      "description": "Immutable pricing snapshot from the order/order-line/payment rows. Sold yesterday at 100 with the catalogue at 120, the QR still says 100.",
+      "properties": {
+        "unit_price": {
+          "type": "number",
+          "format": "double",
+          "description": "Immutable unit price from the order line snapshot, never the current catalogue price"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "subtotal": {
+          "type": "number",
+          "format": "double",
+          "description": "unit_price * quantity"
+        },
+        "discount": {
+          "type": "number",
+          "format": "double",
+          "description": "Promotion discount on this item"
+        },
+        "points_discount": {
+          "type": "number",
+          "format": "double",
+          "description": "Points applied on this item"
+        },
+        "item_total": {
+          "type": "number",
+          "format": "double",
+          "description": "What this item is really charged"
+        },
+        "delivery_fee": {
+          "type": "number",
+          "format": "double",
+          "description": "Order delivery fee snapshot"
+        },
+        "payment_markup": {
+          "type": "number",
+          "format": "double"
+        },
+        "payment_markup_type": {
+          "type": "string"
+        },
+        "amount_to_collect": {
+          "type": "number",
+          "format": "double",
+          "description": "Courier cash-on-delivery figure; 0 when the order was prepaid"
+        },
+        "final_amount": {
+          "type": "number",
+          "format": "double",
+          "description": "Order-level total the buyer pays"
+        },
+        "currency": {
+          "type": "string"
+        }
+      }
+    },
+    "OrderItemQRBuyer": {
+      "type": "object",
+      "description": "Buyer block. Phone and email are returned only to the buyer and admin roles; a seller sees identity fields without contacts, a courier the recipient fields.",
+      "properties": {
+        "buyer_profile_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "buyer_reference": {
+          "type": "string",
+          "description": "Public label BPR-XXXXXXXX"
+        },
+        "first_name": {
+          "type": "string"
+        },
+        "last_name": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        }
+      }
+    },
+    "OrderItemQRAddress": {
+      "type": "object",
+      "description": "Immutable delivery-address snapshot saved on the order at checkout. Buyer profile changes never rewrite it.",
+      "properties": {
+        "recipient_name": {
+          "type": "string"
+        },
+        "recipient_phone": {
+          "type": "string"
+        },
+        "province": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "commune": {
+          "type": "string"
+        },
+        "street": {
+          "type": "string"
+        },
+        "building_number": {
+          "type": "string"
+        },
+        "landmark": {
+          "type": "string"
+        },
+        "delivery_instructions": {
+          "type": "string"
+        }
+      }
+    },
+    "OrderItemQRResolved": {
+      "type": "object",
+      "description": "Role-scoped resolution of a scanned ORDER_ITEM QR. One physical QR resolves to the same underlying order for every role; applyRoleVisibility trims the fields each role may see.",
+      "properties": {
+        "qr": {
+          "$ref": "#/definitions/OrderItemQRBase"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "BUYER",
+            "SELLER",
+            "COURIER",
+            "ADMIN"
+          ]
+        },
+        "product": {
+          "$ref": "#/definitions/OrderItemQRProduct"
+        },
+        "shop": {
+          "$ref": "#/definitions/OrderItemQRShop"
+        },
+        "order": {
+          "$ref": "#/definitions/OrderItemQROrder"
+        },
+        "price": {
+          "$ref": "#/definitions/OrderItemQRPrice"
+        },
+        "buyer": {
+          "$ref": "#/definitions/OrderItemQRBuyer"
+        },
+        "delivery_address": {
+          "$ref": "#/definitions/OrderItemQRAddress"
+        }
+      }
+    },
+    "OrderItemQRResolvedResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/OrderItemQRResolved"
         }
       }
     }

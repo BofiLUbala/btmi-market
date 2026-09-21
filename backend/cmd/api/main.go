@@ -421,6 +421,10 @@ func main() {
 			ordersGroup.POST("/:order_id/courier-near-destination", commHandler.ConfirmCourierNearDestination)
 			ordersGroup.GET("/:order_id/package-qr", qrHandler.SellerPackage)
 			ordersGroup.GET("/:order_id/package-qr/label", qrHandler.SellerPackageLabel)
+			// Per-order-item QR identities for printing/picklists. The QR itself is
+			// only the signed tbk.oi.* reference; resolving it is done via POST /qr/resolve.
+			ordersGroup.GET("/:order_id/items/:item_id/qr", qrHandler.OrderItemQR)
+			ordersGroup.GET("/:order_id/items/:item_id/qr/image", qrHandler.OrderItemQRImage)
 			ordersGroup.GET("/:order_id/conversation", commHandler.GetOrderConversation)
 			ordersGroup.POST("/:order_id/messages", commHandler.SendMessage)
 		}
@@ -522,6 +526,9 @@ func main() {
 			buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
 			buyerGroup.GET("/orders/:order_id/delivery-qr", qrHandler.BuyerPackage)
 			buyerGroup.GET("/orders/:order_id/delivery-qr/image", qrHandler.BuyerPackageImage)
+			// Per-order-item QR identity for the buyer's own order.
+			buyerGroup.GET("/orders/:order_id/items/:item_id/qr", qrHandler.BuyerOrderItemQR)
+			buyerGroup.GET("/orders/:order_id/items/:item_id/qr/image", qrHandler.BuyerOrderItemQRImage)
 			buyerGroup.POST("/orders/:order_id/verify-product", qrHandler.VerifyBuyerProduct)
 			buyerGroup.GET("/orders/:order_id/handover", qrHandler.BuyerHandoverState)
 			buyerGroup.POST("/orders/:order_id/handover/acknowledge", qrHandler.AcknowledgeHandoverLines)
@@ -662,6 +669,10 @@ func main() {
 			protectedAdmin := adminGroup.Group("")
 			protectedAdmin.Use(middleware.AdminAuthMiddleware(adminAuthService))
 			{
+				// ORDER_ITEM QR resolution with full operational context. Any active
+				// admin may resolve; the service returns the complete snapshot.
+				protectedAdmin.POST("/qr/resolve", qrHandler.AdminResolveOrderItemQR)
+
 				adminNotifsGroup := protectedAdmin.Group("/notifications")
 				{
 					adminNotifsGroup.GET("", commHandler.GetAdminNotifications)
@@ -894,6 +905,14 @@ func main() {
 		{
 			configGroup.GET("/feature-flags", configHandler.GetFeatureFlags)
 			configGroup.GET("/platform-state", adminPhase5Handler.PublicState)
+		}
+
+		// ORDER_ITEM QR resolution for authenticated platform users (buyers,
+		// sellers, couriers). Admins resolve through POST /admin/qr/resolve.
+		qrGroup := api.Group("/qr")
+		qrGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			qrGroup.POST("/resolve", qrHandler.ResolveOrderItemQR)
 		}
 	}
 
