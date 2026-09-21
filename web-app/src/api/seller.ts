@@ -53,6 +53,7 @@ import type {
   BuyerPayment,
   OrderWithLines,
   QRIdentity,
+  OrderItemQR,
   DeliveryPackageQR,
 } from './types'
 
@@ -201,6 +202,17 @@ export const orderApi = {
   // that cash changed hands. The assigned courier confirms it from their own app.
   getOrderPayment: (orderId: string) => get<BuyerPayment>(`/orders/${orderId}/payment`),
   getPackageQR: (orderId: string) => get<DeliveryPackageQR>(`/orders/${orderId}/package-qr`),
+
+  /**
+   * ORDER_ITEM QR of one line of a seller's order. One QR per ordered item: two
+   * lines of the same order never share a code. The response carries the signed
+   * opaque token only — resolving it is POST /qr/resolve, server-side.
+   */
+  getOrderItemQR: (orderId: string, itemId: string) =>
+    get<OrderItemQR>(`/orders/${orderId}/items/${itemId}/qr`),
+  /** Path of the backend-rendered PNG, for authenticatedBlob(). */
+  orderItemQRImagePath: (orderId: string, itemId: string) =>
+    `/orders/${orderId}/items/${itemId}/qr/image`,
 }
 
 export const customerApi = {

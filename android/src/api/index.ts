@@ -12,7 +12,7 @@ import type {
   PublicationStatus, PublicProduct, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
-  QRScanRequest, QRScanResponse, ProductVerification,
+  QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution,
   TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
   CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
   HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem } from '../types'
@@ -294,6 +294,22 @@ export const courierApi = {
   /** Records cash actually received. There is deliberately no mobile-money equivalent. */
   confirmCash: (orderId: string, idempotencyKey: string) =>
     post<ConfirmCashResponse>(`/courier/missions/${orderId}/confirm-cash`, { confirmed: true, idempotency_key: idempotencyKey }),
+}
+
+/**
+ * ORDER_ITEM QR resolution, for any authenticated platform user.
+ *
+ * The token is opaque: it goes over the wire exactly as the camera read it and
+ * is never parsed, decoded or stored. The backend validates the signature,
+ * identifies the caller from their session, derives their role against the order
+ * and returns only what that role may see. There is no client-side masking —
+ * a field the courier may not have simply is not in the response.
+ *
+ * This is a separate flow from the package/handover scans above: it reads an
+ * item's identity and mutates no order state.
+ */
+export const qrApi = {
+  resolve: (token: string) => post<OrderItemQRResolution>('/qr/resolve', { token }),
 }
 
 export interface LocationProvince { id: string; name: string; code?: string }

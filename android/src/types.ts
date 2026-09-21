@@ -580,3 +580,126 @@ export interface SellerSaleCommissionDetail extends SellerSaleCommissionItem {
   payment_status: string
 }
 
+
+/* ---------- ORDER_ITEM QR ----------
+ * One QR per ordered line. The scanned code is only the signed opaque token
+ * (tbk.oi.<reference>.<signature>): the app posts it verbatim to /qr/resolve and
+ * never decodes it. The backend authenticates the courier, resolves their role
+ * against the order and returns only the fields that role may see — fields it
+ * withholds simply do not arrive, and are never reconstructed here.
+ * Contract: backend/internal/models/order_item_qr.go
+ */
+
+export type QRRole = 'BUYER' | 'SELLER' | 'COURIER' | 'ADMIN'
+
+export interface OrderItemQR {
+  reference: string
+  token?: string
+  order_id: string
+  order_item_id: string
+  product_id: string
+  variant_id: string
+  status: string
+  label_url?: string
+  created_at: string
+}
+
+export interface OrderItemQRIdentity {
+  reference: string
+  order_id: string
+  order_item_id: string
+  status: string
+}
+
+export interface OrderItemQRProduct {
+  product_id: string
+  product_number?: string
+  product_name: string
+  product_image?: string
+  product_sku?: string
+  variant_id: string
+  variant_name: string
+  variant_sku?: string
+  size?: string
+  color?: string
+  attributes?: Record<string, unknown>
+  quantity: number
+}
+
+export interface OrderItemQRShop {
+  shop_id: string
+  shop_name: string
+  shop_reference?: string
+  business_id: string
+  seller_name?: string
+}
+
+export interface OrderItemQROrder {
+  order_id: string
+  order_number: string
+  order_item_id: string
+  order_date: string
+  order_status: string
+  delivery_status?: string
+  delivery_method?: string
+  payment_method?: string
+  payment_status?: string
+  payment_timing?: string
+}
+
+/**
+ * Immutable pricing snapshot. For a courier the backend zeroes everything except
+ * `currency` and, on a cash-on-delivery order, `amount_to_collect`. A missing or
+ * zero `amount_to_collect` means nothing to collect — not an amount of zero.
+ */
+export interface OrderItemQRPrice {
+  unit_price: number
+  quantity: number
+  subtotal: number
+  discount: number
+  points_discount: number
+  item_total: number
+  delivery_fee: number
+  payment_markup?: number
+  payment_markup_type?: string
+  amount_to_collect?: number
+  final_amount: number
+  currency: string
+}
+
+export interface OrderItemQRBuyer {
+  buyer_profile_id?: string
+  buyer_reference?: string
+  first_name?: string
+  last_name?: string
+  display_name?: string
+  phone?: string
+  email?: string
+}
+
+export interface OrderItemQRAddress {
+  recipient_name?: string
+  recipient_phone?: string
+  province?: string
+  city?: string
+  commune?: string
+  street?: string
+  building_number?: string
+  landmark?: string
+  delivery_instructions?: string
+}
+
+export interface OrderItemQRResolution {
+  qr: OrderItemQRIdentity
+  role: QRRole
+  product: OrderItemQRProduct
+  shop: OrderItemQRShop
+  order: OrderItemQROrder
+  price: OrderItemQRPrice
+  buyer?: OrderItemQRBuyer
+  delivery_address?: OrderItemQRAddress
+}
+
+export interface OrderItemQRResolveRequest {
+  token: string
+}

@@ -4,16 +4,21 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import NetInfo from '@react-native-community/netinfo'
 import { useQueryClient } from '@tanstack/react-query'
-import { courierApi } from '../../src/api'
+import { courierApi, qrApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { useColors } from '../../src/store/theme'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { invalidateCourierMission, productVerificationBody } from '../../src/lib/courier'
-import type { HandoverVerificationResult, QRScanResponse } from '../../src/types'
+import type { HandoverVerificationResult, OrderItemQRResolution, QRScanResponse } from '../../src/types'
 
-/** PICKUP / DELIVERY scan the package QR; PRODUCT checks a product label at the door. */
-type ScanType = 'PICKUP' | 'DELIVERY' | 'PRODUCT'
+/**
+ * PICKUP / DELIVERY scan the package QR; PRODUCT checks a product label at the
+ * door; ITEM reads the per-order-item QR. ITEM is a read: it identifies one
+ * ordered line and changes no order state, so it carries no idempotency key and
+ * never replaces the pickup or handover scans above.
+ */
+type ScanType = 'PICKUP' | 'DELIVERY' | 'PRODUCT' | 'ITEM'
 
 /** What the courier is shown. `pending` is the offline state: captured, not yet confirmed. */
 type Outcome =
@@ -22,6 +27,7 @@ type Outcome =
   | { kind: 'pending'; token: string; message: string }
   | { kind: 'done'; response: QRScanResponse }
   | { kind: 'verified'; result: HandoverVerificationResult }
+  | { kind: 'resolved'; result: OrderItemQRResolution }
   | { kind: 'error'; message: string }
 
 /**
@@ -39,7 +45,11 @@ export default function CourierScanScreen() {
   const styles = useMemo(() => makeStyles(c), [c])
   const router = useRouter()
   const params = useLocalSearchParams<{ type?: string; order_id?: string }>()
-  const scanType: ScanType = params.type === 'DELIVERY' ? 'DELIVERY' : params.type === 'PRODUCT' ? 'PRODUCT' : 'PICKUP'
+  const scanType: ScanType =
+    params.type === 'DELIVERY' ? 'DELIVERY'
+      : params.type === 'PRODUCT' ? 'PRODUCT'
+        : params.type === 'ITEM' ? 'ITEM'
+          : 'PICKUP'
   const queryClient = useQueryClient()
   // Typed fallback when the camera cannot read the label: same endpoints, same checks.
   const [manualCode, setManualCode] = useState('')
@@ -55,6 +65,14 @@ export default function CourierScanScreen() {
     async (token: string, key: string) => {
       setOutcome({ kind: 'sending' })
       try {
+        if (scanType === 'ITEM') {
+          // The token is opaque. It is posted exactly as scanned and never decoded
+          // here: the backend authenticates the courier, resolves their role and
+          // returns only the fields a courier may see.
+          const result = await qrApi.resolve(token)
+          setOutcome({ kind: 'resolved', result })
+          return
+        }
         if (scanType === 'PRODUCT') {
           if (!params.order_id) throw new ApiError(400, 'QR_INVALID', t('courier.scan.invalid'))
           const result = await courierApi.verifyProduct(params.order_id, productVerificationBody(token))
@@ -82,6 +100,20 @@ export default function CourierScanScreen() {
           return
         }
         const code = e instanceof ApiError ? e.code : ''
+        if (scanType === 'ITEM') {
+          // parse() is kind-bound server-side, so a package token scanned here comes
+          // back QR_INVALID rather than resolving into the wrong flow.
+          setOutcome({
+            kind: 'error',
+            message: t(
+              code === 'QR_INVALID' ? 'itemQr.error.wrongKind'
+                : code === 'QR_FORBIDDEN' ? 'itemQr.error.forbidden'
+                  : code === 'QR_NOT_READY' ? 'itemQr.error.notFound'
+                    : 'itemQr.error.generic'
+            ),
+          })
+          return
+        }
         const message = code === 'QR_WRONG_COURIER'
           ? t('courier.scan.wrongCourier')
           : code === 'QR_NOT_OPERATIONAL'
@@ -159,7 +191,12 @@ export default function CourierScanScreen() {
 
       <View style={styles.overlay} pointerEvents="box-none">
         <Text style={styles.heading}>
-          {t(scanType === 'PICKUP' ? 'courier.scan.pickupTitle' : scanType === 'PRODUCT' ? 'courier.scan.productTitle' : 'courier.scan.deliveryTitle')}
+          {t(
+            scanType === 'PICKUP' ? 'courier.scan.pickupTitle'
+              : scanType === 'PRODUCT' ? 'courier.scan.productTitle'
+                : scanType === 'ITEM' ? 'courier.scan.itemTitle'
+                  : 'courier.scan.deliveryTitle'
+          )}
         </Text>
 
         {scanning && <View style={styles.reticle} />}
@@ -187,7 +224,7 @@ export default function CourierScanScreen() {
         {outcome.kind === 'sending' && (
           <View style={styles.panel}>
             <ActivityIndicator color={c.green} />
-            <Text style={styles.body}>{t('courier.scan.verifying')}</Text>
+            <Text style={styles.body}>{t(scanType === 'ITEM' ? 'courier.scan.resolving' : 'courier.scan.verifying')}</Text>
           </View>
         )}
 
@@ -231,6 +268,8 @@ export default function CourierScanScreen() {
           </View>
         )}
 
+        {outcome.kind === 'resolved' && <ResolvedItemCard result={outcome.result} styles={styles} onScanAgain={reset} onFinish={() => router.back()} />}
+
         {outcome.kind === 'error' && (
           <View style={styles.panel}>
             <Text style={styles.error}>{outcome.message}</Text>
@@ -240,6 +279,92 @@ export default function CourierScanScreen() {
           </View>
         )}
       </View>
+    </View>
+  )
+}
+
+/**
+ * What a courier is shown after resolving an ORDER_ITEM QR.
+ *
+ * It renders the response and nothing else. Fields the backend withheld for this
+ * role are simply absent and are never reconstructed from anything else on the
+ * screen — in particular there is no unit price here, only the single figure the
+ * server says is due at the door. `amount_to_collect` missing or zero means the
+ * order is already paid: that reads "rien a encaisser", never "0".
+ */
+function ResolvedItemCard({
+  result,
+  styles,
+  onScanAgain,
+  onFinish,
+}: {
+  result: OrderItemQRResolution
+  styles: ReturnType<typeof makeStyles>
+  onScanAgain: () => void
+  onFinish: () => void
+}) {
+  const { t } = useI18n()
+  const address = result.delivery_address
+  const collect = result.price?.amount_to_collect ?? 0
+  const currency = result.price?.currency || ''
+  const addressLine = [address?.street, address?.building_number, address?.commune, address?.city, address?.province]
+    .filter(Boolean)
+    .join(', ')
+  const recipient = address?.recipient_name || result.buyer?.display_name || ''
+  const recipientPhone = address?.recipient_phone || result.buyer?.phone || ''
+
+  return (
+    <View style={styles.panel}>
+      <Text style={styles.success}>{t('courier.scan.itemResolved')}</Text>
+
+      <Text style={styles.itemName}>
+        {result.product.product_name}
+        {result.product.variant_name ? ` · ${result.product.variant_name}` : ''}
+      </Text>
+      <Text style={styles.body}>
+        {t('itemQr.labelQuantity')}: {result.product.quantity}
+      </Text>
+      <Text style={styles.body}>
+        {t('itemQr.labelOrder')}: {result.order.order_number}
+      </Text>
+      <Text style={styles.body}>
+        {t('itemQr.labelReference')}: {result.qr.reference}
+      </Text>
+
+      {recipient ? (
+        <Text style={styles.body}>
+          {t('itemQr.labelRecipient')}: {recipient}
+          {recipientPhone ? ` · ${recipientPhone}` : ''}
+        </Text>
+      ) : null}
+      {addressLine ? (
+        <Text style={styles.body}>
+          {t('itemQr.labelAddress')}: {addressLine}
+        </Text>
+      ) : null}
+      {address?.delivery_instructions ? (
+        <Text style={styles.body}>
+          {t('itemQr.labelInstructions')}: {address.delivery_instructions}
+        </Text>
+      ) : null}
+
+      {collect > 0 ? (
+        <Text style={styles.collect}>
+          {t('itemQr.amountToCollect')}: {collect} {currency}
+        </Text>
+      ) : (
+        <Text style={styles.noCollect}>
+          {t('itemQr.nothingToCollect')}
+          {currency ? ` (${currency})` : ''}
+        </Text>
+      )}
+
+      <Pressable style={styles.primary} onPress={onScanAgain}>
+        <Text style={styles.primaryText}>{t('courier.scan.scanAgain')}</Text>
+      </Pressable>
+      <Pressable style={styles.primary} onPress={onFinish}>
+        <Text style={styles.primaryText}>{t('courier.scan.finish')}</Text>
+      </Pressable>
     </View>
   )
 }
@@ -257,6 +382,9 @@ function makeStyles(c: ReturnType<typeof useColors>) {
     success: { fontSize: 17, fontWeight: '700', color: c.green, textAlign: 'center' },
     pending: { fontSize: 17, fontWeight: '700', color: c.gold, textAlign: 'center' },
     error: { fontSize: 16, fontWeight: '700', color: '#B3261E', textAlign: 'center' },
+    itemName: { fontSize: 16, fontWeight: '700', color: c.ink, textAlign: 'center' },
+    collect: { fontSize: 18, fontWeight: '800', color: c.ink, textAlign: 'center', marginTop: 4 },
+    noCollect: { fontSize: 15, fontWeight: '700', color: c.muted, textAlign: 'center', marginTop: 4 },
     primary: { backgroundColor: c.green, paddingVertical: 12, paddingHorizontal: 22, borderRadius: 10, marginTop: 4 },
     primaryText: { color: c.white, fontWeight: '700', fontSize: 15 },
     disabled: { opacity: 0.5 },

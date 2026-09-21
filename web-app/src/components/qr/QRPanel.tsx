@@ -1,5 +1,4 @@
 import { authenticatedBlob } from '@/api/client'
-import type { QRIdentity } from '@/api/types'
 import { useEffect, useState } from 'react'
 
 /** A line printed on the label. Only non-sensitive identity data belongs here. */
@@ -18,7 +17,8 @@ export function QRPanel({
   title,
   fields = [],
 }: {
-  qr: QRIdentity
+  /** Any TBK QR identity: product, package or order item. */
+  qr: { reference: string; status: string }
   imagePath: string
   title: string
   fields?: LabelField[]

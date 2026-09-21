@@ -1712,3 +1712,129 @@ export interface QRScanResponse {
   delivery_status?: string
   requires_buyer_confirmation?: boolean
 }
+
+/* ---------- ORDER_ITEM QR ----------
+ * One QR per ordered line. The printed code carries only the signed opaque token
+ * (tbk.oi.<reference>.<signature>); every field below is resolved server-side at
+ * scan time. Clients must never parse the token.
+ * Contract: backend/internal/models/order_item_qr.go
+ */
+
+/** Authenticated actor a resolution was filtered for. Decided by the backend. */
+export type QRRole = 'BUYER' | 'SELLER' | 'COURIER' | 'ADMIN'
+
+/** GET .../items/:item_id/qr — the QR identity of one order line. */
+export interface OrderItemQR {
+  reference: string
+  token?: string
+  order_id: string
+  order_item_id: string
+  product_id: string
+  variant_id: string
+  status: string
+  label_url?: string
+  created_at: string
+}
+
+/** Identity block echoed by every resolution. */
+export interface OrderItemQRIdentity {
+  reference: string
+  order_id: string
+  order_item_id: string
+  status: string
+}
+
+export interface OrderItemQRProduct {
+  product_id: string
+  product_number?: string
+  product_name: string
+  product_image?: string
+  product_sku?: string
+  variant_id: string
+  variant_name: string
+  variant_sku?: string
+  size?: string
+  color?: string
+  attributes?: Record<string, unknown>
+  quantity: number
+}
+
+export interface OrderItemQRShop {
+  shop_id: string
+  shop_name: string
+  shop_reference?: string
+  business_id: string
+  seller_name?: string
+}
+
+export interface OrderItemQROrder {
+  order_id: string
+  order_number: string
+  order_item_id: string
+  order_date: string
+  order_status: string
+  delivery_status?: string
+  delivery_method?: string
+  payment_method?: string
+  payment_status?: string
+  payment_timing?: string
+}
+
+/**
+ * Immutable pricing snapshot of the order line. Never the live catalogue price:
+ * a product repriced after the sale still resolves at what the buyer paid.
+ * Fields the backend prunes for a role arrive as 0 — render, never recompute.
+ */
+export interface OrderItemQRPrice {
+  unit_price: number
+  quantity: number
+  subtotal: number
+  discount: number
+  points_discount: number
+  item_total: number
+  delivery_fee: number
+  payment_markup?: number
+  payment_markup_type?: string
+  /** Cash the courier must collect at the door. Absent/0 on a prepaid order. */
+  amount_to_collect?: number
+  final_amount: number
+  currency: string
+}
+
+export interface OrderItemQRBuyer {
+  buyer_profile_id?: string
+  buyer_reference?: string
+  first_name?: string
+  last_name?: string
+  display_name?: string
+  phone?: string
+  email?: string
+}
+
+export interface OrderItemQRAddress {
+  recipient_name?: string
+  recipient_phone?: string
+  province?: string
+  city?: string
+  commune?: string
+  street?: string
+  building_number?: string
+  landmark?: string
+  delivery_instructions?: string
+}
+
+/** POST /qr/resolve (or /admin/qr/resolve) — role-filtered by the backend. */
+export interface OrderItemQRResolution {
+  qr: OrderItemQRIdentity
+  role: QRRole
+  product: OrderItemQRProduct
+  shop: OrderItemQRShop
+  order: OrderItemQROrder
+  price: OrderItemQRPrice
+  buyer?: OrderItemQRBuyer
+  delivery_address?: OrderItemQRAddress
+}
+
+export interface OrderItemQRResolveRequest {
+  token: string
+}

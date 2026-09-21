@@ -127,14 +127,11 @@ func (h *Handler) ResolveOrderItemQR(c *gin.Context) {
 // the same resolution with the FULL operational context. Only an active admin (the
 // AdminAuthMiddleware already checked that) may reach it.
 func (h *Handler) AdminResolveOrderItemQR(c *gin.Context) {
-	rawRole, exists := c.Get("admin_role")
-	if !exists {
+	// Any authenticated active admin may resolve — AdminAuthMiddleware has already
+	// enforced authentication and an ACTIVE account. The context carries their
+	// role as models.AdminRole; presence is what matters here, not which role.
+	if _, exists := c.Get("admin_role"); !exists {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "UNAUTHORIZED", "message": "Admin authentication required"}})
-		return
-	}
-	role, ok := rawRole.(string)
-	if !ok || models.QRRole(role) != models.QRRoleAdmin {
-		fail(c, service.ErrQRForbidden)
 		return
 	}
 	var req models.ResolveOrderItemQRRequest

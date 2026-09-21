@@ -5,6 +5,7 @@ import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import { useT } from '@/store/i18n'
 import { BoxIcon } from '@/components/ui/Icons'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
+import { AdminOrderItemQRResolver } from '@/components/qr/AdminOrderItemQRResolver'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -271,6 +272,10 @@ export default function OrderDetailPage() {
             ) : (
               <div style={{ fontSize: 13, color: '#94a3b8' }}>Aucun colis QR généré pour cette commande.</div>
             )}
+          </Section>
+
+          <Section title="QR article (résolution)">
+            <AdminOrderItemQRResolver />
           </Section>
 
           {(handover?.events ?? []).length > 0 && (

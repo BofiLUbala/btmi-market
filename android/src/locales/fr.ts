@@ -1646,6 +1646,26 @@ export const fr = {
   'courier.failReason.buyerRefused': 'Colis refusé par l’acheteur',
   'courier.failReason.packageDamaged': 'Colis endommagé',
   'delivery.status.FAILED': 'Échec de livraison',
+  /* ---------- ORDER_ITEM QR (scan article) ---------- */
+  'courier.scan.itemTitle': 'Scanner le QR d’un article',
+  'courier.scan.itemResolved': 'Article identifié',
+  'courier.scan.resolving': 'Résolution du QR…',
+  'courier.scanItem': 'Scanner le QR d’un article',
+  'itemQr.error.invalid': 'QR invalide.',
+  'itemQr.error.wrongKind': 'Ce QR ne correspond pas à un article de commande.',
+  'itemQr.error.forbidden': 'Vous n’êtes pas autorisé à consulter ce QR.',
+  'itemQr.error.notFound': 'Article ou commande introuvable.',
+  'itemQr.error.generic': 'Résolution impossible.',
+  'itemQr.labelOrder': 'Commande',
+  'itemQr.labelProduct': 'Produit',
+  'itemQr.labelVariant': 'Déclinaison',
+  'itemQr.labelQuantity': 'Quantité',
+  'itemQr.labelRecipient': 'Destinataire',
+  'itemQr.labelAddress': 'Adresse',
+  'itemQr.labelInstructions': 'Instructions',
+  'itemQr.labelReference': 'Référence',
+  'itemQr.amountToCollect': 'Montant à encaisser',
+  'itemQr.nothingToCollect': 'Rien à encaisser',
 } as const
 
 export type TranslationKey = keyof typeof fr

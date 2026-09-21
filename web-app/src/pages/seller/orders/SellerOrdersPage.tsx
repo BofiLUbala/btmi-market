@@ -1,6 +1,7 @@
 import { useAuth } from '@/store/auth'
 import { orderApi, shopApi } from '@/api/seller'
-import type { BuyerPayment, OrderStatus, OrderWithLines, Shop, DeliveryPackageQR } from '@/api/types'
+import type { BuyerPayment, OrderLine, OrderStatus, OrderWithLines, Shop, DeliveryPackageQR } from '@/api/types'
+import { OrderItemQRSection } from '@/components/qr/OrderItemQRSection'
 import { QRPanel } from '@/components/qr/QRPanel'
 import { Card } from '@/components/ui/Card'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -343,7 +344,7 @@ export default function SellerOrdersPage() {
                                 {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
                                 <div>Frais: {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)}</div>
                               </div>}
-                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <div key={line.id}>{line.variant_name ? t('seller.orders.lineWithVariant', { name: line.product_name || line.product_id || '', variant: line.variant_name, quantity: line.quantity, price: formatMoney(line.final_unit_price || line.unit_price, detail.order?.currency || order.currency || DEFAULT_CURRENCY) }) : t('seller.orders.line', { name: line.product_name || line.product_id || '', quantity: line.quantity, price: formatMoney(line.final_unit_price || line.unit_price, detail.order?.currency || order.currency || DEFAULT_CURRENCY) })}</div>)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
+                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <SellerOrderLineQR key={line.id} line={line} orderId={order.id} orderNumber={order.order_number || order.id.slice(0, 8)} shopName={activeBusiness?.name || ''} currency={detail.order?.currency || order.currency || DEFAULT_CURRENCY} />)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
                               <div className="seller-payment-box">
                                 <strong>{t('seller.orders.cashPayment')}</strong>
                                 {payment ? <>
@@ -382,6 +383,64 @@ export default function SellerOrdersPage() {
             </div>
           </Card>
         </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * One order line in the seller's fulfilment view, with its own ORDER_ITEM QR.
+ *
+ * Each line carries its own code: a two-item order produces two distinct QRs, and
+ * the package QR is a separate thing that is not replaced here. The label fields
+ * are preparation data only — the seller's response deliberately excludes buyer
+ * contact and address, so none of it can reach the printer.
+ */
+function SellerOrderLineQR({
+  line,
+  orderId,
+  orderNumber,
+  shopName,
+  currency,
+}: {
+  line: OrderLine
+  orderId: string
+  orderNumber: string
+  shopName: string
+  currency: string
+}) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const load = useCallback(() => orderApi.getOrderItemQR(orderId, line.id), [orderId, line.id])
+  const price = formatMoney(line.final_unit_price || line.unit_price, currency)
+  const name = line.product_name || line.product_id || ''
+  const variant = line.variant_name || line.variant_sku || ''
+
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ flex: '1 1 auto' }}>
+          {variant
+            ? t('seller.orders.lineWithVariant', { name, variant, quantity: line.quantity, price })
+            : t('seller.orders.line', { name, quantity: line.quantity, price })}
+        </span>
+        <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
+          {open ? t('itemQr.hide') : t('itemQr.action')}
+        </Button>
+      </div>
+      {open && (
+        <OrderItemQRSection
+          load={load}
+          imagePath={orderApi.orderItemQRImagePath(orderId, line.id)}
+          instruction={t('itemQr.sellerInstruction')}
+          fields={[
+            { label: t('itemQr.labelOrder'), value: orderNumber },
+            { label: t('itemQr.labelProduct'), value: name },
+            { label: t('itemQr.labelVariant'), value: variant },
+            { label: t('itemQr.labelQuantity'), value: String(line.quantity) },
+            { label: t('itemQr.labelShop'), value: shopName },
+          ]}
+        />
       )}
     </div>
   )

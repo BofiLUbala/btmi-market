@@ -17,6 +17,7 @@ import type {
   HandoverLineAcknowledgement,
   HandoverState,
   DeliverySelectResponse,
+  OrderItemQR,
   OrderWithLines,
   OrderLineInput,
   PendingPurchase,
@@ -137,6 +138,16 @@ export const buyerApi = {
 
   tracking: (orderId: string) => get<TrackingResponse>(`/buyer/orders/${orderId}/tracking`),
   deliveryQR: (orderId: string) => get<DeliveryPackageQR>(`/buyer/orders/${orderId}/delivery-qr`),
+
+  /**
+   * ORDER_ITEM QR of one line of the buyer's own order. Buyer-specific route: it
+   * is not the seller response reused, and the backend decides what a buyer sees.
+   */
+  getOrderItemQR: (orderId: string, itemId: string) =>
+    get<OrderItemQR>(`/buyer/orders/${orderId}/items/${itemId}/qr`),
+  /** Path of the backend-rendered PNG, for authenticatedBlob(). */
+  orderItemQRImagePath: (orderId: string, itemId: string) =>
+    `/buyer/orders/${orderId}/items/${itemId}/qr/image`,
   confirmReceipt: (orderId: string) => post<{ delivery_status: string }>(`/buyer/orders/${orderId}/confirm-receipt`, {}),
   verifyProduct: (orderId: string, body: { token?: string; product_number?: string }) =>
     post<ProductVerification>(`/buyer/orders/${orderId}/verify-product`, body),

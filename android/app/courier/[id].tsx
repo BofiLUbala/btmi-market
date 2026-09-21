@@ -60,6 +60,14 @@ export default function CourierMissionScreen() {
         {m.delivery_phone ? <Text style={styles.muted}>{t('editProfile.phone')} : {m.delivery_phone}</Text> : null}
         {m.delivery_notes ? <Text style={styles.muted}>{t('checkout.instructions')} : {m.delivery_notes}</Text> : null}
         <MissionActions mission={m} compact />
+        {/* Identifying one ordered item. A read: it resolves what this courier may
+            see about that line and moves no handover step, so it stays available
+            at every stage of the mission, not only at the door. */}
+        <Button
+          variant="outline"
+          title={t('courier.scanItem')}
+          onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'ITEM', order_id: m.order_id } })}
+        />
       </Card>
       {atDoor ? <CourierHandover orderId={m.order_id} /> : null}
     </ScrollView>
