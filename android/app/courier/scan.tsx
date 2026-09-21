@@ -9,6 +9,7 @@ import { ApiError } from '../../src/api/client'
 import { useColors } from '../../src/store/theme'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { statusLabel } from '../../src/lib/statusLabels'
+import { formatMoney } from '../../src/lib/money'
 import { invalidateCourierMission, productVerificationBody } from '../../src/lib/courier'
 import type { HandoverVerificationResult, OrderItemQRResolution, QRScanResponse } from '../../src/types'
 
@@ -107,7 +108,7 @@ export default function CourierScanScreen() {
             kind: 'error',
             message: t(
               code === 'QR_INVALID' ? 'itemQr.error.wrongKind'
-                : code === 'QR_FORBIDDEN' ? 'itemQr.error.forbidden'
+                : code === 'QR_FORBIDDEN' || code === 'QR_WRONG_COURIER' ? 'itemQr.error.forbidden'
                   : code === 'QR_NOT_READY' ? 'itemQr.error.notFound'
                     : 'itemQr.error.generic'
             ),
@@ -350,7 +351,7 @@ function ResolvedItemCard({
 
       {collect > 0 ? (
         <Text style={styles.collect}>
-          {t('itemQr.amountToCollect')}: {collect} {currency}
+          {t('itemQr.amountToCollect')}: {formatMoney(collect, currency || undefined)}
         </Text>
       ) : (
         <Text style={styles.noCollect}>
