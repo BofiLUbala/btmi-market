@@ -932,6 +932,7 @@ export const fr = {
   'orders.productPicked': 'Produit récupéré',
   'orders.inDelivery': 'En livraison',
   'orders.arrived': 'Arrivé',
+  'orders.handoverScanned': 'QR de remise scanné par le Livreur',
   'orders.received': 'Reçue',
   'orders.paymentBreakdown': 'Détail du paiement',
   'orders.productsAmount': 'Montant produits',

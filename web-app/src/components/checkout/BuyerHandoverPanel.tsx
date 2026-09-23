@@ -106,6 +106,10 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
         <span className="k">Produits vérifiés</span>
         <span className="v">{state.all_products_verified ? '✓ Oui' : 'Pas encore'}</span>
       </div>
+      <div className="info-row">
+        <span className="k">QR de remise scanné</span>
+        <span className="v">{state.delivery_scanned ? '✓ Oui' : 'Pas encore'}</span>
+      </div>
 
       {error && <ErrorBox error={error} />}
       {done && <p className="small">{done}</p>}

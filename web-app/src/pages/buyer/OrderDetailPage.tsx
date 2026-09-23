@@ -45,6 +45,9 @@ interface TimelineStep {
   done: (o: OrderWithLines['order'], payment: BuyerPayment | null) => boolean
 }
 
+const HANDOVER_SCANNED = ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
+const COURIER_AT_DOOR = ['COURIER_ARRIVED', ...HANDOVER_SCANNED]
+
 const TIMELINE_STEPS: TimelineStep[] = [
   {
     key: 'cart',
@@ -89,7 +92,12 @@ const TIMELINE_STEPS: TimelineStep[] = [
   {
     key: 'arrived',
     labelKey: 'orders.arrived',
-    done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('DELIVERED')
+    done: (o) => COURIER_AT_DOOR.includes(o.delivery_status || '') || ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('DELIVERED')
+  },
+  {
+    key: 'handover',
+    labelKey: 'orders.handoverScanned',
+    done: (o) => HANDOVER_SCANNED.includes(o.delivery_status || '') || ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('DELIVERED')
   },
   {
     key: 'received',

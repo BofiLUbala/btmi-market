@@ -1530,6 +1530,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'handover.buyerTitle': 'Your order handover',
   'handover.payment': 'Payment',
   'handover.productsVerified': 'Products verified',
+  'handover.qrScanned': 'Handover QR scanned',
   'handover.yes': 'Yes',
   'handover.notYet': 'Not yet',
   'handover.paidCash': 'Paid · cash handed to the courier',

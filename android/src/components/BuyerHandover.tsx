@@ -83,6 +83,7 @@ export function BuyerHandoverCard({ orderId, deliveryStatus, onChanged }: { orde
       <Text style={styles.title}>{t('handover.buyerTitle')}</Text>
       <View style={styles.row}><Text style={styles.key}>{t('handover.payment')}</Text><Text style={styles.value}>{paymentText}</Text></View>
       <View style={styles.row}><Text style={styles.key}>{t('handover.productsVerified')}</Text><Text style={styles.value}>{state.all_products_verified ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</Text></View>
+      <View style={styles.row}><Text style={styles.key}>{t('handover.qrScanned')}</Text><Text style={styles.value}>{state.delivery_scanned ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</Text></View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

@@ -924,6 +924,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'orders.productPicked': 'Product picked up',
   'orders.inDelivery': 'In delivery',
   'orders.arrived': 'Arrived',
+  'orders.handoverScanned': 'Handover QR scanned by the Courier',
   'orders.received': 'Received',
   'orders.paymentBreakdown': 'Payment breakdown',
   'orders.productsAmount': 'Products amount',

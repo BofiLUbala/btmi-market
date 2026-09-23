@@ -1539,6 +1539,7 @@ export const fr = {
   'handover.buyerTitle': 'Remise de votre commande',
   'handover.payment': 'Paiement',
   'handover.productsVerified': 'Produits vérifiés',
+  'handover.qrScanned': 'QR de remise scanné',
   'handover.yes': 'Oui',
   'handover.notYet': 'Pas encore',
   'handover.paidCash': 'Payé · espèces remises au Livreur',
