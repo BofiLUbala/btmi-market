@@ -602,11 +602,19 @@ func (s *CourierService) ConfirmPickup(userID, orderID uuid.UUID) error {
 	if err != nil || order == nil {
 		return ErrMissionNotFound
 	}
-	if order.DeliveryStatus != "READY_FOR_PICKUP" {
+	// The package is collectable once the seller marked the order READY. The delivery
+	// status at that moment depends on the order the two sides acted in: a seller who
+	// marks ready before the courier accepts leaves READY_FOR_PICKUP, but accepting the
+	// mission afterwards writes COURIER_ACCEPTED over it. Both mean the same physical
+	// fact, and the QR pickup scan has always accepted both, so requiring only the first
+	// here left every order where the seller was ready first stuck with no way to pick up.
+	pickupFrom := order.DeliveryStatus
+	if pickupFrom != "READY_FOR_PICKUP" &&
+		!(pickupFrom == "COURIER_ACCEPTED" && order.Status == models.OrderStatusReady) {
 		return ErrInvalidStatusTransition
 	}
 
-	changed, err := s.courierRepo.TransitionMission(orderID, userID, "READY_FOR_PICKUP", "PICKED_UP", "pickup_verified_at")
+	changed, err := s.courierRepo.TransitionMission(orderID, userID, pickupFrom, "PICKED_UP", "pickup_verified_at")
 	if err != nil {
 		return err
 	}
