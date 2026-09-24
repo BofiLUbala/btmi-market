@@ -387,7 +387,6 @@ function OrderInner() {
   const [statusFlash, setStatusFlash] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [productNumber, setProductNumber] = useState('')
-  const [productToken, setProductToken] = useState('')
   const [productVerification, setProductVerification] = useState<ProductVerification | null>(null)
   const [verificationError, setVerificationError] = useState('')
   const prevStatusRef = useRef<string | null>(null)
@@ -490,11 +489,10 @@ function OrderInner() {
     }
   }
 
-  async function verifyProduct(mode: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER') {
+  async function verifyProduct() {
     setBusy(true); setVerificationError('')
     try {
-      const body = mode === 'QR_SCAN' ? { token: productToken.trim() } : { product_number: productNumber.trim() }
-      setProductVerification(await buyerApi.verifyProduct(orderId, body))
+      setProductVerification(await buyerApi.verifyProduct(orderId, { product_number: productNumber.trim() }))
     } catch (e) {
       setProductVerification(null)
       setVerificationError(e instanceof ApiError && e.code === 'PRODUCT_MISMATCH'
@@ -654,19 +652,14 @@ function OrderInner() {
             <h2 style={{ fontSize: '1.1rem' }}>{t('orders.actions')}</h2>
             {['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '') && (
               <div className="stack">
-                <strong>Vérifier le produit reçu</strong>
-                <label className="small">Numéro du produit</label>
-                <input value={productNumber} onChange={(e) => setProductNumber(e.target.value)} placeholder="VAR-00000000" />
-                <Button variant="outline" loading={busy} disabled={!productNumber.trim()} onClick={() => verifyProduct('MANUAL_PRODUCT_NUMBER')}>Vérifier le numéro</Button>
-                <label className="small">Contenu du QR produit</label>
-                <input value={productToken} onChange={(e) => setProductToken(e.target.value)} placeholder="tbk.p.…" />
-                <Button variant="outline" loading={busy} disabled={!productToken.trim()} onClick={() => verifyProduct('QR_SCAN')}>Scanner / vérifier le QR</Button>
+                <strong>Vérifier le colis reçu</strong>
+                <label className="small">Numéro de commande sur le colis ({o.order_number})</label>
+                <input value={productNumber} onChange={(e) => setProductNumber(e.target.value)} placeholder="BTMI-XXXXXXXX" autoCapitalize="characters" style={{ fontSize: 16 }} />
+                <Button variant="outline" loading={busy} disabled={!productNumber.trim()} onClick={() => verifyProduct()}>Vérifier</Button>
                 {verificationError && <div className="checkout-inline-error">{verificationError}</div>}
                 {productVerification && <div className="checkout-inline-success">
-                  <strong>Produit vérifié ✓</strong><br />
-                  {productVerification.product_name} · {productVerification.product_number}<br />
-                  {productVerification.shop} · {productVerification.variant}<br />
-                  Quantité {productVerification.quantity} · {formatMoney(productVerification.unit_price, productVerification.currency)} / unité · {formatMoney(productVerification.product_total, productVerification.currency)}
+                  <strong>Colis vérifié ✓</strong><br />
+                  {productVerification.product_name}
                 </div>}
               </div>
             )}

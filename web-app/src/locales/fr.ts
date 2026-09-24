@@ -3060,16 +3060,16 @@ export const fr = {
   'courier.handover.stepDeliveryScanned': 'QR de remise scanné',
   'courier.handover.lineVerified': '✓ Vérifié',
   'courier.handover.lineToVerify': 'À vérifier',
-  'courier.handover.verifyTitle': 'Vérifier le produit',
-  'courier.handover.verifyPlaceholder': 'Code sur l’étiquette (VAR-…, OI-…) ou SKU',
+  'courier.handover.verifyTitle': 'Vérifier le colis',
+  'courier.handover.verifyPlaceholder': 'BTMI-XXXXXXXX',
   'courier.handover.verifyFailed': 'La vérification du produit a échoué.',
-  'courier.handover.verdict.VALID': 'Produit vérifié : il correspond à la commande.',
+  'courier.handover.verdict.VALID': 'Colis vérifié : c’est bien cette commande.',
   'courier.handover.verdict.ALREADY_USED': 'Ce produit a déjà été vérifié pour cette commande.',
-  'courier.handover.verdict.WRONG_ORDER': 'Ce produit ne fait pas partie de cette commande.',
+  'courier.handover.verdict.WRONG_ORDER': 'Ce numéro est celui d’une autre commande : ce n’est pas le bon colis.',
   'courier.handover.verdict.WRONG_PRODUCT': 'Ce produit ne correspond pas à la commande.',
   'courier.handover.verdict.WRONG_VARIANT': 'Mauvaise déclinaison (taille, couleur…) pour cette commande.',
   'courier.handover.verdict.WRONG_SHOP': 'Ce produit ne vient pas de la boutique de cette commande.',
-  'courier.handover.verdict.INVALID_QR': 'Code non reconnu. Utilisez le code sous le QR de l’étiquette (VAR-… ou OI-…) ou le SKU du produit.',
+  'courier.handover.verdict.INVALID_QR': 'Numéro non reconnu. Vérifiez le numéro BTMI-… imprimé sur le colis.',
   'courier.dashboard.newMissionToast': 'Nouvelle mission assignée !',
 
   /* ---------- ORDER_ITEM QR ---------- */
@@ -3145,7 +3145,7 @@ export const fr = {
   'courier.status.RETURNING_TO_SELLER': 'Retour au vendeur en cours',
   'courier.status.RETURNED_TO_SELLER': 'Retourné au vendeur',
   'courier.status.CANCELLED': 'Annulée',
-  'courier.handover.verifyHint': 'Le code est imprimé sous le QR : étiquette produit (VAR-…) ou étiquette article collée par le vendeur (OI-…). Le SKU du produit fonctionne aussi. Le numéro de commande (BTMI-…) n’est pas un code produit.',
+  'courier.handover.verifyHint': 'Saisissez le numéro de commande imprimé sur l’étiquette du colis (BTMI-XXXXXXXX) ou scannez le QR du colis. L’acheteur voit aussi ce numéro dans son application. Majuscules, espaces et tirets n’ont pas d’importance.',
   'courier.handover.verdict.ORDER_NUMBER_NOT_PRODUCT': 'Ceci est le numéro de commande, pas un code produit. Saisissez le code imprimé sur l’étiquette (VAR-… ou OI-…) ou le SKU du produit.',
 } as const
 

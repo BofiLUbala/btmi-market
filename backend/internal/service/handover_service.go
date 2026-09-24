@@ -1,8 +1,6 @@
 package service
 
 import (
-	"database/sql"
-	"encoding/json"
 	"errors"
 	"log"
 	"strings"
@@ -86,223 +84,72 @@ func (s *QRService) HandoverTimeline(orderID uuid.UUID) ([]models.HandoverEvent,
 	return out, rows.Err()
 }
 
-// productIdentity is what a QR token or a typed product number resolves to. It is always
-// resolved server-side: the scanned value is an opaque reference, never product data.
+// productIdentity is what one verified order line records: the product and variant in
+// the box, how the courier confirmed it and what they typed.
 type productIdentity struct {
 	productID uuid.UUID
 	variantID *uuid.UUID
 	method    string
 	reference string
-	// Set when the courier used the seller's per-item label (OI-...): it names one order
-	// line directly, in this order or, when mislabelled, in another one.
-	orderLineID *uuid.UUID
-	otherOrder  bool
-	// Why nothing resolved, when the courier can be told something more useful than
-	// "not recognised" (e.g. they typed the order number).
-	reason string
 }
 
-// resolveProductIdentity turns a scanned token or a typed code into a product/variant for
-// this order. It accepts every identifier a courier can actually be holding: the product
-// label (tbk.p / PRD- / VAR-), the per-item label the seller prints from the order
-// (tbk.oi / OI-), or the seller's SKU. Typed codes are forgiving about case, spaces and a
-// missing dash. Every path still ends in matchIdentityToOrder, so typing is a fallback for
-// a broken camera, not a way around verification.
-func (s *QRService) resolveProductIdentity(orderID uuid.UUID, req models.ProductVerificationRequest) (*productIdentity, error) {
+// normalizeOrderCode reduces a typed order number to its comparable form: case, spaces,
+// dashes and a missing BTMI prefix do not matter ("btmi 7k4m-9q2x", "7K4M9Q2X").
+func normalizeOrderCode(v string) string {
+	var b strings.Builder
+	for _, r := range strings.ToUpper(v) {
+		if r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	code := b.String()
+	if code != "" && !strings.HasPrefix(code, "BTMI") {
+		code = "BTMI" + code
+	}
+	return code
+}
+
+// matchOrderCode decides whether what the courier typed or scanned is this order's code:
+// its order number, or the QR printed next to it on the parcel label. It reports whether
+// the code belongs to another order, so the courier is told they hold the wrong parcel.
+func (s *QRService) matchOrderCode(ctx *handoverContext, req models.ProductVerificationRequest) (matched, otherOrder bool, method, supplied string) {
 	token := strings.TrimSpace(req.Token)
-	manual := strings.TrimSpace(req.ProductNumber)
-	// A QR pasted into the manual field is still a QR.
-	if token == "" && strings.HasPrefix(strings.ToLower(manual), "tbk.") {
-		token = manual
+	typed := strings.TrimSpace(req.ProductNumber)
+	// A camera reading the order number printed as a plain QR is still a scan.
+	scannedText := false
+	if token != "" && !strings.HasPrefix(strings.ToLower(token), "tbk.") {
+		typed, token, scannedText = token, "", true
+	}
+	if token == "" && strings.HasPrefix(strings.ToLower(typed), "tbk.") {
+		token, typed = typed, ""
 	}
 
 	if token != "" {
-		ident := &productIdentity{method: "QR_SCAN"}
-		if ref, err := s.parse(token, "oi"); err == nil {
-			if s.identityFromItemRef(orderID, ident, "q.public_reference = $2", ref) {
-				return ident, nil
-			}
-			return ident, ErrQRInvalid
-		}
-		ref, err := s.parse(token, "p")
+		ref, err := s.parse(token, "d")
 		if err != nil {
-			return ident, ErrQRInvalid
+			return false, false, "QR_SCAN", ""
 		}
-		// A revoked product code (product unpublished after the sale) still names the
-		// product in the box; the order match below decides whether it belongs here.
-		if err := s.db.QueryRow(`SELECT product_id, variant_id FROM product_qr_codes WHERE public_reference=$1`, ref).
-			Scan(&ident.productID, &ident.variantID); err != nil {
-			return ident, ErrQRInvalid
+		var packageOrder uuid.UUID
+		if err := s.db.QueryRow(`SELECT order_id FROM delivery_packages WHERE public_reference=$1`, ref).Scan(&packageOrder); err != nil {
+			return false, false, "QR_SCAN", ""
 		}
-		return ident, nil
+		return packageOrder == ctx.orderID, packageOrder != ctx.orderID, "QR_SCAN", ctx.orderNumber
 	}
 
-	code := strings.ToUpper(strings.Join(strings.Fields(manual), ""))
-	ident := &productIdentity{method: "MANUAL_PRODUCT_NUMBER", reference: code}
-	if code == "" {
-		return ident, ErrQRInvalid
+	method = "MANUAL_ORDER_CODE"
+	if scannedText {
+		method = "QR_SCAN"
 	}
-
-	prefix, body := "", code
-	for _, p := range []string{"OI", "VAR", "PRD"} {
-		if strings.HasPrefix(code, p) {
-			rest := strings.TrimLeft(strings.TrimPrefix(code, p), "-_:")
-			if len(rest) == 8 {
-				prefix, body = p, rest
-				break
-			}
-		}
+	supplied = normalizeOrderCode(typed)
+	if supplied == "" {
+		return false, false, method, ""
 	}
-	isRef := len(body) == 8 && isHex(body)
-
-	if isRef && (prefix == "OI" || prefix == "") {
-		if s.identityFromItemRef(orderID, ident, "UPPER(LEFT(q.public_reference::text,8)) = $2", body) {
-			return ident, nil
-		}
+	if supplied == normalizeOrderCode(ctx.orderNumber) {
+		return true, false, method, supplied
 	}
-	if isRef && prefix != "OI" {
-		// Prefixes can collide across the catalogue: prefer the code of a product in this order.
-		err := s.db.QueryRow(`
-			SELECT q.product_id, q.variant_id FROM product_qr_codes q
-			WHERE UPPER(LEFT(q.public_reference::text,8)) = $1
-			ORDER BY (q.variant_id IN (SELECT variant_id FROM order_lines WHERE order_id=$2)) DESC,
-			         (q.product_id IN (SELECT product_id FROM order_lines WHERE order_id=$2)) DESC,
-			         (q.status = 'ACTIVE') DESC
-			LIMIT 1`, body, orderID).Scan(&ident.productID, &ident.variantID)
-		if err == nil {
-			return ident, nil
-		}
-	}
-
-	// The seller's own SKU, variant first. Only this order's lines can match, so a SKU
-	// can never verify a product that is not in the box.
-	var lineID uuid.UUID
-	err := s.db.QueryRow(`
-		SELECT ol.id, ol.product_id, ol.variant_id FROM order_lines ol
-		JOIN product_variants v ON v.id = ol.variant_id
-		JOIN products p ON p.id = ol.product_id
-		WHERE ol.order_id = $1 AND (UPPER(NULLIF(TRIM(v.sku),'')) = $2 OR UPPER(NULLIF(TRIM(p.sku),'')) = $2)
-		ORDER BY (UPPER(v.sku) = $2) DESC LIMIT 1`, orderID, code).Scan(&lineID, &ident.productID, &ident.variantID)
-	if err == nil {
-		ident.orderLineID = &lineID
-		return ident, nil
-	}
-	// A SKU of this seller that is not in the order is a wrong product, not an unknown code.
-	var catalogVariant uuid.NullUUID
-	if err := s.db.QueryRow(`
-		SELECT p.id, v.id FROM products p
-		JOIN orders o ON o.business_id = p.business_id AND o.id = $1
-		LEFT JOIN product_variants v ON v.product_id = p.id AND UPPER(NULLIF(TRIM(v.sku),'')) = $2
-		WHERE UPPER(NULLIF(TRIM(p.sku),'')) = $2 OR v.id IS NOT NULL LIMIT 1`, orderID, code).
-		Scan(&ident.productID, &catalogVariant); err == nil {
-		if catalogVariant.Valid {
-			v := catalogVariant.UUID
-			ident.variantID = &v
-		}
-		return ident, nil
-	}
-
-	var isOrderNumber bool
-	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM orders WHERE UPPER(order_number) = $1)`, code).Scan(&isOrderNumber)
-	if isOrderNumber {
-		ident.reason = "ORDER_NUMBER_NOT_PRODUCT"
-	}
-	return ident, ErrQRInvalid
-}
-
-// identityFromItemRef resolves a per-item label (OI-...) to its order line, preferring
-// a line of this order when a short reference is ambiguous.
-func (s *QRService) identityFromItemRef(orderID uuid.UUID, ident *productIdentity, where string, arg interface{}) bool {
-	var lineID, lineOrder uuid.UUID
-	err := s.db.QueryRow(`
-		SELECT ol.id, ol.order_id, ol.product_id, ol.variant_id
-		FROM order_item_qr_codes q JOIN order_lines ol ON ol.id = q.order_line_id
-		WHERE `+where+`
-		ORDER BY (q.order_id = $1) DESC LIMIT 1`, orderID, arg).
-		Scan(&lineID, &lineOrder, &ident.productID, &ident.variantID)
-	if err != nil {
-		return false
-	}
-	ident.orderLineID = &lineID
-	ident.otherOrder = lineOrder != orderID
-	return true
-}
-
-func isHex(v string) bool {
-	for _, r := range v {
-		if !(r >= '0' && r <= '9' || r >= 'A' && r <= 'F') {
-			return false
-		}
-	}
-	return true
-}
-
-// matchIdentityToOrder decides what a resolved product means for this order. The checks
-// run narrowest-last so the courier gets the most specific reason: a product that is not
-// in the order at all is WRONG_PRODUCT, one whose variant differs is WRONG_VARIANT.
-func (s *QRService) matchIdentityToOrder(orderID uuid.UUID, ident *productIdentity) (string, *models.HandoverVerificationResult) {
-	// A per-item label from another order is the wrong parcel, whatever product it names.
-	if ident.otherOrder {
-		return models.HandoverResultWrongOrder, nil
-	}
-	// The seller behind the scanned product must be the seller behind the order.
-	var sameBusiness bool
-	if err := s.db.QueryRow(
-		`SELECT EXISTS(SELECT 1 FROM products p JOIN orders o ON o.business_id=p.business_id WHERE p.id=$1 AND o.id=$2)`,
-		ident.productID, orderID).Scan(&sameBusiness); err != nil || !sameBusiness {
-		return models.HandoverResultWrongShop, nil
-	}
-
-	var productInOrder bool
-	if err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM order_lines WHERE order_id=$1 AND product_id=$2)`,
-		orderID, ident.productID).Scan(&productInOrder); err != nil || !productInOrder {
-		return models.HandoverResultWrongProduct, nil
-	}
-
-	// A product-level QR cannot identify which variant is in the box, and the order was
-	// placed for a specific variant. That is a variant mismatch, not an acceptable scan.
-	if ident.variantID == nil {
-		return models.HandoverResultWrongVariant, nil
-	}
-
-	out := &models.HandoverVerificationResult{OrderID: orderID}
-	var attrsRaw []byte
-	var publicRef uuid.NullUUID
-	var lineID, productID, variantID uuid.UUID
-	err := s.db.QueryRow(`
-		SELECT ol.id, ol.product_id, ol.variant_id, COALESCE(o.order_number,''), p.name, v.name, v.attributes,
-		       q.public_reference, s.name, b.name, ol.quantity, ol.final_unit_price, COALESCE(o.currency,'USD')
-		FROM order_lines ol
-		JOIN orders o ON o.id = ol.order_id
-		JOIN products p ON p.id = ol.product_id
-		JOIN product_variants v ON v.id = ol.variant_id
-		JOIN shops s ON s.id = o.shop_id
-		JOIN businesses b ON b.id = o.business_id
-		-- The variant's own code is shown when it has one; a variant without one can still
-		-- be verified through its item label or SKU.
-		LEFT JOIN product_qr_codes q ON q.product_id = p.id AND q.variant_id = v.id
-		WHERE ol.order_id=$1 AND ol.product_id=$2 AND ol.variant_id=$3
-		  AND ($4::uuid IS NULL OR ol.id = $4::uuid)
-		ORDER BY ol.id LIMIT 1`,
-		orderID, ident.productID, *ident.variantID, ident.orderLineID).
-		Scan(&lineID, &productID, &variantID, &out.OrderNumber, &out.ProductName, &out.VariantName, &attrsRaw,
-			&publicRef, &out.ShopName, &out.SellerName, &out.Quantity, &out.UnitPrice, &out.Currency)
-	if errors.Is(err, sql.ErrNoRows) {
-		return models.HandoverResultWrongVariant, nil
-	}
-	if err != nil {
-		return models.HandoverResultInvalidQR, nil
-	}
-
-	_ = json.Unmarshal(attrsRaw, &out.Attributes)
-	out.OrderLineID, out.ProductID, out.VariantID = &lineID, &productID, &variantID
-	if publicRef.Valid {
-		out.ProductNumber = "VAR-" + strings.ToUpper(publicRef.UUID.String()[:8])
-	} else {
-		out.ProductNumber = ident.reference
-	}
-	out.LineTotal = models.RoundMoney(out.UnitPrice * float64(out.Quantity))
-	return models.HandoverResultValid, out
+	_ = s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM orders WHERE regexp_replace(UPPER(order_number), '[^A-Z0-9]', '', 'g') = $1)`,
+		supplied).Scan(&otherOrder)
+	return false, otherOrder, method, supplied
 }
 
 // recordVerification persists every attempt, successful or not. A rejected scan is
@@ -324,14 +171,17 @@ func (s *QRService) recordVerification(orderID, buyerProfileID uuid.UUID, courie
 	if ident != nil {
 		method, reference = ident.method, ident.reference
 	}
-	_, _ = s.db.Exec(`
+	if _, err := s.db.Exec(`
 		INSERT INTO product_handover_verifications
 			(order_id,buyer_profile_id,courier_id,product_id,variant_id,verification_method,
 			 supplied_reference,result,reason,verified_by_role,verified_by_user_id,order_line_id,result_code)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 		ON CONFLICT DO NOTHING`,
 		orderID, buyerProfileID, courierID, productID, variantID, method,
-		reference, dbResult, reason, role, actorID, lineID, resultCode)
+		reference, dbResult, reason, role, actorID, lineID, resultCode); err != nil {
+		// A lost success row leaves the order unverifiable, so it must never fail silently.
+		log.Printf("handover verification not recorded for order %s: %v", orderID, err)
+	}
 }
 
 // handoverContext is the order state every handover action validates against.
@@ -400,59 +250,88 @@ func (s *QRService) verifyProduct(ctx *handoverContext, actorID uuid.UUID, role 
 		return nil, ErrQRNotOperational
 	}
 
-	ident, err := s.resolveProductIdentity(ctx.orderID, req)
-	if err != nil {
-		reason := "INVALID_PRODUCT_IDENTITY"
-		if ident.reason != "" {
-			reason = ident.reason
+	matched, otherOrder, method, supplied := s.matchOrderCode(ctx, req)
+	if !matched {
+		result, reason := models.HandoverResultInvalidQR, "INVALID_ORDER_CODE"
+		if otherOrder {
+			result, reason = models.HandoverResultWrongOrder, "WRONG_ORDER_CODE"
 		}
-		s.recordVerification(ctx.orderID, ctx.buyerProfileID, ctx.courierID, actorID, role, ident, nil,
-			models.HandoverResultInvalidQR, reason)
-		s.audit(actorID, role, "HANDOVER_PRODUCT_VERIFY_REJECTED", ctx.orderID, "Unresolvable product reference")
+		s.recordVerification(ctx.orderID, ctx.buyerProfileID, ctx.courierID, actorID, role,
+			&productIdentity{method: method, reference: supplied}, nil, result, reason)
+		s.audit(actorID, role, "HANDOVER_PRODUCT_VERIFY_REJECTED", ctx.orderID, "Order code refused: "+reason)
 		return &models.HandoverVerificationResult{
-			Result: models.HandoverResultInvalidQR, Reason: reason,
-			VerificationMethod: ident.method, OrderID: ctx.orderID,
+			Result: result, Reason: reason, VerificationMethod: method, OrderID: ctx.orderID, OrderNumber: ctx.orderNumber,
 		}, nil
 	}
 
-	code, detail := s.matchIdentityToOrder(ctx.orderID, ident)
-	if code != models.HandoverResultValid {
-		s.recordVerification(ctx.orderID, ctx.buyerProfileID, ctx.courierID, actorID, role, ident, nil, code, code)
-		s.audit(actorID, role, "HANDOVER_PRODUCT_VERIFY_REJECTED", ctx.orderID, "Product does not match order: "+code)
-		return &models.HandoverVerificationResult{
-			Result: code, Reason: code, VerificationMethod: ident.method, OrderID: ctx.orderID, OrderNumber: ctx.orderNumber,
-		}, nil
-	}
-
-	detail.VerificationMethod = ident.method
-
-	// A line already verified stays verified. Re-scanning reports the original result
-	// rather than writing a second row, so a duplicate scan has no duplicate effect.
-	var existingAt time.Time
-	err = s.db.QueryRow(
-		`SELECT created_at FROM product_handover_verifications WHERE order_id=$1 AND order_line_id=$2 AND result='SUCCESS'`,
-		ctx.orderID, *detail.OrderLineID).Scan(&existingAt)
-	if err == nil {
-		detail.Result = models.HandoverResultAlreadyUsed
-		detail.Reason = "ALREADY_VERIFIED"
-		detail.VerifiedAt = &existingAt
-		return detail, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	// The right order code confirms the parcel, so every line in it is verified at once.
+	rows, err := s.db.Query(`
+		SELECT ol.id, ol.product_id, ol.variant_id, p.name, COALESCE(v.name, ''), ol.quantity,
+		       EXISTS(SELECT 1 FROM product_handover_verifications h
+		              WHERE h.order_id = ol.order_id AND h.order_line_id = ol.id AND h.result = 'SUCCESS')
+		FROM order_lines ol
+		JOIN products p ON p.id = ol.product_id
+		LEFT JOIN product_variants v ON v.id = ol.variant_id
+		WHERE ol.order_id = $1 ORDER BY ol.id`, ctx.orderID)
+	if err != nil {
 		return nil, err
 	}
+	type line struct {
+		id, productID uuid.UUID
+		variantID     *uuid.UUID
+		name, variant string
+		quantity      int
+		verified      bool
+	}
+	var lines []line
+	for rows.Next() {
+		var l line
+		if err := rows.Scan(&l.id, &l.productID, &l.variantID, &l.name, &l.variant, &l.quantity, &l.verified); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		lines = append(lines, l)
+	}
+	rows.Close()
 
-	s.recordVerification(ctx.orderID, ctx.buyerProfileID, ctx.courierID, actorID, role, ident, detail.OrderLineID,
-		models.HandoverResultValid, "")
-	s.audit(actorID, role, "HANDOVER_PRODUCT_VERIFIED", ctx.orderID,
-		"Verified "+detail.ProductNumber+" via "+ident.method)
-
+	out := &models.HandoverVerificationResult{
+		Result: models.HandoverResultValid, VerificationMethod: method, OrderID: ctx.orderID,
+		OrderNumber: ctx.orderNumber, ProductNumber: ctx.orderNumber,
+	}
+	names := make([]string, 0, len(lines))
+	newlyVerified := 0
+	for _, l := range lines {
+		label := l.name
+		if l.variant != "" && l.variant != l.name {
+			label += " · " + l.variant
+		}
+		names = append(names, label)
+		out.Quantity += l.quantity
+		if l.verified {
+			continue
+		}
+		lineID := l.id
+		s.recordVerification(ctx.orderID, ctx.buyerProfileID, ctx.courierID, actorID, role,
+			&productIdentity{productID: l.productID, variantID: l.variantID, method: method, reference: supplied},
+			&lineID, models.HandoverResultValid, "")
+		newlyVerified++
+	}
+	out.ProductName = strings.Join(names, ", ")
+	if len(lines) > 0 {
+		first := lines[0]
+		out.OrderLineID, out.ProductID, out.VariantID = &first.id, &first.productID, first.variantID
+		out.VariantName = first.variant
+	}
 	now := time.Now()
-	detail.Result = models.HandoverResultValid
-	detail.VerifiedAt = &now
+	out.VerifiedAt = &now
+	if newlyVerified == 0 {
+		out.Result, out.Reason = models.HandoverResultAlreadyUsed, "ALREADY_VERIFIED"
+		return out, nil
+	}
+	s.audit(actorID, role, "HANDOVER_PRODUCT_VERIFIED", ctx.orderID, "Order code confirmed via "+method)
 	if s.commSvc != nil {
 		_ = s.commSvc.TriggerOrderEventNotification(ctx.orderID, models.NotificationTypeBuyerReceiptRequired,
-			map[string]interface{}{"product_verified": true, "order_line_id": detail.OrderLineID.String()})
+			map[string]interface{}{"product_verified": true})
 	}
-	return detail, nil
+	return out, nil
 }

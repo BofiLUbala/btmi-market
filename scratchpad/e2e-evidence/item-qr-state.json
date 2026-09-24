@@ -1,0 +1,223 @@
+{
+  "run_id": "ITEMQR-1789983085340",
+  "password": "E2eTest!2026",
+  "urls": {
+    "api": "http://127.0.0.1:8080",
+    "frontend": "http://127.0.0.1:5174"
+  },
+  "buyer": {
+    "email": "iq_buyer_1789983085340@test.local"
+  },
+  "seller": {
+    "email": "iq_seller_1789983085340@test.local",
+    "business_id": "ffd17310-6ee9-45df-aced-e0dae9275fa5",
+    "shop_id": "b42028b2-6992-4604-b71c-6240d70cddb2"
+  },
+  "courier": {
+    "email": "iq_courier_1789983085340@tbk.test",
+    "user_id": "6e079b1b-9a30-4edd-9c39-15ccee0e1fdb",
+    "courier_profile_id": "db6cc480-6c11-40b8-80da-e55d17c0250f"
+  },
+  "outsider": {
+    "email": "iq_outsider_1789983085340@test.local"
+  },
+  "admin": {
+    "email": "commerce.test@tbkmarket.com"
+  },
+  "cod_order": {
+    "id": "ab0e68d8-1ae5-4be3-9d80-0b89ebf9cd88",
+    "order_number": "BTMI-1305",
+    "line_a": "a4c76749-f3f0-4d4e-ba22-bc79be85fff0",
+    "line_b": "a3dad773-dd93-4ede-a05a-f2c0b82eddd1"
+  },
+  "prepaid_order": {
+    "id": "df539031-db6c-4f04-9abc-2f843aa4efa4",
+    "order_number": "BTMI-1306",
+    "line": "68b53195-b140-41b6-a223-d50f22201092"
+  },
+  "products": {
+    "a": {
+      "id": "11efe946-a11a-4435-b36d-86b5f2100057",
+      "variant": "cfa97e64-94ef-4e5f-82bb-8ea70effd764",
+      "order_price": 10,
+      "live_price_now": 99
+    },
+    "b": {
+      "id": "4fcbbcba-e41a-4553-8f70-03c4ec65b12d",
+      "variant": "b27d8ef2-fb3e-4728-925e-651378731373",
+      "price": 25
+    }
+  },
+  "results": [
+    {
+      "name": "COD order has 2 lines",
+      "ok": true,
+      "detail": "lines=2 order=BTMI-1305"
+    },
+    {
+      "name": "live catalogue price changed after order",
+      "ok": true,
+      "detail": "now=99, order snapshot=10"
+    },
+    {
+      "name": "SELLER ITEM QR API",
+      "ok": true,
+      "detail": "OI-6326F8C1 status=ACTIVE label=/api/v1/orders/ab0e68d8-1ae5-4be3-9d80-0b89ebf9cd88/items/a4c76749-f3f0-4d4e-ba22-bc79be85fff0/qr/image"
+    },
+    {
+      "name": "MULTI-ITEM UNIQUE QR",
+      "ok": true,
+      "detail": "OI-6326F8C1 vs OI-FEF25B4F"
+    },
+    {
+      "name": "token is kind-prefixed opaque",
+      "ok": true
+    },
+    {
+      "name": "SELLER QR IMAGE",
+      "ok": true,
+      "detail": "200 image/png 1073B png=true"
+    },
+    {
+      "name": "BUYER ITEM QR API",
+      "ok": true,
+      "detail": "OI-6326F8C1 label=/api/v1/buyer/orders/ab0e68d8-1ae5-4be3-9d80-0b89ebf9cd88/items/a4c76749-f3f0-4d4e-ba22-bc79be85fff0/qr/image"
+    },
+    {
+      "name": "buyer QR distinct per item",
+      "ok": true
+    },
+    {
+      "name": "buyer + seller resolve the same physical code",
+      "ok": true,
+      "detail": "same order line, same signed reference"
+    },
+    {
+      "name": "BUYER QR IMAGE",
+      "ok": true,
+      "detail": "200 image/png 1073B"
+    },
+    {
+      "name": "QR RESOLVE API (seller)",
+      "ok": true,
+      "detail": "role=SELLER"
+    },
+    {
+      "name": "seller sees no delivery address",
+      "ok": true
+    },
+    {
+      "name": "seller sees no buyer phone/email",
+      "ok": true,
+      "detail": "{\"buyer_profile_id\":\"67767e49-b786-49db-bb78-54bdf5c3c92d\",\"buyer_reference\":\"BPR-67767E49\",\"first_name\":\"IQ\",\"last_name\":\"Buyer\",\"display_name\":\"IQ Buyer\"}"
+    },
+    {
+      "name": "seller sees no payment method/status",
+      "ok": true
+    },
+    {
+      "name": "QR RESOLVE API (buyer)",
+      "ok": true,
+      "detail": "role=BUYER"
+    },
+    {
+      "name": "BUYER SNAPSHOT PRICE",
+      "ok": true,
+      "detail": "resolved unit_price=10, order snapshot=10, live catalogue=99"
+    },
+    {
+      "name": "buyer subtotal from snapshot",
+      "ok": true,
+      "detail": "subtotal=20"
+    },
+    {
+      "name": "COURIER SCAN / resolve",
+      "ok": true,
+      "detail": "status=200 role=COURIER code="
+    },
+    {
+      "name": "COURIER ROLE FILTERING (no unit price)",
+      "ok": true,
+      "detail": "{\"unit_price\":0,\"quantity\":0,\"subtotal\":0,\"discount\":0,\"points_discount\":0,\"item_total\":0,\"delivery_fee\":0,\"amount_to_collect\":7045,\"final_amount\":0,\"currency\":\"USD\"}"
+    },
+    {
+      "name": "courier sees recipient + address",
+      "ok": true,
+      "detail": "IQ Buyer / Avenue QR, Gombe"
+    },
+    {
+      "name": "courier sees no buyer email",
+      "ok": true
+    },
+    {
+      "name": "COD AMOUNT TO COLLECT",
+      "ok": true,
+      "detail": "7045 USD"
+    },
+    {
+      "name": "PREPAID NOTHING TO COLLECT",
+      "ok": true,
+      "detail": "amount_to_collect=absent currency=USD"
+    },
+    {
+      "name": "OUTSIDER FORBIDDEN",
+      "ok": true,
+      "detail": "403 QR_FORBIDDEN"
+    },
+    {
+      "name": "unauthenticated rejected",
+      "ok": true,
+      "detail": "401"
+    },
+    {
+      "name": "invalid QR rejected",
+      "ok": true,
+      "detail": "422 QR_INVALID"
+    },
+    {
+      "name": "EXISTING PACKAGE QR REGRESSION",
+      "ok": true,
+      "detail": "PKG-150133CA kind=d status=ACTIVE"
+    },
+    {
+      "name": "WRONG QR KIND REJECTED (package -> item resolver)",
+      "ok": true,
+      "detail": "422 QR_INVALID"
+    },
+    {
+      "name": "WRONG QR KIND REJECTED (item -> pickup scan)",
+      "ok": true,
+      "detail": "422 QR_INVALID"
+    },
+    {
+      "name": "seller route forbidden to outsider",
+      "ok": true,
+      "detail": "403 QR_FORBIDDEN"
+    },
+    {
+      "name": "buyer route forbidden to outsider",
+      "ok": true,
+      "detail": "403 QR_FORBIDDEN"
+    },
+    {
+      "name": "ADMIN QR RESOLVE",
+      "ok": true,
+      "detail": "200 role=ADMIN"
+    },
+    {
+      "name": "admin gets full context",
+      "ok": true,
+      "detail": "unit_price=10 address=true"
+    },
+    {
+      "name": "EXISTING PACKAGE QR SCAN REGRESSION (pickup)",
+      "ok": true,
+      "detail": "200  result=SUCCESS delivery_status=PICKED_UP"
+    },
+    {
+      "name": "EXISTING DELIVERY QR REGRESSION (buyer handover QR)",
+      "ok": true,
+      "detail": "200 PKG-150133CA"
+    }
+  ]
+}

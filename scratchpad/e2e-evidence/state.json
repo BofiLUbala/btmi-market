@@ -1,0 +1,36 @@
+{
+  "run_id": "E2E-1790207754829",
+  "password": "E2eTest!2026",
+  "urls": {
+    "api": "http://127.0.0.1:8080",
+    "frontend": "http://127.0.0.1:5174"
+  },
+  "buyer": {
+    "email": "e2e_buyer_1790207754829@test.local",
+    "user_id": "4fc4f693-7f74-4765-9dd4-e403d2ce54fe"
+  },
+  "seller": {
+    "email": "e2e_seller_1790207754829@test.local",
+    "user_id": "caa14a37-fbf4-4d98-a42b-f2c372bfa7cf",
+    "business_id": "6d67a68d-437d-44b9-8ba1-26909c08bbb2",
+    "shop_id": "1dd11bac-9cd8-426f-b8c9-a9ca0571c85b"
+  },
+  "courier": {
+    "email": "e2e_courier_1790207754829@tbk.test",
+    "user_id": "ed2fe3db-9a26-482d-9ac1-1f5fd93248ec",
+    "courier_profile_id": "374501c5-00af-451a-b619-8e75b3d241f9"
+  },
+  "admin": {
+    "email": "commerce.test@tbkmarket.com",
+    "user_id": "1cd26778-a404-4830-a9c9-f0505e15597f"
+  },
+  "product": {
+    "product_id": "f44d444f-ff0e-47cd-a57c-c312aa7c177e",
+    "variant_id": "6c528cf8-e0f2-435f-b0b7-1f77ea73a07c",
+    "reference": "E2E-SHOE-1790207754829",
+    "variant_reference": "E2E-SHOE-1790207754829-BLACK-40",
+    "shop_id": "1dd11bac-9cd8-426f-b8c9-a9ca0571c85b",
+    "price": 10,
+    "stock": 10
+  }
+}

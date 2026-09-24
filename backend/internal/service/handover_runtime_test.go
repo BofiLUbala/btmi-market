@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -200,7 +201,9 @@ func newHandoverFixture(t *testing.T, paymentMethod string) *handoverFixture {
 	})
 
 	f.wireServices(t)
-	f.productToken = f.tokenForVariant(t, f.productID, f.variantID)
+	// The order number is the one code the courier types or scans at the door.
+	f.productToken = "BTMI-T" + strings.ToUpper(suffix)
+	mustExec(`UPDATE orders SET order_number=$2 WHERE id=$1`, f.orderID, f.productToken)
 	f.productNumber = f.numberForVariant(t, f.productID, f.variantID)
 	f.wrongVariantToken = f.tokenForVariant(t, f.productID, wrongVariantID)
 	f.unorderedProductToken = f.tokenForVariant(t, unorderedProductID, unorderedVariantID)
@@ -377,88 +380,70 @@ func TestCourierProductScanVerifiesAgainstOrder(t *testing.T) {
 	}
 }
 
-// Every way the physical product can fail to be the ordered product must stop the
-// handover with its own reason, so the courier is told what is actually wrong.
-func TestCourierProductScanRejectsMismatches(t *testing.T) {
+// Only this order's code confirms the parcel; anything else stops the handover with its
+// own reason, so the courier knows whether they hold another order or mistyped.
+func TestCourierOrderCodeRejectsMismatches(t *testing.T) {
 	cases := []struct {
 		name string
-		req  models.ProductVerificationRequest
+		req  func(f *handoverFixture) models.ProductVerificationRequest
 		want string
 	}{
-		{"another seller's product", models.ProductVerificationRequest{}, models.HandoverResultWrongShop},
-		{"a product this order does not include", models.ProductVerificationRequest{}, models.HandoverResultWrongProduct},
-		{"wrong variant of the right product", models.ProductVerificationRequest{}, models.HandoverResultWrongVariant},
-		{"a token that is not a TBK QR", models.ProductVerificationRequest{Token: "tbk.p.not-a-uuid.sig"}, models.HandoverResultInvalidQR},
-		{"a forged signature", models.ProductVerificationRequest{Token: "tbk.p." + uuid.NewString() + ".AAAA"}, models.HandoverResultInvalidQR},
-		{"a made-up product number", models.ProductVerificationRequest{ProductNumber: "VAR-DEADBEEF"}, models.HandoverResultInvalidQR},
+		{"another order's number", func(f *handoverFixture) models.ProductVerificationRequest {
+			return models.ProductVerificationRequest{ProductNumber: f.otherOrderNumber(t)}
+		}, models.HandoverResultWrongOrder},
+		{"a made-up code", func(*handoverFixture) models.ProductVerificationRequest {
+			return models.ProductVerificationRequest{ProductNumber: "BTMI-ZZZZZZZZ"}
+		}, models.HandoverResultInvalidQR},
+		{"an old product label", func(f *handoverFixture) models.ProductVerificationRequest {
+			return models.ProductVerificationRequest{ProductNumber: f.productNumber}
+		}, models.HandoverResultInvalidQR},
+		{"a forged parcel QR", func(*handoverFixture) models.ProductVerificationRequest {
+			return models.ProductVerificationRequest{Token: "tbk.d." + uuid.NewString() + ".AAAA"}
+		}, models.HandoverResultInvalidQR},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newHandoverFixture(t, models.PaymentMethodCashOnDelivery)
-			req := tc.req
-			switch tc.want {
-			case models.HandoverResultWrongShop:
-				req.Token = f.otherProductToken
-			case models.HandoverResultWrongProduct:
-				req.Token = f.unorderedProductToken
-			case models.HandoverResultWrongVariant:
-				req.Token = f.wrongVariantToken
-			}
-			result, err := f.qr.CourierVerifyProduct(f.courierID, f.orderID, req)
+			result, err := f.qr.CourierVerifyProduct(f.courierID, f.orderID, tc.req(f))
 			if err != nil {
 				t.Fatalf("expected a verdict, got error: %v", err)
 			}
 			if result.Result != tc.want {
 				t.Fatalf("expected %s, got %s (%s)", tc.want, result.Result, result.Reason)
 			}
-			// A rejected scan must leave the order unverified.
 			verified, total, _ := f.qr.lineVerificationCounts(f.orderID)
 			if verified != 0 || total != 1 {
-				t.Fatalf("a rejected scan marked the order verified: %d/%d", verified, total)
+				t.Fatalf("a rejected code marked the order verified: %d/%d", verified, total)
 			}
 		})
 	}
 }
 
-// A different seller's product is refused even before the product/order comparison, so
-// the shop check is not merely implied by the order lines.
-func TestCourierProductScanChecksSeller(t *testing.T) {
+// Case, spaces, dashes and a missing BTMI prefix do not matter when typing the code.
+func TestOrderCodeIsForgivingWhenTyped(t *testing.T) {
 	f := newHandoverFixture(t, models.PaymentMethodCashOnDelivery)
-	ident, err := f.qr.resolveProductIdentity(f.orderID, models.ProductVerificationRequest{Token: f.otherProductToken})
+	typed := strings.ToLower(strings.TrimPrefix(f.productToken, "BTMI-"))
+	result, err := f.qr.CourierVerifyProduct(f.courierID, f.orderID,
+		models.ProductVerificationRequest{ProductNumber: " " + typed + " "})
 	if err != nil {
-		t.Fatalf("fixture token did not resolve: %v", err)
+		t.Fatalf("typed code rejected: %v", err)
 	}
-	if code, _ := f.qr.matchIdentityToOrder(f.orderID, ident); code != models.HandoverResultWrongShop {
-		t.Fatalf("expected WRONG_SHOP for a foreign seller's product, got %s", code)
+	if result.Result != models.HandoverResultValid || result.VerificationMethod != "MANUAL_ORDER_CODE" {
+		t.Fatalf("expected VALID via MANUAL_ORDER_CODE, got %s via %s", result.Result, result.VerificationMethod)
+	}
+	if verified, total, _ := f.qr.lineVerificationCounts(f.orderID); verified != total {
+		t.Fatalf("the order code must verify every line: %d/%d", verified, total)
 	}
 }
 
-// Typing the reference when the camera fails must run the same checks as scanning it.
-func TestManualProductReferenceIsNotABypass(t *testing.T) {
-	f := newHandoverFixture(t, models.PaymentMethodCashOnDelivery)
-
-	result, err := f.qr.CourierVerifyProduct(f.courierID, f.orderID,
-		models.ProductVerificationRequest{ProductNumber: f.productNumber})
-	if err != nil {
-		t.Fatalf("manual reference rejected: %v", err)
+// otherOrderNumber is a real order number that does not belong to the fixture order.
+func (f *handoverFixture) otherOrderNumber(t *testing.T) string {
+	t.Helper()
+	var number string
+	if err := f.db.QueryRow(`SELECT order_number FROM orders WHERE id <> $1 AND order_number IS NOT NULL LIMIT 1`, f.orderID).Scan(&number); err != nil {
+		t.Skip("no other order to compare against")
 	}
-	if result.Result != models.HandoverResultValid {
-		t.Fatalf("expected VALID from the manual reference, got %s", result.Result)
-	}
-	if result.VerificationMethod != "MANUAL_PRODUCT_NUMBER" {
-		t.Fatalf("manual entry recorded as %s", result.VerificationMethod)
-	}
-
-	// The same fallback with someone else's reference is still refused.
-	f2 := newHandoverFixture(t, models.PaymentMethodCashOnDelivery)
-	other, err := f2.qr.CourierVerifyProduct(f2.courierID, f2.orderID,
-		models.ProductVerificationRequest{ProductNumber: f2.numberForVariantToken(t, f2.otherProductToken)})
-	if err != nil {
-		t.Fatalf("expected a verdict, got error: %v", err)
-	}
-	if other.Result == models.HandoverResultValid {
-		t.Fatal("a manually typed foreign product reference was accepted")
-	}
+	return number
 }
 
 // numberForVariantToken recovers the printed reference from a token, so the manual-entry

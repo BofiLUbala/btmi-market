@@ -103,6 +103,11 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
         </span>
       </div>
       <div className="info-row">
+        <span className="k">Code de remise</span>
+        <span className="v bold" style={{ fontSize: '1.15rem', letterSpacing: 1 }}>{state.order_number}</span>
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>Le livreur saisit ce code pour confirmer que c’est votre colis.</p>
+      <div className="info-row">
         <span className="k">Produits vérifiés</span>
         <span className="v">{state.all_products_verified ? '✓ Oui' : 'Pas encore'}</span>
       </div>

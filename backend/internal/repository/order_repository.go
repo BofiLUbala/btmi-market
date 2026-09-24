@@ -133,7 +133,7 @@ func scanOrderErr(err error) error {
 func (r *OrderRepository) Create(order *models.Order) error {
 	query := `
 		INSERT INTO orders (id, business_id, shop_id, customer_id, buyer_profile_id, status, total_items, notes, created_by, base_total, points_used, points_discount_amount, final_total, idempotency_key, currency, order_number)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'BTMI-' || nextval('order_number_seq')::text)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, tbk_new_order_number())
 		RETURNING created_at, updated_at, order_number
 	`
 

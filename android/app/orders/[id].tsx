@@ -163,7 +163,6 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const queryClient = useQueryClient()
   const [actionError, setActionError] = useState('')
   const [productNumber, setProductNumber] = useState('')
-  const [productToken, setProductToken] = useState('')
   const [productVerification, setProductVerification] = useState<ProductVerification | null>(null)
   const [showChat, setShowChat] = useState(false)
 
@@ -205,7 +204,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   // door and mobile money by the operator's callback, so the buyer can only read the
   // outcome here - saying so is not paying.
   const verifyMutation = useMutation({
-    mutationFn: (mode: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER') => buyerApi.verifyProduct(id!, mode === 'QR_SCAN' ? { token: productToken.trim() } : { product_number: productNumber.trim() }),
+    mutationFn: () => buyerApi.verifyProduct(id!, { product_number: productNumber.trim() }),
     onSuccess: (result) => { setProductVerification(result); setActionError('') },
     onError: (e) => { setProductVerification(null); setActionError(e instanceof ApiError && e.code === 'PRODUCT_MISMATCH' ? 'Ce produit ne correspond pas à votre commande.' : (e instanceof Error ? e.message : t('common.actionImpossible'))) },
   })
@@ -271,12 +270,10 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       {actionError ? <Card><Text style={styles.error}>{actionError}</Text></Card> : null}
 
       {canVerify && <Card>
-        <Text style={styles.name}>Vérifier le produit reçu</Text>
-        <Field label="Numéro du produit" value={productNumber} onChangeText={setProductNumber} placeholder="VAR-00000000" />
-        <Button variant="outline" title="Vérifier le numéro" loading={verifyMutation.isPending} disabled={!productNumber.trim()} onPress={() => verifyMutation.mutate('MANUAL_PRODUCT_NUMBER')} />
-        <Field label="Contenu du QR produit" value={productToken} onChangeText={setProductToken} placeholder="tbk.p.…" />
-        <Button variant="outline" title="Scanner / vérifier le QR" loading={verifyMutation.isPending} disabled={!productToken.trim()} onPress={() => verifyMutation.mutate('QR_SCAN')} />
-        {productVerification ? <Text style={styles.hint}>✓ {productVerification.product_name} · {productVerification.product_number} · {productVerification.quantity} × {formatMoney(productVerification.unit_price, productVerification.currency)}</Text> : null}
+        <Text style={styles.name}>{t('handover.orderCode')} : {o.order_number}</Text>
+        <Field label={t('courier.manualCode')} value={productNumber} onChangeText={setProductNumber} placeholder="BTMI-XXXXXXXX" autoCapitalize="characters" autoCorrect={false} />
+        <Button variant="outline" title={t('courier.verifyCode')} loading={verifyMutation.isPending} disabled={!productNumber.trim()} onPress={() => verifyMutation.mutate()} />
+        {productVerification ? <Text style={styles.hint}>✓ {t('courier.verdict.VALID')} · {productVerification.product_name}</Text> : null}
       </Card>}
 
       <BuyerHandoverCard orderId={id!} deliveryStatus={o.delivery_status} onChanged={invalidate} />

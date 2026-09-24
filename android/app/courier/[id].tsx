@@ -171,7 +171,7 @@ function CourierHandover({ orderId }: { orderId: string }) {
             title={t('courier.scanProduct')}
             onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'PRODUCT', order_id: orderId } })}
           />
-          <Field label={t('courier.manualCode')} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} placeholder="VAR-… / OI-… / SKU" returnKeyType="go" onSubmitEditing={() => { if (code.trim()) verify.mutate() }} />
+          <Field label={t('courier.manualCode')} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} placeholder="BTMI-XXXXXXXX" returnKeyType="go" onSubmitEditing={() => { if (code.trim()) verify.mutate() }} />
           <Text style={styles.muted}>{t('courier.verifyHint')}</Text>
           <Button variant="outline" title={t('courier.verifyCode')} disabled={!code.trim()} loading={verify.isPending} onPress={() => verify.mutate()} />
         </View>

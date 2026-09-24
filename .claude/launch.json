@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "web", "--prefix", "android", "--", "--port", "19006"],
       "port": 19006
+    },
+    {
+      "name": "android-expo-emulator",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--prefix", "android", "--", "--port", "8081"],
+      "port": 8081
     }
   ]
 }

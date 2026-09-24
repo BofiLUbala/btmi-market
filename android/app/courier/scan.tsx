@@ -176,7 +176,7 @@ export default function CourierScanScreen() {
         onChangeText={setManualCode}
         autoCapitalize={scanType === 'PRODUCT' ? 'characters' : 'none'}
         autoCorrect={false}
-        placeholder={scanType === 'PRODUCT' ? 'PRD-… / VAR-…' : 'tbk.…'}
+        placeholder={scanType === 'PRODUCT' ? 'BTMI-XXXXXXXX' : 'tbk.…'}
         placeholderTextColor={c.muted}
         style={styles.input}
         onSubmitEditing={submitManual}
