@@ -424,7 +424,7 @@ func TestCourierProductScanRejectsMismatches(t *testing.T) {
 // the shop check is not merely implied by the order lines.
 func TestCourierProductScanChecksSeller(t *testing.T) {
 	f := newHandoverFixture(t, models.PaymentMethodCashOnDelivery)
-	ident, err := f.qr.resolveProductIdentity(models.ProductVerificationRequest{Token: f.otherProductToken})
+	ident, err := f.qr.resolveProductIdentity(f.orderID, models.ProductVerificationRequest{Token: f.otherProductToken})
 	if err != nil {
 		t.Fatalf("fixture token did not resolve: %v", err)
 	}

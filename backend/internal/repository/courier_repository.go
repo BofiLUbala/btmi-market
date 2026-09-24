@@ -234,8 +234,9 @@ func (r *CourierRepository) CountActiveMissions(courierUserID uuid.UUID) (int, e
 	err := r.db.QueryRow(`
 		SELECT COUNT(*) FROM orders 
 		WHERE assigned_courier_id = $1 
-		AND delivery_status IN ('COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION')
-		AND status NOT IN ('CANCELLED', 'RECEIVED', 'COMPLETED')`, courierUserID).Scan(&count)
+		AND ((delivery_status IN ('COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION')
+		      AND status NOT IN ('CANCELLED', 'RECEIVED', 'COMPLETED'))
+		     OR delivery_status = 'RETURNING_TO_SELLER')`, courierUserID).Scan(&count)
 	return count, err
 }
 
@@ -286,18 +287,20 @@ func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.Cour
 		       s.name AS shop_name, b.name, `+r.shopPickupAddressExpr()+`, COALESCE(c.service_zone,''),
 		       (SELECT COUNT(*) FROM delivery_packages dp WHERE dp.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
-		       o.final_total, COALESCE(o.currency,'CDF'),
+		       COALESCE(pay.final_total, o.final_total + COALESCE(o.delivery_fee_final, 0)), COALESCE(o.currency,'USD'),
 		       COALESCE(pay.payment_method,''), COALESCE(pay.status,'UNPAID'),
 		       o.courier_assigned_at, o.courier_accepted_at, 
-		       o.ready_at, COALESCE(o.pickup_verified_at, dp.pickup_verified_at), o.courier_started_at, o.courier_arrived_at, o.delivered_at
+		       o.ready_at, COALESCE(o.pickup_verified_at, dp.pickup_verified_at), o.courier_started_at, o.courier_arrived_at, o.delivered_at,
+		       o.expected_delivery_date::text, COALESCE(o.expected_delivery_slot,''), o.delivery_attempts, COALESCE(o.cancelled_stage,''), o.returned_to_seller_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
 		JOIN businesses b ON b.id = o.business_id
 		JOIN couriers c ON c.user_id = o.assigned_courier_id
 		LEFT JOIN LATERAL (SELECT pickup_verified_at FROM delivery_packages WHERE order_id=o.id ORDER BY package_number LIMIT 1) dp ON TRUE
-		LEFT JOIN LATERAL (SELECT payment_method, status FROM buyer_payments WHERE order_id=o.id ORDER BY created_at DESC LIMIT 1) pay ON TRUE
+		LEFT JOIN LATERAL (SELECT payment_method, status, final_total FROM buyer_payments WHERE order_id=o.id ORDER BY created_at DESC LIMIT 1) pay ON TRUE
 		WHERE o.assigned_courier_id = $1
-		AND o.status NOT IN ('CANCELLED')
+		-- A cancelled order still needs its courier while the parcel travels back.
+		AND (o.status NOT IN ('CANCELLED') OR o.delivery_status = 'RETURNING_TO_SELLER')
 		ORDER BY o.courier_assigned_at DESC`, courierUserID)
 	if err != nil {
 		return nil, err
@@ -311,7 +314,8 @@ func (r *CourierRepository) GetMissions(courierUserID uuid.UUID) ([]*models.Cour
 			&m.ShopName, &m.BusinessName, &m.ShopAddress, &m.ServiceZone, &m.PackageCount, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
 			&m.TotalAmount, &m.Currency, &m.PaymentMethod, &m.PaymentStatus,
 			&m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
-			&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt); err != nil {
+			&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt,
+			&m.ExpectedDeliveryDate, &m.ExpectedDeliverySlot, &m.DeliveryAttempts, &m.CancelledStage, &m.ReturnedToSellerAt); err != nil {
 			return nil, err
 		}
 		missions = append(missions, &m)
@@ -327,22 +331,24 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 		       s.name AS shop_name, b.name, `+r.shopPickupAddressExpr()+`, COALESCE(c.service_zone,''),
 		       (SELECT COUNT(*) FROM delivery_packages dp2 WHERE dp2.order_id=o.id), o.delivery_address, o.delivery_contact_name, o.delivery_phone,
 		       COALESCE(o.delivery_notes,''),
-		       o.final_total, COALESCE(o.currency,'CDF'),
+		       COALESCE(pay.final_total, o.final_total + COALESCE(o.delivery_fee_final, 0)), COALESCE(o.currency,'USD'),
 		       COALESCE(pay.payment_method,''), COALESCE(pay.status,'UNPAID'),
 		       o.courier_assigned_at, o.courier_accepted_at,
-		       o.ready_at, COALESCE(o.pickup_verified_at, dp.pickup_verified_at), o.courier_started_at, o.courier_arrived_at, o.delivered_at
+		       o.ready_at, COALESCE(o.pickup_verified_at, dp.pickup_verified_at), o.courier_started_at, o.courier_arrived_at, o.delivered_at,
+		       o.expected_delivery_date::text, COALESCE(o.expected_delivery_slot,''), o.delivery_attempts, COALESCE(o.cancelled_stage,''), o.returned_to_seller_at
 		FROM orders o
 		JOIN shops s ON s.id = o.shop_id
 		JOIN businesses b ON b.id = o.business_id
 		JOIN couriers c ON c.user_id = o.assigned_courier_id
 		LEFT JOIN LATERAL (SELECT pickup_verified_at FROM delivery_packages WHERE order_id=o.id ORDER BY package_number LIMIT 1) dp ON TRUE
-		LEFT JOIN LATERAL (SELECT payment_method, status FROM buyer_payments WHERE order_id=o.id ORDER BY created_at DESC LIMIT 1) pay ON TRUE
+		LEFT JOIN LATERAL (SELECT payment_method, status, final_total FROM buyer_payments WHERE order_id=o.id ORDER BY created_at DESC LIMIT 1) pay ON TRUE
 		WHERE o.assigned_courier_id = $1 AND o.id = $2`, courierUserID, orderID).Scan(
 		&m.OrderID, &m.OrderNumber, &m.Status, &m.DeliveryStatus,
 		&m.ShopName, &m.BusinessName, &m.ShopAddress, &m.ServiceZone, &m.PackageCount, &m.DeliveryAddress, &m.DeliveryContact, &m.DeliveryPhone, &m.DeliveryNotes,
 		&m.TotalAmount, &m.Currency, &m.PaymentMethod, &m.PaymentStatus,
 		&m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
-		&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt)
+		&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt,
+			&m.ExpectedDeliveryDate, &m.ExpectedDeliverySlot, &m.DeliveryAttempts, &m.CancelledStage, &m.ReturnedToSellerAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

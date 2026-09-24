@@ -660,6 +660,10 @@ func (s *CourierService) StartDelivery(userID, orderID uuid.UUID) error {
 	if order.DeliveryStatus != "PICKED_UP" {
 		return ErrInvalidStatusTransition
 	}
+	// Buyer, seller and admin are told when to expect the parcel before it leaves.
+	if !s.hasExpectedDelivery(orderID) {
+		return ErrExpectedDeliveryRequired
+	}
 
 	changed, err := s.courierRepo.TransitionMission(orderID, userID, "PICKED_UP", "IN_TRANSIT", "courier_started_at")
 	if err != nil {

@@ -1150,8 +1150,9 @@ func (h *Handler) CancelBuyerOrder(c *gin.Context) {
 		case "INVALID_STATUS_TRANSITION":
 			statusCode = http.StatusBadRequest
 			errorCode = "INVALID_STATUS_TRANSITION"
-		case "PAYMENT_ALREADY_SETTLED", "PAYMENT_IN_PROGRESS", "PAYMENT_STATE_CHANGED":
-			// A paid or in-flight order goes through a refund, not a cancel.
+		case "PAYMENT_ALREADY_SETTLED", "PAYMENT_IN_PROGRESS", "PAYMENT_STATE_CHANGED", "ORDER_ALREADY_HANDED_OVER":
+			// A paid or in-flight order goes through a refund, not a cancel; a
+			// handed-over one is confirmed or disputed instead.
 			statusCode = http.StatusConflict
 			errorCode = err.Error()
 		}
@@ -1233,4 +1234,45 @@ func (h *Handler) HandlePaymentWebhook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"received": true})
+}
+
+// POST /api/v1/orders/:order_id/confirm-return - the seller has the returned parcel back
+func (h *Handler) ConfirmReturnToSeller(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "order_id")
+	if !ok {
+		return
+	}
+	if err := h.orderService.ConfirmReturnToSeller(&userID, orderID); err != nil {
+		statusCode, errorCode := http.StatusBadRequest, err.Error()
+		switch err.Error() {
+		case "ORDER_NOT_FOUND":
+			statusCode = http.StatusNotFound
+		case "FORBIDDEN", "ACCESS_DENIED":
+			statusCode = http.StatusForbidden
+		}
+		h.errResponse(c, statusCode, errorCode, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"order_id": orderID, "delivery_status": "RETURNED_TO_SELLER"}})
+}
+
+// POST /api/v1/admin/commerce/orders/:id/confirm-return - commerce admin closes a return on the seller's behalf
+func (h *Handler) AdminConfirmReturnToSeller(c *gin.Context) {
+	orderID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+	if err := h.orderService.ConfirmReturnToSeller(nil, orderID); err != nil {
+		statusCode := http.StatusBadRequest
+		if err.Error() == "ORDER_NOT_FOUND" {
+			statusCode = http.StatusNotFound
+		}
+		h.errResponse(c, statusCode, err.Error(), err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"order_id": orderID, "delivery_status": "RETURNED_TO_SELLER"}})
 }

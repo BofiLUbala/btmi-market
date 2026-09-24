@@ -33,6 +33,7 @@ import (
 	sellerhandlers "github.com/btmi-ai-market/backend/internal/handlers/seller"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
 	"github.com/btmi-ai-market/backend/internal/middleware"
+	"github.com/btmi-ai-market/backend/internal/realtime"
 	"github.com/btmi-ai-market/backend/internal/models"
 	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/repository"
@@ -301,6 +302,11 @@ func main() {
 	})
 
 	api := router.Group("/api/v1")
+
+	// Order changes are pushed to the people concerned as they are committed.
+	orderEvents := realtime.NewHub(db.DB, db.DSN)
+	go orderEvents.Run()
+	api.GET("/events/stream", middleware.AuthMiddleware(authService), orderEvents.UserStream)
 	{
 		authGroup := api.Group("/auth")
 		{
@@ -414,6 +420,7 @@ func main() {
 			ordersGroup.POST("/:order_id/accept", orderHandler.AcceptOrder)
 			ordersGroup.POST("/:order_id/reject", orderHandler.RejectOrder)
 			ordersGroup.POST("/:order_id/prepare", orderHandler.PrepareOrder)
+			ordersGroup.POST("/:order_id/confirm-return", orderHandler.ConfirmReturnToSeller)
 			ordersGroup.POST("/:order_id/cancel", orderHandler.CancelOrder)
 			ordersGroup.POST("/:order_id/tracking/status", orderHandler.SellerTransitionOrder)
 			ordersGroup.POST("/:order_id/courier-arrived", commHandler.ConfirmCourierArrival)
@@ -570,6 +577,8 @@ func main() {
 			courierProtected.POST("/missions/:id/accept", courierHandler.AcceptMission)
 			courierProtected.POST("/missions/:id/reject", courierHandler.RejectMission)
 			courierProtected.POST("/missions/:id/pickup", courierHandler.ConfirmPickup)
+			courierProtected.POST("/missions/:id/expected-delivery", courierHandler.SetExpectedDelivery)
+			courierProtected.POST("/missions/:id/buyer-not-found", courierHandler.ReportBuyerNotFound)
 			courierProtected.POST("/missions/:id/start", courierHandler.StartDelivery)
 			courierProtected.POST("/missions/:id/arrive", courierHandler.ArriveAtDestination)
 			courierProtected.POST("/missions/:id/fail", courierHandler.FailDelivery)
@@ -719,6 +728,8 @@ func main() {
 					models.AdminRoleCommerceAdmin,
 				))
 				{
+					commerceGroup.GET("/events/stream", orderEvents.AdminStream)
+					commerceGroup.POST("/orders/:id/confirm-return", orderHandler.AdminConfirmReturnToSeller)
 					commerceGroup.GET("/overview", adminCommerceHandler.Overview)
 					commerceGroup.GET("/users", adminCommerceHandler.ListOperationalUsers)
 					commerceGroup.GET("/products", adminCommerceHandler.ListProducts)

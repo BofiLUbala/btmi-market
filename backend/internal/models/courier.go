@@ -151,6 +151,7 @@ type FailDeliveryRequest struct {
 
 // CourierMissionResponse is a single mission in the courier's list
 type CourierMissionResponse struct {
+	DeliveryPlanFields
 	OrderID         uuid.UUID                       `json:"order_id"`
 	OrderNumber     string                          `json:"order_number"`
 	Status          string                          `json:"status"`

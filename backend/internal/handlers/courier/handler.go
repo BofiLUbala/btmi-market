@@ -402,6 +402,8 @@ func (h *Handler) StartDelivery(c *gin.Context) {
 		status := http.StatusBadRequest
 		code := "START_FAILED"
 		switch err {
+		case service.ErrExpectedDeliveryRequired:
+			code = "EXPECTED_DELIVERY_REQUIRED"
 		case service.ErrCourierNotFound:
 			status = http.StatusNotFound
 			code = "COURIER_NOT_FOUND"
@@ -663,4 +665,70 @@ func (h *Handler) ListAvailableCouriers(c *gin.Context) {
 		Message: "Available couriers retrieved",
 		Data:    couriers,
 	})
+}
+
+func (h *Handler) missionErr(c *gin.Context, err error, fallback string) {
+	status := http.StatusBadRequest
+	code := fallback
+	switch err {
+	case service.ErrCourierNotFound:
+		status, code = http.StatusNotFound, "COURIER_NOT_FOUND"
+	case service.ErrMissionNotFound:
+		status, code = http.StatusNotFound, "MISSION_NOT_FOUND"
+	case service.ErrInvalidStatusTransition:
+		code = "INVALID_STATUS_TRANSITION"
+	case service.ErrInvalidExpectedDelivery:
+		code = "INVALID_EXPECTED_DELIVERY"
+	case service.ErrOrderAlreadyHandedOver:
+		status, code = http.StatusConflict, "ORDER_ALREADY_HANDED_OVER"
+	}
+	h.errResponse(c, status, code, err.Error())
+}
+
+// POST /api/v1/courier/missions/:id/expected-delivery - day and slot the buyer will receive the parcel
+func (h *Handler) SetExpectedDelivery(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req struct {
+		Date string `json:"date" binding:"required"`
+		Slot string `json:"slot" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_EXPECTED_DELIVERY", err.Error())
+		return
+	}
+	if err := h.courierService.SetExpectedDelivery(userID, orderID, req.Date, req.Slot); err != nil {
+		h.missionErr(c, err, "EXPECTED_DELIVERY_FAILED")
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Expected delivery saved"})
+}
+
+// POST /api/v1/courier/missions/:id/buyer-not-found - failed attempt: reschedule, or return after the last one
+func (h *Handler) ReportBuyerNotFound(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req service.BuyerNotFoundRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		return
+	}
+	result, err := h.courierService.ReportBuyerNotFound(userID, orderID, req)
+	if err != nil {
+		h.missionErr(c, err, "BUYER_NOT_FOUND_FAILED")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": result})
 }

@@ -45,6 +45,10 @@ type nullOrderScanFields struct {
 	courierAssignedAt   sql.NullTime
 	courierNotes        sql.NullString
 
+	expectedDeliveryDate sql.NullString
+	expectedDeliverySlot sql.NullString
+	cancelledStage       sql.NullString
+
 	deliveryProvince       sql.NullString
 	deliveryCity           sql.NullString
 	deliveryCommune        sql.NullString
@@ -108,6 +112,12 @@ func (f *nullOrderScanFields) applyTo(order *models.Order) {
 		order.CourierAssignedAt = &t
 	}
 	order.CourierNotes = f.courierNotes.String
+	if f.expectedDeliveryDate.Valid {
+		d := f.expectedDeliveryDate.String
+		order.ExpectedDeliveryDate = &d
+	}
+	order.ExpectedDeliverySlot = f.expectedDeliverySlot.String
+	order.CancelledStage = f.cancelledStage.String
 }
 
 // scanOrderErr maps a raw scan/query error to ErrOrderNotFound only for
@@ -197,6 +207,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
 		       delivery_status, assigned_courier_id,
 		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
+		       expected_delivery_date::text, expected_delivery_slot, delivery_attempts, cancelled_stage, returned_to_seller_at,
 		       points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
@@ -216,6 +227,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
 		&nf.deliveryProvinceID, &nf.deliveryCityID, &nf.deliveryCommuneID,
 		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&nf.expectedDeliveryDate, &nf.expectedDeliverySlot, &order.DeliveryAttempts, &nf.cancelledStage, &order.ReturnedToSellerAt,
 		&order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
@@ -238,6 +250,7 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
 		       delivery_status, assigned_courier_id,
 		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
+		       expected_delivery_date::text, expected_delivery_slot, delivery_attempts, cancelled_stage, returned_to_seller_at,
 		       points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
@@ -258,6 +271,7 @@ func (r *OrderRepository) GetByIDForUpdate(id uuid.UUID) (*models.Order, error) 
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
 		&nf.deliveryProvinceID, &nf.deliveryCityID, &nf.deliveryCommuneID,
 		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&nf.expectedDeliveryDate, &nf.expectedDeliverySlot, &order.DeliveryAttempts, &nf.cancelledStage, &order.ReturnedToSellerAt,
 		&order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
@@ -402,7 +416,9 @@ func (r *OrderRepository) GetHistoryByOrderID(orderID uuid.UUID) ([]*models.Orde
 func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
-		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at
+		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at,
+		       COALESCE(delivery_status, ''), expected_delivery_date::text, COALESCE(expected_delivery_slot, ''),
+		       delivery_attempts, COALESCE(cancelled_stage, ''), returned_to_seller_at
 		FROM orders WHERE shop_id = $1
 		ORDER BY created_at DESC
 	`
@@ -422,6 +438,8 @@ func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error)
 			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
 			&currency, &orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
+			&order.DeliveryStatus, &order.ExpectedDeliveryDate, &order.ExpectedDeliverySlot,
+			&order.DeliveryAttempts, &order.CancelledStage, &order.ReturnedToSellerAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("order repository: scan by shop: %w", err)
@@ -439,7 +457,9 @@ func (r *OrderRepository) GetByShopID(shopID uuid.UUID) ([]*models.Order, error)
 func (r *OrderRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
-		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at
+		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at,
+		       COALESCE(delivery_status, ''), expected_delivery_date::text, COALESCE(expected_delivery_slot, ''),
+		       delivery_attempts, COALESCE(cancelled_stage, ''), returned_to_seller_at
 		FROM orders WHERE business_id = $1
 		ORDER BY created_at DESC
 	`
@@ -459,6 +479,8 @@ func (r *OrderRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Order
 			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
 			&currency, &orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
+			&order.DeliveryStatus, &order.ExpectedDeliveryDate, &order.ExpectedDeliverySlot,
+			&order.DeliveryAttempts, &order.CancelledStage, &order.ReturnedToSellerAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("order repository: scan by business: %w", err)
@@ -524,7 +546,9 @@ func (r *OrderRepository) UpdateTotalItems(id uuid.UUID, totalItems int) error {
 func (r *OrderRepository) GetByShopIDAndStatus(shopID uuid.UUID, status models.OrderStatus) ([]*models.Order, error) {
 	query := `
 		SELECT id, business_id, shop_id, customer_id, status, total_items, notes, created_by,
-		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at
+		       base_total, final_total, currency, order_number, delivery_method, created_at, updated_at,
+		       COALESCE(delivery_status, ''), expected_delivery_date::text, COALESCE(expected_delivery_slot, ''),
+		       delivery_attempts, COALESCE(cancelled_stage, ''), returned_to_seller_at
 		FROM orders WHERE shop_id = $1 AND status = $2
 		ORDER BY created_at DESC
 	`
@@ -544,6 +568,8 @@ func (r *OrderRepository) GetByShopIDAndStatus(shopID uuid.UUID, status models.O
 			&order.TotalItems, &notes, &order.CreatedBy, &order.BaseTotal, &order.FinalTotal,
 			&currency, &orderNumber, &deliveryMethod,
 			&order.CreatedAt, &order.UpdatedAt,
+			&order.DeliveryStatus, &order.ExpectedDeliveryDate, &order.ExpectedDeliverySlot,
+			&order.DeliveryAttempts, &order.CancelledStage, &order.ReturnedToSellerAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("order repository: scan by shop/status: %w", err)
@@ -566,7 +592,8 @@ func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*mode
 		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
 		       delivery_status, assigned_courier_id,
-		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes, points_finalized,
+		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
+		       expected_delivery_date::text, expected_delivery_slot, delivery_attempts, cancelled_stage, returned_to_seller_at, points_finalized,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE buyer_profile_id = $1
@@ -594,6 +621,7 @@ func (r *OrderRepository) GetByBuyerProfileID(buyerProfileID uuid.UUID) ([]*mode
 			&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
 			&nf.deliveryProvinceID, &nf.deliveryCityID, &nf.deliveryCommuneID,
 			&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&nf.expectedDeliveryDate, &nf.expectedDeliverySlot, &order.DeliveryAttempts, &nf.cancelledStage, &order.ReturnedToSellerAt,
 			&order.PointsFinalized,
 			&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 			&order.CreatedAt, &order.UpdatedAt,
@@ -616,7 +644,8 @@ func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, 
 		       delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		       delivery_province_id, delivery_city_id, delivery_commune_id,
 		       delivery_status, assigned_courier_id,
-		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes, points_finalized,
+		       delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
+		       expected_delivery_date::text, expected_delivery_slot, delivery_attempts, cancelled_stage, returned_to_seller_at, points_finalized,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		       created_at, updated_at
 		FROM orders WHERE buyer_profile_id = $1 AND idempotency_key = $2
@@ -635,6 +664,7 @@ func (r *OrderRepository) GetByBuyerAndIdempotencyKey(buyerProfileID uuid.UUID, 
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
 		&nf.deliveryProvinceID, &nf.deliveryCityID, &nf.deliveryCommuneID,
 		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&nf.expectedDeliveryDate, &nf.expectedDeliverySlot, &order.DeliveryAttempts, &nf.cancelledStage, &order.ReturnedToSellerAt,
 		&order.PointsFinalized,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,
@@ -670,6 +700,7 @@ func (r *OrderRepository) UpdateTrackingStatus(id uuid.UUID, status models.Order
 		          delivery_province, delivery_city, delivery_commune, delivery_street, delivery_building_number, delivery_landmark,
 		          delivery_province_id, delivery_city_id, delivery_commune_id,
 		          delivery_status, assigned_courier_id, delivery_latitude, delivery_longitude, courier_assigned_at, courier_notes,
+		       expected_delivery_date::text, expected_delivery_slot, delivery_attempts, cancelled_stage, returned_to_seller_at,
 		          points_finalized,
 		          accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
 		          created_at, updated_at
@@ -688,6 +719,7 @@ func (r *OrderRepository) UpdateTrackingStatus(id uuid.UUID, status models.Order
 		&nf.deliveryProvince, &nf.deliveryCity, &nf.deliveryCommune, &nf.deliveryStreet, &nf.deliveryBuildingNumber, &nf.deliveryLandmark,
 		&nf.deliveryProvinceID, &nf.deliveryCityID, &nf.deliveryCommuneID,
 		&nf.deliveryStatus, &nf.assignedCourierID, &nf.deliveryLatitude, &nf.deliveryLongitude, &nf.courierAssignedAt, &nf.courierNotes,
+		&nf.expectedDeliveryDate, &nf.expectedDeliverySlot, &order.DeliveryAttempts, &nf.cancelledStage, &order.ReturnedToSellerAt,
 		&order.PointsFinalized,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
 		&order.CreatedAt, &order.UpdatedAt,

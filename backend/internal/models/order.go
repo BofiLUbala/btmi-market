@@ -65,6 +65,11 @@ type Order struct {
 	DeliveryLongitude      *float64   `json:"delivery_longitude" db:"delivery_longitude"`
 	CourierAssignedAt      *time.Time `json:"courier_assigned_at" db:"courier_assigned_at"`
 	CourierNotes           string     `json:"courier_notes" db:"courier_notes"`
+	ExpectedDeliveryDate   *string    `json:"expected_delivery_date" db:"expected_delivery_date"`
+	ExpectedDeliverySlot   string     `json:"expected_delivery_slot" db:"expected_delivery_slot"`
+	DeliveryAttempts       int        `json:"delivery_attempts" db:"delivery_attempts"`
+	CancelledStage         string     `json:"cancelled_stage" db:"cancelled_stage"`
+	ReturnedToSellerAt     *time.Time `json:"returned_to_seller_at" db:"returned_to_seller_at"`
 	PointsFinalized        bool       `json:"points_finalized" db:"points_finalized"`
 	InventoryClaimed       bool       `json:"inventory_claimed" db:"inventory_claimed"`
 	AcceptedAt             *time.Time `json:"accepted_at" db:"accepted_at"`
@@ -170,6 +175,11 @@ type OrderResponse struct {
 	DeliveryLongitude      *float64            `json:"delivery_longitude,omitempty"`
 	CourierAssignedAt      *time.Time          `json:"courier_assigned_at,omitempty"`
 	CourierNotes           string              `json:"courier_notes,omitempty"`
+	ExpectedDeliveryDate   *string             `json:"expected_delivery_date"`
+	ExpectedDeliverySlot   string              `json:"expected_delivery_slot,omitempty"`
+	DeliveryAttempts       int                 `json:"delivery_attempts"`
+	CancelledStage         string              `json:"cancelled_stage,omitempty"`
+	ReturnedToSellerAt     *time.Time          `json:"returned_to_seller_at,omitempty"`
 	PointsFinalized        bool                `json:"points_finalized"`
 	AcceptedAt             *time.Time          `json:"accepted_at,omitempty"`
 	PreparingAt            *time.Time          `json:"preparing_at,omitempty"`
@@ -351,7 +361,19 @@ type TrackingStatusRequest struct {
 }
 
 // Tracking response for buyer order tracking view.
+// DeliveryPlanFields is the delivery commitment and outcome shared by every
+// view of an order: when the courier will bring it, how many attempts failed,
+// at which stage it was cancelled and when a returned parcel reached the seller.
+type DeliveryPlanFields struct {
+	ExpectedDeliveryDate *string    `json:"expected_delivery_date"`
+	ExpectedDeliverySlot string     `json:"expected_delivery_slot,omitempty"`
+	DeliveryAttempts     int        `json:"delivery_attempts"`
+	CancelledStage       string     `json:"cancelled_stage,omitempty"`
+	ReturnedToSellerAt   *time.Time `json:"returned_to_seller_at,omitempty"`
+}
+
 type TrackingResponse struct {
+	DeliveryPlanFields
 	OrderID        uuid.UUID                    `json:"order_id"`
 	OrderNumber    string                       `json:"order_number"`
 	CurrentStatus  string                       `json:"current_status"`

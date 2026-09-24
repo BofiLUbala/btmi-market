@@ -16,6 +16,8 @@ import (
 type DB struct {
 	*sql.DB
 	Tx *sql.Tx
+	// DSN lets long-lived listeners (LISTEN/NOTIFY) open their own connection.
+	DSN string
 }
 
 func Connect(host, port, name, user, password string) (*DB, error) {
@@ -52,7 +54,7 @@ func Connect(host, port, name, user, password string) (*DB, error) {
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	log.Println("Database connected successfully")
-	return &DB{DB: db}, nil
+	return &DB{DB: db, DSN: dsn}, nil
 }
 
 func (d *DB) Exec(query string, args ...interface{}) (sql.Result, error) {

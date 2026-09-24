@@ -344,16 +344,11 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 	// UNAVAILABLE themselves is left alone.
 	if hasAssignedCourier && (newStatus == models.OrderStatusReceived ||
 		newStatus == models.OrderStatusCompleted || newStatus == models.OrderStatusCancelled) {
-		if _, err := tx.Exec(`
-			UPDATE couriers SET availability = 'AVAILABLE', updated_at = NOW()
-			WHERE user_id = $1 AND availability = 'BUSY'
-			  AND NOT EXISTS (
-			      SELECT 1 FROM orders
-			      WHERE assigned_courier_id = $1
-			        AND delivery_status IN ('COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION')
-			        AND status NOT IN ('CANCELLED', 'RECEIVED', 'COMPLETED'))`,
-			assignedCourierNS.String); err != nil {
-			return err
+		courierID, parseErr := uuid.Parse(assignedCourierNS.String)
+		if parseErr == nil {
+			if err := releaseCourierIfIdleTx(tx, courierID); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -422,6 +417,13 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 		DeliveryStatus: order.DeliveryStatus,
 		DeliveryMethod: order.DeliveryMethod,
 		PaymentStatus:  "PENDING",
+		DeliveryPlanFields: models.DeliveryPlanFields{
+			ExpectedDeliveryDate: order.ExpectedDeliveryDate,
+			ExpectedDeliverySlot: order.ExpectedDeliverySlot,
+			DeliveryAttempts:     order.DeliveryAttempts,
+			CancelledStage:       order.CancelledStage,
+			ReturnedToSellerAt:   order.ReturnedToSellerAt,
+		},
 	}
 	if payment, paymentErr := s.paymentRepo.GetByOrderID(orderID); paymentErr == nil && payment != nil {
 		tracking.PaymentStatus = string(payment.Status)
@@ -2084,20 +2086,6 @@ func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, er
 	return s.cancelOrderAtomic(orderID, changedBy, "Order cancelled by seller")
 }
 
-// CancelBuyerOrder allows a buyer to cancel only their own unpaid
-// PENDING/ACCEPTED order. The atomic helper locks and revalidates both order and
-// payment, so a concurrent provider initiation cannot slip through.
-func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*models.Order, error) {
-	order, err := s.getBuyerOrder(buyerProfileID, orderID)
-	if err != nil {
-		return nil, err
-	}
-	if order.Status != models.OrderStatusPending && order.Status != models.OrderStatusAccepted {
-		return nil, errors.New("INVALID_STATUS_TRANSITION")
-	}
-
-	return s.cancelOrderAtomic(orderID, nil, "Order cancelled by buyer")
-}
 
 func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse {
 	return models.OrderResponse{
@@ -2137,8 +2125,13 @@ func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse
 		DeliveryNotes:          order.DeliveryNotes,
 		// Without this the buyer's order detail always reported an empty
 		// delivery status, even though orders.delivery_status was set.
-		DeliveryStatus:   order.DeliveryStatus,
-		PointsFinalized:  order.PointsFinalized,
+		DeliveryStatus:       order.DeliveryStatus,
+		ExpectedDeliveryDate: order.ExpectedDeliveryDate,
+		ExpectedDeliverySlot: order.ExpectedDeliverySlot,
+		DeliveryAttempts:     order.DeliveryAttempts,
+		CancelledStage:       order.CancelledStage,
+		ReturnedToSellerAt:   order.ReturnedToSellerAt,
+		PointsFinalized:      order.PointsFinalized,
 		AcceptedAt:       order.AcceptedAt,
 		PreparingAt:      order.PreparingAt,
 		ReadyAt:          order.ReadyAt,

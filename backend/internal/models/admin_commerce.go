@@ -113,6 +113,7 @@ type StockAnomaly struct {
 }
 
 type AdminOrderItem struct {
+	DeliveryPlanFields
 	ID                  uuid.UUID  `json:"id"`
 	OrderNumber         string     `json:"order_number"`
 	BusinessID          uuid.UUID  `json:"business_id"`
