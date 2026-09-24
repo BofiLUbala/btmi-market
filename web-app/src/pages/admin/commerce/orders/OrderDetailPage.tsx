@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderDetail, type AdminDeliveryHandover } from '@/api/admin'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
-import { useT } from '@/store/i18n'
+import { useI18n } from '@/store/i18n'
+import { useOrderEvents } from '@/lib/orderEvents'
+import { cancelStageText, expectedDeliveryText } from '@/lib/deliveryPlan'
 import { BoxIcon } from '@/components/ui/Icons'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 import { AdminOrderItemQRResolver } from '@/components/qr/AdminOrderItemQRResolver'
@@ -26,7 +28,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function OrderDetailPage() {
-  const t = useT()
+  const { t, lang } = useI18n()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [order, setOrder] = useState<AdminOrderDetail | null>(null)
@@ -52,6 +54,18 @@ export default function OrderDetailPage() {
   }, [id, navigate])
 
   useEffect(() => { loadOrder() }, [loadOrder])
+
+  // Pushed as soon as the seller, the buyer or the courier changes this order.
+  useOrderEvents(() => loadOrder(true), { orderId: id, audience: 'admin' })
+  const [returnBusy, setReturnBusy] = useState(false)
+  const [returnError, setReturnError] = useState('')
+  async function confirmReturn() {
+    if (!id || !confirm(t('deliveryPlan.confirmReturnAsk'))) return
+    setReturnBusy(true); setReturnError('')
+    try { await adminCommerceApi.confirmReturn(id); loadOrder(true) }
+    catch (e) { setReturnError(e instanceof Error ? e.message : t('deliveryPlan.confirmReturnFailed')) }
+    finally { setReturnBusy(false) }
+  }
 
   // The payment on this order can be settled by a courier or an operator while
   // it is on screen, so the payment card refreshes itself.
@@ -124,6 +138,27 @@ export default function OrderDetailPage() {
 
           <Section title={t('admin.orders.deliveryTitle')}>
             <Field label={t('admin.orders.deliveryStatus')} value={<StatusBadge status={order.order.delivery_status || 'PENDING_TBK_ASSIGNMENT'} />} />
+            <Field
+              label={t('deliveryPlan.title')}
+              value={expectedDeliveryText(order.order, t, lang) || t('deliveryPlan.notSet')}
+            />
+            {!!order.order.delivery_attempts && <Field label={t('courierPlan.notFound')} value={t('deliveryPlan.attempts', { count: order.order.delivery_attempts })} />}
+            {order.order.cancelled_stage && <Field label={t('admin.orders.deliveryStatus')} value={cancelStageText(order.order, t)} />}
+            {order.order.returned_to_seller_at && <Field label={t('deliveryPlan.title')} value={t('deliveryPlan.returned', { date: new Date(order.order.returned_to_seller_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') })} />}
+            {order.order.delivery_status === 'RETURNING_TO_SELLER' && (
+              <div style={{ margin: '8px 0' }}>
+                <div style={{ fontSize: 12, color: '#fcd34d', marginBottom: 6 }}>{t('deliveryPlan.returning')}</div>
+                {returnError && <div style={{ fontSize: 12, color: '#fca5a5', marginBottom: 6 }}>{returnError}</div>}
+                <button
+                  type="button"
+                  disabled={returnBusy}
+                  onClick={() => void confirmReturn()}
+                  style={{ backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {t('deliveryPlan.confirmReturn')}
+                </button>
+              </div>
+            )}
             <Field label={t('admin.orders.deliveryMethodLabel')} value={order.order.delivery_method || 'TBK_STANDARD'} />
             <Field label={t('admin.orders.deliveryContact')} value={order.order.delivery_contact_name || order.order.buyer_name} />
             <Field label={t('admin.orders.deliveryPhone')} value={order.order.delivery_phone || order.order.buyer_phone} />

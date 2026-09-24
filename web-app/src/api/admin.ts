@@ -1,3 +1,4 @@
+import type { DeliveryPlan } from './types'
 import { API_BASE } from './client'
 
 export type AdminRole =
@@ -443,7 +444,7 @@ export interface AdminShopPageControl {
   updated_at: string
 }
 
-export interface AdminOrderItem {
+export interface AdminOrderItem extends DeliveryPlan {
   id: string
   order_number: string
   business_id: string
@@ -1035,6 +1036,10 @@ export const adminCommerceApi = {
    */
   getDeliveryHandover: async (id: string) => {
     return adminApi<AdminDeliveryHandover>(`/admin/commerce/orders/${id}/delivery-handover`)
+  },
+  /** Closes the return of a cancelled order's parcel on the seller's behalf. */
+  confirmReturn: async (id: string) => {
+    return adminApi<{ order_id: string; delivery_status: string }>(`/admin/commerce/orders/${id}/confirm-return`, { method: 'POST', body: '{}' })
   },
   assignCourier: async (id: string, payload: { courier_id: string; notes?: string }) => {
     return adminApi<{ message: string; order: AdminOrderItem }>(`/admin/commerce/orders/${id}/assign-courier`, {

@@ -1,6 +1,6 @@
 import { useAuth } from '@/store/auth'
 import { orderApi, shopApi } from '@/api/seller'
-import type { BuyerPayment, OrderLine, OrderStatus, OrderWithLines, Shop, DeliveryPackageQR } from '@/api/types'
+import type { BuyerPayment, DeliveryPlan, OrderLine, OrderStatus, OrderWithLines, Shop, DeliveryPackageQR } from '@/api/types'
 import { OrderItemQRSection } from '@/components/qr/OrderItemQRSection'
 import { QRPanel } from '@/components/qr/QRPanel'
 import { Card } from '@/components/ui/Card'
@@ -10,7 +10,10 @@ import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { paymentStatusKey, confirmationActorKey, isPaymentPaid } from '@/lib/paymentStatus'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
-import { useT } from '@/store/i18n'
+import { useI18n, useT } from '@/store/i18n'
+import { useOrderEvents } from '@/lib/orderEvents'
+import { expectedDeliveryText } from '@/lib/deliveryPlan'
+import { DeliveryPlanCard } from '@/components/checkout/DeliveryPlanCard'
 import { DEFAULT_CURRENCY, formatMoney } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 
@@ -24,7 +27,7 @@ function timeAgo(date: Date, t: ReturnType<typeof useT>): string {
   return t('time.minutesAgo', { count: minutes })
 }
 
-interface Order {
+interface Order extends DeliveryPlan {
   id: string
   order_number?: string
   status: string
@@ -73,7 +76,7 @@ function orderStatusLabel(status: string, t: ReturnType<typeof useT>): string {
 }
 
 export default function SellerOrdersPage() {
-  const t = useT()
+  const { t, lang } = useI18n()
   const [searchParams] = useSearchParams()
   const orderIdParam = searchParams.get('orderId')
   const { activeBusiness } = useAuth()
@@ -153,6 +156,16 @@ export default function SellerOrdersPage() {
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [loadOrders, hasActive])
+
+  // Pushed the moment the buyer, TBK or the courier changes one of this business's orders.
+  useOrderEvents((event) => {
+    void loadOrders(true)
+    if (event.order_id && event.order_id === expandedId) {
+      const id = event.order_id
+      void orderApi.get(id).then((d) => setDetails((prev) => ({ ...prev, [id]: d }))).catch(() => undefined)
+      void orderApi.getOrderPayment(id).then((p) => setPayments((prev) => ({ ...prev, [id]: p }))).catch(() => undefined)
+    }
+  })
 
   // Tick for timeAgo
   useEffect(() => {
@@ -303,6 +316,9 @@ export default function SellerOrdersPage() {
                           <span className={`badge badge-${getStatusColor(order.delivery_status || order.status)}`}>
                             {orderStatusLabel(order.delivery_status || order.status, t)}
                           </span>
+                          {order.expected_delivery_date && !['CANCELLED', 'COMPLETED'].includes(order.status) && (
+                            <div className="small muted" style={{ marginTop: 4 }}>📅 {expectedDeliveryText(order, t, lang)}</div>
+                          )}
                         </td>
                         <td>{formatMoney(order.final_total || 0, order.currency || DEFAULT_CURRENCY)}</td>
                         <td>{new Date(order.created_at).toLocaleDateString()}</td>
@@ -326,6 +342,17 @@ export default function SellerOrdersPage() {
                                 {a.label}
                               </Button>
                             ))}
+                            {order.delivery_status === 'RETURNING_TO_SELLER' && (
+                              <Button
+                                size="sm"
+                                disabled={actingId === order.id}
+                                onClick={() => {
+                                  if (confirm(t('deliveryPlan.confirmReturnAsk'))) void runAction(order, () => orderApi.confirmReturn(order.id))
+                                }}
+                              >
+                                {t('deliveryPlan.confirmReturn')}
+                              </Button>
+                            )}
                             <Button variant="ghost" size="sm" onClick={() => void toggleDetails(order)}>
                               {isExpanded ? t('seller.orders.hide') : t('common.view')}
                             </Button>
@@ -344,6 +371,7 @@ export default function SellerOrdersPage() {
                                 {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
                                 <div>Frais: {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)}</div>
                               </div>}
+                              {detail?.order && <DeliveryPlanCard plan={detail.order} status={detail.order.status} deliveryStatus={detail.order.delivery_status} deliveryMethod={detail.order.delivery_method} />}
                               {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <SellerOrderLineQR key={line.id} line={line} orderId={order.id} orderNumber={order.order_number || order.id.slice(0, 8)} shopName={activeBusiness?.name || ''} currency={detail.order?.currency || order.currency || DEFAULT_CURRENCY} />)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
                               <div className="seller-payment-box">
                                 <strong>{t('seller.orders.cashPayment')}</strong>

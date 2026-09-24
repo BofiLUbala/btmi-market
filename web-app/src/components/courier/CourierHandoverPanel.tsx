@@ -261,8 +261,15 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
             onChange={(e) => setProductCode(e.target.value)}
             placeholder={t('courier.handover.verifyPlaceholder')}
             autoComplete="off"
-            style={{ minHeight: 44, padding: '0 12px', borderRadius: 10 }}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="go"
+            onKeyDown={(e) => { if (e.key === 'Enter' && productCode.trim() && !verifying) void verifyProduct() }}
+            // 16px keeps iOS Safari from zooming into the field on small screens.
+            style={{ minHeight: 48, padding: '0 12px', borderRadius: 10, fontSize: 16, width: '100%', boxSizing: 'border-box' }}
           />
+          <small className="courier-muted">{t('courier.handover.verifyHint')}</small>
           <button
             className="courier-btn courier-btn-scan"
             onClick={() => void verifyProduct()}
@@ -274,7 +281,9 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
       )}
       {verdict && (
         <p className={verdict.result === 'VALID' || verdict.result === 'ALREADY_USED' ? 'courier-muted' : 'courier-error'} role="status">
-          {VERDICTS.includes(verdict.result) ? t(`courier.handover.verdict.${verdict.result}` as TranslationKey) : verdict.result}
+          {verdict.reason === 'ORDER_NUMBER_NOT_PRODUCT'
+            ? t('courier.handover.verdict.ORDER_NUMBER_NOT_PRODUCT')
+            : VERDICTS.includes(verdict.result) ? t(`courier.handover.verdict.${verdict.result}` as TranslationKey) : verdict.result}
         </p>
       )}
 

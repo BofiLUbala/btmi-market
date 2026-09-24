@@ -74,6 +74,14 @@ export const courierApi = {
   arrive: (orderId: string) =>
     post<{ message: string }>(`/courier/missions/${orderId}/arrive`, {}),
 
+  /** Day and slot the buyer will receive the parcel; required before leaving. */
+  setExpectedDelivery: (orderId: string, date: string, slot: string) =>
+    post<{ message: string }>(`/courier/missions/${orderId}/expected-delivery`, { date, slot }),
+
+  /** Nobody took the parcel: a new attempt at the given day and slot, or a return after the last one. */
+  buyerNotFound: (orderId: string, body: { reason: string; notes?: string; next_date?: string; next_slot?: string }) =>
+    post<{ outcome: 'RESCHEDULED' | 'RETURNING_TO_SELLER'; delivery_attempts: number }>(`/courier/missions/${orderId}/buyer-not-found`, body),
+
   /** Report a failed delivery. */
   fail: (orderId: string, reason: string) =>
     post<{ message: string }>(`/courier/missions/${orderId}/fail`, { reason }),

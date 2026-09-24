@@ -525,7 +525,20 @@ export interface OrderLineInput {
   quantity: number
 }
 
-export interface BuyerOrder {
+/**
+ * When the courier committed to bring the parcel, how many attempts failed,
+ * at which stage the order was cancelled and when a returned parcel reached
+ * the seller. Every view of an order carries it.
+ */
+export interface DeliveryPlan {
+  expected_delivery_date?: string | null
+  expected_delivery_slot?: 'MORNING' | 'AFTERNOON' | 'EVENING' | ''
+  delivery_attempts?: number
+  cancelled_stage?: 'NOT_ASSIGNED' | 'COURIER_ASSIGNED' | 'IN_DELIVERY' | 'BUYER_NOT_FOUND' | ''
+  returned_to_seller_at?: string | null
+}
+
+export interface BuyerOrder extends DeliveryPlan {
   id: string
   checkout_group_id?: string | null
   payment_method?: string
@@ -839,7 +852,7 @@ export interface ProductVerification {
   verification_method: 'QR_SCAN' | 'MANUAL_PRODUCT_NUMBER'
 }
 
-export interface TrackingResponse {
+export interface TrackingResponse extends DeliveryPlan {
   order_id: string
   order_number: string
   current_status: string
@@ -1323,7 +1336,7 @@ export interface RecordSaleRequest {
 
 /* ---------- Seller Orders ---------- */
 
-export interface SellerOrder {
+export interface SellerOrder extends DeliveryPlan {
   id: string
   business_id: string
   shop_id: string
@@ -1671,7 +1684,7 @@ export interface CourierProfile {
 }
 
 /** Courier mission from the missions list */
-export interface CourierMission {
+export interface CourierMission extends DeliveryPlan {
   order_id: string
   order_number: string
   status: string

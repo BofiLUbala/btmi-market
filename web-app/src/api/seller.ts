@@ -196,6 +196,8 @@ export const orderApi = {
   accept: (id: string) => post<SellerOrder>(`/orders/${id}/accept`, {}),
   reject: (id: string) => post<SellerOrder>(`/orders/${id}/reject`, {}),
   prepare: (id: string) => post<SellerOrder>(`/orders/${id}/prepare`, {}),
+  /** The parcel of a cancelled order is back at the shop; its stock goes back on sale. */
+  confirmReturn: (id: string) => post(`/orders/${id}/confirm-return`, {}),
   cancel: (id: string) => post<SellerOrder>(`/orders/${id}/cancel`, {}),
   sellerTransition: (id: string, body: { status: OrderStatus }) => post<SellerOrder>(`/orders/${id}/tracking/status`, body),
   // No sellerConfirmPayment: a seller is not at the handover, so they cannot attest

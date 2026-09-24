@@ -223,16 +223,24 @@ export default function CourierMissionPage(){
                       onChange={(e) => setProductCode(e.target.value)}
                       placeholder={t('courier.handover.verifyPlaceholder')}
                       autoComplete="off"
-                      style={{minHeight:44, padding:'0 12px', borderRadius:10, flex:1, minWidth:200}}
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      enterKeyHint="go"
+                      onKeyDown={(e) => { if (e.key === 'Enter' && productCode.trim() && !verifying) void verifyProduct() }}
+                      style={{minHeight:48, padding:'0 12px', borderRadius:10, flex:'1 1 100%', minWidth:0, width:'100%', fontSize:16, boxSizing:'border-box'}}
                     />
-                    <button disabled={verifying || !productCode.trim()} className="courier-btn courier-btn-scan" onClick={()=>void verifyProduct()}>
+                    <button disabled={verifying || !productCode.trim()} className="courier-btn courier-btn-scan" style={{flex:'1 1 100%'}} onClick={()=>void verifyProduct()}>
                       {verifying ? t('common.loading') : t('courier.handover.verifyTitle')}
                     </button>
                   </div>
+                  <small className="courier-muted">{t('courier.handover.verifyHint')}</small>
                   {verifyError && <p className="courier-error" role="status">{verifyError}</p>}
                   {verdict && (
                     <p className={verdict.result === 'VALID' || verdict.result === 'ALREADY_USED' ? 'courier-muted' : 'courier-error'} role="status">
-                      {['VALID','ALREADY_USED','WRONG_ORDER','WRONG_PRODUCT','WRONG_VARIANT','WRONG_SHOP','INVALID_QR'].includes(verdict.result)
+                      {verdict.reason === 'ORDER_NUMBER_NOT_PRODUCT'
+                        ? t('courier.handover.verdict.ORDER_NUMBER_NOT_PRODUCT')
+                        : ['VALID','ALREADY_USED','WRONG_ORDER','WRONG_PRODUCT','WRONG_VARIANT','WRONG_SHOP','INVALID_QR'].includes(verdict.result)
                         ? t(`courier.handover.verdict.${verdict.result}` as TranslationKey)
                         : verdict.result}
                     </p>

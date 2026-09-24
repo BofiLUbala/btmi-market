@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useOrderEvents } from '../../lib/orderEvents'
+import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../../lib/deliveryPlan'
+import { DeliveryPlanCard } from '../../components/checkout/DeliveryPlanCard'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
 import { OrderItemQRSection } from '@/components/qr/OrderItemQRSection'
@@ -448,6 +451,9 @@ function OrderInner() {
     }
   }, [load, terminal])
 
+  // Pushed by the server the moment the shop, TBK or the courier changes the order.
+  useOrderEvents(() => void load(true), { orderId })
+
   // Tick for timeAgo
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 10_000)
@@ -470,7 +476,8 @@ function OrderInner() {
   }
 
   async function cancel() {
-    if (!confirm(t('orders.cancelConfirm'))) return
+    const inDelivery = PARCEL_WITH_COURIER.includes(data?.order.delivery_status || '')
+    if (!confirm(t(inDelivery ? 'orders.cancelAskInDelivery' : 'orders.cancelAskBeforePickup'))) return
     setBusy(true)
     setError('')
     try {
@@ -534,6 +541,9 @@ function OrderInner() {
 
       {/* Lifecycle timeline (Req #39 + #51) */}
       <OrderTimeline o={o} payment={payment} />
+      <div style={{ marginTop: 12 }}>
+        <DeliveryPlanCard plan={o} status={o.status} deliveryStatus={o.delivery_status} deliveryMethod={o.delivery_method} />
+      </div>
 
       <div className="order-summary-grid" style={{ marginTop: 16 }}>
         <div className="card stack" id="purchased-products">
@@ -667,14 +677,17 @@ function OrderInner() {
                     {t('orders.continueCheckout')}
                   </Button>
                 )}
-                {/* Once money has moved (or is moving) the order is refunded through
-                    support, not cancelled from here - the server refuses it too. */}
-                {!(payment && ['PAID', 'VERIFIED', 'PROCESSING'].includes(payment.status)) && (
-                  <Button variant="danger" onClick={cancel} loading={busy}>
-                    {t('orders.cancelOrder')}
-                  </Button>
-                )}
               </>
+            )}
+            {/* Free at every stage before the handover; once the courier holds the
+                parcel it goes back to the seller. Paid orders go through support. */}
+            {buyerCanCancel(o.status, o.delivery_status, payment?.status) && (
+              <Button variant="danger" onClick={cancel} loading={busy}>
+                {t('orders.cancelOrder')}
+              </Button>
+            )}
+            {isPaidBeforeHandover(o.status, o.delivery_status, payment?.status) && (
+              <p className="small muted">{t('orders.cancelPaidNote')}</p>
             )}
             {!needsDelivery && (o.status === 'PENDING' || o.status === 'ACCEPTED' || o.status === 'PREPARING' || o.status === 'READY') && (
               <Link to={`/orders/${orderId}/tracking`}>

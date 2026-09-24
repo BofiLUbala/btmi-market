@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useOrderEvents } from '@/lib/orderEvents'
 import { Link } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import type { BuyerPayment, OrderLine, OrderWithLines } from '@/api/types'
@@ -148,6 +149,8 @@ function OrdersInner() {
   }, [load, hasActive])
 
   // Tick for timeAgo
+  useOrderEvents(() => void load(true), {})
+
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 10_000)
     return () => clearInterval(id)

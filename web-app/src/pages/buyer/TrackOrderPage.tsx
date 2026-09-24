@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useOrderEvents } from '@/lib/orderEvents'
 import { Link, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import type { TrackingResponse, DeliveryPackageQR } from '@/api/types'
@@ -10,6 +11,7 @@ import { formatDateTime, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
 import { getDeliverySteps, getTrackingDisplayStatus, prettifyStatus } from '@/lib/orderWorkflow'
 import { RequireAuth } from '@/components/auth/Guards'
+import { DeliveryPlanCard } from '@/components/checkout/DeliveryPlanCard'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
@@ -105,6 +107,8 @@ function TrackInner() {
   }, [fetchTracking, terminal])
 
   // Update "Xs ago" display every 10 seconds
+  useOrderEvents(() => void fetchTracking(true), { orderId })
+
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 10_000)
     return () => clearInterval(id)
@@ -145,6 +149,10 @@ function TrackInner() {
           <div className="t-time">{formatDateTime(data.latest_update_at)}</div>
         </div>
       )}
+
+      <div style={{ marginTop: 12 }}>
+        <DeliveryPlanCard plan={data} status={data.current_status} deliveryStatus={data.delivery_status} deliveryMethod={data.delivery_method} />
+      </div>
 
       <div className="card" style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>{t('tracking.progress')}</h2>

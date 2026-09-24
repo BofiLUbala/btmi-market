@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { useOrderEvents } from '@/lib/orderEvents'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
 export default function OrderListPage() {
@@ -16,8 +17,8 @@ export default function OrderListPage() {
   const [page, setPage] = useState(0)
   const [limit] = useState(20)
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true)
+  const fetchOrders = useCallback(async (background = false) => {
+    if (!background) setLoading(true)
     try {
       const res = await adminCommerceApi.listOrders({
         status: statusFilter || undefined,
@@ -37,12 +38,13 @@ export default function OrderListPage() {
   }, [statusFilter, deliveryMethod, shopId, search, page, limit])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
+  useOrderEvents(() => void fetchOrders(true), { audience: 'admin' })
 
   // Payment state moves without anyone touching this screen: a courier takes
   // cash at the door, an operator confirms a transfer. Poll on the same cadence
   // as Finance and Seller Finance so all three tell the same story.
   useEffect(() => {
-    const timer = window.setInterval(() => { void fetchOrders() }, 30_000)
+    const timer = window.setInterval(() => { void fetchOrders(true) }, 30_000)
     return () => window.clearInterval(timer)
   }, [fetchOrders])
 
