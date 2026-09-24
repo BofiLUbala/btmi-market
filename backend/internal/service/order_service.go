@@ -337,6 +337,26 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 		return err
 	}
 
+	// Accepting a mission marks the courier BUSY; only a failed delivery used to
+	// release them, so after one successful delivery they vanished from the
+	// assignment list for good. Once the order is closed and the courier has no
+	// other active mission, they are available again. A courier who chose
+	// UNAVAILABLE themselves is left alone.
+	if hasAssignedCourier && (newStatus == models.OrderStatusReceived ||
+		newStatus == models.OrderStatusCompleted || newStatus == models.OrderStatusCancelled) {
+		if _, err := tx.Exec(`
+			UPDATE couriers SET availability = 'AVAILABLE', updated_at = NOW()
+			WHERE user_id = $1 AND availability = 'BUSY'
+			  AND NOT EXISTS (
+			      SELECT 1 FROM orders
+			      WHERE assigned_courier_id = $1
+			        AND delivery_status IN ('COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION')
+			        AND status NOT IN ('CANCELLED', 'RECEIVED', 'COMPLETED'))`,
+			assignedCourierNS.String); err != nil {
+			return err
+		}
+	}
+
 	var changedBy interface{}
 	if userID != uuid.Nil {
 		changedBy = userID
