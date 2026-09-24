@@ -1,3 +1,4 @@
+import type { DeliveryPlan } from '../types'
 import { API_URL } from './client'
 import { adminTokenStore } from './adminTokenStore'
 
@@ -217,7 +218,7 @@ export const mobileAdminDirectionApi = {
 }
 
 /** One order row as the commerce admin reads it. */
-export interface AdminOrderItem {
+export interface AdminOrderItem extends DeliveryPlan {
   id: string
   order_number: string
   business_id: string
@@ -322,6 +323,8 @@ export const adminCommerceApi = {
     return { ...result, orders: result.orders || result.items || [] }
   },
   getOrder: (id: string) => adminApi<AdminOrderDetail>(`/admin/commerce/orders/${id}`),
+  /** Closes the return of a cancelled order's parcel on the seller's behalf. */
+  confirmReturn: (id: string) => adminApi<{ order_id: string; delivery_status: string }>(`/admin/commerce/orders/${id}/confirm-return`, { method: 'POST', body: '{}' }),
   assignCourier: (id: string, payload: { courier_id: string; notes?: string }) =>
     adminApi<{ message: string; order: AdminOrderItem }>(`/admin/commerce/orders/${id}/assign-courier`, {
       method: 'POST',

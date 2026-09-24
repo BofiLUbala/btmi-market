@@ -210,7 +210,15 @@ export interface BusinessLifecycleSummary {
   shop_summaries: Array<{ id: string; name: string; status: string; product_count: number }>
 }
 export interface ArchiveBusinessResponse { action: 'archived'; summary: BusinessLifecycleSummary }
-export interface BuyerOrder { id: string; order_number?: string; shop_id: string; status: string; total_items: number; base_total?: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; delivery_fee_final?: number; delivery_contact_name?: string; delivery_phone?: string; delivery_address?: string; delivery_notes?: string; notes?: string }
+/** Delivery commitment and outcome carried by every view of an order. */
+export interface DeliveryPlan {
+  expected_delivery_date?: string | null
+  expected_delivery_slot?: 'MORNING' | 'AFTERNOON' | 'EVENING' | ''
+  delivery_attempts?: number
+  cancelled_stage?: 'NOT_ASSIGNED' | 'COURIER_ASSIGNED' | 'IN_DELIVERY' | 'BUYER_NOT_FOUND' | ''
+  returned_to_seller_at?: string | null
+}
+export interface BuyerOrder extends DeliveryPlan { id: string; order_number?: string; shop_id: string; status: string; total_items: number; base_total?: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; delivery_fee_final?: number; delivery_contact_name?: string; delivery_phone?: string; delivery_address?: string; delivery_notes?: string; notes?: string }
 export interface SellerOrder extends BuyerOrder {
   business_id: string
   base_total?: number
@@ -219,7 +227,7 @@ export interface SellerOrder extends BuyerOrder {
 }
 export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; unit_price?: number; final_unit_price: number; product_name: string; variant_name?: string; image_url?: string }
 export interface OrderStatusHistory { id: string; order_id: string; status: string; changed_by?: string | null; actor_type?: string; notes: string; created_at: string }
-export interface TrackingResponse { order_id: string; order_number: string; current_status: string; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
+export interface TrackingResponse extends DeliveryPlan { order_id: string; order_number: string; current_status: string; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
 export interface BuyerPayment {
   id: string; order_id: string; shop_id: string; shop_name?: string
   payment_method: string; currency: string
@@ -326,7 +334,7 @@ export interface CourierHistoryItem {
   order_id: string; order_number: string; shop_name: string; delivery_address: string
   assigned_at?: string | null; delivered_at?: string | null; final_status: string; incident_status?: string
 }
-export interface CourierMission {
+export interface CourierMission extends DeliveryPlan {
   order_id: string; order_number: string; status: string; delivery_status: string
   shop_name: string; business_name: string; shop_address: string; service_zone: string; package_count: number
   delivery_address: string; delivery_contact: string; delivery_phone: string; delivery_notes?: string

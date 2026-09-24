@@ -5,6 +5,8 @@ import { adminCommerceApi, type AdminCourierListItem, type AdminOrderDetail, typ
 import { useI18n, type TranslationKey } from '../../../../src/store/i18n'
 import { formatMoney } from '../../../../src/lib/money'
 import { deliveryLabel } from '../../../../src/lib/deliveryLabels'
+import { cancelStageText, expectedDeliveryText, returnedText } from '../../../../src/lib/deliveryPlan'
+import { useOrderEvents } from '../../../../src/lib/orderEvents'
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: '#fbbf24',
@@ -92,7 +94,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function AdminOrderDetailScreen() {
   const router = useRouter()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [detail, setDetail] = useState<AdminOrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -117,6 +119,24 @@ export default function AdminOrderDetailScreen() {
   }, [id, t])
 
   useEffect(() => { load() }, [load])
+  // Pushed as soon as the seller, the buyer or the courier changes this order.
+  useOrderEvents(() => load(true), { orderId: id, audience: 'admin' })
+  const [returnBusy, setReturnBusy] = useState(false)
+  const confirmReturn = () => {
+    if (!id) return
+    Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('deliveryPlan.confirmReturn'),
+        onPress: async () => {
+          setReturnBusy(true)
+          try { await adminCommerceApi.confirmReturn(id); load(true) }
+          catch (e) { Alert.alert(t('deliveryPlan.confirmReturnFailed'), e instanceof Error ? e.message : '') }
+          finally { setReturnBusy(false) }
+        },
+      },
+    ])
+  }
 
   // The courier can settle a cash payment while this is open, so refresh quietly.
   useEffect(() => {
@@ -198,6 +218,15 @@ export default function AdminOrderDetailScreen() {
 
       <Section title={t('admin.orders.deliveryTitle')}>
         <Field label={t('admin.orders.deliveryStatus')} value={statusLabel(t, o.delivery_status || 'PENDING_TBK_ASSIGNMENT')} />
+        <Field label={t('deliveryPlan.title')} value={expectedDeliveryText(o, t, lang) || t('deliveryPlan.notSet')} />
+        {o.delivery_attempts ? <Field label={t('courierPlan.notFound')} value={t('deliveryPlan.attempts', { count: o.delivery_attempts })} /> : null}
+        {o.cancelled_stage ? <Field label={t('admin.orders.deliveryStatus')} value={cancelStageText(o, t) || ''} /> : null}
+        {o.returned_to_seller_at ? <Field label={t('deliveryPlan.title')} value={returnedText(o, t, lang) || ''} /> : null}
+        {o.delivery_status === 'RETURNING_TO_SELLER' ? (
+          <Pressable style={[styles.assignBtn, { backgroundColor: '#059669', marginTop: 8 }]} disabled={returnBusy} onPress={confirmReturn}>
+            {returnBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.assignBtnText}>{t('deliveryPlan.confirmReturn')}</Text>}
+          </Pressable>
+        ) : null}
         <Field label={t('admin.orders.deliveryContact')} value={o.delivery_contact_name || o.buyer_name} />
         <Field label={t('admin.orders.deliveryPhone')} value={o.delivery_phone || o.buyer_phone} />
         <Field label={t('admin.orders.deliveryAddress')} value={o.delivery_address || '—'} />

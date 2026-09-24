@@ -161,7 +161,7 @@ function CourierHandover({ orderId }: { orderId: string }) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {verdict ? (
         <Text style={verdict.result === 'VALID' || verdict.result === 'ALREADY_USED' ? styles.success : styles.error}>
-          {t(VERDICT_KEYS[verdict.result] ?? 'courier.verdict.INVALID_QR')}{verdict.product_name ? ` · ${verdict.product_name}` : ''}
+          {verdict.reason === 'ORDER_NUMBER_NOT_PRODUCT' ? t('courier.verdict.ORDER_NUMBER_NOT_PRODUCT') : t(VERDICT_KEYS[verdict.result] ?? 'courier.verdict.INVALID_QR')}{verdict.product_name ? ` · ${verdict.product_name}` : ''}
         </Text>
       ) : null}
 
@@ -171,7 +171,8 @@ function CourierHandover({ orderId }: { orderId: string }) {
             title={t('courier.scanProduct')}
             onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'PRODUCT', order_id: orderId } })}
           />
-          <Field label={t('courier.manualCode')} value={code} onChangeText={setCode} autoCapitalize="characters" placeholder="PRD-… / VAR-… / tbk.…" />
+          <Field label={t('courier.manualCode')} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} placeholder="VAR-… / OI-… / SKU" returnKeyType="go" onSubmitEditing={() => { if (code.trim()) verify.mutate() }} />
+          <Text style={styles.muted}>{t('courier.verifyHint')}</Text>
           <Button variant="outline" title={t('courier.verifyCode')} disabled={!code.trim()} loading={verify.isPending} onPress={() => verify.mutate()} />
         </View>
       ) : null}

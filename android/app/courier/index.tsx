@@ -12,7 +12,7 @@ import { spacing, type Colors } from '../../src/theme'
 import { courierStatusLabel } from '../../src/lib/courier'
 import type { CourierAvailability, CourierMission } from '../../src/types'
 
-const FINISHED = ['RECEIVED', 'DELIVERED', 'FAILED', 'CANCELLED', 'COURIER_REJECTED']
+const FINISHED = ['RECEIVED', 'DELIVERED', 'FAILED', 'CANCELLED', 'COURIER_REJECTED', 'RETURNED_TO_SELLER']
 
 /**
  * Courier missions, the same endpoints as the web courier dashboard:

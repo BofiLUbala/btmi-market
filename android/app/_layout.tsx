@@ -6,6 +6,7 @@ import NetInfo from '@react-native-community/netinfo'
 import { focusManager, onlineManager } from '@tanstack/react-query'
 import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '../src/store/auth'
+import { useLiveOrderQueries } from '../src/lib/orderEvents'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
@@ -17,6 +18,9 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 0,
 function RootNavigator() {
   const { colors, theme } = useTheme()
   const { t } = useI18n()
+  // Orders change under the user's eyes as the shop, TBK and the courier act.
+  const signedIn = useAuth((state) => Boolean(state.user))
+  useLiveOrderQueries(queryClient, signedIn)
 
   return (
     <>

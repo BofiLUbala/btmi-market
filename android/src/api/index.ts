@@ -207,6 +207,8 @@ export const sellerApi = {
   acceptOrder: (id: string) => post<SellerOrder>(`/orders/${id}/accept`, {}),
   rejectOrder: (id: string) => post<SellerOrder>(`/orders/${id}/reject`, {}),
   prepareOrder: (id: string) => post<SellerOrder>(`/orders/${id}/prepare`, {}),
+  /** The parcel of a cancelled order is back at the shop; its stock goes back on sale. */
+  confirmReturn: (id: string) => post(`/orders/${id}/confirm-return`, {}),
   cancelOrder: (id: string) => post<SellerOrder>(`/orders/${id}/cancel`, {}),
   sellerTransition: (id: string, status: string, notes?: string) => post(`/orders/${id}/tracking/status`, { status, notes }),
   getOrderPayment: (id: string) => get<BuyerPayment>(`/orders/${id}/payment`),
@@ -284,6 +286,11 @@ export const courierApi = {
   rejectMission: (orderId: string, reason: string) => post(`/courier/missions/${orderId}/reject`, { order_id: orderId, reason }),
   failDelivery: (orderId: string, reason: string, notes: string) => post(`/courier/missions/${orderId}/fail`, { order_id: orderId, reason, notes }),
   confirmPickup: (orderId: string) => post(`/courier/missions/${orderId}/pickup`, {}),
+  /** Day and slot the buyer will receive the parcel; required before leaving. */
+  setExpectedDelivery: (orderId: string, date: string, slot: string) => post(`/courier/missions/${orderId}/expected-delivery`, { date, slot }),
+  /** Nobody took the parcel: a new attempt at the given day and slot, or a return after the last one. */
+  buyerNotFound: (orderId: string, body: { reason: string; notes?: string; next_date?: string; next_slot?: string }) =>
+    post<{ outcome: 'RESCHEDULED' | 'RETURNING_TO_SELLER'; delivery_attempts: number }>(`/courier/missions/${orderId}/buyer-not-found`, body),
   startDelivery: (orderId: string) => post(`/courier/missions/${orderId}/start`, {}),
   arrive: (orderId: string) => post(`/courier/missions/${orderId}/arrive`, {}),
 

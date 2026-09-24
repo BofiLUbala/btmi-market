@@ -10,6 +10,7 @@ import { useColors } from '../store/theme'
 import { radius, spacing, type Colors } from '../theme'
 import { invalidateCourierMission } from '../lib/courier'
 import type { CourierMission } from '../types'
+import { CourierPlanPanel } from './CourierPlanPanel'
 
 /** In-flight stages where a delivery can still fail: after pickup, before the delivery scan. */
 const FAILABLE_STATUSES = ['PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED']
@@ -65,7 +66,8 @@ export function MissionActions({ mission: m, compact = false }: { mission: Couri
         <Button title={t('courier.confirmPickup')} loading={act.isPending} onPress={() => act.mutate('pickup')} />
         <Button variant="outline" title={t('courier.scanPickup')} onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'PICKUP', order_id: m.order_id } })} />
       </> : null}
-      {status === 'PICKED_UP' ? <Button title={t('courier.startDelivery')} loading={act.isPending} onPress={() => act.mutate('start')} /> : null}
+      <CourierPlanPanel mission={m} />
+      {status === 'PICKED_UP' ? <Button title={t('courier.startDelivery')} loading={act.isPending} disabled={!m.expected_delivery_date} onPress={() => act.mutate('start')} /> : null}
       {status === 'IN_TRANSIT' ? (
         <Button
           title={t('courier.arrived')}

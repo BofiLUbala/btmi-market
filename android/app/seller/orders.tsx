@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { cancelStageText, expectedDeliveryText } from '../../src/lib/deliveryPlan'
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native'
 import { Image } from 'expo-image'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -221,10 +222,31 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
     retry: false,
   })
   const accessToken = useQuery({ queryKey: ['auth','accessToken'], queryFn: () => tokenStore.getAccess(), enabled: showPackageQR, staleTime: 60_000 })
+  const queryClient = useQueryClient()
+  const confirmReturn = useMutation({
+    mutationFn: () => sellerApi.confirmReturn(order.id),
+    onSettled: () => { void queryClient.invalidateQueries({ queryKey: ['seller'] }) },
+    onError: (e) => Alert.alert(t('deliveryPlan.confirmReturnFailed'), e instanceof Error ? e.message : ''),
+  })
+  const planned = !['CANCELLED', 'COMPLETED'].includes(order.status) ? expectedDeliveryText(order, t, lang) : null
+  const stage = cancelStageText(order, t)
   return <Card>
     <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text></View>
     <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{formatMoney(order.final_total, order.currency)}</Text></View>
     {order.delivery_status ? <Text style={styles.muted}>{t('seller.deliveryStatus')} : {deliveryStatusLabel(t, order.delivery_status)}</Text> : null}
+    {planned ? <Text style={styles.detailHeading}>📅 {planned}</Text> : null}
+    {stage ? <Text style={styles.muted}>{stage}</Text> : null}
+    {order.delivery_status === 'RETURNING_TO_SELLER' ? (
+      <Button
+        title={t('deliveryPlan.confirmReturn')}
+        loading={confirmReturn.isPending}
+        style={styles.actionButton}
+        onPress={() => Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('deliveryPlan.confirmReturn'), onPress: () => confirmReturn.mutate() },
+        ])}
+      />
+    ) : null}
     <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
     {actions.length ? actions.map((action) => (
       <Button key={action.status} variant={action.destructive ? 'outline' : 'primary'} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>

@@ -36,6 +36,8 @@ const STATUS_KEYS: Record<string, TranslationKey> = {
   COURIER_ARRIVED: 'delivery.status.COURIER_ARRIVED',
   DELIVERY_SCAN_SUCCESS: 'delivery.status.DELIVERY_SCAN_SUCCESS',
   AWAITING_BUYER_CONFIRMATION: 'delivery.status.AWAITING_BUYER_CONFIRMATION',
+  RETURNING_TO_SELLER: 'delivery.status.RETURNING_TO_SELLER',
+  RETURNED_TO_SELLER: 'delivery.status.RETURNED_TO_SELLER',
 }
 
 export function statusLabel(t: Translate, value: string | null | undefined): string {

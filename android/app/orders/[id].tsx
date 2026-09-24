@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { DeliveryPlanCard } from '../../src/components/DeliveryPlanCard'
+import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../../src/lib/deliveryPlan'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -28,9 +30,9 @@ import {
 } from '../../src/lib/paymentStatus'
 
 const POLL_INTERVAL = 15_000
-// Order state that is final: the buyer stops polling here.  Matches the web
-// TERMINAL_ORDER_STATUSES (a RECEIVED order is closed for the buyer).
-const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED', 'DELIVERED', 'RECEIVED']
+// Order state that is final: the buyer stops polling here. DELIVERED is not:
+// the buyer still has to acknowledge the items and confirm receipt.
+const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED', 'RECEIVED']
 // Delivery-level states that are terminal for this courier's work (FAILED can be
 // reassigned by an admin, so it is NOT a terminal order state).
 const TERMINAL_DELIVERY_STATUSES = ['DELIVERED', 'RECEIVED', 'COMPLETED', 'CANCELLED', 'FAILED', 'COURIER_REJECTED']
@@ -222,7 +224,8 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const canReceive = deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP'
   const currency = p?.currency || o.currency
   const canVerify = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '')
-  const canCancel = o.status === 'PENDING' || o.status === 'ACCEPTED'
+  const canCancel = buyerCanCancel(o.status, o.delivery_status, p?.status)
+  const paidBeforeHandover = isPaidBeforeHandover(o.status, o.delivery_status, p?.status)
 
   const history: OrderStatusHistory[] = t2?.history?.length ? [...t2.history].reverse() : (order.data.history ? [...order.data.history].reverse() : [])
   const steps = getDeliverySteps(deliveryMethod, t2?.current_status || '')
@@ -238,7 +241,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
     : history.map((h) => ({ status: h.status, event: h, done: true }))
 
   const confirmCancel = () => {
-    Alert.alert(t('orders.cancel'), t('orders.cancelBody'),[
+    Alert.alert(t('orders.cancel'), t(PARCEL_WITH_COURIER.includes(o.delivery_status || '') ? 'orders.cancelAskInDelivery' : 'orders.cancelAskBeforePickup'),[
       { text: t('orders.back'), style: 'cancel' },
       { text: t('orders.cancel'), style: 'destructive', onPress:()=>{ setActionError(''); cancelMutation.mutate() } },
     ])
@@ -254,6 +257,8 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
         {!isTerminal(o.status) && tracking.isFetching && <Text style={styles.hint}>{t('orders.updating')}</Text>}
       </Card>
+
+      <DeliveryPlanCard plan={o} status={o.status} deliveryStatus={o.delivery_status} deliveryMethod={deliveryMethod} />
 
       <Card>
         <Button
@@ -277,6 +282,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       <BuyerHandoverCard orderId={id!} deliveryStatus={o.delivery_status} onChanged={invalidate} />
       <MobilePaymentCard key={p?.id ?? 'none'} orderId={id!} payment={p} onChanged={invalidate} />
 
+      {paidBeforeHandover ? <Card><Text style={styles.hint}>{t('orders.cancelPaidNote')}</Text></Card> : null}
       {(canCancel || canReceive) && <Card>
         {canReceive && <Button title={t('orders.received')} loading={receiveMutation.isPending} onPress={()=>{ setActionError(''); receiveMutation.mutate() }}/>}
         {canCancel && <Button variant="outline" title={t('orders.cancel')} loading={cancelMutation.isPending} onPress={confirmCancel}/>}
