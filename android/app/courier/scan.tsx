@@ -164,7 +164,31 @@ export default function CourierScanScreen() {
     )
   }
 
-  if (!permission.granted) {
+  const scanning = outcome.kind === 'idle'
+
+  // Typing the printed code is the fallback when the camera cannot be used, so it
+  // must stay reachable when camera access is refused, not only once it is granted.
+  const manualEntry = (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.manual}>
+      <Text style={styles.body}>{t(scanType === 'PRODUCT' ? 'courier.manualCode' : 'courier.scan.manualLabel')}</Text>
+      <TextInput
+        value={manualCode}
+        onChangeText={setManualCode}
+        autoCapitalize={scanType === 'PRODUCT' ? 'characters' : 'none'}
+        autoCorrect={false}
+        placeholder={scanType === 'PRODUCT' ? 'PRD-… / VAR-…' : 'tbk.…'}
+        placeholderTextColor={c.muted}
+        style={styles.input}
+        onSubmitEditing={submitManual}
+        returnKeyType="done"
+      />
+      <Pressable style={[styles.primary, !manualCode.trim() && styles.disabled]} disabled={!manualCode.trim()} onPress={submitManual}>
+        <Text style={styles.primaryText}>{t('courier.verifyCode')}</Text>
+      </Pressable>
+    </KeyboardAvoidingView>
+  )
+
+  if (!permission.granted && scanning) {
     return (
       <View style={styles.center}>
         <Text style={styles.title}>{t('courier.scan.cameraRequired')}</Text>
@@ -172,15 +196,14 @@ export default function CourierScanScreen() {
         <Pressable style={styles.primary} onPress={() => void requestPermission()}>
           <Text style={styles.primaryText}>{t('courier.scan.allowCamera')}</Text>
         </Pressable>
+        {manualEntry}
       </View>
     )
   }
 
-  const scanning = outcome.kind === 'idle'
-
   return (
     <View style={styles.fill}>
-      {scanning && (
+      {scanning && permission.granted && (
         <CameraView
           style={StyleSheet.absoluteFill}
           facing="back"
@@ -202,25 +225,7 @@ export default function CourierScanScreen() {
 
         {scanning && <View style={styles.reticle} />}
 
-        {scanning && (
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.manual}>
-            <Text style={styles.body}>{t(scanType === 'PRODUCT' ? 'courier.manualCode' : 'courier.scan.manualLabel')}</Text>
-            <TextInput
-              value={manualCode}
-              onChangeText={setManualCode}
-              autoCapitalize={scanType === 'PRODUCT' ? 'characters' : 'none'}
-              autoCorrect={false}
-              placeholder={scanType === 'PRODUCT' ? 'PRD-… / VAR-…' : 'tbk.…'}
-              placeholderTextColor={c.muted}
-              style={styles.input}
-              onSubmitEditing={submitManual}
-              returnKeyType="done"
-            />
-            <Pressable style={[styles.primary, !manualCode.trim() && styles.disabled]} disabled={!manualCode.trim()} onPress={submitManual}>
-              <Text style={styles.primaryText}>{t('courier.verifyCode')}</Text>
-            </Pressable>
-          </KeyboardAvoidingView>
-        )}
+        {scanning && manualEntry}
 
         {outcome.kind === 'sending' && (
           <View style={styles.panel}>

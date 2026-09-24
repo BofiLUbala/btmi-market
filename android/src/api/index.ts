@@ -283,6 +283,7 @@ export const courierApi = {
   acceptMission: (orderId: string) => post(`/courier/missions/${orderId}/accept`, {}),
   rejectMission: (orderId: string, reason: string) => post(`/courier/missions/${orderId}/reject`, { order_id: orderId, reason }),
   failDelivery: (orderId: string, reason: string, notes: string) => post(`/courier/missions/${orderId}/fail`, { order_id: orderId, reason, notes }),
+  confirmPickup: (orderId: string) => post(`/courier/missions/${orderId}/pickup`, {}),
   startDelivery: (orderId: string) => post(`/courier/missions/${orderId}/start`, {}),
   arrive: (orderId: string) => post(`/courier/missions/${orderId}/arrive`, {}),
 

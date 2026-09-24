@@ -44,6 +44,18 @@ const FLOW_STEPS: Record<string, string[]> = {
   TBK_STANDARD: ['PENDING_TBK_ASSIGNMENT', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'RECEIVED'],
 }
 
+// Real rows carry several spellings of the TBK courier method.
+FLOW_STEPS.TBK_DELIVERY = FLOW_STEPS.TBK_STANDARD
+FLOW_STEPS.TBK = FLOW_STEPS.TBK_STANDARD
+
+// The tracking history records order statuses only. A courier step is dated by
+// the order transition that happens at the same moment.
+const HISTORY_ALIASES: Record<string, string> = {
+  READY_FOR_PICKUP: 'READY',
+  PICKED_UP: 'OUT_FOR_DELIVERY',
+  DELIVERY_SCAN_SUCCESS: 'DELIVERED',
+}
+
 function getDeliverySteps(method: string, currentStatus: string): string[] {
   const base = FLOW_STEPS[method] || [currentStatus]
   return base.includes(currentStatus) ? base : [...base, currentStatus]
@@ -214,12 +226,16 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
 
   const history: OrderStatusHistory[] = t2?.history?.length ? [...t2.history].reverse() : (order.data.history ? [...order.data.history].reverse() : [])
   const steps = getDeliverySteps(deliveryMethod, t2?.current_status || '')
-  const timeline = steps && t2
-    ? (steps.includes(t2.current_status) ? steps : [...steps, t2.current_status]).map((status) => ({
-        status,
-        event: history.find((h) => h.status === status),
-      }))
-    : history.map((h) => ({ status: h.status, event: h }))
+  // A step is done once the delivery has reached it, even when no history row
+  // dates it: the courier steps live in delivery_status, not in the history.
+  const reachedIndex = steps.indexOf(o.delivery_status || '')
+  const closed = ['RECEIVED', 'COMPLETED'].includes(o.status)
+  const timeline = t2
+    ? (steps.includes(t2.current_status) ? steps : [...steps, t2.current_status]).map((status, index) => {
+        const event = history.find((h) => h.status === status || h.status === HISTORY_ALIASES[status])
+        return { status, event, done: Boolean(event) || closed || (reachedIndex >= 0 && index <= reachedIndex) }
+      })
+    : history.map((h) => ({ status: h.status, event: h, done: true }))
 
   const confirmCancel = () => {
     Alert.alert(t('orders.cancel'), t('orders.cancelBody'),[
@@ -269,13 +285,13 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       {deliveryMethod ? <SectionTitle title={t('orders.liveTracking')}/> : null}
       <Card>{timeline.length ? timeline.map((step,i)=>(
         <View key={`${step.status}-${i}`} style={styles.timelineRow}>
-          <View style={[styles.dot, step.event && styles.dotDone]}/>
+          <View style={[styles.dot, step.done && styles.dotDone]}/>
           <View style={{flex:1}}>
-            <Text style={[styles.stepStatus, step.event && styles.stepDone]}>{statusLabel(t, step.status)}</Text>
+            <Text style={[styles.stepStatus, step.done && styles.stepDone]}>{statusLabel(t, step.status)}</Text>
             {step.event ? <>
               {step.event.notes ? <Text style={styles.muted}>{step.event.notes}</Text> : null}
               <Text style={styles.time}>{t(ACTOR_KEYS[step.event.actor_type || ''] ?? 'orders.actorSystem')} · {formatDateTime(step.event.created_at, lang)}</Text>
-            </> : <Text style={styles.time}>{t('orders.upcoming')}</Text>}
+            </> : step.done ? null : <Text style={styles.time}>{t('orders.upcoming')}</Text>}
           </View>
         </View>
       )) : <Text style={styles.muted}>{t('orders.historyUnavailable')}</Text>}</Card>

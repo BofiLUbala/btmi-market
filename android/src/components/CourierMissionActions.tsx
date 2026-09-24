@@ -31,9 +31,10 @@ export function MissionActions({ mission: m, compact = false }: { mission: Couri
   const [failNotes, setFailNotes] = useState('')
 
   const act = useMutation({
-    mutationFn: (action: 'accept' | 'reject' | 'start' | 'arrive' | 'fail') =>
+    mutationFn: (action: 'accept' | 'reject' | 'pickup' | 'start' | 'arrive' | 'fail') =>
       action === 'accept' ? courierApi.acceptMission(m.order_id)
         : action === 'reject' ? courierApi.rejectMission(m.order_id, reason.trim())
+          : action === 'pickup' ? courierApi.confirmPickup(m.order_id)
           : action === 'start' ? courierApi.startDelivery(m.order_id)
             : action === 'fail' ? courierApi.failDelivery(m.order_id, failReason.trim(), failNotes.trim())
               : courierApi.arrive(m.order_id),
@@ -60,7 +61,10 @@ export function MissionActions({ mission: m, compact = false }: { mission: Couri
         </> : <Button variant="outline" title={t('courier.reject')} onPress={() => setRejecting(true)} />}
       </> : null}
       {['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(status) && !canScanPickup ? <Text style={styles.muted}>{t('courier.waitSeller')}</Text> : null}
-      {canScanPickup ? <Button title={t('courier.scanPickup')} onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'PICKUP', order_id: m.order_id } })} /> : null}
+      {canScanPickup ? <>
+        <Button title={t('courier.confirmPickup')} loading={act.isPending} onPress={() => act.mutate('pickup')} />
+        <Button variant="outline" title={t('courier.scanPickup')} onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'PICKUP', order_id: m.order_id } })} />
+      </> : null}
       {status === 'PICKED_UP' ? <Button title={t('courier.startDelivery')} loading={act.isPending} onPress={() => act.mutate('start')} /> : null}
       {status === 'IN_TRANSIT' ? (
         <Button
