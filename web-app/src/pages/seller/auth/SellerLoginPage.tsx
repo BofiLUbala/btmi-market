@@ -23,7 +23,7 @@ export default function SellerLoginPage() {
     setError('')
     setBusy(true)
     try {
-      const result = await login(email.trim(), password)
+      const result = await login(email.trim(), password, 'seller')
       if (result.accountType === 'COURIER' || result.user?.capabilities?.courier) {
         navigate('/courier/dashboard', { replace: true })
       } else if (result.accountType === 'SELLER') {

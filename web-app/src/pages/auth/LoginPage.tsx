@@ -31,7 +31,7 @@ export default function LoginPage() {
     setErrorCode('')
     setBusy(true)
     try {
-      const session = await login(email.trim(), password)
+      const session = await login(email.trim(), password, 'buyer')
       if (session.accountType === 'COURIER' || session.user?.capabilities?.courier) {
         if (returnTo && returnTo.startsWith('/courier')) {
           navigate(returnTo, { replace: true })

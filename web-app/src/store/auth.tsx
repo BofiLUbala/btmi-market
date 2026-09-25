@@ -13,8 +13,15 @@ import { buyerApi } from '@/api/buyer'
 import { sellerAuthApi } from '@/api/seller'
 import type { BuyerProfile, User, AccountType, LoginResponseWithUser, SellerBusiness } from '@/api/types'
 
+/** The space a user holding both roles chose at sign-in. */
+export type ActiveMode = 'buyer' | 'seller'
+
 interface AuthState {
   user: User | null
+  /** Roles the account really holds, whatever space is active. */
+  roles: { buyer: boolean; seller: boolean }
+  activeMode: ActiveMode | null
+  switchMode: (mode: ActiveMode) => Promise<void>
   buyerProfile: BuyerProfile | null
   accountType: AccountType | null
   loading: boolean
@@ -22,7 +29,7 @@ interface AuthState {
   activeBusiness: SellerBusiness | null
   activeShop: string | null
   setActiveShop: (shopId: string | null) => void
-  login: (email: string, password: string) => Promise<{ accountType: AccountType; user: User }>
+  login: (email: string, password: string, mode?: ActiveMode) => Promise<{ accountType: AccountType; user: User }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   setActiveBusiness: (business: SellerBusiness | null) => void
@@ -33,6 +40,63 @@ const AuthContext = createContext<AuthState | null>(null)
 
 const ACTIVE_BUSINESS_KEY = 'btmi.activeBusiness'
 const ACTIVE_SHOP_KEY = 'btmi.activeShop'
+const ACTIVE_MODE_KEY = 'btmi.activeMode'
+
+function readStoredMode(): ActiveMode | null {
+  try {
+    const v = localStorage.getItem(ACTIVE_MODE_KEY)
+    return v === 'buyer' || v === 'seller' ? v : null
+  } catch {
+    return null
+  }
+}
+
+function storeMode(mode: ActiveMode | null) {
+  try {
+    if (mode) localStorage.setItem(ACTIVE_MODE_KEY, mode)
+    else localStorage.removeItem(ACTIVE_MODE_KEY)
+  } catch {
+    /* storage unavailable: the mode then lasts for this tab only */
+  }
+}
+
+export function accountRoles(me: User) {
+  const caps = me.capabilities
+  return {
+    buyer: !!caps?.buyer || me.account_type === 'BUYER',
+    seller: !!caps?.seller || !!caps?.seller_onboarding || me.account_type === 'SELLER',
+  }
+}
+
+/**
+ * A user can be buyer and seller with one account. Once they pick a space the
+ * rest of the app must see a single role, otherwise seller data, links and
+ * guards leak into the buyer space (and the reverse). Couriers and employees
+ * keep their own account model untouched.
+ */
+export function scopeUserToMode(me: User, mode: ActiveMode): User {
+  if (me.account_type === 'COURIER' || me.account_type === 'EMPLOYEE' || me.capabilities?.courier) return me
+  const roles = accountRoles(me)
+  if (!roles.buyer || !roles.seller) return me
+  const caps = me.capabilities ?? { buyer: false, seller: false, seller_onboarding: false }
+  return {
+    ...me,
+    account_type: mode === 'seller' ? 'SELLER' : 'BUYER',
+    capabilities: {
+      ...caps,
+      buyer: mode === 'buyer' && roles.buyer,
+      seller: mode === 'seller' && !!caps.seller,
+      seller_onboarding: mode === 'seller' && !!caps.seller_onboarding,
+    },
+  }
+}
+
+export function resolveMode(me: User, requested: ActiveMode | null): ActiveMode {
+  const roles = accountRoles(me)
+  if (requested === 'seller' && roles.seller) return 'seller'
+  if (requested === 'buyer' && roles.buyer) return 'buyer'
+  return me.account_type === 'SELLER' ? 'seller' : 'buyer'
+}
 
 export function isAdminRoute(pathname: string): boolean {
   return pathname === '/admin' || pathname.startsWith('/admin/')
@@ -42,6 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [buyerProfile, setBuyerProfile] = useState<BuyerProfile | null>(null)
   const [accountType, setAccountType] = useState<AccountType | null>(null)
+  const [roles, setRoles] = useState({ buyer: false, seller: false })
+  const [activeMode, setActiveMode] = useState<ActiveMode | null>(null)
   const [loading, setLoading] = useState(true)
   const [sellerBusinesses, setSellerBusinesses] = useState<SellerBusiness[]>([])
   const [activeBusiness, setActiveBusiness] = useState<SellerBusiness | null>(null)
@@ -51,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setBuyerProfile(null)
     setAccountType(null)
+    setRoles({ buyer: false, seller: false })
+    setActiveMode(null)
     setSellerBusinesses([])
     setActiveBusiness(null)
     setActiveShopState(null)
@@ -58,14 +126,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(ACTIVE_SHOP_KEY)
   }, [])
 
-  const loadSession = useCallback(async (): Promise<{ user: User; accountType: AccountType } | null> => {
+  const loadSession = useCallback(async (requestedMode?: ActiveMode): Promise<{ user: User; accountType: AccountType } | null> => {
     if (!tokenStore.getAccess() && !tokenStore.getRefresh()) {
       resetState()
       setLoading(false)
       return null
     }
     try {
-      const me = await authApi.me()
+      const account = await authApi.me()
+      const mode = resolveMode(account, requestedMode ?? readStoredMode())
+      storeMode(mode)
+      const me = scopeUserToMode(account, mode)
+      setRoles(accountRoles(account))
+      setActiveMode(mode)
       setUser(me)
       setAccountType(me.account_type)
 
@@ -132,9 +205,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadSession])
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, mode?: ActiveMode) => {
       // Reset current state prior to setting fresh credentials
       resetState()
+      storeMode(null)
 
       const res = await authApi.login(email, password) as LoginResponseWithUser
       tokenStore.set(res.access_token, res.refresh_token)
@@ -143,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // duplicating the branching here -- a user can be both BUYER and
       // SELLER, and capabilities (not the legacy account_type) is the
       // source of truth for which profiles/businesses to fetch.
-      const session = await loadSession()
+      const session = await loadSession(mode)
       if (!session) throw new Error('Login succeeded but session could not be established')
       return { accountType: session.accountType, user: session.user }
     },
@@ -158,8 +232,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
     tokenStore.clear()
+    storeMode(null)
     resetState()
   }, [resetState])
+
+  const switchMode = useCallback(
+    async (mode: ActiveMode) => {
+      setLoading(true)
+      await loadSession(mode)
+    },
+    [loadSession]
+  )
 
   const setActiveBusinessImpl = useCallback((business: SellerBusiness | null) => {
     setActiveBusiness(business)
@@ -183,6 +266,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      roles,
+      activeMode,
+      switchMode,
       buyerProfile,
       accountType,
       loading,
@@ -198,6 +284,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       user,
+      roles,
+      activeMode,
+      switchMode,
       buyerProfile,
       accountType,
       loading,
