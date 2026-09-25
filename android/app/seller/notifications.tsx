@@ -79,7 +79,7 @@ export default function SellerNotificationsScreen() {
     async (silent = false) => {
       if (!silent) setLoading(true)
       try {
-        const res = await fetchNotifications({ limit: 50, offset: 0 })
+        const res = await fetchNotifications({ limit: 50, offset: 0, audience: 'SELLER' })
         setItems(res.items || [])
         setError('')
       } catch (err) {
@@ -104,7 +104,7 @@ export default function SellerNotificationsScreen() {
   const handleMarkAll = async () => {
     setMarkingAll(true)
     try {
-      await markAllNotificationsRead()
+      await markAllNotificationsRead('SELLER')
       await load(true)
     } catch {
       // ignore

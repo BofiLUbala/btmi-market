@@ -171,7 +171,11 @@ export async function fetchSellerUnreadCounts(params?: {
 
 // ----------------- Notification APIs -----------------
 
-export async function fetchNotifications(params?: { limit?: number; offset?: number }): Promise<{
+// A user can be buyer and seller at once: each space asks only for its own
+// notifications so seller alerts never open buyer pages (and vice versa).
+export type NotificationAudience = 'BUYER' | 'SELLER' | 'COURIER'
+
+export async function fetchNotifications(params?: { limit?: number; offset?: number; audience?: NotificationAudience }): Promise<{
   items: NotificationItem[]
   total: number
   limit: number
@@ -189,12 +193,12 @@ export async function markNotificationRead(id: string): Promise<{ status: string
   return post<{ status: string }>(`/notifications/${id}/read`)
 }
 
-export async function markAllNotificationsRead(): Promise<{ status: string }> {
-  return post<{ status: string }>('/notifications/read-all')
+export async function markAllNotificationsRead(audience?: NotificationAudience): Promise<{ status: string }> {
+  return post<{ status: string }>(audience ? `/notifications/read-all?audience=${audience}` : '/notifications/read-all')
 }
 
-export async function fetchUnreadNotificationsCount(): Promise<{ unread_count: number }> {
-  return get<{ unread_count: number }>('/notifications/unread-count')
+export async function fetchUnreadNotificationsCount(audience?: NotificationAudience): Promise<{ unread_count: number }> {
+  return get<{ unread_count: number }>('/notifications/unread-count', audience ? { audience } : undefined)
 }
 
 // ----------------- Courier Action APIs -----------------

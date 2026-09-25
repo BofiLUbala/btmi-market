@@ -344,6 +344,7 @@ func (s *CommunicationService) SendMessage(
 						"order_number":    orderNum,
 						"conversation_id": conv.ID.String(),
 						"sender_type":     string(senderType),
+						"audience":        repository.NotificationAudienceSeller,
 					},
 				})
 			}
@@ -361,6 +362,7 @@ func (s *CommunicationService) SendMessage(
 					"order_number":    orderNum,
 					"conversation_id": conv.ID.String(),
 					"sender_type":     string(senderType),
+					"audience":        repository.NotificationAudienceBuyer,
 				},
 			})
 		}
@@ -472,7 +474,7 @@ func (s *CommunicationService) GetBuyerUnreadCounts(buyerUserID uuid.UUID) (*mod
 	if err != nil {
 		unreadMsgs = 0
 	}
-	unreadNotifs, err := s.notifRepo.GetUnreadCount(buyerUserID)
+	unreadNotifs, err := s.notifRepo.GetUnreadCountForAudience(buyerUserID, repository.NotificationAudienceBuyer)
 	if err != nil {
 		unreadNotifs = 0
 	}
@@ -495,7 +497,7 @@ func (s *CommunicationService) GetSellerUnreadCounts(sellerUserID uuid.UUID, sho
 	if err != nil {
 		unreadMsgs = 0
 	}
-	unreadNotifs, err := s.notifRepo.GetUnreadCount(sellerUserID)
+	unreadNotifs, err := s.notifRepo.GetUnreadCountForAudience(sellerUserID, repository.NotificationAudienceSeller)
 	if err != nil {
 		unreadNotifs = 0
 	}
@@ -769,7 +771,7 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 			Body:          buyerBody,
 			ReferenceType: "ORDER",
 			ReferenceID:   order.ID,
-			Metadata:      meta,
+			Metadata:      withAudience(meta, repository.NotificationAudienceBuyer),
 		}, dedupWindow)
 	}
 
@@ -782,7 +784,7 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 				Body:          sellerBody,
 				ReferenceType: "ORDER",
 				ReferenceID:   order.ID,
-				Metadata:      meta,
+				Metadata:      withAudience(meta, repository.NotificationAudienceSeller),
 			}, dedupWindow)
 		}
 	}
@@ -795,7 +797,7 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 			Body:          courierBody,
 			ReferenceType: "ORDER",
 			ReferenceID:   order.ID,
-			Metadata:      meta,
+			Metadata:      withAudience(meta, repository.NotificationAudienceCourier),
 		}, dedupWindow)
 	}
 
@@ -808,12 +810,24 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 				Body:          adminBody,
 				ReferenceType: "ORDER",
 				ReferenceID:   order.ID,
-				Metadata:      meta,
+				Metadata:      withAudience(meta, repository.NotificationAudienceAdmin),
 			}, dedupWindow)
 		}
 	}
 
 	return nil
+}
+
+// withAudience copies the shared event metadata and records which role the
+// notification is written for. A user can be buyer and seller at once, and
+// each space must only list (and link to) its own notifications.
+func withAudience(meta map[string]interface{}, audience string) map[string]interface{} {
+	out := make(map[string]interface{}, len(meta)+1)
+	for k, v := range meta {
+		out[k] = v
+	}
+	out["audience"] = audience
+	return out
 }
 
 // ConfirmCourierArrival updates the delivery status to COURIER_ARRIVED and notifies the buyer.
@@ -847,8 +861,13 @@ func (s *CommunicationService) ConfirmCourierNearDestination(orderID uuid.UUID, 
 }
 
 // GetUserNotifications returns paginated notifications for the user.
-func (s *CommunicationService) GetUserNotifications(userID uuid.UUID, limit, offset int) ([]models.NotificationResponse, int, error) {
-	return s.notifRepo.GetByUserID(userID, limit, offset)
+func (s *CommunicationService) GetUserNotifications(userID uuid.UUID, audience string, limit, offset int) ([]models.NotificationResponse, int, error) {
+	return s.notifRepo.GetByUserIDForAudience(userID, audience, limit, offset)
+}
+
+// GetUnreadNotificationCount counts unread notifications for one audience.
+func (s *CommunicationService) GetUnreadNotificationCount(userID uuid.UUID, audience string) (int, error) {
+	return s.notifRepo.GetUnreadCountForAudience(userID, audience)
 }
 
 // MarkNotificationAsRead marks a notification as read.
@@ -857,8 +876,8 @@ func (s *CommunicationService) MarkNotificationAsRead(id, userID uuid.UUID) erro
 }
 
 // MarkAllNotificationsAsRead marks all notifications as read.
-func (s *CommunicationService) MarkAllNotificationsAsRead(userID uuid.UUID) error {
-	return s.notifRepo.MarkAllAsRead(userID)
+func (s *CommunicationService) MarkAllNotificationsAsRead(userID uuid.UUID, audience string) error {
+	return s.notifRepo.MarkAllAsReadForAudience(userID, audience)
 }
 
 // GetAdminNotifications returns paginated notifications for an admin.

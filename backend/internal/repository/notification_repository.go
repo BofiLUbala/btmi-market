@@ -208,3 +208,91 @@ func (r *NotificationRepository) CreateIfUnique(notif *models.Notification, wind
 	}
 	return true, nil
 }
+
+// Notification audiences. One user can hold several roles (a seller is often a
+// buyer too), so every notification records which space it belongs to.
+const (
+	NotificationAudienceBuyer   = "BUYER"
+	NotificationAudienceSeller  = "SELLER"
+	NotificationAudienceCourier = "COURIER"
+	NotificationAudienceAdmin   = "ADMIN"
+)
+
+// audienceFilter returns a SQL condition on alias n restricting notifications to
+// one audience. Notifications written before the audience tag existed are
+// classified from their order: the buyer space keeps orders the user bought,
+// the seller space keeps orders of businesses the user belongs to. An empty or
+// unknown audience applies no filter.
+func audienceFilter(audience string) string {
+	switch audience {
+	case NotificationAudienceBuyer:
+		return ` AND (n.metadata->>'audience' = 'BUYER' OR (n.metadata->>'audience' IS NULL AND EXISTS (
+			SELECT 1 FROM orders o JOIN buyer_profiles bp ON bp.id = o.buyer_profile_id
+			WHERE o.id = n.reference_id AND bp.user_id = n.user_id)))`
+	case NotificationAudienceSeller:
+		return ` AND (n.metadata->>'audience' = 'SELLER' OR (n.metadata->>'audience' IS NULL AND EXISTS (
+			SELECT 1 FROM orders o JOIN business_memberships bm ON bm.business_id = o.business_id
+			WHERE o.id = n.reference_id AND bm.user_id = n.user_id)))`
+	case NotificationAudienceCourier:
+		return ` AND (n.metadata->>'audience' = 'COURIER' OR (n.metadata->>'audience' IS NULL AND EXISTS (
+			SELECT 1 FROM orders o WHERE o.id = n.reference_id AND o.assigned_courier_id = n.user_id)))`
+	}
+	return ""
+}
+
+// GetByUserIDForAudience lists a user's notifications for one audience.
+func (r *NotificationRepository) GetByUserIDForAudience(userID uuid.UUID, audience string, limit, offset int) ([]models.NotificationResponse, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	filter := audienceFilter(audience)
+
+	var total int
+	if err := r.db.QueryRow(`SELECT COUNT(*) FROM notifications n WHERE n.user_id = $1`+filter, userID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.db.Query(`
+		SELECT n.id, n.type, n.title, n.body, n.reference_type, n.reference_id, n.metadata, n.read_at, n.created_at
+		FROM notifications n
+		WHERE n.user_id = $1`+filter+`
+		ORDER BY n.created_at DESC
+		LIMIT $2 OFFSET $3`, userID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query notifications: %w", err)
+	}
+	defer rows.Close()
+
+	var notifs []models.NotificationResponse
+	for rows.Next() {
+		var n models.NotificationResponse
+		var refID uuid.UUID
+		var metaRaw []byte
+		var readAt sql.NullTime
+		if err := rows.Scan(&n.ID, &n.Type, &n.Title, &n.Body, &n.ReferenceType, &refID, &metaRaw, &readAt, &n.CreatedAt); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan notification: %w", err)
+		}
+		n.ReferenceID = refID.String()
+		n.Metadata = models.JSONToMetadata(metaRaw)
+		if readAt.Valid {
+			t := readAt.Time
+			n.ReadAt = &t
+			n.IsRead = true
+		}
+		notifs = append(notifs, n)
+	}
+	return notifs, total, rows.Err()
+}
+
+// GetUnreadCountForAudience counts a user's unread notifications for one audience.
+func (r *NotificationRepository) GetUnreadCountForAudience(userID uuid.UUID, audience string) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM notifications n WHERE n.user_id = $1 AND n.read_at IS NULL`+audienceFilter(audience), userID).Scan(&count)
+	return count, err
+}
+
+// MarkAllAsReadForAudience marks one audience's unread notifications as read.
+func (r *NotificationRepository) MarkAllAsReadForAudience(userID uuid.UUID, audience string) error {
+	_, err := r.db.Exec(`UPDATE notifications n SET read_at = NOW() WHERE n.user_id = $1 AND n.read_at IS NULL`+audienceFilter(audience), userID)
+	return err
+}

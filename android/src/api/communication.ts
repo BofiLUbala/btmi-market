@@ -172,7 +172,11 @@ export async function fetchSellerUnreadCounts(params?: {
 
 // ----------------- Notification APIs -----------------
 
-export async function fetchNotifications(params?: { limit?: number; offset?: number }): Promise<{
+// A user can be buyer and seller at once: each space asks only for its own
+// notifications so seller alerts never open buyer screens (and vice versa).
+export type NotificationAudience = 'BUYER' | 'SELLER' | 'COURIER'
+
+export async function fetchNotifications(params?: { limit?: number; offset?: number; audience?: NotificationAudience }): Promise<{
   items: NotificationItem[]
   total: number
   limit: number
@@ -181,6 +185,7 @@ export async function fetchNotifications(params?: { limit?: number; offset?: num
   const qs = new URLSearchParams()
   if (params?.limit) qs.set('limit', String(params.limit))
   if (params?.offset) qs.set('offset', String(params.offset))
+  if (params?.audience) qs.set('audience', params.audience)
   const q = qs.toString()
   return get<{
     items: NotificationItem[]
@@ -194,8 +199,8 @@ export async function markNotificationRead(id: string): Promise<{ status: string
   return post<{ status: string }>(`/notifications/${id}/read`)
 }
 
-export async function markAllNotificationsRead(): Promise<{ status: string }> {
-  return post<{ status: string }>('/notifications/read-all')
+export async function markAllNotificationsRead(audience?: NotificationAudience): Promise<{ status: string }> {
+  return post<{ status: string }>(audience ? `/notifications/read-all?audience=${audience}` : '/notifications/read-all')
 }
 
 export async function fetchUnreadNotificationsCount(): Promise<{ unread_count: number }> {

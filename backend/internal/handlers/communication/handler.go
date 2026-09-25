@@ -3,6 +3,7 @@ package communication
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
@@ -348,7 +349,7 @@ func (h *Handler) GetUserNotifications(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	notifs, total, err := h.commService.GetUserNotifications(userID, limit, offset)
+	notifs, total, err := h.commService.GetUserNotifications(userID, notificationAudience(c), limit, offset)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "NOTIFICATIONS_FAILED", err.Error())
 		return
@@ -397,12 +398,23 @@ func (h *Handler) MarkAllNotificationsRead(c *gin.Context) {
 		return
 	}
 
-	if err := h.commService.MarkAllNotificationsAsRead(userID); err != nil {
+	if err := h.commService.MarkAllNotificationsAsRead(userID, notificationAudience(c)); err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "MARK_ALL_READ_FAILED", err.Error())
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// notificationAudience reads ?audience=BUYER|SELLER|COURIER so a user holding
+// several roles only sees the notifications of the space they are signed in to.
+// Without the parameter every notification is returned, as before.
+func notificationAudience(c *gin.Context) string {
+	switch audience := strings.ToUpper(c.Query("audience")); audience {
+	case repository.NotificationAudienceBuyer, repository.NotificationAudienceSeller, repository.NotificationAudienceCourier:
+		return audience
+	}
+	return ""
 }
 
 // GetUnreadNotificationsCount handles GET /api/v1/notifications/unread-count
@@ -412,14 +424,14 @@ func (h *Handler) GetUnreadNotificationsCount(c *gin.Context) {
 		return
 	}
 
-	counts, err := h.commService.GetBuyerUnreadCounts(userID)
+	count, err := h.commService.GetUnreadNotificationCount(userID, notificationAudience(c))
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "UNREAD_COUNT_FAILED", err.Error())
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"unread_count": counts.UnreadNotifications,
+		"unread_count": count,
 	})
 }
 

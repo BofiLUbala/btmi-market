@@ -67,7 +67,7 @@ export default function SellerNotificationsPage() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const res = await fetchNotifications({ limit: 50, offset: 0 })
+      const res = await fetchNotifications({ limit: 50, offset: 0, audience: 'SELLER' })
       setItems(res.items || [])
       setError('')
     } catch (err) {
@@ -84,7 +84,7 @@ export default function SellerNotificationsPage() {
   const handleMarkAll = async () => {
     setMarkingAll(true)
     try {
-      await markAllNotificationsRead()
+      await markAllNotificationsRead('SELLER')
       await load(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'))
