@@ -19,7 +19,6 @@ const NAV: { key: TranslationKey; path: string }[] = [
   { key: 'seller.messages', path: '/seller/messages' },
   { key: 'seller.notifications', path: '/seller/notifications' },
   { key: 'seller.customers', path: '/seller/customers' },
-  { key: 'seller.cash', path: '/seller/cash' },
   { key: 'seller.growth', path: '/seller/growth' },
   { key: 'seller.reviews', path: '/seller/reviews' },
 ]
