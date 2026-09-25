@@ -38,8 +38,8 @@ export default function SellerShopsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState({
     name: '', type: 'PHYSICAL', province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', address: '', phone: '',
-    supports_shop_delivery: false, shop_delivery_fee: 0,
-    supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
+    supports_shop_delivery: false,
+    supports_partner_delivery: false, partner_delivery_provider: '',
     delivery_city: '', delivery_address: '',
   })
   const [creating, setCreating] = useState(false)
@@ -118,8 +118,8 @@ export default function SellerShopsPage() {
       setShowCreate(false)
       setCreateForm({
         name: '', type: 'PHYSICAL', province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', address: '', phone: '',
-        supports_shop_delivery: false, shop_delivery_fee: 0,
-        supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
+        supports_shop_delivery: false,
+        supports_partner_delivery: false, partner_delivery_provider: '',
         delivery_city: '', delivery_address: '',
       })
       await loadShops()
@@ -223,9 +223,6 @@ export default function SellerShopsPage() {
               <input type="checkbox" checked={createForm.supports_shop_delivery} onChange={(e) => setCreateForm({ ...createForm, supports_shop_delivery: e.target.checked })} />
               {t('seller.shopPage.shopDeliversItself')}
             </label>
-            {createForm.supports_shop_delivery && (
-              <Field label={t('seller.shopPage.selfDeliveryFee')} name="shop_delivery_fee" type="number" value={createForm.shop_delivery_fee} onChange={(e) => setCreateForm({ ...createForm, shop_delivery_fee: Number(e.target.value) })} />
-            )}
 
             <label className="checkbox-row">
               <input type="checkbox" checked={createForm.supports_partner_delivery} onChange={(e) => setCreateForm({ ...createForm, supports_partner_delivery: e.target.checked })} />
@@ -233,7 +230,6 @@ export default function SellerShopsPage() {
             </label>
             {createForm.supports_partner_delivery && (
               <>
-                <Field label={t('seller.shopPage.partnerFee')} name="partner_delivery_fee" type="number" value={createForm.partner_delivery_fee} onChange={(e) => setCreateForm({ ...createForm, partner_delivery_fee: Number(e.target.value) })} />
                 <Field label={t('seller.shopPage.partnerName')} name="partner_delivery_provider" value={createForm.partner_delivery_provider} onChange={(e) => setCreateForm({ ...createForm, partner_delivery_provider: e.target.value })} />
               </>
             )}
@@ -272,9 +268,6 @@ export default function SellerShopsPage() {
               <input type="checkbox" checked={!!editForm.supports_shop_delivery} onChange={(e) => setEditForm({ ...editForm, supports_shop_delivery: e.target.checked })} />
               {t('seller.shopPage.shopDeliversItself')}
             </label>
-            {editForm.supports_shop_delivery && (
-              <Field label={t('seller.shopPage.selfDeliveryFee')} name="edit_shop_delivery_fee" type="number" value={editForm.shop_delivery_fee ?? 0} onChange={(e) => setEditForm({ ...editForm, shop_delivery_fee: Number(e.target.value) })} />
-            )}
 
             <label className="checkbox-row">
               <input type="checkbox" checked={!!editForm.supports_partner_delivery} onChange={(e) => setEditForm({ ...editForm, supports_partner_delivery: e.target.checked })} />
@@ -282,7 +275,6 @@ export default function SellerShopsPage() {
             </label>
             {editForm.supports_partner_delivery && (
               <>
-                <Field label={t('seller.shopPage.partnerFee')} name="edit_partner_delivery_fee" type="number" value={editForm.partner_delivery_fee ?? 0} onChange={(e) => setEditForm({ ...editForm, partner_delivery_fee: Number(e.target.value) })} />
                 <Field label={t('seller.shopPage.partnerName')} name="edit_partner_delivery_provider" value={editForm.partner_delivery_provider ?? ''} onChange={(e) => setEditForm({ ...editForm, partner_delivery_provider: e.target.value })} />
               </>
             )}

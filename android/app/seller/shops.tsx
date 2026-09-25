@@ -14,8 +14,8 @@ import type { CreateShopRequest, Shop, UpdateShopRequest } from '../../src/types
 const emptyForm: CreateShopRequest = {
   name: '', type: 'PHYSICAL', phone: '',
   province: '', city: '', commune: '', street: '', building_number: '', address: '',
-  supports_shop_delivery: false, shop_delivery_fee: 0,
-  supports_partner_delivery: false, partner_delivery_fee: 0, partner_delivery_provider: '',
+  supports_shop_delivery: false,
+  supports_partner_delivery: false, partner_delivery_provider: '',
   delivery_city: '', delivery_address: '',
 }
 
@@ -108,9 +108,7 @@ export default function SellerShopsScreen() {
     setEditForm({
       name: shop.name,
       supports_shop_delivery: shop.supports_shop_delivery,
-      shop_delivery_fee: shop.shop_delivery_fee,
       supports_partner_delivery: shop.supports_partner_delivery,
-      partner_delivery_fee: shop.partner_delivery_fee,
       partner_delivery_provider: shop.partner_delivery_provider ?? '',
       delivery_city: shop.delivery_city ?? '',
       delivery_address: shop.delivery_address ?? '',
@@ -197,7 +195,7 @@ export default function SellerShopsScreen() {
 }
 
 type S = ReturnType<typeof makeStyles>
-type DeliveryFields = Pick<UpdateShopRequest, 'supports_shop_delivery' | 'shop_delivery_fee' | 'supports_partner_delivery' | 'partner_delivery_fee' | 'partner_delivery_provider' | 'delivery_city' | 'delivery_address'>
+type DeliveryFields = Pick<UpdateShopRequest, 'supports_shop_delivery' | 'supports_partner_delivery' | 'partner_delivery_provider' | 'delivery_city' | 'delivery_address'>
 
 /** Shared by the create and settings forms, mirroring web where both render
  *  the same delivery block. Without it a shop created on mobile would carry no
@@ -209,11 +207,9 @@ function DeliverySection({ value, onChange, showDesc, colors, styles, t }: { val
     {showDesc && <Text style={styles.small}>{t('seller.shops.deliveryOptionsDesc')}</Text>}
 
     <CheckRow label={t('seller.shops.shopDeliversItself')} checked={!!value.supports_shop_delivery} onToggle={() => onChange({ supports_shop_delivery: !value.supports_shop_delivery })} styles={styles} />
-    {value.supports_shop_delivery && <Field label={t('seller.shops.selfDeliveryFee')} value={String(value.shop_delivery_fee ?? 0)} onChangeText={(v) => onChange({ shop_delivery_fee: Number(v.replace(/[^0-9]/g, '')) || 0 })} keyboardType="numeric" />}
 
     <CheckRow label={t('seller.shops.usesPartner')} checked={!!value.supports_partner_delivery} onToggle={() => onChange({ supports_partner_delivery: !value.supports_partner_delivery })} styles={styles} />
     {value.supports_partner_delivery && <>
-      <Field label={t('seller.shops.partnerFee')} value={String(value.partner_delivery_fee ?? 0)} onChangeText={(v) => onChange({ partner_delivery_fee: Number(v.replace(/[^0-9]/g, '')) || 0 })} keyboardType="numeric" />
       <Field label={t('seller.shops.partnerName')} value={value.partner_delivery_provider ?? ''} onChangeText={(v) => onChange({ partner_delivery_provider: v })} autoCapitalize="words" />
     </>}
 

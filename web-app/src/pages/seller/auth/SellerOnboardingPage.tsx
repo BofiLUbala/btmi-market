@@ -47,9 +47,7 @@ export default function SellerOnboardingPage() {
     province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', address: '',
     phone: '',
     supports_shop_delivery: false,
-    shop_delivery_fee: 0,
     supports_partner_delivery: false,
-    partner_delivery_fee: 0,
     partner_delivery_provider: '',
     delivery_city: '',
     delivery_address: '',
@@ -259,15 +257,6 @@ export default function SellerOnboardingPage() {
                   />
                   <span>{t('seller.onboarding.shopProvidesDelivery')}</span>
                 </label>
-                {shopForm.supports_shop_delivery && (
-                  <Field
-                    label={t('seller.onboarding.shopDeliveryFee')}
-                    name="shop_delivery_fee"
-                    type="number"
-                    value={String(shopForm.shop_delivery_fee)}
-                    onChange={(e) => updateShop('shop_delivery_fee', Number(e.target.value))}
-                  />
-                )}
                 <label className="checkbox-row">
                   <input
                     type="checkbox"
@@ -278,13 +267,6 @@ export default function SellerOnboardingPage() {
                 </label>
                 {shopForm.supports_partner_delivery && (
                   <>
-                    <Field
-                      label={t('seller.onboarding.partnerDeliveryFee')}
-                      name="partner_delivery_fee"
-                      type="number"
-                      value={String(shopForm.partner_delivery_fee)}
-                      onChange={(e) => updateShop('partner_delivery_fee', Number(e.target.value))}
-                    />
                     <Field
                       label={t('seller.onboarding.partnerProvider')}
                       name="partner_delivery_provider"

@@ -68,6 +68,12 @@ function newDraftId() {
     : `vd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+export function newProductIdempotencyKey() {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `pc-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 function emptyVariantDraft(price = ''): VariantDraft {
   return { clientId: newDraftId(), sku: '', attributes: {}, price, stock: '0' }
 }
@@ -141,11 +147,7 @@ export default function SellerProductCreatePage() {
   /* One key per visit to this page. Retrying a create that the server already
      committed -- but whose response never arrived -- replays onto the same
      product instead of making a second one. */
-  const idempotencyKeyRef = useRef<string>(
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `pc-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  )
+  const idempotencyKeyRef = useRef<string>(newProductIdempotencyKey())
   const [partialFailure, setPartialFailure] = useState<{ stage: string; message: string } | null>(null)
   const [summary, setSummary] = useState<null | {
     productId: string
@@ -764,6 +766,10 @@ export default function SellerProductCreatePage() {
 
   function resetForAnother() {
     progressRef.current = { resolvedVariants: [], uploadedImages: 0, stockDone: false, published: false }
+    // A key identifies one logical Product creation attempt. Reusing it after
+    // "create another" makes the API return the previously-created Product.
+    // Fresh forms get a fresh key; retries intentionally retain the same one.
+    idempotencyKeyRef.current = newProductIdempotencyKey()
     setSummary(null)
     setCategoryId('')
     setSubcategoryId('')
