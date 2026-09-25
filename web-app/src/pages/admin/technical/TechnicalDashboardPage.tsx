@@ -136,8 +136,8 @@ export default function TechnicalDashboardPage() {
     }
   }, [editingVersion])
 
-  const loadAll = useCallback(async () => {
-    setLoading(true)
+  const loadAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [kpisRes, healthRes, dbRes, redisRes, workersRes, failedRes, emailRes, migrRes, sessRes, secRes, versRes] = await Promise.allSettled([
         adminTechnicalApi.getOverview(),
@@ -164,11 +164,20 @@ export default function TechnicalDashboardPage() {
       if (secRes.status === 'fulfilled') setSecurityEvents(secRes.value.events ?? [])
       if (versRes.status === 'fulfilled') setVersions(versRes.value.versions ?? [])
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => {
+    void loadAll()
+    const refresh = () => { if (document.visibilityState === 'visible') void loadAll(true) }
+    const timer = window.setInterval(refresh, 30_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [loadAll])
 
   const handleRevokeSession = async (sessionId: string, adminEmail: string) => {
     const reason = window.prompt(t('admin.technical.revokeSessionPrompt', { email: adminEmail }))
@@ -237,7 +246,7 @@ export default function TechnicalDashboardPage() {
           <p>{t('admin.technical.subtitle')}</p>
         </div>
         <div className="admin-page-actions">
-          <button className="admin-button" onClick={loadAll} disabled={loading}>
+          <button className="admin-button" onClick={() => void loadAll()} disabled={loading}>
             {loading ? t('admin.technical.loadingEllipsis') : t('admin.technical.refreshAll')}
           </button>
         </div>

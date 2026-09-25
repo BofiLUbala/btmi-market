@@ -1220,6 +1220,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   /* ── Admin: commerce ─────────────────────────────────────── */
   'admin.commerce.header': '📦 Commerce & Operations',
   'admin.commerce.sub': 'Rapid order lookup, stuck order alerts, and catalog triage.',
+  'admin.commerce.ordersToday': 'Orders today',
+  'admin.commerce.catalogPublished': 'Published products / total',
   'admin.commerce.accessDeniedBody': 'Your role is not authorized to access Commerce & Operations.',
   'admin.commerce.monitorsTitle': 'Live Operational Monitors',
   'admin.commerce.stuckOrders': 'Stuck Orders Alert:',

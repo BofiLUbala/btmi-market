@@ -174,8 +174,13 @@ export default function FinanceDashboardPage() {
   // tabs are worked on interactively and would fight a background reload.
   useEffect(() => {
     if (tab !== 'overview') return
-    const timer = window.setInterval(() => { void loadTabContent() }, 30_000)
-    return () => window.clearInterval(timer)
+    const refresh = () => { if (document.visibilityState === 'visible') void loadTabContent() }
+    const timer = window.setInterval(refresh, 30_000)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refresh)
+    }
   }, [tab, dateRange, customFrom, customTo, breakdownGroup, financePaymentStatus, financeCommissionStatus])
 
   // Maps a preset date range to date_from/date_to query params (inclusive,

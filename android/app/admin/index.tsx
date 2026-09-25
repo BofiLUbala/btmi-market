@@ -41,8 +41,8 @@ export default function MobileDirectionScreen() {
   // Audit Logs
   const [recentLogs, setRecentLogs] = useState<AdminAuditLog[]>([])
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [overviewData, auditData] = await Promise.all([
         mobileAdminDirectionApi.getOverview(),
@@ -53,7 +53,7 @@ export default function MobileDirectionScreen() {
     } catch (err) {
       console.error('Failed to load mobile direction data:', err)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -66,6 +66,12 @@ export default function MobileDirectionScreen() {
       }
     })
   }, [admin, bootstrap, loadData, router])
+
+  useEffect(() => {
+    if (!admin) return
+    const timer = setInterval(() => { void loadData(true) }, 30_000)
+    return () => clearInterval(timer)
+  }, [admin, loadData])
 
   const handleSearchUser = async () => {
     if (!userQuery.trim()) return

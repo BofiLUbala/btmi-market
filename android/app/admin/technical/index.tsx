@@ -1,12 +1,24 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../src/store/adminAuth'
 import { useI18n } from '../../../src/store/i18n'
+import { mobileAdminTechnicalApi, type TechnicalOverviewKPIs } from '../../../src/api/admin'
 
 export default function MobileTechnicalScreen() {
   const router = useRouter()
   const { hasRole } = useAdminAuth()
   const { t } = useI18n()
+  const [overview, setOverview] = useState<TechnicalOverviewKPIs | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const load = useCallback(async () => {
+    try { setOverview(await mobileAdminTechnicalApi.getOverview()) }
+    catch (error) { console.error('Failed to refresh technical overview', error) }
+    finally { setLoading(false); setRefreshing(false) }
+  }, [])
+  useEffect(() => { void load(); const timer = setInterval(() => { void load() }, 30_000); return () => clearInterval(timer) }, [load])
+  const statusColor = (status?: string) => status === 'HEALTHY' || status === 'UP_TO_DATE' ? '#10b981' : status === 'DOWN' || status === 'CRITICAL' ? '#ef4444' : '#f59e0b'
 
   if (!hasRole(['TECHNICAL_ADMIN', 'SUPER_ADMIN'])) {
     return (
@@ -22,7 +34,7 @@ export default function MobileTechnicalScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} tintColor="#2dd4bf" />}>
       <View style={styles.banner}>
         <Text style={styles.bannerTitle}>{t('admin.technical.header')}</Text>
         <Text style={styles.bannerSub}>{t('admin.technical.sub')}</Text>
@@ -30,41 +42,21 @@ export default function MobileTechnicalScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t('admin.technical.componentHealth')}</Text>
-        <View style={styles.componentRow}>
-          <Text style={styles.componentName}>{t('admin.technical.apiEngine')}</Text>
+        {loading && <ActivityIndicator color="#2dd4bf" />}
+        {([
+          [t('admin.technical.apiEngine'), overview?.api_status],
+          [t('admin.technical.postgres'), overview?.db_status],
+          [t('admin.technical.redis'), overview?.redis_status],
+          [t('admin.technical.asynq'), overview?.worker_status],
+        ] as Array<[string, string | undefined]>).map(([label, status]) => (
+        <View key={label} style={styles.componentRow}>
+          <Text style={styles.componentName}>{label}</Text>
           <View style={styles.statusBadge}>
-            <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
+            <View style={[styles.dot, { backgroundColor: statusColor(status) }]} />
+            <Text style={styles.statusText}>{status ?? '—'}</Text>
           </View>
         </View>
-        <View style={styles.componentRow}>
-          <Text style={styles.componentName}>{t('admin.technical.postgres')}</Text>
-          <View style={styles.statusBadge}>
-            <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
-          </View>
-        </View>
-        <View style={styles.componentRow}>
-          <Text style={styles.componentName}>{t('admin.technical.redis')}</Text>
-          <View style={styles.statusBadge}>
-            <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
-          </View>
-        </View>
-        <View style={styles.componentRow}>
-          <Text style={styles.componentName}>{t('admin.technical.asynq')}</Text>
-          <View style={styles.statusBadge}>
-            <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
-          </View>
-        </View>
-        <View style={styles.componentRow}>
-          <Text style={styles.componentName}>{t('admin.technical.visualSearch')}</Text>
-          <View style={styles.statusBadge}>
-            <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.statusText}>{t('admin.technical.online')}</Text>
-          </View>
-        </View>
+        ))}
       </View>
 
       <TouchableOpacity style={styles.card} onPress={() => router.push('/admin/technical/config')}>

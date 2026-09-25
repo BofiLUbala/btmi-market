@@ -19,11 +19,13 @@ export default function MobileFinanceScreen() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchFinanceData()
+    void fetchFinanceData()
+    const timer = setInterval(() => { void fetchFinanceData(true) }, 30_000)
+    return () => clearInterval(timer)
   }, [])
 
-  const fetchFinanceData = async () => {
-    setLoading(true)
+  const fetchFinanceData = async (silent = false) => {
+    if (!silent) setLoading(true)
     setError(null)
     try {
       const sum = await mobileAdminFinanceApi.getSummary()
@@ -40,7 +42,7 @@ export default function MobileFinanceScreen() {
     } catch (err: any) {
       setError(err?.message || t('admin.finance.connectFailed'))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
       setRefreshing(false)
     }
   }
@@ -62,7 +64,7 @@ export default function MobileFinanceScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ padding: 16 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchFinanceData() }} tintColor="#fbbf24" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void fetchFinanceData() }} tintColor="#fbbf24" />}
     >
       <View style={styles.banner}>
         <Text style={styles.bannerTitle}>{t('admin.finance.header')}</Text>

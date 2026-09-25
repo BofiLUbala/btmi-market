@@ -146,6 +146,21 @@ export default function DirectionDashboardPage() {
     }
   }, [activeTab, loadUsers, loadAuditLogs])
 
+  useEffect(() => {
+    const refreshActiveData = () => {
+      if (document.visibilityState !== 'visible') return
+      void loadOverviewStats()
+      if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') void loadUsers()
+      if (activeTab === 'audit') void loadAuditLogs()
+    }
+    document.addEventListener('visibilitychange', refreshActiveData)
+    const timer = window.setInterval(refreshActiveData, 30_000)
+    return () => {
+      document.removeEventListener('visibilitychange', refreshActiveData)
+      window.clearInterval(timer)
+    }
+  }, [activeTab, loadAuditLogs, loadOverviewStats, loadUsers])
+
   // Keep server-side user filters in the URL so refresh/back/forward preserve
   // the current supervision view and links can be shared between admins.
   useEffect(() => {

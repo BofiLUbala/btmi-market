@@ -51,6 +51,13 @@ export default function CommerceDashboardPage() {
 
   useEffect(() => {
     void loadOverview()
+    const timer = window.setInterval(() => { void loadOverview() }, 30_000)
+    const onVisible = () => { if (document.visibilityState === 'visible') void loadOverview() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [loadOverview])
 
   const domains = [

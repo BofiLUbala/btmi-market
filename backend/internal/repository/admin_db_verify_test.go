@@ -10,6 +10,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -80,4 +81,58 @@ func TestRealDatabaseSuperAdminVerification(t *testing.T) {
 	if auditCount < 1 {
 		t.Errorf("expected at least 1 audit entry for super admin, found %d", auditCount)
 	}
+}
+
+// This is a real-data simulation: two temporary catalog rows are committed so
+// the same connection used by the admin repository can observe them, then they
+// are always removed. It protects the dashboard from the old GROUP BY +
+// QueryRow bug, which silently displayed zero when several products were out
+// of stock.
+func TestRealDatabaseCommerceOverviewTracksMultipleOutOfStockProducts(t *testing.T) {
+	if os.Getenv("RUN_REAL_DB_SIMULATION") != "1" {
+		t.Skip("set RUN_REAL_DB_SIMULATION=1 to run the temporary real-data dashboard simulation")
+	}
+	cfg := config.Load()
+	db, err := database.Connect(cfg.DBHost, cfg.DBPort, cfg.DBName, cfg.DBUser, cfg.DBPassword)
+	if err != nil {
+		t.Skipf("Skipping real DB dashboard simulation: %v", err)
+	}
+	defer db.Close()
+
+	repo := repository.NewAdminCommerceRepository(db)
+	before, err := repo.GetOverview()
+	if err != nil {
+		t.Fatalf("read overview before simulation: %v", err)
+	}
+
+	var businessID uuid.UUID
+	if err := db.QueryRow(`SELECT id FROM businesses ORDER BY created_at LIMIT 1`).Scan(&businessID); err != nil {
+		t.Skipf("Skipping simulation: no business available: %v", err)
+	}
+
+	ids := []uuid.UUID{uuid.New(), uuid.New()}
+	defer func() {
+		_, _ = db.Exec(`DELETE FROM products WHERE id IN ($1, $2)`, ids[0], ids[1])
+	}()
+	for i, id := range ids {
+		_, err = db.Exec(`
+			INSERT INTO products (id, business_id, name, sku, unit_price, status, publication_status)
+			VALUES ($1, $2, $3, $4, 1, 'ACTIVE', 'DRAFT')
+		`, id, businessID, "Admin dashboard simulation", "ADMIN-SIM-"+id.String())
+		if err != nil {
+			t.Fatalf("insert simulated product %d: %v", i+1, err)
+		}
+	}
+
+	after, err := repo.GetOverview()
+	if err != nil {
+		t.Fatalf("read overview after simulation: %v", err)
+	}
+	if after.TotalProducts != before.TotalProducts+2 {
+		t.Fatalf("total products did not refresh: before=%d after=%d", before.TotalProducts, after.TotalProducts)
+	}
+	if after.OutOfStockProducts != before.OutOfStockProducts+2 {
+		t.Fatalf("out-of-stock products did not refresh: before=%d after=%d", before.OutOfStockProducts, after.OutOfStockProducts)
+	}
+	t.Logf("real-time simulation passed: total %d→%d, out-of-stock %d→%d", before.TotalProducts, after.TotalProducts, before.OutOfStockProducts, after.OutOfStockProducts)
 }

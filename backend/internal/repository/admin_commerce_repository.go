@@ -104,11 +104,14 @@ func (r *AdminCommerceRepository) GetOverview() (*models.CommerceOverviewStats, 
 
 	// Out of stock products
 	_ = r.db.QueryRow(`
-		SELECT COUNT(DISTINCT p.id)
-		FROM products p
-		JOIN inventory inv ON p.id = inv.product_id
-		GROUP BY p.id
-		HAVING SUM(inv.quantity - inv.reserved_quantity) <= 0
+		SELECT COUNT(*)
+		FROM (
+			SELECT p.id
+			FROM products p
+			LEFT JOIN inventory inv ON p.id = inv.product_id
+			GROUP BY p.id
+			HAVING COALESCE(SUM(inv.quantity - inv.reserved_quantity), 0) <= 0
+		) out_of_stock
 	`).Scan(&stats.OutOfStockProducts)
 
 	// Categories & Subcategories

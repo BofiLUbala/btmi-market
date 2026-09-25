@@ -42,6 +42,31 @@ export interface DirectionOverviewStats {
   platform_health: string
 }
 
+export interface CommerceOverviewStats {
+  total_products: number
+  published_products: number
+  out_of_stock_products: number
+  total_orders: number
+  orders_today: number
+  pending_orders: number
+  stuck_orders: number
+  stock_anomalies_count: number
+}
+
+export interface TechnicalOverviewKPIs {
+  api_status: string
+  db_status: string
+  redis_status: string
+  worker_status: string
+  failed_jobs_count: number
+  security_alerts_count: number
+  active_sessions_count: number
+  backup_status: string
+  migration_status: string
+  web_version: string
+  android_version: string
+}
+
 export interface AdminUserListItem {
   id: string
   first_name: string
@@ -317,6 +342,7 @@ const commerceQuery = (params?: Record<string, unknown>) => {
 }
 
 export const adminCommerceApi = {
+  getOverview: () => adminApi<CommerceOverviewStats>('/admin/commerce/overview'),
   listProducts: (params?: Record<string, unknown>) => adminApi<any>(`/admin/commerce/products?${commerceQuery(params)}`),
   listOrders: async (params?: Record<string, unknown>) => {
     const result = await adminApi<any>(`/admin/commerce/orders?${commerceQuery(params)}`)
@@ -337,6 +363,10 @@ export const adminCommerceApi = {
   },
   listEmployees: (params?: Record<string, unknown>) => adminApi<any>(`/admin/commerce/employees?${commerceQuery(params)}`),
   getMarketplaceVisibility: (productId: string) => adminApi<any>(`/admin/commerce/marketplace/visibility/${productId}`),
+}
+
+export const mobileAdminTechnicalApi = {
+  getOverview: () => adminApi<TechnicalOverviewKPIs>('/admin/technical/overview'),
 }
 
 export const mobileAdminFinanceApi = {

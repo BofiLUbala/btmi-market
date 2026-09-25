@@ -1229,6 +1229,8 @@ export const fr = {
   /* ── Admin : commerce ───────────────────────────────────── */
   'admin.commerce.header': '📦 Commerce & Opérations',
   'admin.commerce.sub': 'Recherche rapide de commandes, alertes de blocage et triage du catalogue.',
+  'admin.commerce.ordersToday': 'Commandes aujourd’hui',
+  'admin.commerce.catalogPublished': 'Produits publiés / total',
   'admin.commerce.accessDeniedBody': 'Votre rôle n’est pas autorisé à accéder à Commerce & Opérations.',
   'admin.commerce.monitorsTitle': 'Moniteurs opérationnels en direct',
   'admin.commerce.stuckOrders': 'Alerte commandes bloquées :',

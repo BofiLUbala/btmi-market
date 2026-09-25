@@ -1,7 +1,9 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../src/store/adminAuth'
 import { useI18n, type TranslationKey } from '../../../src/store/i18n'
+import { adminCommerceApi, type CommerceOverviewStats } from '../../../src/api/admin'
 
 const NAV_ITEMS: { key: TranslationKey; icon: string; route: string }[] = [
   { key: 'admin.commerce.nav.productCatalog', icon: '📦', route: '/admin/commerce/products' },
@@ -24,6 +26,15 @@ export default function MobileCommerceScreen() {
   const router = useRouter()
   const { hasRole } = useAdminAuth()
   const { t } = useI18n()
+  const [stats, setStats] = useState<CommerceOverviewStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const load = useCallback(async () => {
+    try { setStats(await adminCommerceApi.getOverview()) }
+    catch (error) { console.error('Failed to refresh commerce overview', error) }
+    finally { setLoading(false); setRefreshing(false) }
+  }, [])
+  useEffect(() => { void load(); const timer = setInterval(() => { void load() }, 30_000); return () => clearInterval(timer) }, [load])
 
   if (!hasRole(['COMMERCE_ADMIN', 'SUPER_ADMIN'])) {
     return (
@@ -39,7 +50,7 @@ export default function MobileCommerceScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} tintColor="#34d399" />}>
       <View style={styles.banner}>
         <Text style={styles.bannerTitle}>{t('admin.commerce.header')}</Text>
         <Text style={styles.bannerSub}>{t('admin.commerce.sub')}</Text>
@@ -47,17 +58,22 @@ export default function MobileCommerceScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>{t('admin.commerce.monitorsTitle')}</Text>
+        {loading && <ActivityIndicator color="#34d399" />}
         <View style={styles.metricRow}>
           <Text style={styles.metricLabel}>{t('admin.commerce.stuckOrders')}</Text>
-          <Text style={[styles.metricVal, { color: '#10b981' }]}>{t('admin.commerce.stuckCount', { count: 0 })}</Text>
+          <Text style={[styles.metricVal, { color: (stats?.stuck_orders ?? 0) > 0 ? '#ef4444' : '#10b981' }]}>{t('admin.commerce.stuckCount', { count: stats?.stuck_orders ?? 0 })}</Text>
         </View>
         <View style={styles.metricRow}>
-          <Text style={styles.metricLabel}>{t('admin.commerce.fulfillmentSpeed')}</Text>
-          <Text style={styles.metricVal}>{t('admin.commerce.normalSpeed')}</Text>
+          <Text style={styles.metricLabel}>{t('admin.commerce.ordersToday')}</Text>
+          <Text style={styles.metricVal}>{stats?.orders_today ?? 0}</Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricLabel}>{t('admin.commerce.negativeStock')}</Text>
-          <Text style={[styles.metricVal, { color: '#10b981' }]}>{t('admin.commerce.noneDetected')}</Text>
+          <Text style={[styles.metricVal, { color: (stats?.stock_anomalies_count ?? 0) > 0 ? '#ef4444' : '#10b981' }]}>{stats?.stock_anomalies_count ?? 0}</Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricLabel}>{t('admin.commerce.catalogPublished')}</Text>
+          <Text style={styles.metricVal}>{stats?.published_products ?? 0} / {stats?.total_products ?? 0}</Text>
         </View>
       </View>
 
