@@ -31,6 +31,7 @@ var (
 	ErrInvalidStatusTransition    = errors.New("INVALID_STATUS_TRANSITION")
 	ErrPasswordMismatch           = errors.New("PASSWORD_MISMATCH")
 	ErrEmailAlreadyExists         = errors.New("EMAIL_ALREADY_EXISTS")
+	ErrPhoneAlreadyExists         = errors.New("PHONE_ALREADY_EXISTS")
 	ErrCourierManagementForbidden = errors.New("FORBIDDEN")
 )
 
@@ -186,9 +187,24 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 	if password != passwordConfirm {
 		return ErrPasswordMismatch
 	}
+	if s.db == nil {
+		return errors.New("courier activation database is unavailable")
+	}
+
+	// Activation changes the user, courier profile, and invitation together.
+	// Keeping these writes in one transaction prevents a failed request from
+	// leaving a user/profile behind and making every retry fail with HTTP 400.
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	txDB := &database.DB{DB: s.db.DB, Tx: tx, DSN: s.db.DSN}
+	userRepo := repository.NewUserRepository(txDB)
+	courierRepo := repository.NewCourierRepository(txDB)
 
 	tokenHash := hashToken(token)
-	inv, err := s.courierRepo.InvitationGetByTokenHash(tokenHash)
+	inv, err := courierRepo.InvitationGetByTokenHashForUpdate(tokenHash)
 	if err != nil || inv == nil {
 		return ErrInvitationNotFound
 	}
@@ -202,9 +218,18 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 	// Create or link user
 	var user *models.User
 	var existingErr error
-	user, existingErr = s.userRepo.GetByEmail(inv.Email)
+	user, existingErr = userRepo.GetByEmail(inv.Email)
 
 	if existingErr != nil || user == nil {
+		if inv.Phone != nil && *inv.Phone != "" {
+			phoneExists, phoneErr := userRepo.PhoneExists(*inv.Phone)
+			if phoneErr != nil {
+				return phoneErr
+			}
+			if phoneExists {
+				return ErrPhoneAlreadyExists
+			}
+		}
 		// Create new user
 		user = &models.User{
 			ID:            uuid.New(),
@@ -219,17 +244,17 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 		if inv.Phone != nil {
 			user.Phone = *inv.Phone
 		}
-		if err := s.userRepo.CreateWithPassword(user, password); err != nil {
+		if err := userRepo.CreateWithPassword(user, password); err != nil {
 			return err
 		}
 	} else {
 		// A courier invitation is an activation authority. Existing accounts may
 		// have been created but left pending, so activate them as well as setting
 		// the new password; otherwise login still rejects the courier afterwards.
-		if err := s.userRepo.SetPassword(user.ID, password); err != nil {
+		if err := userRepo.SetPassword(user.ID, password); err != nil {
 			return err
 		}
-		if err := s.userRepo.UpdateStatus(user.ID, models.UserStatusActive); err != nil {
+		if err := userRepo.UpdateStatus(user.ID, models.UserStatusActive); err != nil {
 			return err
 		}
 	}
@@ -270,12 +295,29 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 		courier.Landmark = *address.Landmark
 	}
 
-	if err := s.courierRepo.Create(courier); err != nil {
+	existingCourier, err := courierRepo.GetByUserID(user.ID)
+	if err != nil {
+		return err
+	}
+	if existingCourier != nil {
+		// Recover safely from activations performed by an older non-transactional
+		// server which created the profile but failed before accepting the token.
+		courier.ID = existingCourier.ID
+		if err := courierRepo.UpdateProfile(courier); err != nil {
+			return err
+		}
+		if err := courierRepo.UpdateStatus(courier.ID, models.CourierStatusActive); err != nil {
+			return err
+		}
+	} else if err := courierRepo.Create(courier); err != nil {
 		return err
 	}
 
 	// Update invitation status
-	if err := s.courierRepo.InvitationUpdateStatus(inv.ID, "ACCEPTED"); err != nil {
+	if err := courierRepo.InvitationUpdateStatus(inv.ID, "ACCEPTED"); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 

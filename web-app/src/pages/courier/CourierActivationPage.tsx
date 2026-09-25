@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { API_BASE } from '@/api/client'
-import { StructuredAddressFields, emptyStructuredAddress, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
+import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
 export default function CourierActivationPage() {
   const [searchParams] = useSearchParams()
@@ -17,6 +17,7 @@ export default function CourierActivationPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [address, setAddress] = useState<StructuredAddressValue>(emptyStructuredAddress)
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     if (!token) {
@@ -46,6 +47,7 @@ export default function CourierActivationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submittingRef.current) return
     
     if (password !== confirmPassword) {
       setError('Passwords do not match')
@@ -57,6 +59,17 @@ export default function CourierActivationPage() {
       return
     }
 
+    if (password.length > 64) {
+      setError('Password must not exceed 64 characters')
+      return
+    }
+
+    if (!isStructuredAddressComplete(address)) {
+      setError('Veuillez compléter la province, la ville, la commune, la rue et le numéro de parcelle.')
+      return
+    }
+
+    submittingRef.current = true
     setLoading(true)
     setError('')
     
@@ -87,6 +100,7 @@ export default function CourierActivationPage() {
     } catch (err: any) {
       setError(err.message || 'Failed to activate account')
     } finally {
+      submittingRef.current = false
       setLoading(false)
     }
   }
@@ -253,6 +267,7 @@ export default function CourierActivationPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
+              maxLength={64}
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -274,6 +289,8 @@ export default function CourierActivationPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              minLength={8}
+              maxLength={64}
               style={{
                 width: '100%',
                 padding: '10px 14px',

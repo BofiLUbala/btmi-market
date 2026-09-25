@@ -348,7 +348,7 @@ func (r *CourierRepository) GetMissionByID(courierUserID, orderID uuid.UUID) (*m
 		&m.TotalAmount, &m.Currency, &m.PaymentMethod, &m.PaymentStatus,
 		&m.AssignedAt, &m.AcceptedAt, &m.ReadyAt, &m.PickedUpAt,
 		&m.StartedAt, &m.ArrivedAt, &m.DeliveredAt,
-			&m.ExpectedDeliveryDate, &m.ExpectedDeliverySlot, &m.DeliveryAttempts, &m.CancelledStage, &m.ReturnedToSellerAt)
+		&m.ExpectedDeliveryDate, &m.ExpectedDeliverySlot, &m.DeliveryAttempts, &m.CancelledStage, &m.ReturnedToSellerAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -401,11 +401,25 @@ func (r *CourierRepository) InvitationCreate(inv *models.CourierInvitation) erro
 
 // InvitationGetByTokenHash retrieves an invitation by token hash
 func (r *CourierRepository) InvitationGetByTokenHash(tokenHash string) (*models.CourierInvitation, error) {
+	return r.invitationGetByTokenHash(tokenHash, false)
+}
+
+// InvitationGetByTokenHashForUpdate serializes concurrent activation attempts
+// for the same token. It must only be called from an open transaction.
+func (r *CourierRepository) InvitationGetByTokenHashForUpdate(tokenHash string) (*models.CourierInvitation, error) {
+	return r.invitationGetByTokenHash(tokenHash, true)
+}
+
+func (r *CourierRepository) invitationGetByTokenHash(tokenHash string, forUpdate bool) (*models.CourierInvitation, error) {
 	var inv models.CourierInvitation
-	err := r.db.QueryRow(`
+	query := `
 		SELECT id, email, first_name, last_name, phone, transport_type, vehicle_info, service_zone,
 		       token_hash, status, expires_at, accepted_at, invited_by, created_at
-		FROM courier_invitations WHERE token_hash = $1`, tokenHash).Scan(
+		FROM courier_invitations WHERE token_hash = $1`
+	if forUpdate {
+		query += ` FOR UPDATE`
+	}
+	err := r.db.QueryRow(query, tokenHash).Scan(
 		&inv.ID, &inv.Email, &inv.FirstName, &inv.LastName, &inv.Phone, &inv.TransportType,
 		&inv.VehicleInfo, &inv.ServiceZone, &inv.TokenHash, &inv.Status,
 		&inv.ExpiresAt, &inv.AcceptedAt, &inv.InvitedBy, &inv.CreatedAt)

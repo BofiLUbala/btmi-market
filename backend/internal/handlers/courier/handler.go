@@ -1,6 +1,7 @@
 package courier
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -66,20 +67,31 @@ func (h *Handler) Activate(c *gin.Context) {
 		Landmark:       &req.Landmark,
 	})
 	if err != nil {
-		status := http.StatusBadRequest
+		status := http.StatusInternalServerError
 		code := "ACTIVATION_FAILED"
 		switch err {
 		case service.ErrInvitationNotFound:
 			status = http.StatusNotFound
 			code = "INVITATION_NOT_FOUND"
 		case service.ErrInvitationExpired:
+			status = http.StatusBadRequest
 			code = "INVITATION_EXPIRED"
 		case service.ErrInvitationAlreadyUsed:
+			status = http.StatusConflict
 			code = "INVITATION_ALREADY_USED"
 		case service.ErrPasswordMismatch:
+			status = http.StatusBadRequest
 			code = "PASSWORD_MISMATCH"
+		case service.ErrPhoneAlreadyExists:
+			status = http.StatusConflict
+			code = "PHONE_ALREADY_EXISTS"
 		}
-		h.errResponse(c, status, code, err.Error())
+		message := err.Error()
+		if status == http.StatusInternalServerError {
+			log.Printf("courier activation failed: %v", err)
+			message = "Unable to activate the courier account. Please retry."
+		}
+		h.errResponse(c, status, code, message)
 		return
 	}
 
