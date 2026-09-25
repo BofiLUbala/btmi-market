@@ -23,6 +23,7 @@ import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
 import { useT } from '@/store/i18n'
 import { useAdminAuth } from '@/store/adminAuth'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
+import { lineLabel } from '@/lib/lineLabel'
 
 /** PAID is what a settlement writes today; VERIFIED is the same fact on older rows. */
 const SETTLED_STATUSES = ['PAID', 'VERIFIED']
@@ -1157,7 +1158,7 @@ if (tab === 'overview') {
                   {paymentDetail.product_lines.map((line) => (
                     <div key={line.id} style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#1e293b', borderRadius: 6, padding: '6px 10px', fontSize: 12 }}>
                       <span style={{ color: '#cbd5e1' }}>
-                        {line.product_name}{line.variant_name ? ` · ${line.variant_name}` : ''} × {line.quantity}
+                        {lineLabel(line.product_name, line.variant_name)} × {line.quantity}
                       </span>
                       <span style={{ fontWeight: 700 }}>${line.total_price.toFixed(2)}</span>
                     </div>

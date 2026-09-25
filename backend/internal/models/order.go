@@ -81,6 +81,9 @@ type Order struct {
 	CompletedAt            *time.Time `json:"completed_at" db:"completed_at"`
 	CreatedAt              time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt              time.Time  `json:"updated_at" db:"updated_at"`
+
+	// Dated courier steps; see CourierMilestones.
+	CourierMilestones
 }
 
 type OrderLine struct {
@@ -191,6 +194,9 @@ type OrderResponse struct {
 	CreatedAt              time.Time           `json:"created_at"`
 	UpdatedAt              time.Time           `json:"updated_at"`
 	Lines                  []OrderLineResponse `json:"lines,omitempty"`
+
+	// Dated courier steps; see CourierMilestones.
+	CourierMilestones
 }
 
 type OrderLineResponse struct {
@@ -364,6 +370,16 @@ type TrackingStatusRequest struct {
 // DeliveryPlanFields is the delivery commitment and outcome shared by every
 // view of an order: when the courier will bring it, how many attempts failed,
 // at which stage it was cancelled and when a returned parcel reached the seller.
+// CourierMilestones dates each courier step. delivery_status alone cannot say
+// whether a courier was assigned or accepted: the seller's READY_FOR_PICKUP can
+// be written before or after either, so the buyer's tracking reads these facts.
+type CourierMilestones struct {
+	CourierAcceptedAt *time.Time `json:"courier_accepted_at,omitempty" db:"courier_accepted_at"`
+	PickupVerifiedAt  *time.Time `json:"pickup_verified_at,omitempty" db:"pickup_verified_at"`
+	CourierStartedAt  *time.Time `json:"courier_started_at,omitempty" db:"courier_started_at"`
+	CourierArrivedAt  *time.Time `json:"courier_arrived_at,omitempty" db:"courier_arrived_at"`
+}
+
 type DeliveryPlanFields struct {
 	ExpectedDeliveryDate *string    `json:"expected_delivery_date"`
 	ExpectedDeliverySlot string     `json:"expected_delivery_slot,omitempty"`
@@ -383,6 +399,9 @@ type TrackingResponse struct {
 	LatestUpdate   string                       `json:"latest_update"`
 	LatestUpdateAt *time.Time                   `json:"latest_update_at"`
 	History        []OrderStatusHistoryResponse `json:"history"`
+
+	CourierMilestones
+	CourierAssignedAt *time.Time `json:"courier_assigned_at,omitempty"`
 }
 
 // Tracking summary embedded in list/get responses.

@@ -1660,6 +1660,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'itemQr.amountToCollect': 'Amount to collect',
   'itemQr.nothingToCollect': 'Nothing to collect',
   'deliveryPlan.title': 'Scheduled delivery',
+  'deliveryPlan.delivered': 'Delivered',
+  'deliveryPlan.wasPlanned': 'Planned: {when}',
   'deliveryPlan.notSet': 'The courier will set the day and time slot as soon as they collect the parcel.',
   'deliveryPlan.slot.MORNING': 'morning (8am–12pm)',
   'deliveryPlan.slot.AFTERNOON': 'afternoon (12pm–5pm)',

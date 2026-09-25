@@ -34,6 +34,9 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
   const returned = returnedText(plan, t, lang)
   const returning = deliveryStatus === 'RETURNING_TO_SELLER'
   const cancelled = status === 'CANCELLED'
+  // Once handed over the promised day is history: say it was delivered.
+  const delivered = ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED'].includes(deliveryStatus || '') ||
+    ['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(status)
   if (cancelled && !stage && !returning && !returned) return null
   if (status === 'COMPLETED' && !when) return null
 
@@ -51,7 +54,12 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
   return (
     <Card>
       <Text style={styles.title}>{t('deliveryPlan.title')}</Text>
-      {!cancelled ? (when ? <Text style={styles.when}>📅 {when}</Text> : <Text style={styles.muted}>{t('deliveryPlan.notSet')}</Text>) : null}
+      {delivered
+        ? <>
+            <Text style={styles.when}>✓ {t('deliveryPlan.delivered')}</Text>
+            {when ? <Text style={styles.muted}>{t('deliveryPlan.wasPlanned', { when })}</Text> : null}
+          </>
+        : !cancelled ? (when ? <Text style={styles.when}>📅 {when}</Text> : <Text style={styles.muted}>{t('deliveryPlan.notSet')}</Text>) : null}
       {plan.delivery_attempts ? <Text style={styles.muted}>{t('deliveryPlan.attempts', { count: plan.delivery_attempts })}</Text> : null}
       {stage ? <Text style={styles.stage}>{stage}</Text> : null}
       {returning ? <Text style={styles.muted}>{t('deliveryPlan.returning')}</Text> : null}

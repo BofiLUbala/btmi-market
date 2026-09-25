@@ -8,6 +8,14 @@ import {
   type AdminDeliveryHandover
 } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { formatMoney } from '@/lib/format'
+import type { TranslationKey } from '@/locales/fr'
+
+// No courier can be (re)assigned once the order is closed or its parcel is going back.
+const CLOSED_DELIVERY = ['CANCELLED', 'RETURNING_TO_SELLER', 'RETURNED_TO_SELLER', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED', 'DELIVERED', 'COMPLETED']
+const CLOSED_ORDER = ['CANCELLED', 'REJECTED', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+const canAssign = (o: AdminOrderItem) =>
+  !CLOSED_ORDER.includes(o.status) && !CLOSED_DELIVERY.includes(o.delivery_status || '')
 
 type DeliveryStatusFilter = 'ALL' | 'READY_FOR_PICKUP' | 'COURIER_ASSIGNED' | 'PICKED_UP' | 'IN_TRANSIT' | 'RECEIVED'
 
@@ -161,6 +169,11 @@ export default function CommerceDeliveryAssignmentsPage() {
       bg = 'rgba(34, 197, 94, 0.15)'
       fg = '#4ade80'
       label = 'Livré / Reçu'
+    } else {
+      // Any other state (cancelled, returned, arrived…) in words, not as a code.
+      const key = `status.${status}` as TranslationKey
+      const translated = t(key)
+      if (translated !== key) label = translated
     }
 
     return (
@@ -345,7 +358,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                         {new Date(o.created_at).toLocaleString()}
                       </div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-primary)', marginTop: 2 }}>
-                        {(o.final_total || 0).toLocaleString()} XAF
+                        {formatMoney(o.amount_due ?? o.final_total ?? 0, o.currency)}
                       </div>
                     </td>
 
@@ -398,7 +411,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                         >
                           👁️ Fiche Livreur
                         </button>
-                        <button
+                        {canAssign(o) && <button
                           onClick={() => {
                             setAssigningOrder(o)
                             setSelectedCourierId(assignedCourier?.id || (couriers[0]?.id || ''))
@@ -416,7 +429,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                           }}
                         >
                           {o.assigned_courier_id ? '🔄 Réassigner' : '🛵 Assigner'}
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   </tr>
@@ -645,7 +658,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                               <span style={{ fontWeight: 700 }}>{line.product_name}</span>
                               <span style={{ color: 'var(--admin-text-muted)', marginLeft: 6 }}>x{line.quantity}</span>
                             </div>
-                            <div style={{ fontWeight: 700 }}>{(line.final_unit_price * line.quantity).toLocaleString()} XAF</div>
+                            <div style={{ fontWeight: 700 }}>{formatMoney(line.final_unit_price * line.quantity, detailOrder?.currency)}</div>
                           </div>
                         ))}
                       </div>

@@ -14,8 +14,16 @@ describe('courier workflow actions', () => {
     expect(workflow.nextActionStep?.canAct).toBe(true)
   })
 
-  it('does not unlock pickup while the delivery milestone is still COURIER_ACCEPTED', () => {
+  it('offers the pickup when the seller was ready before the courier accepted', () => {
+    // The server accepts a pickup from COURIER_ACCEPTED once the order is READY.
     const workflow = getCourierWorkflow('COURIER_ACCEPTED', 'READY', 'CASH_ON_DELIVERY')
+
+    expect(workflow.actionType).toBe('PICKUP')
+    expect(workflow.nextActionStep?.canAct).toBe(true)
+  })
+
+  it('waits for the seller while the order is not ready yet', () => {
+    const workflow = getCourierWorkflow('COURIER_ACCEPTED', 'PREPARING', 'CASH_ON_DELIVERY')
 
     expect(workflow.actionType).toBe('WAIT_SELLER')
     expect(workflow.primaryButtonText).toBeUndefined()

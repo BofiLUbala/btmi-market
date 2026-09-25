@@ -1669,6 +1669,8 @@ export const fr = {
   'itemQr.amountToCollect': 'Montant à encaisser',
   'itemQr.nothingToCollect': 'Rien à encaisser',
   'deliveryPlan.title': 'Livraison prévue',
+  'deliveryPlan.delivered': 'Livrée',
+  'deliveryPlan.wasPlanned': 'Prévue : {when}',
   'deliveryPlan.notSet': 'Le livreur indiquera le jour et le créneau dès qu’il aura récupéré le colis.',
   'deliveryPlan.slot.MORNING': 'matin (8h–12h)',
   'deliveryPlan.slot.AFTERNOON': 'après-midi (12h–17h)',

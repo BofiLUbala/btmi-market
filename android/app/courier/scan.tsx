@@ -12,6 +12,7 @@ import { statusLabel } from '../../src/lib/statusLabels'
 import { formatMoney } from '../../src/lib/money'
 import { invalidateCourierMission, productVerificationBody } from '../../src/lib/courier'
 import type { HandoverVerificationResult, OrderItemQRResolution, QRScanResponse } from '../../src/types'
+import { lineLabel } from '../../src/lib/lineLabel'
 
 /**
  * PICKUP / DELIVERY scan the package QR; PRODUCT checks a product label at the
@@ -264,7 +265,7 @@ export default function CourierScanScreen() {
         {outcome.kind === 'verified' && (
           <View style={styles.panel}>
             <Text style={styles.success}>{t(`courier.verdict.${outcome.result.result}` as TranslationKey)}</Text>
-            {outcome.result.product_name ? <Text style={styles.body}>{outcome.result.product_name}{outcome.result.variant_name ? ` · ${outcome.result.variant_name}` : ''}</Text> : null}
+            {outcome.result.product_name ? <Text style={styles.body}>{lineLabel(outcome.result.product_name, outcome.result.variant_name)}</Text> : null}
             <Pressable style={styles.primary} onPress={reset}>
               <Text style={styles.primaryText}>{t('courier.scan.scanAgain')}</Text>
             </Pressable>

@@ -217,6 +217,12 @@ export interface DeliveryPlan {
   delivery_attempts?: number
   cancelled_stage?: 'NOT_ASSIGNED' | 'COURIER_ASSIGNED' | 'IN_DELIVERY' | 'BUYER_NOT_FOUND' | ''
   returned_to_seller_at?: string | null
+  /** Each courier step, dated when it happened (TBK delivery). */
+  courier_assigned_at?: string | null
+  courier_accepted_at?: string | null
+  pickup_verified_at?: string | null
+  courier_started_at?: string | null
+  courier_arrived_at?: string | null
 }
 export interface BuyerOrder extends DeliveryPlan { id: string; order_number?: string; shop_id: string; status: string; total_items: number; base_total?: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; delivery_fee_final?: number; delivery_contact_name?: string; delivery_phone?: string; delivery_address?: string; delivery_notes?: string; notes?: string }
 export interface SellerOrder extends BuyerOrder {
@@ -227,7 +233,7 @@ export interface SellerOrder extends BuyerOrder {
 }
 export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; unit_price?: number; final_unit_price: number; product_name: string; variant_name?: string; image_url?: string }
 export interface OrderStatusHistory { id: string; order_id: string; status: string; changed_by?: string | null; actor_type?: string; notes: string; created_at: string }
-export interface TrackingResponse extends DeliveryPlan { order_id: string; order_number: string; current_status: string; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
+export interface TrackingResponse extends DeliveryPlan { order_id: string; order_number: string; current_status: string; delivery_status?: string | null; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
 export interface BuyerPayment {
   id: string; order_id: string; shop_id: string; shop_name?: string
   payment_method: string; currency: string

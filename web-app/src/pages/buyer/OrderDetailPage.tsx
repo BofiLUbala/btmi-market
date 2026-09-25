@@ -12,7 +12,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { StatusBadge } from '@/components/ui/Badges'
 import { formatMoney, formatDateTime, initials, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
-import { ORDER_LIFECYCLE_STEPS } from '@/lib/orderWorkflow'
+import { ORDER_LIFECYCLE_STEPS, courierReached, type CourierStep } from '@/lib/orderWorkflow'
 import {
   paymentStatusKey,
   paymentMethodKey,
@@ -46,10 +46,14 @@ interface TimelineStep {
   key: string
   labelKey: TranslationKey
   done: (o: OrderWithLines['order'], payment: BuyerPayment | null) => boolean
+  // Courier steps only exist for a TBK delivery.
+  tbkOnly?: boolean
 }
 
 const HANDOVER_SCANNED = ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
 const COURIER_AT_DOOR = ['COURIER_ARRIVED', ...HANDOVER_SCANNED]
+const isTbkDelivery = (o: OrderWithLines['order']) => (o.delivery_method || '').startsWith('TBK')
+const reachedCourierStep = (o: OrderWithLines['order'], step: CourierStep) => courierReached(o, step)
 
 const TIMELINE_STEPS: TimelineStep[] = [
   {
@@ -88,9 +92,29 @@ const TIMELINE_STEPS: TimelineStep[] = [
     done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('ACCEPTED')
   },
   {
+    key: 'assigned',
+    tbkOnly: true,
+    labelKey: 'orders.courierAssigned',
+    done: (o) => reachedCourierStep(o, 'COURIER_ASSIGNED')
+  },
+  {
+    key: 'courierAccepted',
+    tbkOnly: true,
+    labelKey: 'orders.courierAccepted',
+    done: (o) => reachedCourierStep(o, 'COURIER_ACCEPTED')
+  },
+  {
+    key: 'picked',
+    tbkOnly: true,
+    labelKey: 'orders.productPicked',
+    done: (o) => reachedCourierStep(o, 'PICKED_UP')
+  },
+  {
     key: 'delivery',
     labelKey: 'orders.inDelivery',
-    done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('OUT_FOR_DELIVERY')
+    done: (o) => isTbkDelivery(o)
+      ? reachedCourierStep(o, 'IN_TRANSIT')
+      : ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('OUT_FOR_DELIVERY')
   },
   {
     key: 'arrived',
@@ -111,13 +135,14 @@ const TIMELINE_STEPS: TimelineStep[] = [
 
 function OrderTimeline({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
   const { t } = useI18n()
-  const steps = TIMELINE_STEPS.map((step) => step.done(o, payment))
+  const visible = TIMELINE_STEPS.filter((step) => !step.tbkOnly || isTbkDelivery(o))
+  const steps = visible.map((step) => step.done(o, payment))
   const currentIndex = steps.findIndex((done) => !done)
   return (
     <div className="card">
       <h2 style={{ fontSize: '1.1rem', marginBottom: 12 }}>{t('orders.lifecycle')}</h2>
       <ul className="timeline" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {TIMELINE_STEPS.map((step, i) => {
+        {visible.map((step, i) => {
           const done = steps[i]
           const active = i === currentIndex
           return (
@@ -399,7 +424,9 @@ function OrderInner() {
     try {
       const [d, p] = await Promise.all([
         buyerApi.orderDetail(orderId),
-        buyerApi.getPayment(orderId).catch(() => null),
+        // Only a 404 means "no payment yet". Any other failure (network blip, API
+        // restart) keeps what the buyer was already looking at.
+        buyerApi.getPayment(orderId).catch((e) => (e instanceof ApiError && e.status === 404 ? null : undefined)),
       ])
       const normalized = d ? { ...d, lines: asArray(d.lines), history: asArray(d.history) } : d
       if (normalized && prevStatusRef.current && prevStatusRef.current !== normalized.order.status) {
@@ -408,7 +435,7 @@ function OrderInner() {
       }
       if (normalized) prevStatusRef.current = normalized.order.status
       setData(normalized)
-      setPayment(p)
+      if (p !== undefined) setPayment(p)
       setLastUpdated(new Date())
       if (!silent) setLoading(false)
     } catch (e) {

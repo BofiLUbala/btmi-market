@@ -417,6 +417,9 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 		DeliveryStatus: order.DeliveryStatus,
 		DeliveryMethod: order.DeliveryMethod,
 		PaymentStatus:  "PENDING",
+		// The courier steps, each dated when it happened.
+		CourierMilestones: order.CourierMilestones,
+		CourierAssignedAt: order.CourierAssignedAt,
 		DeliveryPlanFields: models.DeliveryPlanFields{
 			ExpectedDeliveryDate: order.ExpectedDeliveryDate,
 			ExpectedDeliverySlot: order.ExpectedDeliverySlot,
@@ -2141,6 +2144,9 @@ func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse
 		CompletedAt:      order.CompletedAt,
 		CreatedAt:        order.CreatedAt,
 		UpdatedAt:        order.UpdatedAt,
+
+		CourierAssignedAt: order.CourierAssignedAt,
+		CourierMilestones: order.CourierMilestones,
 	}
 }
 

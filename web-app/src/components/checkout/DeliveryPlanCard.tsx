@@ -30,6 +30,9 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
   const returning = deliveryStatus === 'RETURNING_TO_SELLER'
   const returned = deliveryStatus === 'RETURNED_TO_SELLER'
   const cancelled = status === 'CANCELLED'
+  // Once handed over the promised day is history: say it was delivered.
+  const delivered = ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED'].includes(deliveryStatus || '') ||
+    ['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(status)
   if (cancelled && !stage && !returning && !returned) return null
   if (status === 'COMPLETED' && !when) return null
 
@@ -42,9 +45,14 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
   return (
     <div className="card stack" style={{ gap: 6 }} data-testid="delivery-plan">
       <strong>{t('deliveryPlan.title')}</strong>
-      {!cancelled && (when
-        ? <div className="bold" style={{ fontSize: '1.05rem' }}>📅 {when}</div>
-        : <div className="small muted">{t('deliveryPlan.notSet')}</div>)}
+      {delivered
+        ? <>
+            <div className="bold" style={{ fontSize: '1.05rem' }}>✓ {t('deliveryPlan.delivered')}</div>
+            {when && <div className="small muted">{t('deliveryPlan.wasPlanned', { when })}</div>}
+          </>
+        : !cancelled && (when
+          ? <div className="bold" style={{ fontSize: '1.05rem' }}>📅 {when}</div>
+          : <div className="small muted">{t('deliveryPlan.notSet')}</div>)}
       {!!plan.delivery_attempts && <div className="small">{t('deliveryPlan.attempts', { count: plan.delivery_attempts })}</div>}
       {stage && <div className="small bold">{stage}</div>}
       {returning && <div className="small">{t('deliveryPlan.returning')}</div>}

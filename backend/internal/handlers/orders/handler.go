@@ -601,6 +601,7 @@ func toOrderResponse(order *models.Order) models.OrderResponse {
 		DeliveryLatitude:       order.DeliveryLatitude,
 		DeliveryLongitude:      order.DeliveryLongitude,
 		CourierAssignedAt:      order.CourierAssignedAt,
+		CourierMilestones:      order.CourierMilestones,
 		CourierNotes:           order.CourierNotes,
 		PointsFinalized:        order.PointsFinalized,
 		AcceptedAt:             order.AcceptedAt,

@@ -301,9 +301,15 @@ func (s *QRService) verifyProduct(ctx *handoverContext, actorID uuid.UUID, role 
 	names := make([]string, 0, len(lines))
 	newlyVerified := 0
 	for _, l := range lines {
+		// Variants are named "Product — options", so a variant that already
+		// starts with the product name stands alone.
 		label := l.name
 		if l.variant != "" && l.variant != l.name {
-			label += " · " + l.variant
+			if strings.HasPrefix(l.variant, l.name) {
+				label = l.variant
+			} else {
+				label += " · " + l.variant
+			}
 		}
 		names = append(names, label)
 		out.Quantity += l.quantity

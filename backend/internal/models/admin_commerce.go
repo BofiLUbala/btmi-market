@@ -156,6 +156,11 @@ type AdminOrderItem struct {
 	StuckReason              string    `json:"stuck_reason,omitempty"`
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
+
+	// What the buyer actually owes, in the order's currency: the payment total
+	// (products, delivery and the payment method's fee) once one exists.
+	Currency  string  `json:"currency"`
+	AmountDue float64 `json:"amount_due"`
 }
 
 type AdminOrderDetail struct {

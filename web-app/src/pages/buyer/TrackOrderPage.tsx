@@ -2,14 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOrderEvents } from '@/lib/orderEvents'
 import { Link, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import type { TrackingResponse, DeliveryPackageQR } from '@/api/types'
+import type { TrackingResponse, DeliveryPackageQR, HandoverState } from '@/api/types'
+import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
 import { QRPanel } from '@/components/qr/QRPanel'
 import { StatusBadge } from '@/components/ui/Badges'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
-import { getDeliverySteps, getTrackingDisplayStatus, prettifyStatus } from '@/lib/orderWorkflow'
+import { courierReached, getDeliverySteps, getTrackingDisplayStatus, ORDER_LIFECYCLE_STEPS, type CourierStep } from '@/lib/orderWorkflow'
 import { RequireAuth } from '@/components/auth/Guards'
 import { DeliveryPlanCard } from '@/components/checkout/DeliveryPlanCard'
 import { useI18n } from '@/store/i18n'
@@ -22,6 +23,41 @@ function actorLabel(actor: string | undefined, t: (key: TranslationKey, vars?: R
   if (actor === 'BUYER') return t('tracking.byBuyer')
   if (actor === 'SYSTEM') return t('tracking.bySystem')
   return ''
+}
+
+const isTbk = (method?: string) => (method || '').startsWith('TBK')
+const AT_DOOR = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
+// The history records order statuses only: a courier step is dated by the order
+// transition that happens at the same moment.
+const HISTORY_ALIASES: Record<string, string> = { PICKED_UP: 'OUT_FOR_DELIVERY', DELIVERY_SCAN_SUCCESS: 'DELIVERED' }
+
+/**
+ * Every step of a TBK delivery, each one done from a stored fact: the seller's
+ * steps from the order status, the courier's from delivery_status, the parcel
+ * check and the payment from the handover itself. Nothing is inferred from
+ * position, so a step never shows done before it happened.
+ */
+function tbkSteps(d: TrackingResponse, handover: HandoverState | null) {
+  const stage = ORDER_LIFECYCLE_STEPS.indexOf(d.current_status as (typeof ORDER_LIFECYCLE_STEPS)[number])
+  const orderReached = (s: (typeof ORDER_LIFECYCLE_STEPS)[number]) => stage >= ORDER_LIFECYCLE_STEPS.indexOf(s)
+  const reached = (s: CourierStep) => courierReached({ ...d, status: d.current_status }, s)
+  const paid = ['PAID', 'VERIFIED'].includes(d.payment_status) || !!handover?.payment_verified
+  return [
+    { status: 'PENDING', done: true },
+    { status: 'ACCEPTED', done: orderReached('ACCEPTED') },
+    { status: 'PREPARING', done: orderReached('PREPARING') },
+    { status: 'READY', done: orderReached('READY') },
+    { status: 'COURIER_ASSIGNED', done: reached('COURIER_ASSIGNED') },
+    { status: 'COURIER_ACCEPTED', done: reached('COURIER_ACCEPTED') },
+    { status: 'PICKED_UP', done: reached('PICKED_UP') },
+    { status: 'IN_TRANSIT', done: reached('IN_TRANSIT') },
+    { status: 'COURIER_ARRIVED', done: reached('COURIER_ARRIVED') },
+    { status: 'PRODUCT_VERIFIED', done: !!handover?.all_products_verified || orderReached('DELIVERED') },
+    { status: 'PAYMENT_VERIFIED', done: paid },
+    { status: 'DELIVERY_SCAN_SUCCESS', done: reached('DELIVERY_SCAN_SUCCESS') },
+    { status: 'RECEIVED', done: orderReached('RECEIVED') },
+    { status: 'COMPLETED', done: orderReached('COMPLETED') },
+  ]
 }
 
 function timeAgo(date: Date, t: (key: TranslationKey, vars?: Record<string, string | number>) => string): string {
@@ -41,6 +77,7 @@ function TrackInner() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [deliveryQR, setDeliveryQR] = useState<DeliveryPackageQR | null>(null)
+  const [handover, setHandover] = useState<HandoverState | null>(null)
   const [statusFlash, setStatusFlash] = useState(false)
   const prevStatusRef = useRef<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -61,6 +98,10 @@ function TrackInner() {
       if (effectiveStatus) prevStatusRef.current = effectiveStatus
       setData(normalized)
       void buyerApi.deliveryQR(orderId).then(setDeliveryQR).catch(() => setDeliveryQR(null))
+      // At the door the parcel check and the payment live on the handover.
+      if (normalized && AT_DOOR.includes(normalized.delivery_status || '')) {
+        void buyerApi.handover(orderId).then(setHandover).catch(() => undefined)
+      }
       setLastUpdated(new Date())
       setError('')
     } catch (e) {
@@ -118,8 +159,15 @@ function TrackInner() {
   if (error || !data) return <ErrorBox error={error || t('tracking.noData')} onRetry={() => void fetchTracking()} />
 
   const currentStatus = getTrackingDisplayStatus(data.current_status, data.delivery_status)
-  const statusSteps = getDeliverySteps(data.delivery_method, currentStatus)
-  const currentIdx = statusSteps.indexOf(currentStatus)
+  const tbk = isTbk(data.delivery_method)
+  const steps = tbk
+    ? tbkSteps(data, handover)
+    : (() => {
+        const list = getDeliverySteps(data.delivery_method, currentStatus)
+        const idx = list.indexOf(currentStatus)
+        return list.map((status, i) => ({ status, done: i <= idx }))
+      })()
+  const currentIdx = steps.findIndex((s) => !s.done)
 
   return (
     <div className="fade-in">
@@ -157,14 +205,13 @@ function TrackInner() {
       <div className="card" style={{ marginTop: 16 }}>
         <h2 style={{ fontSize: '1.1rem', marginBottom: 8 }}>{t('tracking.progress')}</h2>
         <ul className="timeline">
-          {statusSteps.map((s, i) => {
-            const reached = i <= currentIdx
+          {steps.map(({ status: s, done: reached }, i) => {
             const isCurrent = i === currentIdx
-            const event = [...data.history].reverse().find((h) => h.status === s)
+            const event = [...data.history].reverse().find((h) => h.status === s || h.status === HISTORY_ALIASES[s])
             return (
               <li key={s} className={`${reached ? 'done' : ''} ${isCurrent ? 'current' : ''}`}>
                 <div className="t-status small">
-                  {prettifyStatus(s)}
+                  {reached ? '✓ ' : ''}{t(`status.${s}` as TranslationKey)}
                   {isCurrent && t('tracking.current')}
                 </div>
                 {event && <><div className="small muted">{actorLabel(event.actor_type, t)}{event.notes ? `${actorLabel(event.actor_type, t) ? ' · ' : ''}${event.notes}` : ''}</div><div className="t-time">{formatDateTime(event.created_at)}</div></>}
@@ -191,8 +238,11 @@ function TrackInner() {
           </Link>
         </div>
       )}
-      {deliveryQR && <QRPanel qr={deliveryQR} title="Delivery verification QR" imagePath={`/buyer/orders/${orderId}/delivery-qr/image`} />}
-      {deliveryQR?.delivery_scanned_at && !deliveryQR.receipt_confirmed_at && <button className="btn btn-primary" onClick={() => void buyerApi.confirmReceipt(orderId).then(() => fetchTracking())}>Confirmer que vous avez reçu votre commande</button>}
+      {/* Same handover as the order page: items first, then receipt. */}
+      <div style={{ marginTop: 12 }}>
+        <BuyerHandoverPanel orderId={orderId} deliveryStatus={data.delivery_status || undefined} onChanged={() => void fetchTracking(true)} />
+      </div>
+      {deliveryQR && <QRPanel qr={deliveryQR} title={t('tracking.deliveryQr')} imagePath={`/buyer/orders/${orderId}/delivery-qr/image`} />}
     </div>
   )
 }

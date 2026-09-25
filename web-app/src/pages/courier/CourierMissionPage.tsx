@@ -4,15 +4,19 @@ import { api } from '@/api/client'
 import { courierApi } from '@/api/courier'
 import { ApiError, type HandoverState, type HandoverVerificationResult } from '@/api/types'
 import { useI18n } from '@/store/i18n'
+import { lineLabel } from '@/lib/lineLabel'
 import { getCourierWorkflow } from '@/lib/courierWorkflow'
+import { useOrderEvents } from '@/lib/orderEvents'
 import type { TranslationKey } from '@/locales/fr'
 import './courier.css'
 import { CourierHandoverPanel } from '@/components/courier/CourierHandoverPanel'
+import { CourierPlanPanel } from '@/components/courier/CourierPlanPanel'
+import type { CourierMission, DeliveryPlan } from '@/api/types'
 
 type MissionLine={id:string;product_name:string;variant_name:string;quantity:number;final_unit_price:number}
 type MissionHistory={id:string;status:string;notes?:string;created_at:string}
 type DeliveryHistory={id:string;previous_status:string;new_status:string;actor_role:string;created_at:string}
-type Mission={order_id:string;order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;total_amount:number;currency:string;payment_method:string;payment_status:string;lines?:MissionLine[];history?:MissionHistory[];delivery_history?:DeliveryHistory[];assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}
+type Mission={order_id:string;order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;total_amount:number;currency:string;payment_method:string;payment_status:string;lines?:MissionLine[];history?:MissionHistory[];delivery_history?:DeliveryHistory[];assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}&DeliveryPlan
 
 export default function CourierMissionPage(){
   const {id=''}=useParams(), navigate=useNavigate(), {t,lang}=useI18n()
@@ -28,11 +32,16 @@ export default function CourierMissionPage(){
       if (!data || data.order_id !== id) throw new Error('MISSION_NOT_FOUND')
       setM(data)
       setError('')
+      // The action panel reads the handover flags, so they move with the mission.
+      setHandover(await courierApi.handover(id).catch(() => null))
     } catch {
       setM(null)
       setError(t('courier.dashboard.loadError'))
     }
   }
+
+  // Pushed the moment the buyer, the seller or TBK changes this order.
+  useOrderEvents(() => void load(), { orderId: id })
 
   // Auto-scroll to handover panel when the next action lands there
   const scrollToHandover = useCallback(() => {
@@ -98,7 +107,10 @@ export default function CourierMissionPage(){
         isQrToken ? { token: code } : { product_number: code }
       )
       setVerdict(result)
-      if (result.result === 'VALID' || result.result === 'ALREADY_USED') setProductCode('')
+      if (result.result === 'VALID' || result.result === 'ALREADY_USED') {
+        setProductCode('')
+        await load()
+      }
     } catch (e) {
       setVerifyError(e instanceof ApiError ? e.message : "Impossible de vérifier le produit.")
     } finally {
@@ -199,8 +211,11 @@ export default function CourierMissionPage(){
                 </>
               )}
 
+              {workflow.actionType === 'START_DELIVERY' && m && !m.expected_delivery_date && (
+                <p className="courier-muted" style={{margin:0}}>{t('courierPlan.required')}</p>
+              )}
               {workflow.actionType === 'START_DELIVERY' && m && (
-                <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`, undefined, t('courier.dashboard.started'))}>
+                <button disabled={!!actionBusy || !m.expected_delivery_date} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`, undefined, t('courier.dashboard.started'))}>
                   {isStarting ? 'Démarrage...' : (workflow.primaryButtonText || 'Démarrer la livraison')}
                 </button>
               )}
@@ -253,8 +268,10 @@ export default function CourierMissionPage(){
                   <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
                   <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
                   <p className="courier-muted">{workflow.explanation} Montant à encaisser : <strong>{m.total_amount.toLocaleString(lang)} {m.currency}</strong></p>
-                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/confirm-cash`, {confirmed:true, idempotency_key:crypto.randomUUID()}, t('courier.handover.confirmCashSubmit'))}>
-                    {workflow.primaryButtonText || t('courier.handover.confirmCashAction')}
+                  {/* Cash is confirmed in the handover panel, which first asks whether the
+                      exact amount was received: no one-tap money confirmation here. */}
+                  <button className="courier-btn courier-btn-primary" onClick={scrollToHandover}>
+                    {workflow.primaryButtonText || t('courier.handover.confirmCashAction')} ↓
                   </button>
                 </div>
               )}
@@ -296,6 +313,10 @@ export default function CourierMissionPage(){
           </section>
         )}
 
+        {/* The day and slot promised to the buyer (required before leaving), and
+            "buyer not found" once on the way - same panel as the dashboard. */}
+        <CourierPlanPanel key={`plan-${m.order_id}`} mission={m as unknown as CourierMission} onChanged={load}/>
+
         {/* Full Details Card */}
         <section className="courier-card" style={{marginTop:16}}>
           <h1>{t('courier.dashboard.order')} #{m.order_number}</h1>
@@ -316,7 +337,7 @@ export default function CourierMissionPage(){
           {m.lines&&m.lines.length>0&&<>
             <h2>Produits</h2>
             <div className="courier-details">
-              {m.lines.map(line=><Detail key={line.id} l={`${line.product_name}${line.variant_name?` · ${line.variant_name}`:''}`} v={`${line.quantity} × ${line.final_unit_price.toLocaleString(lang)} ${m.currency}`}/>)}
+              {m.lines.map(line=><Detail key={line.id} l={lineLabel(line.product_name,line.variant_name)} v={`${line.quantity} × ${line.final_unit_price.toLocaleString(lang)} ${m.currency}`}/>)}
             </div>
           </>}
 

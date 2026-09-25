@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, forwardRef } from 'react'
 import { courierApi } from '@/api/courier'
 import { ApiError, type ConfirmCashResponse, type HandoverState, type HandoverVerificationResult } from '@/api/types'
 import { useI18n } from '@/store/i18n'
+import { lineLabel } from '@/lib/lineLabel'
+import { useOrderEvents } from '@/lib/orderEvents'
 import type { TranslationKey } from '@/locales/fr'
 
 const CASH_ON_DELIVERY = 'CASH_ON_DELIVERY'
@@ -66,7 +68,9 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
   }, [orderId, t])
 
   // The buyer's side moves this state too (a mobile payment settling, lines being
-  // acknowledged), so the panel keeps itself current rather than going stale.
+  // acknowledged), and so does the action panel above it on the mission page: follow
+  // every change of this order live, with a slow poll for when the stream is down.
+  useOrderEvents(() => void load(), { orderId })
   useEffect(() => {
     void load()
     const timer = window.setInterval(() => { void load() }, 10_000)
@@ -243,7 +247,7 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
           {state.lines.map((line) => (
             <Row
               key={line.order_line_id}
-              label={`${line.product_name}${line.variant_name ? ` · ${line.variant_name}` : ''} × ${line.quantity}`}
+              label={`${lineLabel(line.product_name, line.variant_name)} × ${line.quantity}`}
               value={t(line.product_verified ? 'courier.handover.lineVerified' : 'courier.handover.lineToVerify')}
             />
           ))}

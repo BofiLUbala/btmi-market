@@ -4,6 +4,9 @@ import { ApiError, type HandoverState } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { formatMoney } from '@/lib/format'
+import { useOrderEvents } from '@/lib/orderEvents'
+import { useI18n } from '@/store/i18n'
+import { lineLabel } from '@/lib/lineLabel'
 
 // RECEIVED is included so the buyer sees the handover confirmed, not a card that vanishes.
 const HANDOVER_STATUSES = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
@@ -27,28 +30,31 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
   deliveryStatus?: string
   onChanged: () => void
 }) {
+  const { t } = useI18n()
   const [state, setState] = useState<HandoverState | null>(null)
   const [answers, setAnswers] = useState<Record<string, Answer>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [done, setDone] = useState('')
 
   const atDoor = HANDOVER_STATUSES.includes(deliveryStatus || '')
 
   const load = useCallback(async () => {
     try {
       setState(await buyerApi.handover(orderId))
-    } catch {
-      // No package yet, or not at the handover: nothing to show.
-      setState(null)
+    } catch (e) {
+      // No package yet, or not at the handover: nothing to show. Any other
+      // failure (network blip, API restart) keeps what the buyer already sees.
+      if (e instanceof ApiError && e.status >= 400 && e.status < 500) setState(null)
     }
   }, [orderId])
+
+  // The courier drives this (parcel check, cash, QR scan): follow it live.
+  useOrderEvents(() => { if (atDoor) void load() }, { orderId })
 
   useEffect(() => {
     if (!atDoor) return
     void load()
-    // The courier drives most of this (product check, cash), so poll while the
-    // handover is open rather than waiting for the buyer to reload.
+    // Slow fallback for when the live stream is down.
     const timer = window.setInterval(() => { void load() }, 10_000)
     return () => window.clearInterval(timer)
   }, [atDoor, load])
@@ -74,7 +80,7 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
       setState(next)
       onChanged()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'La confirmation des articles a échoué.')
+      setError(e instanceof ApiError ? e.message : t('handover.ackFailed'))
     } finally { setBusy(false) }
   }
 
@@ -82,62 +88,60 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
     setBusy(true); setError('')
     try {
       await buyerApi.confirmReceipt(orderId)
-      setDone('Réception confirmée. Merci !')
       await load()
       onChanged()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'La confirmation de réception a échoué.')
+      setError(e instanceof ApiError ? e.message : t('handover.receiptFailed'))
     } finally { setBusy(false) }
   }
 
   return (
     <div className="card stack">
-      <h2 style={{ fontSize: '1.1rem' }}>Remise de votre commande</h2>
+      <h2 style={{ fontSize: '1.1rem' }}>{t('handover.buyerTitle')}</h2>
 
       <div className="info-row">
-        <span className="k">Paiement</span>
+        <span className="k">{t('handover.payment')}</span>
         <span className="v bold">
           {state.payment_verified
-            ? isCash ? 'Paiement reçu · Payé (espèces remises au Livreur)' : 'Payé · confirmé par l’opérateur'
-            : isCash ? `Espèces à remettre au Livreur : ${formatMoney(state.amount_due, state.currency)}` : 'En attente de votre paiement mobile'}
+            ? isCash ? t('handover.paidCash') : t('handover.paidMobile')
+            : isCash ? t('handover.cashToHand', { amount: formatMoney(state.amount_due, state.currency) }) : t('handover.awaitingMobile')}
         </span>
       </div>
       <div className="info-row">
-        <span className="k">Code de remise</span>
+        <span className="k">{t('handover.orderCode')}</span>
         <span className="v bold" style={{ fontSize: '1.15rem', letterSpacing: 1 }}>{state.order_number}</span>
       </div>
-      <p className="small muted" style={{ margin: 0 }}>Le livreur saisit ce code pour confirmer que c’est votre colis.</p>
+      <p className="small muted" style={{ margin: 0 }}>{t('handover.orderCodeHint')}</p>
       <div className="info-row">
-        <span className="k">Produits vérifiés</span>
-        <span className="v">{state.all_products_verified ? '✓ Oui' : 'Pas encore'}</span>
+        <span className="k">{t('handover.productsVerified')}</span>
+        <span className="v">{state.all_products_verified ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</span>
       </div>
       <div className="info-row">
-        <span className="k">QR de remise scanné</span>
-        <span className="v">{state.delivery_scanned ? '✓ Oui' : 'Pas encore'}</span>
+        <span className="k">{t('handover.qrScanned')}</span>
+        <span className="v">{state.delivery_scanned ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</span>
       </div>
 
       {error && <ErrorBox error={error} />}
-      {done && <p className="small">{done}</p>}
 
       {/* Per-line receipt form: each product in hand, as ordered, right quantity. */}
       {state.buyer_can_acknowledge && pendingLines.length > 0 && (
         <div className="stack">
-          <strong>Confirmez chaque article reçu</strong>
+          <strong>{t('handover.confirmEachItem')}</strong>
           {pendingLines.map((line) => {
             const a = answerFor(line.order_line_id)
             const set = (key: keyof Answer) => (e: React.ChangeEvent<HTMLInputElement>) =>
               setAnswers((prev) => ({ ...prev, [line.order_line_id]: { ...a, [key]: e.target.checked } }))
             return (
               <fieldset key={line.order_line_id} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 8 }}>
-                <legend className="small">{line.product_name}{line.variant_name ? ` · ${line.variant_name}` : ''} × {line.quantity}</legend>
-                <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={a.product_received} onChange={set('product_received')} /> Article reçu</label>
-                <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={a.matches_order} onChange={set('matches_order')} /> Conforme à la commande</label>
-                <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={a.quantity_correct} onChange={set('quantity_correct')} /> Quantité correcte</label>
+                <legend className="small">{lineLabel(line.product_name, line.variant_name)} × {line.quantity}</legend>
+                <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={a.product_received} onChange={set('product_received')} /> {t('handover.itemReceived')}</label>
+                <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={a.matches_order} onChange={set('matches_order')} /> {t('handover.itemMatches')}</label>
+                <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={a.quantity_correct} onChange={set('quantity_correct')} /> {t('handover.itemQuantity')}</label>
               </fieldset>
             )
           })}
           <Button variant="outline" loading={busy} disabled={!allAnswered} onClick={acknowledge}>
-            Valider les articles
+            {t('handover.validateItems')}
           </Button>
         </div>
       )}
@@ -145,22 +149,22 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
       {!state.receipt_confirmed && (
         <>
           <Button loading={busy} disabled={!state.buyer_can_confirm_receipt} onClick={confirmReceipt}>
-            Confirmer la réception
+            {t('handover.confirmReceipt')}
           </Button>
           {!state.buyer_can_confirm_receipt && (
             <p className="small muted">
               {!state.payment_verified
-                ? 'Disponible une fois le paiement confirmé.'
+                ? t('handover.blockedPayment')
                 : !state.all_lines_acknowledged
-                ? 'Validez d’abord chaque article reçu.'
+                ? t('handover.blockedAck')
                 : !state.delivery_scanned
-                ? 'Le Livreur doit d’abord scanner le QR de remise.'
-                : 'Pas encore disponible.'}
+                ? t('handover.blockedScan')
+                : t('handover.blockedOther')}
             </p>
           )}
         </>
       )}
-      {state.receipt_confirmed && <p className="small">✓ Commande remise et réception confirmée.</p>}
+      {state.receipt_confirmed && <p className="small">✓ {t('handover.receiptDone')}</p>}
     </div>
   )
 }

@@ -536,6 +536,12 @@ export interface DeliveryPlan {
   delivery_attempts?: number
   cancelled_stage?: 'NOT_ASSIGNED' | 'COURIER_ASSIGNED' | 'IN_DELIVERY' | 'BUYER_NOT_FOUND' | ''
   returned_to_seller_at?: string | null
+  /** Each courier step, dated when it happened (TBK delivery). */
+  courier_assigned_at?: string | null
+  courier_accepted_at?: string | null
+  pickup_verified_at?: string | null
+  courier_started_at?: string | null
+  courier_arrived_at?: string | null
 }
 
 export interface BuyerOrder extends DeliveryPlan {

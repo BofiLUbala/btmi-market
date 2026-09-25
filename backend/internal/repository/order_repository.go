@@ -210,6 +210,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		       expected_delivery_date::text, expected_delivery_slot, delivery_attempts, cancelled_stage, returned_to_seller_at,
 		       points_finalized, inventory_claimed,
 		       accepted_at, preparing_at, ready_at, out_for_delivery_at, delivered_at, received_at, completed_at,
+		       courier_accepted_at, pickup_verified_at, courier_started_at, courier_arrived_at,
 		       created_at, updated_at
 		FROM orders WHERE id = $1
 	`
@@ -230,6 +231,7 @@ func (r *OrderRepository) GetByID(id uuid.UUID) (*models.Order, error) {
 		&nf.expectedDeliveryDate, &nf.expectedDeliverySlot, &order.DeliveryAttempts, &nf.cancelledStage, &order.ReturnedToSellerAt,
 		&order.PointsFinalized, &order.InventoryClaimed,
 		&order.AcceptedAt, &order.PreparingAt, &order.ReadyAt, &order.OutForDeliveryAt, &order.DeliveredAt, &order.ReceivedAt, &order.CompletedAt,
+		&order.CourierAcceptedAt, &order.PickupVerifiedAt, &order.CourierStartedAt, &order.CourierArrivedAt,
 		&order.CreatedAt, &order.UpdatedAt,
 	)
 

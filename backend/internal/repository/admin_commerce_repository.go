@@ -650,7 +650,8 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 				WHEN (o.status = 'OUT_FOR_DELIVERY' AND o.out_for_delivery_at < NOW() - INTERVAL '24 hours') THEN 'In transit for >24h'
 				ELSE ''
 			END AS stuck_reason,
-			o.expected_delivery_date::text, COALESCE(o.expected_delivery_slot,''), o.delivery_attempts, COALESCE(o.cancelled_stage,''), o.returned_to_seller_at
+			o.expected_delivery_date::text, COALESCE(o.expected_delivery_slot,''), o.delivery_attempts, COALESCE(o.cancelled_stage,''), o.returned_to_seller_at,
+			COALESCE(NULLIF(o.currency, ''), 'USD'), COALESCE(pay.final_total, o.final_total + o.delivery_fee_final)
 		FROM orders o
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
@@ -686,6 +687,7 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 			&item.CreatedAt, &item.UpdatedAt,
 			&item.IsStuck, &stuckReason,
 			&item.ExpectedDeliveryDate, &item.ExpectedDeliverySlot, &item.DeliveryAttempts, &item.CancelledStage, &item.ReturnedToSellerAt,
+			&item.Currency, &item.AmountDue,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -728,7 +730,8 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 			COALESCE((SELECT NULLIF(TRIM(u.first_name || ' ' || u.last_name), '')
 			          FROM business_memberships m JOIN users u ON u.id = m.user_id
 			          WHERE m.business_id = o.business_id AND m.role = 'OWNER' LIMIT 1), ''),
-			o.expected_delivery_date::text, COALESCE(o.expected_delivery_slot,''), o.delivery_attempts, COALESCE(o.cancelled_stage,''), o.returned_to_seller_at
+			o.expected_delivery_date::text, COALESCE(o.expected_delivery_slot,''), o.delivery_attempts, COALESCE(o.cancelled_stage,''), o.returned_to_seller_at,
+			COALESCE(NULLIF(o.currency, ''), 'USD'), COALESCE(pay.final_total, o.final_total + o.delivery_fee_final)
 		FROM orders o
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
@@ -754,6 +757,7 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 		&detail.Order.CourierName, &detail.Order.SellerName,
 		&detail.Order.ExpectedDeliveryDate, &detail.Order.ExpectedDeliverySlot, &detail.Order.DeliveryAttempts,
 		&detail.Order.CancelledStage, &detail.Order.ReturnedToSellerAt,
+		&detail.Order.Currency, &detail.Order.AmountDue,
 	)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("ORDER_NOT_FOUND")

@@ -11,6 +11,7 @@ import { radius, spacing, type Colors } from '../theme'
 import { formatMoney } from '../lib/money'
 import { CASH_ON_DELIVERY } from '../lib/paymentStatus'
 import type { BuyerPayment, HandoverLineAcknowledgement } from '../types'
+import { lineLabel } from '../lib/lineLabel'
 
 // RECEIVED is included so the buyer sees the handover confirmed, not a card that vanishes.
 export const BUYER_HANDOVER_STATUSES = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
@@ -97,7 +98,7 @@ export function BuyerHandoverCard({ orderId, deliveryStatus, onChanged }: { orde
             const toggle = (key: keyof Answer) => setAnswers((prev) => ({ ...prev, [line.order_line_id]: { ...a, [key]: !a[key] } }))
             return (
               <View key={line.order_line_id} style={styles.lineBox}>
-                <Text style={styles.lineName}>{line.product_name}{line.variant_name ? ` · ${line.variant_name}` : ''} × {line.quantity}</Text>
+                <Text style={styles.lineName}>{lineLabel(line.product_name, line.variant_name)} × {line.quantity}</Text>
                 <Check styles={styles} colors={colors} checked={a.product_received} label={t('handover.itemReceived')} onPress={() => toggle('product_received')} />
                 <Check styles={styles} colors={colors} checked={a.matches_order} label={t('handover.itemMatches')} onPress={() => toggle('matches_order')} />
                 <Check styles={styles} colors={colors} checked={a.quantity_correct} label={t('handover.itemQuantity')} onPress={() => toggle('quantity_correct')} />

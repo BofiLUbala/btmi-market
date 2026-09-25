@@ -79,3 +79,44 @@ export function getDeliverySteps(deliveryMethod: string | null, currentStatus: s
 export function lifecycleIndex(status: string): number {
   return ORDER_LIFECYCLE_STEPS.indexOf(status as (typeof ORDER_LIFECYCLE_STEPS)[number])
 }
+
+// ── Courier steps of a TBK delivery ─────────────────────────────────────────
+
+/** The courier's side of a TBK delivery, in the order it happens. */
+export const COURIER_FLOW = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED'] as const
+export type CourierStep = (typeof COURIER_FLOW)[number]
+
+/** The dated facts the API returns for the courier steps. */
+export interface CourierFacts {
+  status: string
+  delivery_status?: string | null
+  courier_assigned_at?: string | null
+  courier_accepted_at?: string | null
+  pickup_verified_at?: string | null
+  courier_started_at?: string | null
+  courier_arrived_at?: string | null
+}
+
+const STEP_DATE: Partial<Record<CourierStep, keyof CourierFacts>> = {
+  COURIER_ASSIGNED: 'courier_assigned_at',
+  COURIER_ACCEPTED: 'courier_accepted_at',
+  PICKED_UP: 'pickup_verified_at',
+  IN_TRANSIT: 'courier_started_at',
+  COURIER_ARRIVED: 'courier_arrived_at',
+}
+// No courier holds the order in these states, whatever was dated before.
+const UNASSIGNED = ['PENDING_TBK_ASSIGNMENT', 'COURIER_REJECTED']
+
+/**
+ * Whether the courier has reached a step. delivery_status alone cannot say: the
+ * seller's READY_FOR_PICKUP is written before or after the courier is assigned
+ * or accepts. So a step counts once it is dated, or once delivery_status is at
+ * or past it, or once the order itself is delivered.
+ */
+export function courierReached(o: CourierFacts, step: CourierStep): boolean {
+  const ds = o.delivery_status || ''
+  if (COURIER_FLOW.indexOf(ds as CourierStep) >= COURIER_FLOW.indexOf(step)) return true
+  if (lifecycleIndex(o.status) >= lifecycleIndex('DELIVERED')) return true
+  const dateKey = STEP_DATE[step]
+  return !!dateKey && !!o[dateKey] && !UNASSIGNED.includes(ds)
+}

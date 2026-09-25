@@ -484,6 +484,9 @@ export interface AdminOrderItem extends DeliveryPlan {
   stuck_reason?: string
   created_at: string
   updated_at: string
+  /** What the buyer actually owes (products, delivery, payment fee), in `currency`. */
+  currency?: string
+  amount_due?: number
 }
 
 /** One persisted scan attempt, successful or not. */

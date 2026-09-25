@@ -14,6 +14,7 @@ import type { BuyerPayment, SellerOrder } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
 import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
+import { lineLabel } from '../../src/lib/lineLabel'
 
 const POLL_INTERVAL = 30_000
 const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
@@ -258,7 +259,7 @@ function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onA
         <Text style={styles.detailHeading}>{t('seller.products')}</Text>
         {detail.data.lines.map((line) => (
           <Text key={line.id} style={styles.muted}>
-            {line.product_name}{line.variant_name && line.variant_name !== line.product_name ? ` · ${line.variant_name}` : ''}
+            {lineLabel(line.product_name, line.variant_name)}
             {' · '}{t('orders.itemCount', { count: line.quantity })}
             {' · '}{formatMoney(line.final_unit_price ?? line.unit_price ?? 0, orderCurrency)}
             {' = '}{formatMoney((line.final_unit_price ?? line.unit_price ?? 0) * line.quantity, orderCurrency)}

@@ -67,12 +67,19 @@ export interface CourierWorkflowState {
  * Used by: Courier dashboard, Mission active, Mission detail, Handover panel
  */
 export function getCourierWorkflow(
-  deliveryStatus: string,
+  rawDeliveryStatus: string,
   orderStatus?: string,
   paymentMethod?: string,
   handoverFlags?: CourierWorkflowState['handoverFlags']
 ): CourierWorkflowState {
-  // The persisted delivery milestone alone authorizes courier actions.
+  // The persisted delivery milestone alone authorizes courier actions. One case
+  // needs the order too: when the seller marked the order ready before the
+  // courier accepted, the mission stays COURIER_ACCEPTED yet the parcel is
+  // waiting - the server allows the pickup, so the courier must be offered it.
+  const deliveryStatus =
+    rawDeliveryStatus === 'COURIER_ACCEPTED' && ['READY', 'READY_FOR_PICKUP'].includes(orderStatus || '')
+      ? 'READY_FOR_PICKUP'
+      : rawDeliveryStatus
   const isCash = paymentMethod === 'CASH_ON_DELIVERY'
   const flags = handoverFlags || {}
   const isTerminalMission = ['FAILED', 'COURIER_REJECTED'].includes(deliveryStatus)
@@ -281,7 +288,7 @@ export function getCourierWorkflow(
       break
     case 'PAYMENT_VERIFIED':
       responsibleActor = 'Livreur (Vous)'
-      explanation = 'Paiement confirmé. En attente de confirmation de réception par l\'acheteur.'
+      explanation = 'Paiement confirmé. Scannez le QR de remise affiché dans l\'application de l\'acheteur.'
       actionType = 'SCAN_DELIVERY'
       primaryButtonText = 'Scanner le QR acheteur'
       break
@@ -324,7 +331,7 @@ export function getCourierWorkflow(
   if (deliveryStatus === 'COURIER_ARRIVED' || deliveryStatus === 'PRODUCT_VERIFIED') {
     if (flags.courierCanScanDelivery) {
       responsibleActor = 'Livreur (Vous)'
-      explanation = 'Paiement confirmé. En attente de confirmation de réception par l\'acheteur.'
+      explanation = 'Paiement confirmé. Scannez le QR de remise affiché dans l\'application de l\'acheteur.'
       actionType = 'SCAN_DELIVERY'
       primaryButtonText = 'Scanner le QR acheteur'
     } else if (flags.courierCanConfirmCash) {

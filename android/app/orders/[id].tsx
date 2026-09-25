@@ -16,6 +16,7 @@ import { spacing, type Colors } from '../../src/theme'
 import type { OrderStatusHistory, BuyerPayment, ProductVerification } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
+import { courierReached } from '../../src/lib/courierSteps'
 import {
   paymentStatusKey,
   paymentMethodKey,
@@ -43,8 +44,12 @@ const FLOW_STEPS: Record<string, string[]> = {
   PICKUP: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'RECEIVED', 'COMPLETED'],
   SHOP_DELIVERY: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
   PARTNER: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'HANDED_TO_PARTNER', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
-  TBK_STANDARD: ['PENDING_TBK_ASSIGNMENT', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'RECEIVED'],
+  // The seller's steps (order statuses) then the courier's (delivery statuses).
+  TBK_STANDARD: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'RECEIVED'],
 }
+
+// Waiting states already covered by a step of the flow: never appended as an extra step.
+const COVERED_STATUSES = ['PENDING_TBK_ASSIGNMENT', 'READY_FOR_PICKUP', 'AWAITING_BUYER_CONFIRMATION']
 
 // Real rows carry several spellings of the TBK courier method.
 FLOW_STEPS.TBK_DELIVERY = FLOW_STEPS.TBK_STANDARD
@@ -53,14 +58,13 @@ FLOW_STEPS.TBK = FLOW_STEPS.TBK_STANDARD
 // The tracking history records order statuses only. A courier step is dated by
 // the order transition that happens at the same moment.
 const HISTORY_ALIASES: Record<string, string> = {
-  READY_FOR_PICKUP: 'READY',
   PICKED_UP: 'OUT_FOR_DELIVERY',
   DELIVERY_SCAN_SUCCESS: 'DELIVERED',
 }
 
 function getDeliverySteps(method: string, currentStatus: string): string[] {
   const base = FLOW_STEPS[method] || [currentStatus]
-  return base.includes(currentStatus) ? base : [...base, currentStatus]
+  return base.includes(currentStatus) || COVERED_STATUSES.includes(currentStatus) ? base : [...base, currentStatus]
 }
 
 const ACTOR_KEYS: Record<string, TranslationKey> = {
@@ -176,9 +180,8 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
     queryKey: ['buyer','tracking',id],
     queryFn: () => buyerApi.tracking(id!),
     enabled: Boolean(id),
-    // current_status is the delivery_status: FAILED / COURIER_REJECTED are terminal
-    // for this delivery, so stop polling (the order itself may be reassigned later).
-    refetchInterval: (query) => isTerminalDelivery(query.state.data?.current_status) ? false : POLL_INTERVAL,
+    // Stop once the order or its delivery is over (the order may be reassigned later).
+    refetchInterval: (query) => isTerminal(query.state.data?.current_status) || isTerminalDelivery(query.state.data?.delivery_status || undefined) ? false : POLL_INTERVAL,
   })
   const payment = useQuery({
     queryKey: ['buyer','payment',id],
@@ -227,15 +230,16 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const paidBeforeHandover = isPaidBeforeHandover(o.status, o.delivery_status, p?.status)
 
   const history: OrderStatusHistory[] = t2?.history?.length ? [...t2.history].reverse() : (order.data.history ? [...order.data.history].reverse() : [])
-  const steps = getDeliverySteps(deliveryMethod, t2?.current_status || '')
+  // current_status is the order status; a TBK delivery is followed by delivery_status.
+  const isTbk = deliveryMethod.startsWith('TBK')
+  const steps = getDeliverySteps(deliveryMethod, (isTbk ? o.delivery_status : t2?.current_status) || '')
   // A step is done once the delivery has reached it, even when no history row
   // dates it: the courier steps live in delivery_status, not in the history.
-  const reachedIndex = steps.indexOf(o.delivery_status || '')
   const closed = ['RECEIVED', 'COMPLETED'].includes(o.status)
   const timeline = t2
-    ? (steps.includes(t2.current_status) ? steps : [...steps, t2.current_status]).map((status, index) => {
+    ? steps.map((status) => {
         const event = history.find((h) => h.status === status || h.status === HISTORY_ALIASES[status])
-        return { status, event, done: Boolean(event) || closed || (reachedIndex >= 0 && index <= reachedIndex) }
+        return { status, event, done: Boolean(event) || closed || courierReached(o, status) }
       })
     : history.map((h) => ({ status: h.status, event: h, done: true }))
 

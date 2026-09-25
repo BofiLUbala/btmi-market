@@ -14,6 +14,7 @@ import { idempotencyKey } from '../../src/lib/idempotency'
 import { courierStatusLabel, invalidateCourierMission, productVerificationBody } from '../../src/lib/courier'
 import type { ConfirmCashResponse, HandoverState, HandoverVerificationResult } from '../../src/types'
 import { MissionActions } from '../../src/components/CourierMissionActions'
+import { lineLabel } from '../../src/lib/lineLabel'
 
 const HANDOVER_STATUSES = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
 const PROVIDER_LABELS: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 'Airtel Money', ORANGE_MONEY: 'Orange Money' }
@@ -151,7 +152,7 @@ function CourierHandover({ orderId }: { orderId: string }) {
       <Text style={styles.subtitle}>{t('courier.products')}</Text>
       {state.lines.map((line) => (
         <View key={line.order_line_id} style={styles.lineBox}>
-          <Text style={styles.lineName}>{line.product_name}{line.variant_name ? ` · ${line.variant_name}` : ''} × {line.quantity}</Text>
+          <Text style={styles.lineName}>{lineLabel(line.product_name, line.variant_name)} × {line.quantity}</Text>
           <Text style={line.product_verified ? styles.success : styles.muted}>
             {line.product_verified ? `✓ ${t('courier.productVerified')}` : t('courier.productToVerify')}
           </Text>
