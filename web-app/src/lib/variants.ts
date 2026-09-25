@@ -31,13 +31,16 @@ export function buildAttributeGroups(variants: PublicVariantDetail[]): Attribute
         values.set(key, new LinkedSet())
         order.push(key)
       }
-      values.get(key)!.add(attrs[key])
+      const value = attrs[key]?.trim()
+      if (value) values.get(key)!.add(value)
     }
   }
-  // Only selectable dimensions have >1 distinct value.
-  // Single-value attributes are product specifications, not variant selectors.
+  // Keep dimensions with one known value too. Some migrated products still
+  // contain an empty legacy/default variant alongside attributed variants;
+  // dropping single-value dimensions would hide Color/Size entirely and make
+  // the buyer fall back to opaque variant names.
   return order
-    .filter((key) => (values.get(key)?.toArray().length ?? 0) > 1)
+    .filter((key) => (values.get(key)?.toArray().length ?? 0) > 0)
     .map((key) => ({
       key,
       label: titleCase(key),
@@ -143,4 +146,3 @@ export function extractSpecifications(variants: PublicVariantDetail[]): ProductS
 }
 
 export { titleCase }
-
