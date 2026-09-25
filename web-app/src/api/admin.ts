@@ -1078,7 +1078,7 @@ export const adminCommerceApi = {
   },
   inviteCourier: async (payload: {
     first_name: string; last_name: string; email: string;
-    phone?: string; transport_type?: string; vehicle_info?: string; service_zone?: string; frontend_url?: string
+    phone: string; transport_type?: string; vehicle_info?: string; service_zone?: string; frontend_url?: string
   }) => {
     return adminApi<{ message: string; invitation_token: string; invitation_url: string }>(
       '/admin/commerce/couriers/invite', {
@@ -1089,6 +1089,12 @@ export const adminCommerceApi = {
     return adminApi<{ message: string }>(`/admin/commerce/couriers/${id}/suspend`, {
       method: 'POST', body: JSON.stringify({ reason })
     })
+  },
+  cancelCourierInvitation: async (id: string) => {
+    return adminApi<{ message: string }>(`/admin/commerce/couriers/invitations/${id}`, { method: 'DELETE' })
+  },
+  deleteCourier: async (id: string) => {
+    return adminApi<{ message: string }>(`/admin/commerce/couriers/${id}`, { method: 'DELETE' })
   },
   reactivateCourier: async (id: string) => {
     return adminApi<{ message: string }>(`/admin/commerce/couriers/${id}/reactivate`, {

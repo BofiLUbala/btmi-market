@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -32,6 +33,8 @@ var (
 	ErrPasswordMismatch           = errors.New("PASSWORD_MISMATCH")
 	ErrEmailAlreadyExists         = errors.New("EMAIL_ALREADY_EXISTS")
 	ErrPhoneAlreadyExists         = errors.New("PHONE_ALREADY_EXISTS")
+	ErrPhoneRequired              = errors.New("PHONE_REQUIRED")
+	ErrCourierHasActiveMissions   = errors.New("COURIER_HAS_ACTIVE_MISSIONS")
 	ErrCourierManagementForbidden = errors.New("FORBIDDEN")
 )
 
@@ -107,6 +110,13 @@ func (s *CourierService) InviteCourier(
 	req *models.InviteCourierRequest,
 	ip, userAgent string,
 ) (string, error) {
+	// users.phone is UNIQUE NOT NULL, so the phone must be present and free
+	// before we send a link; otherwise activation can only ever fail with 409.
+	req.Phone = strings.TrimSpace(req.Phone)
+	if req.Phone == "" {
+		return "", ErrPhoneRequired
+	}
+
 	// Check if user already exists
 	existingUser, _ := s.userRepo.GetByEmail(req.Email)
 	if existingUser != nil {
@@ -114,6 +124,18 @@ func (s *CourierService) InviteCourier(
 		existingCourier, _ := s.courierRepo.GetByUserID(existingUser.ID)
 		if existingCourier != nil {
 			return "", ErrCourierAlreadyExists
+		}
+	}
+
+	// An existing account for this email is reused on activation, so its own
+	// phone is fine; any other account holding the phone blocks activation.
+	if existingUser == nil || existingUser.Phone != req.Phone {
+		phoneExists, err := s.userRepo.PhoneExists(req.Phone)
+		if err != nil {
+			return "", err
+		}
+		if phoneExists {
+			return "", ErrPhoneAlreadyExists
 		}
 	}
 
@@ -881,6 +903,100 @@ func (s *CourierService) ListAllCouriers(limit, offset int) ([]*models.CourierRe
 // Token hashes and activation URLs remain private.
 func (s *CourierService) ListPendingCourierInvitations() ([]*models.CourierInvitation, error) {
 	return s.courierRepo.ListPendingInvitations()
+}
+
+// CancelInvitation deletes an invitation (and every other invitation sent to
+// the same email) together with any courier account already created for that
+// email, so the admin can invite the same email again from scratch.
+func (s *CourierService) CancelInvitation(adminID, invitationID uuid.UUID, ip, userAgent string) error {
+	inv, err := s.courierRepo.InvitationGetByID(invitationID)
+	if err != nil {
+		return err
+	}
+	if inv == nil {
+		return ErrInvitationNotFound
+	}
+	return s.deleteCourierByEmail(adminID, inv.Email, nil, "COURIER_INVITATION_CANCELLED", inv.ID.String(), ip, userAgent)
+}
+
+// DeleteCourier deactivates and removes a courier account and its invitations
+// so the same email (and phone) can be invited again.
+func (s *CourierService) DeleteCourier(adminID, courierID uuid.UUID, ip, userAgent string) error {
+	courier, err := s.courierRepo.GetByID(courierID)
+	if err != nil || courier == nil {
+		return ErrCourierNotFound
+	}
+	user, err := s.userRepo.GetByID(courier.UserID)
+	if err != nil || user == nil {
+		return ErrCourierNotFound
+	}
+	return s.deleteCourierByEmail(adminID, user.Email, &user.ID, "COURIER_DELETED", courierID.String(), ip, userAgent)
+}
+
+func (s *CourierService) deleteCourierByEmail(adminID uuid.UUID, email string, userID *uuid.UUID, action, targetID, ip, userAgent string) error {
+	if s.db == nil {
+		return errors.New("courier database is unavailable")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	txDB := &database.DB{DB: s.db.DB, Tx: tx, DSN: s.db.DSN}
+	userRepo := repository.NewUserRepository(txDB)
+	courierRepo := repository.NewCourierRepository(txDB)
+
+	if userID == nil {
+		if user, _ := userRepo.GetByEmail(email); user != nil {
+			userID = &user.ID
+		}
+	}
+
+	hardDeleted := true
+	if userID != nil {
+		user, err := userRepo.GetByID(*userID)
+		if err != nil {
+			return err
+		}
+		// Never remove a buyer/seller account that happens to share the email.
+		if user != nil && user.AccountType == models.AccountTypeCourier {
+			active, err := courierRepo.CountActiveMissions(user.ID)
+			if err != nil {
+				return err
+			}
+			if active > 0 {
+				return ErrCourierHasActiveMissions
+			}
+			if hardDeleted, err = courierRepo.DeleteCourierUser(user.ID); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := courierRepo.InvitationDeleteByEmail(email); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	if s.auditRepo != nil {
+		reason := fmt.Sprintf("Courier %s removed by admin", email)
+		if !hardDeleted {
+			reason += " (anonymized: delivery history kept)"
+		}
+		_ = s.auditRepo.Record(&models.AdminAuditLog{
+			ActorAdminID: adminID,
+			ActorRole:    "COMMERCE_ADMIN",
+			Action:       action,
+			TargetType:   "COURIER",
+			TargetID:     targetID,
+			Reason:       reason,
+			IPAddress:    &ip,
+			UserAgent:    &userAgent,
+		})
+	}
+	return nil
 }
 
 // GetAvailableCouriers returns available couriers for assignment

@@ -12,6 +12,8 @@ export default function CommerceCouriersPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(0)
   const [limit] = useState(20)
+  const [busyId, setBusyId] = useState('')
+  const [actionError, setActionError] = useState('')
 
   const fetchCouriers = useCallback(async () => {
     setLoading(true)
@@ -51,6 +53,34 @@ export default function CommerceCouriersPage() {
       fetchCouriers()
     } catch (err) {
       console.error('Failed to reactivate courier', err)
+    }
+  }
+
+  const handleCancelInvitation = async (invitation: AdminCourierInvitationItem) => {
+    if (!confirm(`Annuler l'invitation de ${invitation.first_name} ${invitation.last_name} (${invitation.email}) ?\n\nLe lien d'activation ne fonctionnera plus et vous pourrez réinviter cet email.`)) return
+    setActionError('')
+    setBusyId(invitation.id)
+    try {
+      await adminCommerceApi.cancelCourierInvitation(invitation.id)
+      await fetchCouriers()
+    } catch (err: any) {
+      setActionError(err?.message || "Impossible d'annuler l'invitation.")
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const handleDelete = async (courier: AdminCourierListItem) => {
+    if (!confirm(`Supprimer définitivement le compte livreur de ${courier.first_name} ${courier.last_name} (${courier.email}) ?\n\nLe compte sera désactivé et supprimé. Vous pourrez recréer un livreur avec le même email.`)) return
+    setActionError('')
+    setBusyId(courier.id)
+    try {
+      await adminCommerceApi.deleteCourier(courier.id)
+      await fetchCouriers()
+    } catch (err: any) {
+      setActionError(err?.message || 'Impossible de supprimer ce livreur.')
+    } finally {
+      setBusyId('')
     }
   }
 
@@ -154,6 +184,12 @@ export default function CommerceCouriersPage() {
         </span>
       </div>
 
+      {actionError && (
+        <div role="alert" style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: 'var(--admin-danger-soft)', color: 'var(--admin-danger)', fontSize: 13 }}>
+          {actionError}
+        </div>
+      )}
+
       {invitations.length > 0 && (
         <div style={{ marginBottom: 16, backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 16 }}>
           <h3 style={{ margin: '0 0 12px' }}>Invitations en attente</h3>
@@ -163,7 +199,16 @@ export default function CommerceCouriersPage() {
                 <strong>{invitation.first_name} {invitation.last_name}</strong>
                 <div style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>{invitation.email}</div>
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'var(--admin-warning-soft)', color: 'var(--admin-warning)' }}>INVITED</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'var(--admin-warning-soft)', color: 'var(--admin-warning)' }}>INVITED</span>
+                <button
+                  onClick={() => void handleCancelInvitation(invitation)}
+                  disabled={busyId === invitation.id}
+                  style={{ fontSize: 12, color: 'var(--admin-danger)', backgroundColor: 'var(--admin-danger-soft)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--admin-danger-soft)', fontWeight: 600, cursor: busyId === invitation.id ? 'not-allowed' : 'pointer', opacity: busyId === invitation.id ? 0.6 : 1 }}
+                >
+                  {busyId === invitation.id ? 'Annulation…' : "Annuler l'invitation"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -301,6 +346,13 @@ export default function CommerceCouriersPage() {
                           {t('admin.commerce.reactivate') || 'Reactivate'}
                         </button>
                       )}
+                      <button
+                        onClick={() => void handleDelete(c)}
+                        disabled={busyId === c.id}
+                        style={{ fontSize: 12, color: '#ffffff', backgroundColor: 'var(--admin-danger)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--admin-danger)', fontWeight: 600, cursor: busyId === c.id ? 'not-allowed' : 'pointer', opacity: busyId === c.id ? 0.6 : 1 }}
+                      >
+                        {busyId === c.id ? 'Suppression…' : 'Supprimer'}
+                      </button>
                     </div>
                   </td>
                 </tr>

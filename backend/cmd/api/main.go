@@ -783,6 +783,8 @@ func main() {
 					commerceGroup.POST("/couriers/invite", courierHandler.InviteCourier)
 					commerceGroup.POST("/couriers/:id/suspend", courierHandler.SuspendCourier)
 					commerceGroup.POST("/couriers/:id/reactivate", courierHandler.ReactivateCourier)
+					commerceGroup.DELETE("/couriers/invitations/:id", courierHandler.CancelInvitation)
+					commerceGroup.DELETE("/couriers/:id", courierHandler.DeleteCourier)
 				}
 
 				financeGroup := protectedAdmin.Group("/finance")

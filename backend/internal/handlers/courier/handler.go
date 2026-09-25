@@ -69,6 +69,7 @@ func (h *Handler) Activate(c *gin.Context) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		code := "ACTIVATION_FAILED"
+		message := err.Error()
 		switch err {
 		case service.ErrInvitationNotFound:
 			status = http.StatusNotFound
@@ -85,8 +86,8 @@ func (h *Handler) Activate(c *gin.Context) {
 		case service.ErrPhoneAlreadyExists:
 			status = http.StatusConflict
 			code = "PHONE_ALREADY_EXISTS"
+			message = "Le numéro de téléphone de cette invitation est déjà utilisé par un autre compte. Demandez à l'administrateur de vous renvoyer une invitation avec un autre numéro."
 		}
-		message := err.Error()
 		if status == http.StatusInternalServerError {
 			log.Printf("courier activation failed: %v", err)
 			message = "Unable to activate the courier account. Please retry."
@@ -593,10 +594,19 @@ func (h *Handler) InviteCourier(c *gin.Context) {
 	if err != nil {
 		status := http.StatusBadRequest
 		code := "INVITE_FAILED"
-		if err == service.ErrCourierAlreadyExists {
+		message := err.Error()
+		switch err {
+		case service.ErrCourierAlreadyExists:
 			code = "COURIER_ALREADY_EXISTS"
+		case service.ErrPhoneRequired:
+			code = "PHONE_REQUIRED"
+			message = "Le numéro de téléphone du livreur est obligatoire."
+		case service.ErrPhoneAlreadyExists:
+			status = http.StatusConflict
+			code = "PHONE_ALREADY_EXISTS"
+			message = "Ce numéro de téléphone est déjà utilisé par un autre compte. Utilisez un autre numéro pour ce livreur."
 		}
-		h.errResponse(c, status, code, err.Error())
+		h.errResponse(c, status, code, message)
 		return
 	}
 
@@ -663,6 +673,60 @@ func (h *Handler) ReactivateCourier(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Courier reactivated",
 	})
+}
+
+// DELETE /api/v1/admin/commerce/couriers/invitations/:id - Cancel an invitation
+func (h *Handler) CancelInvitation(c *gin.Context) {
+	adminIDVal, exists := c.Get("admin_id")
+	if !exists {
+		h.errResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "Admin not authenticated")
+		return
+	}
+	invitationID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+	err := h.courierService.CancelInvitation(adminIDVal.(uuid.UUID), invitationID, c.ClientIP(), c.Request.UserAgent())
+	if !h.courierDeleteError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Invitation annulée"})
+}
+
+// DELETE /api/v1/admin/commerce/couriers/:id - Delete a courier account
+func (h *Handler) DeleteCourier(c *gin.Context) {
+	adminIDVal, exists := c.Get("admin_id")
+	if !exists {
+		h.errResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "Admin not authenticated")
+		return
+	}
+	courierID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+	err := h.courierService.DeleteCourier(adminIDVal.(uuid.UUID), courierID, c.ClientIP(), c.Request.UserAgent())
+	if !h.courierDeleteError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Compte livreur supprimé"})
+}
+
+// courierDeleteError writes the error response and reports whether err was nil.
+func (h *Handler) courierDeleteError(c *gin.Context, err error) bool {
+	switch err {
+	case nil:
+		return true
+	case service.ErrInvitationNotFound:
+		h.errResponse(c, http.StatusNotFound, "INVITATION_NOT_FOUND", "Invitation introuvable.")
+	case service.ErrCourierNotFound:
+		h.errResponse(c, http.StatusNotFound, "COURIER_NOT_FOUND", "Livreur introuvable.")
+	case service.ErrCourierHasActiveMissions:
+		h.errResponse(c, http.StatusConflict, "COURIER_HAS_ACTIVE_MISSIONS", "Ce livreur a des livraisons en cours. Réassignez-les avant de supprimer le compte.")
+	default:
+		log.Printf("courier delete failed: %v", err)
+		h.errResponse(c, http.StatusInternalServerError, "DELETE_FAILED", "Impossible de supprimer ce livreur. Veuillez réessayer.")
+	}
+	return false
 }
 
 // GET /api/v1/admin/commerce/couriers/available - List available couriers

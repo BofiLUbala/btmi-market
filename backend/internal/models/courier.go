@@ -95,7 +95,7 @@ type InviteCourierRequest struct {
 	FirstName     string `json:"first_name" binding:"required"`
 	LastName      string `json:"last_name" binding:"required"`
 	Email         string `json:"email" binding:"required,email"`
-	Phone         string `json:"phone"`
+	Phone         string `json:"phone" binding:"required"`
 	TransportType string `json:"transport_type"`
 	VehicleInfo   string `json:"vehicle_info"`
 	ServiceZone   string `json:"service_zone"`

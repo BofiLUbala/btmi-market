@@ -4,11 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 func (r *CourierRepository) GetDeliveryHistory(orderID uuid.UUID) ([]models.DeliveryStatusHistoryResponse, error) {
@@ -176,11 +178,13 @@ func (r *CourierRepository) ListActive() ([]*models.Courier, error) {
 	return couriers, rows.Err()
 }
 
-// ListAll returns all couriers
+// ListAll returns all couriers, hiding accounts removed by an admin
 func (r *CourierRepository) ListAll(limit, offset int) ([]*models.Courier, error) {
 	rows, err := r.db.Query(`
 		SELECT `+r.selectColumns()+`
-		FROM couriers ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
+		FROM couriers
+		WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = couriers.user_id AND u.email LIKE 'deleted+%@deleted.tbk.local')
+		ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -442,6 +446,73 @@ func (r *CourierRepository) InvitationUpdateStatus(id uuid.UUID, status string) 
 	query += ` WHERE id = $1`
 	_, err := r.db.Exec(query, args...)
 	return err
+}
+
+// InvitationGetByID retrieves an invitation by its ID.
+func (r *CourierRepository) InvitationGetByID(id uuid.UUID) (*models.CourierInvitation, error) {
+	var inv models.CourierInvitation
+	err := r.db.QueryRow(`
+		SELECT id, email, first_name, last_name, phone, transport_type, vehicle_info, service_zone,
+		       token_hash, status, expires_at, accepted_at, invited_by, created_at
+		FROM courier_invitations WHERE id = $1`, id).Scan(
+		&inv.ID, &inv.Email, &inv.FirstName, &inv.LastName, &inv.Phone, &inv.TransportType,
+		&inv.VehicleInfo, &inv.ServiceZone, &inv.TokenHash, &inv.Status,
+		&inv.ExpiresAt, &inv.AcceptedAt, &inv.InvitedBy, &inv.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &inv, nil
+}
+
+// InvitationDeleteByEmail removes every invitation sent to an email so that
+// old links stop working and the email can be invited again.
+func (r *CourierRepository) InvitationDeleteByEmail(email string) error {
+	_, err := r.db.Exec(`DELETE FROM courier_invitations WHERE LOWER(email) = LOWER($1)`, email)
+	return err
+}
+
+// DeleteCourierUser removes a courier's user account (the courier profile and
+// tokens cascade). When the account is still referenced by delivery history or
+// security logs, the row is kept but anonymized and deactivated instead, which
+// frees its email and phone for a new account. Returns true when hard deleted.
+func (r *CourierRepository) DeleteCourierUser(userID uuid.UUID) (bool, error) {
+	if r.db.Tx == nil {
+		return false, fmt.Errorf("DeleteCourierUser requires a transaction")
+	}
+	if _, err := r.db.Exec(`SAVEPOINT delete_courier_user`); err != nil {
+		return false, err
+	}
+	_, err := r.db.Exec(`DELETE FROM users WHERE id = $1 AND account_type = 'COURIER'`, userID)
+	if err == nil {
+		_, err = r.db.Exec(`RELEASE SAVEPOINT delete_courier_user`)
+		return err == nil, err
+	}
+	if pqErr, ok := err.(*pq.Error); !ok || pqErr.Code != "23503" {
+		return false, err
+	}
+	if _, err := r.db.Exec(`ROLLBACK TO SAVEPOINT delete_courier_user`); err != nil {
+		return false, err
+	}
+
+	// phone is VARCHAR(20): "DEL" + 16 hex chars stays unique and within limits.
+	tag := strings.ReplaceAll(userID.String(), "-", "")[:16]
+	if _, err := r.db.Exec(`
+		UPDATE users
+		SET email = $2, phone = $3, status = 'DEACTIVATED', password_hash = '', updated_at = NOW()
+		WHERE id = $1 AND account_type = 'COURIER'`,
+		userID, "deleted+"+userID.String()+"@deleted.tbk.local", "DEL"+tag); err != nil {
+		return false, err
+	}
+	if _, err := r.db.Exec(`UPDATE couriers SET status = 'DISABLED', availability = 'UNAVAILABLE', updated_at = NOW() WHERE user_id = $1`, userID); err != nil {
+		return false, err
+	}
+	if _, err := r.db.Exec(`DELETE FROM refresh_tokens WHERE user_id = $1`, userID); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 // ListPendingInvitations returns all pending invitations

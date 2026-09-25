@@ -17,6 +17,11 @@ const CLOSED_ORDER = ['CANCELLED', 'REJECTED', 'DELIVERED', 'RECEIVED', 'COMPLET
 const canAssign = (o: AdminOrderItem) =>
   !CLOSED_ORDER.includes(o.status) && !CLOSED_DELIVERY.includes(o.delivery_status || '')
 
+// Every ACTIVE courier can be assigned; availability only orders the list and
+// tells the admin whether the courier is currently on shift.
+const AVAILABILITY_LABEL: Record<string, string> = { AVAILABLE: 'Disponible', BUSY: 'En livraison', UNAVAILABLE: 'Hors ligne' }
+const AVAILABILITY_ORDER: Record<string, number> = { AVAILABLE: 0, BUSY: 1, UNAVAILABLE: 2 }
+
 type DeliveryStatusFilter = 'ALL' | 'READY_FOR_PICKUP' | 'COURIER_ASSIGNED' | 'PICKED_UP' | 'IN_TRANSIT' | 'RECEIVED'
 
 export default function CommerceDeliveryAssignmentsPage() {
@@ -56,7 +61,9 @@ export default function CommerceDeliveryAssignmentsPage() {
         }),
       ])
       setOrders(orderRes.orders || [])
-      setCouriers((courierRes.couriers || []).filter(c => c.status === 'ACTIVE'))
+      setCouriers((courierRes.couriers || [])
+        .filter(c => c.status === 'ACTIVE')
+        .sort((a, b) => (AVAILABILITY_ORDER[a.availability] ?? 3) - (AVAILABILITY_ORDER[b.availability] ?? 3)))
     } catch (err) {
       console.error('Failed to load dispatch queue data', err)
     } finally {
@@ -485,7 +492,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                   <option value="">-- Sélectionner un livreur --</option>
                   {couriers.map((c) => (
                     <option key={c.id} value={c.id}>
-                      🛵 {c.first_name} {c.last_name} ({c.email}) - ACTIF
+                      🛵 {c.first_name} {c.last_name} ({c.email}) - {AVAILABILITY_LABEL[c.availability] ?? c.availability}
                     </option>
                   ))}
                 </select>

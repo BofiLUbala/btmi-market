@@ -89,7 +89,7 @@ export default function CourierInvitePage() {
         first_name:     firstName,
         last_name:      lastName,
         email,
-        phone:          phone     || undefined,
+        phone:          phone.trim(),
         transport_type: transportType,
         vehicle_info:   vehicleInfo  || undefined,
         service_zone:   serviceZone  || undefined,
@@ -247,7 +247,7 @@ export default function CourierInvitePage() {
 
                 <div className="cip-field">
                   <label className="cip-label" htmlFor="cip-phone">
-                    Téléphone <span className="cip-optional">(facultatif)</span>
+                    Téléphone <span className="cip-required">*</span>
                   </label>
                   <input
                     id="cip-phone"
@@ -255,7 +255,8 @@ export default function CourierInvitePage() {
                     type="tel"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    placeholder="Ex : +225 07 00 00 00 00"
+                    placeholder="Ex : +243 81 000 0000"
+                    required
                     autoComplete="tel"
                   />
                 </div>

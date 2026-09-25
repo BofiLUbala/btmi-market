@@ -669,15 +669,19 @@ func (h *CommerceHandler) AssignCourier(c *gin.Context) {
 	if err != nil {
 		status := http.StatusInternalServerError
 		code := "INTERNAL_ERROR"
+		message := err.Error()
 		if err.Error() == "ORDER_NOT_FOUND" {
 			status = http.StatusNotFound
 			code = "ORDER_NOT_FOUND"
+			message = "Commande introuvable."
 		} else if err.Error() == "COURIER_NOT_FOUND" {
 			status = http.StatusNotFound
 			code = "COURIER_NOT_FOUND"
+			message = "Livreur introuvable."
 		} else if err.Error() == "COURIER_NOT_AVAILABLE" {
 			status = http.StatusConflict
 			code = "COURIER_NOT_AVAILABLE"
+			message = "Ce livreur n'est pas actif (suspendu ou désactivé) et ne peut pas recevoir de livraison."
 		}
 		c.JSON(status, models.ErrorResponse{
 			Error: struct {
@@ -685,7 +689,7 @@ func (h *CommerceHandler) AssignCourier(c *gin.Context) {
 				Message string `json:"message"`
 			}{
 				Code:    code,
-				Message: err.Error(),
+				Message: message,
 			},
 		})
 		return

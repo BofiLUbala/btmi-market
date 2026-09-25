@@ -332,7 +332,11 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 	if err != nil || courier == nil {
 		return errors.New("COURIER_NOT_FOUND")
 	}
-	if courier.Status != models.CourierStatusActive || courier.Availability == models.CourierAvailabilityUnavailable {
+	// Admin dispatch is authoritative: any ACTIVE courier can receive a mission
+	// and accept or refuse it from the courier app. Availability is only the
+	// courier's own "on shift" toggle, and new accounts start UNAVAILABLE, so
+	// gating on it made freshly activated couriers impossible to assign.
+	if courier.Status != models.CourierStatusActive {
 		return errors.New("COURIER_NOT_AVAILABLE")
 	}
 
