@@ -17,6 +17,7 @@ import { confirmationActorKey, isPaymentPaid, paymentStatusKey } from '../../src
 import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
 import { formatDateTime } from '../../src/lib/format'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { statusLabel } from '../../src/lib/statusLabels'
 
 // Port of web-app/src/pages/seller/orders/SellerOrdersPage.tsx. Same data flow:
 // the active business (not the first one), an "all shops" / single-shop
@@ -63,7 +64,9 @@ function nextActions(order: SellerOrder, t: Translate): SellerAction[] {
 function orderStatusLabel(status: string, t: Translate): string {
   const key = `status.${status}`
   const value = t(key as TranslationKey)
-  return value === key ? status : value
+  // Delivery statuses (PENDING_TBK_ASSIGNMENT, COURIER_ACCEPTED…) live under
+  // `delivery.status.*`; the shared helper knows both families.
+  return value === key ? statusLabel(t, status) : value
 }
 
 /** web getStatusColor → badge-success / warning / info / primary / danger / muted */
