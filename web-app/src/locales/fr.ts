@@ -1166,6 +1166,10 @@ export const fr = {
   'timelineNote.Order cancelled by buyer': 'Annulée par l’acheteur',
   'timelineNote.Order cancelled by seller': 'Annulée par la boutique',
   'timelineNote.Order rejected': 'Refusée par la boutique',
+  'timelineNote.Courier QR scan (PICKUP)': 'Colis récupéré chez le vendeur (scan QR)',
+  'timelineNote.Handover complete: products verified and payment settled': 'Remise terminée : produits vérifiés et paiement réglé',
+  'timelineNote.Buyer confirmed receipt after verified handover': 'Réception confirmée par l’acheteur',
+  'timelineNote.Auto-completed after receipt and payment verification': 'Clôturée après réception et paiement vérifiés',
   'tracking.summary':
     'Commande {number} · {method} · Paiement : {status}',
   'tracking.latestUpdate': 'Dernière mise à jour',

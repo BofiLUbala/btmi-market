@@ -124,6 +124,7 @@ const buyerView = async () => (await get(`/buyer/orders/${S.orderId}/tracking`, 
 const orderOf = (d) => d?.order ?? d
 const done0 = (d) => typeof d === 'string' ? d : null
 const STOP = process.env.E2E_STOP || ''
+const refused = (r, code) => r && r.status >= 400 && r.status < 500 && (!code || JSON.stringify(r.json ?? '').includes(code))
 
 async function main() {
   section('0. Actors')
@@ -209,10 +210,14 @@ async function main() {
   const [BUY, SEL, COM] = streams
   check('buyer, seller and Commerce streams are live', true)
 
+  r = await post(`/orders/${S.orderId}/accept`, S.seller)
+  check('SELLER cannot accept before the address is confirmed (409)', refused(r, 'DELIVERY_METHOD_REQUIRED'), errText(r))
   r = await get(`/buyer/orders/${S.orderId}/delivery-options`, S.buyer)
   const opt = list(r.data, 'options').find((o) => o.method === 'TBK_STANDARD')
   check(`delivery step offers TBK at ${FEE} $`, opt?.fee === FEE, JSON.stringify(r.data))
   r = await step('buyer selects TBK delivery', () => post(`/buyer/orders/${S.orderId}/delivery`, S.buyer, { method: 'TBK_STANDARD', contact_name: 'Agent Acheteur', phone: phone(), address: '12 Avenue de la Paix, Gombe, Kinshasa', ...ADDR }), [SEL])
+  r = await post(`/orders/${S.orderId}/accept`, S.seller)
+  check('SELLER cannot accept before the payment method is chosen (409)', refused(r, 'PAYMENT_METHOD_REQUIRED'), errText(r))
   r = await get(`/buyer/orders/${S.orderId}/checkout-quote?payment_method=CASH_ON_DELIVERY`, S.buyer)
   const q = r.data
   check('checkout quote loads', r.status === 200, errText(r))
@@ -252,6 +257,12 @@ async function main() {
   await step('seller accepts the order', () => post(`/orders/${S.orderId}/accept`, S.seller), [BUY, COU, COM])
   await step('seller prepares the order', () => post(`/orders/${S.orderId}/prepare`, S.seller), [BUY, COU])
   await step('seller marks it READY', () => post(`/orders/${S.orderId}/tracking/status`, S.seller, { status: 'READY' }), [BUY, COU, COM])
+  r = await post(`/orders/${S.orderId}/tracking/status`, S.seller, { status: 'OUT_FOR_DELIVERY' })
+  check('SELLER cannot mark a TBK order out for delivery (409)', refused(r, 'COURIER_STEP_ONLY'), errText(r))
+  r = await post(`/orders/${S.orderId}/tracking/status`, S.seller, { status: 'DELIVERED' })
+  check('SELLER cannot mark a TBK order delivered', refused(r), errText(r))
+  r = await post(`/orders/${S.orderId}/courier-arrived`, S.buyer)
+  check('retired /courier-arrived shortcut is gone (404)', r.status === 404, errText(r))
   let t = await buyerView()
   log('buyer', `tracking: ${t?.current_status} / ${t?.delivery_status}`)
 
@@ -268,18 +279,32 @@ async function main() {
   log('buyer', `tracking: ${t?.current_status} / ${t?.delivery_status}`)
   let h = (await get(`/courier/missions/${S.orderId}/handover`, S.courier)).data
   check(`courier handover shows ${S.quote?.final_total} $ to collect`, money(h?.amount_due) === money(S.quote?.final_total), JSON.stringify(h)?.slice(0, 300))
-  const early = await post('/courier/scans/delivery', S.courier, { token: (await get(`/buyer/orders/${S.orderId}/delivery-qr`, S.buyer)).data?.token, order_id: S.orderId })
-  check('door QR refused before the product is checked (409)', early.status === 409, errText(early))
+  r = await post(`/courier/missions/${S.orderId}/confirm-cash`, S.courier, { confirmed: true, idempotency_key: `early-${stamp}` })
+  check('COURIER cannot take cash before checking the parcel', refused(r), errText(r))
+  r = await post(`/buyer/orders/${S.orderId}/confirm-receipt`, S.buyer)
+  check('BUYER cannot confirm receipt before the parcel is checked', refused(r), errText(r))
+  r = await post(`/courier/missions/${S.orderId}/verify-product`, S.courier, { product_number: 'BTMI-WRONG000' })
+  check('wrong order code is refused', r.data?.result && r.data.result !== 'VALID', errText(r))
+  h = (await get(`/courier/missions/${S.orderId}/handover`, S.courier)).data
+  check('a refused code verifies nothing', h?.all_products_verified === false, JSON.stringify(h)?.slice(0, 200))
   r = await post(`/courier/missions/${S.orderId}/verify-product`, S.courier, { product_number: h?.order_number })
   check(`courier verifies the parcel with order code ${h?.order_number}`, r.status === 200 && r.data?.result === 'VALID', errText(r))
+  let o = orderOf((await get(`/buyer/orders/${S.orderId}`, S.buyer)).data)
+  check('not delivered while the cash is still due', o?.status === 'OUT_FOR_DELIVERY', `${o?.status} / ${o?.delivery_status}`)
+  r = await post(`/buyer/orders/${S.orderId}/confirm-receipt`, S.buyer)
+  check('BUYER cannot confirm receipt before the payment', refused(r), errText(r))
+  const bh = (await get(`/buyer/orders/${S.orderId}/handover`, S.buyer)).data
+  check('buyer handover offers no door QR step', bh && bh.courier_can_scan_delivery === false && bh.buyer_can_confirm_receipt === false, JSON.stringify(bh)?.slice(0, 300))
   r = await step('courier confirms cash received', () => post(`/courier/missions/${S.orderId}/confirm-cash`, S.courier, { confirmed: true, idempotency_key: `cash-${stamp}` }), [BUY, SEL, COM])
   check('cash collected = quote total', money(r.data?.amount_collected) === money(S.quote?.final_total), JSON.stringify(r.data))
-  const bh = (await get(`/buyer/orders/${S.orderId}/handover`, S.buyer)).data
+  o = orderOf((await get(`/buyer/orders/${S.orderId}`, S.buyer)).data)
+  check('verified parcel + cash ⇒ DELIVERED automatically, no QR', o?.status === 'DELIVERED' && o?.delivery_status === 'AWAITING_BUYER_CONFIRMATION', `${o?.status} / ${o?.delivery_status}`)
+  const pk = (await get(`/orders/${S.orderId}/package-qr`, S.seller)).data?.token
+  r = await post('/courier/scans/delivery', S.courier, { token: pk, order_id: S.orderId })
+  check('door QR scan is retired (refused)', refused(r), errText(r))
+  r = await post(`/buyer/orders/${S.orderId}/confirm-receipt`, S.buyer)
+  check('BUYER cannot confirm receipt before checking each product', refused(r, 'LINES_NOT_ACKNOWLEDGED'), errText(r))
   r = await step('buyer acknowledges each product', () => post(`/buyer/orders/${S.orderId}/handover/acknowledge`, S.buyer, { lines: (bh?.lines ?? []).map((l) => ({ order_line_id: l.order_line_id, product_received: true, matches_order: true, quantity_correct: true })) }), [])
-  const dq = (await get(`/buyer/orders/${S.orderId}/delivery-qr`, S.buyer)).data
-  const dtoken = dq?.token ?? dq?.qr_token ?? done0(dq)
-  check('buyer shows the delivery QR', dtoken, JSON.stringify(dq)?.slice(0, 200))
-  await step('courier scans the buyer’s QR at the door', () => post('/courier/scans/delivery', S.courier, { token: dtoken, order_id: S.orderId, idempotency_key: `delivery:${S.orderId}` }), [BUY, SEL])
   await step('buyer confirms receipt', () => post(`/buyer/orders/${S.orderId}/confirm-receipt`, S.buyer), [SEL, COU, COM])
   const done = orderOf((await get(`/buyer/orders/${S.orderId}`, S.buyer)).data)
   check('order COMPLETED for the buyer', done?.status === 'COMPLETED', `${done?.status} / ${done?.delivery_status}`)
@@ -307,6 +332,9 @@ async function main() {
   check('courier: mission closed', (cm ?? hist) && ['RECEIVED', 'DELIVERED'].includes((cm ?? hist).delivery_status) || !cm, JSON.stringify(cm ?? hist))
   const co = list((await get('/admin/commerce/orders?limit=20', C)).data, 'orders', 'items').find((o) => o.id === S.orderId)
   check('Commerce: COMPLETED', co?.status === 'COMPLETED', JSON.stringify(co)?.slice(0, 200))
+  r = await get(`/admin/commerce/orders/${S.orderId}`, C)
+  const trail = JSON.stringify(r.json ?? '')
+  check('Commerce: order detail loads with the full lifecycle', r.status === 200 && ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED'].every((st) => trail.includes(st)), errText(r))
   const today = new Date().toISOString().slice(0, 10)
   r = await get(`/admin/finance/delivery-fees/ledger?date_from=${today}&date_to=${today}`, F)
   check(`Finance ledger counts the ${FEE} $ fee`, r.status === 200 && r.data?.fees_billed >= FEE, errText(r))

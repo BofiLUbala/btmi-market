@@ -15,12 +15,14 @@ import type { HandoverVerificationResult, OrderItemQRResolution, QRScanResponse 
 import { lineLabel } from '../../src/lib/lineLabel'
 
 /**
- * PICKUP / DELIVERY scan the package QR; PRODUCT checks a product label at the
+ * PICKUP scans the package QR at the seller; PRODUCT checks a product label at the
  * door; ITEM reads the per-order-item QR. ITEM is a read: it identifies one
  * ordered line and changes no order state, so it carries no idempotency key and
  * never replaces the pickup or handover scans above.
  */
-type ScanType = 'PICKUP' | 'DELIVERY' | 'PRODUCT' | 'ITEM'
+// No DELIVERY: the handover at the buyer closes on verified goods and settled
+// payment, never on a QR.
+type ScanType = 'PICKUP' | 'PRODUCT' | 'ITEM'
 
 /** What the courier is shown. `pending` is the offline state: captured, not yet confirmed. */
 type Outcome =
@@ -48,8 +50,7 @@ export default function CourierScanScreen() {
   const router = useRouter()
   const params = useLocalSearchParams<{ type?: string; order_id?: string }>()
   const scanType: ScanType =
-    params.type === 'DELIVERY' ? 'DELIVERY'
-      : params.type === 'PRODUCT' ? 'PRODUCT'
+    params.type === 'PRODUCT' ? 'PRODUCT'
         : params.type === 'ITEM' ? 'ITEM'
           : 'PICKUP'
   const queryClient = useQueryClient()
@@ -84,8 +85,7 @@ export default function CourierScanScreen() {
           else setOutcome({ kind: 'error', message: t(`courier.verdict.${result.result}` as TranslationKey) })
           return
         }
-        const scan = scanType === 'PICKUP' ? courierApi.scanPickup : courierApi.scanDelivery
-        const response = await scan({
+        const response = await courierApi.scanPickup({
           token,
           order_id: params.order_id || undefined,
           idempotency_key: key,
@@ -217,10 +217,9 @@ export default function CourierScanScreen() {
       <View style={styles.overlay} pointerEvents="box-none">
         <Text style={styles.heading}>
           {t(
-            scanType === 'PICKUP' ? 'courier.scan.pickupTitle'
-              : scanType === 'PRODUCT' ? 'courier.scan.productTitle'
-                : scanType === 'ITEM' ? 'courier.scan.itemTitle'
-                  : 'courier.scan.deliveryTitle'
+            scanType === 'PRODUCT' ? 'courier.scan.productTitle'
+              : scanType === 'ITEM' ? 'courier.scan.itemTitle'
+                : 'courier.scan.pickupTitle'
           )}
         </Text>
 
@@ -250,7 +249,7 @@ export default function CourierScanScreen() {
             <Text style={styles.success}>
               {t(outcome.response.result === 'DUPLICATE'
                 ? 'courier.scan.duplicate'
-                : scanType === 'PICKUP' ? 'courier.scan.pickupSuccess' : 'courier.scan.deliverySuccess')}
+                : 'courier.scan.pickupSuccess')}
             </Text>
             <Text style={styles.body}>{t('common.status')}: {statusLabel(t, outcome.response.delivery_status)}</Text>
             {outcome.response.requires_buyer_confirmation && (

@@ -50,11 +50,12 @@ const FLOW_STEPS: Record<string, string[]> = {
   SHOP_DELIVERY: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
   PARTNER: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'HANDED_TO_PARTNER', 'DELIVERED', 'RECEIVED', 'COMPLETED'],
   // The seller's steps (order statuses) then the courier's (delivery statuses).
-  TBK_STANDARD: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'RECEIVED'],
+  TBK_STANDARD: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED'],
+  // DELIVERED: handed over once the goods are verified and the money settled - no door QR.
 }
 
 // Waiting states already covered by a step of the flow: never appended as an extra step.
-const COVERED_STATUSES = ['PENDING_TBK_ASSIGNMENT', 'READY_FOR_PICKUP', 'AWAITING_BUYER_CONFIRMATION']
+const COVERED_STATUSES = ['PENDING_TBK_ASSIGNMENT', 'READY_FOR_PICKUP', 'AWAITING_BUYER_CONFIRMATION', 'DELIVERY_SCAN_SUCCESS']
 
 // Real rows carry several spellings of the TBK courier method.
 FLOW_STEPS.TBK_DELIVERY = FLOW_STEPS.TBK_STANDARD
@@ -247,7 +248,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const timeline = t2
     ? steps.map((status) => {
         const event = history.find((h) => h.status === status || h.status === HISTORY_ALIASES[status])
-        return { status, event, done: Boolean(event) || closed || courierReached(o, status) }
+        return { status, event, done: Boolean(event) || closed || courierReached(o, status) || (status === 'DELIVERED' && ['DELIVERED', 'RECEIVED', 'COMPLETED'].includes(o.status)) }
       })
     : history.map((h) => ({ status: h.status, event: h, done: true }))
 

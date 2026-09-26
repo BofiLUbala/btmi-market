@@ -306,7 +306,6 @@ export const employeeAuthApi = {
  */
 export const courierApi = {
   scanPickup: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/pickup', payload),
-  scanDelivery: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/delivery', payload),
 
   /** 404 for accounts that are not couriers; used to show the courier space. */
   profile: () => get<CourierProfile>('/courier/profile'),

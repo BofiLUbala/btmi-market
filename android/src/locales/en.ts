@@ -1527,6 +1527,10 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'timelineNote.Order cancelled by buyer': 'Cancelled by the buyer',
   'timelineNote.Order cancelled by seller': 'Cancelled by the shop',
   'timelineNote.Order rejected': 'Rejected by the shop',
+  'timelineNote.Courier QR scan (PICKUP)': 'Parcel collected from the seller (QR scan)',
+  'timelineNote.Handover complete: products verified and payment settled': 'Handover complete: products verified and payment settled',
+  'timelineNote.Buyer confirmed receipt after verified handover': 'Receipt confirmed by the buyer',
+  'timelineNote.Auto-completed after receipt and payment verification': 'Closed after receipt and verified payment',
   'orders.deliveryPartner': 'Delivery partner',
   /* ── Multi-shop checkout, mobile money, handover (web parity) ── */
   'cart.multiShopNote': 'Your cart has {count} shops: one order will be created per shop.',

@@ -51,8 +51,5 @@ if (stage === 'handover') {
   const cash = must('courier confirms cash', await post(`/courier/missions/${id}/confirm-cash`, courier, { confirmed: true, idempotency_key: `ui-${id}` }))
   console.log('   collected', cash.data?.amount_collected, cash.data?.currency)
 }
-if (stage === 'door') {
-  const token = (await get(`/buyer/orders/${id}/delivery-qr`, buyer)).data?.token
-  must('courier scans buyer QR', await post('/courier/scans/delivery', courier, { token, order_id: id }))
-}
+// No 'door' stage: verified parcel + settled cash close the handover on the server.
 writeFileSync(file, JSON.stringify(S, null, 2))
