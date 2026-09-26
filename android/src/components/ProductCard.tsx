@@ -10,6 +10,8 @@ import { useI18n } from '../store/i18n'
 import { resolveMediaUrl } from '../api/client'
 import { resolvePromotion } from '../lib/promotion'
 import { formatMoney } from '../lib/money'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { useFavorites, useIsFavorite } from '../store/favorites'
 
 const money = (value = 0, currency?: string) => formatMoney(value, currency)
 
@@ -31,6 +33,9 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
 
   const reviews = product.total_reviews ?? 0
   const rating = reviews > 0 ? (product.average_rating ?? 0) : (product.self_rating ?? 0)
+  const favorite = useIsFavorite(product.id)
+  const toggleFavorite = useFavorites((state) => state.toggle)
+  const lowStock = product.availability === 'LOW_STOCK'
   const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(Math.max(0, 5 - Math.round(rating)))
 
   return (
@@ -57,14 +62,38 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
             <Text style={styles.upcomingBadgeText}>{t('product.promotionUpcoming')}</Text>
           </View>
         )}
+        {/* Same round heart as the web card; favourites stay on the device. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={favorite ? t('product.removeFromFavorites') : t('product.addToFavorites')}
+          accessibilityState={{ selected: favorite }}
+          hitSlop={8}
+          onPress={() => toggleFavorite({
+            productId: product.id,
+            name: product.name,
+            shopId: product.shop_id || '',
+            shopName: product.shop_name || '',
+            price,
+            currency: product.currency || 'USD',
+            unit: product.unit || '',
+            image: typeof image === 'string' ? image : undefined,
+            categorySlug: product.category_slug,
+            categoryName: product.category_name,
+            addedAt: new Date().toISOString(),
+          })}
+          style={staticStyles.fav}
+        >
+          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={19} color={favorite ? '#B3261E' : '#1C1C1A'} />
+        </Pressable>
       </View>
       <View style={staticStyles.body}>
         {product.category_name ? <Text numberOfLines={1} style={styles.kicker}>{categoryLabel(t, product.category_slug, product.category_name)}</Text> : null}
         <Text numberOfLines={2} style={[styles.name, outOfStock && styles.mutedText]}>{product.name}</Text>
+        <Text numberOfLines={1} style={styles.shop}>{product.shop_name || t('product.aSeller')}</Text>
         <Text style={staticStyles.rating} accessibilityLabel={`${rating.toFixed(1)} / 5, ${reviews}`}>
           <Text style={styles.stars}>{stars}</Text>{reviews > 0 && <Text style={styles.reviewCount}> ({reviews})</Text>}
         </Text>
-        <Text numberOfLines={1} style={styles.shop}>{product.shop_name || t('product.aSeller')}</Text>
+        {!outOfStock ? <Text style={[styles.stock, lowStock && styles.stockLow]}>{t(lowStock ? 'stock.lowStock' : 'stock.inStock')}</Text> : null}
         <View style={staticStyles.priceRow}>
           <Text style={[styles.price, onSale && styles.salePrice, outOfStock && styles.mutedText]}>{money(price, product.currency)}</Text>
           {onSale && <Text style={styles.strikePrice}>{money(promotion.originalPrice, product.currency)}</Text>}
@@ -85,6 +114,8 @@ const makeStyles = (c: Colors) =>
     name: { color: c.ink, fontWeight: '500', fontSize: 14, lineHeight: 19, minHeight: 38 },
     mutedText: { color: c.muted },
     shop: { color: c.muted, fontSize: 12 },
+    stock: { color: c.success, fontSize: 12, fontWeight: '600' },
+    stockLow: { color: c.warning },
     stars: { color: c.star, fontSize: 12, letterSpacing: 0.5 },
     reviewCount: { color: c.muted, fontSize: 11 },
     price: { color: c.ink, fontFamily: fonts.display, fontWeight: '600', fontSize: 17, marginTop: 2 },
@@ -102,6 +133,7 @@ const staticStyles = StyleSheet.create({
   pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
   image: { width: '100%', height: '100%' },
   imageOut: { opacity: 0.5 },
+  fav: { position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
   body: { paddingTop: 10, paddingHorizontal: 2, gap: 4 },
   rating: { fontSize: 12 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs, marginTop: 2 },

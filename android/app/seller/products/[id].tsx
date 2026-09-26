@@ -18,6 +18,8 @@ import { attributeLabel, canonicalizeAttributes, getAttributeValue, variantDispl
 import type { CategoryAttributeDefinition, Product, ProductVariant } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
 import { DescriptionEditor } from '../../../src/components/DescriptionEditor'
+import { OptionPicker } from '../../../src/components/OptionPicker'
+import { attributeOptions, sameAttribute, VARIANT_TYPE_NAMES } from '../../../src/lib/attributeOptions'
 import { DescriptionPreview } from '../../../src/components/Accordion'
 import Ionicons from '@expo/vector-icons/Ionicons'
 
@@ -328,6 +330,7 @@ export default function SellerProductDetailScreen() {
     totalQuantity += q; totalReserved += r; totalAvailable += Math.max(0, q - r)
   }))
   const published = p.publication_status === 'PUBLISHED'
+  const categorySlug = categories.find((c) => c.id === p.category_id)?.slug
   const editCategory = categories.find((c) => c.id === editForm.category_id)
   const promoPreview = promo.discount_active && p.unit_price && promo.discount_value
 
@@ -499,13 +502,25 @@ export default function SellerProductDetailScreen() {
             ? `Give this variant its own value for ${knownAttributeKeys.join(' and ')}. Buyers pick a product by these attributes, so every variant must define the same ones.`
             : 'Add the attributes that tell your variants apart (Color, Size, Storage…). Buyers use these as the selection buttons on the marketplace.'}</Text>
           {Object.keys(variantAttrs).map((key) => <View key={key} style={styles.attrRow}>
-            <Text style={[styles.bold, styles.attrLabel]}>{attributeLabel(categoryAttrDefs.find((d) => d.key === key) || { key, label_fr: key, label_en: key }, lang)}</Text>
-            <TextInput style={[styles.input, styles.flex1]} value={variantAttrs[key]} onChangeText={(v) => setVariantAttrs((prev) => ({ ...prev, [key]: v }))} placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : key === 'Size' ? t('seller.productDetail.attrSizeM') : t('seller.productDetail.attrValue') })} placeholderTextColor={colors.mutedLight} />
+            <View style={styles.flex1}>
+            <AttrValue
+              attr={categoryAttrDefs.find((d) => d.key === key) || { key, label_fr: key, label_en: key }}
+              label={attributeLabel(categoryAttrDefs.find((d) => d.key === key) || { key, label_fr: key, label_en: key }, lang)}
+              categorySlug={categorySlug}
+              value={variantAttrs[key]}
+              onChange={(v) => setVariantAttrs((prev) => ({ ...prev, [key]: v }))}
+              fallback={<View style={styles.attrRow}>
+                <Text style={[styles.bold, styles.attrLabel]}>{attributeLabel(categoryAttrDefs.find((d) => d.key === key) || { key, label_fr: key, label_en: key }, lang)}</Text>
+                <TextInput style={[styles.input, styles.flex1]} value={variantAttrs[key]} onChangeText={(v) => setVariantAttrs((prev) => ({ ...prev, [key]: v }))} placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : key === 'Size' ? t('seller.productDetail.attrSizeM') : t('seller.productDetail.attrValue') })} placeholderTextColor={colors.mutedLight} />
+              </View>}
+            />
+            </View>
             <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${key} from this variant`} onPress={() => setVariantAttrs((prev) => { const next = { ...prev }; delete next[key]; return next })} style={styles.xBtn}><Text style={styles.text}>✕</Text></Pressable>
           </View>)}
-          <View style={styles.attrRow}>
-            <TextInput style={[styles.input, styles.flex1]} value={newAttrName} onChangeText={setNewAttrName} placeholder={t('seller.productDetail.attrPlaceholder')} placeholderTextColor={colors.mutedLight} accessibilityLabel={t('seller.productDetail.addAttribute')} />
-            <Button dense variant="outline" title="+ Add" disabled={!newAttrName.trim() || newAttrName.trim() in variantAttrs} onPress={() => { const name = newAttrName.trim(); if (name && !(name in variantAttrs)) { setVariantAttrs((prev) => ({ ...prev, [name]: '' })); setNewAttrName('') } }} />
+          <View style={styles.chips}>
+            {VARIANT_TYPE_NAMES.filter((name) => !Object.keys(variantAttrs).some((k) => sameAttribute(k, name))).map((name) => (
+              <Chip key={name} label={`+ ${name}`} selected={false} onPress={() => setVariantAttrs((prev) => ({ ...prev, [name]: '' }))} styles={styles} />
+            ))}
           </View>
           <Field label={t('seller.productDetail.variantNameRequired')} value={variantForm.name} onChangeText={(v) => setVariantForm((f) => ({ ...f, name: v }))} placeholder={t('seller.productDetail.variantNamePlaceholder')} />
           <Field label="SKU" value={variantForm.sku} onChangeText={(v) => setVariantForm((f) => ({ ...f, sku: v }))} placeholder={t('seller.productDetail.skuPlaceholder')} autoCapitalize="none" />
@@ -548,13 +563,23 @@ export default function SellerProductDetailScreen() {
             </View>
             {editingAttrsFor === v.id ? <View style={styles.inlineForm}>
               {Object.keys(editAttrs).length === 0 ? <Text style={styles.small}>This product has no attribute names yet. Add one below.</Text> : null}
-              {Object.keys(editAttrs).map((key) => <View key={key} style={styles.attrRow}>
-                <Text style={[styles.bold, styles.attrLabel]}>{key}</Text>
-                <TextInput style={[styles.input, styles.flex1]} value={editAttrs[key]} onChangeText={(val) => setEditAttrs((prev) => ({ ...prev, [key]: val }))} />
+              {Object.keys(editAttrs).map((key) => <View key={key}>
+                <AttrValue
+                  attr={categoryAttrDefs.find((d) => d.key === key) || { key, label_fr: key, label_en: key }}
+                  label={key}
+                  categorySlug={categorySlug}
+                  value={editAttrs[key]}
+                  onChange={(val) => setEditAttrs((prev) => ({ ...prev, [key]: val }))}
+                  fallback={<View style={styles.attrRow}>
+                    <Text style={[styles.bold, styles.attrLabel]}>{key}</Text>
+                    <TextInput style={[styles.input, styles.flex1]} value={editAttrs[key]} onChangeText={(val) => setEditAttrs((prev) => ({ ...prev, [key]: val }))} />
+                  </View>}
+                />
               </View>)}
-              <View style={styles.attrRow}>
-                <TextInput style={[styles.input, styles.flex1]} value={newAttrName} onChangeText={setNewAttrName} placeholder={t('seller.productDetail.newAttrNamePlaceholder')} placeholderTextColor={colors.mutedLight} />
-                <Button dense variant="outline" title="+ Add" disabled={!newAttrName.trim() || newAttrName.trim() in editAttrs} onPress={() => { const name = newAttrName.trim(); if (name && !(name in editAttrs)) { setEditAttrs((prev) => ({ ...prev, [name]: '' })); setNewAttrName('') } }} />
+              <View style={styles.chips}>
+                {VARIANT_TYPE_NAMES.filter((name) => !Object.keys(editAttrs).some((k) => sameAttribute(k, name))).map((name) => (
+                  <Chip key={name} label={`+ ${name}`} selected={false} onPress={() => setEditAttrs((prev) => ({ ...prev, [name]: '' }))} styles={styles} />
+                ))}
               </View>
               <Button dense title="Enregistrer" disabled={busy} onPress={() => void saveVariantAttributes(v.id)} />
             </View> : null}
@@ -591,7 +616,7 @@ export default function SellerProductDetailScreen() {
                 const set = (val: string) => setCompletionAttrs((prev) => ({ ...prev, [v.id]: { ...prev[v.id], [def.key]: val } }))
                 return <View key={def.key} style={{ gap: 4 }}>
                   <Text style={styles.label}>{attributeLabel(def, lang)} *</Text>
-                  {def.allowed_values?.length ? <View style={styles.chips}>{def.allowed_values.map((option) => <Chip key={option} label={option} selected={value === option} onPress={() => set(option)} styles={styles} />)}</View>
+                  {attributeOptions(def, categorySlug, [value]) ? <OptionPicker label="" options={attributeOptions(def, categorySlug, [value])!.values} swatch={attributeOptions(def, categorySlug, [value])!.swatch} value={value} onChange={(next) => set(next as string)} />
                     : <TextInput style={styles.input} value={value} onChangeText={set} keyboardType={def.input_type === 'NUMBER' ? 'decimal-pad' : 'default'} placeholder={def.input_type === 'DATE' ? 'AAAA-MM-JJ' : undefined} placeholderTextColor={colors.mutedLight} />}
                 </View>
               })}
@@ -612,6 +637,20 @@ type S = ReturnType<typeof makeStyles>
 
 function Chip({ label, selected, onPress, disabled, styles }: { label: string; selected: boolean; onPress: () => void; disabled?: boolean; styles: S }) {
   return <Pressable accessibilityRole="radio" accessibilityState={{ selected, disabled }} disabled={disabled} onPress={onPress} style={[styles.chip, selected && styles.chipOn]}><Text style={[styles.chipText, selected && styles.chipTextOn]}>{label}</Text></Pressable>
+}
+
+/** Attribute value: chips when the attribute has an option list, otherwise the given input. */
+function AttrValue({ attr, label, categorySlug, value, onChange, fallback }: {
+  attr: { key: string; label_fr?: string; label_en?: string; allowed_values?: string[] | null }
+  label: string
+  categorySlug?: string
+  value: string
+  onChange: (next: string) => void
+  fallback: React.ReactNode
+}) {
+  const options = attributeOptions(attr, categorySlug, [value])
+  if (!options) return <>{fallback}</>
+  return <OptionPicker label={label} options={options.values} swatch={options.swatch} value={value} onChange={(next) => onChange(next as string)} />
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({

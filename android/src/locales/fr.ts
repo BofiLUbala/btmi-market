@@ -2199,6 +2199,23 @@ export const fr = {
   'seller.descEditor.tone.automotive': 'Automobile',
   'seller.descEditor.tone.services': 'Services',
   'seller.descEditor.tone.default': 'Général',
+  /* ── Shared with the web storefront ─────────────────── */
+  'product.addToFavorites': 'Ajouter aux favoris',
+  'product.removeFromFavorites': 'Retirer des favoris',
+  'product.inFavorites': '♥ Dans les favoris',
+  'product.perUnit': 'par {unit}',
+  'product.delivery': 'Livraison',
+  'product.freeDelivery': 'Livraison gratuite incluse pour votre niveau acheteur.',
+  'product.deliveryNote': 'Le lieu, les frais et la date de livraison sont confirmés au moment du paiement.',
+  'product.subtotalWithQty': 'Sous-total ({qty} {unit})',
+  'product.similarProducts': 'Produits similaires',
+  'product.selfRatingLabel': 'Auto-évaluation du vendeur',
+  'reviews.noneYet': 'Aucun avis pour le moment — soyez le premier',
+  'checkout.progress': 'Progression de la commande',
+  'checkout.step.cart': 'Panier',
+  'checkout.step.delivery': 'Livraison',
+  'checkout.step.review': 'Paiement',
+  'checkout.step.order': 'Commande',
 } as const
 
 export type TranslationKey = keyof typeof fr

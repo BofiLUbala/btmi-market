@@ -12,6 +12,7 @@ import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import { formatMoney } from '../../src/lib/money'
 import { CASH_ON_DELIVERY, MOBILE_AT_DELIVERY, MOBILE_PAY_NOW, isPaymentPaid } from '../../src/lib/paymentStatus'
 import type { BuyerPayment, PaymentMethodConfig, PaymentProviderCode } from '../../src/types'
+import { CheckoutProgress } from '../../src/components/CheckoutProgress'
 
 const money = (value: number, currency?: string) => formatMoney(value, currency)
 
@@ -249,11 +250,7 @@ export default function PaymentScreen() {
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <View style={styles.steps}>
-          <Text style={styles.stepDone}>1 {t('tabs.cart')}</Text>
-          <Text style={styles.stepDone}>2 {t('checkout.delivery')}</Text>
-          <Text style={styles.stepActive}>3 {t('checkout.payment')}</Text>
-        </View>
+        <CheckoutProgress current="payment" />
 
         <SectionTitle title={t('checkout.reviewOrder')} />
 

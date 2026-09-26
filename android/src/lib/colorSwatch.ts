@@ -17,6 +17,7 @@ const NAMED: Record<string, string> = {
   vert: '#2f7d4a', green: '#2f7d4a', kaki: '#6b6b3a', khaki: '#6b6b3a', olive: '#6b6b3a', menthe: '#9fd8c0', mint: '#9fd8c0', sauge: '#9caf88', sage: '#9caf88',
   bleu: '#2f5aa8', blue: '#2f5aa8', marine: '#1f2a44', navy: '#1f2a44', ciel: '#8cc4ec', sky: '#8cc4ec', turquoise: '#2bb3b1', denim: '#4a6a8f',
   violet: '#6d3fa0', purple: '#6d3fa0', lilas: '#b9a2d6', lilac: '#b9a2d6', mauve: '#a07aa8',
+  'doré': '#c9a449', dore: '#c9a449', 'argenté': '#c0c0c0', argente: '#c0c0c0',
 }
 
 export function colorSwatch(value: string): string | null {

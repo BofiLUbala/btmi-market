@@ -11,6 +11,7 @@ import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '../../src/components/StructuredAddressFields'
 import { formatMoney } from '../../src/lib/money'
+import { CheckoutProgress } from '../../src/components/CheckoutProgress'
 
 const money = (value: number, currency?: string) => formatMoney(value, currency)
 
@@ -163,11 +164,7 @@ export default function DeliveryScreen() {
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <View style={styles.steps}>
-          <Text style={styles.stepDone}>1 {t('tabs.cart')}</Text>
-          <Text style={styles.stepActive}>2 {t('checkout.delivery')}</Text>
-          <Text style={styles.stepNext}>3 {t('checkout.payment')}</Text>
-        </View>
+        <CheckoutProgress current="delivery" />
 
         <SectionTitle title={t('checkout.deliveryMethod')} />
 

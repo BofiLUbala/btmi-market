@@ -1,5 +1,7 @@
 import { useAuth } from '@/store/auth'
 import { DescriptionEditor } from '@/components/seller/DescriptionEditor'
+import { AttributeValueField } from '@/components/seller/AttributeValueField'
+import { VARIANT_TYPE_NAMES, sameAttribute } from '@/lib/attributeOptions'
 import { DescriptionPreview } from '@/components/ui/DescriptionSections'
 import { formatMoney } from '@/lib/format'
 import { useI18n } from '@/store/i18n'
@@ -123,6 +125,7 @@ export default function SellerProductDetailPage() {
   )
 
   // Attributes shared by every variant are product specifications, not selectors.
+  const categorySlug = categories.find((c) => c.id === product?.category_id)?.slug
   const specifications = useMemo(
     () =>
       extractSpecifications(
@@ -821,7 +824,17 @@ export default function SellerProductDetailPage() {
                             {def.allowed_values?.length > 0 || def.input_type === 'select' ? (
                               <select {...commonProps}><option value="">Sélectionner</option>{def.allowed_values.map((option) => <option key={option} value={option}>{option}</option>)}</select>
                             ) : (
-                              <input {...commonProps} type={def.input_type === 'number' ? 'number' : def.input_type === 'date' ? 'date' : 'text'} />
+                              <AttributeValueField
+                                attribute={def}
+                                label={label}
+                                categorySlug={categorySlug}
+                                value={value}
+                                onChange={(next) => {
+                                  setFocusAttributeKey(def.key)
+                                  setCompletionAttrs((prev) => ({ ...prev, [variant.id]: { ...prev[variant.id], [def.key]: next } }))
+                                }}
+                                fallback={<input {...commonProps} type={def.input_type === 'number' ? 'number' : def.input_type === 'date' ? 'date' : 'text'} />}
+                              />
                             )}
                           </label>
                         )
@@ -1248,16 +1261,26 @@ export default function SellerProductDetailPage() {
             {/* Structured attribute inputs — these become the buyer's selectors */}
             <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
               {Object.keys(variantAttrs).map((key) => (
-                <div key={key} style={{ display: 'grid', gridTemplateColumns: '160px 1fr auto', gap: 8, alignItems: 'center' }}>
+                <div key={key} className="attr-edit-row" style={{ display: 'grid', gridTemplateColumns: '160px 1fr auto', gap: 8, alignItems: 'center' }}>
                   <label className="small bold" htmlFor={`vattr-${key}`}>
                     {attributeLabel(categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key })}
                   </label>
-                  <input
+                  <AttributeValueField
                     id={`vattr-${key}`}
-                    className="input"
+                    attribute={categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key }}
+                    label={attributeLabel(categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key })}
+                    categorySlug={categorySlug}
                     value={variantAttrs[key]}
-                    onChange={(e) => setVariantAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : key === 'Size' ? t('seller.productDetail.attrSizeM') : t('seller.productDetail.attrValue') })}
+                    onChange={(next) => setVariantAttrs((prev) => ({ ...prev, [key]: next }))}
+                    fallback={
+                      <input
+                        id={`vattr-${key}`}
+                        className="input"
+                        value={variantAttrs[key]}
+                        onChange={(e) => setVariantAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : key === 'Size' ? t('seller.productDetail.attrSizeM') : t('seller.productDetail.attrValue') })}
+                      />
+                    }
                   />
                   <Button
                     type="button"
@@ -1277,7 +1300,19 @@ export default function SellerProductDetailPage() {
                 </div>
               ))}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr auto', gap: 8, alignItems: 'center' }}>
+              <div className="option-picker-chips" aria-label={t('seller.productDetail.addAttribute')}>
+                {VARIANT_TYPE_NAMES.filter((name) => !Object.keys(variantAttrs).some((k) => sameAttribute(k, name))).map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className="option-chip option-chip--add"
+                    onClick={() => setVariantAttrs((prev) => ({ ...prev, [name]: '' }))}
+                  >
+                    + {name}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'none' }}>
                 <label className="small muted" htmlFor="vattr-new">{t('seller.productDetail.addAttribute')}</label>
                 <input
                   id="vattr-new"
@@ -1460,14 +1495,24 @@ export default function SellerProductDetailPage() {
                                 </span>
                               )}
                               {Object.keys(editAttrs).map((key) => (
-                                <div key={key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 6, alignItems: 'center' }}>
+                                <div key={key} className="attr-edit-row" style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 6, alignItems: 'center' }}>
                                   <label className="small bold" htmlFor={`edit-${v.id}-${key}`}>{key}</label>
-                                  <input
+                                  <AttributeValueField
                                     id={`edit-${v.id}-${key}`}
-                                    className="input input-sm"
+                                    attribute={categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key }}
+                                    label={key}
+                                    categorySlug={categorySlug}
                                     value={editAttrs[key]}
-                                    onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
-                                    placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : t('seller.productDetail.attrValue') })}
+                                    onChange={(next) => setEditAttrs((prev) => ({ ...prev, [key]: next }))}
+                                    fallback={
+                                      <input
+                                        id={`edit-${v.id}-${key}`}
+                                        className="input input-sm"
+                                        value={editAttrs[key]}
+                                        onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
+                                        placeholder={t('seller.productDetail.attrExample', { value: key === 'Color' ? t('seller.productDetail.attrBlack') : t('seller.productDetail.attrValue') })}
+                                      />
+                                    }
                                   />
                                 </div>
                               ))}
@@ -1627,13 +1672,23 @@ export default function SellerProductDetailPage() {
                       {editingAttrsFor === v.id && (
                         <div style={{ marginTop: 8, padding: 8, background: 'var(--color-surface)', borderRadius: 6, display: 'grid', gap: 6, border: '1px solid var(--color-border)' }}>
                           {Object.keys(editAttrs).map((key) => (
-                            <div key={key} style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 6, alignItems: 'center' }}>
+                            <div key={key} className="attr-edit-row" style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 6, alignItems: 'center' }}>
                               <label className="small bold" htmlFor={`m-edit-${v.id}-${key}`}>{key}</label>
-                              <input
+                              <AttributeValueField
                                 id={`m-edit-${v.id}-${key}`}
-                                className="input input-sm"
+                                attribute={categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key }}
+                                label={key}
+                                categorySlug={categorySlug}
                                 value={editAttrs[key]}
-                                onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
+                                onChange={(next) => setEditAttrs((prev) => ({ ...prev, [key]: next }))}
+                                fallback={
+                                  <input
+                                    id={`m-edit-${v.id}-${key}`}
+                                    className="input input-sm"
+                                    value={editAttrs[key]}
+                                    onChange={(e) => setEditAttrs((prev) => ({ ...prev, [key]: e.target.value }))}
+                                  />
+                                }
                               />
                             </div>
                           ))}

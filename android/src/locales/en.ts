@@ -2189,5 +2189,22 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.descEditor.tone.automotive': 'Automotive',
   'seller.descEditor.tone.services': 'Services',
   'seller.descEditor.tone.default': 'General',
+  /* ── Shared with the web storefront ─────────────────── */
+  'product.addToFavorites': 'Add to favorites',
+  'product.removeFromFavorites': 'Remove from favorites',
+  'product.inFavorites': '♥ In favorites',
+  'product.perUnit': 'per {unit}',
+  'product.delivery': 'Delivery',
+  'product.freeDelivery': 'Free delivery included for your buyer level.',
+  'product.deliveryNote': 'Location, fee and delivery date are confirmed at checkout.',
+  'product.subtotalWithQty': 'Subtotal ({qty} {unit})',
+  'product.similarProducts': 'Similar products',
+  'product.selfRatingLabel': "Seller's self-rating",
+  'reviews.noneYet': 'No ratings yet — be the first to review',
+  'checkout.progress': 'Checkout progress',
+  'checkout.step.cart': 'Cart',
+  'checkout.step.delivery': 'Delivery',
+  'checkout.step.review': 'Payment',
+  'checkout.step.order': 'Order',
 
 }

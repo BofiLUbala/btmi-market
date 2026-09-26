@@ -15,6 +15,10 @@ import { categoryImage } from '../../src/lib/categoryVisuals'
 import { categoryLabel } from '../../src/lib/categoryLabels'
 import { colorSwatch, isColorAttribute } from '../../src/lib/colorSwatch'
 import { Accordion, DescriptionText, descriptionItems } from '../../src/components/Accordion'
+import { ProductCard } from '../../src/components/ProductCard'
+import { useFavorites, useIsFavorite } from '../../src/store/favorites'
+import { get } from '../../src/api/client'
+import type { PublicProduct } from '../../src/types'
 import { resolvePromotion } from '../../src/lib/promotion'
 import { attributeLabel } from '../../src/lib/attributeLabels'
 import { useI18n } from '../../src/store/i18n'
@@ -85,6 +89,18 @@ export default function ProductScreen() {
     queryFn: () => marketplaceApi.product(id!),
     enabled: Boolean(id),
   })
+
+  // Same "similar products" rail as the web product page.
+  const similarQuery = useQuery({
+    queryKey: ['marketplace', 'product', id, 'similar'],
+    queryFn: async () => {
+      const data = await get<{ products?: PublicProduct[] } | PublicProduct[]>(`/marketplace/products/${id}/similar`)
+      return (Array.isArray(data) ? data : data?.products ?? []).slice(0, 6)
+    },
+    enabled: Boolean(id),
+  })
+  const isFavorite = useIsFavorite(id ?? '')
+  const toggleFavorite = useFavorites((state) => state.toggle)
 
   const reviewQuery = useQuery({
     queryKey: ['marketplace', 'product', id, 'reviews'],
@@ -220,23 +236,29 @@ export default function ProductScreen() {
         <View style={styles.content}>
           {category.name ? <Text style={styles.kicker}>{categoryLabel(t, category.slug, category.name)}</Text> : null}
           <Text style={styles.title}>{product.name}</Text>
-          <Text style={styles.shop}>{t('product.soldBy', { shop: product.shop_name || t('product.aSeller') })}</Text>
-          {reviewData?.summary.total_reviews ? (
-            <View style={styles.ratingBadgeRow}>
-              <View style={styles.ratingPill}>
-                <Text style={styles.ratingPillText}>{reviewData.summary.average_rating.toFixed(1)} ★</Text>
-              </View>
-              <Text style={styles.ratingCountText}>{t('product.reviewsCount', { count: reviewData.summary.total_reviews })}</Text>
+          <View style={styles.ratingBadgeRow}>
+            <View style={[styles.ratingPill, !reviewData?.summary.total_reviews && styles.ratingPillEmpty]}>
+              <Text style={[styles.ratingPillText, !reviewData?.summary.total_reviews && styles.ratingPillTextEmpty]}>
+                {(reviewData?.summary.average_rating ?? 0).toFixed(1)} ★
+              </Text>
             </View>
-          ) : (
-            <Text style={styles.ratingEmpty}>
-              {reviewQuery.isLoading ? t('product.loadingReviews') : t('product.noReviews')}
+            <Text style={reviewData?.summary.total_reviews ? styles.ratingCountText : styles.ratingEmpty}>
+              {reviewData?.summary.total_reviews
+                ? t('product.reviewsCount', { count: reviewData.summary.total_reviews })
+                : reviewQuery.isLoading ? t('product.loadingReviews') : t('reviews.noneYet')}
             </Text>
-          )}
+          </View>
+          {typeof product.self_rating === 'number' && product.self_rating > 0 ? (
+            <Text style={styles.selfRating}>
+              <Text style={{ color: colors.star }}>{stars(product.self_rating)}</Text>  {t('product.selfRatingLabel')}
+            </Text>
+          ) : null}
+          <Text style={styles.shop}>{t('product.soldBy', { shop: product.shop_name || t('product.aSeller') })}</Text>
           <View style={styles.priceRow}>
             <Text style={styles.price}>
               {formatMoney(price, product.currency)}
             </Text>
+            {product.unit ? <Text style={styles.perUnit}>{t('product.perUnit', { unit: product.unit })}</Text> : null}
             {onSale && (
               <>
                 <Text style={styles.strikePrice}>
@@ -248,6 +270,7 @@ export default function ProductScreen() {
               </>
             )}
           </View>
+          {description.intro ? <Text style={styles.summaryText} numberOfLines={2}>{description.intro.split(/\n|(?<=[.!?])\s+/)[0]}</Text> : null}
           {promotion.phase === 'upcoming' && (
             <Text style={styles.promoWindow}>{t('product.promotionUpcoming')}</Text>
           )}
@@ -325,13 +348,15 @@ export default function ProductScreen() {
             </View>
           ) : null}
 
-          <Text style={[styles.stock, { color: stock > 0 ? colors.success : colors.danger }]}>
-            {stock > 3
-              ? t('product.inStockCount', { count: stock })
-              : stock > 0
-              ? t('product.onlyLeft', { count: stock })
-              : t('product.outOfStock')}
-          </Text>
+          <View style={[styles.stockBox, stock > 3 ? styles.stockIn : stock > 0 ? styles.stockLow : styles.stockOut]}>
+            <Text style={[styles.stock, { color: stock > 3 ? colors.success : stock > 0 ? colors.warning : colors.danger }]}>
+              {stock > 3
+                ? t('product.inStockCount', { count: stock })
+                : stock > 0
+                ? t('product.onlyLeft', { count: stock })
+                : t('product.outOfStock')}
+            </Text>
+          </View>
 
           <View style={styles.qtyRow}>
             <Text style={styles.qtyLabel}>{t('common.quantity')}</Text>
@@ -357,6 +382,51 @@ export default function ProductScreen() {
             </View>
           </View>
 
+          <View style={styles.subtotalRow}>
+            <Text style={styles.subtotalLabel}>{t('product.subtotalWithQty', { qty: quantity, unit: product.unit || '' })}</Text>
+            <Text style={styles.subtotalValue}>{formatMoney(price * quantity, product.currency)}</Text>
+          </View>
+          <View style={styles.actionRow}>
+            <Button
+              style={styles.flex1}
+              variant="primary"
+              title={stock < 1 ? t('product.outOfStock') : t('product.addToCart')}
+              disabled={!optionsComplete || !selected || stock < 1}
+              onPress={addLine}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isFavorite ? t('product.removeFromFavorites') : t('product.addToFavorites')}
+              accessibilityState={{ selected: isFavorite }}
+              style={[styles.favBtn, isFavorite && styles.favBtnOn]}
+              onPress={() => toggleFavorite({
+                productId: product.id,
+                name: product.name,
+                shopId: product.shop_id || '',
+                shopName: product.shop_name || '',
+                price,
+                currency: product.currency || 'USD',
+                unit: product.unit || '',
+                image: typeof image === 'string' ? image : undefined,
+                categorySlug: category.slug,
+                categoryName: category.name,
+                addedAt: new Date().toISOString(),
+              })}
+            >
+              <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={22} color={isFavorite ? colors.danger : colors.ink} />
+            </Pressable>
+          </View>
+          {stock > 0 ? (
+            <Button
+              variant="outline"
+              title={t('product.buyNow')}
+              disabled={!optionsComplete || !selected}
+              onPress={() => {
+                if (addLine()) router.push('/(buyer)/cart')
+              }}
+            />
+          ) : null}
+
           <Accordion
             items={[
               ...(description.intro
@@ -379,6 +449,11 @@ export default function ProductScreen() {
                     ),
                   }]
                 : []),
+              {
+                id: 'delivery',
+                title: t('product.delivery'),
+                content: <DescriptionText text={(product as { free_delivery?: boolean }).free_delivery ? t('product.freeDelivery') : t('product.deliveryNote')} />,
+              },
             ]}
           />
 
@@ -449,6 +524,17 @@ export default function ProductScreen() {
               </>
             )}
           </View>
+
+          {similarQuery.data && similarQuery.data.length > 0 ? (
+            <View style={styles.similar}>
+              <SectionTitle title={t('product.similarProducts')} />
+              <View style={styles.similarGrid}>
+                {similarQuery.data.map((item) => (
+                  <ProductCard key={item.id} product={item} onPress={() => router.push(`/products/${item.id}`)} />
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -461,32 +547,18 @@ export default function ProductScreen() {
         )}
         <View style={styles.barRow}>
           <View style={styles.priceBlock}>
-            <Text style={styles.priceBlockQty} numberOfLines={1}>
-              {stock < 1
-                ? t('product.outOfStock')
-                : `${quantity} × ${formatMoney(price, product.currency)}`}
-            </Text>
             <Text style={styles.priceBlockTotal} numberOfLines={1}>
-              {formatMoney(price * quantity, product.currency)}
+              {formatMoney(price, product.currency)}
             </Text>
+            <Text style={styles.priceBlockQty} numberOfLines={1}>{product.name}</Text>
           </View>
           <Button
             dense
             style={styles.barButton}
             variant="primary"
-            title={t('product.addToCart')}
+            title={stock < 1 ? t('product.outOfStock') : t('product.addToCart')}
             disabled={!optionsComplete || !selected || stock < 1}
             onPress={addLine}
-          />
-          <Button
-            dense
-            style={styles.barButton}
-            variant="outline"
-            title={t('product.buyNow')}
-            disabled={!optionsComplete || !selected || stock < 1}
-            onPress={() => {
-              if (addLine()) router.push('/(buyer)/cart')
-            }}
           />
         </View>
       </View>
@@ -502,9 +574,27 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   kicker: { ...kicker, color: colors.muted, marginBottom: -8 },
   shop: { color: colors.muted, fontSize: 13 },
   title: { fontSize: 28, lineHeight: 34, fontFamily: fonts.display, fontWeight: '500', color: colors.ink, letterSpacing: -0.3 },
-  ratingBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ratingPill: { backgroundColor: colors.success, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  ratingPillText: { color: colors.white, fontWeight: '700', fontSize: 13 },
+  ratingBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  ratingPillEmpty: { backgroundColor: colors.surfaceAlt },
+  ratingPillTextEmpty: { color: colors.muted },
+  selfRating: { color: colors.muted, fontSize: 13 },
+  perUnit: { color: colors.muted, fontSize: 14 },
+  summaryText: { color: colors.muted, fontSize: 15, lineHeight: 22 },
+  stockBox: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  stockIn: { backgroundColor: colors.successSoft, borderColor: colors.successSoft },
+  stockLow: { backgroundColor: colors.warningSoft, borderColor: colors.warningSoft },
+  stockOut: { backgroundColor: colors.dangerSoft, borderColor: colors.dangerSoft },
+  subtotalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  subtotalLabel: { color: colors.muted, fontSize: 14 },
+  subtotalValue: { color: colors.ink, fontSize: 20, fontFamily: fonts.display, fontWeight: '500' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  flex1: { flex: 1 },
+  favBtn: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  favBtnOn: { borderColor: colors.danger },
+  similar: { gap: spacing.md, marginTop: 8 },
+  similarGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.lg },
+  ratingPill: { backgroundColor: colors.success, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 4 },
+  ratingPillText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
   ratingCountText: { color: colors.muted, fontSize: 13 },
   ratingEmpty: { color: colors.muted, fontStyle: 'italic' },
   price: { fontSize: 28, fontFamily: fonts.display, fontWeight: '500', color: colors.ink },
@@ -608,7 +698,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   priceBlock: { flex: 1, minWidth: 64 },
-  priceBlockQty: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  priceBlockQty: { color: colors.muted, fontSize: 12 },
   priceBlockTotal: { color: colors.ink, fontSize: 18, fontFamily: fonts.display, fontWeight: '500' },
   barButton: { flexGrow: 0, flexShrink: 0 },
   selectHint: { color: colors.gold, fontSize: 12, fontWeight: '600', textAlign: 'center' },

@@ -5,6 +5,8 @@ import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { BulbIcon, WarningIcon } from '@/components/ui/Icons'
 import { DescriptionEditor } from '@/components/seller/DescriptionEditor'
+import { OptionPicker } from '@/components/seller/OptionPicker'
+import { attributeOptions, sameAttribute, VARIANT_TYPE_NAMES } from '@/lib/attributeOptions'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import { ApiError, type CategoryResponse, type SubcategoryResponse, type Shop, type CategoryAttributeDefinition } from '@/api/types'
 import { Card } from '@/components/ui/Card'
@@ -475,8 +477,8 @@ export default function SellerProductCreatePage() {
     setVariantDrafts((prev) => (prev.length <= 1 ? prev : prev.filter((d) => d.clientId !== clientId)))
   }
 
-  function addCustomVariantAttr() {
-    const name = newVariantAttrName.trim()
+  function addCustomVariantAttr(preset?: string) {
+    const name = (preset ?? newVariantAttrName).trim()
     if (!name) return
     const alreadyExists = variantAttrDefs.some((def) => matchesAttributeName(name, def))
     setNewVariantAttrName('')
@@ -1344,29 +1346,13 @@ export default function SellerProductCreatePage() {
                     )
                   })}
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
-                  <input
-                    className="input"
-                    style={{ maxWidth: 260 }}
-                    placeholder={t('seller.productForm.newVariantAttrPlaceholder')}
-                    value={newVariantAttrName}
-                    onChange={(e) => setNewVariantAttrName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        addCustomVariantAttr()
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!newVariantAttrName.trim()}
-                    onClick={addCustomVariantAttr}
-                  >
-                    {t('seller.productForm.addVariantAttrType')}
-                  </Button>
+                {/* Extra variant types are picked, not typed. */}
+                <div className="option-picker-chips" style={{ marginBottom: 20 }} aria-label={t('seller.productForm.addVariantAttrType')}>
+                  {VARIANT_TYPE_NAMES.filter((name) => !variantAttrDefs.some((def) => matchesAttributeName(name, def) || sameAttribute(name, def.key) || sameAttribute(name, def.label_fr ?? ''))).map((name) => (
+                    <button key={name} type="button" className="option-chip option-chip--add" onClick={() => addCustomVariantAttr(name)}>
+                      + {name}
+                    </button>
+                  ))}
                 </div>
 
                 {variantAttrDefs.length === 0 ? (
@@ -1399,6 +1385,28 @@ export default function SellerProductCreatePage() {
                             const label = attributeLabel(def)
                             const focused = focusTarget?.clientId === draft.clientId && focusTarget.key === def.key
                             const missing = def.required && !getAttributeValue(draft.attributes, def)
+                            const picker = def.input_type === 'BOOLEAN' || def.input_type === 'DATE' || def.input_type === 'NUMBER'
+                              ? null
+                              : attributeOptions(def, selectedCategory?.slug, [draft.attributes[def.key] || ''])
+                            if (picker) {
+                              return (
+                                <div key={def.key} className="variant-draft-picker">
+                                  <OptionPicker
+                                    id={`variant-${draft.clientId}-${def.key}`}
+                                    label={label}
+                                    required={def.required}
+                                    options={picker.values}
+                                    swatch={picker.swatch}
+                                    value={draft.attributes[def.key] || ''}
+                                    highlight={missing && missingIssues.some((issue) => issue.key === def.key)}
+                                    onChange={(next) => {
+                                      setFocusTarget({ clientId: draft.clientId, key: def.key })
+                                      updateVariantAttribute(draft.clientId, def.key, next as string)
+                                    }}
+                                  />
+                                </div>
+                              )
+                            }
                             return (
                               <Field
                                 key={def.key}
@@ -1544,7 +1552,28 @@ export default function SellerProductCreatePage() {
                         <label className="small bold" style={{ display: 'block', marginBottom: 4 }} htmlFor={`${ch.id}-values`}>
                           {t('seller.productForm.specValueLabel')}
                         </label>
-                        {ch.inputType === 'SELECT' || ch.inputType === 'BOOLEAN' ? (
+                        {(() => {
+                          const picker = ch.inputType === 'BOOLEAN' || ch.inputType === 'DATE' || ch.inputType === 'NUMBER'
+                            ? null
+                            : attributeOptions({ key: ch.definitionKey || ch.name, label_fr: ch.name, allowed_values: ch.allowedValues }, selectedCategory?.slug, [ch.values])
+                          if (!picker) return null
+                          return (
+                            <OptionPicker
+                              id={`${ch.id}-values`}
+                              label={ch.name}
+                              options={picker.values}
+                              swatch={picker.swatch}
+                              value={ch.values}
+                              highlight={missingProductKeys.includes(ch.definitionKey || '')}
+                              onChange={(next) => {
+                                updateCharacteristic(ch.id, 'values', next as string)
+                                if (ch.definitionKey && next) {
+                                  setMissingProductKeys((prev) => prev.filter((key) => key !== ch.definitionKey))
+                                }
+                              }}
+                            />
+                          )
+                        })() ?? (ch.inputType === 'SELECT' || ch.inputType === 'BOOLEAN' ? (
                           <select
                             id={`${ch.id}-values`}
                             className={`select ${missingProductKeys.includes(ch.definitionKey || '') ? 'completion-input-focus' : ''}`}
@@ -1570,7 +1599,7 @@ export default function SellerProductCreatePage() {
                             }
                           }}
                         />
-                        )}
+                        ))}
                       </div>
                       <Button
                         type="button"

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi } from '../../src/api'
@@ -15,6 +15,7 @@ import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import type { CartLineIssue, CartPreview } from '../../src/types'
 import { formatMoney } from '../../src/lib/money'
 import { idempotencyKey } from '../../src/lib/idempotency'
+import { CheckoutProgress } from '../../src/components/CheckoutProgress'
 
 const money = (value: number, currency?: string) => formatMoney(value, currency)
 
@@ -142,6 +143,7 @@ export default function CartScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
+      <CheckoutProgress current="cart" />
       <SectionTitle title={t('cart.title', { count: lines.length })} />
       {groups.length > 1 ? <Text style={themed.muted}>{t('cart.multiShopNote', { count: groups.length })}</Text> : null}
 
@@ -174,15 +176,23 @@ export default function CartScreen() {
                   </View>
 
                   <View style={styles.row}>
-                    <Button variant="outline" title="−" style={styles.step} onPress={() => setQuantity(key, line.quantity - 1)} />
-                    <Text style={themed.qty}>{line.quantity}</Text>
-                    <Button variant="outline" title="+" style={styles.step} onPress={() => setQuantity(key, line.quantity + 1)} />
+                    <View style={themed.stepper}>
+                      <Pressable accessibilityRole="button" accessibilityLabel="−" style={styles.stepBtn} onPress={() => setQuantity(key, line.quantity - 1)}>
+                        <Ionicons name="remove" size={18} color={colors.ink} />
+                      </Pressable>
+                      <Text style={themed.qty}>{line.quantity}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel="+" style={styles.stepBtn} onPress={() => setQuantity(key, line.quantity + 1)}>
+                        <Ionicons name="add" size={18} color={colors.ink} />
+                      </Pressable>
+                    </View>
                     <Text style={themed.price}>{money(line.price * line.quantity, currency)}</Text>
                   </View>
 
                   {issue ? <Text style={themed.issue}>{issue.message || issue.code}</Text> : null}
 
-                  <Button variant="outline" title={t('common.remove')} onPress={() => remove(key)} />
+                  <Pressable accessibilityRole="button" onPress={() => remove(key)} hitSlop={8} style={styles.removeLink}>
+                    <Text style={themed.remove}>{t('common.remove')}</Text>
+                  </Pressable>
                 </Card>
               )
             })}
@@ -246,15 +256,17 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     emptyTitle: { color: c.ink, fontSize: 22, fontFamily: fonts.display, fontWeight: '500' },
     muted: { color: c.muted },
-    shopLine: { color: c.green, fontWeight: '800', flex: 1 },
-    name: { color: c.ink, fontWeight: '800', fontSize: 16 },
+    shopLine: { color: c.ink, fontWeight: '600', flex: 1 },
+    name: { color: c.ink, fontWeight: '600', fontSize: 16 },
     unit: { color: c.muted, fontSize: 13 },
-    qty: { minWidth: 28, textAlign: 'center', fontWeight: '700', color: c.ink, fontSize: 16 },
-    price: { marginLeft: 'auto', color: c.green, fontWeight: '700' },
-    total: { color: c.green, fontFamily: fonts.display, fontWeight: '500', fontSize: 19 },
+    qty: { minWidth: 28, textAlign: 'center', fontWeight: '600', color: c.ink, fontSize: 16 },
+    stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: c.borderControl, borderRadius: 999 },
+    remove: { color: c.danger, fontWeight: '600', fontSize: 14 },
+    price: { marginLeft: 'auto', color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 17 },
+    total: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 22 },
     pointsNote: { color: c.success, fontWeight: '700' },
     issue: { color: c.danger, fontWeight: '700' },
-    thumb: { width: 64, height: 64, borderRadius: radius.sm, backgroundColor: c.greenSoft },
+    thumb: { width: 72, height: 90, borderRadius: 12, backgroundColor: c.surfaceAlt },
   })
 
 const styles = StyleSheet.create({
@@ -266,5 +278,6 @@ const styles = StyleSheet.create({
   lineInfo: { flex: 1, gap: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
-  step: { minWidth: 52, paddingHorizontal: spacing.sm },
+  stepBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  removeLink: { alignSelf: 'flex-start' },
 })

@@ -23,6 +23,8 @@ import {
 import type { Category, Shop } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
 import { DescriptionEditor } from '../../../src/components/DescriptionEditor'
+import { OptionPicker } from '../../../src/components/OptionPicker'
+import { attributeOptions, sameAttribute, splitValues, VARIANT_TYPE_NAMES } from '../../../src/lib/attributeOptions'
 
 /* ── Types ──────────────────────────────────────────────── */
 
@@ -653,6 +655,13 @@ export default function SellerProductCreateScreen() {
             </View>
           </>}
 
+          <Text style={styles.subLabel}>{t('seller.productForm.variantChip')}</Text>
+          <View style={styles.chipRow}>
+            {VARIANT_TYPE_NAMES.filter((name) => !characteristics.some((c) => sameAttribute(c.name, name) || sameAttribute(c.definitionKey ?? '', name))).map((name) => <Pressable key={name} accessibilityRole="button" style={styles.chip} onPress={() => addCustomCharacteristic(name)}>
+              <Text style={styles.chipText}>+ {name}</Text>
+            </Pressable>)}
+          </View>
+
           <Text style={styles.subLabel}>{t('seller.productForm.popularCharacteristics')}</Text>
           <View style={styles.chipRow}>
             {POPULAR_CUSTOM_CHARACTERISTICS.map((name) => <Pressable key={name} accessibilityRole="button" style={styles.chip} onPress={() => addCustomCharacteristic(attributeLabel(t, name))}>
@@ -677,12 +686,26 @@ export default function SellerProductCreateScreen() {
               </Text>
             </Pressable>)}
           </View>
-          <Field
-            label={t(c.type === 'VARIANT' ? 'seller.productForm.valuesCommaSeparated' : 'seller.productForm.specValueLabel')}
-            value={c.values}
-            onChangeText={(v) => updateCharacteristic(c.id, 'values', v)}
-            placeholder={c.placeholder}
-          />
+          {(() => {
+            // Pick, don't type: variants take several values, info one.
+            const picker = attributeOptions({ key: c.definitionKey || c.name, label_fr: c.name }, selectedCategory?.slug, splitValues(c.values))
+            if (!picker) {
+              return <Field
+                label={t(c.type === 'VARIANT' ? 'seller.productForm.valuesCommaSeparated' : 'seller.productForm.specValueLabel')}
+                value={c.values}
+                onChangeText={(v) => updateCharacteristic(c.id, 'values', v)}
+                placeholder={c.placeholder}
+              />
+            }
+            return <OptionPicker
+              label={c.name || t('seller.productForm.specValueLabel')}
+              options={picker.values}
+              swatch={picker.swatch}
+              multiple={c.type === 'VARIANT'}
+              value={c.type === 'VARIANT' ? splitValues(c.values) : c.values}
+              onChange={(next) => updateCharacteristic(c.id, 'values', Array.isArray(next) ? next.join(', ') : next)}
+            />
+          })()}
           {!c.definitionKey ? <Button dense variant="outline" title={t('seller.productForm.removeCharacteristic')} onPress={() => removeCharacteristic(c.id)} /> : null}
         </Card>)}
       </>}

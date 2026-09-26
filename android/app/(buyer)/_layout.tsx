@@ -4,6 +4,7 @@ import { View, type ColorValue } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../../src/store/auth'
+import { useCart } from '../../src/store/cart'
 import { useTheme } from '../../src/store/theme'
 import { useI18n } from '../../src/store/i18n'
 import { resolveMediaUrl } from '../../src/api/client'
@@ -29,6 +30,7 @@ export default function BuyerTabs() {
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
   const { t } = useI18n()
+  const cartCount = useCart((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0))
 
   return (
     <Tabs
@@ -37,6 +39,8 @@ export default function BuyerTabs() {
         headerStyle: { backgroundColor: colors.white },
         headerTintColor: colors.ink,
         headerShadowVisible: false,
+        // Same cream page background as the web storefront.
+        sceneStyle: { backgroundColor: colors.cream },
         headerTitleStyle: { fontFamily: fonts.display, fontWeight: '500', fontSize: 20 },
         headerRight: () => <PreferenceToggleButtons />,
         headerRightContainerStyle: { paddingRight: spacing.md },
@@ -55,9 +59,10 @@ export default function BuyerTabs() {
     >
       <Tabs.Screen name="index" options={{ title: t('tabs.home'), headerShown: false, tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} /> }} />
       <Tabs.Screen name="categories" options={{ title: t('tabs.categories'), headerTitle: t('tabs.categories'), tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'grid' : 'grid-outline'} size={21} color={color} /> }} />
-      <Tabs.Screen name="cart" options={{ title: t('tabs.cart'), headerTitle: t('tabs.myCart'), tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'bag-handle' : 'bag-handle-outline'} size={22} color={color} /> }} />
       <Tabs.Screen name="favorites" options={{ title: t('tabs.favorites'), headerTitle: t('tabs.myFavorites'), tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: t('tabs.profile'), headerTitle: t('tabs.myProfile'), tabBarIcon: ({ color, focused }) => <ProfileTabIcon color={color} focused={focused} size={22} /> }} />
+      {/* Same order as the web bottom bar: the cart closes the row. */}
+      <Tabs.Screen name="cart" options={{ title: t('tabs.cart'), headerTitle: t('tabs.myCart'), tabBarBadge: cartCount > 0 ? cartCount : undefined, tabBarBadgeStyle: { backgroundColor: colors.gold, color: colors.onGold, fontSize: 10.5 }, tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'bag-handle' : 'bag-handle-outline'} size={22} color={color} /> }} />
     </Tabs>
   )
 }
