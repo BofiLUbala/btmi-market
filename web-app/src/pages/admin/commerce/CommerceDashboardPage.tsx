@@ -35,8 +35,8 @@ export default function CommerceDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const loadOverview = useCallback(async () => {
-    setLoading(true)
+  const loadOverview = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     setError(null)
     try {
       const data = await adminCommerceApi.getOverview()
@@ -45,14 +45,14 @@ export default function CommerceDashboardPage() {
       console.error('Failed to load commerce overview:', err)
       setError(err instanceof Error ? err.message : t('admin.commerceDash.kpisLoadError'))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [t])
 
   useEffect(() => {
     void loadOverview()
-    const timer = window.setInterval(() => { void loadOverview() }, 30_000)
-    const onVisible = () => { if (document.visibilityState === 'visible') void loadOverview() }
+    const timer = window.setInterval(() => { void loadOverview(true) }, 30_000)
+    const onVisible = () => { if (document.visibilityState === 'visible') void loadOverview(true) }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       window.clearInterval(timer)

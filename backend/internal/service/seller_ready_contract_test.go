@@ -67,6 +67,7 @@ func newSellerReadyFixture(t *testing.T, method, deliveryStatus string, withCour
 		must(`INSERT INTO users (id,email,password_hash,first_name,last_name,phone,status,account_type)
 			VALUES ($1,$2,'hash','Courier','Ready',$3,'ACTIVE','BUYER')`,
 			id, "sr_courier_"+suffix+"@example.com", "+242"+suffix)
+		must(`INSERT INTO couriers (user_id,status,availability,transport_type) VALUES ($1,'ACTIVE','BUSY','MOTORCYCLE')`, id)
 	}
 	f.courierID = courierRef
 	must(`INSERT INTO orders (id,business_id,shop_id,created_by,status,total_items,base_total,final_total,
@@ -81,6 +82,7 @@ func newSellerReadyFixture(t *testing.T, method, deliveryStatus string, withCour
 		_, _ = db.Exec(`DELETE FROM businesses WHERE id=$1`, f.businessID)
 		_, _ = db.Exec(`DELETE FROM users WHERE id=$1`, f.sellerID)
 		if f.courierID != nil {
+			_, _ = db.Exec(`DELETE FROM couriers WHERE user_id=$1`, *f.courierID)
 			_, _ = db.Exec(`DELETE FROM users WHERE id=$1`, *f.courierID)
 		}
 	})
@@ -189,6 +191,30 @@ func TestSellerReadyLeavesNonCourierDeliveryUntouched(t *testing.T) {
 	}
 	if storedDeliveryStatus == models.DeliveryStatusReadyForPickup {
 		t.Fatalf("delivery_status = READY_FOR_PICKUP, want it untouched for a non-courier flow")
+	}
+}
+
+// The bug this guards: a courier invited but not yet decided (COURIER_ASSIGNED) must not
+// be silently treated as having accepted just because the seller was fast to prep. Jumping
+// straight to READY_FOR_PICKUP here would skip the courier's own accept/reject step and
+// make AcceptMission fail afterward (it only fires from COURIER_ASSIGNED).
+func TestSellerReadyDoesNotSkipCourierAcceptance(t *testing.T) {
+	f := newSellerReadyFixture(t, "TBK_STANDARD", "COURIER_ASSIGNED", true)
+
+	updated, err := f.orderSvc.TransitionOrder(f.orderID, f.sellerID, models.OrderStatusReady, "", "SELLER")
+	if err != nil {
+		t.Fatalf("seller READY transition failed: %v", err)
+	}
+	if updated.Status != models.OrderStatusReady {
+		t.Fatalf("order.status = %s, want READY", updated.Status)
+	}
+	if updated.DeliveryStatus != models.DeliveryStatusCourierAssigned {
+		t.Fatalf("delivery_status = %s, want it left at COURIER_ASSIGNED so the courier still must accept", updated.DeliveryStatus)
+	}
+
+	courierSvc := NewCourierService(repository.NewCourierRepository(f.db), repository.NewUserRepository(f.db), nil, nil, f.db)
+	if err := courierSvc.AcceptMission(*f.courierID, f.orderID); err != nil {
+		t.Fatalf("courier should still be able to accept the mission: %v", err)
 	}
 }
 

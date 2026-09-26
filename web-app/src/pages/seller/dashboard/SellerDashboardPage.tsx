@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDateTime } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import {
@@ -7,14 +7,16 @@ import {
   productApi,
   orderApi,
   employeeApi,
+  cashApi,
   growthApi,
 } from '@/api/seller'
-import type { SellerOrder, Shop, Product, Employee, SellerGrowth } from '@/api/types'
+import type { SellerOrder, Shop, Product, Employee, CashSummary, SellerGrowth } from '@/api/types'
 import {
   StoreIcon,
   BoxIcon,
   OrdersIcon,
   UsersIcon,
+  CashIcon,
   GrowthIcon,
   PlusIcon,
   ShieldCheckIcon,
@@ -40,6 +42,7 @@ interface DashboardData {
   products: Product[]
   orders: SellerOrder[]
   employees: Employee[]
+  cashSummary: CashSummary | null
   growth: SellerGrowth | null
 }
 
@@ -61,12 +64,14 @@ export default function SellerDashboardPage() {
         productsRes,
         ordersRes,
         employeesRes,
+        cashRes,
         growthRes,
       ] = await Promise.allSettled([
         shopApi.listByBusiness(activeBusiness.id),
         productApi.listByBusiness(activeBusiness.id),
         orderApi.listByBusiness(activeBusiness.id, { limit: 10 }),
         employeeApi.listByBusiness(activeBusiness.id),
+        cashApi.getBusinessCashSummary(activeBusiness.id),
         growthApi.getLevel(activeBusiness.id),
       ])
 
@@ -75,6 +80,7 @@ export default function SellerDashboardPage() {
         products: productsRes.status !== 'fulfilled',
         orders: ordersRes.status !== 'fulfilled',
         employees: employeesRes.status !== 'fulfilled',
+        cash: cashRes.status !== 'fulfilled',
         growth: growthRes.status !== 'fulfilled',
       })
 
@@ -85,6 +91,7 @@ export default function SellerDashboardPage() {
         products: productsRes.status === 'fulfilled' && Array.isArray(productsRes.value) ? productsRes.value : prev?.products ?? [],
         orders: ordersRes.status === 'fulfilled' && Array.isArray(ordersRes.value) ? ordersRes.value : prev?.orders ?? [],
         employees: employeesRes.status === 'fulfilled' && Array.isArray(employeesRes.value) ? employeesRes.value : prev?.employees ?? [],
+        cashSummary: cashRes.status === 'fulfilled' ? cashRes.value : prev?.cashSummary ?? null,
         growth: growthRes.status === 'fulfilled' ? growthRes.value : prev?.growth ?? null,
       }))
     } catch (err) {
@@ -219,6 +226,7 @@ export default function SellerDashboardPage() {
     ? data.orders.reduce((sum, o) => sum + (o.final_total || 0), 0)
     : 0
   const employeesCount = Array.isArray(data?.employees) ? data.employees.length : 0
+  const cashTotal = data?.cashSummary?.total_cash_sales || 0
   const sellerLevel = data?.growth?.level?.name || 'STARTER'
   const sellerPoints = data?.growth?.points?.current_points || 0
   const trustStatus = data?.growth?.trust?.trust_status || 'NORMAL'
@@ -229,6 +237,7 @@ export default function SellerDashboardPage() {
     unavailable.products ? t('seller.products') : null,
     unavailable.orders ? t('seller.orders') : null,
     unavailable.employees ? t('seller.employees') : null,
+    unavailable.cash ? t('seller.cash.cashSales') : null,
     unavailable.growth ? t('seller.growth') : null,
   ].filter(Boolean) as string[]
 
@@ -344,6 +353,22 @@ export default function SellerDashboardPage() {
           </div>
         </div>
 
+        {/* Cash Sales */}
+        <div className="seller-stat-card">
+          <div className="stat-header">
+            <span className="stat-label">{t('seller.cash.cashSales')}</span>
+            <span className="stat-icon stat-icon--cash">
+              <CashIcon />
+            </span>
+          </div>
+          <div className="stat-value">{unavailable.cash ? '—' : formatMoney(cashTotal)}</div>
+          <div className="stat-footer">
+            <Link to="/seller/cash" className="stat-link">
+              {t('seller.dashboard.cashSessions')} <ArrowRightIcon />
+            </Link>
+          </div>
+        </div>
+
         {/* Seller Growth & Trust */}
         <div className="seller-stat-card">
           <div className="stat-header">
@@ -412,7 +437,7 @@ export default function SellerDashboardPage() {
                         <strong>{formatMoney(order.final_total || 0, order.currency)}</strong>
                       </td>
                       <td className="muted small">
-                        {order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}
+                        {order.created_at ? formatDateTime(order.created_at) : '—'}
                       </td>
                     </tr>
                   ))}
@@ -469,6 +494,14 @@ export default function SellerDashboardPage() {
               <div className="qa-copy">
                 <strong>{t('seller.dashboard.teamAndStaff')}</strong>
                 <span className="small muted">{t('seller.dashboard.teamAndStaffDesc')}</span>
+              </div>
+            </Link>
+
+            <Link to="/seller/cash" className="quick-action-btn">
+              <span className="qa-icon"><CashIcon /></span>
+              <div className="qa-copy">
+                <strong>{t('seller.dashboard.cashSessions')}</strong>
+                <span className="small muted">{t('seller.dashboard.cashSessionsDesc')}</span>
               </div>
             </Link>
           </div>

@@ -106,7 +106,7 @@ import SellerProductDetailPage from '@/pages/seller/products/SellerProductDetail
 import SellerStockPage from '@/pages/seller/stock/SellerStockPage'
 import SellerOrdersPage from '@/pages/seller/orders/SellerOrdersPage'
 import SellerCustomersPage from '@/pages/seller/customers/SellerCustomersPage'
-
+import SellerCashPage from '@/pages/seller/cash/SellerCashPage'
 import SellerGrowthPage from '@/pages/seller/growth/SellerGrowthPage'
 import SellerFinancesPage from '@/pages/seller/finances/SellerFinancesPage'
 import SellerReviewsPage from '@/pages/seller/reviews/SellerReviewsPage'
@@ -225,6 +225,7 @@ export default function App() {
                   <Route path="/seller/messages" element={<SellerMessagesPage />} />
                   <Route path="/seller/notifications" element={<SellerNotificationsPage />} />
                   <Route path="/seller/customers" element={<SellerCustomersPage />} />
+                  <Route path="/seller/cash" element={<SellerCashPage />} />
                   <Route path="/seller/growth" element={<SellerGrowthPage />} />
                   <Route path="/seller/finances" element={<SellerFinancesPage />} />
                   <Route path="/seller/reviews" element={<SellerReviewsPage />} />

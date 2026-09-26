@@ -15,6 +15,7 @@ import type { OrderLine, SellerOrder } from '../../src/types'
 import { expectedDeliveryText } from '../../src/lib/deliveryPlan'
 import { confirmationActorKey, isPaymentPaid, paymentStatusKey } from '../../src/lib/paymentStatus'
 import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
+import { formatDateTime } from '../../src/lib/format'
 
 // Port of web-app/src/pages/seller/orders/SellerOrdersPage.tsx. Same data flow:
 // the active business (not the first one), an "all shops" / single-shop
@@ -53,7 +54,8 @@ function nextActions(order: SellerOrder, t: Translate): SellerAction[] {
   }
   if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: t('seller.orders.dispatchOrder'), status: 'OUT_FOR_DELIVERY' }]
   if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: t('seller.orders.handToPartner'), status: 'HANDED_TO_PARTNER' }]
-  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: t('seller.orders.markDelivered'), status: 'DELIVERED' }]
+  // Delivery is always carried out by a TBK courier, who confirms the handover at the
+  // buyer's door; the seller never marks an order delivered themselves.
   return []
 }
 
@@ -246,7 +248,7 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
   return <View style={styles.card}>
     <View style={styles.rowBetween}>
       <Text style={styles.bold}>{orderNumber}</Text>
-      <Text style={styles.small}>{new Date(order.created_at).toLocaleDateString()}</Text>
+      <Text style={styles.small}>{formatDateTime(order.created_at)}</Text>
     </View>
     <View style={styles.rowBetween}>
       <Text style={[styles.badge, { backgroundColor: tint.bg, color: tint.fg }]}>{orderStatusLabel(displayStatus, t)}</Text>

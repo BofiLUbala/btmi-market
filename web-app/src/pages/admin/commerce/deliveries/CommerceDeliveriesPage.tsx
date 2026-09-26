@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDateTime } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -183,7 +183,7 @@ export default function CommerceDeliveriesPage() {
                         #{o.order_number}
                       </Link>
                       <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
-                        {new Date(o.created_at).toLocaleDateString()}
+                        {formatDateTime(o.created_at)}
                       </div>
                     </td>
                     <td style={{ padding: '12px 14px' }}>

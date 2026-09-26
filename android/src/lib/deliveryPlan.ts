@@ -40,7 +40,7 @@ export function cancelStageText(plan: DeliveryPlan, t: Translate): string | null
 
 export function returnedText(plan: DeliveryPlan, t: Translate, lang: string): string | null {
   return plan.returned_to_seller_at
-    ? t('deliveryPlan.returned', { date: new Date(plan.returned_to_seller_at).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'short' }) })
+    ? t('deliveryPlan.returned', { date: new Date(plan.returned_to_seller_at).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'medium' }) })
     : null
 }
 

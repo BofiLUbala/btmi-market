@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDateTime } from '@/lib/format'
 import { useParams } from 'react-router-dom'
 import {
   adminFinanceApi,
@@ -209,7 +209,7 @@ export default function FinanceDashboardPage() {
   // tabs are worked on interactively and would fight a background reload.
   useEffect(() => {
     if (tab !== 'overview') return
-    const refresh = () => { if (document.visibilityState === 'visible') void loadTabContent() }
+    const refresh = () => { if (document.visibilityState === 'visible') void loadTabContent(true) }
     const timer = window.setInterval(refresh, 30_000)
     document.addEventListener('visibilitychange', refresh)
     return () => {
@@ -254,10 +254,12 @@ export default function FinanceDashboardPage() {
     commission_status: financeCommissionStatus || undefined
   })
 
-  const loadTabContent = async () => {
-    setLoading(true)
-    setError(null)
-    if (tab === 'overview') { setSummary(null); setFinanceReport(null); setBreakdownItems([]); setTrend([]) }
+  const loadTabContent = async (silent = false) => {
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+      if (tab === 'overview') { setSummary(null); setFinanceReport(null); setBreakdownItems([]); setTrend([]) }
+    }
     try {
 if (tab === 'overview') {
         const scope = financeScope()
@@ -316,9 +318,9 @@ if (tab === 'overview') {
         setTotal(res.total || 0)
       }
     } catch (err: any) {
-      setError(err?.message || t('admin.finance.loadError'))
+      if (!silent) setError(err?.message || t('admin.finance.loadError'))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -1340,7 +1342,7 @@ if (tab === 'overview') {
                     <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 140, overflowY: 'auto', fontSize: 12 }}>
                       {pointHistory.slice(0, 20).map((h) => (
                         <li key={h.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', borderBottom: '1px solid #1e293b' }}>
-                          <span>{new Date(h.created_at).toLocaleDateString()} · {h.reason}{h.order_number ? ` · ${h.order_number}` : ''}</span>
+                          <span>{formatDateTime(h.created_at)} · {h.reason}{h.order_number ? ` · ${h.order_number}` : ''}</span>
                           <span style={{ color: h.type === 'CREDIT' ? '#4ade80' : '#f87171', fontWeight: 700 }}>{h.type === 'CREDIT' ? '+' : '−'}{Math.abs(h.amount)} → {h.balance_after}</span>
                         </li>
                       ))}

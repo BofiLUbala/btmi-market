@@ -53,8 +53,8 @@ export default function AdvancedManagementPage() {
   const [exportReason, setExportReason] = useState('')
   const [decisionReason, setDecisionReason] = useState('')
 
-  const load = useCallback(async () => {
-    setError('')
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setError('')
     try {
       const [m, a, p, e, x] = await Promise.all([
         adminAdvancedApi.maintenance(), adminAdvancedApi.announcements(), adminAdvancedApi.approvals(),
@@ -62,13 +62,13 @@ export default function AdvancedManagementPage() {
       ])
       setMaintenance(m); setAnnouncements(a.announcements || []); setApprovals(p.approvals || [])
       setExports(e.exports || []); setMetrics(x.metrics || [])
-    } catch (err) { setError((err as Error).message) }
+    } catch (err) { if (!silent) setError((err as Error).message) }
   }, [dashboard, days])
 
   useEffect(() => {
     void load()
-    const timer = window.setInterval(() => { void load() }, 30_000)
-    const refresh = () => { if (document.visibilityState === 'visible') void load() }
+    const timer = window.setInterval(() => { void load(true) }, 30_000)
+    const refresh = () => { if (document.visibilityState === 'visible') void load(true) }
     document.addEventListener('visibilitychange', refresh)
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
   }, [load])

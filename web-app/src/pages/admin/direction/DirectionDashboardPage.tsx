@@ -79,8 +79,8 @@ export default function DirectionDashboardPage() {
   const [selectedAuditLog, setSelectedAuditLog] = useState<AdminAuditLog | null>(null)
 
   // Fetch KPI Stats
-  const loadOverviewStats = useCallback(async () => {
-    setLoadingStats(true)
+  const loadOverviewStats = useCallback(async (silent = false) => {
+    if (!silent) setLoadingStats(true)
     setStatsError(null)
     try {
       const data = await adminDirectionApi.getOverview()
@@ -89,13 +89,13 @@ export default function DirectionDashboardPage() {
       console.error('Failed to load direction KPIs:', err)
       setStatsError(err instanceof Error ? err.message : t('admin.direction.kpisLoadError'))
     } finally {
-      setLoadingStats(false)
+      if (!silent) setLoadingStats(false)
     }
   }, [t])
 
   // Fetch Users
-  const loadUsers = useCallback(async () => {
-    setLoadingUsers(true)
+  const loadUsers = useCallback(async (silent = false) => {
+    if (!silent) setLoadingUsers(true)
     setUsersError(null)
     try {
       const res = await adminDirectionApi.listUsers({
@@ -111,13 +111,13 @@ export default function DirectionDashboardPage() {
       console.error('Failed to list users:', err)
       setUsersError(err instanceof Error ? err.message : t('admin.direction.usersLoadError'))
     } finally {
-      setLoadingUsers(false)
+      if (!silent) setLoadingUsers(false)
     }
   }, [userSearch, accountTypeFilter, userStatusFilter, t])
 
   // Fetch Audit Logs
-  const loadAuditLogs = useCallback(async () => {
-    setLoadingAudit(true)
+  const loadAuditLogs = useCallback(async (silent = false) => {
+    if (!silent) setLoadingAudit(true)
     setAuditError(null)
     try {
       const res = await adminDirectionApi.listAuditLogs({
@@ -131,7 +131,7 @@ export default function DirectionDashboardPage() {
       console.error('Failed to list audit logs:', err)
       setAuditError(err instanceof Error ? err.message : t('admin.direction.auditLoadError'))
     } finally {
-      setLoadingAudit(false)
+      if (!silent) setLoadingAudit(false)
     }
   }, [auditTargetFilter, t])
 
@@ -150,9 +150,9 @@ export default function DirectionDashboardPage() {
   useEffect(() => {
     const refreshActiveData = () => {
       if (document.visibilityState !== 'visible') return
-      void loadOverviewStats()
-      if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') void loadUsers()
-      if (activeTab === 'audit') void loadAuditLogs()
+      void loadOverviewStats(true)
+      if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') void loadUsers(true)
+      if (activeTab === 'audit') void loadAuditLogs(true)
     }
     document.addEventListener('visibilitychange', refreshActiveData)
     const timer = window.setInterval(refreshActiveData, 30_000)

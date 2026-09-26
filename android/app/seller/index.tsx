@@ -12,6 +12,7 @@ import { radius, spacing, type Colors } from '../../src/theme'
 import { canSell, canOnboardSeller } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { formatMoney } from '../../src/lib/money'
+import { formatDateTime } from '../../src/lib/format'
 
 // Port of web-app/src/pages/seller/dashboard/SellerDashboardPage.tsx at its
 // narrow-screen layout (<640px): page header, five stat cards stacked one per
@@ -190,7 +191,7 @@ export default function SellerHome() {
                 <Text numberOfLines={1} style={[styles.statusBadge, tint && { backgroundColor: tint.bg, color: tint.color }]}>{order.status ? statusLabel(t, order.status).toUpperCase() : '—'}</Text>
               </View>
               <Text style={[styles.tdStrong, styles.colTotal]}>{formatMoney(order.final_total || 0, order.currency)}</Text>
-              <Text style={[styles.small, styles.colDate]}>{order.created_at ? new Date(order.created_at).toLocaleDateString() : '—'}</Text>
+              <Text style={[styles.small, styles.colDate]}>{order.created_at ? formatDateTime(order.created_at) : '—'}</Text>
             </View>
           })}
         </View>

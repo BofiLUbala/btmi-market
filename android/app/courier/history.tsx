@@ -23,7 +23,7 @@ export default function CourierHistoryScreen() {
   if (history.isError) return <ErrorState message={t('courier.historyFailed')} retry={() => void history.refetch()} />
 
   const locale = lang === 'en' ? 'en-US' : 'fr-FR'
-  const date = (value?: string | null) => value ? new Date(value).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : '—'
+  const date = (value?: string | null) => value ? new Date(value).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'medium' }) : '—'
   const items = history.data ?? []
 
   return (

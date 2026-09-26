@@ -88,7 +88,7 @@ const REASON_KEYS: Record<string, TranslationKey> = {
 const locale = (lang: string) => (lang === 'en' ? 'en-US' : 'fr-FR')
 
 function formatDateTime(value: string, lang: string) {
-  return new Date(value).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(value).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'medium' })
 }
 
 /**

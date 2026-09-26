@@ -9,6 +9,7 @@ import { shopApi } from '@/api/seller'
 import {
   BoxIcon,
   BusinessIcon,
+  CashIcon,
   CloseIcon,
   CustomerIcon,
   DashboardIcon,
@@ -40,6 +41,7 @@ const SELLER_NAV: { to: string; key: TranslationKey; Icon: typeof DashboardIcon;
   { to: '/seller/messages', key: 'seller.messages', Icon: ChatIcon, badgeKey: 'messages' },
   { to: '/seller/notifications', key: 'seller.notifications', Icon: BellIcon, badgeKey: 'notifications' },
   { to: '/seller/customers', key: 'seller.customers', Icon: CustomerIcon },
+  { to: '/seller/cash', key: 'seller.cash', Icon: CashIcon },
   { to: '/seller/growth', key: 'seller.growth', Icon: GrowthIcon },
   { to: '/seller/reviews', key: 'seller.reviews', Icon: ReviewIcon },
 ]

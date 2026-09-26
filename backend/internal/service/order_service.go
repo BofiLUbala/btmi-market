@@ -344,9 +344,15 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 	// Real order rows carry several spellings of the TBK courier method
 	// (TBK_STANDARD, TBK_DELIVERY, TBK and empty legacy values), so the ready
 	// milestone is keyed off courier business facts rather than one exact method.
+	// Exception: a courier already invited (COURIER_ASSIGNED) has not decided yet —
+	// jumping straight to READY_FOR_PICKUP here would silently accept the mission on
+	// their behalf, skip their own accept/reject step, and make AcceptMission fail
+	// since it only fires from COURIER_ASSIGNED. Leave the milestone alone so the
+	// courier still has to explicitly accept (or reject) before pickup opens.
 	newDeliveryStatus := deliveryStatus
-	if newStatus == models.OrderStatusReadyForPickup ||
-		(newStatus == models.OrderStatusReady && isCourierPickupReady(deliveryMethod, deliveryStatus, hasAssignedCourier)) {
+	if deliveryStatus != models.DeliveryStatusCourierAssigned &&
+		(newStatus == models.OrderStatusReadyForPickup ||
+			(newStatus == models.OrderStatusReady && isCourierPickupReady(deliveryMethod, deliveryStatus, hasAssignedCourier))) {
 		newDeliveryStatus = models.DeliveryStatusReadyForPickup
 	}
 

@@ -10,6 +10,7 @@ import { useColors } from '../../../src/store/theme'
 import { spacing, type Colors } from '../../../src/theme'
 import { statusLabel } from '../../../src/lib/statusLabels'
 import { formatMoney } from '../../../src/lib/money'
+import { formatDateTime } from '../../../src/lib/format'
 
 export default function SellerCustomerDetailScreen() {
   const { t } = useI18n()
@@ -68,7 +69,7 @@ export default function SellerCustomerDetailScreen() {
         <Text style={styles.muted}>{statusLabel(t, order.status)}</Text>
       </View>
       <Text style={styles.muted}>{order.total_items} · {formatMoney(order.final_total, order.currency)}</Text>
-      <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString()}</Text>
+      <Text style={styles.date}>{formatDateTime(order.created_at)}</Text>
     </Card>)}
   </ScrollView>
 }

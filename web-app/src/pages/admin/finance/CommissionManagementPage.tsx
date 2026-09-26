@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDateTime } from '@/lib/format'
 import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminSaleHistoryItem, type AdminCommissionSummary, type FinanceBreakdownItem, type FinanceBreakdownGroup } from '@/api/admin'
 
 // Amounts are shown in the currency of the sale itself. Never relabel a
@@ -617,7 +617,7 @@ export default function CommissionManagementPage() {
                       <span style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
                         {c.status === 'WAIVED'
                           ? 'Vente annulée'
-                          : `${c.collected_at ? `Réglée le ${new Date(c.collected_at).toLocaleDateString()}` : 'Encaissée'}${c.collector_name ? ` par ${c.collector_name}` : ''}`}
+                          : `${c.collected_at ? `Réglée le ${formatDateTime(c.collected_at)}` : 'Encaissée'}${c.collector_name ? ` par ${c.collector_name}` : ''}`}
                       </span>
                     )}
                   </td>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDateTime } from '@/lib/format'
 import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -127,7 +127,7 @@ export default function OrderListPage() {
                     <StatusBadge status={o.status} />
                   </td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                    {new Date(o.created_at).toLocaleDateString()}
+                    {formatDateTime(o.created_at)}
                   </td>
                 </tr>
               ))}

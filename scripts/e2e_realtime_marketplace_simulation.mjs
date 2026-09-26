@@ -28,7 +28,7 @@ const KEEP = process.env.E2E_KEEP === '1'
 const OUT = process.env.E2E_OUT || ''
 
 const stamp = Date.now().toString(36)
-const password = `Sim!Pass-${stamp}`
+const password = `Sim!Pass-${stamp}-7`
 const ADDR = { province: 'Kinshasa', city: 'Kinshasa', commune: 'Gombe', street: 'Avenue de la Paix', building_number: '12', landmark: 'Face BN' }
 const PRICE = 25
 const QTY = 2

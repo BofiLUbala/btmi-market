@@ -14,7 +14,7 @@ import { useI18n, useT } from '@/store/i18n'
 import { useOrderEvents } from '@/lib/orderEvents'
 import { expectedDeliveryText } from '@/lib/deliveryPlan'
 import { DeliveryPlanCard } from '@/components/checkout/DeliveryPlanCard'
-import { DEFAULT_CURRENCY, formatMoney } from '@/lib/format'
+import { DEFAULT_CURRENCY, formatMoney, formatDateTime } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
@@ -65,7 +65,8 @@ function nextActions(order: Order, t: ReturnType<typeof useT>): SellerAction[] {
   }
   if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: t('seller.orders.dispatchOrder'), status: 'OUT_FOR_DELIVERY' }]
   if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: t('seller.orders.handToPartner'), status: 'HANDED_TO_PARTNER' }]
-  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: t('seller.orders.markDelivered'), status: 'DELIVERED' }]
+  // Delivery is always carried out by a TBK courier, who confirms the handover at the
+  // buyer's door; the seller never marks an order delivered themselves.
   return []
 }
 
@@ -248,6 +249,96 @@ export default function SellerOrdersPage() {
     )
   }
 
+  // Shared between the desktop table cell and the mobile card so a narrow
+  // screen never has to scroll a table sideways to see order actions/details.
+  function renderOrderActions(order: Order, actions: SellerAction[], isExpanded: boolean) {
+    return (
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {actions.map((a) => (
+          <Button
+            key={a.label}
+            variant={a.action === 'reject' ? 'ghost' : 'outline'}
+            size="sm"
+            disabled={actingId === order.id}
+            onClick={() =>
+              runAction(order, () => {
+                if (a.action === 'accept') return orderApi.accept(order.id)
+                if (a.action === 'reject') return orderApi.reject(order.id)
+                if (a.action === 'prepare') return orderApi.prepare(order.id)
+                return orderApi.sellerTransition(order.id, { status: a.status! })
+              })
+            }
+          >
+            {a.label}
+          </Button>
+        ))}
+        {order.delivery_status === 'RETURNING_TO_SELLER' && (
+          <Button
+            size="sm"
+            disabled={actingId === order.id}
+            onClick={() => {
+              if (confirm(t('deliveryPlan.confirmReturnAsk'))) void runAction(order, () => orderApi.confirmReturn(order.id))
+            }}
+          >
+            {t('deliveryPlan.confirmReturn')}
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" onClick={() => void toggleDetails(order)}>
+          {isExpanded ? t('seller.orders.hide') : t('common.view')}
+        </Button>
+      </div>
+    )
+  }
+
+  function renderOrderDetails(order: Order) {
+    const payment = payments[order.id]
+    const detail = details[order.id]
+    return (
+      <div className="small muted" style={{ marginTop: 8, textAlign: 'left' }}>
+        <div><strong>{t('orders.deliveryLabel')}:</strong> {order.delivery_method || '—'}</div>
+        <div><strong>{t('seller.orders.baseTotal')}:</strong> {formatMoney(order.base_total ?? order.final_total, order.currency || DEFAULT_CURRENCY)}</div>
+        {order.notes && <div><strong>{t('seller.orders.notesLabel')}:</strong> {order.notes}</div>}
+        <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
+        {detail?.order && <div className="seller-payment-box">
+          <strong>Livraison</strong>
+          <div>Statut: <strong>{detail.order.delivery_status || '—'}</strong></div>
+          <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
+          <div>Adresse: {detail.order.delivery_address || '—'}</div>
+          {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
+          <div>Frais de livraison TBK : {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)} <span className="small muted">(tarif TBK payé par l’acheteur, hors de votre revenu)</span></div>
+        </div>}
+        {detail?.order && <DeliveryPlanCard plan={detail.order} status={detail.order.status} deliveryStatus={detail.order.delivery_status} deliveryMethod={detail.order.delivery_method} />}
+        {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <SellerOrderLineQR key={line.id} line={line} orderId={order.id} orderNumber={order.order_number || order.id.slice(0, 8)} shopName={activeBusiness?.name || ''} currency={detail.order?.currency || order.currency || DEFAULT_CURRENCY} />)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
+        <div className="seller-payment-box">
+          <strong>{t('seller.orders.cashPayment')}</strong>
+          {payment ? <>
+            <div>{t('orders.amountDue')}: <strong>{formatMoney(payment.cash_due, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
+            <div>Mode: <strong>{payment.payment_method}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
+            <div>Majoration: {formatMoney(payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)} · Total: <strong>{formatMoney(payment.final_total, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
+            <div>{t('common.status')}: <strong>{t(paymentStatusKey(payment) as TranslationKey)}</strong></div>
+            {isPaymentPaid(payment)
+              ? <div>{confirmationActorKey(payment.confirmation_actor)
+                  ? t(confirmationActorKey(payment.confirmation_actor) as TranslationKey)
+                  : t('orders.paymentPaid')}</div>
+              : <div className="muted">{t('seller.orders.cashAwaitingCourier')}</div>}
+          </> : <div>{t('seller.orders.noPaymentCreated')}</div>}
+        </div>
+        {packageQRs[order.id] && (
+          <QRPanel
+            qr={packageQRs[order.id]}
+            title="TBK Package QR"
+            imagePath={`/orders/${order.id}/package-qr/label`}
+            fields={[
+              { label: 'Commande', value: order.order_number || order.id.slice(0, 8) },
+              { label: 'Colis', value: `#${packageQRs[order.id].package_number}` },
+              { label: 'Boutique', value: activeBusiness?.name || '' },
+            ]}
+          />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="seller-orders">
       <div className="page-header">
@@ -284,7 +375,9 @@ export default function SellerOrdersPage() {
         <>
           {actionError && <ErrorBox error={actionError} />}
           <Card>
-            <div className="table-responsive">
+            {/* Desktop: a scannable table. Hidden under 768px so order info never
+                requires sideways scrolling — the card list below takes over instead. */}
+            <div className="table-responsive desktop-table-view">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -308,8 +401,6 @@ export default function SellerOrdersPage() {
                     ...group.orders.map((order) => {
                     const actions = nextActions(order, t)
                     const isExpanded = expandedId === order.id
-                    const payment = payments[order.id]
-                    const detail = details[order.id]
                     return (
                       <tr key={order.id}>
                         <td>{order.order_number || order.id.slice(0, 8)}</td>
@@ -322,86 +413,10 @@ export default function SellerOrdersPage() {
                           )}
                         </td>
                         <td>{formatMoney(order.final_total || 0, order.currency || DEFAULT_CURRENCY)}</td>
-                        <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                        <td>{formatDateTime(order.created_at)}</td>
                         <td>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {actions.map((a) => (
-                              <Button
-                                key={a.label}
-                                variant={a.action === 'reject' ? 'ghost' : 'outline'}
-                                size="sm"
-                                disabled={actingId === order.id}
-                                onClick={() =>
-                                  runAction(order, () => {
-                                    if (a.action === 'accept') return orderApi.accept(order.id)
-                                    if (a.action === 'reject') return orderApi.reject(order.id)
-                                    if (a.action === 'prepare') return orderApi.prepare(order.id)
-                                    return orderApi.sellerTransition(order.id, { status: a.status! })
-                                  })
-                                }
-                              >
-                                {a.label}
-                              </Button>
-                            ))}
-                            {order.delivery_status === 'RETURNING_TO_SELLER' && (
-                              <Button
-                                size="sm"
-                                disabled={actingId === order.id}
-                                onClick={() => {
-                                  if (confirm(t('deliveryPlan.confirmReturnAsk'))) void runAction(order, () => orderApi.confirmReturn(order.id))
-                                }}
-                              >
-                                {t('deliveryPlan.confirmReturn')}
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="sm" onClick={() => void toggleDetails(order)}>
-                              {isExpanded ? t('seller.orders.hide') : t('common.view')}
-                            </Button>
-                          </div>
-                          {isExpanded && (
-                            <div className="small muted" style={{ marginTop: 8, textAlign: 'left' }}>
-                              <div><strong>{t('orders.deliveryLabel')}:</strong> {order.delivery_method || '—'}</div>
-                              <div><strong>{t('seller.orders.baseTotal')}:</strong> {formatMoney(order.base_total ?? order.final_total, order.currency || DEFAULT_CURRENCY)}</div>
-                              {order.notes && <div><strong>{t('seller.orders.notesLabel')}:</strong> {order.notes}</div>}
-                              <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
-                              {detail?.order && <div className="seller-payment-box">
-                                <strong>Livraison</strong>
-                                <div>Statut: <strong>{detail.order.delivery_status || '—'}</strong></div>
-                                <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
-                                <div>Adresse: {detail.order.delivery_address || '—'}</div>
-                                {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
-                                <div>Frais de livraison TBK : {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)} <span className="small muted">(tarif TBK payé par l’acheteur, hors de votre revenu)</span></div>
-                              </div>}
-                              {detail?.order && <DeliveryPlanCard plan={detail.order} status={detail.order.status} deliveryStatus={detail.order.delivery_status} deliveryMethod={detail.order.delivery_method} />}
-                              {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <SellerOrderLineQR key={line.id} line={line} orderId={order.id} orderNumber={order.order_number || order.id.slice(0, 8)} shopName={activeBusiness?.name || ''} currency={detail.order?.currency || order.currency || DEFAULT_CURRENCY} />)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
-                              <div className="seller-payment-box">
-                                <strong>{t('seller.orders.cashPayment')}</strong>
-                                {payment ? <>
-                                  <div>{t('orders.amountDue')}: <strong>{formatMoney(payment.cash_due, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
-                                  <div>Mode: <strong>{payment.payment_method}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
-                                  <div>Majoration: {formatMoney(payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)} · Total: <strong>{formatMoney(payment.final_total, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
-                                  <div>{t('common.status')}: <strong>{t(paymentStatusKey(payment) as TranslationKey)}</strong></div>
-                                  {isPaymentPaid(payment)
-                                    ? <div>{confirmationActorKey(payment.confirmation_actor)
-                                        ? t(confirmationActorKey(payment.confirmation_actor) as TranslationKey)
-                                        : t('orders.paymentPaid')}</div>
-                                    : <div className="muted">{t('seller.orders.cashAwaitingCourier')}</div>}
-                                </> : <div>{t('seller.orders.noPaymentCreated')}</div>}
-                              </div>
-                              {packageQRs[order.id] && (
-                                <QRPanel
-                                  qr={packageQRs[order.id]}
-                                  title="TBK Package QR"
-                                  imagePath={`/orders/${order.id}/package-qr/label`}
-                                  fields={[
-                                    { label: 'Commande', value: order.order_number || order.id.slice(0, 8) },
-                                    { label: 'Colis', value: `#${packageQRs[order.id].package_number}` },
-                                    { label: 'Boutique', value: activeBusiness?.name || '' },
-                                  ]}
-                                />
-                              )}
-                            </div>
-                          )}
+                          {renderOrderActions(order, actions, isExpanded)}
+                          {isExpanded && renderOrderDetails(order)}
                         </td>
                       </tr>
                     )
@@ -409,6 +424,41 @@ export default function SellerOrdersPage() {
                   ])}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile: one card per order, stacked vertically — no horizontal scroll. */}
+            <div className="mobile-card-list">
+              {orderGroups.flatMap((group) => [
+                <div className="seller-order-shop-summary" key={`m-shop-${group.shopId}`} style={{ padding: '10px 4px' }}>
+                  <span><strong>{group.shopName}</strong> <span className="muted">· {group.orders.length === 1 ? t('seller.orders.count', { count: group.orders.length }) : t('seller.orders.count_plural', { count: group.orders.length })}</span></span>
+                  <strong>{group.currency ? formatMoney(group.total, group.currency) : '—'}</strong>
+                </div>,
+                ...group.orders.map((order) => {
+                  const actions = nextActions(order, t)
+                  const isExpanded = expandedId === order.id
+                  return (
+                    <div className="mobile-data-card" key={`m-${order.id}`}>
+                      <div className="mobile-data-card-header">
+                        <strong>{order.order_number || order.id.slice(0, 8)}</strong>
+                        <span className="small muted">{formatDateTime(order.created_at)}</span>
+                      </div>
+                      <div className="mobile-data-card-row">
+                        <span className={`badge badge-${getStatusColor(order.delivery_status || order.status)}`}>
+                          {orderStatusLabel(order.delivery_status || order.status, t)}
+                        </span>
+                        <strong>{formatMoney(order.final_total || 0, order.currency || DEFAULT_CURRENCY)}</strong>
+                      </div>
+                      {order.expected_delivery_date && !['CANCELLED', 'COMPLETED'].includes(order.status) && (
+                        <div className="small muted">📅 {expectedDeliveryText(order, t, lang)}</div>
+                      )}
+                      <div style={{ marginTop: 6 }}>
+                        {renderOrderActions(order, actions, isExpanded)}
+                        {isExpanded && renderOrderDetails(order)}
+                      </div>
+                    </div>
+                  )
+                }),
+              ])}
             </div>
           </Card>
         </>
