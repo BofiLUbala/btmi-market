@@ -143,7 +143,7 @@ export default function SellerProductsScreen() {
       <Text style={[styles.muted, styles.centerText]}>{t('seller.productList.selectShopDesc')}</Text>
     </View></View> : <>
       <View style={styles.toolbar} accessibilityRole="search">
-        <TextInput style={styles.search} value={search} onChangeText={setSearch} placeholder={t('seller.productList.searchPlaceholder')} placeholderTextColor={colors.mutedLight} accessibilityLabel={t('seller.productList.searchAria')} autoCapitalize="none" returnKeyType="search" />
+        <TextInput style={styles.search} value={search} onChangeText={setSearch} placeholder={t('seller.productList.searchPlaceholder')} placeholderTextColor={colors.mutedLight} numberOfLines={1} multiline={false} accessibilityLabel={t('seller.productList.searchAria')} autoCapitalize="none" returnKeyType="search" />
         <View style={styles.filters} accessibilityLabel={t('seller.productList.filterAria')}>
           {FILTERS.map((f) => <Pressable key={f.value || 'all'} accessibilityRole="button" accessibilityState={{ selected: status === f.value }} style={[styles.filter, status === f.value && styles.filterActive]} onPress={() => setStatus(f.value)}>
             <Text style={[styles.filterText, status === f.value && styles.filterTextActive]}>{t(f.label)}</Text>
@@ -221,7 +221,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   badge: { fontSize: 12, fontWeight: '700', paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden' },
   badgeOutline: { flexShrink: 1, fontSize: 12, fontWeight: '600', color: c.ink, paddingVertical: 2, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: c.border },
-  name: { fontSize: 17, fontWeight: '700', color: c.ink },
+  // web .seller-product-card-main h3: Fraunces
+  name: { fontSize: 18, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   mono: { fontFamily: 'monospace', fontSize: 13, color: c.muted, marginTop: 2 },
   stats: { flexDirection: 'row', gap: 8 },
   stat: { flex: 1, gap: 2, padding: 10, borderRadius: 10, backgroundColor: c.surface2 },

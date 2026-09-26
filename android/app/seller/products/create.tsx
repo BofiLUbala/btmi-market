@@ -12,7 +12,7 @@ import { useAuth } from '../../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../../src/components/ui'
 import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
-import { spacing, radius, type Colors } from '../../../src/theme'
+import { fonts, spacing, radius, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload, type UploadFile } from '../../../src/lib/imageUpload'
 import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
 import { attributeLabel } from '../../../src/lib/attributeLabels'
@@ -58,7 +58,6 @@ interface PipelineProgress {
   published: boolean
 }
 
-const STEP_COUNT = 7
 const MAX_IMAGES = 10
 
 function cartesian(attrs: Array<{ name: string; values: string[] }>): Array<Record<string, string>> {
@@ -81,7 +80,6 @@ export default function SellerProductCreateScreen() {
   const activeShop = useAuth((s) => s.activeShop)
   const setActiveShop = useAuth((s) => s.setActiveShop)
 
-  const [step, setStep] = useState(1)
 
   const categories = useQuery({ queryKey: ['seller', 'categories'], queryFn: sellerApi.categories })
   const shops = useQuery({
@@ -324,36 +322,6 @@ export default function SellerProductCreateScreen() {
     return ''
   }
 
-  /** What blocks moving on from the step currently on screen. */
-  function stepBlocker(current: number): string {
-    if (current === 1 && !form.name.trim()) return t('seller.productForm.validation.nameRequired')
-    if (current === 2 && !categoryId) return t('seller.productForm.validation.selectCategory')
-    if (current === 3) {
-      const price = parseFloat(form.unit_price)
-      if (isNaN(price) || price <= 0) return t('seller.productForm.validation.validPrice')
-      if (selfRating < 1 || selfRating > 5) return t('seller.productForm.validation.selfRatingRequired')
-      if (form.discount_active) {
-        const discount = parseFloat(form.discount_value)
-        if (isNaN(discount) || discount <= 0) return t('seller.productForm.validation.promoValue')
-        if (form.discount_type === 'PERCENTAGE' && discount > 100) return t('seller.productForm.validation.percentMax')
-        if (form.discount_type === 'FIXED' && discount >= price) return t('seller.productForm.validation.fixedMax')
-      }
-    }
-    if (current === 6 && !shopId) return t('seller.productForm.validation.selectShop')
-    return ''
-  }
-
-  function goNext() {
-    const blocker = stepBlocker(step)
-    if (blocker) { setError(blocker); return }
-    setError('')
-    setStep((s) => Math.min(STEP_COUNT, s + 1))
-  }
-  function goBack() {
-    setError('')
-    setStep((s) => Math.max(1, s - 1))
-  }
-
   /* ── Submission pipeline ──
      The same five backend calls, in the same order, as the web create page.
      Every stage records what it committed in `progressRef`, so Retry resumes
@@ -505,12 +473,6 @@ export default function SellerProductCreateScreen() {
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       <SectionTitle title={t('seller.productForm.title')} />
 
-      <View style={styles.progressRow}>
-        {Array.from({ length: STEP_COUNT }, (_, i) => i + 1).map((n) => (
-          <View key={n} style={[styles.progressDot, n <= step && styles.progressDotDone]} />
-        ))}
-      </View>
-      <Text style={styles.stepCaption}>{t('seller.productForm.stepOf', { current: step, total: STEP_COUNT })}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -526,16 +488,10 @@ export default function SellerProductCreateScreen() {
         /> : null}
       </Card> : null}
 
-      {/* Step 1 — Basic information */}
-      {step === 1 && <Card>
-        <Text style={styles.cardTitle}>{t('seller.productForm.productInfo')}</Text>
-        <Field label={t('seller.productForm.productName')} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} autoCapitalize="words" />
-        <Field label={t('seller.productForm.skuOptional')} value={form.sku} onChangeText={(v) => setForm((f) => ({ ...f, sku: v }))} autoCapitalize="none" />
-        <Field label={t('product.unit')} value={form.unit} onChangeText={(v) => setForm((f) => ({ ...f, unit: v }))} autoCapitalize="characters" />
-      </Card>}
-
+      {/* One page, same order as the web create form: category first; the rest
+          appears once a category is chosen (web `detailsVisible`). */}
       {/* Step 2 — Category */}
-      {step === 2 && <Card>
+      {<Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.categoryLabel')}</Text>
         <View style={styles.chipRow}>
           {(categories.data ?? []).map((c: Category) => <Pressable
@@ -564,14 +520,23 @@ export default function SellerProductCreateScreen() {
           {t('seller.productForm.categoryRequiresNotice', { attributes: requiredAttributeLabels.join(', ') })}
         </Text>}
       </Card>}
+      {categoryId ? <>
+      {/* Step 1 — Basic information */}
+      {<Card>
+        <Text style={styles.cardTitle}>{t('seller.productForm.productInfo')}</Text>
+        <Field label={t('seller.productForm.productName')} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} autoCapitalize="words" />
+        <Field label={t('seller.productForm.skuOptional')} value={form.sku} onChangeText={(v) => setForm((f) => ({ ...f, sku: v }))} autoCapitalize="none" />
+        <Field label={t('product.unit')} value={form.unit} onChangeText={(v) => setForm((f) => ({ ...f, unit: v }))} autoCapitalize="characters" />
+      </Card>}
+
       {/* The description layout depends on the category, so it is filled
           once the category is known rather than in step 1. */}
-      {step === 2 && categoryId ? (
+      {categoryId ? (
         <DescriptionEditor categorySlug={selectedCategory?.slug} value={form.description} onChange={(description) => setForm((f) => ({ ...f, description }))} />
       ) : null}
 
       {/* Step 3 — Pricing */}
-      {step === 3 && <Card>
+      {<Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.pricingTitle')}</Text>
         <Field label={t('seller.productForm.salePrice')} value={form.unit_price} onChangeText={(v) => setForm((f) => ({ ...f, unit_price: v }))} keyboardType="numeric" />
         <Field label={t('seller.productForm.costPriceOptional')} value={form.cost_price} onChangeText={(v) => setForm((f) => ({ ...f, cost_price: v }))} keyboardType="numeric" />
@@ -611,7 +576,7 @@ export default function SellerProductCreateScreen() {
       </Card>}
 
       {/* Step 4 — Photos */}
-      {step === 4 && <Card>
+      {<Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.photosTitle')}</Text>
         <Text style={styles.muted}>{t('seller.productForm.photosDescMobile')}</Text>
         <View style={styles.photoGrid}>
@@ -634,7 +599,7 @@ export default function SellerProductCreateScreen() {
       </Card>}
 
       {/* Step 5 — Characteristics & variants */}
-      {step === 5 && <>
+      {<>
         <Card>
           <Text style={styles.cardTitle}>{t('seller.productForm.characteristicsTitle')}</Text>
           <Text style={styles.muted}>{t('seller.productForm.characteristicsDescMobile')}</Text>
@@ -711,7 +676,7 @@ export default function SellerProductCreateScreen() {
       </>}
 
       {/* Step 6 — Shop & stock */}
-      {step === 6 && <>
+      {<>
         <Card>
           <Text style={styles.cardTitle}>{t('seller.productForm.shopTitle')}</Text>
           {!shops.data?.length ? <>
@@ -744,7 +709,7 @@ export default function SellerProductCreateScreen() {
       </>}
 
       {/* Step 7 — Review */}
-      {step === 7 && <Card>
+      {<Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.reviewTitle')}</Text>
         <SummaryRow styles={styles} label={t('seller.productForm.productName')} value={form.name.trim() || '—'} />
         <SummaryRow styles={styles} label={t('seller.productForm.categoryLabel')} value={[
@@ -760,20 +725,12 @@ export default function SellerProductCreateScreen() {
           {t('seller.productForm.validation.missingAttributes', { attributes: missingAttributes.join(', ') })}
           {' '}{t('seller.productForm.validation.missingThem')}
         </Text>}
-        {missingAttributes.length > 0 ? <Button
-          variant="outline"
-          title={t('seller.productForm.fixAttributes')}
-          onPress={() => setStep(5)}
-        /> : null}
         {stepLabel ? <Text style={styles.muted}>{stepLabel}</Text> : null}
         <Button variant="outline" title={t('seller.productForm.saveDraft')} loading={busy} disabled={busy} onPress={() => submit('DRAFT')} />
         <Button title={t('seller.productForm.publishProduct')} loading={busy} disabled={busy || missingAttributes.length > 0 || categoryAttributesQuery.isError || categoryAttributesQuery.isLoading} onPress={() => submit('PUBLISHED')} />
       </Card>}
 
-      <View style={styles.navRow}>
-        {step > 1 ? <View style={styles.flex1}><Button variant="outline" title={t('common.back')} disabled={busy} onPress={goBack} /></View> : null}
-        {step < STEP_COUNT ? <View style={styles.flex1}><Button title={t('common.next')} disabled={busy} onPress={goNext} /></View> : null}
-      </View>
+      </> : null}
     </ScrollView>
   </KeyboardAvoidingView>
 }
@@ -794,11 +751,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   subLabel: { color: colors.ink, fontWeight: '700' },
   error: { color: colors.danger, fontWeight: '700' },
   notice: { color: colors.gold, fontWeight: '700' },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  progressRow: { flexDirection: 'row', gap: spacing.xs },
-  progressDot: { flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.border },
-  progressDotDone: { backgroundColor: colors.green },
-  stepCaption: { color: colors.muted, fontWeight: '700' },
+  // web .card > h3: Fraunces 1.2rem
+  cardTitle: { fontSize: 19, fontFamily: fonts.display, fontWeight: '500', color: colors.ink },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   chip: { minHeight: 40, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
   chipActive: { backgroundColor: colors.green, borderColor: colors.green },
@@ -823,5 +777,4 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   comboLabel: { color: colors.ink, fontWeight: '700' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   summaryValue: { color: colors.ink, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
-  navRow: { flexDirection: 'row', gap: spacing.sm },
 })

@@ -251,7 +251,7 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
 
   return <View style={styles.card}>
     <View style={styles.rowBetween}>
-      <Text style={styles.bold}>{orderNumber}</Text>
+      <Text style={styles.orderNo}>{orderNumber}</Text>
       <Text style={styles.small}>{formatDateTime(order.created_at)}</Text>
     </View>
     <View style={styles.rowBetween}>
@@ -354,6 +354,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   h3: { fontSize: 18, fontWeight: '700', color: c.ink, textAlign: 'center' },
   text: { color: c.ink, fontSize: 14 },
   bold: { color: c.ink, fontSize: 14, fontWeight: '700' },
+  // web .mobile-data-card-header strong: Fraunces
+  orderNo: { color: c.ink, fontSize: 17, fontFamily: fonts.display, fontWeight: '500' },
   strong: { color: c.ink, fontWeight: '700' },
   muted: { color: c.muted, fontSize: 14 },
   small: { color: c.muted, fontSize: 13, lineHeight: 19 },

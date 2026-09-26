@@ -54,7 +54,7 @@ export function PreferenceToggleButtons({ round }: { round?: boolean } = {}) {
   const { theme, toggleTheme, colors } = useTheme()
   const goingDark = theme === 'light'
   const shape = round
-    ? { borderColor: colors.border, backgroundColor: 'transparent', width: 34, minWidth: 34, height: 34, borderRadius: 999 }
+    ? { borderColor: colors.border, backgroundColor: 'transparent', minWidth: 38, paddingHorizontal: 6, height: 34, borderRadius: 999 }
     : { borderColor: colors.border, backgroundColor: colors.white }
 
   return (
@@ -66,7 +66,7 @@ export function PreferenceToggleButtons({ round }: { round?: boolean } = {}) {
         accessibilityRole="button"
         accessibilityLabel={lang === 'fr' ? t('prefs.switchToEnglish') : t('prefs.switchToFrench')}
       >
-        <Text style={[compact.langText, { color: colors.green }]}>{lang === 'fr' ? 'FR' : 'EN'}</Text>
+        <Text numberOfLines={1} style={[compact.langText, { color: colors.green }]}>{lang === 'fr' ? 'FR' : 'EN'}</Text>
       </Pressable>
 
       <Pressable
