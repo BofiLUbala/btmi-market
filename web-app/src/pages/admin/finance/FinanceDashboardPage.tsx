@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatMoney } from '@/lib/format'
 import { useParams } from 'react-router-dom'
 import {
   adminFinanceApi,
@@ -63,7 +64,7 @@ const FEATURE_TITLE_KEY: Record<ActiveTab, string> = {
 }
 
 const PAGE_SIZE = 25
-const financeMoney = (value: number, currency = 'USD') => new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value)
+const financeMoney = (value: number, currency = 'USD') => formatMoney(value, currency)
 
 export default function FinanceDashboardPage() {
   const t = useT()
@@ -631,11 +632,11 @@ if (tab === 'overview') {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 24 }}>
-            <MetricCard title={t('admin.finance.metricGmvTitle')} value={`$${summary.total_order_value.toFixed(2)}`} sub={t('admin.finance.metricGmvSub', { count: summary.total_orders })} color="#60a5fa" />
-            <MetricCard title={t('admin.finance.metricVerifiedTitle')} value={`$${summary.verified_cash.toFixed(2)}`} sub={t('admin.finance.metricVerifiedSub', { count: summary.verified_payments_count })} color="#34d399" />
-            <MetricCard title={t('admin.finance.metricUnverifiedTitle')} value={`$${summary.unverified_cash.toFixed(2)}`} sub={t('admin.finance.metricUnverifiedSub', { count: summary.pending_payments_count })} color="#fbbf24" />
-            <MetricCard title={t('admin.finance.metricDisputedTitle')} value={`$${summary.disputed_cash.toFixed(2)}`} sub={t('admin.finance.metricDisputedSub', { count: summary.disputed_payments_count })} color="#f87171" />
-            <MetricCard title={t('admin.finance.metricPointsDiscountTitle')} value={`$${summary.points_discount_value.toFixed(2)}`} sub={t('admin.finance.metricPointsDiscountSub')} color="#a78bfa" />
+            <MetricCard title={t('admin.finance.metricGmvTitle')} value={formatMoney(summary.total_order_value)} sub={t('admin.finance.metricGmvSub', { count: summary.total_orders })} color="#60a5fa" />
+            <MetricCard title={t('admin.finance.metricVerifiedTitle')} value={formatMoney(summary.verified_cash)} sub={t('admin.finance.metricVerifiedSub', { count: summary.verified_payments_count })} color="#34d399" />
+            <MetricCard title={t('admin.finance.metricUnverifiedTitle')} value={formatMoney(summary.unverified_cash)} sub={t('admin.finance.metricUnverifiedSub', { count: summary.pending_payments_count })} color="#fbbf24" />
+            <MetricCard title={t('admin.finance.metricDisputedTitle')} value={formatMoney(summary.disputed_cash)} sub={t('admin.finance.metricDisputedSub', { count: summary.disputed_payments_count })} color="#f87171" />
+            <MetricCard title={t('admin.finance.metricPointsDiscountTitle')} value={formatMoney(summary.points_discount_value)} sub={t('admin.finance.metricPointsDiscountSub')} color="#a78bfa" />
             <MetricCard title={t('admin.finance.metricOpenCasesTitle')} value={String(summary.open_cases_count)} sub={t('admin.finance.metricOpenCasesSub')} color="#f472b6" />
             <MetricCard title={t('admin.finance.metricFlaggedReviewsTitle')} value={String(summary.flagged_reviews_count)} sub={t('admin.finance.metricFlaggedReviewsSub')} color="#fb923c" />
             <MetricCard title={t('admin.finance.metricRiskTitle')} value={String(summary.risk_alerts_count)} sub={t('admin.finance.metricRiskSub')} color="#ef4444" />
@@ -714,7 +715,7 @@ if (tab === 'overview') {
                     <div>{p.shop_name}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>{p.business_name}</div>
                   </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>${p.total_amount.toFixed(2)}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>{formatMoney(p.total_amount)}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div>{p.payment_method || '—'}</div>
                     {p.provider && <div style={{ fontSize: 11, fontWeight: 700 }}>{p.provider.replace(/_/g, ' ')}</div>}
@@ -850,7 +851,7 @@ if (tab === 'overview') {
                     <div style={{ fontSize: 11, color: '#64748b' }}>{s.business_name} {t('admin.finance.shopsCount', { count: s.shop_count })}</div>
                   </td>
                   <td style={{ padding: '12px 14px', color: '#fbbf24', fontWeight: 700 }}>{s.level}</td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>${s.total_gmv.toFixed(2)}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>{formatMoney(s.total_gmv)}</td>
                   <td style={{ padding: '12px 14px' }}>{t('admin.finance.ratingDisplay', { rating: s.average_rating.toFixed(1), count: s.review_count })}</td>
                   <td style={{ padding: '12px 14px' }}>{s.cash_confirmation_rate}%</td>
                   <td style={{ padding: '12px 14px' }}>
@@ -1106,19 +1107,19 @@ if (tab === 'overview') {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                 <span style={{ color: '#94a3b8' }}>{t('admin.finance.labelSubtotal')}</span>
-                <span>${selectedPayment.subtotal_amount.toFixed(2)}</span>
+                <span>{formatMoney(selectedPayment.subtotal_amount)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                 <span style={{ color: '#94a3b8' }}>{t('admin.finance.labelPointsDiscount')}</span>
-                <span style={{ color: '#a78bfa' }}>-${selectedPayment.points_discount_amount.toFixed(2)}</span>
+                <span style={{ color: '#a78bfa' }}>-{formatMoney(selectedPayment.points_discount_amount)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                 <span style={{ color: '#94a3b8' }}>{t('admin.finance.labelDeliveryFee')}</span>
-                <span>+${selectedPayment.delivery_fee.toFixed(2)}</span>
+                <span>+{formatMoney(selectedPayment.delivery_fee)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 800, borderTop: '1px solid #334155', paddingTop: 8, marginTop: 6, color: '#34d399' }}>
                 <span>{t('admin.finance.labelCashDue')}</span>
-                <span>${selectedPayment.cash_due.toFixed(2)}</span>
+                <span>{formatMoney(selectedPayment.cash_due)}</span>
               </div>
             </div>
 
@@ -1170,7 +1171,7 @@ if (tab === 'overview') {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
                     <div>
                       <div style={{ color: '#94a3b8', fontSize: 11 }}>Vente brute éligible</div>
-                      <div style={{ fontWeight: 700, color: '#f8fafc' }}>${grossBase.toFixed(2)}</div>
+                      <div style={{ fontWeight: 700, color: '#f8fafc' }}>{formatMoney(grossBase)}</div>
                     </div>
                     <div>
                       <div style={{ color: '#94a3b8', fontSize: 11 }}>Taux de commission</div>
@@ -1178,15 +1179,15 @@ if (tab === 'overview') {
                     </div>
                     <div>
                       <div style={{ color: '#94a3b8', fontSize: 11 }}>Commission TBK</div>
-                      <div style={{ fontWeight: 700, color: '#f87171' }}>${estCommission.toFixed(2)}</div>
+                      <div style={{ fontWeight: 700, color: '#f87171' }}>{formatMoney(estCommission)}</div>
                     </div>
                     <div>
                       <div style={{ color: '#94a3b8', fontSize: 11 }}>Revenu net vendeur</div>
-                      <div style={{ fontWeight: 700, color: '#34d399' }}>${estNet.toFixed(2)}</div>
+                      <div style={{ fontWeight: 700, color: '#34d399' }}>{formatMoney(estNet)}</div>
                     </div>
                   </div>
                   <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8, borderTop: '1px solid #312e81', paddingTop: 6 }}>
-                    Frais de livraison (${selectedPayment.delivery_fee.toFixed(2)}) exclus de l'assiette de commission TBK.
+                    Frais de livraison ({formatMoney(selectedPayment.delivery_fee)}) exclus de l'assiette de commission TBK.
                   </div>
                 </div>
               )
@@ -1201,7 +1202,7 @@ if (tab === 'overview') {
                       <span style={{ color: '#cbd5e1' }}>
                         {lineLabel(line.product_name, line.variant_name)} × {line.quantity}
                       </span>
-                      <span style={{ fontWeight: 700 }}>${line.total_price.toFixed(2)}</span>
+                      <span style={{ fontWeight: 700 }}>{formatMoney(line.total_price)}</span>
                     </div>
                   ))}
                 </div>

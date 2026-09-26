@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatMoney } from '@/lib/format'
 import { adminCommerceApi, type AdminProductCardQuality } from '@/api/admin'
 import { useT } from '@/store/i18n'
 
@@ -140,8 +141,8 @@ export default function ProductQualityPage() {
           {/* Pricing & Media Details */}
           <Section title={t('admin.quality.cardAttributes')}>
             <div className="admin-kpi-grid">
-              <Field label={t('admin.quality.effectivePrice')} value={`$${quality.effective_price.toFixed(2)}`} />
-              <Field label={t('admin.quality.regularPrice')} value={`$${quality.regular_price.toFixed(2)}`} />
+              <Field label={t('admin.quality.effectivePrice')} value={formatMoney(quality.effective_price)} />
+              <Field label={t('admin.quality.regularPrice')} value={formatMoney(quality.regular_price)} />
               <Field label={t('admin.quality.discount')} value={quality.has_off_badge ? t('admin.quality.percentOff', { percent: quality.discount_percent.toFixed(1) }) : t('admin.common.none')} color={quality.has_off_badge ? '#34d399' : undefined} />
               <Field label={t('admin.quality.availability')} value={quality.availability} color={quality.availability === 'IN_STOCK' ? '#34d399' : '#fbbf24'} />
               <Field label={t('admin.quality.imageCount')} value={quality.image_count} />

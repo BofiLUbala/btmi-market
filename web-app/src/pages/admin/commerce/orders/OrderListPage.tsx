@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -113,7 +114,7 @@ export default function OrderListPage() {
                   <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{o.shop_name}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>{o.business_name}</td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{o.total_items}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f8fafc' }}>${o.final_total.toFixed(2)}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f8fafc' }}>{formatMoney(o.final_total)}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <StatusBadge status={o.payment_status} />
                   </td>

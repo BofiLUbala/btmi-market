@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminSaleHistoryItem, type AdminCommissionSummary, type FinanceBreakdownItem, type FinanceBreakdownGroup } from '@/api/admin'
 
 // Amounts are shown in the currency of the sale itself. Never relabel a
 // historical CDF sale as USD (or XAF) just because the reader changed.
 const money = (value: number, currency?: string) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'USD' }).format(value || 0)
+  formatMoney(value || 0, currency || 'USD')
 
 type SummaryCurrencyField = 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission' | 'payments_collected' | 'payments_due'
 

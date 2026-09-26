@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -201,7 +202,7 @@ export default function CommerceDeliveriesPage() {
                       <StatusBadge status={o.status} />
                     </td>
                     <td style={{ textAlign: 'right', padding: '12px 14px', fontWeight: 700, color: 'var(--admin-text)' }}>
-                      {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(o.final_total || 0)}
+                      {formatMoney(o.final_total || 0, 'USD')}
                     </td>
                     <td style={{ textAlign: 'right', padding: '12px 14px' }}>
                       <Link

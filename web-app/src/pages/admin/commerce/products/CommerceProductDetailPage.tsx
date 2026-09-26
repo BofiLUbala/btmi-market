@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatMoney } from '@/lib/format'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductDetail } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -178,11 +179,11 @@ export default function CommerceProductDetailPage() {
         {/* Right Column */}
         <div>
           <Section title={t('admin.products.sectionPricing')}>
-            <Field label={t('admin.products.fieldRegularPrice')} value={`$${p.unit_price.toFixed(2)}`} />
+            <Field label={t('admin.products.fieldRegularPrice')} value={formatMoney(p.unit_price)} />
             {p.discount_active && (
               <>
                 <Field label={t('admin.products.fieldDiscount')} value={`${p.discount_type} - ${p.discount_value}`} />
-                <Field label={t('admin.products.fieldEffectivePrice')} value={`$${(p.unit_price - (p.discount_type === 'PERCENTAGE' ? p.unit_price * p.discount_value / 100 : p.discount_value)).toFixed(2)}`} />
+                <Field label={t('admin.products.fieldEffectivePrice')} value={formatMoney((p.unit_price - (p.discount_type === 'PERCENTAGE' ? p.unit_price * p.discount_value / 100 : p.discount_value)))} />
               </>
             )}
           </Section>
@@ -203,7 +204,7 @@ export default function CommerceProductDetailPage() {
                       <td style={{ padding: '6px 8px', color: '#f8fafc' }}>{v.sku}</td>
                       <td style={{ padding: '6px 8px', color: '#f8fafc' }}>{v.name}</td>
                       <td style={{ padding: '6px 8px', color: '#94a3b8' }}>{Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ') || '-'}</td>
-                      <td style={{ padding: '6px 8px', color: '#f8fafc' }}>${v.sale_price.toFixed(2)}</td>
+                      <td style={{ padding: '6px 8px', color: '#f8fafc' }}>{formatMoney(v.sale_price)}</td>
                       <td style={{ padding: '6px 8px' }}><span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: v.status === 'ACTIVE' ? '#064e3b' : '#334155', color: v.status === 'ACTIVE' ? '#a7f3d0' : '#94a3b8' }}>{v.status}</span></td>
                     </tr>
                   ))}

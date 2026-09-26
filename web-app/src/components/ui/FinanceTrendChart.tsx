@@ -1,4 +1,5 @@
 import { useMemo, type CSSProperties } from 'react'
+import { formatMoney } from '@/lib/format'
 
 /** One bucket of a finance series. Matches the backend's
  *  FinanceTimeseriesPoint on both the admin and the seller side. */
@@ -67,7 +68,7 @@ export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée
   }
 
   const currency = points[0]?.currency || 'USD'
-  const money = (value: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value)
+  const money = (value: number) => formatMoney(value, currency)
 
   return (
     <div>

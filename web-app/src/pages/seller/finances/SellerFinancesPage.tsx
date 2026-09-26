@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type CSSProperties } from 'react'
+import { formatMoney } from '@/lib/format'
 import { sellerFinanceApi, type SellerFinanceDashboard, type SaleHistoryItem, type SellerFinanceBreakdownItem, type SaleFinanceDetail, type SellerFinanceTimeseriesPoint, type SellerBreakdownGroup } from '@/api/seller'
 import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
 
@@ -6,7 +7,7 @@ const th = (align: 'left' | 'right' | 'center'): CSSProperties => ({
   textAlign: align, padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600, whiteSpace: 'nowrap'
 })
 
-const money = (value: number, currency = 'USD') => new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value)
+const money = (value: number, currency = 'USD') => formatMoney(value, currency)
 
 /** The dimensions a seller may slice their own sales by. `seller` is absent on
  *  purpose: within a seller's own scope every row would be the same person. */

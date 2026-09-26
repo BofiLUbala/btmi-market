@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminBusinessListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -6,7 +7,7 @@ import { EntityStatusDialog, type EntityStatusTarget } from '../shops/EntityStat
 
 const LIMIT = 20
 const money = (value: number, currency: string) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'USD' }).format(value || 0)
+  formatMoney(value || 0, currency || 'USD')
 
 /** Real business entities: the registered name, owner and live counters, read
  *  from /admin/commerce/businesses. Suspending one hides all its shops and

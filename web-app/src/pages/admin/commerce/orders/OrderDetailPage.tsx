@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderDetail, type AdminDeliveryHandover } from '@/api/admin'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
@@ -117,10 +118,10 @@ export default function OrderDetailPage() {
         <div>
           <Section title={t('admin.orders.summaryTitle')}>
             <Field label={t('admin.orders.fieldOrderNumber')} value={order.order.order_number} />
-            <Field label={t('common.total')} value={`$${order.order.final_total.toFixed(2)}`} />
-            <Field label={t('admin.orders.fieldBaseTotal')} value={`$${order.order.base_total.toFixed(2)}`} />
-            <Field label={t('admin.orders.fieldDeliveryFee')} value={`$${order.order.delivery_fee.toFixed(2)}`} />
-            <Field label={t('admin.orders.fieldPointsDiscount')} value={order.order.points_discount > 0 ? `-$${order.order.points_discount.toFixed(2)}` : '$0.00'} />
+            <Field label={t('common.total')} value={formatMoney(order.order.final_total)} />
+            <Field label={t('admin.orders.fieldBaseTotal')} value={formatMoney(order.order.base_total)} />
+            <Field label={t('admin.orders.fieldDeliveryFee')} value={formatMoney(order.order.delivery_fee)} />
+            <Field label={t('admin.orders.fieldPointsDiscount')} value={order.order.points_discount > 0 ? `-${formatMoney(order.order.points_discount)}` : formatMoney(0)} />
             <Field label={t('admin.orders.fieldPaymentMethod')} value={order.order.payment_method || order.payment?.payment_method || '-'} />
             {order.order.payment_provider && <Field label="Opérateur" value={order.order.payment_provider.replace(/_/g, ' ')} />}
             <Field label={t('admin.orders.fieldPaymentStatus')} value={<StatusBadge status={order.order.payment_status} />} />
@@ -254,8 +255,8 @@ export default function OrderDetailPage() {
                     <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('admin.orders.qty', { count: item.quantity })}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>${(item.final_unit_price * item.quantity).toFixed(2)}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('admin.orders.each', { price: `$${item.final_unit_price.toFixed(2)}` })}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>{formatMoney((item.final_unit_price * item.quantity))}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('admin.orders.each', { price: formatMoney(item.final_unit_price) })}</div>
                   </div>
                 </div>
               ))}

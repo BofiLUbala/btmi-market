@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { adminCommerceApi, type AdminPromotionVisibility } from '@/api/admin'
 import { useT } from '@/store/i18n'
 
@@ -71,12 +72,12 @@ export default function PromotionVisibilityPage() {
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{p.shop_name || t('admin.promotions.allShops')}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: '#1e293b', color: '#93c5fd' }}>
-                        {p.discount_type === 'PERCENTAGE' ? `${p.discount_value}% OFF` : `$${p.discount_value.toFixed(2)} OFF`}
+                        {p.discount_type === 'PERCENTAGE' ? `${p.discount_value}% OFF` : `${formatMoney(p.discount_value)} OFF`}
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>
-                      <span style={{ color: '#34d399' }}>${p.sale_price.toFixed(2)}</span>
-                      <span style={{ color: '#64748b', fontSize: 11, textDecoration: 'line-through', marginLeft: 6 }}>${p.regular_price.toFixed(2)}</span>
+                      <span style={{ color: '#34d399' }}>{formatMoney(p.sale_price)}</span>
+                      <span style={{ color: '#64748b', fontSize: 11, textDecoration: 'line-through', marginLeft: 6 }}>{formatMoney(p.regular_price)}</span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{

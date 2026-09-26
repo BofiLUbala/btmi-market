@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '../../../../src/lib/money'
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { adminCommerceApi } from '../../../../src/api/admin'
@@ -69,7 +70,7 @@ export default function MobileProductsScreen() {
               </View>
               <View style={styles.cardMeta}>
                 <Text style={styles.metaText}>{item.business_name}</Text>
-                <Text style={styles.metaText}>${item.effective_price.toFixed(2)}</Text>
+                <Text style={styles.metaText}>{formatMoney(item.effective_price)}</Text>
               </View>
               <View style={styles.cardMeta}>
                 <Text style={styles.metaText}>{t('admin.products.stock', { count: item.total_available })}</Text>

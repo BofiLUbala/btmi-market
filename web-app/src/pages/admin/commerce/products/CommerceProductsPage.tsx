@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { formatMoney } from '@/lib/format'
 import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -135,8 +136,8 @@ export default function CommerceProductsPage() {
                     </div>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <div style={{ color: '#f8fafc', fontWeight: 600 }}>${p.effective_price.toFixed(2)}</div>
-                    {p.discount_active && <div style={{ color: '#64748b', fontSize: 11, textDecoration: 'line-through' }}>${p.unit_price.toFixed(2)}</div>}
+                    <div style={{ color: '#f8fafc', fontWeight: 600 }}>{formatMoney(p.effective_price)}</div>
+                    {p.discount_active && <div style={{ color: '#64748b', fontSize: 11, textDecoration: 'line-through' }}>{formatMoney(p.unit_price)}</div>}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <StatusBadge status={p.stock_status || (p.total_available > 0 ? (p.total_available <= (p.low_stock_threshold || 5) ? 'LOW_STOCK' : 'IN_STOCK') : 'OUT_OF_STOCK')} />

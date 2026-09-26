@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native'
-import { useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
@@ -314,9 +314,14 @@ function SellerOrderLineQR({ line, orderId, orderNumber, shopName, currency, sty
   const variant = line.variant_name || line.variant_sku || ''
   return <View style={{ marginBottom: 6 }}>
     <View style={styles.lineRow}>
-      <Text style={[styles.small, styles.flex1]}>{variant
+      <View style={styles.flex1}>
+      {line.product_id ? <Pressable accessibilityRole="link" onPress={() => router.push(`/seller/products/${line.product_id}`)}>
+        <Text style={styles.productLink}>{name}</Text>
+      </Pressable> : null}
+      <Text style={styles.small}>{variant
         ? t('seller.orders.lineWithVariant', { name, variant, quantity: line.quantity, price })
         : t('seller.orders.line', { name, quantity: line.quantity, price })}</Text>
+      </View>
       <Button dense variant="outline" title={open ? t('itemQr.hide') : t('itemQr.action')} onPress={() => setOpen((v) => !v)} />
     </View>
     {open ? <OrderItemQRSection
@@ -337,6 +342,7 @@ function SellerOrderLineQR({ line, orderId, orderNumber, shopName, currency, sty
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
   flex1: { flex: 1 },
+  productLink: { color: c.green, fontWeight: '700', fontSize: 14, textDecorationLine: 'underline', marginBottom: 2 },
   centerText: { textAlign: 'center' },
   h1: { fontSize: 24, fontWeight: '700', color: c.ink },
   h3: { fontSize: 18, fontWeight: '700', color: c.ink, textAlign: 'center' },

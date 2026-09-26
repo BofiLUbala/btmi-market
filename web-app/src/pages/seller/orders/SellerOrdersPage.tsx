@@ -5,7 +5,7 @@ import { OrderItemQRSection } from '@/components/qr/OrderItemQRSection'
 import { QRPanel } from '@/components/qr/QRPanel'
 import { Card } from '@/components/ui/Card'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { hasActiveOrderStatus } from '@/lib/orderStatus'
 import { paymentStatusKey, confirmationActorKey, isPaymentPaid } from '@/lib/paymentStatus'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -78,7 +78,8 @@ function orderStatusLabel(status: string, t: ReturnType<typeof useT>): string {
 export default function SellerOrdersPage() {
   const { t, lang } = useI18n()
   const [searchParams] = useSearchParams()
-  const orderIdParam = searchParams.get('orderId')
+  // Notifications link with ?order_id=, older links with ?orderId=.
+  const orderIdParam = searchParams.get('orderId') || searchParams.get('order_id')
   const { activeBusiness } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -448,6 +449,7 @@ function SellerOrderLineQR({
     <div style={{ marginBottom: 6 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ flex: '1 1 auto' }}>
+          {line.product_id && <Link to={`/seller/products/${line.product_id}`} style={{ fontWeight: 700, marginRight: 6 }}>{name}</Link>}
           {variant
             ? t('seller.orders.lineWithVariant', { name, variant, quantity: line.quantity, price })
             : t('seller.orders.line', { name, quantity: line.quantity, price })}

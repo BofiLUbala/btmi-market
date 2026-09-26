@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { setMoneyLanguage } from '../lib/money'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fr } from '../locales/fr'
 import { en } from '../locales/en'
@@ -87,6 +88,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     [lang]
   )
 
+  // Set during render so every child that formats money this render already
+  // uses the new language.
+  setMoneyLanguage(lang)
   const value = useMemo(() => ({ lang, setLang: persist, toggleLang, t }), [lang, persist, toggleLang, t])
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>

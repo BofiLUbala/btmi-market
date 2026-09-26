@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatMoney } from '../../src/lib/money'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type LayoutChangeEvent } from 'react-native'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
@@ -14,7 +15,7 @@ import type { SaleFinanceDetail, SellerBreakdownGroup, SellerFinanceTimeseriesPo
 // the web page's own French text.
 
 const money = (value: number, currency = 'USD') => {
-  try { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(value || 0) }
+  try { return formatMoney(value || 0, currency) }
   catch { return `${(value || 0).toFixed(2)} ${currency}` }
 }
 

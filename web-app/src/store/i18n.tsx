@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { setMoneyLanguage } from '@/lib/format'
 import { fr } from '@/locales/fr'
 import { en } from '@/locales/en'
 
@@ -72,6 +73,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const setLang = useCallback((next: Lang) => setLangState(next), [])
   const toggleLang = useCallback(() => setLangState((l) => (l === 'fr' ? 'en' : 'fr')), [])
 
+  // Set during render so every child that formats money this render already
+  // uses the new language.
+  setMoneyLanguage(lang)
   const value = useMemo(() => ({ lang, setLang, toggleLang, t }), [lang, setLang, toggleLang, t])
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>

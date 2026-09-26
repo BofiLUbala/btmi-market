@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatMoney } from '../../../src/lib/money'
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../src/store/adminAuth'
@@ -86,11 +87,11 @@ export default function MobileFinanceScreen() {
               <Text style={styles.cardTitle}>{t('admin.finance.metricsTitle')}</Text>
               <View style={styles.metricRow}>
                 <Text style={styles.metricLabel}>{t('admin.finance.verifiedCash')}</Text>
-                <Text style={[styles.metricVal, { color: '#10b981' }]}>${summary.verified_cash?.toFixed(2)}</Text>
+                <Text style={[styles.metricVal, { color: '#10b981' }]}>{formatMoney(summary.verified_cash)}</Text>
               </View>
               <View style={styles.metricRow}>
                 <Text style={styles.metricLabel}>{t('admin.finance.unverifiedCash')}</Text>
-                <Text style={[styles.metricVal, { color: '#f59e0b' }]}>${summary.unverified_cash?.toFixed(2)}</Text>
+                <Text style={[styles.metricVal, { color: '#f59e0b' }]}>{formatMoney(summary.unverified_cash)}</Text>
               </View>
               <View style={styles.metricRow}>
                 <Text style={styles.metricLabel}>{t('admin.finance.openSupportCases')}</Text>
@@ -113,7 +114,7 @@ export default function MobileFinanceScreen() {
                 <View key={p.payment_id} style={styles.itemRow}>
                   <View>
                     <Text style={styles.itemTitle}>{p.order_number}</Text>
-                    <Text style={styles.itemSub}>{p.buyer_name} • ${p.total_amount?.toFixed(2)}</Text>
+                    <Text style={styles.itemSub}>{p.buyer_name} • {formatMoney(p.total_amount)}</Text>
                   </View>
                   <Text style={styles.chipPending}>{p.payment_status}</Text>
                 </View>

@@ -12,24 +12,36 @@ export type Translator = (key: keyof Dictionary, vars?: Record<string, string | 
 /** The platform's selling currency: every new product, cart and order is in it. */
 export const DEFAULT_CURRENCY = 'USD'
 
-export function formatMoney(amount: number, currency = DEFAULT_CURRENCY): string {
-  const code = (currency || 'USD').toUpperCase()
-  const safe = amount === null || amount === undefined || isNaN(amount) ? 0 : amount
+/** The language money is written in, kept in step with the i18n provider so
+ *  every formatMoney call follows the language the user picked:
+ *  fr → 8 520,00 $   ·   en → $8,520.00 */
+let moneyLanguage: 'fr' | 'en' = 'fr'
+export function setMoneyLanguage(lang: 'fr' | 'en') {
+  moneyLanguage = lang
+}
+export function getMoneyLanguage(): 'fr' | 'en' {
+  return moneyLanguage
+}
+
+// No-break spaces keep "8 520,00 $" on one line.
+const NBSP = '\u00A0'
+
+export function formatMoney(amount: number | null | undefined, currency: string = DEFAULT_CURRENCY, lang: 'fr' | 'en' = moneyLanguage): string {
+  const code = (currency || DEFAULT_CURRENCY).toUpperCase()
+  const safe = amount === null || amount === undefined || Number.isNaN(Number(amount)) ? 0 : Number(amount)
   const rounded = Math.round(safe * 100) / 100
-
-  if (code === 'USD') {
-    const [int, frac] = rounded.toFixed(2).split('.')
-    const negative = int.startsWith('-')
-    const grouped = int.replace('-', '').replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-    return `${negative ? '-' : ''}$${grouped}.${frac}`
-  }
-
-  const label = code === 'CDF' ? 'FC' : code
-  const isWhole = rounded % 1 === 0
-  const digits = isWhole ? rounded.toFixed(0) : rounded.toFixed(2)
+  const negative = rounded < 0
+  const french = lang === 'fr'
+  // USD always shows its cents; legacy CDF drops them when the amount is whole.
+  const digits = code === 'USD' || rounded % 1 !== 0 ? Math.abs(rounded).toFixed(2) : Math.abs(rounded).toFixed(0)
   const [int, frac] = digits.split('.')
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
-  return frac ? `${grouped}.${frac} ${label}` : `${grouped} ${label}`
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, french ? NBSP : ',')
+  const number = frac ? `${grouped}${french ? ',' : '.'}${frac}` : grouped
+  const sign = negative ? '-' : ''
+
+  if (code === 'USD') return french ? `${sign}${number}${NBSP}$` : `${sign}$${number}`
+  const label = code === 'CDF' ? 'FC' : code
+  return `${sign}${number}${NBSP}${label}`
 }
 
 export function formatDate(iso?: string | null, locale = 'en-GB'): string {

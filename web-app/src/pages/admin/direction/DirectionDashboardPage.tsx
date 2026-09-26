@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { formatMoney } from '@/lib/format'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import {
   adminDirectionApi,
@@ -215,7 +216,7 @@ export default function DirectionDashboardPage() {
   }
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(val)
+    return formatMoney(val, 'USD')
   }
 
   const featureTitle = (() => {
