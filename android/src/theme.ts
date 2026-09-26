@@ -1,5 +1,3 @@
-import { Platform } from 'react-native'
-
 /**
  * Palette + theming.
  *
@@ -135,15 +133,11 @@ export const darkColors: Colors = {
 export const spacing = { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 } as const
 export const radius = { sm: 12, md: 16, lg: 24, pill: 999 } as const
 
-/** Boutique type pairing, same intent as the web's --font-display: an
- *  editorial serif for titles and prices, the platform sans for everything
- *  else. System faces only, so there is no font asset to ship or load. */
+/** Same type pairing as the web: Fraunces for titles and prices, Inter for
+ *  everything else (loaded in app/_layout.tsx). */
 export const fonts = {
-  display: Platform.select({
-    ios: 'Georgia',
-    android: 'serif',
-    default: "Fraunces, 'Iowan Old Style', 'Palatino Linotype', Georgia, serif",
-  }) as string,
+  /** Fraunces; src/typography.ts maps it to the right weight file. */
+  display: 'Fraunces',
 } as const
 
 /** Uppercase eyebrow above titles (category, section kicker). */

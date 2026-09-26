@@ -8,10 +8,12 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { fonts, type Colors } from '../../src/theme'
 import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '../../src/components/StructuredAddressFields'
 import { formatMoney } from '../../src/lib/money'
 import { CheckoutProgress } from '../../src/components/CheckoutProgress'
+import { AddressSummary, CardHead, CheckoutCard, CheckoutHeading, Divider, Eyebrow, H2, OptionCard, SmallText, ToggleSwitch, UnderlineLink, checkoutPage } from '../../src/components/CheckoutUI'
+import type { TranslationKey } from '../../src/locales/fr'
 
 const money = (value: number, currency?: string) => formatMoney(value, currency)
 
@@ -161,115 +163,76 @@ export default function DeliveryScreen() {
     return <ErrorState message={t('checkout.optionsFailed')} retry={() => options.refetch()} />
   }
 
+  const w = (key: string, vars?: Record<string, string | number>) => t(`web.${key}` as TranslationKey, vars)
+
+  // Same sections, order and wording as web-app/src/pages/checkout/DeliveryPage.tsx.
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={checkoutPage} keyboardShouldPersistTaps="handled">
         <CheckoutProgress current="delivery" />
+        <CheckoutHeading title={w('delivery.title')} subtitle={w('delivery.subtitle')} />
 
-        <SectionTitle title={t('checkout.deliveryMethod')} />
-
-        <Card>
-          <View style={styles.tbkHeader}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="shield-checkmark" size={24} color={colors.green} />
-            </View>
-            <View style={styles.tbkHeaderText}>
-              <Text style={styles.tbkTitle}>{t('checkout.tbkDeliveryTitle')}</Text>
-              <Text style={styles.tbkSubtitle}>{t('checkout.tbkDeliverySubtitle')}</Text>
-            </View>
-          </View>
-          <View style={styles.tbkDivider} />
-          <View style={styles.rowBetween}>
-            <Text style={styles.muted}>{t('checkout.tbkDeliveryNotice')}</Text>
-          </View>
-          <View style={[styles.rowBetween, { marginTop: spacing.sm }]}>
-            <Text style={styles.optionTitle}>{t('checkout.delivery')}</Text>
-            <Text style={styles.fee}>{money(displayedFee)}</Text>
-          </View>
-        </Card>
+        <CheckoutCard>
+          <CardHead title={w('delivery.tbkTitle')} />
+          <OptionCard title={w('delivery.tbkTitle')} amount={money(displayedFee)} lines={[w('delivery.tbkSubtitle'), w('delivery.tbkNotice')]} />
+          {orderIds.length > 1 ? <SmallText>{t('checkout.deliveryFeesForOrders', { count: orderIds.length })}</SmallText> : null}
+        </CheckoutCard>
 
         {baseFee > 0 ? (
-          <Card>
-            <View style={styles.rowBetween}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.optionTitle}>{t('checkout.payDeliveryWithPoints')}</Text>
-                <Text style={styles.muted}>{t('checkout.usePointsHint')}</Text>
-              </View>
-              <Button
-                variant={usePoints ? 'primary' : 'outline'}
-                title={usePoints ? t('cart.pointsEnabled') : t('cart.pointsEnable')}
-                onPress={togglePoints}
-              />
+          <CheckoutCard tone={usePoints ? 'rewardsOn' : 'rewards'}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Eyebrow>{w('delivery.rewards')}</Eyebrow>
+              <Text style={styles.rewardsTitle}>{w('delivery.usePointsForDelivery')}</Text>
+              <SmallText>{w('delivery.reduceFee')}</SmallText>
             </View>
+            <ToggleSwitch on={usePoints} onPress={togglePoints} label={w('delivery.usePointsForDelivery')} />
             {usePoints && previewFee !== null && !pointsShortForGroup ? (
-              <Text style={[styles.pointsNote, { marginTop: spacing.xs }]}>
-                {t('checkout.deliveryFee', { from: money(baseFee), to: money(previewFee) })}
-              </Text>
+              <Text style={styles.pointsNote}>{w('points.applied')} · {w('delivery.fee')} {money(baseFee)} → {money(previewFee)}</Text>
             ) : null}
             {usePoints && pointsShortForGroup ? (
-              <Text style={[styles.muted, { marginTop: spacing.xs }]}>{t('checkout.pointsSplitAcrossOrders', { points: availablePoints })}</Text>
+              <SmallText>{t('checkout.pointsSplitAcrossOrders', { points: availablePoints })}</SmallText>
             ) : null}
-            {orderIds.length > 1 ? <Text style={[styles.muted, { marginTop: spacing.xs }]}>{t('checkout.deliveryFeesForOrders', { count: orderIds.length })}</Text> : null}
-          </Card>
+          </CheckoutCard>
         ) : null}
 
-        <Card>
-          <Text style={styles.optionTitle}>{t('checkout.contactDetails')}</Text>
-          <Field
-            label={t('checkout.contactName')}
-            value={contact.contact_name}
-            onChangeText={(v) => setContact({ ...contact, contact_name: v })}
-          />
-          <Field
-            label={t('editProfile.phone')}
-            value={contact.phone}
-            keyboardType="phone-pad"
-            onChangeText={(v) => setContact({ ...contact, phone: v })}
-          />
-          <Field
-            label={t('checkout.instructions')}
-            value={contact.notes}
-            multiline
-            onChangeText={(v) => setContact({ ...contact, notes: v })}
-          />
-        </Card>
+        <CheckoutCard>
+          <Eyebrow>{w('delivery.details')}</Eyebrow>
+          <H2>{w('delivery.contactName')}</H2>
+          <Field label={w('delivery.contactName')} value={contact.contact_name} onChangeText={(v) => setContact({ ...contact, contact_name: v })} />
+          <Field label={w('common.phone')} value={contact.phone} keyboardType="phone-pad" onChangeText={(v) => setContact({ ...contact, phone: v })} />
+          <Field label={w('delivery.notes')} value={contact.notes} onChangeText={(v) => setContact({ ...contact, notes: v })} />
 
-        <SectionTitle title={t('checkout.delivery')} />
+          <Divider />
+          <Eyebrow>{w('delivery.savedAddressTitle')}</Eyebrow>
 
-        {mode === 'saved' && savedAddress && (
-          <Card>
-            <Text style={styles.savedLabel}>{t('delivery.savedAddress')}</Text>
-            <Text style={styles.savedValue}>{savedAddress.street}, {savedAddress.building_number}</Text>
-            <Text style={styles.savedValue}>{savedAddress.commune}, {savedAddress.city}</Text>
-            <Text style={styles.savedValue}>{savedAddress.province}</Text>
-            {savedAddress.landmark ? <Text style={[styles.savedValue, { marginTop: 4 }]}>Repère : {savedAddress.landmark}</Text> : null}
-            <Button title={t('delivery.useSavedAddress')} onPress={submit} loading={selectMutation.isPending} />
-            <TouchableOpacity onPress={() => { setError(''); setMode('custom') }}>
-              <Text style={styles.customLink}>{t('delivery.useAnotherAddress')}</Text>
-            </TouchableOpacity>
-          </Card>
-        )}
+          {mode === 'saved' && savedAddress ? (
+            <>
+              <SmallText>{w('delivery.savedAddress')}</SmallText>
+              <AddressSummary value={savedAddress} />
+              <Button title={w('delivery.useSavedAddress')} onPress={submit} loading={selectMutation.isPending} />
+              <UnderlineLink title={w('delivery.useAnotherAddress')} onPress={() => { setError(''); setMode('custom') }} />
+            </>
+          ) : null}
 
-        {mode === 'custom' && (
-          <Card>
-            <StructuredAddressFields value={address} onChange={setAddress} />
-            <TouchableOpacity style={styles.checkbox} onPress={() => setSavePrimary(!savePrimary)}>
-              <View style={[styles.checkboxTick, savePrimary && styles.checkboxTickOn]}>
-                {savePrimary ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.checkboxLabel}>Enregistrer comme adresse principale</Text>
-                <Text style={styles.checkboxHint}>Elle sera réutilisée et pré-remplie lors de vos prochaines commandes.</Text>
-              </View>
-            </TouchableOpacity>
-            {savedAddress && (
-              <TouchableOpacity onPress={() => { setError(''); setMode('saved') }}>
-                <Text style={styles.customLink}>{t('delivery.backToSavedAddress')}</Text>
+          {mode === 'custom' ? (
+            <>
+              <StructuredAddressFields value={address} onChange={setAddress} />
+              {isStructuredAddressComplete(address) ? <AddressSummary value={address} /> : <SmallText>{w('delivery.addressIncomplete')}</SmallText>}
+              <TouchableOpacity style={styles.checkbox} onPress={() => setSavePrimary(!savePrimary)} accessibilityRole="checkbox" accessibilityState={{ checked: savePrimary }}>
+                <View style={[styles.checkboxTick, savePrimary && styles.checkboxTickOn]}>
+                  {savePrimary ? <Ionicons name="checkmark" size={14} color={colors.onGreen} /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.checkboxLabel}>{w('delivery.saveAsPrimary')}</Text>
+                  <Text style={styles.checkboxHint}>{w('delivery.saveAsPrimaryHint')}</Text>
+                </View>
               </TouchableOpacity>
-            )}
-            <Button title={t('delivery.continueToReview')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
-          </Card>
-        )}
+              <SmallText>{w('delivery.otherAddressNote')}</SmallText>
+              {savedAddress ? <UnderlineLink title={w('delivery.backToSavedAddress')} onPress={() => { setError(''); setMode('saved') }} /> : null}
+              <Button title={w('delivery.continueToReview')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
+            </>
+          ) : null}
+        </CheckoutCard>
 
         {error ? <ErrorState message={error} /> : null}
       </ScrollView>
@@ -279,31 +242,12 @@ export default function DeliveryScreen() {
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   flex: { flex: 1 },
-  page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  steps: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  stepDone: { color: colors.green, fontWeight: '800', fontSize: 12 },
-  stepActive: { color: colors.ink, fontWeight: '700', fontSize: 12 },
-  stepNext: { color: colors.muted, fontWeight: '700', fontSize: 12 },
-  tbkHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  iconCircle: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.greenSoft,
-    borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
-  },
-  tbkHeaderText: { flex: 1 },
-  tbkTitle: { color: colors.ink, fontWeight: '700', fontSize: 16 },
-  tbkSubtitle: { color: colors.muted, fontSize: 13, marginTop: 2 },
-  tbkDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
-  optionTitle: { color: colors.ink, fontWeight: '800', fontSize: 15 },
-  muted: { color: colors.muted, fontSize: 13 },
-  fee: { color: colors.green, fontWeight: '700', fontSize: 16 },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  pointsNote: { color: colors.success, fontWeight: '700' },
-  savedLabel: { fontSize: 13, color: colors.muted, marginBottom: 6 },
-  savedValue: { fontSize: 15, color: colors.ink, lineHeight: 22 },
-  customLink: { textAlign: 'center', color: colors.success, fontWeight: '700', fontSize: 14, marginTop: 12, textDecorationLine: 'underline' },
-  checkbox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 12, marginTop: 10 },
-  checkboxTick: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  checkboxTickOn: { backgroundColor: colors.success, borderColor: colors.success },
-  checkboxLabel: { fontSize: 14, fontWeight: '700', color: colors.ink },
-  checkboxHint: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  rewardsTitle: { color: colors.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 17 },
+  pointsNote: { width: '100%', color: colors.success, fontSize: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  // web .checkout-checkbox
+  checkbox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12 },
+  checkboxTick: { width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  checkboxTickOn: { backgroundColor: colors.green, borderColor: colors.green },
+  checkboxLabel: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  checkboxHint: { fontSize: 13, color: colors.muted, marginTop: 2 },
 })

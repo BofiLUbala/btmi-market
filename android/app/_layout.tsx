@@ -1,4 +1,8 @@
+// Must run before any screen builds its styles (see src/typography.ts).
+import '../src/typography'
 import { useEffect } from 'react'
+import { useFonts } from 'expo-font'
+import { fontAssets } from '../src/typography'
 import { AppState } from 'react-native'
 import { Stack } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -12,11 +16,19 @@ import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
 import { fonts } from '../src/theme'
+import { StoreHeader } from '../src/components/StoreHeader'
+import { CheckoutHeader } from '../src/components/CheckoutUI'
+import { withBrandFont } from '../src/typography'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 0, retry: 2, refetchOnMount: 'always', refetchOnReconnect: true, refetchOnWindowFocus: true }, mutations: { retry: 0 } } })
 
 /** Split out of RootLayout so it can read the theme and language contexts —
  *  screen titles and header colours both have to follow them. */
+/** Buyer/auth screens use the storefront header, like every web page. */
+const storeHeader = () => <StoreHeader />
+/** Delivery and payment use the web's focused checkout header. */
+const checkoutHeader = () => <CheckoutHeader />
+
 function RootNavigator() {
   const { colors, theme } = useTheme()
   const { t } = useI18n()
@@ -34,7 +46,7 @@ function RootNavigator() {
         screenOptions={{
           headerStyle: { backgroundColor: colors.white },
           headerTintColor: colors.ink,
-          headerTitleStyle: { fontFamily: fonts.display, fontWeight: '500', fontSize: 20 },
+          headerTitleStyle: withBrandFont({ fontFamily: fonts.display, fontWeight: '500', fontSize: 20 }),
           contentStyle: { backgroundColor: colors.cream },
           // Language and appearance live in the header on every stack screen
           // rather than only inside the profile.
@@ -43,28 +55,29 @@ function RootNavigator() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/login" options={{ title: t('common.signIn') }} />
-        <Stack.Screen name="auth/register" options={{ title: t('auth.createAccount') }} />
-        <Stack.Screen name="auth/register-choice" options={{ title: t('auth.createAccount') }} />
-        <Stack.Screen name="auth/register-buyer" options={{ title: t('auth.register.buyerFlowLabel') }} />
-        <Stack.Screen name="auth/register-seller" options={{ title: t('auth.register.sellerFlowLabel') }} />
-        <Stack.Screen name="auth/forgot-password" options={{ title: t('auth.forgotPassword') }} />
-        <Stack.Screen name="auth/reset-password" options={{ title: t('auth.newPassword') }} />
-        <Stack.Screen name="auth/registration-recovery" options={{ title: t('auth.reinitialize.title') }} />
+        <Stack.Screen name="auth/login" options={{ header: storeHeader, title: t('common.signIn') }} />
+        <Stack.Screen name="auth/register" options={{ header: storeHeader, title: t('auth.createAccount') }} />
+        <Stack.Screen name="auth/register-choice" options={{ header: storeHeader, title: t('auth.createAccount') }} />
+        <Stack.Screen name="auth/register-buyer" options={{ header: storeHeader, title: t('auth.register.buyerFlowLabel') }} />
+        <Stack.Screen name="auth/register-seller" options={{ header: storeHeader, title: t('auth.register.sellerFlowLabel') }} />
+        <Stack.Screen name="auth/forgot-password" options={{ header: storeHeader, title: t('auth.forgotPassword') }} />
+        <Stack.Screen name="auth/reset-password" options={{ header: storeHeader, title: t('auth.newPassword') }} />
+        <Stack.Screen name="auth/registration-recovery" options={{ header: storeHeader, title: t('auth.reinitialize.title') }} />
         <Stack.Screen name="auth/employee-invite" options={{ title: t('seller.employeeInvite.title') }} />
-        <Stack.Screen name="profile-edit" options={{ title: t('editProfile.title') }} />
-        <Stack.Screen name="products/[id]" options={{ title: t('product.title') }} />
-        <Stack.Screen name="categories/[slug]" options={{ title: t('categories.pageTitle') }} />
-        <Stack.Screen name="checkout/delivery" options={{ title: t('checkout.delivery') }} />
-        <Stack.Screen name="checkout/payment" options={{ title: t('checkout.payment') }} />
-        <Stack.Screen name="orders/index" options={{ title: t('profile.myOrders') }} />
-        <Stack.Screen name="orders/[id]" options={{ title: t('orders.detailTitle') }} />
-        <Stack.Screen name="notifications" options={{ title: t('notifications.title') }} />
-        <Stack.Screen name="points/index" options={{ title: t('points.link') }} />
-        <Stack.Screen name="points/history" options={{ title: t('points.history') }} />
-        <Stack.Screen name="purchases" options={{ title: t('account.pendingPurchases') }} />
-        <Stack.Screen name="reviews/index" options={{ title: t('profile.myReviews') }} />
-        <Stack.Screen name="reviews/write" options={{ title: t('review.publish') }} />
+        <Stack.Screen name="profile-edit" options={{ header: storeHeader, title: t('editProfile.title') }} />
+        <Stack.Screen name="products/[id]" options={{ header: storeHeader, title: t('product.title') }} />
+        <Stack.Screen name="categories/[slug]" options={{ header: storeHeader, title: t('categories.pageTitle') }} />
+        <Stack.Screen name="checkout/delivery" options={{ header: checkoutHeader, title: t('checkout.delivery') }} />
+        <Stack.Screen name="checkout/payment" options={{ header: checkoutHeader, title: t('checkout.payment') }} />
+        <Stack.Screen name="checkout/success" options={{ header: checkoutHeader }} />
+        <Stack.Screen name="orders/index" options={{ header: storeHeader, title: t('profile.myOrders') }} />
+        <Stack.Screen name="orders/[id]" options={{ header: storeHeader, title: t('orders.detailTitle') }} />
+        <Stack.Screen name="notifications" options={{ header: storeHeader, title: t('notifications.title') }} />
+        <Stack.Screen name="points/index" options={{ header: storeHeader, title: t('points.link') }} />
+        <Stack.Screen name="points/history" options={{ header: storeHeader, title: t('points.history') }} />
+        <Stack.Screen name="purchases" options={{ header: storeHeader, title: t('account.pendingPurchases') }} />
+        <Stack.Screen name="reviews/index" options={{ header: storeHeader, title: t('profile.myReviews') }} />
+        <Stack.Screen name="reviews/write" options={{ header: storeHeader, title: t('review.publish') }} />
         <Stack.Screen name="seller" options={{ headerShown: false }} />
         <Stack.Screen name="courier/index" options={{ title: t('courier.spaceTitle') }} />
         <Stack.Screen name="courier/[id]" options={{ title: t('courier.missionTitle') }} />
@@ -89,6 +102,12 @@ export default function RootLayout() {
       appStateSubscription.remove()
     }
   }, [bootstrap])
+
+  // Inter + Fraunces, as on the web. Rendering waits for them (the splash
+  // stays up) so text never flashes in the system font first; a load error
+  // still lets the app start with the fallback.
+  const [fontsLoaded, fontError] = useFonts(fontAssets)
+  if (!fontsLoaded && !fontError) return null
 
   return (
     <ThemeProvider>

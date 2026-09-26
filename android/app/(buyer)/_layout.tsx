@@ -8,8 +8,10 @@ import { useCart } from '../../src/store/cart'
 import { useTheme } from '../../src/store/theme'
 import { useI18n } from '../../src/store/i18n'
 import { resolveMediaUrl } from '../../src/api/client'
-import { PreferenceToggleButtons } from '../../src/components/PreferenceToggles'
 import { fonts, spacing } from '../../src/theme'
+import { StoreHeader } from '../../src/components/StoreHeader'
+import { withBrandFont } from '../../src/typography'
+import type { TranslationKey } from '../../src/locales/fr'
 
 // A photo replaces the generic person icon entirely — same rule as the web
 // header: circle photo when set, otherwise the plain icon (never both).
@@ -23,13 +25,14 @@ function ProfileTabIcon({ color, focused, size }: { color: ColorValue; focused: 
       </View>
     )
   }
-  return <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
+  return <Ionicons name="person-outline" size={size} color={color} />
 }
 
 export default function BuyerTabs() {
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
   const { t } = useI18n()
+  const isSeller = useAuth((state) => state.user?.account_type === 'SELLER' || state.user?.account_type === 'EMPLOYEE')
   const cartCount = useCart((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0))
 
   return (
@@ -41,28 +44,30 @@ export default function BuyerTabs() {
         headerShadowVisible: false,
         // Same cream page background as the web storefront.
         sceneStyle: { backgroundColor: colors.cream },
-        headerTitleStyle: { fontFamily: fonts.display, fontWeight: '500', fontSize: 20 },
-        headerRight: () => <PreferenceToggleButtons />,
-        headerRightContainerStyle: { paddingRight: spacing.md },
+        // The web storefront header on every tab (logo, search, menu).
+        header: () => <StoreHeader />,
+        headerTitleStyle: withBrandFont({ fontFamily: fonts.display, fontWeight: '500', fontSize: 20 }),
         tabBarActiveTintColor: colors.ink,
-        tabBarInactiveTintColor: colors.mutedLight,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+        tabBarInactiveTintColor: colors.muted,
+        // web .mobile-nav a: 10.5px, 500 (600 when active)
+        tabBarLabelStyle: withBrandFont({ fontSize: 10.5, fontWeight: '500', marginTop: 2 }),
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           height: 58 + insets.bottom,
           paddingTop: 7,
           paddingBottom: Math.max(insets.bottom, 8),
-          borderTopColor: colors.surfaceAlt,
+          borderTopColor: colors.border,
           backgroundColor: colors.white,
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: t('tabs.home'), headerShown: false, tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} /> }} />
-      <Tabs.Screen name="categories" options={{ title: t('tabs.categories'), headerTitle: t('tabs.categories'), tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'grid' : 'grid-outline'} size={21} color={color} /> }} />
-      <Tabs.Screen name="favorites" options={{ title: t('tabs.favorites'), headerTitle: t('tabs.myFavorites'), tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color} /> }} />
-      <Tabs.Screen name="profile" options={{ title: t('tabs.profile'), headerTitle: t('tabs.myProfile'), tabBarIcon: ({ color, focused }) => <ProfileTabIcon color={color} focused={focused} size={22} /> }} />
-      {/* Same order as the web bottom bar: the cart closes the row. */}
-      <Tabs.Screen name="cart" options={{ title: t('tabs.cart'), headerTitle: t('tabs.myCart'), tabBarBadge: cartCount > 0 ? cartCount : undefined, tabBarBadgeStyle: { backgroundColor: colors.gold, color: colors.onGold, fontSize: 10.5 }, tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'bag-handle' : 'bag-handle-outline'} size={22} color={color} /> }} />
+      <Tabs.Screen name="index" options={{ title: t('nav.home' as TranslationKey), headerShown: false, tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={22} color={color} /> }} />
+      <Tabs.Screen name="search" options={{ title: t('nav.search' as TranslationKey), tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={22} color={color} /> }} />
+      <Tabs.Screen name="favorites" options={{ title: t('nav.favorites' as TranslationKey), tabBarIcon: ({ color }) => <Ionicons name="heart-outline" size={22} color={color} /> }} />
+      <Tabs.Screen name="profile" options={{ title: isSeller ? t('nav.sellerHub' as TranslationKey) : t('nav.account' as TranslationKey), tabBarIcon: ({ color, focused }) => <ProfileTabIcon color={color} focused={focused} size={22} /> }} />
+      <Tabs.Screen name="cart" options={{ title: t('nav.cart' as TranslationKey), tabBarBadge: cartCount > 0 ? cartCount : undefined, tabBarBadgeStyle: { backgroundColor: colors.gold, color: colors.onGold, fontSize: 10.5 }, tabBarIcon: ({ color }) => <Ionicons name="bag-handle-outline" size={22} color={color} /> }} />
+      {/* Reached from the home "Tout voir →" and the menu, as on the web. */}
+      <Tabs.Screen name="categories" options={{ href: null }} />
     </Tabs>
   )
 }

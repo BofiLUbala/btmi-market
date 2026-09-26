@@ -227,11 +227,27 @@ export default function ProductScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 96 + insets.bottom }]}>
-        <Image
-          source={image ?? categoryImage(category.slug, category.name)}
-          contentFit="cover"
-          style={[styles.image, { height: Math.min(width * 1.25, 560) }]}
-        />
+        {/* web .pd-breadcrumb: Marketplace › Catégorie › Produit */}
+        <View style={styles.breadcrumb}>
+          <Pressable onPress={() => router.push('/(buyer)')}><Text style={styles.crumbLink}>{t('nav.marketplace')}</Text></Pressable>
+          <Text style={styles.crumbSep}>›</Text>
+          {category.name ? <>
+            <Pressable onPress={() => category.slug && router.push(`/categories/${category.slug}`)}><Text style={styles.crumbLink}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>
+            <Text style={styles.crumbSep}>›</Text>
+          </> : null}
+          <Text style={styles.crumbCurrent} numberOfLines={1}>{product.name}</Text>
+        </View>
+        {/* web .pd-main: rounded 4:5 frame inside the page margins, stock chip on top */}
+        <View style={styles.gallery}>
+          <Image
+            source={image ?? categoryImage(category.slug, category.name)}
+            contentFit="cover"
+            style={[styles.image, { height: Math.min((width - 32) * 1.25, 560) }]}
+          />
+          <Text style={[styles.galleryStock, { color: stock > 3 ? colors.success : stock > 0 ? colors.warning : colors.danger }]}>
+            {stock > 3 ? t('stock.inStock') : stock > 0 ? t('stock.lowStock') : t('stock.outOfStock')}
+          </Text>
+        </View>
 
         <View style={styles.content}>
           {category.name ? <Text style={styles.kicker}>{categoryLabel(t, category.slug, category.name)}</Text> : null}
@@ -569,7 +585,13 @@ export default function ProductScreen() {
 const makeStyles = (colors: Colors) => StyleSheet.create({
   screen: { flex: 1 },
   page: { paddingBottom: 100 },
-  image: { width: '100%', backgroundColor: colors.surfaceAlt },
+  image: { width: '100%', backgroundColor: colors.surfaceAlt, borderRadius: 16 },
+  breadcrumb: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: spacing.md, paddingTop: 20, paddingBottom: 12 },
+  crumbLink: { color: colors.ink, fontSize: 14 },
+  crumbSep: { color: colors.muted, fontSize: 14 },
+  crumbCurrent: { flex: 1, color: colors.muted, fontSize: 14 },
+  gallery: { marginHorizontal: spacing.md, borderRadius: 16, overflow: 'hidden' },
+  galleryStock: { position: 'absolute', top: 12, left: 12, fontSize: 12, fontWeight: '600' },
   content: { padding: spacing.md, gap: spacing.md },
   kicker: { ...kicker, color: colors.muted, marginBottom: -8 },
   shop: { color: colors.muted, fontSize: 13 },

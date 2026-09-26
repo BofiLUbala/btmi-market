@@ -17,7 +17,7 @@ import { BuyerHandoverCard, MobilePaymentCard } from '../../src/components/Buyer
 import { formatMoney } from '../../src/lib/money'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { spacing, type Colors } from '../../src/theme'
+import { fonts, spacing, type Colors } from '../../src/theme'
 import type { OrderStatusHistory, BuyerPayment, ProductVerification, OrderLine } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
@@ -89,6 +89,61 @@ const locale = (lang: string) => (lang === 'en' ? 'en-US' : 'fr-FR')
 
 function formatDateTime(value: string, lang: string) {
   return new Date(value).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'medium' })
+}
+
+/* ── "Parcours de la commande": the web OrderTimeline, step for step ── */
+const ORDER_STAGES = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+const COURIER_AT_DOOR = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Ord = any
+const isTbkDelivery = (o: Ord) => String(o.delivery_method || '').startsWith('TBK')
+const stageAtLeast = (o: Ord, stage: string) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf(stage)
+const WEB_TIMELINE: Array<{ key: string; label: string; tbkOnly?: boolean; done: (o: Ord, p: BuyerPayment | null) => boolean }> = [
+  { key: 'cart', label: 'nav.cart', done: () => true },
+  { key: 'checkout', label: 'orders.checkoutStarted', done: () => true },
+  { key: 'address', label: 'orders.addressConfirmed', done: (o) => !!o.delivery_method },
+  { key: 'method', label: 'orders.paymentMethodChosen', done: (_, p) => !!p },
+  { key: 'created', label: 'orders.orderCreated', done: () => true },
+  { key: 'payment', label: 'orders.paymentStep', done: (_, p) => isPaymentPaid(p) },
+  { key: 'preparing', label: 'orders.sellerPreparing', done: (o) => stageAtLeast(o, 'ACCEPTED') },
+  { key: 'assigned', label: 'orders.courierAssigned', tbkOnly: true, done: (o) => courierReached(o, 'COURIER_ASSIGNED') },
+  { key: 'courierAccepted', label: 'orders.courierAccepted', tbkOnly: true, done: (o) => courierReached(o, 'COURIER_ACCEPTED') },
+  { key: 'picked', label: 'orders.productPicked', tbkOnly: true, done: (o) => courierReached(o, 'PICKED_UP') },
+  { key: 'delivery', label: 'orders.inDelivery', done: (o) => isTbkDelivery(o) ? courierReached(o, 'IN_TRANSIT') : stageAtLeast(o, 'OUT_FOR_DELIVERY') },
+  { key: 'arrived', label: 'orders.arrived', done: (o) => COURIER_AT_DOOR.includes(o.delivery_status || '') || stageAtLeast(o, 'DELIVERED') },
+  { key: 'received', label: 'orders.received', done: (o) => stageAtLeast(o, 'RECEIVED') },
+]
+
+function WebOrderTimeline({ o, payment, styles }: { o: Ord; payment: BuyerPayment | null; styles: ReturnType<typeof makeStyles> }) {
+  const { t } = useI18n()
+  const colors = useColors()
+  const w = (key: string) => t(`web.${key}` as TranslationKey)
+  let visible = WEB_TIMELINE.filter((step) => !step.tbkOnly || isTbkDelivery(o))
+  // Paid at the door: payment sits after "Arrivé", as on the web.
+  if (!payment || payment.payment_timing === 'DELIVERY') {
+    const pay = visible.find((step) => step.key === 'payment')
+    visible = visible.filter((step) => step.key !== 'payment')
+    if (pay) visible.splice(visible.findIndex((step) => step.key === 'arrived') + 1, 0, pay)
+  }
+  const done = visible.map((step) => step.done(o, payment))
+  const current = done.findIndex((d) => !d)
+  return (
+    <Card>
+      <Text style={styles.cardH2}>{w('orders.lifecycle')}</Text>
+      {visible.map((step, i) => (
+        <View key={step.key} style={styles.webStep}>
+          <View style={[styles.webDot, (done[i] || i === current) && { borderColor: colors.gold }]}>
+            {done[i] ? <Text style={styles.webTick}>✓</Text> : null}
+          </View>
+          <Text style={styles.webStepText}>
+            {w(step.label)}
+            {step.key === 'payment' ? <Text style={styles.muted}>  {t(paymentStatusKey(payment) as TranslationKey)}</Text> : null}
+          </Text>
+        </View>
+      ))}
+      <Text style={[styles.muted, { marginTop: 8 }]}>{w('tracking.note')}</Text>
+    </Card>
+  )
 }
 
 /**
@@ -261,19 +316,31 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
 
   return <View style={{ flex: 1, backgroundColor: colors.cream }}>
     <ScrollView contentContainerStyle={styles.page}>
-      <SectionTitle title={o.order_number||t('orders.detailFallback')}/>
-      <Text style={styles.shop}>{order.data.shop_name} · {deliveryMethod ? deliveryLabel(t, deliveryMethod) : t('orders.deliveryToChoose')}</Text>
-      <Card>
-        <Text style={styles.status}>{statusLabel(t, t2?.current_status || o.status)}</Text>
-        <Text style={styles.total}>{formatMoney(p?.final_total ?? o.final_total, currency)}</Text>
-        {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
-        {!isTerminal(o.status) && tracking.isFetching && <Text style={styles.hint}>{t('orders.updating')}</Text>}
-      </Card>
+      <Pressable onPress={() => router.push('/orders')} accessibilityRole="link"><Text style={styles.backLink}>← {t('web.account.myOrders' as TranslationKey)}</Text></Pressable>
+
+      {/* web .live-bar */}
+      <View style={styles.liveBar}>
+        <View style={styles.liveLabel}><View style={styles.liveDot} /><Text style={styles.liveText}>{t('web.orders.live' as TranslationKey)}</Text></View>
+        <Text style={[styles.muted, { flex: 1 }]}>{t('web.orders.updated' as TranslationKey, { time: formatDateTime(new Date(order.dataUpdatedAt).toISOString(), lang) })}</Text>
+        <Pressable accessibilityRole="button" disabled={order.isFetching} onPress={() => void order.refetch()} style={styles.refreshBtn}><Text style={styles.refreshText}>{order.isFetching ? '⟳' : t('web.orders.refresh' as TranslationKey)}</Text></Pressable>
+      </View>
+
+      <View style={styles.titleRow}>
+        <Text style={styles.h1}>{t('web.orders.orderNumber' as TranslationKey, { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</Text>
+        <Text style={styles.badge}>{statusLabel(t, o.status)}</Text>
+      </View>
+      <Text style={styles.muted}>{formatDateTime(o.created_at, lang)}</Text>
+      <Text style={styles.shopLine}><Text style={styles.muted}>{t('web.orders.shop' as TranslationKey)}: </Text><Text style={styles.bold}>{order.data.shop_name}</Text>{order.data.business_name ? <Text style={styles.muted}> · {order.data.business_name}</Text> : null}{order.data.seller_name ? <Text style={styles.muted}> · {order.data.seller_name}</Text> : null}</Text>
+      {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
+
+      <WebOrderTimeline o={o} payment={p ?? null} styles={styles} />
 
       <DeliveryPlanCard plan={o} status={o.status} deliveryStatus={o.delivery_status} deliveryMethod={deliveryMethod} />
 
-      {/* web: products subtotal, points, delivery (struck base when points were used) and the total due */}
+      {/* web "Articles" card: purchased lines, then products subtotal, points, delivery and total due */}
       <Card>
+        <Text style={styles.cardH2}>{t('web.orders.items' as TranslationKey)}</Text>
+        {lines.map((line, i) => <PurchasedLine key={line.id} line={line} orderId={id!} eligibility={eligibility[i]?.data} styles={styles} reasonText={(r) => t(REASON_KEYS[r] ?? 'orders.reviewUnavailable')} />)}
         <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsSubtotal')}</Text><Text style={styles.muted}>{formatMoney(productsTotal)}</Text></View>
         {(o.points_used ?? 0) > 0 ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.pointsUsed', { count: o.points_used ?? 0 })}</Text><Text style={[styles.muted, { color: colors.success }]}>−{formatMoney(o.points_discount_amount ?? 0)}</Text></View> : null}
         <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsTotal')}</Text><Text style={styles.muted}>{formatMoney(o.final_total)}</Text></View>
@@ -375,7 +442,6 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         <PaymentAttempts p={p} o={o} lang={lang} t={t} styles={styles} />
       </> : null}
 
-      <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=><PurchasedLine key={line.id} line={line} orderId={id!} eligibility={eligibility[i]?.data} styles={styles} reasonText={(r) => t(REASON_KEYS[r] ?? 'orders.reviewUnavailable')} />)}
       {o.status === 'COMPLETED' ? <OrderRatingCard orderId={id!} /> : null}
     </ScrollView>
 
@@ -414,4 +480,21 @@ function PurchasedLine({ line, orderId, eligibility, styles, reasonText }: { lin
   </Card>
 }
 
-const makeStyles = (colors: Colors) => StyleSheet.create({lineRow:{flexDirection:'row',gap:12,alignItems:'flex-start'},thumb:{width:56,height:56,borderRadius:10,backgroundColor:colors.surface2,alignItems:'center',justifyContent:'center',overflow:'hidden'},thumbImg:{width:56,height:56},thumbText:{color:colors.muted,fontWeight:'800'},deliveryBox:{marginTop:8,padding:12,borderRadius:10,backgroundColor:colors.surface2,gap:2},page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12},breakRow:{flexDirection:'row',justifyContent:'space-between',gap:8}})
+const makeStyles = (colors: Colors) => StyleSheet.create({
+  backLink: { color: colors.ink, fontSize: 14, fontWeight: '600' },
+  liveBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
+  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+  liveText: { color: colors.success, fontWeight: '700', fontSize: 13 },
+  refreshBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  refreshText: { color: colors.ink, fontWeight: '600', fontSize: 13 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginTop: 8 },
+  h1: { flex: 1, color: colors.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 24 },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden', backgroundColor: colors.warningSoft, color: colors.warning, fontWeight: '600', fontSize: 12 },
+  shopLine: { fontSize: 14, marginTop: 2 },
+  bold: { color: colors.ink, fontWeight: '700' },
+  cardH2: { color: colors.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 18, marginBottom: 4 },
+  webStep: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  webDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  webTick: { color: colors.gold, fontSize: 9, fontWeight: '700' },
+  webStepText: { flex: 1, color: colors.ink, fontSize: 15 },lineRow:{flexDirection:'row',gap:12,alignItems:'flex-start'},thumb:{width:56,height:56,borderRadius:10,backgroundColor:colors.surface2,alignItems:'center',justifyContent:'center',overflow:'hidden'},thumbImg:{width:56,height:56},thumbText:{color:colors.muted,fontWeight:'800'},deliveryBox:{marginTop:8,padding:12,borderRadius:10,backgroundColor:colors.surface2,gap:2},page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12},breakRow:{flexDirection:'row',justifyContent:'space-between',gap:8}})

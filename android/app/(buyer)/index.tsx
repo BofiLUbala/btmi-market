@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { marketplaceApi } from '../../src/api'
 import { ProductCard } from '../../src/components/ProductCard'
 import { Button } from '../../src/components/ui'
-import { PreferenceToggleButtons } from '../../src/components/PreferenceToggles'
+import { BuyerMenu } from '../../src/components/BuyerMenu'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors, fonts } from '../../src/theme'
@@ -28,6 +28,7 @@ export default function HomeScreen() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
   const [search, setSearch] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
   const [visualResults, setVisualResults] = useState<PublicProduct[] | null>(null)
   const [visualImage, setVisualImage] = useState<string | null>(null)
   const [visualLoading, setVisualLoading] = useState(false)
@@ -69,27 +70,33 @@ export default function HomeScreen() {
     await analyzeProductImage(result.assets[0])
   }
 
-  // Fixed header: logo and search only. Rendered outside the FlatList so it
-  // stays put while the list scrolls.
+  // Same header as the web at phone width: logo pill, search pill with the
+  // photo/gallery search, and the menu button that opens the drawer.
   const stickyHeader = (
     <View style={styles.stickyHeader}>
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.push('/(buyer)')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt')}>
           <View style={styles.logo}><Text style={styles.logoText}>TBK</Text></View>
         </Pressable>
-        <View style={styles.headerActions}>
-          <PreferenceToggleButtons />
-          <Pressable style={styles.iconButton} onPress={() => router.push('/(buyer)/profile')} accessibilityLabel={t('home.openProfile')}><Ionicons name="person-outline" size={21} color={colors.green}/></Pressable>
+        <View style={styles.searchBox}>
+          <View style={styles.inputWrap}>{!search ? <Text style={styles.placeholder} numberOfLines={1} pointerEvents="none">{t('search.placeholder' as never)}</Text> : null}<TextInput value={search} onChangeText={(value) => { clearVisualSearch(); setSearch(value) }} style={styles.searchInput} returnKeyType="search"/></View>
+          {search.length > 0 && <Pressable onPress={() => setSearch('')} accessibilityLabel={t('home.clearSearch')} hitSlop={6}><Ionicons name="close" size={18} color={colors.muted}/></Pressable>}
+          <Pressable style={styles.cameraButton} onPress={takeProductPhoto} accessibilityRole="button" accessibilityLabel={t('home.takePhotoSearch')}><Ionicons name="camera-outline" size={19} color={colors.muted}/></Pressable>
+          <Pressable style={styles.cameraButton} onPress={chooseProductImage} accessibilityRole="button" accessibilityLabel={t('home.chooseImageSearch')}><Ionicons name="image-outline" size={19} color={colors.muted}/></Pressable>
         </View>
+        <Pressable style={styles.menuButton} onPress={() => setMenuOpen(true)} accessibilityRole="button" accessibilityLabel={t('nav.openMenu')}>
+          <Ionicons name="menu" size={22} color={colors.ink}/>
+        </Pressable>
       </View>
-      <View style={styles.searchBox}><Ionicons name="search" size={20} color={colors.muted}/><TextInput value={search} onChangeText={(value) => { clearVisualSearch(); setSearch(value) }} placeholder={t('home.searchPlaceholder')} placeholderTextColor={colors.mutedLight} style={styles.searchInput} returnKeyType="search" clearButtonMode="while-editing"/>{search.length > 0 && <Pressable onPress={() => setSearch('')} accessibilityLabel={t('home.clearSearch')}><Ionicons name="close-circle" size={20} color={colors.mutedLight}/></Pressable>}<View style={styles.searchDivider}/><Pressable style={styles.cameraButton} onPress={takeProductPhoto} accessibilityRole="button" accessibilityLabel={t('home.takePhotoSearch')}><Ionicons name="camera-outline" size={22} color={colors.green}/></Pressable><Pressable style={styles.cameraButton} onPress={chooseProductImage} accessibilityRole="button" accessibilityLabel={t('home.chooseImageSearch')}><Ionicons name="images-outline" size={21} color={colors.green}/></Pressable></View>
+      <BuyerMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
     </View>
   )
 
   const header = <>
     <View style={styles.sectionBlock}>
-      <View style={styles.sectionHead}><Text style={styles.sectionTitle}>{t('tabs.categories')}</Text><Pressable onPress={() => router.push('/(buyer)/categories')}><Text style={styles.link}>{t('home.seeAll')}</Text></Pressable></View>
-      {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><Image source={categoryImage(category.slug, category.name)} style={styles.categoryImage} contentFit="cover" transition={140}/><Text style={styles.categoryText}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</ScrollView>}
+      <Text style={styles.kicker}>{t('home.trustBanner')}</Text>
+      <View style={styles.sectionHead}><Text style={styles.sectionTitle}>{t('tabs.categories')}</Text><Pressable onPress={() => router.push('/(buyer)/categories')}><Text style={styles.link}>{t('common.viewAll')} →</Text></Pressable></View>
+      {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><Image source={categoryImage(category.slug, category.name)} style={styles.categoryImage} contentFit="cover" transition={140}/><Text style={styles.categoryText} numberOfLines={1}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</ScrollView>}
     </View>
 
     <View style={styles.productsHead}><View><Text style={styles.sectionTitle}>{visualMode ? t('home.similarProducts') : term ? t('home.results') : t('home.pickedForYou')}</Text><Text style={styles.sectionSubtitle}>{visualMode ? t('home.visualSubtitle') : term ? t('home.searchSubtitle', { term }) : t('home.featuredSubtitle')}</Text></View>{visualImage && <Pressable onPress={clearVisualSearch} style={styles.visualPreview} accessibilityLabel={t('home.closeVisualSearch')}><Image source={visualImage} style={styles.visualImage} contentFit="cover"/><View style={styles.previewClose}><Ionicons name="close" size={13} color={colors.white}/></View></Pressable>}</View>
@@ -103,13 +110,20 @@ export default function HomeScreen() {
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.cream }, list: { paddingBottom: 28 },
-  stickyHeader: { backgroundColor: colors.white, paddingHorizontal: spacing.md, paddingTop: 10, paddingBottom: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  logo: { width: 39, height: 39, borderRadius: 19.5, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.white }, logoText: { color: colors.white, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }, iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
-  hero: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, marginHorizontal: spacing.md, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 17, gap: 10, overflow: 'hidden' }, kicker: { color: colors.muted, fontSize: 10, letterSpacing: 1.25, fontWeight: '700' }, searchBox: { minHeight: 52, borderRadius: radius.md, backgroundColor: colors.cream, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12, paddingRight: 6 }, searchInput: { flex: 1, minWidth: 80, color: colors.ink, fontSize: 14, paddingVertical: 0 }, searchDivider: { width: 1, height: 27, backgroundColor: colors.border }, cameraButton: { width: 37, height: 39, borderRadius: 12, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }, cameraHint: { color: colors.muted, fontSize: 11, lineHeight: 16 },
-  sectionBlock: { paddingTop: 24 }, sectionHead: { paddingHorizontal: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }, sectionTitle: { color: colors.ink, fontSize: 20, fontFamily: fonts.display, fontWeight: '500' }, sectionSubtitle: { color: colors.muted, fontSize: 12, marginTop: 3 }, link: { color: colors.green, fontWeight: '800', fontSize: 13 }, chips: { paddingHorizontal: spacing.md, gap: 10 }, categoryChip: { width: 78, alignItems: 'center', gap: 7 }, categoryImage: { width: 62, height: 62, borderRadius: 31, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.greenSoft }, categoryText: { color: colors.ink, fontSize: 11, fontWeight: '700', textAlign: 'center' }, chipLoading: { height: 72, justifyContent: 'center' },
-  productsHead: { paddingHorizontal: spacing.md, paddingTop: 27, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, visualPreview: { width: 52, height: 52, borderRadius: 16, borderWidth: 2, borderColor: colors.green, overflow: 'visible' }, visualImage: { width: '100%', height: '100%', borderRadius: 14 }, previewClose: { position: 'absolute', right: -6, top: -6, width: 19, height: 19, borderRadius: 10, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }, productRow: { paddingHorizontal: spacing.md, gap: 12, marginBottom: 12 },
+  // web .header: 64px, surface, hairline bottom border
+  stickyHeader: { backgroundColor: colors.white, paddingHorizontal: spacing.md, height: 64, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // web .brand-mark: dark pill, Fraunces monogram
+  logo: { minWidth: 44, height: 30, paddingHorizontal: 8, borderRadius: 999, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' }, logoText: { color: colors.onGreen, fontSize: 13, fontFamily: fonts.display, fontWeight: '600', letterSpacing: 1 },
+  // web .header-search: surface-2 pill
+  searchBox: { flex: 1, height: 40, borderRadius: 999, backgroundColor: colors.surface2, flexDirection: 'row', alignItems: 'center', gap: 2, paddingLeft: 14, paddingRight: 4 }, inputWrap: { flex: 1, minWidth: 60, justifyContent: 'center' }, placeholder: { position: 'absolute', left: 0, right: 0, color: colors.faint, fontSize: 14 }, searchInput: { color: colors.ink, fontSize: 14, paddingVertical: 0, paddingHorizontal: 0 }, cameraButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  menuButton: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  // web .home-kicker
+  kicker: { paddingHorizontal: spacing.md, marginBottom: 16, color: colors.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+  sectionBlock: { paddingTop: 24 }, sectionHead: { paddingHorizontal: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }, sectionTitle: { color: colors.ink, fontSize: 22, fontFamily: fonts.display, fontWeight: '500', letterSpacing: -0.3 }, sectionSubtitle: { color: colors.muted, fontSize: 14, marginTop: 2 }, link: { color: colors.ink, fontWeight: '600', fontSize: 14 },
+  // web .category-tile: 72px circle, 14px label
+  chips: { paddingHorizontal: spacing.md, gap: 8 }, categoryChip: { width: 84, alignItems: 'center', gap: 8 }, categoryImage: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceAlt }, categoryText: { color: colors.ink, fontSize: 14, fontWeight: '500', textAlign: 'center' }, chipLoading: { height: 72, justifyContent: 'center' },
+  productsHead: { paddingHorizontal: spacing.md, paddingTop: 24, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, visualPreview: { width: 52, height: 52, borderRadius: 16, borderWidth: 2, borderColor: colors.green, overflow: 'visible' }, visualImage: { width: '100%', height: '100%', borderRadius: 14 }, previewClose: { position: 'absolute', right: -6, top: -6, width: 19, height: 19, borderRadius: 10, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }, productRow: { paddingHorizontal: spacing.md, gap: 12, marginBottom: 12 },
   skeletonGrid: { paddingHorizontal: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }, skeletonCard: { width: '48%', height: 225, borderRadius: radius.md, backgroundColor: colors.white, paddingBottom: 12, overflow: 'hidden' }, skeletonMedia: { height: 150, backgroundColor: colors.surfaceAlt }, skeletonLine: { height: 12, borderRadius: 6, backgroundColor: colors.surfaceAlt, marginHorizontal: 12, marginTop: 14 }, skeletonLineShort: { width: '50%', height: 11, borderRadius: 6, backgroundColor: colors.surfaceAlt, marginHorizontal: 12, marginTop: 9 },
   compactState: { marginHorizontal: spacing.md, backgroundColor: colors.white, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 24, alignItems: 'center', gap: 10 }, stateIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }, stateTitle: { color: colors.ink, fontSize: 19, fontFamily: fonts.display, fontWeight: '500' }, stateText: { color: colors.muted, textAlign: 'center', lineHeight: 20, maxWidth: 310 },
 })
