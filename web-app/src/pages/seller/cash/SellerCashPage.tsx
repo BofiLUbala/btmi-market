@@ -9,6 +9,7 @@ import type { CashSession, CashSummary } from '@/api/types'
 import { useT } from '@/store/i18n'
 import { useOrderEvents } from '@/lib/orderEvents'
 import type { TranslationKey } from '@/locales/fr'
+import { CashIcon } from '@/components/ui/Icons'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
@@ -145,7 +146,7 @@ export default function SellerCashPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>💵</div>
+        <div className="empty-icon"><CashIcon className="empty-svg" /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
         <p className="muted">{t('seller.cash.noBusinessSelectedHint')}</p>
       </div>

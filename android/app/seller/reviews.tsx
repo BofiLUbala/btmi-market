@@ -8,7 +8,8 @@ import { ErrorState, Loading } from '../../src/components/ui'
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../src/theme'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/seller/reviews/SellerReviewsPage.tsx: reviews of the
 // ACTIVE shop (the one picked in the header), with the shop-service / product
@@ -24,7 +25,7 @@ export default function SellerReviews() {
   const reviews = useQuery({ queryKey: ['seller', 'reviews', activeShop, activeTab], queryFn: () => sellerApi.reviews(activeShop!, activeTab), enabled: Boolean(activeShop) })
 
   if (!activeBusiness) return <View style={styles.center}>
-    <Text style={{ fontSize: 64 }}>⭐</Text>
+    <Ionicons name="star-outline" size={40} color={colors.muted} />
     <Text style={styles.h2}>{t('seller.noBusinessSelected')}</Text>
     <Text style={[styles.muted, styles.centerText]}>{t('seller.reviews.noBusinessSubtitle')}</Text>
   </View>
@@ -96,8 +97,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: 8 },
   centerText: { textAlign: 'center' },
   flex1: { flex: 1 },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
-  h2: { fontSize: 20, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 16, fontWeight: '700', color: c.ink, marginTop: 16, marginBottom: 8 },
   bold: { fontWeight: '700', color: c.ink },
   muted: { color: c.muted, fontSize: 15 },
@@ -109,7 +110,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   tabTextActive: { color: c.onGreen },
   card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 4, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
   summary: { alignItems: 'center', marginVertical: 16 },
-  average: { fontSize: 48, lineHeight: 50, fontWeight: '800', color: c.ink },
+  average: { fontSize: 48, lineHeight: 50, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   barTrack: { flex: 1, height: 8, backgroundColor: c.surface2, borderRadius: 4, overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: c.star, borderRadius: 4 },

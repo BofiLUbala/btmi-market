@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
+import { ReviewIcon } from '@/components/ui/Icons'
 
 export default function SellerReviewsPage() {
   const t = useT()
@@ -36,7 +37,7 @@ export default function SellerReviewsPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>⭐</div>
+        <div className="empty-icon"><ReviewIcon className="empty-svg" /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
         <p className="muted">{t('seller.reviews.noBusinessSubtitle')}</p>
       </div>

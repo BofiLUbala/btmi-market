@@ -189,7 +189,7 @@ export function MobilePaymentCard({ orderId, payment, onChanged }: { orderId: st
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  title: { fontSize: 17, fontWeight: '900', color: c.ink },
+  title: { fontSize: 17, fontWeight: '700', color: c.ink },
   subtitle: { fontWeight: '800', color: c.ink },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, flexWrap: 'wrap' },
   key: { color: c.muted },

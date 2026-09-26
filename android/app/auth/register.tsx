@@ -49,7 +49,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   seller: { backgroundColor: colors.goldSoft, borderColor: colors.gold },
   icon: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, gap: 7 },
-  title: { color: colors.ink, fontSize: 18, fontWeight: '900' },
+  title: { color: colors.ink, fontSize: 18, fontWeight: '700' },
   body: { color: colors.muted, lineHeight: 20 },
   login: { marginTop: spacing.md, gap: spacing.sm, alignItems: 'center' },
 })

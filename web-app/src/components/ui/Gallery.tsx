@@ -18,12 +18,15 @@ export function Gallery({
   name,
   images = [],
   badge,
-  focusUrl
+  focusUrl,
+  fallback
 }: {
   name: string
   images?: ProductImage[]
   badge?: React.ReactNode
   focusUrl?: string
+  /** Category artwork shown instead of initials when there is no photo. */
+  fallback?: { image: string; background: string }
 }) {
   const { t } = useI18n()
   const [active, setActive] = useState(0)
@@ -62,7 +65,7 @@ export function Gallery({
       <div
         ref={mainRef}
         className="pd-thumb pd-main"
-        style={{ background: `hsl(${hue}, 32%, 26%)` }}
+        style={{ background: fallback && !current ? fallback.background : `hsl(${hue}, 32%, 26%)` }}
         onMouseEnter={() => setZoom(true)}
         onMouseMove={moveZoom}
         onMouseLeave={() => setZoom(false)}
@@ -74,6 +77,8 @@ export function Gallery({
             loading="eager"
             onError={() => setBroken((b) => ({ ...b, [active]: true }))}
           />
+        ) : fallback ? (
+          <img className="pd-fallback-image" src={fallback.image} alt="" aria-hidden="true" />
         ) : (
           <span aria-hidden>{initials(name)}</span>
         )}

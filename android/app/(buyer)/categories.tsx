@@ -17,4 +17,4 @@ export default function CategoriesScreen() {
   if (query.isError) return <ErrorState message={t('categories.loadFailed')} retry={() => query.refetch()}/>
   return <FlatList data={query.data} contentContainerStyle={styles.list} keyExtractor={(item) => item.id} renderItem={({item}) => <Card onPress={() => router.push(`/categories/${item.slug}`)}><Text style={styles.title}>{categoryLabel(t, item.slug, item.name)}</Text><Text style={styles.subtitle}>{t('cart.discover')}</Text></Card>}/>
 }
-const makeStyles = (colors: Colors) => StyleSheet.create({ list: { padding: spacing.md, gap: spacing.sm }, title: { color: colors.ink, fontWeight: '900', fontSize: 18 }, subtitle: { color: colors.muted } })
+const makeStyles = (colors: Colors) => StyleSheet.create({ list: { padding: spacing.md, gap: spacing.sm }, title: { color: colors.ink, fontWeight: '700', fontSize: 18 }, subtitle: { color: colors.muted } })

@@ -22,6 +22,7 @@ import {
 } from '../../../src/lib/categorySuggestions'
 import type { Category, Shop } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
+import { DescriptionEditor } from '../../../src/components/DescriptionEditor'
 
 /* ── Types ──────────────────────────────────────────────── */
 
@@ -527,7 +528,6 @@ export default function SellerProductCreateScreen() {
       {step === 1 && <Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.productInfo')}</Text>
         <Field label={t('seller.productForm.productName')} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} autoCapitalize="words" />
-        <Field label={t('seller.productForm.descriptionOptional')} value={form.description} onChangeText={(v) => setForm((f) => ({ ...f, description: v }))} multiline />
         <Field label={t('seller.productForm.skuOptional')} value={form.sku} onChangeText={(v) => setForm((f) => ({ ...f, sku: v }))} autoCapitalize="none" />
         <Field label={t('product.unit')} value={form.unit} onChangeText={(v) => setForm((f) => ({ ...f, unit: v }))} autoCapitalize="characters" />
       </Card>}
@@ -562,6 +562,11 @@ export default function SellerProductCreateScreen() {
           {t('seller.productForm.categoryRequiresNotice', { attributes: requiredAttributeLabels.join(', ') })}
         </Text>}
       </Card>}
+      {/* The description layout depends on the category, so it is filled
+          once the category is known rather than in step 1. */}
+      {step === 2 && categoryId ? (
+        <DescriptionEditor categorySlug={selectedCategory?.slug} value={form.description} onChange={(description) => setForm((f) => ({ ...f, description }))} />
+      ) : null}
 
       {/* Step 3 — Pricing */}
       {step === 3 && <Card>
@@ -766,7 +771,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   subLabel: { color: colors.ink, fontWeight: '700' },
   error: { color: colors.danger, fontWeight: '700' },
   notice: { color: colors.gold, fontWeight: '700' },
-  cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
   progressRow: { flexDirection: 'row', gap: spacing.xs },
   progressDot: { flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.border },
   progressDotDone: { backgroundColor: colors.green },
@@ -789,10 +794,10 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   photoTile: { width: 150, gap: spacing.xs },
   photo: { width: 150, height: 150, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt },
-  primaryTag: { color: colors.green, fontWeight: '900', fontSize: 12 },
+  primaryTag: { color: colors.green, fontWeight: '700', fontSize: 12 },
   photoActions: { gap: spacing.xs },
   comboRow: { gap: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
-  comboLabel: { color: colors.ink, fontWeight: '900' },
+  comboLabel: { color: colors.ink, fontWeight: '700' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   summaryValue: { color: colors.ink, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
   navRow: { flexDirection: 'row', gap: spacing.sm },

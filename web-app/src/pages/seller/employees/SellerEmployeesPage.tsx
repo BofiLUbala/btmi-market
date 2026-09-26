@@ -7,6 +7,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Field } from '@/components/ui/Field'
 import { useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { PlusIcon, StoreIcon, UsersIcon } from '@/components/ui/Icons'
 
 const EMPLOYEE_STATUS_KEYS: Record<string, TranslationKey> = {
   ACTIVE: 'employee.status.ACTIVE',
@@ -167,7 +168,7 @@ export default function SellerEmployeesPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>👥</div>
+        <div className="empty-icon"><UsersIcon className="empty-svg" /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
         <p className="muted">{t('seller.employees.noBusinessSelectedHint')}</p>
       </div>
@@ -181,7 +182,7 @@ export default function SellerEmployeesPage() {
     <div className="seller-employees">
       <div className="page-header">
         <h1>{t('seller.employees')}</h1>
-        <Button onClick={() => setShowCreate(true)}>➕ {t('seller.employees.add')}</Button>
+        <Button onClick={() => setShowCreate(true)}><PlusIcon className="inline-icon" /> {t('seller.employees.add')}</Button>
       </div>
 
       {showCreate && (
@@ -210,7 +211,7 @@ export default function SellerEmployeesPage() {
       ) : empList.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
-            <div className="empty-icon" style={{ fontSize: 48 }}>👥</div>
+            <div className="empty-icon"><UsersIcon className="empty-svg" /></div>
             <h3>{t('seller.employees.noneYet')}</h3>
             <p className="muted">{t('seller.employees.noneYetHint')}</p>
             <Button onClick={() => setShowCreate(true)} size="lg">{t('seller.employees.add')}</Button>
@@ -266,7 +267,7 @@ export default function SellerEmployeesPage() {
                                 const isAssigned = assignedShopIds.includes(shop.id)
                                 return (
                                   <div key={shop.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                                    <span className="small">🏪 {shop.name}{shop.id === activeShop ? ` ${t('seller.employees.currentShop')}` : ''}</span>
+                                    <span className="small"><StoreIcon className="inline-icon" /> {shop.name}{shop.id === activeShop ? ` ${t('seller.employees.currentShop')}` : ''}</span>
                                     {isAssigned ? (
                                       <Button variant="ghost" size="sm" disabled={acting} onClick={() => unassign(emp.id, shop.id)}>{t('common.remove')}</Button>
                                     ) : (

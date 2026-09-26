@@ -2,7 +2,7 @@ import { useMemo, type PropsWithChildren, type ReactNode } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, type StyleProp, type TextInputProps, type ViewStyle, View } from 'react-native'
 import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
-import { radius, spacing, type Colors } from '../theme'
+import { fonts, radius, spacing, type Colors } from '../theme'
 
 export function Card({ children, onPress }: PropsWithChildren<{ onPress?: () => void }>) {
   const c = useColors()
@@ -72,20 +72,20 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     card: { backgroundColor: c.white, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: c.border, gap: spacing.sm },
-    button: { minHeight: 50, borderRadius: radius.sm, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
-    buttonText: { color: c.onGreen, fontSize: 16, fontWeight: '800' },
+    button: { minHeight: 52, borderRadius: radius.pill, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
+    buttonText: { color: c.onGreen, fontSize: 15, fontWeight: '600', letterSpacing: 0.2 },
     buttonDense: { minHeight: 44, paddingHorizontal: spacing.sm },
     buttonTextDense: { fontSize: 14 },
-    outline: { backgroundColor: c.white, borderWidth: 1.5, borderColor: c.green },
-    outlineText: { color: c.green },
+    outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.ink },
+    outlineText: { color: c.ink },
     gold: { backgroundColor: c.gold },
     goldText: { color: c.onGold },
-    label: { color: c.ink, fontWeight: '700' },
-    input: { minHeight: 52, backgroundColor: c.white, borderWidth: 1, borderColor: c.borderControl, borderRadius: radius.sm, paddingHorizontal: 14, color: c.ink, fontSize: 16 },
+    label: { color: c.ink, fontWeight: '500', fontSize: 14 },
+    input: { minHeight: 50, backgroundColor: c.white, borderWidth: 1, borderColor: c.borderControl, borderRadius: radius.sm, paddingHorizontal: 14, color: c.ink, fontSize: 16 },
     error: { color: c.danger, fontSize: 13 },
-    sectionTitle: { fontSize: 21, fontWeight: '900', color: c.ink },
+    sectionTitle: { fontSize: 22, fontFamily: fonts.display, fontWeight: '500', color: c.ink, letterSpacing: -0.2 },
     muted: { color: c.muted, textAlign: 'center' },
-    errorTitle: { color: c.ink, fontWeight: '900', fontSize: 18 },
+    errorTitle: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 20 },
   })
 
 const styles = StyleSheet.create({

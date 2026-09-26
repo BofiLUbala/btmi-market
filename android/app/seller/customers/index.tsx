@@ -9,6 +9,7 @@ import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../..
 import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { spacing, type Colors } from '../../../src/theme'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 const emptyForm = { first_name: '', last_name: '', phone: '', email: '' }
 
@@ -30,7 +31,7 @@ export default function SellerCustomersScreen() {
     onError: (e) => setError(e instanceof ApiError ? e.message : t('seller.customers.createFailed')),
   })
 
-  if (!activeBusiness) return <View style={styles.center}><Text style={styles.emptyIcon}>👤</Text><Text style={styles.name}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.customers.noBusinessSelectedHint')}</Text></View>
+  if (!activeBusiness) return <View style={styles.center}><Ionicons name="person-outline" size={40} color={colors.muted} /><Text style={styles.name}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.customers.noBusinessSelectedHint')}</Text></View>
   if (customers.isLoading) return <Loading label={t('seller.customers.loading')} />
   if (customers.isError) return <ErrorState message={t('seller.customers.loadFailed')} retry={() => void customers.refetch()} />
 
@@ -47,7 +48,7 @@ export default function SellerCustomersScreen() {
       <Button title={t('seller.customers.create')} loading={create.isPending} onPress={() => create.mutate()} />
     </Card>}
 
-    {!customers.data?.length ? <Card><View style={styles.emptyInline}><Text style={{ fontSize: 48 }}>👤</Text><Text style={styles.name}>{t('seller.customers.noneYet')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.customers.noneYetHint')}</Text><Button title={t('seller.customers.add')} onPress={() => setShowCreate(true)} /></View></Card> : customers.data.map((customer) => (
+    {!customers.data?.length ? <Card><View style={styles.emptyInline}><Ionicons name="person-outline" size={40} color={colors.muted} /><Text style={styles.name}>{t('seller.customers.noneYet')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.customers.noneYetHint')}</Text><Button title={t('seller.customers.add')} onPress={() => setShowCreate(true)} /></View></Card> : customers.data.map((customer) => (
       <Pressable key={customer.id} accessibilityRole="button" onPress={() => router.push(`/seller/customers/${customer.id}`)}>
         <Card>
           <Text style={styles.name}>{customer.first_name} {customer.last_name}</Text>
@@ -69,6 +70,6 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   emptyInline: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: '700' },
-  cardTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
-  name: { fontSize: 17, fontWeight: '900', color: colors.ink },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  name: { fontSize: 17, fontWeight: '700', color: colors.ink },
 })

@@ -278,7 +278,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         {(o.points_used ?? 0) > 0 ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.pointsUsed', { count: o.points_used ?? 0 })}</Text><Text style={[styles.muted, { color: colors.success }]}>−{formatMoney(o.points_discount_amount ?? 0)}</Text></View> : null}
         <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsTotal')}</Text><Text style={styles.muted}>{formatMoney(o.final_total)}</Text></View>
         <View style={styles.breakRow}><Text style={[styles.muted, { flex: 1 }]}>{t('orders.delivery', { method: o.delivery_method ? deliveryLabel(t, o.delivery_method) : t('orders.notSelected') })}</Text><Text style={styles.muted}>{(o.delivery_points_used ?? 0) > 0 ? <Text style={{ textDecorationLine: 'line-through' }}>{formatMoney(o.delivery_fee_base ?? 0)} </Text> : null}{formatMoney(o.delivery_fee_final ?? 0)}</Text></View>
-        <View style={styles.breakRow}><Text style={[styles.muted, { fontWeight: '900', color: colors.ink }]}>{t('orders.totalDue')}</Text><Text style={[styles.muted, { fontWeight: '900', color: colors.ink }]}>{formatMoney(grandTotal)}</Text></View>
+        <View style={styles.breakRow}><Text style={[styles.muted, { fontWeight: '700', color: colors.ink }]}>{t('orders.totalDue')}</Text><Text style={[styles.muted, { fontWeight: '700', color: colors.ink }]}>{formatMoney(grandTotal)}</Text></View>
         {o.delivery_method ? <View style={styles.deliveryBox}>
           <Text style={[styles.muted, { fontWeight: '800', color: colors.ink }]}>{t('delivery.details')}</Text>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.contact')}</Text><Text style={styles.muted}>{o.delivery_contact_name || '—'}</Text></View>
@@ -292,7 +292,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       <Card>
         <Button
           variant="outline"
-          title={`💬 ${t('communication.contactSeller')}`}
+          title={t('communication.contactSeller')}
           onPress={() => setShowChat(true)}
         />
       </Card>

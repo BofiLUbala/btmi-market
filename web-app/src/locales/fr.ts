@@ -3309,6 +3309,24 @@ export const fr = {
   'courier.status.CANCELLED': 'Annulée',
   'courier.handover.verifyHint': 'Saisissez le numéro de commande imprimé sur l’étiquette du colis (BTMI-XXXXXXXX) ou scannez le QR du colis. L’acheteur voit aussi ce numéro dans son application. Majuscules, espaces et tirets n’ont pas d’importance.',
   'courier.handover.verdict.ORDER_NUMBER_NOT_PRODUCT': 'Ceci est le numéro de commande, pas un code produit. Saisissez le code imprimé sur l’étiquette (VAR-… ou OI-…) ou le SKU du produit.',
+  /* ── Boutique UI refresh ─────────────────────────────── */
+  'seller.descEditor.title': 'Description du produit',
+  'seller.descEditor.adaptedTo': 'Mise en page adaptée : {tone}',
+  'seller.descEditor.hint': 'Phrases courtes, vocabulaire simple. Chaque rubrique remplie devient un onglet dépliable sur la fiche acheteur.',
+  'seller.descEditor.intro': 'Présentation (1 à 2 phrases)',
+  'seller.descEditor.optional': '(facultatif)',
+  'seller.descEditor.otherSections': 'Autres rubriques conservées',
+  'seller.descEditor.tone.fashion': 'Mode',
+  'seller.descEditor.tone.shoes': 'Chaussures',
+  'seller.descEditor.tone.children': 'Enfants',
+  'seller.descEditor.tone.electronics': 'Électronique',
+  'seller.descEditor.tone.home': 'Maison',
+  'seller.descEditor.tone.beauty': 'Beauté',
+  'seller.descEditor.tone.food': 'Alimentation',
+  'seller.descEditor.tone.sport': 'Sport',
+  'seller.descEditor.tone.automotive': 'Automobile',
+  'seller.descEditor.tone.services': 'Services',
+  'seller.descEditor.tone.default': 'Général',
 } as const
 
 export type TranslationKey = keyof typeof fr

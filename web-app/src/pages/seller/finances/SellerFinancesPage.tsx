@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useMemo, type CSSProperties } from 'r
 import { formatMoney } from '@/lib/format'
 import { sellerFinanceApi, type SellerFinanceDashboard, type SaleHistoryItem, type SellerFinanceBreakdownItem, type SaleFinanceDetail, type SellerFinanceTimeseriesPoint, type SellerBreakdownGroup } from '@/api/seller'
 import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
+import { SearchIcon } from '@/components/ui/Icons'
 
 const th = (align: 'left' | 'right' | 'center'): CSSProperties => ({
-  textAlign: align, padding: '12px 16px', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600, whiteSpace: 'nowrap'
+  textAlign: align, padding: '12px 16px', color: 'var(--color-text-muted)', fontWeight: 600, whiteSpace: 'nowrap'
 })
 
 const money = (value: number, currency = 'USD') => formatMoney(value, currency)
@@ -106,98 +107,73 @@ export default function SellerFinancesPage() {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', color: 'var(--color-text, #f8fafc)' }}>
+    <div className="seller-finances-page" style={{ maxWidth: 1200, margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span>💳</span> Mes Finances & Commissions TBK
-        </h2>
-        <p style={{ color: 'var(--color-text-muted, #94a3b8)', fontSize: 14, margin: 0 }}>
-          Suivi financier de vos ventes réalisées, calcul de la commission TBK et décompte de votre revenu net vendeur.
-        </p>
+      <div className="page-header">
+        <div>
+          <h1>Mes Finances & Commissions TBK</h1>
+          <p>
+            Suivi financier de vos ventes réalisées, calcul de la commission TBK et décompte de votre revenu net vendeur.
+          </p>
+        </div>
       </div>
 
       {error && (
-        <div role="alert" style={{ padding: 18, marginBottom: 20, borderRadius: 10, background: '#450a0a', border: '1px solid #991b1b' }}>
+        <div role="alert" className="error-box" style={{ marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
           <strong>Impossible de charger les données financières.</strong>
-          <button onClick={() => void fetchData()} style={{ marginLeft: 16, padding: '7px 14px', borderRadius: 7 }}>Réessayer</button>
+          <button className="btn btn-outline btn-sm" onClick={() => void fetchData()} style={{ marginLeft: 16 }}>Réessayer</button>
         </div>
       )}
 
       {/* KPI Cards */}
-      {!error && summary && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Chiffre d'Affaires Brut</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text, #f8fafc)', marginTop: 4 }}>
-            {aggregateMoney('gross_sales')}
-          </div>
+      {!error && summary && <div className="seller-metrics-grid finance-kpis" style={{ marginBottom: 24 }}>
+        <div className="seller-stat-card">
+          <div className="stat-label">Chiffre d'Affaires Brut</div>
+          <div className="stat-value">{aggregateMoney('gross_sales')}</div>
         </div>
-
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission TBK Totale</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#818cf8', marginTop: 4 }}>
-            {aggregateMoney('commission_amount')}
-          </div>
+        <div className="seller-stat-card">
+          <div className="stat-label">Commission TBK Totale</div>
+          <div className="stat-value stat-value--info">{aggregateMoney('commission_amount')}</div>
         </div>
-
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Revenu Net Vendeur</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>
-            {aggregateMoney('seller_net_amount')}
-          </div>
+        <div className="seller-stat-card">
+          <div className="stat-label">Revenu Net Vendeur</div>
+          <div className="stat-value stat-value--success">{aggregateMoney('seller_net_amount')}</div>
         </div>
-
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission à Reverser</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#eab308', marginTop: 4 }}>
-            {aggregateMoney('due_commission')}
-          </div>
+        <div className="seller-stat-card">
+          <div className="stat-label">Commission à Reverser</div>
+          <div className="stat-value stat-value--warning">{aggregateMoney('due_commission')}</div>
         </div>
-
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Commission Déjà Réglée</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#38bdf8', marginTop: 4 }}>
-            {aggregateMoney('collected_commission')}
-          </div>
+        <div className="seller-stat-card">
+          <div className="stat-label">Commission Déjà Réglée</div>
+          <div className="stat-value stat-value--info">{aggregateMoney('collected_commission')}</div>
         </div>
-
-        {/* Paiements: axe acheteur, distinct de l'axe commission ci-dessus.
-            Un acheteur peut avoir tout réglé alors que la part TBK reste due. */}
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Paiements Encaissés</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fbbf24', marginTop: 4 }}>
-            {aggregateMoney('payments_collected')}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted, #64748b)', marginTop: 4 }}>réglés par les acheteurs</div>
+        <div className="seller-stat-card">
+          <div className="stat-label">Paiements Encaissés</div>
+          <div className="stat-value stat-value--success">{aggregateMoney('payments_collected')}</div>
+          <div className="small muted">réglés par les acheteurs</div>
         </div>
-
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Paiements En Attente</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fb923c', marginTop: 4 }}>
-            {aggregateMoney('payments_due')}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted, #64748b)', marginTop: 4 }}>restant dû par les acheteurs</div>
+        <div className="seller-stat-card">
+          <div className="stat-label">Paiements En Attente</div>
+          <div className="stat-value stat-value--warning">{aggregateMoney('payments_due')}</div>
+          <div className="small muted">restant dû par les acheteurs</div>
         </div>
-
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18 }}>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>Unités Vendues</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text, #f8fafc)', marginTop: 4 }}>
-            {summary.units_sold}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted, #64748b)', marginTop: 4 }}>{summary.verified_sales} vente(s) vérifiée(s)</div>
+        <div className="seller-stat-card">
+          <div className="stat-label">Unités Vendues</div>
+          <div className="stat-value">{summary.units_sold}</div>
+          <div className="small muted">{summary.verified_sales} vente(s) vérifiée(s)</div>
         </div>
       </div>}
 
       {/* Évolution réelle — série renvoyée par le backend, jamais de démo. */}
       {!error && summary && (
-        <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', border: '1px solid var(--color-border, #334155)', borderRadius: 12, padding: 18, marginBottom: 20 }}>
+        <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 12, padding: 18, marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Évolution (ventes · commission · net)</div>
           <FinanceTrendChart points={trend} />
         </div>
       )}
 
       {/* Filters & Search */}
-      <div style={{ backgroundColor: 'var(--color-surface, #1e293b)', borderRadius: 12, border: '1px solid var(--color-border, #334155)', padding: 16, marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ backgroundColor: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)', padding: 16, marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {[
             { id: '', label: 'Toutes les ventes' },
@@ -214,8 +190,8 @@ export default function SellerFinancesPage() {
                 fontWeight: 700,
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: statusFilter === tab.id ? 'var(--color-primary, #6366f1)' : 'var(--color-surface-2, #0f172a)',
-                color: statusFilter === tab.id ? '#ffffff' : 'var(--color-text-muted, #94a3b8)',
+                backgroundColor: statusFilter === tab.id ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                color: statusFilter === tab.id ? 'var(--color-on-primary)' : 'var(--color-text-muted)',
               }}
             >
               {tab.label}
@@ -233,9 +209,9 @@ export default function SellerFinancesPage() {
             minWidth: 200,
             padding: '8px 14px',
             borderRadius: 8,
-            border: '1px solid var(--color-border, #334155)',
-            backgroundColor: 'var(--color-surface-2, #0f172a)',
-            color: 'var(--color-text, #f8fafc)',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-surface-2)',
+            color: 'var(--color-text)',
             fontSize: 13
           }}
         />
@@ -246,9 +222,9 @@ export default function SellerFinancesPage() {
           style={{
             padding: '8px 14px',
             borderRadius: 8,
-            border: '1px solid var(--color-border, #334155)',
-            backgroundColor: 'var(--color-surface-2, #0f172a)',
-            color: 'var(--color-text, #f8fafc)',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-surface-2)',
+            color: 'var(--color-text)',
             fontSize: 13
           }}
         />
@@ -259,9 +235,9 @@ export default function SellerFinancesPage() {
           style={{
             padding: '8px 14px',
             borderRadius: 8,
-            border: '1px solid var(--color-border, #334155)',
-            backgroundColor: 'var(--color-surface-2, #0f172a)',
-            color: 'var(--color-text, #f8fafc)',
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-surface-2)',
+            color: 'var(--color-text)',
             fontSize: 13
           }}
         />
@@ -273,9 +249,9 @@ export default function SellerFinancesPage() {
           aria-label="Statut de paiement"
           style={{
             padding: '8px 14px', borderRadius: 8, fontSize: 13,
-            border: '1px solid var(--color-border, #334155)',
-            backgroundColor: 'var(--color-surface-2, #0f172a)',
-            color: 'var(--color-text, #f8fafc)'
+            border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-surface-2)',
+            color: 'var(--color-text)'
           }}
         >
           <option value="">Tous les paiements</option>
@@ -286,7 +262,7 @@ export default function SellerFinancesPage() {
           <option value="REFUNDED">Remboursé</option>
         </select>
 
-        <div style={{ fontSize: 13, color: 'var(--color-text-muted, #94a3b8)', fontWeight: 600 }}>
+        <div style={{ fontSize: 13, color: 'var(--color-text-muted)', fontWeight: 600 }}>
           {total} vente(s) trouvée(s)
         </div>
       </div>
@@ -294,7 +270,7 @@ export default function SellerFinancesPage() {
       {/* Breakdown by shop / product (per date range) */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted, #94a3b8)' }}>Répartition par :</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-muted)' }}>Répartition par :</span>
           {GROUP_TABS.map((g) => (
             <button
               key={g.id}
@@ -306,18 +282,18 @@ export default function SellerFinancesPage() {
                 fontWeight: 700,
                 border: 'none',
                 cursor: 'pointer',
-                backgroundColor: breakdownGroup === g.id ? 'var(--color-primary, #6366f1)' : 'var(--color-surface-2, #0f172a)',
-                color: breakdownGroup === g.id ? '#ffffff' : 'var(--color-text-muted, #94a3b8)',
+                backgroundColor: breakdownGroup === g.id ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                color: breakdownGroup === g.id ? 'var(--color-on-primary)' : 'var(--color-text-muted)',
               }}
             >
               {g.label}
             </button>
           ))}
         </div>
-        <div style={{ overflowX: 'auto', backgroundColor: 'var(--color-surface, #1e293b)', borderRadius: 12, border: '1px solid var(--color-border, #334155)' }}>
+        <div style={{ overflowX: 'auto', backgroundColor: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-border, #334155)', backgroundColor: 'var(--color-surface-2, #0f172a)' }}>
+              <tr style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-2)' }}>
                 <th style={th('left')}>{GROUP_TABS.find((g) => g.id === breakdownGroup)?.label}</th>
                 <th style={th('right')}>Commandes</th>
                 <th style={th('right')}>Unités</th>
@@ -328,18 +304,18 @@ export default function SellerFinancesPage() {
             </thead>
             <tbody>
               {breakdownItems.length === 0 ? (
-                <tr><td colSpan={6} style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--color-text-muted, #94a3b8)' }}>Aucune vente dans cette répartition.</td></tr>
+                <tr><td colSpan={6} style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--color-text-muted)' }}>Aucune vente dans cette répartition.</td></tr>
               ) : breakdownItems.map((item) => (
-                <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid var(--color-border-soft, #1e293b)' }}>
+                <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid var(--color-border)' }}>
                   <td style={{ padding: '12px 16px', fontWeight: 700 }}>
                     {item.label}
-                    {item.sub_label && <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-text-muted, #94a3b8)' }}>{item.sub_label}</div>}
+                    {item.sub_label && <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-text-muted)' }}>{item.sub_label}</div>}
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 16px' }}>{item.sales_count}</td>
                   <td style={{ textAlign: 'right', padding: '12px 16px' }}>{item.units_sold}</td>
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 700 }}>{money(item.gross_sales, item.currency)}</td>
-                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#818cf8' }}>{money(item.commission_amount, item.currency)}</td>
-                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#4ade80' }}>{money(item.seller_net_amount, item.currency)}</td>
+                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: 'var(--color-info)' }}>{money(item.commission_amount, item.currency)}</td>
+                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: 'var(--color-success)' }}>{money(item.seller_net_amount, item.currency)}</td>
                 </tr>
               ))}
             </tbody>
@@ -349,18 +325,18 @@ export default function SellerFinancesPage() {
 
       {/* Sales List Table */}
       {loading ? (
-        <div style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-muted, #94a3b8)' }}>
+        <div style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-muted)' }}>
           Chargement de votre journal financier...
         </div>
       ) : sales.length === 0 ? (
-        <div style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-muted, #94a3b8)', backgroundColor: 'var(--color-surface, #1e293b)', borderRadius: 12, border: '1px solid var(--color-border, #334155)' }}>
+        <div style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-muted)', backgroundColor: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
           Aucune vente enregistrée pour le moment.
         </div>
       ) : (
-        <div style={{ overflowX: 'auto', backgroundColor: 'var(--color-surface, #1e293b)', borderRadius: 12, border: '1px solid var(--color-border, #334155)' }}>
+        <div style={{ overflowX: 'auto', backgroundColor: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-border, #334155)', backgroundColor: 'var(--color-surface-2, #0f172a)' }}>
+              <tr style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-2)' }}>
                 <th style={th('left')}>Date / Commande</th>
                 <th style={th('left')}>Acheteur</th>
                 <th style={th('left')}>Entreprise / Boutique</th>
@@ -378,24 +354,24 @@ export default function SellerFinancesPage() {
             </thead>
             <tbody>
               {sales.map((item) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--color-border-soft, #1e293b)' }}>
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ fontWeight: 800 }}>#{item.order_number}</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
                       {new Date(item.calculated_at).toLocaleString()}
                     </div>
                   </td>
                   <td style={{ padding: '12px 16px' }}>{item.buyer_name || '—'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ fontWeight: 600 }}>{item.shop_name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>{item.business_name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{item.business_name}</div>
                   </td>
                   <td style={{ padding: '12px 16px', minWidth: 220 }}>
                     {(item.lines || []).length === 0 ? '—' : (item.lines || []).map((line, i) => (
                       <div key={`${item.id}-line-${i}`}>
                         <span style={{ fontWeight: 600 }}>{line.product_name || '—'}</span>
-                        {line.variant_name ? <span style={{ color: 'var(--color-text-muted, #94a3b8)' }}> · {line.variant_name}</span> : null}
-                        <span style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>
+                        {line.variant_name ? <span style={{ color: 'var(--color-text-muted)' }}> · {line.variant_name}</span> : null}
+                        <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
                           {' '}({line.quantity} × {money(line.final_unit_price, item.currency)})
                         </span>
                       </div>
@@ -405,13 +381,13 @@ export default function SellerFinancesPage() {
                   <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 700 }}>
                     {money(item.gross_amount, item.currency)}
                   </td>
-                  <td style={{ textAlign: 'center', padding: '12px 16px', fontWeight: 700, color: 'var(--color-primary, #6366f1)' }}>
+                  <td style={{ textAlign: 'center', padding: '12px 16px', fontWeight: 700, color: 'var(--color-primary)' }}>
                     {item.commission_rate.toFixed(2)}%
                   </td>
-                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#818cf8' }}>
+                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: 'var(--color-info)' }}>
                     {money(item.commission_amount, item.currency)}
                   </td>
-                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: '#4ade80' }}>
+                  <td style={{ textAlign: 'right', padding: '12px 16px', fontWeight: 800, color: 'var(--color-success)' }}>
                     {money(item.seller_net_amount, item.currency)}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
@@ -421,9 +397,9 @@ export default function SellerFinancesPage() {
                     {item.provider && (
                       <div style={{ fontSize: 11, fontWeight: 600 }}>{item.provider.replace(/_/g, ' ')}</div>
                     )}
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted, #94a3b8)' }}>{item.payment_status || '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{item.payment_status || '—'}</div>
                     {item.payment_reference && (
-                      <div style={{ fontSize: 10, color: 'var(--color-text-muted, #94a3b8)' }}>{item.payment_reference}</div>
+                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{item.payment_reference}</div>
                     )}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 16px', fontSize: 12 }}>
@@ -436,7 +412,7 @@ export default function SellerFinancesPage() {
                       padding: '3px 10px',
                       borderRadius: 6,
                       backgroundColor: item.status === 'COLLECTED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                      color: item.status === 'COLLECTED' ? '#4ade80' : '#eab308'
+                      color: item.status === 'COLLECTED' ? 'var(--color-success)' : 'var(--color-warning)'
                     }}>
                       {item.status === 'COLLECTED' ? 'Réglée' : 'À reverser'}
                     </span>
@@ -448,15 +424,15 @@ export default function SellerFinancesPage() {
                       style={{
                         padding: '6px 12px',
                         borderRadius: 6,
-                        border: '1px solid var(--color-border, #334155)',
-                        backgroundColor: 'var(--color-surface-2, #0f172a)',
-                        color: 'var(--color-text, #f8fafc)',
+                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-surface-2)',
+                        color: 'var(--color-text)',
                         fontSize: 12,
                         fontWeight: 700,
                         cursor: 'pointer'
                       }}
                     >
-                      🔍 Résumé
+                      <SearchIcon className="inline-icon" /> Résumé
                     </button>
                   </td>
                 </tr>
@@ -475,14 +451,14 @@ export default function SellerFinancesPage() {
           zIndex: 1000, padding: 16
         }}>
           <div style={{
-            backgroundColor: 'var(--color-surface, #1e293b)',
-            border: '1px solid var(--color-border, #334155)',
+            backgroundColor: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
             borderRadius: 12, padding: 24, maxWidth: 460, width: '100%',
-            color: 'var(--color-text, #f8fafc)'
+            color: 'var(--color-text)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Vente #{selectedSale.sale.order_number}</span>
-              <button onClick={() => setSelectedSale(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 18, cursor: 'pointer' }}>✕</button>
+              <button onClick={() => setSelectedSale(null)} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: 18, cursor: 'pointer' }}>✕</button>
             </h3>
 
             <div style={{ marginBottom: 16, fontSize: 13, lineHeight: 1.7 }}>
@@ -507,35 +483,35 @@ export default function SellerFinancesPage() {
                 </tr>)}</tbody>
               </table>
             </div>
-            <div style={{ backgroundColor: 'var(--color-surface-2, #0f172a)', borderRadius: 10, padding: 16, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
+            <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: 10, padding: 16, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Montant Produits Vente</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>Montant Produits Vente</span>
                 <span style={{ fontWeight: 700 }}>{money(selectedSale.sale.gross_amount, selectedSale.sale.currency)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Base calcul commission</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>Base calcul commission</span>
                 <span style={{ fontWeight: 700 }}>{money(selectedSale.sale.commission_base, selectedSale.sale.currency)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Majoration paiement</span><span>{money(selectedSale.payment_markup, selectedSale.sale.currency)}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Frais de livraison</span><span>{money(selectedSale.delivery_fee, selectedSale.sale.currency)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--color-text-muted)' }}>Majoration paiement</span><span>{money(selectedSale.payment_markup, selectedSale.sale.currency)}</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--color-text-muted)' }}>Frais de livraison</span><span>{money(selectedSale.delivery_fee, selectedSale.sale.currency)}</span></div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Taux de commission TBK</span>
-                <span style={{ fontWeight: 700, color: '#818cf8' }}>{selectedSale.sale.commission_rate.toFixed(2)}%</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>Taux de commission TBK</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-info)' }}>{selectedSale.sale.commission_rate.toFixed(2)}%</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: 8 }}>
-                <span style={{ color: '#94a3b8', fontWeight: 600 }}>Commission TBK</span>
-                <span style={{ fontWeight: 800, color: '#818cf8' }}>- {money(selectedSale.sale.commission_amount, selectedSale.sale.currency)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-border)', paddingTop: 8 }}>
+                <span style={{ color: 'var(--color-text-muted)', fontWeight: 600 }}>Commission TBK</span>
+                <span style={{ fontWeight: 800, color: 'var(--color-info)' }}>- {money(selectedSale.sale.commission_amount, selectedSale.sale.currency)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: 8 }}>
-                <span style={{ fontWeight: 800, color: '#4ade80' }}>Revenu Net Vendeur</span>
-                <span style={{ fontWeight: 900, color: '#4ade80', fontSize: 15 }}>{money(selectedSale.sale.seller_net_amount, selectedSale.sale.currency)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-border)', paddingTop: 8 }}>
+                <span style={{ fontWeight: 800, color: 'var(--color-success)' }}>Revenu Net Vendeur</span>
+                <span style={{ fontWeight: 900, color: 'var(--color-success)', fontSize: 15 }}>{money(selectedSale.sale.seller_net_amount, selectedSale.sale.currency)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                <span style={{ color: '#94a3b8' }}>Statut Règlement</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>Statut Règlement</span>
                 <span style={{
                   fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
                   backgroundColor: selectedSale.sale.status === 'COLLECTED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                  color: selectedSale.sale.status === 'COLLECTED' ? '#4ade80' : '#eab308'
+                  color: selectedSale.sale.status === 'COLLECTED' ? 'var(--color-success)' : 'var(--color-warning)'
                 }}>
                   {selectedSale.sale.status === 'COLLECTED' ? 'Réglée à TBK' : 'À reverser à TBK'}
                 </span>
@@ -547,7 +523,7 @@ export default function SellerFinancesPage() {
                 onClick={() => setSelectedSale(null)}
                 style={{
                   padding: '8px 16px', borderRadius: 8, border: 'none',
-                  backgroundColor: 'var(--color-primary, #6366f1)', color: '#ffffff',
+                  backgroundColor: 'var(--color-primary)', color: 'var(--color-on-primary)',
                   fontSize: 13, fontWeight: 700, cursor: 'pointer'
                 }}
               >

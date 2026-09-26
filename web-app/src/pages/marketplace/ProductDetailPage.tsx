@@ -24,6 +24,9 @@ import { loginWithReturnTo } from '@/lib/returnTo'
 import { useCart } from '@/store/cart'
 import { useAuth } from '@/store/auth'
 import { useFavorites } from '@/store/favorites'
+import { Accordion, DescriptionParagraphs, descriptionAccordionItems, type AccordionItem } from '@/components/ui/DescriptionSections'
+import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { colorSwatch, isColorAttribute } from '@/lib/colorSwatch'
 import { useI18n } from '@/store/i18n'
 
 function productErrorMessage(e: unknown, t: ReturnType<typeof useI18n>['t']): string {
@@ -151,7 +154,8 @@ export default function ProductDetailPage() {
 
   const displayPrice = finalPrice
   const isFav = favorites.has(p.id)
-  const descriptionParts = (p.description || '')
+  const structured = descriptionAccordionItems(p.description)
+  const descriptionParts = structured.intro
     .split(/\r?\n|(?<=[.!?])\s+/)
     .map((part) => part.replace(/^[-•]\s*/, '').trim())
     .filter(Boolean)
@@ -236,6 +240,7 @@ export default function ProductDetailPage() {
       <div className="pd-grid" style={{ marginTop: 12 }}>
         <Gallery
           name={p.name}
+          fallback={getCategoryVisual(p.category?.slug ?? '')}
           badge={<StockChip stock={v.stock} quantity={v.stock_quantity} />}
           images={(p.images ?? []).map((img) => ({
             url: img.url,
@@ -247,7 +252,13 @@ export default function ProductDetailPage() {
 
         <div className="pd-details">
           <header className="pd-header">
-            <h1>{p.name}</h1>
+            {p.category && (
+              <Link to={`/categories/${p.category.slug}`} className="kicker pd-kicker">
+                {categoryLabel(t, p.category.slug, p.category.name)}
+                {p.subcategory?.name ? ` · ${subcategoryLabel(t, p.subcategory.slug, p.subcategory.name)}` : ''}
+              </Link>
+            )}
+            <h1 className="display-title">{p.name}</h1>
             {reviewSummary && reviewSummary.total_reviews > 0 ? (
               <a className="pd-rating-link" href="#customer-reviews">
                 <strong>{reviewSummary.average_rating.toFixed(1)} ★</strong>
@@ -272,8 +283,9 @@ export default function ProductDetailPage() {
 
           <section className="pd-price-block" aria-label={t('common.price')} aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <strong style={{ fontSize: '2rem', color: 'var(--color-primary)' }}>{formatMoney(displayPrice)}</strong>
-              <span className="muted" style={{ fontSize: '1.1rem' }}>{t('product.perUnit', { unit: p.unit })}</span>
+              <strong className="pd-price-main">{formatMoney(displayPrice)}</strong>
+              {hasSellerDiscount && <del className="pd-price-was">{formatMoney(regularPrice)}</del>}
+              <span className="muted pd-price-unit">{t('product.perUnit', { unit: p.unit })}</span>
               
               {hasSellerDiscount && (
                 <span className="badge badge-success" style={{ fontWeight: 'bold' }}>
@@ -328,8 +340,9 @@ export default function ProductDetailPage() {
             groups.map((g) => (
               <section className="pd-option-group" key={g.key} aria-labelledby={`option-${g.key}`}>
                 <div id={`option-${g.key}`} className="pd-option-label">{g.label}: <strong>{selection[g.key]}</strong></div>
-                <div className="attr-options" role="group" aria-label={g.label}>
+                <div className={`attr-options ${isColorAttribute(g.key, g.label) ? 'attr-options--swatch' : ''}`} role="group" aria-label={g.label}>
                   {g.values.map((val) => {
+                    const swatch = isColorAttribute(g.key, g.label) ? colorSwatch(val) : null
                     const selectedVal = selection[g.key] === val
                     const exists = isValueAvailable(variants, selection, g.key, val, false)
                     const inStock = isValueAvailable(variants, selection, g.key, val, true)
@@ -341,10 +354,11 @@ export default function ProductDetailPage() {
                         aria-pressed={selectedVal}
                         disabled={disabled}
                         title={disabled ? t('product.combinationUnavailable', { name: val }) : !inStock ? t('product.combinationOutOfStock', { name: val }) : val}
-                        className={`attr-option ${selectedVal ? 'selected' : ''} ${disabled ? 'unavailable' : !inStock ? 'low-stock' : ''}`}
+                        className={`attr-option ${swatch ? 'attr-swatch' : ''} ${selectedVal ? 'selected' : ''} ${disabled ? 'unavailable' : !inStock ? 'low-stock' : ''}`}
                         onClick={() => selectValue(g.key, val)}
+                        aria-label={swatch ? val : undefined}
                       >
-                        {val}
+                        {swatch ? <span className="attr-swatch-dot" style={{ background: swatch }} /> : val}
                       </button>
                     )
                   })}
@@ -401,14 +415,21 @@ export default function ProductDetailPage() {
           {added && <SuccessBox message={t('product.addedToCart')} />}
 
           <div className="pd-actions">
-            <Button variant="outline" size="lg" block disabled={outOfStock} onClick={addToCart}>{t('product.addToCart')}</Button>
-            <Button variant="accent" size="lg" block disabled={outOfStock} onClick={buyNow}>{outOfStock ? t('product.unavailable') : t('product.buyNow')}</Button>
+            <Button variant="primary" size="lg" block disabled={outOfStock} onClick={addToCart}>{outOfStock ? t('product.unavailable') : t('product.addToCart')}</Button>
+            <button
+              type="button"
+              className={`pd-fav-btn ${isFav ? 'is-active' : ''}`}
+              onClick={toggleFavorite}
+              aria-pressed={isFav}
+              aria-label={isFav ? t('product.inFavorites') : t('product.addToFavorites')}
+              title={isFav ? t('product.inFavorites') : t('product.addToFavorites')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+            </button>
           </div>
-          <div className="pd-favorite">
-            <Button variant="outline" block onClick={toggleFavorite} aria-pressed={isFav}>
-              {isFav ? t('product.inFavorites') : t('product.addToFavorites')}
-            </Button>
-          </div>
+          {!outOfStock && (
+            <Button variant="outline" size="lg" block onClick={buyNow}>{t('product.buyNow')}</Button>
+          )}
 
           {!user && (
             <p className="small muted">
@@ -422,39 +443,60 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="pd-information">
-        <section className="pd-info-section" aria-labelledby="product-description">
-          <h2 id="product-description">{t('product.description')}</h2>
-          <ul className="pd-highlights">
-            {(highlights.length > 0 ? highlights : [shortDescription]).map((highlight, index) => (
-              <li key={`${highlight}-${index}`}>{highlight}</li>
-            ))}
-            <li>{v.stock_quantity > 0 ? t('product.unitsAvailable', { count: v.stock_quantity }) : t('product.currentlyOutOfStock')}</li>
-          </ul>
-          {descriptionParts.length > highlights.length && (
-            <div className="pd-description-copy">
-              {descriptionParts.slice(highlights.length).map((paragraph, index) => (
-                <p key={`${paragraph}-${index}`}>{paragraph}</p>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="pd-info-section" aria-labelledby="product-specifications">
-          <h2 id="product-specifications">{t('product.specifications')}</h2>
-          <dl className="pd-specifications">
-            <div><dt>{t('product.product')}</dt><dd>{p.name}</dd></div>
-            <div><dt>{t('product.category')}</dt><dd>{p.category ? categoryLabel(t, p.category.slug, p.category.name) : t('product.general')}</dd></div>
-            {p.subcategory && <div><dt>{t('product.subcategory')}</dt><dd>{subcategoryLabel(t, p.subcategory.slug, p.subcategory.name)}</dd></div>}
-            {specifications.map((spec) => (
-              <div key={spec.key}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>
-            ))}
-            {(v.sku || p.sku) && <div><dt>SKU</dt><dd className="mono">{v.sku || p.sku}</dd></div>}
-            <div><dt>{t('product.unit')}</dt><dd>{p.unit}</dd></div>
-            <div><dt>{t('product.seller')}</dt><dd><Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link></dd></div>
-            <div><dt>{t('product.sellerLevel')}</dt><dd>{p.seller_level}</dd></div>
-            <div><dt>{t('product.listed')}</dt><dd>{formatDate(p.created_at)}</dd></div>
-          </dl>
-        </section>
+        <Accordion
+          items={[
+            {
+              id: 'product-description',
+              title: t('product.description'),
+              defaultOpen: true,
+              content: (
+                <>
+                  <ul className="pd-highlights">
+                    {(highlights.length > 0 ? highlights : [shortDescription]).map((highlight, index) => (
+                      <li key={`${highlight}-${index}`}>{highlight}</li>
+                    ))}
+                    <li>{v.stock_quantity > 0 ? t('product.unitsAvailable', { count: v.stock_quantity }) : t('product.currentlyOutOfStock')}</li>
+                  </ul>
+                  {descriptionParts.length > highlights.length && (
+                    <div className="pd-description-copy">
+                      <DescriptionParagraphs text={descriptionParts.slice(highlights.length).join('\n')} />
+                    </div>
+                  )}
+                </>
+              )
+            },
+            ...structured.items,
+            {
+              id: 'product-specifications',
+              title: t('product.specifications'),
+              content: (
+                <dl className="pd-specifications">
+                  <div><dt>{t('product.product')}</dt><dd>{p.name}</dd></div>
+                  <div><dt>{t('product.category')}</dt><dd>{p.category ? categoryLabel(t, p.category.slug, p.category.name) : t('product.general')}</dd></div>
+                  {p.subcategory && <div><dt>{t('product.subcategory')}</dt><dd>{subcategoryLabel(t, p.subcategory.slug, p.subcategory.name)}</dd></div>}
+                  {specifications.map((spec) => (
+                    <div key={spec.key}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>
+                  ))}
+                  {(v.sku || p.sku) && <div><dt>SKU</dt><dd className="mono">{v.sku || p.sku}</dd></div>}
+                  <div><dt>{t('product.unit')}</dt><dd>{p.unit}</dd></div>
+                  <div><dt>{t('product.seller')}</dt><dd><Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link></dd></div>
+                  <div><dt>{t('product.sellerLevel')}</dt><dd>{p.seller_level}</dd></div>
+                  <div><dt>{t('product.listed')}</dt><dd>{formatDate(p.created_at)}</dd></div>
+                </dl>
+              )
+            },
+            {
+              id: 'product-delivery',
+              title: t('product.delivery'),
+              content: (
+                <>
+                  <p>{p.free_delivery ? t('product.freeDelivery') : t('product.deliveryNote')}</p>
+                  {Boolean(p.delivery_discount_percent) && <p>{t('product.deliveryDiscount', { percent: p.delivery_discount_percent as number })}</p>}
+                </>
+              )
+            }
+          ] satisfies AccordionItem[]}
+        />
       </div>
 
       <ProductReviews productId={p.id} signedIn={Boolean(user)} onRequireLogin={() => navigate(loginWithReturnTo(`/products/${p.id}`))} />
@@ -462,7 +504,7 @@ export default function ProductDetailPage() {
       {similar.length > 0 && (
         <>
           <div className="section-head">
-            <h2>{t('product.similarProducts')}</h2>
+            <h2 className="display-title">{t('product.similarProducts')}</h2>
           </div>
           <div className="product-grid">
             {similar.map((sp) => (
@@ -471,6 +513,16 @@ export default function ProductDetailPage() {
           </div>
         </>
       )}
+
+      <div className="pd-sticky-bar" role="region" aria-label={t('product.addToCart')}>
+        <div className="pd-sticky-price">
+          <strong>{formatMoney(displayPrice)}</strong>
+          <span className="small muted">{p.name}</span>
+        </div>
+        <Button variant="primary" disabled={outOfStock} onClick={addToCart}>
+          {outOfStock ? t('product.unavailable') : t('product.addToCart')}
+        </Button>
+      </div>
     </div>
   )
 }

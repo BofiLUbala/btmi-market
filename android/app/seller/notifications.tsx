@@ -251,7 +251,7 @@ const makeStyles = (colors: Colors) =>
     },
     pageTitle: {
       fontSize: 18,
-      fontWeight: '900',
+      fontWeight: '700',
       color: colors.ink,
     },
     counterBadge: {
@@ -321,7 +321,7 @@ const makeStyles = (colors: Colors) =>
       flex: 1,
     },
     titleUnread: {
-      fontWeight: '900',
+      fontWeight: '700',
     },
     unreadDot: {
       width: 8,

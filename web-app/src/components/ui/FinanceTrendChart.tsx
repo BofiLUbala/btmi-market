@@ -20,9 +20,9 @@ interface Props {
 }
 
 const SERIES = [
-  { key: 'gross_sales', label: 'Ventes brutes', color: '#60a5fa' },
-  { key: 'commission_amount', label: 'Commission TBK', color: '#f87171' },
-  { key: 'seller_net_amount', label: 'Net vendeur', color: '#34d399' }
+  { key: 'gross_sales', label: 'Ventes brutes', color: 'var(--color-info)' },
+  { key: 'commission_amount', label: 'Commission TBK', color: 'var(--color-danger)' },
+  { key: 'seller_net_amount', label: 'Net vendeur', color: 'var(--color-success)' }
 ] as const
 
 const VIEW_W = 720
@@ -31,7 +31,7 @@ const PAD_R = 8
 
 const legendStyle: CSSProperties = {
   display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
-  fontSize: 11, color: 'var(--color-text-muted, #94a3b8)', marginTop: 8
+  fontSize: 11, color: 'var(--color-text-muted)', marginTop: 8
 }
 
 /**
@@ -61,7 +61,7 @@ export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée
 
   if (!geometry) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--color-text-muted, #94a3b8)' }}>
+      <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--color-text-muted)' }}>
         {emptyLabel}
       </div>
     )
@@ -79,7 +79,7 @@ export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée
         aria-label={`Évolution des ventes, de la commission TBK et du net vendeur sur ${points.length} période(s)`}
         style={{ width: '100%', height, display: 'block' }}
       >
-        <line x1={0} y1={height - 12} x2={VIEW_W} y2={height - 12} stroke="var(--color-border, #334155)" strokeWidth={1} />
+        <line x1={0} y1={height - 12} x2={VIEW_W} y2={height - 12} stroke="var(--color-border)" strokeWidth={1} />
         {SERIES.map((series) => {
           const path = points
             .map((p, i) => `${i === 0 ? 'M' : 'L'} ${geometry.x(i).toFixed(2)} ${geometry.y(p[series.key]).toFixed(2)}`)

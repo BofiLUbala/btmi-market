@@ -7,7 +7,7 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { spacing, type Colors } from '../../src/theme'
+import { spacing, type Colors, fonts } from '../../src/theme'
 import { formatMoney } from '../../src/lib/money'
 
 export default function SellerStockScreen() {
@@ -82,11 +82,11 @@ function stockTone(inv: { stock_status?: string; available: number }, styles: Re
 const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
-  title: { fontSize: 20, fontWeight: '900', color: colors.ink, textAlign: 'center' },
+  title: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: colors.ink, textAlign: 'center' },
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: '700' },
   tabs: { flexDirection: 'row', gap: spacing.sm },
-  name: { fontSize: 16, fontWeight: '900', color: colors.ink },
+  name: { fontSize: 16, fontWeight: '700', color: colors.ink },
   statsRow: { flexDirection: 'row', gap: spacing.md, flexWrap: 'wrap' },
   available: { color: colors.green, fontWeight: '800' },
   low: { color: colors.danger },
@@ -94,8 +94,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   ok: { color: colors.success },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   flex1: { flex: 1 },
-  badge: { color: colors.green, fontWeight: '900', fontSize: 12 },
-  delta: { fontWeight: '900' },
+  badge: { color: colors.green, fontWeight: '700', fontSize: 12 },
+  delta: { fontWeight: '700' },
   positive: { color: colors.success },
   negative: { color: colors.danger },
   date: { color: colors.muted, fontSize: 12 },

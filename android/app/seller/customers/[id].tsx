@@ -79,6 +79,6 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  name: { fontSize: 16, fontWeight: '900', color: colors.ink },
+  name: { fontSize: 16, fontWeight: '700', color: colors.ink },
   date: { color: colors.muted, fontSize: 12 },
 })

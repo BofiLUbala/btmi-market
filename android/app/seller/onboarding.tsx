@@ -8,7 +8,7 @@ import { StructuredAddressFields, type StructuredAddressValue } from '../../src/
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, type Colors } from '../../src/theme'
+import { radius, type Colors, fonts } from '../../src/theme'
 import { canOnboardSeller, canSell } from '../../src/types'
 
 // Port of web-app/src/pages/seller/auth/SellerOnboardingPage.tsx: two steps
@@ -174,7 +174,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   page: { padding: 16, paddingBottom: 32, gap: 16 },
   card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 20, gap: 12, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
   form: { gap: 12 },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   text: { color: c.ink, fontSize: 14 },
   bold: { color: c.ink, fontWeight: '700' },
   muted: { color: c.muted, fontSize: 15, lineHeight: 21 },
@@ -196,5 +196,5 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: c.borderControl, alignItems: 'center', justifyContent: 'center' },
   checkboxOn: { backgroundColor: c.green, borderColor: c.green },
-  checkMark: { color: c.onGreen, fontWeight: '900', fontSize: 13 },
+  checkMark: { color: c.onGreen, fontWeight: '700', fontSize: 13 },
 })

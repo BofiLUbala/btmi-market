@@ -6,7 +6,7 @@ import { buyerApi } from '../../src/api'
 import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import type { Colors } from '../../src/theme'
+import { fonts, type Colors } from '../../src/theme'
 
 // Port of web-app/src/pages/buyer/PointsPage.tsx (/points): balance banner,
 // "how it works" and "redeem" cards, then the link to the full history.
@@ -52,11 +52,11 @@ export default function PointsScreen() {
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
   flex1: { flex: 1 },
-  h1: { fontSize: 28, fontWeight: '700', color: c.ink, marginBottom: -4 },
+  h1: { fontSize: 28, fontFamily: fonts.display, fontWeight: '500', color: c.ink, marginBottom: -4 },
   h2: { fontSize: 17.6, fontWeight: '700', color: c.ink, marginBottom: 8 },
   small: { color: c.muted, fontSize: 14, lineHeight: 20 },
   payBig: { alignItems: 'center', padding: 24, borderRadius: 16, backgroundColor: c.goldSoft, borderWidth: 1, borderStyle: 'dashed', borderColor: c.goldDark, gap: 4 },
-  amount: { fontSize: 40, fontWeight: '900', color: c.green },
+  amount: { fontSize: 40, fontFamily: fonts.display, fontWeight: '500', color: c.green },
   payNote: { fontSize: 12, color: c.muted, textAlign: 'center' },
   card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
   bulletRow: { flexDirection: 'row', gap: 8, paddingLeft: 4 },

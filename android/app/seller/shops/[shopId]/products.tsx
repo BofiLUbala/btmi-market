@@ -9,7 +9,7 @@ import { useAuth } from '../../../../src/store/auth'
 import { Button, Loading } from '../../../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../../../src/store/i18n'
 import { useColors } from '../../../../src/store/theme'
-import { radius, type Colors } from '../../../../src/theme'
+import { radius, type Colors, fonts } from '../../../../src/theme'
 import type { InventoryItem, Product, ProductImageResponse, ProductVariant } from '../../../../src/types'
 
 // Port of web-app/src/pages/seller/products/ShopProductsPage.tsx
@@ -179,8 +179,8 @@ function Metric({ label, value, styles }: { label: string; value: number; styles
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
-  h2: { fontSize: 20, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 17, fontWeight: '700', color: c.ink },
   bold: { color: c.ink, fontWeight: '700', fontSize: 14 },
   muted: { color: c.muted, fontSize: 15 },

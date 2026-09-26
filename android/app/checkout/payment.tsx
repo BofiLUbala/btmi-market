@@ -8,7 +8,7 @@ import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import { formatMoney } from '../../src/lib/money'
 import { CASH_ON_DELIVERY, MOBILE_AT_DELIVERY, MOBILE_PAY_NOW, isPaymentPaid } from '../../src/lib/paymentStatus'
 import type { BuyerPayment, PaymentMethodConfig, PaymentProviderCode } from '../../src/types'
@@ -398,8 +398,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   steps: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   stepDone: { color: colors.green, fontWeight: '800', fontSize: 12 },
-  stepActive: { color: colors.ink, fontWeight: '900', fontSize: 12 },
-  blockTitle: { color: colors.ink, fontWeight: '900', fontSize: 16 },
+  stepActive: { color: colors.ink, fontWeight: '700', fontSize: 12 },
+  blockTitle: { color: colors.ink, fontWeight: '700', fontSize: 16 },
   row: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   lineRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   lineInfo: { flex: 1, gap: 2 },
@@ -410,8 +410,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   value: { color: colors.ink, fontWeight: '700' },
   discount: { color: colors.success, fontWeight: '800' },
   errorText: { color: colors.danger, fontWeight: '800' },
-  eyebrow: { color: colors.muted, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: spacing.sm },
-  cashDue: { color: colors.green, fontSize: 32, fontWeight: '900' },
+  eyebrow: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: spacing.sm },
+  cashDue: { color: colors.green, fontSize: 32, fontFamily: fonts.display, fontWeight: '500' },
   choice: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center', padding: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, minHeight: 48 },
   choiceSelected: { borderColor: colors.green, backgroundColor: colors.greenSoft },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.muted },

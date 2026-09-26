@@ -91,6 +91,8 @@ export interface PublicProduct {
   name: string
   category?: string
   category_name?: string
+  /** Sent by the marketplace API; used for the category artwork fallback. */
+  category_slug?: string
   shop_id?: string
   shop_name?: string
   price?: number

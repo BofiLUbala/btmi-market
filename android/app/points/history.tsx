@@ -7,8 +7,9 @@ import { ErrorState, Loading } from '../../src/components/ui'
 import { formatDateTime } from '../../src/lib/format'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import type { Colors } from '../../src/theme'
+import { type Colors, fonts } from '../../src/theme'
 import type { PointTransaction } from '../../src/types'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/buyer/PointsHistoryPage.tsx (/points/history):
 // level / balance / lifetime card with progress to the next level, then every
@@ -48,7 +49,7 @@ export default function PointsHistoryScreen() {
     </View>
 
     {transactions.length === 0 ? <View style={styles.empty}>
-      <Text style={styles.emptyIcon}>⭐</Text>
+      <Ionicons name="star-outline" size={40} color={colors.muted} />
       <Text style={styles.emptyTitle}>{t('points.noTransactionsTitle')}</Text>
       <Text style={[styles.small, { textAlign: 'center' }]}>{t('points.noTransactionsDesc')}</Text>
     </View> : <View style={styles.card}>
@@ -73,7 +74,7 @@ function TransactionRow({ tr, styles, colors }: { tr: PointTransaction; styles: 
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 12 },
   flex1: { flex: 1 },
-  h1: { fontSize: 28, fontWeight: '700', color: c.ink, marginBottom: 4 },
+  h1: { fontSize: 28, fontFamily: fonts.display, fontWeight: '500', color: c.ink, marginBottom: 4 },
   small: { color: c.muted, fontSize: 14 },
   bold: { color: c.ink, fontSize: 16, fontWeight: '700' },
   strong: { fontWeight: '700', color: c.ink },

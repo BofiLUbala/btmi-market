@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Image } from 'expo-image'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useLocalSearchParams } from 'expo-router'
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { marketplaceApi } from '../../src/api'
@@ -10,7 +10,11 @@ import { resolveMediaUrl } from '../../src/api/client'
 import { useCart } from '../../src/store/cart'
 import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { fonts, kicker, radius, spacing, type Colors } from '../../src/theme'
+import { categoryImage } from '../../src/lib/categoryVisuals'
+import { categoryLabel } from '../../src/lib/categoryLabels'
+import { colorSwatch, isColorAttribute } from '../../src/lib/colorSwatch'
+import { Accordion, DescriptionText, descriptionItems } from '../../src/components/Accordion'
 import { resolvePromotion } from '../../src/lib/promotion'
 import { attributeLabel } from '../../src/lib/attributeLabels'
 import { useI18n } from '../../src/store/i18n'
@@ -183,6 +187,12 @@ export default function ProductScreen() {
     product.base_price ||
     0
   const onSale = promotion.phase === 'active' && promotion.discountPercent > 0
+  const description = descriptionItems(product.description)
+  // `/detail` nests the category as { name, slug }; listings flatten it.
+  const categoryObj = (product as { category?: unknown }).category
+  const category = typeof categoryObj === 'object' && categoryObj
+    ? (categoryObj as { name?: string; slug?: string })
+    : { name: product.category_name, slug: product.category_slug }
 
   // A cart may hold several shops: checkout creates one order per shop.
   const addLine = () =>
@@ -201,17 +211,16 @@ export default function ProductScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={[styles.page, { paddingBottom: 96 + insets.bottom }]}>
-        {image ? (
-          <Image source={image} contentFit="contain" style={[styles.image, { height: Math.min(width, 470) }]} />
-        ) : (
-          <View style={styles.noImage}>
-            <Text style={styles.noImageText}>TBK</Text>
-          </View>
-        )}
+        <Image
+          source={image ?? categoryImage(category.slug, category.name)}
+          contentFit="cover"
+          style={[styles.image, { height: Math.min(width * 1.25, 560) }]}
+        />
 
         <View style={styles.content}>
-          <Text style={styles.shop}>{t('product.soldBy', { shop: product.shop_name || t('product.aSeller') })}</Text>
+          {category.name ? <Text style={styles.kicker}>{categoryLabel(t, category.slug, category.name)}</Text> : null}
           <Text style={styles.title}>{product.name}</Text>
+          <Text style={styles.shop}>{t('product.soldBy', { shop: product.shop_name || t('product.aSeller') })}</Text>
           {reviewData?.summary.total_reviews ? (
             <View style={styles.ratingBadgeRow}>
               <View style={styles.ratingPill}>
@@ -252,14 +261,14 @@ export default function ProductScreen() {
           {/* Dynamic Variant Selectors (derives from actual saved attributes) */}
           {hasAttributeGroups ? (
             <View style={styles.optionSection}>
-              <SectionTitle title={t('product.availableOptions')} />
               {attributeGroups.map((g) => {
                 const activeVal = selection[g.key]
+                const colourGroup = isColorAttribute(g.key, g.label)
                 return (
                   <View key={g.key} style={styles.attrGroup}>
                     <Text style={styles.attrLabel}>
                       {attributeLabel(t, g.label)}:{' '}
-                      <Text style={{ fontWeight: '900', color: activeVal ? colors.green : colors.muted }}>
+                      <Text style={{ fontWeight: '600', color: activeVal ? colors.ink : colors.muted }}>
                         {activeVal ?? t('product.toChoose')}
                       </Text>
                     </Text>
@@ -268,14 +277,28 @@ export default function ProductScreen() {
                         const isSelected = activeVal === val
                         const exists = isValueAvailable(variants, selection, g.key, val, false)
                         const inStock = isValueAvailable(variants, selection, g.key, val, true)
+                        const swatch = colourGroup ? colorSwatch(val) : null
                         return (
-                          <Button
+                          <Pressable
                             key={val}
-                            variant={isSelected ? 'primary' : 'outline'}
-                            title={val}
+                            accessibilityRole="button"
+                            accessibilityLabel={val}
+                            accessibilityState={{ selected: isSelected, disabled: !exists }}
                             disabled={!exists}
                             onPress={() => chooseValue(g.key, val)}
-                          />
+                            style={[
+                              swatch ? styles.swatch : styles.optionPill,
+                              isSelected && (swatch ? styles.swatchSelected : styles.optionPillSelected),
+                              !exists && styles.optionDisabled,
+                              exists && !inStock && styles.optionLow,
+                            ]}
+                          >
+                            {swatch ? (
+                              <View style={[styles.swatchDot, { backgroundColor: swatch }]} />
+                            ) : (
+                              <Text style={[styles.optionPillText, isSelected && styles.optionPillTextSelected]}>{val}</Text>
+                            )}
+                          </Pressable>
                         )
                       })}
                     </View>
@@ -310,41 +333,54 @@ export default function ProductScreen() {
               : t('product.outOfStock')}
           </Text>
 
-          <Card>
-            <SectionTitle title={t('common.quantity')} />
+          <View style={styles.qtyRow}>
+            <Text style={styles.qtyLabel}>{t('common.quantity')}</Text>
             <View style={styles.qty}>
-              <Button variant="outline" title="−" onPress={() => setQuantity(Math.max(1, quantity - 1))} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="−"
+                style={styles.qtyBtn}
+                onPress={() => setQuantity(Math.max(1, quantity - 1))}
+              >
+                <Ionicons name="remove" size={18} color={colors.ink} />
+              </Pressable>
               <Text style={styles.qtyValue}>{quantity}</Text>
-              <Button
-                variant="outline"
-                title="+"
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="+"
                 disabled={quantity >= stock}
+                style={[styles.qtyBtn, quantity >= stock && styles.optionDisabled]}
                 onPress={() => setQuantity(quantity + 1)}
-              />
+              >
+                <Ionicons name="add" size={18} color={colors.ink} />
+              </Pressable>
             </View>
-          </Card>
+          </View>
 
-          {/* Product Specifications */}
-          {specifications.length > 0 && (
-            <Card>
-              <SectionTitle title={t('product.specifications')} />
-              <View style={styles.specsTable}>
-                {specifications.map((spec) => (
-                  <View key={spec.key} style={styles.specRow}>
-                    <Text style={styles.specKey}>{attributeLabel(t, spec.label)}</Text>
-                    <Text style={styles.specVal}>{spec.value}</Text>
-                  </View>
-                ))}
-              </View>
-            </Card>
-          )}
-
-          {product.description ? (
-            <Card>
-              <SectionTitle title={t('product.description')} />
-              <Text style={styles.description}>{product.description}</Text>
-            </Card>
-          ) : null}
+          <Accordion
+            items={[
+              ...(description.intro
+                ? [{ id: 'description', title: t('product.description'), defaultOpen: true, content: <DescriptionText text={description.intro} /> }]
+                : []),
+              ...description.items,
+              ...(specifications.length > 0
+                ? [{
+                    id: 'specifications',
+                    title: t('product.specifications'),
+                    content: (
+                      <View style={styles.specsTable}>
+                        {specifications.map((spec) => (
+                          <View key={spec.key} style={styles.specRow}>
+                            <Text style={styles.specKey}>{attributeLabel(t, spec.label)}</Text>
+                            <Text style={styles.specVal}>{spec.value}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ),
+                  }]
+                : []),
+            ]}
+          />
 
           <View style={styles.reviewSection}>
             <SectionTitle
@@ -437,7 +473,7 @@ export default function ProductScreen() {
           <Button
             dense
             style={styles.barButton}
-            variant="outline"
+            variant="primary"
             title={t('product.addToCart')}
             disabled={!optionsComplete || !selected || stock < 1}
             onPress={addLine}
@@ -445,7 +481,7 @@ export default function ProductScreen() {
           <Button
             dense
             style={styles.barButton}
-            variant="gold"
+            variant="outline"
             title={t('product.buyNow')}
             disabled={!optionsComplete || !selected || stock < 1}
             onPress={() => {
@@ -461,31 +497,42 @@ export default function ProductScreen() {
 const makeStyles = (colors: Colors) => StyleSheet.create({
   screen: { flex: 1 },
   page: { paddingBottom: 100 },
-  image: { width: '100%', backgroundColor: colors.white },
-  noImage: { height: 330, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.greenSoft },
-  noImageText: { fontSize: 34, fontWeight: '900', color: colors.green },
+  image: { width: '100%', backgroundColor: colors.surfaceAlt },
   content: { padding: spacing.md, gap: spacing.md },
-  shop: { color: colors.green, fontWeight: '800' },
-  title: { fontSize: 27, lineHeight: 33, fontWeight: '900', color: colors.ink },
+  kicker: { ...kicker, color: colors.muted, marginBottom: -8 },
+  shop: { color: colors.muted, fontSize: 13 },
+  title: { fontSize: 28, lineHeight: 34, fontFamily: fonts.display, fontWeight: '500', color: colors.ink, letterSpacing: -0.3 },
   ratingBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   ratingPill: { backgroundColor: colors.success, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  ratingPillText: { color: colors.white, fontWeight: '900', fontSize: 13 },
+  ratingPillText: { color: colors.white, fontWeight: '700', fontSize: 13 },
   ratingCountText: { color: colors.muted, fontSize: 13 },
   ratingEmpty: { color: colors.muted, fontStyle: 'italic' },
-  price: { fontSize: 30, fontWeight: '900', color: colors.green },
+  price: { fontSize: 28, fontFamily: fonts.display, fontWeight: '500', color: colors.ink },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, flexWrap: 'wrap' },
   strikePrice: { fontSize: 16, color: colors.muted, textDecorationLine: 'line-through' },
-  discountPill: { backgroundColor: colors.success, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  discountPillText: { color: colors.white, fontWeight: '900', fontSize: 12 },
+  discountPill: { backgroundColor: colors.danger, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  discountPillText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
   promoWindow: { color: colors.muted, fontSize: 12 },
   optionSection: { gap: spacing.sm },
   attrGroup: { gap: 6, marginBottom: 8 },
-  attrLabel: { fontSize: 13, color: colors.muted, fontWeight: '600' },
-  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  attrLabel: { fontSize: 14, color: colors.muted },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  optionPill: { minWidth: 48, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
+  optionPillSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
+  optionPillText: { color: colors.ink, fontWeight: '500', fontSize: 14 },
+  optionPillTextSelected: { color: colors.onGreen },
+  optionDisabled: { opacity: 0.35 },
+  optionLow: { borderStyle: 'dashed' },
+  swatch: { width: 44, height: 44, borderRadius: 22, padding: 4, borderWidth: 1, borderColor: 'transparent' },
+  swatchSelected: { borderColor: colors.ink, borderWidth: 1.5 },
+  swatchDot: { flex: 1, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,0,0,0.2)' },
   variants: { gap: spacing.sm },
-  stock: { fontSize: 16, fontWeight: '900' },
-  qty: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
-  qtyValue: { fontWeight: '900', fontSize: 20, minWidth: 30, textAlign: 'center' },
+  stock: { fontSize: 14, fontWeight: '600' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  qtyLabel: { color: colors.ink, fontWeight: '500', fontSize: 15 },
+  qty: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.borderControl, borderRadius: 999 },
+  qtyBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  qtyValue: { fontWeight: '600', fontSize: 16, minWidth: 28, textAlign: 'center', color: colors.ink },
   specsTable: { gap: 8, marginTop: 4 },
   specRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: colors.border },
   specKey: { fontSize: 13, color: colors.muted, fontWeight: '600' },
@@ -493,11 +540,11 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   description: { color: colors.ink, lineHeight: 23 },
   reviewSection: { gap: spacing.md, marginTop: 8 },
   reviewLoading: { minHeight: 120 },
-  reviewEmptyTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
+  reviewEmptyTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
   reviewEmpty: { color: colors.muted, lineHeight: 20 },
   summary: { flexDirection: 'row', gap: 18, alignItems: 'center' },
   scoreBlock: { width: 105, alignItems: 'center' },
-  score: { fontSize: 38, fontWeight: '900', color: colors.ink },
+  score: { fontSize: 38, fontFamily: fonts.display, fontWeight: '500', color: colors.ink },
   summaryStars: { color: colors.star, fontSize: 17, letterSpacing: 1 },
   reviewTotal: { fontSize: 11, color: colors.muted, textAlign: 'center', marginTop: 5 },
   breakdown: { flex: 1, gap: 6 },
@@ -539,7 +586,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     padding: 10,
     gap: 4,
   },
-  replyAuthor: { fontSize: 12, fontWeight: '900', color: colors.green },
+  replyAuthor: { fontSize: 12, fontWeight: '700', color: colors.green },
   replyBody: { fontSize: 13, color: colors.ink, lineHeight: 18 },
   actions: {
     position: 'absolute',
@@ -556,13 +603,13 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     elevation: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.08,
     shadowRadius: 10,
   },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   priceBlock: { flex: 1, minWidth: 64 },
   priceBlockQty: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-  priceBlockTotal: { color: colors.green, fontSize: 17, fontWeight: '900' },
+  priceBlockTotal: { color: colors.ink, fontSize: 18, fontFamily: fonts.display, fontWeight: '500' },
   barButton: { flexGrow: 0, flexShrink: 0 },
-  selectHint: { color: colors.gold, fontSize: 12, fontWeight: '800', textAlign: 'center' },
+  selectHint: { color: colors.gold, fontSize: 12, fontWeight: '600', textAlign: 'center' },
 })

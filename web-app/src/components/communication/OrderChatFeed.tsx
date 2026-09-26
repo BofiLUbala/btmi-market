@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badges'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { useI18n } from '@/store/i18n'
+import { BuildingIcon, ChatIcon, CustomerIcon, ShieldCheckIcon, StoreIcon } from '@/components/ui/Icons'
 
 interface OrderChatFeedProps {
   orderId: string
@@ -141,7 +142,7 @@ export function OrderChatFeed({
         >
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>💬 {t('communication.channelTitle')}</span>
+              <span><ChatIcon className="inline-icon" /> {t('communication.channelTitle')}</span>
               {detail?.order_number && (
                 <span style={{ color: 'var(--color-primary)', fontWeight: 800 }}>
                   #{detail.order_number}
@@ -151,13 +152,13 @@ export function OrderChatFeed({
             </div>
             <div className="small muted" style={{ marginTop: 2 }}>
               {detail?.shop_name && (
-                <span>🏪 {detail.shop_name}</span>
+                <span><StoreIcon className="inline-icon" /> {detail.shop_name}</span>
               )}
               {detail?.buyer_name && role !== 'BUYER' && (
-                <span style={{ marginLeft: 8 }}>👤 {detail.buyer_name}</span>
+                <span style={{ marginLeft: 8 }}><CustomerIcon className="inline-icon" /> {detail.buyer_name}</span>
               )}
               {detail?.business_name && role === 'ADMIN' && (
-                <span style={{ marginLeft: 8 }}>🏢 {detail.business_name}</span>
+                <span style={{ marginLeft: 8 }}><BuildingIcon className="inline-icon" /> {detail.business_name}</span>
               )}
             </div>
           </div>
@@ -198,7 +199,7 @@ export function OrderChatFeed({
               fontSize: '0.9rem',
             }}
           >
-            <div style={{ fontSize: '2rem', marginBottom: 8 }}>💬</div>
+            <div style={{ marginBottom: 8 }}><ChatIcon className="empty-svg" /></div>
             <div style={{ fontWeight: 600 }}>{t('communication.emptyChatTitle')}</div>
             <div className="small">{t('communication.emptyChatDesc')}</div>
           </div>
@@ -241,10 +242,10 @@ export function OrderChatFeed({
                   fontSize: '0.75rem',
                 }}
               >
-                {isAdmin && <span>🛡️ TBK Commerce Operations · ADMIN</span>}
-                {!isAdmin && msg.sender_type === 'BUYER' && <span>👤 {isMe ? t('communication.you') : msg.sender_name || t('communication.buyer')}</span>}
+                {isAdmin && <span><ShieldCheckIcon className="inline-icon" /> TBK Commerce Operations · ADMIN</span>}
+                {!isAdmin && msg.sender_type === 'BUYER' && <span><CustomerIcon className="inline-icon" /> {isMe ? t('communication.you') : msg.sender_name || t('communication.buyer')}</span>}
                 {!isAdmin && (msg.sender_type === 'SELLER' || msg.sender_type === 'EMPLOYEE') && (
-                  <span>🏪 {isMe ? t('communication.you') : msg.sender_name || detail?.shop_name || t('communication.seller')}</span>
+                  <span><StoreIcon className="inline-icon" /> {isMe ? t('communication.you') : msg.sender_name || detail?.shop_name || t('communication.seller')}</span>
                 )}
                 <span>• {formatDateTime(msg.created_at)}</span>
               </div>

@@ -6,6 +6,7 @@ import { useColors } from '../store/theme'
 import { spacing, type Colors } from '../theme'
 import { cancelStageText, expectedDeliveryText, returnedText } from '../lib/deliveryPlan'
 import { Button, Card } from './ui'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 interface Props {
   plan: DeliveryPlan
@@ -59,7 +60,7 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
             <Text style={styles.when}>✓ {t('deliveryPlan.delivered')}</Text>
             {when ? <Text style={styles.muted}>{t('deliveryPlan.wasPlanned', { when })}</Text> : null}
           </>
-        : !cancelled ? (when ? <Text style={styles.when}>📅 {when}</Text> : <Text style={styles.muted}>{t('deliveryPlan.notSet')}</Text>) : null}
+        : !cancelled ? (when ? <Text style={styles.when}><Ionicons name="calendar-outline" size={14} color={colors.muted} /> {when}</Text> : <Text style={styles.muted}>{t('deliveryPlan.notSet')}</Text>) : null}
       {plan.delivery_attempts ? <Text style={styles.muted}>{t('deliveryPlan.attempts', { count: plan.delivery_attempts })}</Text> : null}
       {stage ? <Text style={styles.stage}>{stage}</Text> : null}
       {returning ? <Text style={styles.muted}>{t('deliveryPlan.returning')}</Text> : null}
@@ -71,8 +72,8 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  title: { color: c.ink, fontWeight: '900', fontSize: 16, marginBottom: spacing.xs },
-  when: { color: c.green, fontWeight: '900', fontSize: 17, textTransform: 'capitalize' },
+  title: { color: c.ink, fontWeight: '700', fontSize: 16, marginBottom: spacing.xs },
+  when: { color: c.green, fontWeight: '700', fontSize: 17, textTransform: 'capitalize' },
   muted: { color: c.muted },
   stage: { color: c.ink, fontWeight: '800' },
   success: { color: c.success, fontWeight: '800' },

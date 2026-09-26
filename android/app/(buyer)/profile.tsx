@@ -11,7 +11,7 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { Button, Loading } from '../../src/components/ui'
 import { PreferenceToggles } from '../../src/components/PreferenceToggles'
-import { spacing, type Colors } from '../../src/theme'
+import { spacing, type Colors, fonts } from '../../src/theme'
 import { canSell, canOnboardSeller } from '../../src/types'
 
 // Port of web-app/src/pages/buyer/AccountPage.tsx at phone width, where its
@@ -85,7 +85,7 @@ export default function ProfileScreen() {
             <Text style={themed.address}>{p?.address || t('account.noAddress')}</Text>
             <Text style={themed.small}>{[p?.commune, p?.city, p?.country].filter(Boolean).join(', ') || t('account.noLocation')}</Text>
           </>}
-          {p?.latitude != null && p?.longitude != null ? <Text style={[themed.small, { marginTop: 4 }]}>📍 GPS: {p.latitude}, {p.longitude}</Text> : null}
+          {p?.latitude != null && p?.longitude != null ? <Text style={[themed.small, { marginTop: 4 }]}><Ionicons name="location-outline" size={14} color={colors.muted} /> GPS: {p.latitude}, {p.longitude}</Text> : null}
         </View>
         <InfoRow k={t('common.memberSince')} v={formatDate(user.created_at)} themed={themed} />
       </View>
@@ -162,13 +162,13 @@ function LinkCard({ label, title, sub, cta, onPress, themed }: { label: string; 
  *  `.info-row`, `.profile-contact-block`, `.eyebrow` and `.account-points-grid`. */
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
-    title: { fontSize: 25, fontWeight: '900', color: c.ink, textAlign: 'center' },
+    title: { fontSize: 25, fontFamily: fonts.display, fontWeight: '500', color: c.ink, textAlign: 'center' },
     muted: { color: c.muted },
     small: { color: c.muted, fontSize: 14 },
     bold: { color: c.ink, fontWeight: '700', fontSize: 16 },
     card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 16, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
     cardPressed: { boxShadow: '0px 4px 12px rgba(0,0,0,0.10)' },
-    name: { fontSize: 22.4, fontWeight: '700', color: c.ink, lineHeight: 28 },
+    name: { fontSize: 22.4, fontFamily: fonts.display, fontWeight: '500', color: c.ink, lineHeight: 28 },
     eyebrow: { color: c.green, fontSize: 11.5, fontWeight: '800', letterSpacing: 1.3, marginBottom: 8 },
     contactBlock: { paddingTop: 14, borderTopWidth: 1, borderTopColor: c.border },
     address: { color: c.ink, fontWeight: '700', marginBottom: 4, fontSize: 16 },

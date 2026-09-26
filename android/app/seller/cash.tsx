@@ -7,7 +7,7 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { spacing, type Colors } from '../../src/theme'
+import { spacing, type Colors, fonts } from '../../src/theme'
 import type { CashSession } from '../../src/types'
 import { formatMoney } from '../../src/lib/money'
 import { formatDateTime } from '../../src/lib/format'
@@ -124,11 +124,11 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: '700' },
   tabs: { flexDirection: 'row', gap: spacing.sm },
-  cardTitle: { fontSize: 16, fontWeight: '900', color: colors.ink },
-  metric: { fontSize: 22, fontWeight: '900', color: colors.green },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  metric: { fontSize: 22, fontFamily: fonts.display, fontWeight: '500', color: colors.green },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   flex1: { flex: 1 },
   statsRow: { flexDirection: 'row', gap: spacing.md, flexWrap: 'wrap' },
-  badge: { color: colors.green, fontWeight: '900', fontSize: 12 },
+  badge: { color: colors.green, fontWeight: '700', fontSize: 12 },
   date: { color: colors.muted, fontSize: 12 },
 })

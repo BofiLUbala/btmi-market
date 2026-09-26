@@ -6,6 +6,7 @@ import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney, formatDateTime, asArray } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
+import { HandshakeIcon } from '@/components/ui/Icons'
 
 function PendingInner() {
   const { t } = useI18n()
@@ -49,7 +50,7 @@ function PendingInner() {
   if (items.length === 0) {
     return (
       <EmptyState
-        icon="🤝"
+        icon={<HandshakeIcon className="empty-svg" />}
         title={t('orders.nothingToConfirm')}
         description={t('orders.nothingToConfirmDesc')}
       />

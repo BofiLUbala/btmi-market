@@ -10,6 +10,7 @@ import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 import { useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { WarningIcon } from '@/components/ui/Icons'
 
 const METHOD_LABEL: Record<string, TranslationKey> = {
   PICKUP: 'delivery.pickup',
@@ -334,7 +335,7 @@ function PaymentInner() {
       {error && <ErrorBox error={error} />}
       {quoteChangedAlert && (
         <div className="checkout-inline-error" role="alert">
-          <span>⚠️ {quoteChangedAlert}</span>
+          <span><WarningIcon className="inline-icon" /> {quoteChangedAlert}</span>
         </div>
       )}
 

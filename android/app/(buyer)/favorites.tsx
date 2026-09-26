@@ -5,7 +5,7 @@ import { router } from 'expo-router'
 import { Button } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { spacing, type Colors } from '../../src/theme'
+import { spacing, type Colors, fonts } from '../../src/theme'
 
 export default function FavoritesScreen() {
   const { t } = useI18n()
@@ -18,4 +18,4 @@ export default function FavoritesScreen() {
     <Button variant="outline" title={t('cart.discover')} onPress={() => router.push('/(buyer)')}/>
   </View>
 }
-const makeStyles = (colors: Colors) => StyleSheet.create({ page: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: spacing.md }, icon: { width: 74, height: 74, borderRadius: 37, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }, title: { fontSize: 23, fontWeight: '900', color: colors.ink, textAlign: 'center' }, text: { color: colors.muted, textAlign: 'center', lineHeight: 21, maxWidth: 300 } })
+const makeStyles = (colors: Colors) => StyleSheet.create({ page: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: spacing.md }, icon: { width: 74, height: 74, borderRadius: 37, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' }, title: { fontSize: 23, fontFamily: fonts.display, fontWeight: '500', color: colors.ink, textAlign: 'center' }, text: { color: colors.muted, textAlign: 'center', lineHeight: 21, maxWidth: 300 } })

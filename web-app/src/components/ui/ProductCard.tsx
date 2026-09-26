@@ -10,6 +10,14 @@ import { useI18n } from '@/store/i18n'
 import { StockChip } from './Badges'
 import { Rating } from './Rating'
 
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" />
+    </svg>
+  )
+}
+
 function FavoriteButton({ product }: { product: PublicProduct }) {
   const { t } = useI18n()
   const { has, toggle } = useFavorites()
@@ -18,14 +26,8 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
   return (
     <button
       type="button"
-      className="btn btn-sm"
-      style={{
-        background: 'rgba(0,0,0,0.35)',
-        color: active ? 'var(--color-star)' : '#fff',
-        border: 'none',
-        borderRadius: 999,
-        minWidth: 30
-      }}
+      className={`card-fav ${active ? 'is-active' : ''}`}
+      aria-pressed={active}
       onClick={(e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -42,7 +44,7 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
       }}
       aria-label={active ? t('product.removeFromFavorites') : t('product.addToFavorites')}
     >
-      {active ? '♥' : '♡'}
+      <HeartIcon filled={active} />
     </button>
   )
 }
@@ -71,8 +73,10 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   const reviewCount = product.total_reviews ?? 0
   const rating = reviewCount > 0 ? (product.average_rating ?? 0) : (product.self_rating ?? 0)
 
+  const outOfStock = availability === 'OUT_OF_STOCK'
+
   return (
-    <Link to={link} className="product-card">
+    <Link to={link} className={`product-card ${outOfStock ? 'is-out' : ''}`}>
       <div
         className="product-thumb"
         style={{ background: fallback.background }}
@@ -95,37 +99,36 @@ export function ProductCard({ product }: { product: PublicProduct }) {
         <span className="thumb-chip">
           <FavoriteButton product={product} />
         </span>
-        {hasDiscount && (
-          <span className="badge badge-success" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontWeight: 'bold' }}>
-            {t('product.discountOff', { percent: discountPercent })}
-          </span>
-        )}
-        {promotionUpcoming && product.discount_start && (
-          <span className="badge badge-warning" style={{ position: 'absolute', top: 12, left: 12, zIndex: 2 }}>
-            {t('product.saleStarts', { date: formatDate(product.discount_start, dateLocale) })}
-          </span>
-        )}
+        <span className="card-badges">
+          {outOfStock && <span className="card-badge card-badge--out">{t('stock.outOfStock')}</span>}
+          {!outOfStock && hasDiscount && (
+            <span className="card-badge card-badge--sale">-{discountPercent}%</span>
+          )}
+          {!outOfStock && promotionUpcoming && product.discount_start && (
+            <span className="card-badge card-badge--soon">
+              {t('product.saleStarts', { date: formatDate(product.discount_start, dateLocale) })}
+            </span>
+          )}
+        </span>
       </div>
       <div className="product-body">
         {product.category_name && (
           <span className="product-category-chip">{categoryLabel(t, product.category_slug, product.category_name)}</span>
         )}
         <span className="product-name">{product.name}</span>
+        <span className="product-meta">
+          {product.shop_name && <span className="product-shop">{product.shop_name}</span>}
+        </span>
         <Rating value={rating} count={reviewCount > 0 ? reviewCount : undefined} size="sm" />
-        {product.shop_name && <span className="product-shop">{product.shop_name}</span>}
-        <StockChip stock={availability} />
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+        {!outOfStock && <StockChip stock={availability} />}
+        <div className="product-price-row">
           {hasDiscount ? (
             <>
-              <span className="product-price" style={{ color: 'var(--color-primary)' }}>
-                {formatMoney(salePrice)}
-              </span>
-              <span style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)', fontSize: '0.85em' }}>
-                {formatMoney(originalPrice)}
-              </span>
+              <span className="product-price is-sale">{formatMoney(salePrice)}</span>
+              <del className="product-price-was">{formatMoney(originalPrice)}</del>
             </>
           ) : (
-            <div className="product-price">{formatMoney(salePrice)}</div>
+            <span className="product-price">{formatMoney(salePrice)}</span>
           )}
         </div>
         {hasDiscount && (product.discount_start || product.discount_end) && (

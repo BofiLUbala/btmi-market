@@ -4,7 +4,7 @@ import type { InventoryItem, Product, ProductVariant, PublicationStatus } from '
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { BoxIcon } from '@/components/ui/Icons'
+import { BoxIcon, StoreIcon } from '@/components/ui/Icons'
 import { useAuth } from '@/store/auth'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -178,7 +178,7 @@ export default function SellerProductsPage() {
       {!activeShop ? (
         <Card>
           <div className="empty-state seller-products-empty">
-            <div className="empty-icon">🏪</div>
+            <div className="empty-icon"><StoreIcon className="empty-svg" /></div>
             <h3>{t('seller.productList.selectShopTitle')}</h3>
             <p className="muted">{t('seller.productList.selectShopDesc')}</p>
           </div>

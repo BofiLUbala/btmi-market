@@ -11,12 +11,15 @@ import { Button, ErrorState, Field, Loading } from '../../../src/components/ui'
 import { QRPanel } from '../../../src/components/OrderItemQRSection'
 import { useI18n, type TranslationKey } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
-import { radius, spacing, type Colors } from '../../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../../src/theme'
 import { prepareProductImageUpload } from '../../../src/lib/imageUpload'
 import { extractSpecifications } from '../../../src/lib/variants'
 import { attributeLabel, canonicalizeAttributes, getAttributeValue, variantDisplayLabel, variantHasAttribute } from '../../../src/lib/categoryAttributes'
 import type { CategoryAttributeDefinition, Product, ProductVariant } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
+import { DescriptionEditor } from '../../../src/components/DescriptionEditor'
+import { DescriptionPreview } from '../../../src/components/Accordion'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/seller/products/SellerProductDetailPage.tsx at its
 // narrow layout (the `.mobile-card-list` variant cards). Same loads (product,
@@ -312,7 +315,7 @@ export default function SellerProductDetailScreen() {
     ])
   }
 
-  if (!activeBusiness) return <View style={styles.center}><Text style={{ fontSize: 64 }}>📦</Text><Text style={styles.h2}>{t('seller.noBusinessSelected')}</Text></View>
+  if (!activeBusiness) return <View style={styles.center}><Ionicons name="cube-outline" size={40} color={colors.muted} /><Text style={styles.h2}>{t('seller.noBusinessSelected')}</Text></View>
   if (product.isLoading || variantsQ.isLoading) return <Loading label={t('seller.productDetail.loading')} />
   if (product.isError) return <ErrorState message={product.error instanceof Error ? product.error.message : t('seller.productDetail.loadFailed')} retry={() => void product.refetch()} />
   if (!product.data) return <ErrorState message={t('seller.productDetail.notFound')} />
@@ -341,7 +344,7 @@ export default function SellerProductDetailScreen() {
 
       {/* ── Actionable draft requirements ── */}
       {!published && missingRequirements.length > 0 ? <View style={styles.warnBox} accessibilityRole="alert">
-        <Text style={styles.h3}>⚠ {missingRequirements.length} caractéristique{missingRequirements.length > 1 ? 's' : ''} obligatoire{missingRequirements.length > 1 ? 's' : ''} manquante{missingRequirements.length > 1 ? 's' : ''}</Text>
+        <Text style={styles.h3}><Ionicons name="warning-outline" size={14} color={colors.muted} /> {missingRequirements.length} caractéristique{missingRequirements.length > 1 ? 's' : ''} obligatoire{missingRequirements.length > 1 ? 's' : ''} manquante{missingRequirements.length > 1 ? 's' : ''}</Text>
         {missingRequirements.map((req) => {
           const label = attributeLabel(req.def, lang)
           return <View key={req.def.key} style={styles.reqItem}>
@@ -364,9 +367,9 @@ export default function SellerProductDetailScreen() {
           {p.sku ? <Text style={styles.mono}>{t('seller.productDetail.skuInfo', { sku: p.sku })}</Text> : null}
           <Text style={styles.small}>· {t('seller.productDetail.basePrice', { price: Number(p.unit_price || 0).toLocaleString() })}</Text>
           <Text style={styles.small}>· {t('seller.productDetail.unitLabel', { unit: p.unit || 'PCS' })}</Text>
-          {p.category_id ? <Text style={styles.badgeOutline}>📁 {categories.find((c) => c.id === p.category_id)?.name || t('seller.productDetail.categoryFallback')}</Text> : null}
+          {p.category_id ? <Text style={styles.badgeOutline}><Ionicons name="folder-outline" size={14} color={colors.muted} /> {categories.find((c) => c.id === p.category_id)?.name || t('seller.productDetail.categoryFallback')}</Text> : null}
         </View>
-        {p.description ? <Text style={styles.muted}>{p.description}</Text> : null}
+        {p.description ? <DescriptionPreview text={p.description} /> : null}
         <View>
           <Text style={styles.small}>{t('seller.productDetail.inventoryStatus')}</Text>
           <Text style={[styles.bigStat, { color: totalAvailable > 0 ? colors.green : colors.muted }]}>{t('seller.productDetail.availableUnits', { count: totalAvailable })}</Text>
@@ -396,8 +399,8 @@ export default function SellerProductDetailScreen() {
               {editCategory.subcategories.map((s) => <Chip key={s.id} label={s.name} selected={editForm.subcategory_id === s.id} onPress={() => setEditForm((f) => ({ ...f, subcategory_id: s.id }))} styles={styles} />)}
             </View>
           </> : null}
-          <Field label={t('product.description')} value={editForm.description} onChangeText={(v) => setEditForm((f) => ({ ...f, description: v }))} multiline />
-          {categoryChangeWarning ? <View style={styles.warnBox}><Text style={styles.text}>ℹ️ {categoryChangeWarning}</Text></View> : null}
+          <DescriptionEditor categorySlug={editCategory?.slug} value={editForm.description} onChange={(description) => setEditForm((f) => ({ ...f, description }))} />
+          {categoryChangeWarning ? <View style={styles.warnBox}><Text style={styles.text}><Ionicons name="information-circle-outline" size={14} color={colors.muted} /> {categoryChangeWarning}</Text></View> : null}
           <View style={styles.wrapRow}>
             <Button dense title={t('seller.productDetail.saveProductChanges')} loading={busy} onPress={() => void saveProductDetails()} />
             <Button dense variant="outline" title={t('common.cancel')} onPress={() => setShowEdit(false)} />
@@ -515,7 +518,7 @@ export default function SellerProductDetailScreen() {
           <Button title={t('seller.productDetail.saveVariant')} loading={busy} onPress={() => void createVariant()} />
         </View> : null}
 
-        {variantsMissingAttributes.length > 0 ? <View style={styles.warnBox}><Text style={styles.text}>⚠️ {t(variantsMissingAttributes.length > 1 ? 'seller.productDetail.noAttrsIntroP' : 'seller.productDetail.noAttrsIntroS', { count: variantsMissingAttributes.length })} {t('seller.productDetail.noAttrsNames', { names: variantsMissingAttributes.map((v) => v.name || v.sku || t('seller.productDetail.unnamedVariant')).join(', ') })} {t(variantsMissingAttributes.length > 1 ? 'seller.productDetail.noAttrsCannotP' : 'seller.productDetail.noAttrsCannotS')} {t(variantsMissingAttributes.length > 1 ? 'seller.productDetail.noAttrsFixP' : 'seller.productDetail.noAttrsFixS')}</Text></View> : null}
+        {variantsMissingAttributes.length > 0 ? <View style={styles.warnBox}><Text style={styles.text}><Ionicons name="warning-outline" size={14} color={colors.muted} /> {t(variantsMissingAttributes.length > 1 ? 'seller.productDetail.noAttrsIntroP' : 'seller.productDetail.noAttrsIntroS', { count: variantsMissingAttributes.length })} {t('seller.productDetail.noAttrsNames', { names: variantsMissingAttributes.map((v) => v.name || v.sku || t('seller.productDetail.unnamedVariant')).join(', ') })} {t(variantsMissingAttributes.length > 1 ? 'seller.productDetail.noAttrsCannotP' : 'seller.productDetail.noAttrsCannotS')} {t(variantsMissingAttributes.length > 1 ? 'seller.productDetail.noAttrsFixP' : 'seller.productDetail.noAttrsFixS')}</Text></View> : null}
 
         {variants.length === 0 ? <Text style={[styles.small, { textAlign: 'center', padding: 16 }]}>{t('seller.productDetail.noVariantsFound')}</Text> : variants.map((v) => {
           const rows = variantInventories[v.id] || []
@@ -559,7 +562,7 @@ export default function SellerProductDetailScreen() {
               <Text style={styles.small}>{t('seller.productDetail.availableStock')}</Text>
               <Text style={[styles.bold, { color: available > 0 ? colors.green : colors.danger }]}>{available} dispo {reserved > 0 ? `(${total} tot · ${reserved} rés)` : ''}</Text>
             </View>
-            {rows.length > 0 ? rows.map((row) => <Text key={row.id} style={styles.small}>🏪 {shops.find((s) => s.id === row.shop_id)?.name ?? 'Boutique'}: <Text style={styles.bold}>{Math.max(0, row.quantity - (row.reserved_quantity || 0))}</Text> dispo</Text>) : null}
+            {rows.length > 0 ? rows.map((row) => <Text key={row.id} style={styles.small}><Ionicons name="storefront-outline" size={14} color={colors.muted} /> {shops.find((s) => s.id === row.shop_id)?.name ?? 'Boutique'}: <Text style={styles.bold}>{Math.max(0, row.quantity - (row.reserved_quantity || 0))}</Text> dispo</Text>) : null}
             {!scopedShopId && shops.length > 1 ? <View style={styles.chips}>{shops.map((s) => <Chip key={s.id} label={s.name} selected={targetShop === s.id} onPress={() => setTargetShopByVariant((prev) => ({ ...prev, [v.id]: s.id }))} styles={styles} />)}</View> : null}
             <View style={styles.attrRow}>
               <TextInput style={[styles.input, { width: 90 }]} value={stockByVariant[v.id] ?? ''} onChangeText={(val) => setStockByVariant((prev) => ({ ...prev, [v.id]: val }))} placeholder={t('seller.productDetail.qtyPlaceholder')} placeholderTextColor={colors.mutedLight} keyboardType="number-pad" />
@@ -616,8 +619,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: 8 },
   header: { gap: 6, alignItems: 'flex-start' },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
-  h2: { fontSize: 20, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 17, fontWeight: '700', color: c.ink },
   h4: { fontSize: 15, fontWeight: '700', color: c.ink },
   text: { color: c.ink, fontSize: 14 },
@@ -656,7 +659,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: c.borderControl, alignItems: 'center', justifyContent: 'center' },
   checkboxOn: { backgroundColor: c.green, borderColor: c.green },
-  checkMark: { color: c.onGreen, fontWeight: '900', fontSize: 13 },
+  checkMark: { color: c.onGreen, fontWeight: '700', fontSize: 13 },
   input: { minHeight: 40, paddingHorizontal: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: c.borderControl, backgroundColor: c.white, color: c.ink, fontSize: 14 },
   attrRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   attrLabel: { width: 90 },

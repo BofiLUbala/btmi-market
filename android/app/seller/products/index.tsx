@@ -7,9 +7,10 @@ import { useAuth } from '../../../src/store/auth'
 import { Button, Loading } from '../../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
-import { radius, spacing, type Colors } from '../../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../../src/theme'
 import type { Product, PublicationStatus } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/seller/products/SellerProductsPage.tsx. The list is
 // scoped to the ACTIVE shop exactly like web: it is built from that shop's
@@ -124,7 +125,7 @@ export default function SellerProductsScreen() {
   }
 
   if (!activeBusiness) return <View style={styles.center}>
-    <Text style={{ fontSize: 48 }}>📦</Text>
+    <Ionicons name="cube-outline" size={40} color={colors.muted} />
     <Text style={styles.h2}>{t('seller.noBusinessSelected')}</Text>
     <Text style={[styles.muted, styles.centerText]}>{t('seller.productList.noBusinessSubtitle')}</Text>
   </View>
@@ -137,7 +138,7 @@ export default function SellerProductsScreen() {
     </View>
 
     {!activeShop ? <View style={styles.card}><View style={styles.emptyInline}>
-      <Text style={{ fontSize: 40 }}>🏪</Text>
+      <Ionicons name="storefront-outline" size={40} color={colors.muted} />
       <Text style={styles.h3}>{t('seller.productList.selectShopTitle')}</Text>
       <Text style={[styles.muted, styles.centerText]}>{t('seller.productList.selectShopDesc')}</Text>
     </View></View> : <>
@@ -202,8 +203,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: 8 },
   centerText: { textAlign: 'center' },
   head: { gap: 8, alignItems: 'flex-start' },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
-  h2: { fontSize: 20, fontWeight: '700', color: c.ink, textAlign: 'center' },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink, textAlign: 'center' },
   h3: { fontSize: 17, fontWeight: '700', color: c.ink, textAlign: 'center' },
   muted: { color: c.muted, fontSize: 14 },
   card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 12, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },

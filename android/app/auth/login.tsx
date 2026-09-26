@@ -7,7 +7,7 @@ import { ApiError } from '../../src/api/client'
 import { Button, Field } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { spacing, type Colors } from '../../src/theme'
+import { spacing, type Colors, fonts } from '../../src/theme'
 import { sellerIntent } from '../../src/store/sellerIntent'
 
 export default function LoginScreen() {
@@ -82,11 +82,11 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   page: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, paddingTop: spacing.lg + webHeaderOffset },
   form: { gap: spacing.md },
-  title: { color: colors.ink, fontSize: 30, fontWeight: '900' },
+  title: { color: colors.ink, fontSize: 30, fontFamily: fonts.display, fontWeight: '500' },
   subtitle: { color: colors.muted },
   error: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 12, borderRadius: 10 },
   link: { color: colors.green, fontWeight: '800', textAlign: 'right' },
   recovery: { gap: spacing.sm, marginTop: spacing.xs },
-  recoveryTitle: { color: colors.ink, fontWeight: '900', textAlign: 'center', fontSize: 16 },
+  recoveryTitle: { color: colors.ink, fontWeight: '700', textAlign: 'center', fontSize: 16 },
   choiceTitle: { color: colors.muted, textAlign: 'center', fontWeight: '700' },
 })

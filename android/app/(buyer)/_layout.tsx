@@ -8,7 +8,7 @@ import { useTheme } from '../../src/store/theme'
 import { useI18n } from '../../src/store/i18n'
 import { resolveMediaUrl } from '../../src/api/client'
 import { PreferenceToggleButtons } from '../../src/components/PreferenceToggles'
-import { spacing } from '../../src/theme'
+import { fonts, spacing } from '../../src/theme'
 
 // A photo replaces the generic person icon entirely — same rule as the web
 // header: circle photo when set, otherwise the plain icon (never both).
@@ -37,12 +37,12 @@ export default function BuyerTabs() {
         headerStyle: { backgroundColor: colors.white },
         headerTintColor: colors.ink,
         headerShadowVisible: false,
-        headerTitleStyle: { fontWeight: '800' },
+        headerTitleStyle: { fontFamily: fonts.display, fontWeight: '500', fontSize: 20 },
         headerRight: () => <PreferenceToggleButtons />,
         headerRightContainerStyle: { paddingRight: spacing.md },
-        tabBarActiveTintColor: colors.green,
+        tabBarActiveTintColor: colors.ink,
         tabBarInactiveTintColor: colors.mutedLight,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           height: 58 + insets.bottom,

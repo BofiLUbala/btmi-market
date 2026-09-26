@@ -6,6 +6,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { useT } from '@/store/i18n'
+import { CustomerIcon, PlusIcon } from '@/components/ui/Icons'
 
 interface Customer {
   id: string
@@ -81,7 +82,7 @@ export default function SellerCustomersPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>👤</div>
+        <div className="empty-icon"><CustomerIcon className="empty-svg" /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
         <p className="muted">{t('seller.customers.noBusinessSelectedHint')}</p>
       </div>
@@ -94,7 +95,7 @@ export default function SellerCustomersPage() {
     <div className="seller-customers">
       <div className="page-header">
         <h1>{t('seller.customers')}</h1>
-        <Button onClick={() => setShowCreate(true)}>➕ {t('seller.customers.add')}</Button>
+        <Button onClick={() => setShowCreate(true)}><PlusIcon className="inline-icon" /> {t('seller.customers.add')}</Button>
       </div>
 
       {showCreate && (
@@ -121,7 +122,7 @@ export default function SellerCustomersPage() {
       ) : customerList.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
-            <div className="empty-icon" style={{ fontSize: 48 }}>👤</div>
+            <div className="empty-icon"><CustomerIcon className="empty-svg" /></div>
             <h3>{t('seller.customers.noneYet')}</h3>
             <p className="muted">{t('seller.customers.noneYetHint')}</p>
             <Button onClick={() => setShowCreate(true)} size="lg">{t('seller.customers.add')}</Button>

@@ -8,12 +8,13 @@ import { resolveMediaUrl } from '../../src/api/client'
 import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, type Colors } from '../../src/theme'
+import { radius, type Colors, fonts } from '../../src/theme'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { formatMoney } from '../../src/lib/money'
 import { formatDateTime } from '../../src/lib/format'
 import { confirmationActorKey, paymentStatusKey } from '../../src/lib/paymentStatus'
 import type { BuyerPayment, OrderDetail, OrderLine } from '../../src/types'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/buyer/OrdersPage.tsx: every order is loaded with
 // its detail and payment (as web does), filtered by the same seven tabs, with
@@ -86,7 +87,7 @@ export default function OrdersScreen() {
   const lastUpdated = query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null
 
   if (items.length === 0 && filter === 'toutes') return <View style={styles.empty}>
-    <Text style={{ fontSize: 48 }}>📦</Text>
+    <Ionicons name="cube-outline" size={40} color={colors.muted} />
     <Text style={styles.h2}>{t('orders.emptyTitle')}</Text>
     <Text style={[styles.muted, { textAlign: 'center' }]}>{t('orders.emptyDesc')}</Text>
     <Button title={t('orders.browse')} onPress={() => router.replace('/(buyer)')} />
@@ -168,7 +169,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
   eyebrow: { color: c.green, fontSize: 11.5, fontWeight: '800', letterSpacing: 1.3 },
-  h1: { fontSize: 26, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 26, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h2: { fontSize: 18, fontWeight: '700', color: c.ink },
   text: { color: c.ink, fontSize: 14 },
   bold: { color: c.ink, fontWeight: '700', fontSize: 14 },

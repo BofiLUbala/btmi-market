@@ -8,7 +8,7 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Loading } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import { canSell, canOnboardSeller } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { formatMoney } from '../../src/lib/money'
@@ -310,9 +310,9 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   center_: { textAlign: 'center' },
   flex1: { flex: 1 },
-  title: { fontSize: 25, fontWeight: '900', color: colors.ink, textAlign: 'center' },
+  title: { fontSize: 25, fontFamily: fonts.display, fontWeight: '500', color: colors.ink, textAlign: 'center' },
   // web: .header-titles h1 — clamp(1.5rem, …) → 24px, primary colour
-  h1: { fontSize: 24, fontWeight: '700', color: colors.green, marginBottom: 2, lineHeight: 30 },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: colors.ink, marginBottom: 2, lineHeight: 30 },
   // web: .section-card-header h3 — --text-lg
   h3: { fontSize: 18, fontWeight: '700', color: colors.ink, marginBottom: 2 },
   muted: { color: colors.muted, fontSize: 16, lineHeight: 24 },
@@ -326,22 +326,23 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   partialBody: { color: colors.ink, fontSize: 14 },
 
   // web: .seller-metrics-grid — auto-fit minmax(180px) → one column at phone width, gap --space-4
-  metrics: { gap: 16 },
+  // Two tiles per row on phones, same as the web workspace below 700px.
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   // web: .seller-stat-card
-  statCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 16, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
+  statCard: { flexBasis: '46%', flexGrow: 1, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 14 },
   statHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  statLabel: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6 },
-  statIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontSize: 22.4, fontWeight: '800', color: colors.ink, lineHeight: 25, marginBottom: 12 },
+  statLabel: { fontSize: 10.5, fontWeight: '600', color: colors.muted, letterSpacing: 1.2 },
+  statIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  statValue: { fontSize: 22.4, fontFamily: fonts.display, fontWeight: '500', color: colors.ink, lineHeight: 25, marginBottom: 12 },
   statValueTier: { fontSize: 19.2, color: colors.goldDark },
-  statFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  statFooter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 4, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
   statFooterEnd: { justifyContent: 'flex-start' },
-  statLink: { fontSize: 12, fontWeight: '700', color: colors.green },
+  statLink: { fontSize: 12, fontWeight: '600', color: colors.ink },
   trustPill: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   trustText: { fontSize: 12, fontWeight: '700', color: colors.success, flexShrink: 1 },
 
   // web: .seller-section-card (padding --space-5) / .section-card-header (margin-bottom --space-4)
-  sectionCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 24, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
+  sectionCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 20 },
   setupCard: { marginTop: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 16 },
   headerLink: { fontSize: 12, fontWeight: '700', color: colors.green },

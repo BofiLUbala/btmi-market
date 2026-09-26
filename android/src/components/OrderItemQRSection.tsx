@@ -6,7 +6,7 @@ import { API_URL, ApiError } from '../api/client'
 import { tokenStore } from '../api/tokenStore'
 import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
-import { radius, type Colors } from '../theme'
+import { radius, type Colors, fonts } from '../theme'
 import type { OrderItemQR } from '../types'
 
 export type LabelField = { label: string; value: string }
@@ -93,7 +93,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   retry: { marginTop: 8, alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.sm, borderWidth: 1, borderColor: c.green },
   retryText: { color: c.green, fontWeight: '600' },
   panel: { marginTop: 12, alignItems: 'center', gap: 4, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: c.border, backgroundColor: '#FFFFFF' },
-  brand: { fontSize: 20, fontWeight: '800', letterSpacing: 3, color: '#000000' },
+  brand: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', letterSpacing: 3, color: '#000000' },
   title: { fontSize: 11, letterSpacing: 1, color: '#000000', marginBottom: 6 },
   image: { width: 180, height: 180 },
   ref: { fontFamily: 'monospace', fontSize: 13, fontWeight: '700', color: '#000000', marginTop: 4 },

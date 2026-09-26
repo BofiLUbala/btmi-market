@@ -87,13 +87,13 @@ const compact = StyleSheet.create({
   // 36pt keeps the pair inside a standard header without crowding the title,
   // and hitSlop above restores a comfortable touch target.
   button: { minWidth: 36, height: 36, borderRadius: radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  langText: { fontWeight: '900', fontSize: 13 },
+  langText: { fontWeight: '700', fontSize: 13 },
 })
 
 const styles = StyleSheet.create({
   row: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 14, paddingHorizontal: spacing.md },
   label: { flex: 1, fontWeight: '700', fontSize: 15 },
-  value: { fontWeight: '900', fontSize: 14 },
+  value: { fontWeight: '700', fontSize: 14 },
   divider: { height: 1, marginHorizontal: spacing.md },
 })

@@ -10,6 +10,7 @@ import { radius, spacing, type Colors } from '../theme'
 import { invalidateCourierMission } from '../lib/courier'
 import { DELIVERY_SLOTS, deliveryDays, expectedDeliveryText, formatDeliveryDay } from '../lib/deliveryPlan'
 import type { CourierMission } from '../types'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 const REASONS: TranslationKey[] = ['courierPlan.reason.unreachable', 'courierPlan.reason.absent', 'courierPlan.reason.wrongAddress']
 
@@ -73,7 +74,7 @@ export function CourierPlanPanel({ mission: m }: { mission: CourierMission }) {
   return (
     <View style={styles.box}>
       <Text style={styles.title}>{t('courierPlan.title')}</Text>
-      {planned ? <Text style={styles.planned}>📅 {planned}</Text> : <Text style={styles.muted}>{t('courierPlan.required')}</Text>}
+      {planned ? <Text style={styles.planned}><Ionicons name="calendar-outline" size={14} color={colors.muted} /> {planned}</Text> : <Text style={styles.muted}>{t('courierPlan.required')}</Text>}
       {m.delivery_attempts ? <Text style={styles.muted}>{t('deliveryPlan.attempts', { count: m.delivery_attempts })}</Text> : null}
 
       {!planned || editing ? (

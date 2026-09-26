@@ -10,12 +10,13 @@ import { OrderItemQRSection, QRPanel } from '../../src/components/OrderItemQRSec
 import { useAuth } from '../../src/store/auth'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import type { OrderLine, SellerOrder } from '../../src/types'
 import { expectedDeliveryText } from '../../src/lib/deliveryPlan'
 import { confirmationActorKey, isPaymentPaid, paymentStatusKey } from '../../src/lib/paymentStatus'
 import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
 import { formatDateTime } from '../../src/lib/format'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/seller/orders/SellerOrdersPage.tsx. Same data flow:
 // the active business (not the first one), an "all shops" / single-shop
@@ -136,7 +137,7 @@ export default function SellerOrders() {
   }
 
   if (!activeBusiness) return <View style={styles.empty}>
-    <Text style={styles.emptyIcon}>🧾</Text>
+    <Ionicons name="receipt-outline" size={40} color={colors.muted} />
     <Text style={styles.emptyTitle}>{t('seller.noBusinessSelected')}</Text>
     <Text style={[styles.muted, styles.centerText]}>{t('seller.orders.noBusinessSubtitle')}</Text>
   </View>
@@ -180,7 +181,7 @@ export default function SellerOrders() {
       </View>
       : count === 0 ? <View style={styles.card}>
         <View style={styles.emptyInline}>
-          <Text style={{ fontSize: 48 }}>🧾</Text>
+          <Ionicons name="receipt-outline" size={40} color={colors.muted} />
           <Text style={styles.h3}>{shopFilter === 'ALL' ? t('seller.orders.emptyTitle') : t('seller.orders.emptyShopTitle')}</Text>
           <Text style={[styles.muted, styles.centerText]}>{shopFilter === 'ALL' ? t('seller.orders.emptyDesc') : t('seller.orders.emptyShopDesc')}</Text>
         </View>
@@ -254,7 +255,7 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
       <Text style={[styles.badge, { backgroundColor: tint.bg, color: tint.fg }]}>{orderStatusLabel(displayStatus, t)}</Text>
       <Text style={styles.bold}>{formatMoney(order.final_total || 0, currency)}</Text>
     </View>
-    {order.expected_delivery_date && !['CANCELLED', 'COMPLETED'].includes(order.status) ? <Text style={styles.small}>📅 {expectedDeliveryText(order, t, lang)}</Text> : null}
+    {order.expected_delivery_date && !['CANCELLED', 'COMPLETED'].includes(order.status) ? <Text style={styles.small}><Ionicons name="calendar-outline" size={14} color={colors.muted} /> {expectedDeliveryText(order, t, lang)}</Text> : null}
 
     <View style={styles.actions}>
       {actions.map((a) => <Button key={a.label} dense variant="outline" title={a.label} disabled={acting} onPress={() => onAction(a)} />)}
@@ -346,7 +347,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   flex1: { flex: 1 },
   productLink: { color: c.green, fontWeight: '700', fontSize: 14, textDecorationLine: 'underline', marginBottom: 2 },
   centerText: { textAlign: 'center' },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 18, fontWeight: '700', color: c.ink, textAlign: 'center' },
   text: { color: c.ink, fontSize: 14 },
   bold: { color: c.ink, fontSize: 14, fontWeight: '700' },

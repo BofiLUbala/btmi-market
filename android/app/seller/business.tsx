@@ -8,7 +8,7 @@ import { Button, Field, Loading } from '../../src/components/ui'
 import { StructuredAddressFields, type StructuredAddressValue } from '../../src/components/StructuredAddressFields'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, type Colors } from '../../src/theme'
+import { radius, type Colors, fonts } from '../../src/theme'
 
 // Port of web-app/src/pages/seller/business/SellerBusinessPage.tsx: the same
 // editable fields (name, business type, category, phone, WhatsApp, email, the
@@ -175,8 +175,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
   flex1: { flex: 1 },
   eyebrow: { color: c.green, fontSize: 11.5, fontWeight: '800', letterSpacing: 1.3 },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
-  h2: { fontSize: 20, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 16, fontWeight: '700', color: c.ink },
   bold: { fontWeight: '700', color: c.ink },
   muted: { color: c.muted, fontSize: 15 },

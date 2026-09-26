@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type LayoutCh
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
 import { useColors } from '../../src/store/theme'
-import type { Colors } from '../../src/theme'
+import { fonts, type Colors } from '../../src/theme'
 import type { SaleFinanceDetail, SellerBreakdownGroup, SellerFinanceTimeseriesPoint } from '../../src/types'
 
 // Port of web-app/src/pages/seller/finances/SellerFinancesPage.tsx. Same four
@@ -111,7 +111,7 @@ export default function SellerFinancesScreen() {
     <View style={styles.flex1}>
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       <View>
-        <Text style={styles.h2}>💳 Mes Finances & Commissions TBK</Text>
+        <Text style={styles.h2}>Mes Finances & Commissions TBK</Text>
         <Text style={styles.subtitle}>Suivi financier de vos ventes réalisées, calcul de la commission TBK et décompte de votre revenu net vendeur.</Text>
       </View>
 
@@ -226,7 +226,7 @@ export default function SellerFinancesScreen() {
               </View>
               <View style={[styles.td, { width: 120, alignItems: 'flex-end' }]}>
                 <Pressable accessibilityRole="button" disabled={detailLoading} onPress={() => void openSale(item.order_id)} style={styles.detailButton}>
-                  <Text style={styles.detailButtonText}>🔍 Résumé</Text>
+                  <Text style={styles.detailButtonText}>Résumé</Text>
                 </Pressable>
               </View>
             </View>
@@ -276,7 +276,7 @@ export default function SellerFinancesScreen() {
               <View style={styles.sep} />
               <View style={styles.rowBetween}>
                 <Text style={[styles.tdBolder, { color: '#4ade80' }]}>Revenu Net Vendeur</Text>
-                <Text style={[styles.tdBolder, { color: '#4ade80', fontSize: 15, fontWeight: '900' }]}>{money(selectedSale.sale.seller_net_amount, selectedSale.sale.currency || 'USD')}</Text>
+                <Text style={[styles.tdBolder, { color: '#4ade80', fontSize: 15, fontWeight: '700' }]}>{money(selectedSale.sale.seller_net_amount, selectedSale.sale.currency || 'USD')}</Text>
               </View>
               <View style={styles.rowBetween}>
                 <Text style={styles.factMuted}>Statut Règlement</Text>
@@ -369,7 +369,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 20 },
   flex1: { flex: 1 },
   flex2: { flex: 2 },
-  h2: { fontSize: 24, fontWeight: '800', color: c.ink, marginBottom: 6 },
+  h2: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink, marginBottom: 6 },
   subtitle: { color: c.muted, fontSize: 14 },
   alert: { padding: 18, borderRadius: 10, backgroundColor: '#450a0a', borderWidth: 1, borderColor: '#991b1b', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
   alertText: { color: '#FFFFFF', fontWeight: '700' },
@@ -378,7 +378,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   kpiGrid: { gap: 16 },
   card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 12, padding: 18 },
   kpiLabel: { fontSize: 12, color: c.muted, fontWeight: '600' },
-  kpiValue: { fontSize: 22, fontWeight: '800', color: c.ink, marginTop: 4 },
+  kpiValue: { fontSize: 22, fontFamily: fonts.display, fontWeight: '500', color: c.ink, marginTop: 4 },
   kpiNote: { fontSize: 11, color: c.muted, marginTop: 4 },
   chartTitle: { fontSize: 13, fontWeight: '700', color: c.ink, marginBottom: 10 },
   filters: { padding: 16, gap: 12 },

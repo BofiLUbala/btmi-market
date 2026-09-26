@@ -1,4 +1,5 @@
 import { useI18n } from '@/store/i18n'
+import { BagIcon } from '@/components/ui/Icons'
 
 export function Spinner({ size = 'md' }: { size?: 'md' | 'lg' }) {
   const { t } = useI18n()
@@ -40,7 +41,7 @@ export function SuccessBox({ message }: { message: string }) {
 }
 
 export function EmptyState({
-  icon = '🛍️',
+  icon = <BagIcon className="empty-svg" />,
   title,
   description,
   action

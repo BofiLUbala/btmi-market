@@ -11,7 +11,7 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import type { CartLineIssue, CartPreview } from '../../src/types'
 import { formatMoney } from '../../src/lib/money'
 import { idempotencyKey } from '../../src/lib/idempotency'
@@ -244,14 +244,14 @@ export default function CartScreen() {
  *  in `styles` so they are created once. */
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
-    emptyTitle: { color: c.ink, fontSize: 22, fontWeight: '900' },
+    emptyTitle: { color: c.ink, fontSize: 22, fontFamily: fonts.display, fontWeight: '500' },
     muted: { color: c.muted },
     shopLine: { color: c.green, fontWeight: '800', flex: 1 },
     name: { color: c.ink, fontWeight: '800', fontSize: 16 },
     unit: { color: c.muted, fontSize: 13 },
-    qty: { minWidth: 28, textAlign: 'center', fontWeight: '900', color: c.ink, fontSize: 16 },
-    price: { marginLeft: 'auto', color: c.green, fontWeight: '900' },
-    total: { color: c.green, fontWeight: '900', fontSize: 19 },
+    qty: { minWidth: 28, textAlign: 'center', fontWeight: '700', color: c.ink, fontSize: 16 },
+    price: { marginLeft: 'auto', color: c.green, fontWeight: '700' },
+    total: { color: c.green, fontFamily: fonts.display, fontWeight: '500', fontSize: 19 },
     pointsNote: { color: c.success, fontWeight: '700' },
     issue: { color: c.danger, fontWeight: '700' },
     thumb: { width: 64, height: 64, borderRadius: radius.sm, backgroundColor: c.greenSoft },

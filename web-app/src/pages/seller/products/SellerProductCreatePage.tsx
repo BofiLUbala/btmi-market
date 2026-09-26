@@ -3,6 +3,8 @@ import { formatMoney } from '@/lib/format'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
+import { BulbIcon, WarningIcon } from '@/components/ui/Icons'
+import { DescriptionEditor } from '@/components/seller/DescriptionEditor'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import { ApiError, type CategoryResponse, type SubcategoryResponse, type Shop, type CategoryAttributeDefinition } from '@/api/types'
 import { Card } from '@/components/ui/Card'
@@ -932,7 +934,7 @@ export default function SellerProductCreatePage() {
     return (
       <div className="seller-product-create">
         <Card className="product-create-failure">
-          <div className="product-create-failure-icon" aria-hidden>⚠</div>
+          <div className="product-create-failure-icon" aria-hidden><WarningIcon className="empty-svg" /></div>
           <h2>{t('seller.productForm.couldNotComplete', { stage: partialFailure.stage.replace(/…$/, '') })}</h2>
           <p className="muted product-create-failure-copy">
             {t('seller.productForm.savedRetryDesc')}
@@ -1124,14 +1126,10 @@ export default function SellerProductCreatePage() {
                 />
               </div>
               <div style={{ marginTop: 16 }}>
-                <Field
-                  label={t('seller.productForm.descriptionOptional')}
-                  name="description"
-                  as="textarea"
-                  rows={3}
-                  placeholder={t('seller.productForm.descriptionPlaceholder')}
+                <DescriptionEditor
+                  categorySlug={selectedCategory?.slug}
                   value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  onChange={(description) => setForm((f) => ({ ...f, description }))}
                 />
               </div>
               <div style={{ marginTop: 16 }}>
@@ -1474,7 +1472,7 @@ export default function SellerProductCreatePage() {
               {categorySuggestions.length > 0 && (
                 <div style={{ margin: '16px 0 20px', padding: 14, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
                   <div className="small bold" style={{ marginBottom: 8, color: 'var(--color-text)' }}>
-                    💡 {t('seller.productForm.suggestedFor', { name: selectedSubcategory?.name || selectedCategory?.name || t('seller.productForm.thisCategory') })}
+                    <BulbIcon className="inline-icon" /> {t('seller.productForm.suggestedFor', { name: selectedSubcategory?.name || selectedCategory?.name || t('seller.productForm.thisCategory') })}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {categorySuggestions.map((sug) => {

@@ -6,6 +6,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import type { SellerGrowth as SellerGrowthData } from '@/api/types'
 import { useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { GrowthIcon } from '@/components/ui/Icons'
 
 const TRUST_STATUS_KEYS: Record<string, TranslationKey> = {
   HIGH: 'seller.growth.trust.HIGH',
@@ -48,7 +49,7 @@ export default function SellerGrowthPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>📈</div>
+        <div className="empty-icon"><GrowthIcon className="empty-svg" /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
         <p className="muted">{t('seller.growth.noBusinessSelectedHint')}</p>
       </div>

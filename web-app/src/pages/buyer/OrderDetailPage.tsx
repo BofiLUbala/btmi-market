@@ -30,6 +30,7 @@ import { RequireAuth } from '@/components/auth/Guards'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { ChatIcon } from '@/components/ui/Icons'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
@@ -733,7 +734,7 @@ function OrderInner() {
               </Button>
             </Link>
             <Button variant="outline" block onClick={() => setShowChat(true)}>
-              💬 {t('communication.contactSeller')}
+              <ChatIcon className="inline-icon" /> {t('communication.contactSeller')}
             </Button>
             {o.status === 'COMPLETED' && (
               <>

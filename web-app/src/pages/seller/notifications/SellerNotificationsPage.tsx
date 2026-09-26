@@ -14,51 +14,10 @@ import { formatDateTime } from '@/lib/format'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useI18n } from '@/store/i18n'
-import { BoxIcon } from '@/components/ui/Icons'
+import { BellIcon } from '@/components/ui/Icons'
+import { notificationIcon } from '@/components/ui/NotificationIcon'
 
-function getNotificationIcon(type: string): React.ReactNode {
-  switch (type) {
-    case 'NEW_ORDER':
-      return '🛍️'
-    case 'ORDER_ACCEPTED':
-    case 'ORDER_PREPARING':
-    case 'ORDER_READY_FOR_PICKUP':
-      return <BoxIcon style={{ width: 16, height: 16 }} />
-    case 'COURIER_ASSIGNED':
-    case 'DELIVERY_ASSIGNED':
-      return '🛵'
-    case 'COURIER_PICKED_UP':
-    case 'DELIVERY_IN_TRANSIT':
-      return '🚚'
-    case 'COURIER_NEAR_DESTINATION':
-      return '📍'
-    case 'COURIER_ARRIVED':
-      return '🏁'
-    case 'DELIVERED':
-      return '🎁'
-    case 'BUYER_RECEIPT_REQUIRED':
-      return '✍️'
-    case 'ORDER_COMPLETED':
-      return '✅'
-    case 'ORDER_CANCELLED':
-    case 'ORDER_REJECTED':
-      return '❌'
-    case 'DELIVERY_FAILED':
-      return '⚠️'
-    case 'DELIVERY_DELAYED':
-      return '⏳'
-    case 'PAYMENT_CONFIRMED':
-      return '💳'
-    case 'CASH_CONFIRMATION_REQUIRED':
-      return '💵'
-    case 'NEW_MESSAGE':
-      return '💬'
-    case 'NEW_REVIEW':
-      return '⭐'
-    default:
-      return '🔔'
-  }
-}
+const getNotificationIcon = notificationIcon
 
 export default function SellerNotificationsPage() {
   const { t } = useI18n()
@@ -174,7 +133,7 @@ export default function SellerNotificationsPage() {
       >
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span>🔔 {t('seller.notifications')}</span>
+            <span><BellIcon className="inline-icon" /> {t('seller.notifications')}</span>
             {unreadCount > 0 && (
               <span
                 style={{
@@ -217,7 +176,7 @@ export default function SellerNotificationsPage() {
         <LoadingBlock />
       ) : items.length === 0 ? (
         <EmptyState
-          icon="🔔"
+          icon={<BellIcon className="empty-svg" />}
           title={view === 'archived' ? t('notifications.archived.empty.title') : t('notifications.empty.title')}
           description={
             view === 'archived' ? t('notifications.archived.empty.description') : t('notifications.empty.description')
@@ -234,10 +193,9 @@ export default function SellerNotificationsPage() {
                 style={{
                   padding: '16px',
                   borderRadius: 12,
-                  background: n.is_read ? 'var(--color-surface-1)' : 'var(--color-surface-2)',
-                  border: n.is_read
-                    ? '1px solid var(--color-border)'
-                    : '1.5px solid var(--color-primary)',
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: n.is_read ? 'none' : 'inset 3px 0 0 var(--color-accent)',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: 14,
@@ -253,12 +211,14 @@ export default function SellerNotificationsPage() {
               >
                 <div
                   style={{
-                    fontSize: '1.6rem',
-                    lineHeight: 1,
-                    padding: 8,
-                    background: 'var(--color-bg)',
-                    borderRadius: 10,
-                    border: '1px solid var(--color-border)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    width: 36,
+                    height: 36,
+                    flex: 'none',
+                    color: 'var(--color-text)',
+                    background: 'var(--color-surface-2)',
+                    borderRadius: '50%',
                   }}
                 >
                   {icon}
@@ -268,9 +228,10 @@ export default function SellerNotificationsPage() {
                   <div
                     style={{
                       display: 'flex',
-                      alignItems: 'center',
+                      alignItems: 'baseline',
                       justifyContent: 'space-between',
-                      gap: 8,
+                      flexWrap: 'wrap',
+                      gap: '2px 8px',
                       marginBottom: 4,
                     }}
                   >

@@ -7,7 +7,8 @@ import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { formatDate } from '../../src/lib/format'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, type Colors } from '../../src/theme'
+import { radius, type Colors, fonts } from '../../src/theme'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/buyer/MyReviewsPage.tsx: product / shop tabs with
 // counts, each review with its stars, verified badge, date, service breakdown,
@@ -51,7 +52,7 @@ export default function MyReviews() {
       <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'shop' }} onPress={() => setActiveTab('shop')} style={[styles.tab, activeTab === 'shop' && styles.tabOn]}><Text style={[styles.tabText, activeTab === 'shop' && styles.tabTextOn]}>{t('reviews.shopReviews', { count: shopReviews.length })}</Text></Pressable>
     </View>
     {active.length === 0 ? <View style={styles.empty}>
-      <Text style={{ fontSize: 40 }}>⭐</Text>
+      <Ionicons name="star-outline" size={40} color={colors.muted} />
       <Text style={styles.h3}>{activeTab === 'product' ? t('reviews.noProductReviews') : t('reviews.noShopReviews')}</Text>
       <Text style={[styles.muted, { textAlign: 'center' }]}>{activeTab === 'product' ? t('reviews.noProductReviewsDesc') : t('reviews.noShopReviewsDesc')}</Text>
       <Button title={t('account.myOrders')} onPress={() => router.push('/orders')} />
@@ -81,7 +82,7 @@ export default function MyReviews() {
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
   eyebrow: { color: c.green, fontSize: 11.5, fontWeight: '800', letterSpacing: 1.3 },
-  h1: { fontSize: 26, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 26, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 18, fontWeight: '700', color: c.ink, textAlign: 'center' },
   text: { color: c.ink, fontSize: 14 },
   bold: { color: c.ink, fontWeight: '700', fontSize: 14 },

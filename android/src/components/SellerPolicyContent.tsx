@@ -42,9 +42,9 @@ const makeStyles = (colors: Colors) =>
     intro: { color: colors.muted, lineHeight: 21, fontSize: 14 },
     meta: { color: colors.mutedLight, fontSize: 12, marginBottom: spacing.sm },
     article: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 6 },
-    articleTitle: { fontSize: 16, fontWeight: '900', color: colors.ink, marginBottom: 2 },
+    articleTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 2 },
     paragraph: { color: colors.ink, lineHeight: 21, fontSize: 14 },
     listRow: { flexDirection: 'row', gap: 8, paddingLeft: 2 },
-    bullet: { color: colors.gold, fontWeight: '900' },
+    bullet: { color: colors.gold, fontWeight: '700' },
     listText: { flex: 1, color: colors.ink, lineHeight: 20, fontSize: 13.5 },
   })

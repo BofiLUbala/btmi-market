@@ -2171,5 +2171,23 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'reviews.pending': 'Pending',
   'reviews.serviceBreakdown': 'Delivery: {delivery}★ · Shop service: {service}★ · Overall: {overall}★',
   'reviews.viewProductPage': 'View Product Page →',
+  /* ── Seller description editor ─────────────────────── */
+  'seller.descEditor.title': 'Product description',
+  'seller.descEditor.adaptedTo': 'Layout adapted to: {tone}',
+  'seller.descEditor.hint': 'Short sentences, simple words. Each filled section becomes a collapsible tab on the buyer page.',
+  'seller.descEditor.intro': 'Overview (1–2 sentences)',
+  'seller.descEditor.optional': '(optional)',
+  'seller.descEditor.otherSections': 'Other sections kept',
+  'seller.descEditor.tone.fashion': 'Fashion',
+  'seller.descEditor.tone.shoes': 'Shoes',
+  'seller.descEditor.tone.children': 'Kids',
+  'seller.descEditor.tone.electronics': 'Electronics',
+  'seller.descEditor.tone.home': 'Home',
+  'seller.descEditor.tone.beauty': 'Beauty',
+  'seller.descEditor.tone.food': 'Food',
+  'seller.descEditor.tone.sport': 'Sport',
+  'seller.descEditor.tone.automotive': 'Automotive',
+  'seller.descEditor.tone.services': 'Services',
+  'seller.descEditor.tone.default': 'General',
 
 }

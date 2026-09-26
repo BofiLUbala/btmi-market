@@ -9,6 +9,7 @@ import { formatDate, asArray } from '@/lib/format'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
+import { PinIcon } from '@/components/ui/Icons'
 
 function AccountInner() {
   const { user, buyerProfile, logout, refreshUser } = useAuth()
@@ -78,7 +79,7 @@ function AccountInner() {
             )}
             {buyerProfile?.latitude != null && buyerProfile?.longitude != null && (
               <div className="small muted" style={{ marginTop: '0.25rem' }}>
-                📍 GPS: {buyerProfile.latitude}, {buyerProfile.longitude}
+                <PinIcon className="inline-icon" /> GPS: {buyerProfile.latitude}, {buyerProfile.longitude}
               </div>
             )}
           </div>

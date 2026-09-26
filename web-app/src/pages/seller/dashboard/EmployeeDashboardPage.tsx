@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { StoreIcon } from '@/components/ui/Icons'
 
 const EMPLOYEE_STATUS_KEYS: Record<string, TranslationKey> = {
   ACTIVE: 'employee.status.ACTIVE',
@@ -96,7 +97,7 @@ export default function EmployeeDashboardPage() {
                 <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
                   {assignedShops.map((shop) => (
                     <li key={shop.id}>
-                      🏪 {shop.name}
+                      <StoreIcon className="inline-icon" /> {shop.name}
                       {shop.city && <span className="muted small"> · {shop.city}</span>}
                     </li>
                   ))}

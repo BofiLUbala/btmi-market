@@ -8,6 +8,7 @@ import { Rating } from '@/components/ui/Rating'
 import { formatDate, asArray } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
+import { ReviewIcon } from '@/components/ui/Icons'
 
 function MyReviewsInner() {
   const { t } = useI18n()
@@ -78,7 +79,7 @@ function MyReviewsInner() {
 
       {activeReviews.length === 0 ? (
         <EmptyState
-          icon="⭐"
+          icon={<ReviewIcon className="empty-svg" />}
           title={activeTab === 'product' ? t('reviews.noProductReviews') : t('reviews.noShopReviews')}
           description={
             activeTab === 'product'

@@ -11,6 +11,7 @@ import { RequireAuth } from '@/components/auth/Guards'
 import { StructuredAddressFields, emptyStructuredAddress, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 import { safeInternalPath } from '@/lib/returnTo'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { PinIcon } from '@/components/ui/Icons'
 
 const canonicalPhone = (value: string) => {
   const digits = value.replace(/\D/g, '')
@@ -172,7 +173,7 @@ function EditInner() {
                 <div className="eyebrow">{t('account.gpsCoordinates')}</div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
                   <Button type="button" variant="outline" size="sm" loading={gpsLoading} onClick={getGpsLocation}>
-                    📍 {t('account.gpsUse')}
+                    <PinIcon className="inline-icon" /> {t('account.gpsUse')}
                   </Button>
                   {form.latitude !== null && (
                     <Button type="button" variant="ghost" size="sm" onClick={clearGps}>

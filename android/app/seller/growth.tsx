@@ -6,7 +6,8 @@ import { useAuth } from '../../src/store/auth'
 import { Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { radius, spacing, type Colors, fonts } from '../../src/theme'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 export default function SellerGrowthScreen() {
   const { t } = useI18n()
@@ -16,7 +17,7 @@ export default function SellerGrowthScreen() {
   const growth = useQuery({ queryKey: ['seller', 'growth', activeBusiness?.id], queryFn: () => sellerApi.growthLevel(activeBusiness!.id), enabled: Boolean(activeBusiness) })
 
   // web: empty-state with 📈, title and hint
-  if (!activeBusiness) return <View style={styles.center}><Text style={styles.emptyIcon}>📈</Text><Text style={styles.emptyTitle}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.growth.noBusinessSelectedHint')}</Text></View>
+  if (!activeBusiness) return <View style={styles.center}><Ionicons name="trending-up-outline" size={40} color={colors.muted} /><Text style={styles.emptyTitle}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.growth.noBusinessSelectedHint')}</Text></View>
   if (growth.isLoading) return <Loading label={t('seller.growth.loading')} />
   if (growth.isError || !growth.data) return <ErrorState message={t('seller.growth.loadFailed')} retry={() => void growth.refetch()} />
 
@@ -78,8 +79,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   emptyIcon: { fontSize: 64 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: colors.ink, textAlign: 'center' },
   muted: { color: colors.muted },
-  cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
-  metric: { fontSize: 20, fontWeight: '900', color: colors.green },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  metric: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: colors.green },
   grid: { flexDirection: 'row', gap: spacing.sm },
   badge: { alignSelf: 'flex-start', fontWeight: '700', fontSize: 13, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden', marginTop: 6 },
   progressTrack: { height: 10, borderRadius: radius.sm, backgroundColor: colors.border, overflow: 'hidden' },

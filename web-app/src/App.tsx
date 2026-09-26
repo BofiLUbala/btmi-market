@@ -120,12 +120,13 @@ import CourierDashboardPage from '@/pages/courier/CourierDashboardPage'
 import CourierScanPage from '@/pages/courier/CourierScanPage'
 import CourierMissionPage from '@/pages/courier/CourierMissionPage'
 import CourierInvitePage from '@/pages/admin/commerce/couriers/CourierInvitePage'
+import { CompassIcon } from '@/components/ui/Icons'
 
 function NotFound() {
   const { t } = useI18n()
   return (
     <div className="empty-state" style={{ padding: '64px 0' }}>
-      <div className="empty-icon">🧭</div>
+      <div className="empty-icon"><CompassIcon className="empty-svg" /></div>
       <h3>{t('notFound.title')}</h3>
       <Link to="/">
         <Button>{t('notFound.backToMarketplace')}</Button>

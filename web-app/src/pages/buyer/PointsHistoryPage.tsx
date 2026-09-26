@@ -6,6 +6,7 @@ import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
 import { useI18n } from '@/store/i18n'
+import { ReviewIcon } from '@/components/ui/Icons'
 
 function PointsHistoryInner() {
   const { t } = useI18n()
@@ -75,7 +76,7 @@ function PointsHistoryInner() {
       </div>
 
       {data.transactions.length === 0 ? (
-        <EmptyState icon="⭐" title={t('points.noTransactionsTitle')} description={t('points.noTransactionsDesc')} />
+        <EmptyState icon={<ReviewIcon className="empty-svg" />} title={t('points.noTransactionsTitle')} description={t('points.noTransactionsDesc')} />
       ) : (
         <div className="card">
           {data.transactions.map((t) => (

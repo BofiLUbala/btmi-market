@@ -2181,6 +2181,24 @@ export const fr = {
   'reviews.pending': 'En attente',
   'reviews.serviceBreakdown': 'Livraison : {delivery}★ · Service boutique : {service}★ · Global : {overall}★',
   'reviews.viewProductPage': 'Voir la page produit →',
+  /* ── Seller description editor ─────────────────────── */
+  'seller.descEditor.title': 'Description du produit',
+  'seller.descEditor.adaptedTo': 'Mise en page adaptée : {tone}',
+  'seller.descEditor.hint': 'Phrases courtes, vocabulaire simple. Chaque rubrique remplie devient un onglet dépliable sur la fiche acheteur.',
+  'seller.descEditor.intro': 'Présentation (1 à 2 phrases)',
+  'seller.descEditor.optional': '(facultatif)',
+  'seller.descEditor.otherSections': 'Autres rubriques conservées',
+  'seller.descEditor.tone.fashion': 'Mode',
+  'seller.descEditor.tone.shoes': 'Chaussures',
+  'seller.descEditor.tone.children': 'Enfants',
+  'seller.descEditor.tone.electronics': 'Électronique',
+  'seller.descEditor.tone.home': 'Maison',
+  'seller.descEditor.tone.beauty': 'Beauté',
+  'seller.descEditor.tone.food': 'Alimentation',
+  'seller.descEditor.tone.sport': 'Sport',
+  'seller.descEditor.tone.automotive': 'Automobile',
+  'seller.descEditor.tone.services': 'Services',
+  'seller.descEditor.tone.default': 'Général',
 } as const
 
 export type TranslationKey = keyof typeof fr

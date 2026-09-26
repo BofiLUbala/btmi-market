@@ -1,4 +1,6 @@
 import { useAuth } from '@/store/auth'
+import { DescriptionEditor } from '@/components/seller/DescriptionEditor'
+import { DescriptionPreview } from '@/components/ui/DescriptionSections'
 import { formatMoney } from '@/lib/format'
 import { useI18n } from '@/store/i18n'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
@@ -8,7 +10,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { PlusIcon, BoxIcon } from '@/components/ui/Icons'
+import { BoxIcon, FolderIcon, InfoIcon, PlusIcon, StoreIcon, WarningIcon } from '@/components/ui/Icons'
 import { extractSpecifications } from '@/lib/variants'
 import {
   attributeLabel,
@@ -742,7 +744,7 @@ export default function SellerProductDetailPage() {
       {/* ── Actionable draft requirements ── */}
       {product.publication_status !== 'PUBLISHED' && missingRequirements.length > 0 && (
         <div className="missing-requirements notice notice-warning mb-4" role="alert">
-          <h2>⚠ {missingRequirements.length} caractéristique{missingRequirements.length > 1 ? 's' : ''} obligatoire{missingRequirements.length > 1 ? 's' : ''} manquante{missingRequirements.length > 1 ? 's' : ''}</h2>
+          <h2><WarningIcon className="inline-icon" /> {missingRequirements.length} caractéristique{missingRequirements.length > 1 ? 's' : ''} obligatoire{missingRequirements.length > 1 ? 's' : ''} manquante{missingRequirements.length > 1 ? 's' : ''}</h2>
           <div className="missing-requirements-list">
             {missingRequirements.map((req) => {
               const label = attributeLabel(req.def)
@@ -866,11 +868,11 @@ export default function SellerProductDetailPage() {
               <span className="small muted">· {t('seller.productDetail.unitLabel', { unit: product.unit || 'PCS' })}</span>
               {product.category_id && (
                 <span className="badge badge-outline" style={{ fontSize: '0.75rem' }}>
-                  📁 {categories.find((c) => c.id === product.category_id)?.name || t('seller.productDetail.categoryFallback')}
+                  <FolderIcon className="inline-icon" /> {categories.find((c) => c.id === product.category_id)?.name || t('seller.productDetail.categoryFallback')}
                 </span>
               )}
             </div>
-            {product.description && <p className="muted" style={{ margin: '8px 0 0' }}>{product.description}</p>}
+            {product.description && <DescriptionPreview text={product.description} />}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -965,19 +967,17 @@ export default function SellerProductDetailPage() {
             </div>
 
             <div style={{ marginTop: 12 }}>
-              <Field
-                label={t('product.description')}
-                name="edit_desc"
-                as="textarea"
-                rows={2}
+              <DescriptionEditor
+                idPrefix="edit-desc"
+                categorySlug={categories.find((c) => c.id === productEditForm.category_id)?.slug}
                 value={productEditForm.description}
-                onChange={(e) => setProductEditForm({ ...productEditForm, description: e.target.value })}
+                onChange={(description) => setProductEditForm((prev) => ({ ...prev, description }))}
               />
             </div>
 
             {categoryChangeWarning && (
               <div className="notice notice-warning mt-3">
-                ℹ️ {categoryChangeWarning}
+                <InfoIcon className="inline-icon" /> {categoryChangeWarning}
               </div>
             )}
 
@@ -1372,7 +1372,7 @@ export default function SellerProductDetailPage() {
             {/* Singular and plural are separate keys rather than assembled from
                 fragments: French agreement changes more than the noun ending,
                 so a sentence built by concatenation cannot be translated. */}
-            ⚠️{' '}
+            <WarningIcon className="inline-icon" />{' '}
             {t(
               variantsMissingAttributes.length > 1
                 ? 'seller.productDetail.noAttrsIntroP'
@@ -1525,7 +1525,7 @@ export default function SellerProductDetailPage() {
                                 const res = inv.reserved_quantity || 0
                                 return (
                                   <span key={inv.id} className="small muted">
-                                    🏪 {t('seller.productDetail.shopAvail', { shop: sObj ? sObj.name : t('seller.shopProducts.shopFallback'), avail })}
+                                    <StoreIcon className="inline-icon" /> {t('seller.productDetail.shopAvail', { shop: sObj ? sObj.name : t('seller.shopProducts.shopFallback'), avail })}
                                     {res > 0 && ` (${inv.quantity} total · ${res} res)`}
                                   </span>
                                 )
@@ -1658,7 +1658,7 @@ export default function SellerProductDetailPage() {
                           const avail = Math.max(0, inv.quantity - (inv.reserved_quantity || 0))
                           return (
                             <span key={inv.id}>
-                              🏪 {sObj ? sObj.name : 'Boutique'}: <strong>{avail}</strong> dispo
+                              <StoreIcon className="inline-icon" /> {sObj ? sObj.name : 'Boutique'}: <strong>{avail}</strong> dispo
                             </span>
                           )
                         })}

@@ -6,7 +6,8 @@ import { ErrorState, Loading } from '../../src/components/ui'
 import { useAuth } from '../../src/store/auth'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import type { Colors } from '../../src/theme'
+import { type Colors, fonts } from '../../src/theme'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/seller/dashboard/EmployeeDashboardPage.tsx
 // (/employee/dashboard): the employee's own workspace from GET /employees/me —
@@ -62,14 +63,14 @@ export default function EmployeeDashboardScreen() {
     <View style={styles.card}>
       <Text style={styles.h3}>{t('employee.dashboard.assignedShops', { count: shops.length })}</Text>
       {shops.length === 0 ? <Text style={styles.muted}>{t('employee.dashboard.noShopsAssigned')}</Text>
-        : shops.map((shop) => <Text key={shop.id} style={styles.text}>• 🏪 {shop.name}{shop.city ? <Text style={styles.small}> · {shop.city}</Text> : null}</Text>)}
+        : shops.map((shop) => <Text key={shop.id} style={styles.text}>• <Ionicons name="storefront-outline" size={14} color={colors.muted} /> {shop.name}{shop.city ? <Text style={styles.small}> · {shop.city}</Text> : null}</Text>)}
     </View>
   </ScrollView>
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 16, fontWeight: '700', color: c.ink, marginBottom: 6 },
   bold: { fontWeight: '700', color: c.ink, fontSize: 16 },
   text: { color: c.ink, fontSize: 15, marginTop: 4 },

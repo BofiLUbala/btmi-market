@@ -5,7 +5,7 @@ import { useAuth } from '../../src/store/auth'
 import { AvatarPicker } from '../../src/components/AvatarPicker'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, type Colors } from '../../src/theme'
+import { radius, type Colors, fonts } from '../../src/theme'
 
 // Port of web-app/src/pages/seller/profile/SellerProfilePage.tsx: account type,
 // active business and member-since cards, the read-only account information
@@ -60,10 +60,10 @@ export default function SellerProfileScreen() {
 
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
-  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
-  h2: { fontSize: 20, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   h3: { fontSize: 16, fontWeight: '700', color: c.ink },
-  stat: { fontSize: 22.4, fontWeight: '800', color: c.ink, marginTop: 8 },
+  stat: { fontSize: 22.4, fontFamily: fonts.display, fontWeight: '500', color: c.ink, marginTop: 8 },
   small: { color: c.muted, fontSize: 14 },
   value: { color: c.ink, fontSize: 16 },
   card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },

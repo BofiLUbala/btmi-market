@@ -8,6 +8,7 @@ import { formatMoney } from '@/lib/format'
 import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
+import { CheckIcon, ClockIcon, InfoIcon, PinIcon } from '@/components/ui/Icons'
 
 const PROVIDER_NAMES: Record<string, string> = {
   MPESA: 'M-Pesa',
@@ -187,7 +188,7 @@ function SuccessInner() {
           <section className="checkout-card" style={{ padding: '28px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
               <div className="checkout-success-mark" style={{ width: 56, height: 56, fontSize: '1.6rem', flexShrink: 0 }}>
-                {isPayNowProcessing ? '⏳' : isPaid || isCash || isMobileDelivery ? '✓' : 'ℹ️'}
+                {isPayNowProcessing ? <ClockIcon className="empty-svg" /> : isPaid || isCash || isMobileDelivery ? <CheckIcon className="empty-svg" /> : <InfoIcon className="empty-svg" />}
               </div>
               <div>
                 <h1 style={{ margin: 0, fontSize: '1.4rem' }}>{statusHeadline}</h1>
@@ -271,7 +272,7 @@ function SuccessInner() {
             </div>
             {deliveryAddress ? (
               <p style={{ margin: '10px 0 0', fontSize: '0.95rem', lineHeight: 1.5 }}>
-                📍 {deliveryAddress}
+                <PinIcon className="inline-icon" /> {deliveryAddress}
                 {order.order.delivery_landmark && (
                   <span className="muted" style={{ display: 'block', marginTop: 4 }}>
                     Instructions : {order.order.delivery_landmark}

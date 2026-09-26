@@ -10,6 +10,7 @@ import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import type { Employee } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 const emptyForm = { first_name: '', middle_name: '', last_name: '', phone: '', email: '', job_title: '' }
 
@@ -74,7 +75,7 @@ export default function SellerEmployeesScreen() {
     loadAssignments.mutate(employee.id)
   }
 
-  if (!activeBusiness) return <View style={styles.center}><Text style={{ fontSize: 64 }}>👥</Text><Text style={styles.cardTitle}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.employees.noBusinessSelectedHint')}</Text></View>
+  if (!activeBusiness) return <View style={styles.center}><Ionicons name="people-outline" size={40} color={colors.muted} /><Text style={styles.cardTitle}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.employees.noBusinessSelectedHint')}</Text></View>
   if (employees.isLoading || shops.isLoading) return <Loading label={t('seller.employees.loading')} />
   if (employees.isError) return <ErrorState message={t('seller.employees.loadFailed')} retry={() => void employees.refetch()} />
 
@@ -93,7 +94,7 @@ export default function SellerEmployeesScreen() {
       <Button title={t('seller.employees.create')} loading={create.isPending} onPress={() => create.mutate()} />
     </Card>}
 
-    {!employees.data?.length ? <Card><View style={styles.emptyInline}><Text style={{ fontSize: 48 }}>👥</Text><Text style={styles.cardTitle}>{t('seller.employees.noneYet')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.employees.noneYetHint')}</Text><Button title={t('seller.employees.add')} onPress={() => setShowCreate(true)} /></View></Card> : employees.data.map((employee) => {
+    {!employees.data?.length ? <Card><View style={styles.emptyInline}><Ionicons name="people-outline" size={40} color={colors.muted} /><Text style={styles.cardTitle}>{t('seller.employees.noneYet')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.employees.noneYetHint')}</Text><Button title={t('seller.employees.add')} onPress={() => setShowCreate(true)} /></View></Card> : employees.data.map((employee) => {
       const managing = managingId === employee.id
       return <Card key={employee.id}>
         <View style={styles.row}>
@@ -133,9 +134,9 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   emptyInline: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: '700' },
-  cardTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  name: { fontSize: 17, fontWeight: '900', color: colors.ink },
+  name: { fontSize: 17, fontWeight: '700', color: colors.ink },
   badge: { fontWeight: '700', fontSize: 12, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden' },
   badgeMuted: { color: colors.muted },
   assignBox: { gap: spacing.xs, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border },

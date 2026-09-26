@@ -4,6 +4,7 @@ import { useI18n } from '../../store/i18n'
 import { cancelStageText, expectedDeliveryText } from '../../lib/deliveryPlan'
 import { Button } from '../ui/Button'
 import { ErrorBox } from '../ui/Feedback'
+import { CalendarIcon } from '@/components/ui/Icons'
 
 interface Props {
   plan: DeliveryPlan
@@ -51,7 +52,7 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
             {when && <div className="small muted">{t('deliveryPlan.wasPlanned', { when })}</div>}
           </>
         : !cancelled && (when
-          ? <div className="bold" style={{ fontSize: '1.05rem' }}>📅 {when}</div>
+          ? <div className="bold" style={{ fontSize: '1.05rem' }}><CalendarIcon className="inline-icon" /> {when}</div>
           : <div className="small muted">{t('deliveryPlan.notSet')}</div>)}
       {!!plan.delivery_attempts && <div className="small">{t('deliveryPlan.attempts', { count: plan.delivery_attempts })}</div>}
       {stage && <div className="small bold">{stage}</div>}

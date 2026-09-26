@@ -16,6 +16,7 @@ import { expectedDeliveryText } from '@/lib/deliveryPlan'
 import { DeliveryPlanCard } from '@/components/checkout/DeliveryPlanCard'
 import { DEFAULT_CURRENCY, formatMoney, formatDateTime } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
+import { CalendarIcon, ReceiptIcon } from '@/components/ui/Icons'
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
@@ -248,7 +249,7 @@ export default function SellerOrdersPage() {
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
-        <div className="empty-icon" style={{ fontSize: 64 }}>🧾</div>
+        <div className="empty-icon"><ReceiptIcon className="empty-svg" /></div>
         <h2>{t('seller.noBusinessSelected')}</h2>
         <p className="muted">{t('seller.orders.noBusinessSubtitle')}</p>
       </div>
@@ -372,7 +373,7 @@ export default function SellerOrdersPage() {
       ) : visibleOrders.length === 0 ? (
         <Card>
           <div className="empty-state" style={{ padding: '48px 0', textAlign: 'center' }}>
-            <div className="empty-icon" style={{ fontSize: 48 }}>🧾</div>
+            <div className="empty-icon"><ReceiptIcon className="empty-svg" /></div>
             <h3>{shopFilter === 'ALL' ? t('seller.orders.emptyTitle') : t('seller.orders.emptyShopTitle')}</h3>
             <p className="muted">{shopFilter === 'ALL' ? t('seller.orders.emptyDesc') : t('seller.orders.emptyShopDesc')}</p>
           </div>
@@ -415,7 +416,7 @@ export default function SellerOrdersPage() {
                             {orderStatusLabel(order.delivery_status || order.status, t)}
                           </span>
                           {order.expected_delivery_date && !['CANCELLED', 'COMPLETED'].includes(order.status) && (
-                            <div className="small muted" style={{ marginTop: 4 }}>📅 {expectedDeliveryText(order, t, lang)}</div>
+                            <div className="small muted" style={{ marginTop: 4 }}><CalendarIcon className="inline-icon" /> {expectedDeliveryText(order, t, lang)}</div>
                           )}
                         </td>
                         <td>{formatMoney(order.final_total || 0, order.currency || DEFAULT_CURRENCY)}</td>
@@ -455,7 +456,7 @@ export default function SellerOrdersPage() {
                         <strong>{formatMoney(order.final_total || 0, order.currency || DEFAULT_CURRENCY)}</strong>
                       </div>
                       {order.expected_delivery_date && !['CANCELLED', 'COMPLETED'].includes(order.status) && (
-                        <div className="small muted">📅 {expectedDeliveryText(order, t, lang)}</div>
+                        <div className="small muted"><CalendarIcon className="inline-icon" /> {expectedDeliveryText(order, t, lang)}</div>
                       )}
                       <div style={{ marginTop: 6 }}>
                         {renderOrderActions(order, actions, isExpanded)}

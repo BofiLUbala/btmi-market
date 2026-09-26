@@ -1,3 +1,5 @@
+import { Platform } from 'react-native'
+
 /**
  * Palette + theming.
  *
@@ -131,7 +133,21 @@ export const darkColors: Colors = {
 }
 
 export const spacing = { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 } as const
-export const radius = { sm: 10, md: 16, lg: 24 } as const
+export const radius = { sm: 12, md: 16, lg: 24, pill: 999 } as const
+
+/** Boutique type pairing, same intent as the web's --font-display: an
+ *  editorial serif for titles and prices, the platform sans for everything
+ *  else. System faces only, so there is no font asset to ship or load. */
+export const fonts = {
+  display: Platform.select({
+    ios: 'Georgia',
+    android: 'serif',
+    default: "Fraunces, 'Iowan Old Style', 'Palatino Linotype', Georgia, serif",
+  }) as string,
+} as const
+
+/** Uppercase eyebrow above titles (category, section kicker). */
+export const kicker = { fontSize: 11, fontWeight: '600', letterSpacing: 1.4, textTransform: 'uppercase' } as const
 
 /** Admin console — `app/admin/_layout.tsx` renders its header/background
  *  always dark, independent of `useColors()`/the light-dark toggle (mirrors

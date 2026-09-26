@@ -152,7 +152,7 @@ export function OrderChatFeed({
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>
-              💬 {t('communication.channelTitle')} #{data?.order_number || orderId.slice(0, 8).toUpperCase()}
+              {t('communication.channelTitle')} #{data?.order_number || orderId.slice(0, 8).toUpperCase()}
             </Text>
             <Text style={styles.headerSubtitle}>
               {role === 'BUYER' ? data?.shop_name || t('communication.seller') : data?.buyer_name || t('communication.buyer')}

@@ -11,6 +11,7 @@ import { useRememberRoute } from '../src/lib/lastRoute'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
+import { fonts } from '../src/theme'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 0, retry: 2, refetchOnMount: 'always', refetchOnReconnect: true, refetchOnWindowFocus: true }, mutations: { retry: 0 } } })
 
@@ -33,7 +34,7 @@ function RootNavigator() {
         screenOptions={{
           headerStyle: { backgroundColor: colors.white },
           headerTintColor: colors.ink,
-          headerTitleStyle: { fontWeight: '800' },
+          headerTitleStyle: { fontFamily: fonts.display, fontWeight: '500', fontSize: 20 },
           contentStyle: { backgroundColor: colors.cream },
           // Language and appearance live in the header on every stack screen
           // rather than only inside the profile.

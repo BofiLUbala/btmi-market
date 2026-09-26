@@ -9,6 +9,7 @@ import { asArray } from '@/lib/format'
 import { SearchAutocomplete } from '@/components/search/SearchAutocomplete'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { CameraIcon } from '@/components/ui/Icons'
 
 const SORTS: { value: string; key: TranslationKey }[] = [
   { value: 'relevance', key: 'search.sort.relevance' },
@@ -97,7 +98,7 @@ export default function SearchPage() {
         className="search-page-autocomplete"
       />
 
-      {visualSearch && visualFileName && <div className="visual-search-banner"><span aria-hidden>📷</span><div><strong>{t('search.similarProductsTitle')}</strong><small>{visualFileName}</small></div></div>}
+      {visualSearch && visualFileName && <div className="visual-search-banner"><span aria-hidden><CameraIcon className="inline-icon" /></span><div><strong>{t('search.similarProductsTitle')}</strong><small>{visualFileName}</small></div></div>}
 
       {!visualSearch && (
         <div className="search-facets" role="group" aria-label={t('search.filterResults')}>

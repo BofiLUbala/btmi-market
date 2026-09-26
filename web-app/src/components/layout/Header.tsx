@@ -9,20 +9,22 @@ import { PreferenceToggles } from '@/components/ui/PreferenceToggles'
 import { fetchBuyerUnreadCounts, type UnreadCounts } from '@/api/communication'
 import type { User } from '@/api/types'
 import type { TranslationKey } from '@/locales/fr'
+import type { ReactNode } from 'react'
+import { BagIcon, BellIcon, CloseIcon, MenuIcon, BriefcaseIcon, CustomerIcon, GridIcon, HeartIcon, HomeIcon, LoginIcon, SearchIcon, StoreIcon, TruckIcon } from '@/components/ui/Icons'
 
 function HeaderAvatar({ user }: { user: User }) {
   if (!user.avatar_url) return null
   return <img src={user.avatar_url} alt="" className="header-avatar" />
 }
 
-const PUBLIC_NAV_LINKS: { to: string; key: TranslationKey; icon: string }[] = [
-  { to: '/', key: 'nav.marketplace', icon: '🏪' },
-  { to: '/categories', key: 'nav.categories', icon: '🗂️' },
-  { to: '/shops', key: 'nav.shops', icon: '🏬' },
+const PUBLIC_NAV_LINKS: { to: string; key: TranslationKey; icon: ReactNode }[] = [
+  { to: '/', key: 'nav.marketplace', icon: <HomeIcon /> },
+  { to: '/categories', key: 'nav.categories', icon: <GridIcon /> },
+  { to: '/shops', key: 'nav.shops', icon: <StoreIcon /> },
 ]
 
-const PROTECTED_NAV_LINKS: { to: string; key: TranslationKey; icon: string }[] = [
-  { to: '/favorites', key: 'nav.favorites', icon: '❤️' },
+const PROTECTED_NAV_LINKS: { to: string; key: TranslationKey; icon: ReactNode }[] = [
+  { to: '/favorites', key: 'nav.favorites', icon: <HeartIcon /> },
 ]
 
 export function Header() {
@@ -102,7 +104,7 @@ export function Header() {
           )}
 
           <Link to="/cart" className="header-link" aria-label={t('nav.cart')}>
-            🛒 {totalQty > 0 ? `(${totalQty})` : ''}
+            <BagIcon className="header-icon" />{totalQty > 0 && <span className="count-badge">{totalQty}</span>}
           </Link>
 
           {user && (
@@ -112,7 +114,7 @@ export function Header() {
               aria-label={t('notifications.title')}
               style={{ position: 'relative' }}
             >
-              <span>🔔</span>
+              <BellIcon className="header-icon" />
               {unreadCounts.unread_notifications > 0 && (
                 <span
                   style={{
@@ -169,7 +171,7 @@ export function Header() {
           onClick={() => setDrawer(true)}
           aria-label={t('nav.openMenu')}
         >
-          ☰
+          <MenuIcon className="header-icon" />
         </button>
       </div>
 
@@ -185,7 +187,7 @@ export function Header() {
                 onClick={() => setDrawer(false)}
                 aria-label={t('nav.closeMenu')}
               >
-                ✕
+                <CloseIcon className="header-icon" />
               </button>
             </div>
             <nav className="drawer-nav" onClick={() => setDrawer(false)}>
@@ -216,11 +218,11 @@ export function Header() {
                 ))
               )}
               <Link to="/cart" className="dnav-link">
-                <span className="dnav-icon">🛒</span> {t('nav.cart')}{totalQty > 0 ? ` (${totalQty})` : ''}
+                <span className="dnav-icon"><BagIcon /></span> {t('nav.cart')}{totalQty > 0 ? ` (${totalQty})` : ''}
               </Link>
               {user && (
                 <Link to="/notifications" className="dnav-link" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span><span className="dnav-icon">🔔</span> {t('notifications.title')}</span>
+                  <span><span className="dnav-icon"><BellIcon /></span> {t('notifications.title')}</span>
                   {unreadCounts.unread_notifications > 0 && (
                     <span
                       style={{
@@ -261,7 +263,7 @@ export function Header() {
                 )
               ) : (
                 <Link to="/login" className="dnav-link">
-                  <span className="dnav-icon">🔑</span> {t('common.signIn')}
+                  <span className="dnav-icon"><LoginIcon /></span> {t('common.signIn')}
                 </Link>
               )}
               <div className="drawer-prefs">
@@ -281,17 +283,17 @@ export function MobileNav() {
   const { t } = useI18n()
 
   const tabs = [
-    { to: '/', label: t('nav.home'), icon: '🏠', end: true },
-    { to: '/search', label: t('nav.search'), icon: '🔍', end: false },
+    { to: '/', label: t('nav.home'), icon: <HomeIcon />, end: true },
+    { to: '/search', label: t('nav.search'), icon: <SearchIcon />, end: false },
   ]
   const accountTab = {
     to: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? '/courier/dashboard' : user?.account_type === 'SELLER' ? '/seller/dashboard' : user?.account_type === 'EMPLOYEE' ? '/employee/dashboard' : '/account',
     label: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? 'Livreur' : user?.account_type === 'SELLER' ? t('nav.sellerHub') : user?.account_type === 'EMPLOYEE' ? t('nav.workspace') : t('nav.account'),
-    icon: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? '🚚' : user?.account_type === 'SELLER' ? '🏪' : user?.account_type === 'EMPLOYEE' ? '💼' : '👤',
+    icon: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? <TruckIcon /> : user?.account_type === 'SELLER' ? <StoreIcon /> : user?.account_type === 'EMPLOYEE' ? <BriefcaseIcon /> : <CustomerIcon />,
     end: false
   }
   const protectedTabs = [
-    { to: '/favorites', label: t('nav.favorites'), icon: '❤️', end: false },
+    { to: '/favorites', label: t('nav.favorites'), icon: <HeartIcon />, end: false },
     accountTab
   ]
 
@@ -328,7 +330,7 @@ export function MobileNav() {
         ))
       )}
       <Link to="/cart" className="mnav-link">
-        <span className="mnav-icon">🛒</span> {t('nav.cart')}{totalQty > 0 ? ` (${totalQty})` : ''}
+        <span className="mnav-icon"><BagIcon />{totalQty > 0 && <span className="count-badge">{totalQty}</span>}</span> {t('nav.cart')}
       </Link>
     </nav>
   )

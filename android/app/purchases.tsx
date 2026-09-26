@@ -7,8 +7,9 @@ import { formatDateTime } from '../src/lib/format'
 import { formatMoney } from '../src/lib/money'
 import { useI18n } from '../src/store/i18n'
 import { useColors } from '../src/store/theme'
-import type { Colors } from '../src/theme'
+import { type Colors, fonts } from '../src/theme'
 import type { PendingPurchase } from '../src/types'
+import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/buyer/PendingPurchasesPage.tsx (/account/purchases):
 // in-store sales a shop employee recorded against this buyer, each confirmed
@@ -40,7 +41,7 @@ export default function PendingPurchasesScreen() {
 
   const items = pending.data ?? []
   if (items.length === 0) return <View style={styles.empty}>
-    <Text style={styles.emptyIcon}>🤝</Text>
+    <Ionicons name="people-outline" size={40} color={colors.muted} />
     <Text style={styles.emptyTitle}>{t('orders.nothingToConfirm')}</Text>
     <Text style={[styles.small, { textAlign: 'center' }]}>{t('orders.nothingToConfirmDesc')}</Text>
   </View>
@@ -63,7 +64,7 @@ export default function PendingPurchasesScreen() {
 const makeStyles = (c: Colors) => StyleSheet.create({
   page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
   flex1: { flex: 1 },
-  h1: { fontSize: 28, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 28, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
   small: { color: c.muted, fontSize: 14 },
   bold: { color: c.ink, fontSize: 16, fontWeight: '700' },
   card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },

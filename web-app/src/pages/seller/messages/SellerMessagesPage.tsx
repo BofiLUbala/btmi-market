@@ -10,6 +10,7 @@ import { formatDateTime } from '@/lib/format'
 import { StatusBadge } from '@/components/ui/Badges'
 import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
+import { ChatIcon, CustomerIcon } from '@/components/ui/Icons'
 
 export default function SellerMessagesPage() {
   const { t } = useI18n()
@@ -70,7 +71,7 @@ export default function SellerMessagesPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>💬 {t('seller.messages')}</span>
+            <span><ChatIcon className="inline-icon" /> {t('seller.messages')}</span>
           </h1>
           <p className="small muted" style={{ margin: '2px 0 0' }}>
             {t('communication.sellerSubtitle')}
@@ -127,7 +128,7 @@ export default function SellerMessagesPage() {
               </div>
             ) : filteredConversations.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                <div style={{ fontSize: '1.8rem', marginBottom: 6 }}>💬</div>
+                <div style={{ marginBottom: 6 }}><ChatIcon className="empty-svg" /></div>
                 <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{t('communication.noConversations')}</div>
               </div>
             ) : (
@@ -172,7 +173,7 @@ export default function SellerMessagesPage() {
                       }}
                     >
                       <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>
-                        👤 {c.buyer_name || t('communication.buyer')}
+                        <CustomerIcon className="inline-icon" /> {c.buyer_name || t('communication.buyer')}
                       </span>
                       <span className="small muted" style={{ fontSize: '0.72rem' }}>
                         {formatDateTime(c.last_message_at || c.created_at)}
@@ -240,7 +241,7 @@ export default function SellerMessagesPage() {
               }}
             >
               <EmptyState
-                icon="💬"
+                icon={<ChatIcon className="empty-svg" />}
                 title={t('communication.selectConversation')}
                 description={t('communication.selectConversationDesc')}
               />

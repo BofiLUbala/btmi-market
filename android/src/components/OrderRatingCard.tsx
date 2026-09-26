@@ -86,7 +86,7 @@ export function OrderRatingCard({ orderId }: { orderId: string }) {
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  title: { fontSize: 17, fontWeight: '900', color: colors.ink },
+  title: { fontSize: 17, fontWeight: '700', color: colors.ink },
   muted: { color: colors.muted, marginBottom: 4 },
   stars: { flexDirection: 'row', gap: 8, marginVertical: 6 },
   star: { fontSize: 34, color: colors.border },

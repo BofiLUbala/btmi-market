@@ -7,6 +7,7 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
 import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
+import { PinIcon } from '@/components/ui/Icons'
 
 type RegPhase = 'form' | 'creating' | 'sending' | 'success' | 'email-failed'
 
@@ -404,7 +405,7 @@ export default function RegisterPage() {
                   <div className="eyebrow">{t('auth.register.gpsCoordinates')}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
                     <Button type="button" variant="outline" size="sm" loading={gpsLoading} onClick={getGpsLocation}>
-                      📍 {t('auth.register.gpsUse')}
+                      <PinIcon className="inline-icon" /> {t('auth.register.gpsUse')}
                     </Button>
                     {form.latitude !== null && (
                       <Button type="button" variant="ghost" size="sm" onClick={clearGps}>
