@@ -357,7 +357,7 @@ export interface CourierMission extends DeliveryPlan {
   order_id: string; order_number: string; status: string; delivery_status: string
   shop_name: string; business_name: string; shop_address: string; service_zone: string; package_count: number
   delivery_address: string; delivery_contact: string; delivery_phone: string; delivery_notes?: string
-  total_amount?: number; currency?: string; payment_method?: string; payment_status?: string
+  total_amount?: number; products_total?: number; delivery_fee?: number; payment_markup?: number; currency?: string; payment_method?: string; payment_status?: string
   assigned_at?: string | null; accepted_at?: string | null; ready_at?: string | null; picked_up_at?: string | null
   started_at?: string | null; arrived_at?: string | null; delivered_at?: string | null
 }

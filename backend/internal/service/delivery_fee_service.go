@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"math"
 	"strings"
 	"time"
@@ -209,6 +210,7 @@ func (s *DeliveryFeeService) UpdateSettings(ctx context.Context, adminID uuid.UU
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	s.applyTariffChange(ctx)
 	_ = s.audit.Record(adminID, role, "DELIVERY_FEE_SETTINGS_UPDATE", "delivery_fee", "settings", reason,
 		map[string]interface{}{"default_fee": oldFee, "free_delivery_threshold": nullableFloat(oldThreshold)},
 		map[string]interface{}{"default_fee": defaultFee, "free_delivery_threshold": threshold, "cleared_threshold": clearThreshold}, "", "")
@@ -255,6 +257,7 @@ func (s *DeliveryFeeService) UpsertZone(ctx context.Context, adminID uuid.UUID, 
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	s.applyTariffChange(ctx)
 	_ = s.audit.Record(adminID, role, "DELIVERY_FEE_ZONE_UPDATE", "delivery_fee", cityID.String(), reason,
 		map[string]interface{}{"fee": nullableFloat(old)}, map[string]interface{}{"fee": fee, "active": active}, "", "")
 	return nil
@@ -274,8 +277,88 @@ func (s *DeliveryFeeService) DeleteZone(ctx context.Context, adminID uuid.UUID, 
 		return err
 	}
 	_, _ = s.db.ExecContext(ctx, `INSERT INTO delivery_fee_history (scope, city_id, old_value, new_value, reason, admin_id) VALUES ('CITY', $1, $2, NULL, $3, $4)`, cityID, old, reason, adminID)
+	s.applyTariffChange(ctx)
 	_ = s.audit.Record(adminID, role, "DELIVERY_FEE_ZONE_DELETE", "delivery_fee", cityID.String(), reason, map[string]interface{}{"fee": old}, nil, "", "")
 	return nil
+}
+
+// TariffEvent is the realtime payload that tells every open screen the
+// Finance tariff changed.
+const TariffEvent = "tariff"
+
+// applyTariffChange reprices every TBK order whose buyer has not committed to
+// a payment yet, so checkout, the seller and the courier see the new fee at
+// once (each order update is pushed live), then tells every open screen to
+// reload the tariff. Orders with a payment keep the fee the buyer accepted.
+func (s *DeliveryFeeService) applyTariffChange(ctx context.Context) {
+	if n, err := s.RepriceOpenOrders(ctx); err != nil {
+		log.Printf("delivery fees: repricing open orders failed: %v", err)
+	} else if n > 0 {
+		log.Printf("delivery fees: repriced %d open order(s)", n)
+	}
+	_, _ = s.db.ExecContext(ctx, `SELECT pg_notify('tbk_order_events', $1)`, TariffEvent)
+}
+
+// RepriceOpenOrders applies the current tariff to unpaid TBK orders.
+func (s *DeliveryFeeService) RepriceOpenOrders(ctx context.Context) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT o.id, o.delivery_city_id, o.final_total, o.delivery_fee_base, COALESCE(o.delivery_points_discount, 0)
+		FROM orders o
+		WHERE o.delivery_method IN ('TBK_STANDARD','TBK','SHOP_DELIVERY')
+		  AND o.status IN ('PENDING','ACCEPTED')
+		  AND NOT EXISTS (SELECT 1 FROM buyer_payments bp WHERE bp.order_id = o.id)`)
+	if err != nil {
+		return 0, err
+	}
+	type open struct {
+		id               uuid.UUID
+		cityID           uuid.NullUUID
+		subtotal, base   float64
+		pointsDiscount   float64
+	}
+	var list []open
+	for rows.Next() {
+		var o open
+		if err := rows.Scan(&o.id, &o.cityID, &o.subtotal, &o.base, &o.pointsDiscount); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		list = append(list, o)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	changed := 0
+	for _, o := range list {
+		var city *uuid.UUID
+		if o.cityID.Valid {
+			id := o.cityID.UUID
+			city = &id
+		}
+		q, err := s.Quote(ctx, city, o.subtotal)
+		if err != nil {
+			return changed, err
+		}
+		if q.Fee == o.base {
+			continue
+		}
+		discount := math.Min(o.pointsDiscount, q.Fee)
+		final := models.RoundMoney(q.Fee - discount)
+		// The payment guard is repeated here: a buyer who commits between the
+		// scan and this update keeps the price they accepted.
+		res, err := s.db.ExecContext(ctx, `
+			UPDATE orders SET delivery_fee_base = $2, delivery_points_discount = $3, delivery_fee_final = $4, updated_at = NOW()
+			WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM buyer_payments bp WHERE bp.order_id = orders.id)`,
+			o.id, q.Fee, models.RoundMoney(discount), final)
+		if err != nil {
+			return changed, err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			changed++
+		}
+	}
+	return changed, nil
 }
 
 func nullableFloat(v sql.NullFloat64) interface{} {

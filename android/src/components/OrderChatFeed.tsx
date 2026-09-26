@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -14,21 +15,32 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import {
   fetchOrderConversation,
   sendOrderMessage,
+  type ChatParty,
   type OrderConversationDetail,
   type OrderMessage,
 } from '../api/communication'
-import { useAuth } from '../store/auth'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { radius, spacing, type Colors } from '../theme'
 
 interface OrderChatFeedProps {
   orderId: string
-  role?: 'BUYER' | 'SELLER' | 'ADMIN'
+  role?: ChatParty
   onClose?: () => void
   showHeader?: boolean
 }
 
+const PARTY_LABEL: Record<ChatParty, string> = {
+  BUYER: 'Acheteur',
+  SELLER: 'Vendeur',
+  COURIER: 'Livreur',
+  ADMIN: 'Support TBK',
+}
+
+/**
+ * Private order channels: one chip per contact, each a two-party thread the
+ * server returns only to those two parties. Buyer and seller never share one.
+ */
 export function OrderChatFeed({
   orderId,
   role = 'BUYER',
@@ -37,7 +49,6 @@ export function OrderChatFeed({
 }: OrderChatFeedProps) {
   const { t, lang } = useI18n()
   const colors = useColors()
-  const currentUser = useAuth((s) => s.user)
   const styles = makeStyles(colors)
 
   const [data, setData] = useState<OrderConversationDetail | null>(null)
@@ -46,6 +57,7 @@ export function OrderChatFeed({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [body, setBody] = useState('')
+  const [contact, setContact] = useState<ChatParty | ''>('')
 
   const flatListRef = useRef<FlatList>(null)
 
@@ -53,7 +65,7 @@ export function OrderChatFeed({
     async (silent = false) => {
       if (!silent) setLoading(true)
       try {
-        const res = await fetchOrderConversation(orderId)
+        const res = await fetchOrderConversation(orderId, role)
         setData(res)
         setMessages(res.messages || [])
         setError('')
@@ -63,7 +75,7 @@ export function OrderChatFeed({
         if (!silent) setLoading(false)
       }
     },
-    [orderId, t]
+    [orderId, role, t]
   )
 
   useEffect(() => {
@@ -72,14 +84,32 @@ export function OrderChatFeed({
     return () => clearInterval(timer)
   }, [loadConversation])
 
+  const contacts = data?.contacts ?? []
+  useEffect(() => {
+    if (!contact && contacts.length > 0) {
+      const withUnread = contacts.find((c) => c.unread > 0 && c.available)
+      setContact((withUnread ?? contacts.find((c) => c.available) ?? contacts[0]).party)
+    }
+  }, [contacts, contact])
+  const me = data?.my_party ?? role
+  const selected = contacts.find((c) => c.party === contact)
+  const thread = useMemo(
+    () => messages.filter((m) =>
+      contact !== '' &&
+      ((m.sender_party === me && m.recipient_party === contact) ||
+        (m.sender_party === contact && m.recipient_party === me))
+    ),
+    [messages, contact, me]
+  )
+
   const handleSend = async () => {
     const text = body.trim()
-    if (!text || sending) return
+    if (!text || sending || !contact || !selected?.available) return
 
     setSending(true)
     setError('')
     try {
-      const msg = await sendOrderMessage(orderId, text)
+      const msg = await sendOrderMessage(orderId, text, contact, role)
       setMessages((prev) => [...prev, msg])
       setBody('')
       setTimeout(() => {
@@ -105,8 +135,8 @@ export function OrderChatFeed({
   }
 
   const renderMessage = ({ item }: { item: OrderMessage }) => {
-    const isMe = item.sender_user_id === currentUser?.id
-    const isAdmin = item.is_admin_intervention || item.sender_type === 'COMMERCE_ADMIN' || item.sender_type === 'SUPER_ADMIN'
+    const isMe = item.sender_party === me
+    const isAdmin = item.sender_party === 'ADMIN'
 
     if (isAdmin) {
       return (
@@ -128,7 +158,7 @@ export function OrderChatFeed({
         <View style={[styles.bubble, isMe ? styles.myBubble : styles.otherBubble]}>
           {!isMe && (
             <Text style={styles.senderName}>
-              {item.sender_name || (item.sender_type === 'SELLER' ? t('communication.seller') : t('communication.buyer'))}
+              {item.sender_name || PARTY_LABEL[item.sender_party]}
             </Text>
           )}
           <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.otherMessageText]}>
@@ -154,9 +184,7 @@ export function OrderChatFeed({
             <Text style={styles.headerTitle}>
               {t('communication.channelTitle')} #{data?.order_number || orderId.slice(0, 8).toUpperCase()}
             </Text>
-            <Text style={styles.headerSubtitle}>
-              {role === 'BUYER' ? data?.shop_name || t('communication.seller') : data?.buyer_name || t('communication.buyer')}
-            </Text>
+            <Text style={styles.headerSubtitle}>{data?.shop_name || ''}</Text>
           </View>
           {onClose && (
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} accessibilityLabel={t('common.close')}>
@@ -166,27 +194,53 @@ export function OrderChatFeed({
         </View>
       )}
 
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsBar} contentContainerStyle={styles.chipsRow}>
+        {contacts.map((c) => {
+          const active = c.party === contact
+          return (
+            <TouchableOpacity
+              key={c.party}
+              onPress={() => setContact(c.party)}
+              style={[styles.chip, active && styles.chipActive, !c.available && { opacity: 0.55 }]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {PARTY_LABEL[c.party]}{c.unread > 0 ? ` (${c.unread})` : ''}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+      {selected ? (
+        <Text style={styles.privacyNote}>
+          Conversation privée avec {PARTY_LABEL[selected.party].toLowerCase()}{selected.name ? ` (${selected.name})` : ''} : personne d’autre ne la voit.
+        </Text>
+      ) : null}
+
       {error ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}
 
-      {loading && !messages.length ? (
+      {loading && !thread.length ? (
         <View style={styles.centerBox}>
           <ActivityIndicator size="small" color={colors.green} />
           <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
-      ) : messages.length === 0 ? (
+      ) : thread.length === 0 ? (
         <View style={styles.centerBox}>
           <Ionicons name="chatbubbles-outline" size={44} color={colors.mutedLight} />
           <Text style={styles.emptyTitle}>{t('communication.emptyChatTitle')}</Text>
-          <Text style={styles.emptyDesc}>{t('communication.emptyChatDesc')}</Text>
+          <Text style={styles.emptyDesc}>
+            {selected && !selected.available ? 'Aucun livreur n’est encore assigné à cette commande.' : t('communication.emptyChatDesc')}
+          </Text>
         </View>
       ) : (
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={thread}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           contentContainerStyle={styles.listContent}
@@ -198,7 +252,8 @@ export function OrderChatFeed({
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder={t('communication.inputPlaceholder')}
+          placeholder={selected ? `Message privé à ${PARTY_LABEL[selected.party].toLowerCase()}…` : t('communication.inputPlaceholder')}
+          editable={!!selected?.available}
           placeholderTextColor={colors.mutedLight}
           value={body}
           onChangeText={setBody}
@@ -206,9 +261,9 @@ export function OrderChatFeed({
           maxLength={2000}
         />
         <TouchableOpacity
-          style={[styles.sendButton, (!body.trim() || sending) && styles.sendButtonDisabled]}
+          style={[styles.sendButton, (!body.trim() || sending || !selected?.available) && styles.sendButtonDisabled]}
           onPress={handleSend}
-          disabled={!body.trim() || sending}
+          disabled={!body.trim() || sending || !selected?.available}
         >
           {sending ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -248,6 +303,42 @@ const makeStyles = (colors: Colors) =>
     },
     closeBtn: {
       padding: spacing.xs,
+    },
+    chipsBar: {
+      flexGrow: 0,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    chipsRow: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      gap: 8,
+    },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceAlt,
+    },
+    chipActive: {
+      backgroundColor: colors.green,
+      borderColor: colors.green,
+    },
+    chipText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.ink,
+    },
+    chipTextActive: {
+      color: '#FFFFFF',
+    },
+    privacyNote: {
+      fontSize: 11,
+      color: colors.muted,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
     },
     centerBox: {
       flex: 1,

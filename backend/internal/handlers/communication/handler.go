@@ -84,7 +84,7 @@ func (h *Handler) GetOrderConversation(c *gin.Context) {
 		return
 	}
 
-	detail, err := h.commService.GetOrderConversationDetail(orderID, userID, "", false)
+	detail, err := h.commService.GetOrderConversationDetail(orderID, userID, c.Query("as"), false)
 	if err != nil {
 		if err.Error() == "FORBIDDEN" {
 			h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "You are not authorized to view this conversation")
@@ -115,8 +115,11 @@ func (h *Handler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	msg, err := h.commService.SendMessage(orderID, userID, "", "", req.Body)
+	msg, err := h.commService.SendMessage(orderID, userID, "", "", req.Body, req.Recipient, req.As)
 	if err != nil {
+		if writeChannelError(h, c, err) {
+			return
+		}
 		if err.Error() == "FORBIDDEN" {
 			h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "You are not allowed to send messages in this conversation")
 			return
@@ -130,6 +133,21 @@ func (h *Handler) SendMessage(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, msg)
+}
+
+// writeChannelError answers the private-channel rule violations.
+func writeChannelError(h *Handler, c *gin.Context, err error) bool {
+	switch err.Error() {
+	case "INVALID_RECIPIENT":
+		h.errResponse(c, http.StatusBadRequest, "INVALID_RECIPIENT", "Choisissez un destinataire : acheteur, vendeur, livreur ou TBK.")
+	case "CHANNEL_NOT_ALLOWED":
+		h.errResponse(c, http.StatusForbidden, "CHANNEL_NOT_ALLOWED", "Vous ne pouvez pas écrire à ce destinataire.")
+	case "COURIER_NOT_ASSIGNED":
+		h.errResponse(c, http.StatusConflict, "COURIER_NOT_ASSIGNED", "Aucun livreur n'est encore assigné à cette commande.")
+	default:
+		return false
+	}
+	return true
 }
 
 // ListBuyerConversations handles GET /api/v1/buyer/conversations
@@ -287,7 +305,7 @@ func (h *Handler) ListAdminOrderCommunications(c *gin.Context) {
 
 // GetAdminOrderConversation handles GET /api/v1/admin/commerce/orders/:id/conversation
 func (h *Handler) GetAdminOrderConversation(c *gin.Context) {
-	adminID, role, _, ok := h.extractAdmin(c)
+	adminID, _, _, ok := h.extractAdmin(c)
 	if !ok {
 		return
 	}
@@ -297,7 +315,7 @@ func (h *Handler) GetAdminOrderConversation(c *gin.Context) {
 		return
 	}
 
-	detail, err := h.commService.GetOrderConversationDetail(orderID, adminID, role, true)
+	detail, err := h.commService.GetOrderConversationDetail(orderID, adminID, "", true)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "CONVERSATION_ERROR", err.Error())
 		return
@@ -326,8 +344,11 @@ func (h *Handler) AdminIntervene(c *gin.Context) {
 
 	adminName := "TBK Commerce Operations"
 
-	msg, err := h.commService.AdminIntervene(orderID, adminID, role, adminName, req.Body, req.RecipientScope, req.RecipientUserID)
+	msg, err := h.commService.AdminIntervene(orderID, adminID, role, adminName, req.Body, req.RecipientParty, req.RecipientScope, req.RecipientUserID)
 	if err != nil {
+		if writeChannelError(h, c, err) {
+			return
+		}
 		if err.Error() == "FORBIDDEN" || err.Error() == "INVALID_RECIPIENT" {
 			h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "Only authorized Commerce Admins can intervene")
 			return

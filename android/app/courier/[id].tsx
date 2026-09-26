@@ -15,6 +15,7 @@ import { courierStatusLabel, invalidateCourierMission, productVerificationBody }
 import type { ConfirmCashResponse, HandoverState, HandoverVerificationResult } from '../../src/types'
 import { MissionActions } from '../../src/components/CourierMissionActions'
 import { lineLabel } from '../../src/lib/lineLabel'
+import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 
 const HANDOVER_STATUSES = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
 const PROVIDER_LABELS: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 'Airtel Money', ORANGE_MONEY: 'Orange Money' }
@@ -33,6 +34,7 @@ export default function CourierMissionScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors])
   const { t } = useI18n()
   const { id } = useLocalSearchParams<{ id: string }>()
+  const [showChat, setShowChat] = useState(false)
 
   const mission = useQuery({
     queryKey: ['courier', 'mission', id],
@@ -47,6 +49,14 @@ export default function CourierMissionScreen() {
   const m = mission.data
   const atDoor = HANDOVER_STATUSES.includes(m.delivery_status)
 
+  if (showChat) {
+    return (
+      <View style={StyleSheet.absoluteFill}>
+        <OrderChatFeed orderId={m.order_id} role="COURIER" onClose={() => setShowChat(false)} />
+      </View>
+    )
+  }
+
   return (
     <ScrollView
       contentContainerStyle={styles.page}
@@ -60,7 +70,16 @@ export default function CourierMissionScreen() {
         <Text style={styles.muted}>{t('courier.deliverTo')} : {m.delivery_contact}{m.delivery_address ? ` · ${m.delivery_address}` : ''}</Text>
         {m.delivery_phone ? <Text style={styles.muted}>{t('editProfile.phone')} : {m.delivery_phone}</Text> : null}
         {m.delivery_notes ? <Text style={styles.muted}>{t('checkout.instructions')} : {m.delivery_notes}</Text> : null}
+        {m.total_amount != null ? (
+          <View style={{ gap: 2 }}>
+            <Text style={styles.muted}>Produits : {formatMoney(m.products_total ?? 0, m.currency)}</Text>
+            <Text style={styles.muted}>Frais de livraison TBK : {formatMoney(m.delivery_fee ?? 0, m.currency)}</Text>
+            {(m.payment_markup ?? 0) > 0 ? <Text style={styles.muted}>Frais de paiement : {formatMoney(m.payment_markup ?? 0, m.currency)}</Text> : null}
+            <Text style={styles.status}>Montant total à encaisser : {formatMoney(m.total_amount, m.currency)}</Text>
+          </View>
+        ) : null}
         <MissionActions mission={m} compact />
+        <Button variant="outline" title="Messages (acheteur, vendeur, TBK)" onPress={() => setShowChat(true)} />
         {/* Identifying one ordered item. A read: it resolves what this courier may
             see about that line and moves no handover step, so it stays available
             at every stage of the mission, not only at the door. */}

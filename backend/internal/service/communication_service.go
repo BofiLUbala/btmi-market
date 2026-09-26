@@ -150,8 +150,85 @@ func (s *CommunicationService) EnsureOrderConversation(orderID uuid.UUID) (*mode
 	return s.orderConvRepo.CreateOrGetConversation(order.ID, buyerUserID, order.ShopID, order.BusinessID)
 }
 
-// GetOrderConversationDetail retrieves conversation details, messages, and order meta.
-func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, callerUserID uuid.UUID, callerRole string, isCommerceAdmin bool) (*models.OrderConversationDetailResponse, error) {
+// callerParties lists the sides userID holds on this order. Someone can be,
+// for instance, both the courier and a buyer of the same order in tests.
+func (s *CommunicationService) callerParties(conv *models.OrderConversation, order *models.Order, userID uuid.UUID) (parties []models.Party, isEmployee bool) {
+	if conv.BuyerID == userID {
+		parties = append(parties, models.PartyBuyer)
+	}
+	if membership, err := s.membershipRepo.GetActiveByUserAndBusiness(userID, conv.BusinessID); err == nil && membership != nil {
+		parties = append(parties, models.PartySeller)
+		isEmployee = membership.Role == models.MembershipRoleEmployee
+	}
+	if order.AssignedCourierID != nil && *order.AssignedCourierID == userID {
+		parties = append(parties, models.PartyCourier)
+	}
+	return parties, isEmployee
+}
+
+// resolveParty picks the caller's side: the requested one when they hold it,
+// otherwise their first. FORBIDDEN when they have no side on this order.
+func (s *CommunicationService) resolveParty(conv *models.OrderConversation, order *models.Order, userID uuid.UUID, requested string) (models.Party, bool, error) {
+	parties, isEmployee := s.callerParties(conv, order, userID)
+	if len(parties) == 0 {
+		return "", false, errors.New("FORBIDDEN")
+	}
+	if requested == "" {
+		return parties[0], isEmployee, nil
+	}
+	want, ok := models.ParseParty(requested)
+	if !ok {
+		return "", false, errors.New("FORBIDDEN")
+	}
+	for _, p := range parties {
+		if p == want {
+			return p, isEmployee, nil
+		}
+	}
+	return "", false, errors.New("FORBIDDEN")
+}
+
+func (s *CommunicationService) displayName(userID uuid.UUID) string {
+	user, _ := s.userRepo.GetByID(userID)
+	if user == nil {
+		return ""
+	}
+	if name := strings.TrimSpace(user.FirstName + " " + user.LastName); name != "" {
+		return name
+	}
+	return user.Email
+}
+
+// contactsFor lists the channels party may open on this order, with who is
+// behind each one and how many unread messages it holds.
+func (s *CommunicationService) contactsFor(conv *models.OrderConversation, order *models.Order, party models.Party, shopName, buyerName string) []models.ChannelContact {
+	unread, _ := s.orderConvRepo.UnreadByContact(conv.ID, party)
+	contacts := []models.ChannelContact{}
+	for _, p := range models.AllowedRecipients(party) {
+		c := models.ChannelContact{Party: p, Available: true, Unread: unread[p]}
+		switch p {
+		case models.PartyBuyer:
+			c.Name = buyerName
+		case models.PartySeller:
+			c.Name = shopName
+		case models.PartyCourier:
+			courierID := s.resolveCourierUserID(order)
+			c.Available = courierID != uuid.Nil
+			if c.Available {
+				c.Name = s.displayName(courierID)
+			}
+		case models.PartyAdmin:
+			c.Name = "Support TBK"
+		}
+		contacts = append(contacts, c)
+	}
+	return contacts
+}
+
+// GetOrderConversationDetail returns the caller's private channels on an order.
+// Admins act as the ADMIN party; everyone else as their side of the order
+// (requestedParty picks one when they hold several).
+func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, callerUserID uuid.UUID, requestedParty string, isCommerceAdmin bool) (*models.OrderConversationDetailResponse, error) {
 	conv, err := s.EnsureOrderConversation(orderID)
 	if err != nil {
 		return nil, err
@@ -162,32 +239,17 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 		return nil, err
 	}
 
-	// Permission verification
-	isBuyer := conv.BuyerID == callerUserID
-	var isSeller bool
-	if !isBuyer && !isCommerceAdmin {
-		// Check business membership
-		membership, err := s.membershipRepo.GetActiveByUserAndBusiness(callerUserID, conv.BusinessID)
-		if err == nil && membership != nil {
-			isSeller = true
-		}
-	}
-
-	if !isBuyer && !isSeller && !isCommerceAdmin {
-		return nil, errors.New("FORBIDDEN")
-	}
+	party := models.PartyAdmin
 	if !isCommerceAdmin {
+		party, _, err = s.resolveParty(conv, order, callerUserID, requestedParty)
+		if err != nil {
+			return nil, err
+		}
 		s.markConversationRead(conv.ID, callerUserID)
 	}
+	_ = s.orderConvRepo.MarkReadForParty(conv.ID, party)
 
-	// Mark as read according to caller role
-	if isBuyer {
-		_ = s.orderConvRepo.MarkMessagesAsReadByBuyer(conv.ID)
-	} else if isSeller {
-		_ = s.orderConvRepo.MarkMessagesAsReadBySeller(conv.ID)
-	}
-
-	messages, err := s.orderConvRepo.GetMessagesByConversationID(conv.ID)
+	messages, err := s.orderConvRepo.GetMessagesForParty(conv.ID, party)
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +257,7 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 		messages = []models.OrderMessage{}
 	}
 
-	// Get shop, business, buyer names
-	var shopName, businessName, buyerName string
+	var shopName, businessName string
 	shop, _ := s.shopRepo.GetByID(conv.ShopID)
 	if shop != nil {
 		shopName = shop.Name
@@ -205,16 +266,15 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 	if business != nil {
 		businessName = business.Name
 	}
-	buyerUser, _ := s.userRepo.GetByID(conv.BuyerID)
-	if buyerUser != nil {
-		buyerName = strings.TrimSpace(buyerUser.FirstName + " " + buyerUser.LastName)
-		if buyerName == "" {
-			buyerName = buyerUser.Email
+	buyerName := s.displayName(conv.BuyerID)
+
+	// Only admins get the list of the seller team's members.
+	participants := []models.OrderConversationParticipant{}
+	if isCommerceAdmin {
+		participants, err = s.getOrderParticipants(conv)
+		if err != nil {
+			return nil, err
 		}
-	}
-	participants, err := s.getOrderParticipants(conv)
-	if err != nil {
-		return nil, err
 	}
 
 	return &models.OrderConversationDetailResponse{
@@ -227,17 +287,33 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 		BusinessName:   businessName,
 		BuyerName:      buyerName,
 		Participants:   participants,
+		MyParty:        party,
+		Contacts:       s.contactsFor(conv, order, party, shopName, buyerName),
 		Messages:       messages,
 	}, nil
 }
 
-// SendMessage sends a message in the order conversation.
+func scopeForParty(p models.Party) models.RecipientScope {
+	switch p {
+	case models.PartyBuyer:
+		return models.RecipientScopeBuyer
+	case models.PartySeller:
+		return models.RecipientScopeSellerOwner
+	}
+	return models.RecipientScope(p)
+}
+
+// SendMessage writes a private message from the sender's side to one
+// recipient party. Admin senders (senderRole set) write as ADMIN. A missing
+// recipient means the TBK support channel, the one every side has.
 func (s *CommunicationService) SendMessage(
 	orderID uuid.UUID,
 	senderUserID uuid.UUID,
 	senderRole string,
 	senderName string,
 	body string,
+	recipient string,
+	asParty string,
 ) (*models.OrderMessage, error) {
 	body = strings.TrimSpace(body)
 	if body == "" {
@@ -254,49 +330,52 @@ func (s *CommunicationService) SendMessage(
 		return nil, err
 	}
 
+	var senderParty models.Party
 	var senderType models.SenderType
-	var isAdminIntervention bool
-
-	isBuyer := conv.BuyerID == senderUserID
-	var isSeller bool
-	var isEmployee bool
-
-	if !isBuyer {
-		membership, err := s.membershipRepo.GetActiveByUserAndBusiness(senderUserID, conv.BusinessID)
-		if err == nil && membership != nil {
-			if membership.Role == models.MembershipRoleEmployee {
-				isEmployee = true
-			} else {
-				isSeller = true
-			}
-		}
-	}
-
-	if isBuyer {
-		senderType = models.SenderTypeBuyer
-	} else if isSeller {
-		senderType = models.SenderTypeSeller
-	} else if isEmployee {
-		senderType = models.SenderTypeEmployee
-	} else if senderRole == "SUPER_ADMIN" {
-		senderType = models.SenderTypeSuperAdmin
-		isAdminIntervention = true
-	} else if senderRole == "COMMERCE_ADMIN" || senderRole == "ADMIN" {
+	isAdmin := senderRole == "SUPER_ADMIN" || senderRole == "COMMERCE_ADMIN" || senderRole == "ADMIN"
+	if isAdmin {
+		senderParty = models.PartyAdmin
 		senderType = models.SenderTypeCommerceAdmin
-		isAdminIntervention = true
+		if senderRole == "SUPER_ADMIN" {
+			senderType = models.SenderTypeSuperAdmin
+		}
 	} else {
-		return nil, errors.New("FORBIDDEN")
+		var isEmployee bool
+		senderParty, isEmployee, err = s.resolveParty(conv, order, senderUserID, asParty)
+		if err != nil {
+			return nil, err
+		}
+		switch senderParty {
+		case models.PartyBuyer:
+			senderType = models.SenderTypeBuyer
+		case models.PartySeller:
+			senderType = models.SenderTypeSeller
+			if isEmployee {
+				senderType = models.SenderTypeEmployee
+			}
+		case models.PartyCourier:
+			senderType = models.SenderTypeCourier
+		}
 	}
 
-	// Resolve sender name if empty
-	if strings.TrimSpace(senderName) == "" {
-		user, _ := s.userRepo.GetByID(senderUserID)
-		if user != nil {
-			senderName = strings.TrimSpace(user.FirstName + " " + user.LastName)
-			if senderName == "" {
-				senderName = user.Email
-			}
+	recipientParty := models.PartyAdmin
+	if strings.TrimSpace(recipient) != "" {
+		p, ok := models.ParseParty(recipient)
+		if !ok {
+			return nil, errors.New("INVALID_RECIPIENT")
 		}
+		recipientParty = p
+	}
+	if !models.CanMessage(senderParty, recipientParty) {
+		return nil, errors.New("CHANNEL_NOT_ALLOWED")
+	}
+	courierID := s.resolveCourierUserID(order)
+	if recipientParty == models.PartyCourier && courierID == uuid.Nil {
+		return nil, errors.New("COURIER_NOT_ASSIGNED")
+	}
+
+	if strings.TrimSpace(senderName) == "" {
+		senderName = s.displayName(senderUserID)
 	}
 
 	now := time.Now()
@@ -307,13 +386,23 @@ func (s *CommunicationService) SendMessage(
 		SenderType:          senderType,
 		SenderName:          senderName,
 		Body:                body,
-		IsAdminIntervention: isAdminIntervention,
+		IsAdminIntervention: isAdmin,
+		RecipientScope:      scopeForParty(recipientParty),
+		SenderParty:         senderParty,
+		RecipientParty:      recipientParty,
 		CreatedAt:           now,
 	}
-
-	if isBuyer {
+	switch recipientParty {
+	case models.PartyBuyer:
+		id := conv.BuyerID
+		msg.RecipientUserID = &id
+	case models.PartyCourier:
+		msg.RecipientUserID = &courierID
+	}
+	switch senderParty {
+	case models.PartyBuyer:
 		msg.ReadByBuyerAt = &now
-	} else if isSeller || isEmployee {
+	case models.PartySeller:
 		msg.ReadBySellerAt = &now
 	}
 
@@ -321,63 +410,70 @@ func (s *CommunicationService) SendMessage(
 		return nil, err
 	}
 
-	// Trigger notifications
-	go func() {
-		orderNum := order.OrderNumber
-		if orderNum == "" {
-			orderNum = order.ID.String()[:8]
-		}
-
-		if senderType == models.SenderTypeBuyer {
-			// Notify seller
-			sellerUserIDs, _ := s.getBusinessUserIDs(conv.BusinessID)
-			for _, uid := range sellerUserIDs {
-				_ = s.notifRepo.Create(&models.Notification{
-					UserID:        uid,
-					Type:          models.NotificationTypeNewMessage,
-					Title:         fmt.Sprintf("Nouveau message - Commande %s", orderNum),
-					Body:          fmt.Sprintf("%s: %s", senderName, truncateText(body, 80)),
-					ReferenceType: "ORDER",
-					ReferenceID:   order.ID,
-					Metadata: map[string]interface{}{
-						"order_id":        order.ID.String(),
-						"order_number":    orderNum,
-						"conversation_id": conv.ID.String(),
-						"sender_type":     string(senderType),
-						"audience":        repository.NotificationAudienceSeller,
-					},
-				})
-			}
-		} else if senderType == models.SenderTypeSeller || senderType == models.SenderTypeEmployee {
-			// Notify buyer
-			_ = s.notifRepo.Create(&models.Notification{
-				UserID:        conv.BuyerID,
-				Type:          models.NotificationTypeNewMessage,
-				Title:         fmt.Sprintf("Nouveau message - Commande %s", orderNum),
-				Body:          fmt.Sprintf("%s: %s", senderName, truncateText(body, 80)),
-				ReferenceType: "ORDER",
-				ReferenceID:   order.ID,
-				Metadata: map[string]interface{}{
-					"order_id":        order.ID.String(),
-					"order_number":    orderNum,
-					"conversation_id": conv.ID.String(),
-					"sender_type":     string(senderType),
-					"audience":        repository.NotificationAudienceBuyer,
-				},
-			})
-		}
-	}()
-
+	go s.notifyNewMessage(order, conv, msg)
 	return msg, nil
 }
 
-// AdminIntervene sends an official admin message into the order conversation.
+// notifyNewMessage alerts only the recipient party of a private message.
+func (s *CommunicationService) notifyNewMessage(order *models.Order, conv *models.OrderConversation, msg *models.OrderMessage) {
+	orderNum := order.OrderNumber
+	if orderNum == "" {
+		orderNum = order.ID.String()[:8]
+	}
+	title := fmt.Sprintf("Nouveau message - Commande %s", orderNum)
+	from := msg.SenderName
+	if msg.SenderParty == models.PartyAdmin {
+		title = fmt.Sprintf("Message de TBK - Commande %s", orderNum)
+		from = "Support TBK"
+	}
+	meta := map[string]interface{}{
+		"order_id":        order.ID.String(),
+		"order_number":    orderNum,
+		"conversation_id": conv.ID.String(),
+		"sender_type":     string(msg.SenderType),
+		"sender_party":    string(msg.SenderParty),
+	}
+	notify := func(uid uuid.UUID, audience string) {
+		_ = s.notifRepo.Create(&models.Notification{
+			UserID:        uid,
+			Type:          models.NotificationTypeNewMessage,
+			Title:         title,
+			Body:          fmt.Sprintf("%s: %s", from, truncateText(msg.Body, 80)),
+			ReferenceType: "ORDER",
+			ReferenceID:   order.ID,
+			Metadata:      withAudience(meta, audience),
+		})
+	}
+	switch msg.RecipientParty {
+	case models.PartyBuyer:
+		notify(conv.BuyerID, repository.NotificationAudienceBuyer)
+	case models.PartySeller:
+		ids, _ := s.getBusinessUserIDs(conv.BusinessID)
+		for _, uid := range ids {
+			notify(uid, repository.NotificationAudienceSeller)
+		}
+	case models.PartyCourier:
+		if id := s.resolveCourierUserID(order); id != uuid.Nil {
+			notify(id, repository.NotificationAudienceCourier)
+		}
+	case models.PartyAdmin:
+		ids, _ := s.getAdminUserIDs("SUPER_ADMIN", "COMMERCE_ADMIN")
+		for _, uid := range ids {
+			notify(uid, repository.NotificationAudienceAdmin)
+		}
+	}
+}
+
+// AdminIntervene sends a private admin message to one party of the order:
+// the buyer, the seller team or the courier. Broadcasting to everyone at once
+// is no longer possible.
 func (s *CommunicationService) AdminIntervene(
 	orderID uuid.UUID,
 	adminUserID uuid.UUID,
 	adminRole string,
 	adminName string,
 	body string,
+	recipientParty string,
 	recipientScope models.RecipientScope,
 	recipientUserID *uuid.UUID,
 ) (*models.OrderMessage, error) {
@@ -391,55 +487,29 @@ func (s *CommunicationService) AdminIntervene(
 		adminName = fmt.Sprintf("%s (TBK Admin)", adminName)
 	}
 
-	conv, err := s.EnsureOrderConversation(orderID)
-	if err != nil {
-		return nil, err
-	}
-	participants, err := s.getOrderParticipants(conv)
-	if err != nil {
-		return nil, err
-	}
-	valid := recipientScope == models.RecipientScopeAll && recipientUserID == nil
-	if recipientScope != models.RecipientScopeAll && recipientUserID != nil {
-		for _, p := range participants {
-			if p.UserID == *recipientUserID && p.Type == string(recipientScope) {
-				valid = true
-				break
-			}
+	party := strings.TrimSpace(recipientParty)
+	if party == "" {
+		switch recipientScope {
+		case models.RecipientScopeBuyer:
+			party = string(models.PartyBuyer)
+		case models.RecipientScopeSellerOwner, models.RecipientScopeEmployee:
+			party = string(models.PartySeller)
+		case "COURIER":
+			party = string(models.PartyCourier)
+		default:
+			return nil, errors.New("INVALID_RECIPIENT")
 		}
 	}
-	if !valid {
-		return nil, errors.New("INVALID_RECIPIENT")
-	}
 
-	msg, err := s.SendMessage(orderID, adminUserID, adminRole, adminName, body)
+	msg, err := s.SendMessage(orderID, adminUserID, adminRole, adminName, body, party, "")
 	if err != nil {
 		return nil, err
 	}
-	msg.RecipientScope = recipientScope
-	msg.RecipientUserID = recipientUserID
-	_, err = s.db.Exec(`UPDATE order_messages SET recipient_scope=$1, recipient_user_id=$2 WHERE id=$3`, recipientScope, recipientUserID, msg.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	targets := []uuid.UUID{}
-	if recipientScope == models.RecipientScopeAll {
-		for _, p := range participants {
-			targets = append(targets, p.UserID)
-		}
-	} else {
-		targets = append(targets, *recipientUserID)
-	}
-	order, _ := s.orderRepo.GetByID(orderID)
-	orderNum := order.ID.String()[:8]
-	if order.OrderNumber != "" {
-		orderNum = order.OrderNumber
-	}
-	for _, uid := range targets {
-		_ = s.notifRepo.Create(&models.Notification{UserID: uid, Type: models.NotificationTypeNewMessage,
-			Title: fmt.Sprintf("Intervention TBK Admin - Commande #%s", orderNum), Body: fmt.Sprintf("TBK Commerce Operations: %s", truncateText(body, 80)),
-			ReferenceType: "ORDER", ReferenceID: orderID, Metadata: map[string]interface{}{"order_id": orderID.String(), "conversation_id": conv.ID.String(), "recipient_scope": string(recipientScope), "is_admin": true}})
+	// A specific seller team member may be named, but the channel stays the
+	// seller's: the whole team (and nobody else) can read it.
+	if msg.RecipientParty == models.PartySeller && recipientUserID != nil {
+		msg.RecipientUserID = recipientUserID
+		_, _ = s.db.Exec(`UPDATE order_messages SET recipient_user_id=$1 WHERE id=$2`, recipientUserID, msg.ID)
 	}
 	return msg, nil
 }

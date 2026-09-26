@@ -1704,6 +1704,13 @@ export interface CourierMission extends DeliveryPlan {
   delivery_contact: string
   delivery_phone: string
   delivery_notes?: string
+  total_amount: number
+  products_total: number
+  delivery_fee: number
+  payment_markup: number
+  currency: string
+  payment_method: string
+  payment_status: string
   assigned_at?: string
   accepted_at?: string
   ready_at?: string

@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,12 +19,55 @@ const (
 	RecipientScopeAll         RecipientScope = "ALL_PARTICIPANTS"
 )
 
+// Party is one side of a private order channel. A message is visible only to
+// its sender party and its recipient party.
+type Party string
+
+const (
+	PartyBuyer   Party = "BUYER"
+	PartySeller  Party = "SELLER"
+	PartyCourier Party = "COURIER"
+	PartyAdmin   Party = "ADMIN"
+)
+
+// channelAllowed lists who may write to whom. The buyer never talks to the
+// seller directly: the courier and TBK admins are their intermediaries.
+var channelAllowed = map[Party][]Party{
+	PartyBuyer:   {PartyAdmin, PartyCourier},
+	PartySeller:  {PartyAdmin, PartyCourier},
+	PartyCourier: {PartyBuyer, PartySeller, PartyAdmin},
+	PartyAdmin:   {PartyBuyer, PartySeller, PartyCourier},
+}
+
+// AllowedRecipients returns the parties p may write to.
+func AllowedRecipients(p Party) []Party { return channelAllowed[p] }
+
+// CanMessage reports whether from may write to to.
+func CanMessage(from, to Party) bool {
+	for _, r := range channelAllowed[from] {
+		if r == to {
+			return true
+		}
+	}
+	return false
+}
+
+// ParseParty accepts a party name in any case; ok is false when unknown.
+func ParseParty(raw string) (Party, bool) {
+	switch p := Party(strings.ToUpper(strings.TrimSpace(raw))); p {
+	case PartyBuyer, PartySeller, PartyCourier, PartyAdmin:
+		return p, true
+	}
+	return "", false
+}
+
 const (
 	SenderTypeBuyer         SenderType = "BUYER"
 	SenderTypeSeller        SenderType = "SELLER"
 	SenderTypeEmployee      SenderType = "EMPLOYEE"
 	SenderTypeCommerceAdmin SenderType = "COMMERCE_ADMIN"
 	SenderTypeSuperAdmin    SenderType = "SUPER_ADMIN"
+	SenderTypeCourier       SenderType = "COURIER"
 	SenderTypeSystem        SenderType = "SYSTEM"
 )
 
@@ -84,6 +128,9 @@ type OrderMessage struct {
 	IsAdminIntervention bool           `json:"is_admin_intervention" db:"is_admin_intervention"`
 	RecipientScope      RecipientScope `json:"recipient_scope" db:"recipient_scope"`
 	RecipientUserID     *uuid.UUID     `json:"recipient_user_id,omitempty" db:"recipient_user_id"`
+	SenderParty         Party          `json:"sender_party" db:"sender_party"`
+	RecipientParty      Party          `json:"recipient_party" db:"recipient_party"`
+	RecipientReadAt     *time.Time     `json:"recipient_read_at,omitempty" db:"recipient_read_at"`
 	ReadByBuyerAt       *time.Time     `json:"read_by_buyer_at,omitempty" db:"read_by_buyer_at"`
 	ReadBySellerAt      *time.Time     `json:"read_by_seller_at,omitempty" db:"read_by_seller_at"`
 	CreatedAt           time.Time      `json:"created_at" db:"created_at"`
@@ -106,12 +153,26 @@ type Notification struct {
 
 type SendMessageRequest struct {
 	Body string `json:"body" binding:"required"`
+	// Recipient is the party this private message goes to.
+	Recipient string `json:"recipient"`
+	// As picks the caller's side when they hold several roles on one order.
+	As string `json:"as"`
 }
 
 type AdminInterveneRequest struct {
 	Body            string         `json:"body" binding:"required"`
-	RecipientScope  RecipientScope `json:"recipient_scope" binding:"required"`
+	RecipientScope  RecipientScope `json:"recipient_scope"`
 	RecipientUserID *uuid.UUID     `json:"recipient_user_id"`
+	// RecipientParty (BUYER, SELLER or COURIER) wins over RecipientScope.
+	RecipientParty string `json:"recipient_party"`
+}
+
+// ChannelContact is a party the caller may open a private channel with.
+type ChannelContact struct {
+	Party     Party  `json:"party"`
+	Name      string `json:"name"`
+	Available bool   `json:"available"`
+	Unread    int    `json:"unread"`
 }
 
 type OrderConversationParticipant struct {
@@ -131,7 +192,10 @@ type OrderConversationDetailResponse struct {
 	BusinessName   string                         `json:"business_name"`
 	BuyerName      string                         `json:"buyer_name"`
 	Participants   []OrderConversationParticipant `json:"participants"`
-	Messages       []OrderMessage                 `json:"messages"`
+	// MyParty is the caller's side; Messages holds only its channels.
+	MyParty  Party            `json:"my_party"`
+	Contacts []ChannelContact `json:"contacts"`
+	Messages []OrderMessage   `json:"messages"`
 }
 
 type ConversationListItemResponse struct {

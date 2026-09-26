@@ -1546,7 +1546,7 @@ export default function SellerProductDetailPage() {
                           )}
                         </td>
                         <td className="mono small">{v.sku || '—'}</td>
-                        <td><strong>{formatMoney(Number(v.sale_price || 0), product.currency)}</strong></td>
+                        <td><VariantPriceEditor variant={v} currency={product.currency} onSaved={load} /></td>
                         <td>
                           <div>
                             <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
@@ -1634,7 +1634,7 @@ export default function SellerProductDetailPage() {
                         {v.sku && <span className="mono small muted">SKU: {v.sku}</span>}
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <span className="mobile-data-card-price">{formatMoney(Number(v.sale_price || 0), product.currency)}</span>
+                        <span className="mobile-data-card-price"><VariantPriceEditor variant={v} currency={product.currency} onSaved={load} /></span>
                         <div style={{ marginTop: 4 }}>
                           <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
                             {v.status}
@@ -1757,5 +1757,56 @@ export default function SellerProductDetailPage() {
       </Card>
 
     </div>
+  )
+}
+
+/** The price buyers pay for one variant, editable in place. */
+function VariantPriceEditor({ variant, currency, onSaved }: { variant: ProductVariant; currency?: string; onSaved: () => Promise<void> | void }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!editing) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <strong>{formatMoney(Number(variant.sale_price || 0), currency)}</strong>
+        <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: '0.72rem', padding: '2px 6px' }}
+          onClick={() => { setValue(String(variant.sale_price || '')); setError(''); setEditing(true) }}>
+          Modifier
+        </button>
+      </span>
+    )
+  }
+
+  async function save() {
+    const price = parseFloat(value.replace(',', '.'))
+    if (!Number.isFinite(price) || price <= 0) {
+      setError('Prix invalide')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await productApi.updateVariant(variant.id, { sale_price: price })
+      setEditing(false)
+      await onSaved()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Échec de la mise à jour')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+      <input className="input input-sm" type="number" inputMode="decimal" min="0.01" step="0.01" value={value} autoFocus
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEditing(false) }}
+        style={{ width: 90 }} aria-label="Nouveau prix" />
+      <Button size="sm" disabled={saving} onClick={() => void save()}>{saving ? '…' : 'OK'}</Button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>Annuler</button>
+      {error && <span className="small" style={{ color: 'var(--color-danger)', width: '100%' }}>{error}</span>}
+    </span>
   )
 }

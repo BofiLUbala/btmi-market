@@ -1439,7 +1439,7 @@ export const fr = {
   'seller.messages': 'Messages & Commandes',
   'seller.notifications': 'Notifications',
   'communication.channelTitle': 'Canal de commande',
-  'communication.contactSeller': 'Contacter la boutique',
+  'communication.contactSeller': 'Messages (livreur, support TBK)',
   'communication.sellerSubtitle': 'Échangez directement avec vos acheteurs pour chaque commande en cours.',
   'communication.sellerNotifSubtitle': 'Toutes les alertes concernant vos nouvelles commandes, retraits et livraisons.',
   'communication.noConversations': 'Aucune conversation trouvée',

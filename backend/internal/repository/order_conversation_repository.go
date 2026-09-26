@@ -125,9 +125,9 @@ func (r *OrderConversationRepository) CreateMessage(msg *models.OrderMessage) er
 		INSERT INTO order_messages (
 			id, conversation_id, sender_user_id, sender_type, sender_name, body,
 			is_admin_intervention, recipient_scope, recipient_user_id,
-			read_by_buyer_at, read_by_seller_at, created_at
+			read_by_buyer_at, read_by_seller_at, created_at, sender_party, recipient_party
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING created_at
 	`
 
@@ -145,6 +145,8 @@ func (r *OrderConversationRepository) CreateMessage(msg *models.OrderMessage) er
 		msg.ReadByBuyerAt,
 		msg.ReadBySellerAt,
 		msg.CreatedAt,
+		msg.SenderParty,
+		msg.RecipientParty,
 	).Scan(&msg.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert order message: %w", err)
@@ -156,18 +158,20 @@ func (r *OrderConversationRepository) CreateMessage(msg *models.OrderMessage) er
 	return nil
 }
 
-// GetMessagesByConversationID retrieves all messages for a conversation ordered chronologically.
-func (r *OrderConversationRepository) GetMessagesByConversationID(conversationID uuid.UUID) ([]models.OrderMessage, error) {
+// GetMessagesForParty returns, oldest first, only the messages of the
+// channels party belongs to: nobody reads a channel they are not part of.
+func (r *OrderConversationRepository) GetMessagesForParty(conversationID uuid.UUID, party models.Party) ([]models.OrderMessage, error) {
 	query := `
 		SELECT 
 			id, conversation_id, sender_user_id, sender_type, sender_name, body,
 			is_admin_intervention, recipient_scope, recipient_user_id,
-			read_by_buyer_at, read_by_seller_at, created_at
+			read_by_buyer_at, read_by_seller_at, created_at,
+			sender_party, recipient_party, recipient_read_at
 		FROM order_messages
-		WHERE conversation_id = $1
+		WHERE conversation_id = $1 AND (sender_party = $2 OR recipient_party = $2)
 		ORDER BY created_at ASC
 	`
-	rows, err := r.db.Query(query, conversationID)
+	rows, err := r.db.Query(query, conversationID, string(party))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query messages: %w", err)
 	}
@@ -176,8 +180,8 @@ func (r *OrderConversationRepository) GetMessagesByConversationID(conversationID
 	var messages []models.OrderMessage
 	for rows.Next() {
 		var msg models.OrderMessage
-		var readBuyer, readSeller sql.NullTime
-		var senderType string
+		var readBuyer, readSeller, recipientRead sql.NullTime
+		var senderType, senderParty, recipientParty string
 
 		err := rows.Scan(
 			&msg.ID,
@@ -192,11 +196,20 @@ func (r *OrderConversationRepository) GetMessagesByConversationID(conversationID
 			&readBuyer,
 			&readSeller,
 			&msg.CreatedAt,
+			&senderParty,
+			&recipientParty,
+			&recipientRead,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan message: %w", err)
 		}
 		msg.SenderType = models.SenderType(senderType)
+		msg.SenderParty = models.Party(senderParty)
+		msg.RecipientParty = models.Party(recipientParty)
+		if recipientRead.Valid {
+			t := recipientRead.Time
+			msg.RecipientReadAt = &t
+		}
 		if readBuyer.Valid {
 			t := readBuyer.Time
 			msg.ReadByBuyerAt = &t
@@ -214,26 +227,40 @@ func (r *OrderConversationRepository) GetMessagesByConversationID(conversationID
 	return messages, nil
 }
 
-// MarkMessagesAsReadByBuyer marks all unread seller/admin/system messages in a conversation as read by buyer.
-func (r *OrderConversationRepository) MarkMessagesAsReadByBuyer(conversationID uuid.UUID) error {
+// MarkReadForParty marks the messages addressed to party as read. The legacy
+// buyer/seller columns are kept in step for older clients.
+func (r *OrderConversationRepository) MarkReadForParty(conversationID uuid.UUID, party models.Party) error {
 	query := `
 		UPDATE order_messages
-		SET read_by_buyer_at = NOW()
-		WHERE conversation_id = $1 AND read_by_buyer_at IS NULL AND sender_type != 'BUYER'
+		SET recipient_read_at = NOW(),
+		    read_by_buyer_at = CASE WHEN $2 = 'BUYER' THEN COALESCE(read_by_buyer_at, NOW()) ELSE read_by_buyer_at END,
+		    read_by_seller_at = CASE WHEN $2 = 'SELLER' THEN COALESCE(read_by_seller_at, NOW()) ELSE read_by_seller_at END
+		WHERE conversation_id = $1 AND recipient_party = $2 AND recipient_read_at IS NULL
 	`
-	_, err := r.db.Exec(query, conversationID)
+	_, err := r.db.Exec(query, conversationID, string(party))
 	return err
 }
 
-// MarkMessagesAsReadBySeller marks all unread buyer/admin/system messages in a conversation as read by seller.
-func (r *OrderConversationRepository) MarkMessagesAsReadBySeller(conversationID uuid.UUID) error {
-	query := `
-		UPDATE order_messages
-		SET read_by_seller_at = NOW()
-		WHERE conversation_id = $1 AND read_by_seller_at IS NULL AND sender_type NOT IN ('SELLER', 'EMPLOYEE')
-	`
-	_, err := r.db.Exec(query, conversationID)
-	return err
+// UnreadByContact counts, per sender party, unread messages addressed to party.
+func (r *OrderConversationRepository) UnreadByContact(conversationID uuid.UUID, party models.Party) (map[models.Party]int, error) {
+	rows, err := r.db.Query(`
+		SELECT sender_party, COUNT(*) FROM order_messages
+		WHERE conversation_id = $1 AND recipient_party = $2 AND recipient_read_at IS NULL
+		GROUP BY sender_party`, conversationID, string(party))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[models.Party]int{}
+	for rows.Next() {
+		var p string
+		var n int
+		if err := rows.Scan(&p, &n); err != nil {
+			return nil, err
+		}
+		out[models.Party(p)] = n
+	}
+	return out, rows.Err()
 }
 
 // ListBuyerConversations lists conversations for a buyer with last message and unread count.
@@ -266,8 +293,8 @@ func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, 
 			(
 				SELECT COUNT(*) FROM order_messages m
 				WHERE m.conversation_id = c.id
-				  AND m.read_by_buyer_at IS NULL
-				  AND m.sender_type != 'BUYER'
+				  AND m.recipient_party = 'BUYER'
+				  AND m.recipient_read_at IS NULL
 			) AS unread_count,
 			c.created_at
 		FROM order_conversations c
@@ -278,7 +305,7 @@ func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, 
 		LEFT JOIN LATERAL (
 			SELECT body, sender_type, created_at
 			FROM order_messages
-			WHERE conversation_id = c.id
+			WHERE conversation_id = c.id AND 'BUYER' IN (sender_party, recipient_party)
 			ORDER BY created_at DESC
 			LIMIT 1
 		) last_m ON true
@@ -373,8 +400,8 @@ func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID,
 			(
 				SELECT COUNT(*) FROM order_messages m
 				WHERE m.conversation_id = c.id
-				  AND m.read_by_seller_at IS NULL
-				  AND m.sender_type NOT IN ('SELLER', 'EMPLOYEE')
+				  AND m.recipient_party = 'SELLER'
+				  AND m.recipient_read_at IS NULL
 			) AS unread_count,
 			c.created_at
 		FROM order_conversations c
@@ -385,7 +412,7 @@ func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID,
 		LEFT JOIN LATERAL (
 			SELECT body, sender_type, created_at
 			FROM order_messages
-			WHERE conversation_id = c.id
+			WHERE conversation_id = c.id AND 'SELLER' IN (sender_party, recipient_party)
 			ORDER BY created_at DESC
 			LIMIT 1
 		) last_m ON true
@@ -493,6 +520,8 @@ func (r *OrderConversationRepository) ListAdminConversations(search string, stat
 			(
 				SELECT COUNT(*) FROM order_messages m
 				WHERE m.conversation_id = c.id
+				  AND m.recipient_party = 'ADMIN'
+				  AND m.recipient_read_at IS NULL
 			) AS unread_count,
 			c.created_at
 		FROM order_conversations c
@@ -503,7 +532,7 @@ func (r *OrderConversationRepository) ListAdminConversations(search string, stat
 		LEFT JOIN LATERAL (
 			SELECT body, sender_type, created_at
 			FROM order_messages
-			WHERE conversation_id = c.id
+			WHERE conversation_id = c.id AND 'ADMIN' IN (sender_party, recipient_party)
 			ORDER BY created_at DESC
 			LIMIT 1
 		) last_m ON true
@@ -557,8 +586,8 @@ func (r *OrderConversationRepository) GetUnreadMessageCountForBuyer(buyerID uuid
 		FROM order_messages m
 		INNER JOIN order_conversations c ON c.id = m.conversation_id
 		WHERE c.buyer_id = $1
-		  AND m.read_by_buyer_at IS NULL
-		  AND m.sender_type != 'BUYER'
+		  AND m.recipient_party = 'BUYER'
+		  AND m.recipient_read_at IS NULL
 	`
 	var count int
 	err := r.db.QueryRow(query, buyerID).Scan(&count)
@@ -584,8 +613,8 @@ func (r *OrderConversationRepository) GetUnreadMessageCountForSeller(shopID *uui
 		FROM order_messages m
 		INNER JOIN order_conversations c ON c.id = m.conversation_id
 		WHERE %s
-		  AND m.read_by_seller_at IS NULL
-		  AND m.sender_type NOT IN ('SELLER', 'EMPLOYEE')
+		  AND m.recipient_party = 'SELLER'
+		  AND m.recipient_read_at IS NULL
 	`, where)
 
 	var count int

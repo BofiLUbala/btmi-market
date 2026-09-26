@@ -1430,7 +1430,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.messages': 'Messages & Orders',
   'seller.notifications': 'Notifications',
   'communication.channelTitle': 'Order Channel',
-  'communication.contactSeller': 'Contact Shop',
+  'communication.contactSeller': 'Messages (courier, TBK support)',
   'communication.sellerSubtitle': 'Communicate directly with your buyers for every ongoing order.',
   'communication.sellerNotifSubtitle': 'All alerts regarding your new orders, pickups, and deliveries.',
   'communication.noConversations': 'No conversations found',

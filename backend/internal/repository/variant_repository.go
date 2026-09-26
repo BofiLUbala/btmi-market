@@ -164,6 +164,19 @@ func (r *VariantRepository) Update(v *models.ProductVariant) error {
 	).Scan(&v.UpdatedAt)
 }
 
+// RepriceFollowers moves every variant of a product still sold at oldPrice to
+// newPrice: those variants follow the product price. A variant the seller
+// priced on its own keeps its price.
+func (r *VariantRepository) RepriceFollowers(productID uuid.UUID, oldPrice, newPrice float64) (int64, error) {
+	res, err := r.db.Exec(`
+		UPDATE product_variants SET sale_price = $3, updated_at = NOW()
+		WHERE product_id = $1 AND ROUND(sale_price::numeric, 2) = ROUND($2::numeric, 2)`, productID, oldPrice, newPrice)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 func (r *VariantRepository) GetBySKU(sku string) (*models.ProductVariant, error) {
 	query := `
 		SELECT id, product_id, sku, name, attributes, sale_price, purchase_price, barcode, unit, status, created_at, updated_at

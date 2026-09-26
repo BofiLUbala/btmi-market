@@ -9,7 +9,7 @@ import { adminApi, adminTokenStore } from '../api/admin'
  * slow polling as a fallback for when the stream is down.
  */
 export interface OrderEvent {
-  kind: 'order' | 'resync'
+  kind: 'order' | 'resync' | 'tariff'
   order_id?: string
   order_number?: string
   status?: string

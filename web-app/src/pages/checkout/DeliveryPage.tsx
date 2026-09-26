@@ -11,6 +11,7 @@ import { useAuth } from '@/store/auth'
 import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
+import { useOrderEvents } from '@/lib/orderEvents'
 import { StructuredAddressFields, StructuredAddressSummary, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
 /** The buyer's primary delivery address stored on their profile, or null when
@@ -99,6 +100,15 @@ function DeliveryInner() {
   // what SelectDelivery charges once the real city is submitted.
   const effectiveCityId = mode === 'saved' ? savedAddress?.city_id || '' : address.city_id || ''
 
+  // Bumped when Finance changes the tariff, so the fee shown re-prices live.
+  const [tariffVersion, setTariffVersion] = useState(0)
+  useOrderEvents((event) => {
+    if (event.kind === 'tariff' || event.kind === 'resync') {
+      setTariffVersion((v) => v + 1)
+      if (!usePointsForDelivery) setPreviewFee(null)
+    }
+  })
+
   useEffect(() => {
     if (!orderId) {
       navigate('/cart', { replace: true })
@@ -124,7 +134,7 @@ function DeliveryInner() {
     return () => {
       mounted = false
     }
-  }, [orderId, navigate, t, effectiveCityId])
+  }, [orderId, navigate, t, effectiveCityId, tariffVersion])
 
   const option = data?.options?.[0]
   const baseFee = option?.fee ?? 0

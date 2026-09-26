@@ -13,7 +13,7 @@ import { adminApi } from '../api/admin'
  * data they could not already read. The existing polling stays as a fallback.
  */
 export interface OrderEvent {
-  kind: 'order' | 'resync'
+  kind: 'order' | 'resync' | 'tariff'
   order_id?: string
   status?: string
   delivery_status?: string

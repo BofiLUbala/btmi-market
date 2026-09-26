@@ -11,6 +11,7 @@ import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
 import { useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 import { WarningIcon } from '@/components/ui/Icons'
+import { useOrderEvents } from '@/lib/orderEvents'
 
 const METHOD_LABEL: Record<string, TranslationKey> = {
   PICKUP: 'delivery.pickup',
@@ -221,6 +222,24 @@ function PaymentInner() {
     ).finally(() => { if (mounted) setQuoting(false) })
     return () => { mounted = false }
   }, [orderId, paymentMethod, loading])
+
+  // Finance can change the TBK tariff while the buyer is here: the server
+  // reprices unpaid orders and pushes the change, so the quote follows live.
+  useOrderEvents((event) => {
+    if (event.kind === 'order' && event.order_id && !orderIds.includes(event.order_id)) return
+    if (loading || confirming || initiating) return
+    Promise.all([
+      Promise.all(orderIds.map(id => buyerApi.checkoutQuote(id, paymentMethod || undefined))),
+      Promise.all(orderIds.map(id => buyerApi.orderDetail(id)))
+    ]).then(([loadedQuotes, loadedOrders]) => {
+      const next = aggregateQuotes(loadedQuotes)
+      if (quote && next && next.delivery_fee !== quote.delivery_fee) {
+        setQuoteChangedAlert(`Les frais de livraison TBK ont été mis à jour : ${formatMoney(next.delivery_fee, next.currency)}. Vérifiez le nouveau total avant de continuer.`)
+      }
+      setQuotes(loadedQuotes)
+      setOrders(loadedOrders)
+    }).catch(() => undefined)
+  })
 
   useEffect(() => {
     if (orders.length === 0) return

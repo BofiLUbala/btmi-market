@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { get } from '../api/client'
 import { formatMoney } from '../lib/money'
+import { useOrderEvents } from '../lib/orderEvents'
 import { useColors } from '../store/theme'
 import { radius } from '../theme'
 
@@ -17,11 +18,14 @@ type DeliveryTariff = {
 export function DeliveryTariffNote() {
   const c = useColors()
   const [tariff, setTariff] = useState<DeliveryTariff | null>(null)
+  const [version, setVersion] = useState(0)
+  // Finance edits are pushed live.
+  useOrderEvents((event) => { if (event.kind !== 'order') setVersion((v) => v + 1) })
   useEffect(() => {
     let cancelled = false
     get<DeliveryTariff>('/config/delivery-fees').then((t) => { if (!cancelled) setTariff(t) }).catch(() => undefined)
     return () => { cancelled = true }
-  }, [])
+  }, [version])
   if (!tariff) return null
   const extras = [
     ...tariff.zones.map((z) => `${z.city_name} ${formatMoney(z.fee, tariff.currency)}`),

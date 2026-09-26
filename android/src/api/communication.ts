@@ -49,6 +49,9 @@ export interface OrderMessage {
   sender_name: string
   body: string
   is_admin_intervention: boolean
+  sender_party: ChatParty
+  recipient_party: ChatParty
+  recipient_read_at?: string
   read_by_buyer_at?: string
   read_by_seller_at?: string
   created_at: string
@@ -63,7 +66,19 @@ export interface OrderConversationDetail {
   shop_name: string
   business_name: string
   buyer_name: string
+  my_party: ChatParty
+  contacts: ChannelContact[]
   messages: OrderMessage[]
+}
+
+/** One side of a private order channel. A message is seen only by its two parties. */
+export type ChatParty = 'BUYER' | 'SELLER' | 'COURIER' | 'ADMIN'
+
+export interface ChannelContact {
+  party: ChatParty
+  name: string
+  available: boolean
+  unread: number
 }
 
 export interface ConversationListItem {
@@ -104,12 +119,12 @@ export interface UnreadCounts {
 
 // ----------------- Buyer & Seller APIs -----------------
 
-export async function fetchOrderConversation(orderId: string): Promise<OrderConversationDetail> {
-  return get<OrderConversationDetail>(`/orders/${orderId}/conversation`)
+export async function fetchOrderConversation(orderId: string, as?: ChatParty): Promise<OrderConversationDetail> {
+  return get<OrderConversationDetail>(`/orders/${orderId}/conversation${as ? `?as=${as}` : ''}`)
 }
 
-export async function sendOrderMessage(orderId: string, body: string): Promise<OrderMessage> {
-  return post<OrderMessage>(`/orders/${orderId}/messages`, { body })
+export async function sendOrderMessage(orderId: string, body: string, recipient: ChatParty, as?: ChatParty): Promise<OrderMessage> {
+  return post<OrderMessage>(`/orders/${orderId}/messages`, { body, recipient, as })
 }
 
 export async function fetchBuyerConversations(params?: { limit?: number; offset?: number }): Promise<{

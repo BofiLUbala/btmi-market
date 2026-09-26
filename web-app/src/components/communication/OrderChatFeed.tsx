@@ -1,59 +1,69 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   fetchOrderConversation,
   sendOrderMessage,
   fetchAdminOrderConversation,
   adminInterveneOrder,
+  type ChatParty,
   type OrderConversationDetail,
   type OrderMessage,
-  type RecipientScope,
 } from '@/api/communication'
 import { formatDateTime } from '@/lib/format'
+import { useOrderEvents } from '@/lib/orderEvents'
 import { Button } from '@/components/ui/Button'
 import { StatusBadge } from '@/components/ui/Badges'
 import { ErrorBox } from '@/components/ui/Feedback'
+import { ApiError } from '@/api/types'
 import { useI18n } from '@/store/i18n'
 import { BuildingIcon, ChatIcon, CustomerIcon, ShieldCheckIcon, StoreIcon } from '@/components/ui/Icons'
 
 interface OrderChatFeedProps {
   orderId: string
-  role: 'BUYER' | 'SELLER' | 'ADMIN'
+  role: ChatParty
   onClose?: () => void
   showHeader?: boolean
 }
 
-export function OrderChatFeed({
-  orderId,
-  role,
-  onClose,
-  showHeader = true,
-}: OrderChatFeedProps) {
+const PARTY_LABEL: Record<ChatParty, string> = {
+  BUYER: 'Acheteur',
+  SELLER: 'Vendeur',
+  COURIER: 'Livreur',
+  ADMIN: 'Support TBK',
+}
+
+function PartyIcon({ party }: { party: ChatParty }) {
+  if (party === 'ADMIN') return <ShieldCheckIcon className="inline-icon" />
+  if (party === 'SELLER') return <StoreIcon className="inline-icon" />
+  return <CustomerIcon className="inline-icon" />
+}
+
+/**
+ * Private order channels. Each contact tab is a two-party thread: what the
+ * buyer writes to TBK is read by TBK only, never by the seller or the courier.
+ * The server returns only the caller's own channels and refuses forbidden
+ * pairs (buyer ↔ seller); this component only arranges them.
+ */
+export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: OrderChatFeedProps) {
   const { t } = useI18n()
   const [detail, setDetail] = useState<OrderConversationDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [inputBody, setInputBody] = useState('')
   const [sending, setSending] = useState(false)
-  const [recipient, setRecipient] = useState('ALL_PARTICIPANTS:')
+  const [contact, setContact] = useState<ChatParty | ''>('')
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadConversation = useCallback(
     async (silent = false) => {
       if (!silent) setLoading(true)
       try {
-        let res: OrderConversationDetail
-        if (role === 'ADMIN') {
-          res = await fetchAdminOrderConversation(orderId)
-        } else {
-          res = await fetchOrderConversation(orderId)
-        }
-        setDetail({ ...(res || {}), messages: (res as any)?.messages || [] })
+        const res = role === 'ADMIN'
+          ? await fetchAdminOrderConversation(orderId)
+          : await fetchOrderConversation(orderId, role)
+        setDetail({ ...res, messages: res?.messages || [], contacts: res?.contacts || [] })
         setError('')
       } catch (err) {
-        if (!silent) {
-          setError(err instanceof Error ? err.message : t('common.error'))
-        }
+        if (!silent) setError(err instanceof Error ? err.message : t('common.error'))
       } finally {
         if (!silent) setLoading(false)
       }
@@ -63,44 +73,52 @@ export function OrderChatFeed({
 
   useEffect(() => {
     void loadConversation()
-    pollTimerRef.current = setInterval(() => {
-      void loadConversation(true)
-    }, 6000)
-
-    return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current)
-    }
+    const timer = setInterval(() => void loadConversation(true), 15_000)
+    return () => clearInterval(timer)
   }, [loadConversation])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  // New messages are pushed with the order's events.
+  useOrderEvents(() => void loadConversation(true), { orderId, audience: role === 'ADMIN' ? 'admin' : 'user' })
+
+  const contacts = detail?.contacts ?? []
+  useEffect(() => {
+    if (!contact && contacts.length > 0) {
+      const withUnread = contacts.find((c) => c.unread > 0 && c.available)
+      setContact((withUnread ?? contacts.find((c) => c.available) ?? contacts[0]).party)
+    }
+  }, [contacts, contact])
+
+  const me = detail?.my_party ?? role
+  const thread = useMemo(
+    () => (detail?.messages ?? []).filter((m) =>
+      contact !== '' &&
+      ((m.sender_party === me && m.recipient_party === contact) ||
+        (m.sender_party === contact && m.recipient_party === me))
+    ),
+    [detail?.messages, contact, me]
+  )
+  const selected = contacts.find((c) => c.party === contact)
 
   useEffect(() => {
-    if (detail?.messages) {
-      scrollToBottom()
-    }
-  }, [detail?.messages?.length])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [thread.length, contact])
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     const trimmed = inputBody.trim()
-    if (!trimmed || sending) return
-
+    if (!trimmed || sending || !contact) return
     setSending(true)
     setError('')
     try {
       if (role === 'ADMIN') {
-        const [scope, userId] = recipient.split(':') as [RecipientScope, string]
-        await adminInterveneOrder(orderId, trimmed, scope, userId || undefined)
+        await adminInterveneOrder(orderId, trimmed, contact as Exclude<ChatParty, 'ADMIN'>)
       } else {
-        await sendOrderMessage(orderId, trimmed)
+        await sendOrderMessage(orderId, trimmed, contact, role)
       }
       setInputBody('')
       await loadConversation(true)
-      scrollToBottom()
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'))
+      setError(err instanceof ApiError || err instanceof Error ? err.message : t('common.error'))
     } finally {
       setSending(false)
     }
@@ -127,7 +145,6 @@ export function OrderChatFeed({
         overflow: 'hidden',
       }}
     >
-      {/* Header */}
       {showHeader && (
         <div
           style={{
@@ -141,36 +158,63 @@ export function OrderChatFeed({
           }}
         >
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span><ChatIcon className="inline-icon" /> {t('communication.channelTitle')}</span>
               {detail?.order_number && (
-                <span style={{ color: 'var(--color-primary)', fontWeight: 800 }}>
-                  #{detail.order_number}
-                </span>
+                <span style={{ color: 'var(--color-primary)', fontWeight: 800 }}>#{detail.order_number}</span>
               )}
               {detail?.order_status && <StatusBadge status={detail.order_status} />}
             </div>
             <div className="small muted" style={{ marginTop: 2 }}>
-              {detail?.shop_name && (
-                <span><StoreIcon className="inline-icon" /> {detail.shop_name}</span>
-              )}
-              {detail?.buyer_name && role !== 'BUYER' && (
-                <span style={{ marginLeft: 8 }}><CustomerIcon className="inline-icon" /> {detail.buyer_name}</span>
-              )}
+              {detail?.shop_name && <span><StoreIcon className="inline-icon" /> {detail.shop_name}</span>}
               {detail?.business_name && role === 'ADMIN' && (
                 <span style={{ marginLeft: 8 }}><BuildingIcon className="inline-icon" /> {detail.business_name}</span>
               )}
             </div>
           </div>
           {onClose && (
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              ✕
-            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
           )}
         </div>
       )}
 
-      {/* Messages Feed */}
+      {/* One tab per private channel */}
+      <div role="tablist" aria-label="Destinataire" style={{ display: 'flex', gap: 6, padding: '10px 12px', borderBottom: '1px solid var(--color-border)', overflowX: 'auto' }}>
+        {contacts.map((c) => {
+          const active = c.party === contact
+          return (
+            <button
+              key={c.party}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setContact(c.party)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                padding: '6px 12px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                background: active ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                color: active ? '#fff' : 'var(--color-text)',
+                opacity: c.available ? 1 : 0.6,
+              }}
+            >
+              <PartyIcon party={c.party} /> {PARTY_LABEL[c.party]}
+              {c.unread > 0 && (
+                <span style={{ minWidth: 18, padding: '0 5px', borderRadius: 9, background: active ? '#fff' : 'var(--color-primary)', color: active ? 'var(--color-primary)' : '#fff', fontSize: 11 }}>
+                  {c.unread}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {selected && (
+        <div className="small muted" style={{ padding: '6px 16px', borderBottom: '1px solid var(--color-border)' }}>
+          Conversation privée avec {PARTY_LABEL[selected.party].toLowerCase()}
+          {selected.name ? ` (${selected.name})` : ''} : personne d’autre ne la voit.
+        </div>
+      )}
+
       <div
         style={{
           flex: 1,
@@ -183,50 +227,28 @@ export function OrderChatFeed({
         }}
       >
         {loading && (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--color-text-muted)' }}>
-            {t('common.loading')}
-          </div>
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--color-text-muted)' }}>{t('common.loading')}</div>
         )}
 
         {error && <ErrorBox error={error} />}
 
-        {!loading && (!detail?.messages || detail.messages.length === 0) && (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '48px 16px',
-              color: 'var(--color-text-muted)',
-              fontSize: '0.9rem',
-            }}
-          >
+        {!loading && thread.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
             <div style={{ marginBottom: 8 }}><ChatIcon className="empty-svg" /></div>
             <div style={{ fontWeight: 600 }}>{t('communication.emptyChatTitle')}</div>
-            <div className="small">{t('communication.emptyChatDesc')}</div>
+            <div className="small">
+              {selected && !selected.available
+                ? 'Aucun livreur n’est encore assigné à cette commande.'
+                : t('communication.emptyChatDesc')}
+            </div>
           </div>
         )}
 
-        {detail?.messages?.map((msg: OrderMessage) => {
-          const isMe =
-            (role === 'BUYER' && msg.sender_type === 'BUYER') ||
-            (role === 'SELLER' && (msg.sender_type === 'SELLER' || msg.sender_type === 'EMPLOYEE')) ||
-            (role === 'ADMIN' && (msg.sender_type === 'COMMERCE_ADMIN' || msg.sender_type === 'SUPER_ADMIN'))
-
-          const isAdmin =
-            msg.is_admin_intervention ||
-            msg.sender_type === 'COMMERCE_ADMIN' ||
-            msg.sender_type === 'SUPER_ADMIN'
-
+        {thread.map((msg: OrderMessage) => {
+          const isMe = msg.sender_party === me
+          const isAdmin = msg.sender_party === 'ADMIN'
           return (
-            <div
-              key={msg.id}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: isMe ? 'flex-end' : 'flex-start',
-                maxWidth: '100%',
-              }}
-            >
-              {/* Sender label */}
+            <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', maxWidth: '100%' }}>
               <div
                 className="small"
                 style={{
@@ -235,22 +257,18 @@ export function OrderChatFeed({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
-                  color: isAdmin
-                    ? 'var(--color-warning-text, #b45309)'
-                    : 'var(--color-text-muted)',
+                  color: isAdmin ? 'var(--color-warning-text, #b45309)' : 'var(--color-text-muted)',
                   fontWeight: isAdmin ? 700 : 500,
                   fontSize: '0.75rem',
                 }}
               >
-                {isAdmin && <span><ShieldCheckIcon className="inline-icon" /> TBK Commerce Operations · ADMIN</span>}
-                {!isAdmin && msg.sender_type === 'BUYER' && <span><CustomerIcon className="inline-icon" /> {isMe ? t('communication.you') : msg.sender_name || t('communication.buyer')}</span>}
-                {!isAdmin && (msg.sender_type === 'SELLER' || msg.sender_type === 'EMPLOYEE') && (
-                  <span><StoreIcon className="inline-icon" /> {isMe ? t('communication.you') : msg.sender_name || detail?.shop_name || t('communication.seller')}</span>
-                )}
+                <span>
+                  <PartyIcon party={msg.sender_party} />{' '}
+                  {isMe ? t('communication.you') : isAdmin ? 'Support TBK' : msg.sender_name || PARTY_LABEL[msg.sender_party]}
+                </span>
                 <span>• {formatDateTime(msg.created_at)}</span>
+                {isMe && msg.recipient_read_at && <span>• lu</span>}
               </div>
-
-              {/* Bubble */}
               <div
                 style={{
                   maxWidth: '82%',
@@ -260,19 +278,14 @@ export function OrderChatFeed({
                   lineHeight: 1.4,
                   wordBreak: 'break-word',
                   whiteSpace: 'pre-wrap',
-                  ...(isAdmin
+                  ...(isAdmin && !isMe
                     ? {
                         background: 'var(--color-warning-subtle, #fef3c7)',
                         color: 'var(--color-warning-text, #92400e)',
                         border: '1.5px solid var(--color-warning, #f59e0b)',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                       }
                     : isMe
-                      ? {
-                          background: 'var(--color-primary)',
-                          color: '#fff',
-                          borderBottomRightRadius: 2,
-                        }
+                      ? { background: 'var(--color-primary)', color: '#fff', borderBottomRightRadius: 2 }
                       : {
                           background: 'var(--color-surface-2)',
                           color: 'var(--color-text)',
@@ -289,7 +302,6 @@ export function OrderChatFeed({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input composer */}
       <form
         onSubmit={handleSend}
         style={{
@@ -297,36 +309,20 @@ export function OrderChatFeed({
           borderTop: '1px solid var(--color-border)',
           background: 'var(--color-surface-1)',
           display: 'flex',
-          flexWrap: 'wrap',
           gap: 8,
           alignItems: 'flex-end',
         }}
       >
-        {role === 'ADMIN' && (
-          <label style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700 }}>
-            Envoyer à
-            <select value={recipient} onChange={(e) => setRecipient(e.target.value)} style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>
-              <option value="ALL_PARTICIPANTS:">Tous les participants</option>
-              {(detail?.participants || []).map((p) => (
-                <option key={`${p.type}:${p.user_id}`} value={`${p.type}:${p.user_id}`}>
-                  {p.type === 'BUYER' ? 'Acheteur' : p.type === 'SELLER_OWNER' ? 'Vendeur / Propriétaire' : 'Employé'}: {p.name} {p.last_read_at ? '· lu' : '· non lu'}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         <textarea
           rows={2}
           value={inputBody}
           onChange={(e) => setInputBody(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={
-            role === 'ADMIN'
-              ? t('communication.adminInputPlaceholder')
-              : t('communication.inputPlaceholder')
-          }
+          disabled={!selected?.available}
+          placeholder={selected ? `Message privé à ${PARTY_LABEL[selected.party].toLowerCase()}…` : t('communication.inputPlaceholder')}
           style={{
             flex: 1,
+            minWidth: 0,
             padding: '8px 12px',
             borderRadius: 8,
             border: '1px solid var(--color-border)',
@@ -340,11 +336,11 @@ export function OrderChatFeed({
         <Button
           type="submit"
           loading={sending}
-          disabled={!inputBody.trim()}
+          disabled={!inputBody.trim() || !selected?.available}
           variant={role === 'ADMIN' ? 'accent' : 'primary'}
           style={{ height: 42, paddingLeft: 16, paddingRight: 16 }}
         >
-          {role === 'ADMIN' ? t('communication.interveneSend') : t('communication.send')}
+          {t('communication.send')}
         </Button>
       </form>
     </div>

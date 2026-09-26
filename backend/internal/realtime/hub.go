@@ -115,6 +115,11 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) dispatch(orderIDText string) {
+	// A Finance tariff change concerns everyone and carries no private data.
+	if orderIDText == "tariff" {
+		h.broadcast(Event{Kind: "tariff"})
+		return
+	}
 	orderID, err := uuid.Parse(orderIDText)
 	if err != nil {
 		return
@@ -149,11 +154,13 @@ func (h *Hub) dispatch(orderIDText string) {
 	}
 }
 
-func (h *Hub) broadcastResync() {
+func (h *Hub) broadcastResync() { h.broadcast(Event{Kind: "resync"}) }
+
+func (h *Hub) broadcast(ev Event) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for s := range h.subs {
-		send(s, Event{Kind: "resync"})
+		send(s, ev)
 	}
 }
 

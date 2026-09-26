@@ -166,6 +166,9 @@ type CourierMissionResponse struct {
 	DeliveryPhone   string                          `json:"delivery_phone"`
 	DeliveryNotes   string                          `json:"delivery_notes"`
 	TotalAmount     float64                         `json:"total_amount"`
+	ProductsTotal   float64                         `json:"products_total"`
+	DeliveryFee     float64                         `json:"delivery_fee"`
+	PaymentMarkup   float64                         `json:"payment_markup"`
 	Currency        string                          `json:"currency"`
 	PaymentMethod   string                          `json:"payment_method"`
 	PaymentStatus   string                          `json:"payment_status"`

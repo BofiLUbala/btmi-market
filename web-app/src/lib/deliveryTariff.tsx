@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { get } from '@/api/client'
 import { formatMoney } from '@/lib/format'
+import { useOrderEvents } from '@/lib/orderEvents'
 
 /** The TBK delivery tariff set by Finance in the Control Center. */
 export type DeliveryTariff = {
@@ -12,11 +13,18 @@ export type DeliveryTariff = {
 
 export function useDeliveryTariff(): DeliveryTariff | null {
   const [tariff, setTariff] = useState<DeliveryTariff | null>(null)
+  const [version, setVersion] = useState(0)
+  // Finance edits are pushed live; a slow poll covers signed-out visitors.
+  useOrderEvents((event) => { if (event.kind !== 'order') setVersion((v) => v + 1) })
+  useEffect(() => {
+    const timer = window.setInterval(() => setVersion((v) => v + 1), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
   useEffect(() => {
     let cancelled = false
     get<DeliveryTariff>('/config/delivery-fees').then((t) => { if (!cancelled) setTariff(t) }).catch(() => undefined)
     return () => { cancelled = true }
-  }, [])
+  }, [version])
   return tariff
 }
 

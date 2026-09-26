@@ -11,12 +11,13 @@ import type { TranslationKey } from '@/locales/fr'
 import './courier.css'
 import { CourierHandoverPanel } from '@/components/courier/CourierHandoverPanel'
 import { CourierPlanPanel } from '@/components/courier/CourierPlanPanel'
+import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import type { CourierMission, DeliveryPlan } from '@/api/types'
 
 type MissionLine={id:string;product_name:string;variant_name:string;quantity:number;final_unit_price:number}
 type MissionHistory={id:string;status:string;notes?:string;created_at:string}
 type DeliveryHistory={id:string;previous_status:string;new_status:string;actor_role:string;created_at:string}
-type Mission={order_id:string;order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;total_amount:number;currency:string;payment_method:string;payment_status:string;lines?:MissionLine[];history?:MissionHistory[];delivery_history?:DeliveryHistory[];assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}&DeliveryPlan
+type Mission={order_id:string;order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;total_amount:number;products_total?:number;delivery_fee?:number;payment_markup?:number;currency:string;payment_method:string;payment_status:string;lines?:MissionLine[];history?:MissionHistory[];delivery_history?:DeliveryHistory[];assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}&DeliveryPlan
 
 export default function CourierMissionPage(){
   const {id=''}=useParams(), navigate=useNavigate(), {t,lang}=useI18n()
@@ -302,6 +303,11 @@ export default function CourierMissionPage(){
             "buyer not found" once on the way - same panel as the dashboard. */}
         <CourierPlanPanel key={`plan-${m.order_id}`} mission={m as unknown as CourierMission} onChanged={load}/>
 
+        {/* Private channels with the buyer, the seller and TBK */}
+        <section className="courier-card" style={{marginTop:16}}>
+          <OrderChatFeed orderId={m.order_id} role="COURIER" />
+        </section>
+
         {/* Full Details Card */}
         <section className="courier-card" style={{marginTop:16}}>
           <h1>{t('courier.dashboard.order')} #{m.order_number}</h1>
@@ -316,7 +322,10 @@ export default function CourierMissionPage(){
             <Detail l={t('courier.dashboard.phone')} v={m.delivery_phone}/>
             <Detail l="Mode de paiement" v={m.payment_method}/>
             <Detail l="Statut du paiement" v={m.payment_status}/>
-            <Detail l="Montant" v={`${m.total_amount.toLocaleString(lang)} ${m.currency}`}/>
+            <Detail l="Produits" v={`${(m.products_total ?? 0).toLocaleString(lang)} ${m.currency}`}/>
+            <Detail l="Frais de livraison TBK" v={`${(m.delivery_fee ?? 0).toLocaleString(lang)} ${m.currency}`}/>
+            {(m.payment_markup ?? 0) > 0 && <Detail l="Frais de paiement" v={`${(m.payment_markup ?? 0).toLocaleString(lang)} ${m.currency}`}/>}
+            <Detail l="Montant total à encaisser" v={`${m.total_amount.toLocaleString(lang)} ${m.currency}`}/>
             {m.delivery_notes&&<Detail l={t('courier.dashboard.instructions')} v={m.delivery_notes}/>}
           </div>
           {m.lines&&m.lines.length>0&&<>

@@ -1281,7 +1281,11 @@ func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID
 	if req.Description != nil {
 		product.Description = *req.Description
 	}
+	oldUnitPrice := product.UnitPrice
 	if req.UnitPrice != nil {
+		if *req.UnitPrice <= 0 {
+			return nil, errors.New("INVALID_PRICE")
+		}
 		product.UnitPrice = *req.UnitPrice
 	}
 	if req.CostPrice != nil {
@@ -1357,6 +1361,13 @@ func (s *InventoryService) UpdateProduct(userID, businessID, productID uuid.UUID
 
 	if err := s.productRepo.Update(product); err != nil {
 		return nil, err
+	}
+	// Buyers pay the variant price, so a new product price must reach the
+	// variants that were following it, or the edit would not show anywhere.
+	if req.UnitPrice != nil && product.UnitPrice != oldUnitPrice {
+		if _, err := s.variantRepo.RepriceFollowers(product.ID, oldUnitPrice, product.UnitPrice); err != nil {
+			return nil, err
+		}
 	}
 
 	// Trigger ranking job if publication status changed to PUBLISHED or ARCHIVED

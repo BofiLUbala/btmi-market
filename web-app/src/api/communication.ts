@@ -7,6 +7,7 @@ export type SenderType =
   | 'EMPLOYEE'
   | 'COMMERCE_ADMIN'
   | 'SUPER_ADMIN'
+  | 'COURIER'
   | 'SYSTEM'
 
 export type NotificationType =
@@ -52,12 +53,25 @@ export interface OrderMessage {
   is_admin_intervention: boolean
   recipient_scope: RecipientScope
   recipient_user_id?: string
+  sender_party: ChatParty
+  recipient_party: ChatParty
+  recipient_read_at?: string
   read_by_buyer_at?: string
   read_by_seller_at?: string
   created_at: string
 }
 
 export type RecipientScope = 'BUYER' | 'SELLER_OWNER' | 'EMPLOYEE' | 'ALL_PARTICIPANTS'
+
+/** One side of a private order channel. A message is seen only by its two parties. */
+export type ChatParty = 'BUYER' | 'SELLER' | 'COURIER' | 'ADMIN'
+
+export interface ChannelContact {
+  party: ChatParty
+  name: string
+  available: boolean
+  unread: number
+}
 
 export interface OrderConversationParticipant {
   user_id: string
@@ -76,6 +90,8 @@ export interface OrderConversationDetail {
   business_name: string
   buyer_name: string
   participants: OrderConversationParticipant[]
+  my_party: ChatParty
+  contacts: ChannelContact[]
   messages: OrderMessage[]
 }
 
@@ -119,12 +135,12 @@ export interface UnreadCounts {
 
 // ----------------- Buyer & Seller APIs -----------------
 
-export async function fetchOrderConversation(orderId: string): Promise<OrderConversationDetail> {
-  return get<OrderConversationDetail>(`/orders/${orderId}/conversation`)
+export async function fetchOrderConversation(orderId: string, as?: ChatParty): Promise<OrderConversationDetail> {
+  return get<OrderConversationDetail>(`/orders/${orderId}/conversation`, as ? { as } : undefined)
 }
 
-export async function sendOrderMessage(orderId: string, body: string): Promise<OrderMessage> {
-  return post<OrderMessage>(`/orders/${orderId}/messages`, { body })
+export async function sendOrderMessage(orderId: string, body: string, recipient: ChatParty, as?: ChatParty): Promise<OrderMessage> {
+  return post<OrderMessage>(`/orders/${orderId}/messages`, { body, recipient, as })
 }
 
 export async function fetchBuyerConversations(params?: { limit?: number; offset?: number }): Promise<{
@@ -256,10 +272,10 @@ export async function fetchAdminOrderConversation(orderId: string): Promise<Orde
   return adminApi<OrderConversationDetail>(`/admin/commerce/orders/${orderId}/conversation`)
 }
 
-export async function adminInterveneOrder(orderId: string, body: string, recipientScope: RecipientScope, recipientUserId?: string): Promise<OrderMessage> {
+export async function adminInterveneOrder(orderId: string, body: string, recipientParty: Exclude<ChatParty, 'ADMIN'>): Promise<OrderMessage> {
   return adminApi<OrderMessage>(`/admin/commerce/orders/${orderId}/intervene`, {
     method: 'POST',
-    body: JSON.stringify({ body, recipient_scope: recipientScope, recipient_user_id: recipientUserId || null })
+    body: JSON.stringify({ body, recipient_party: recipientParty })
   })
 }
 
