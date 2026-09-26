@@ -15,7 +15,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /app/create-superadmin ./cmd/create-sup
 
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates tzdata curl
+# postgresql16-client provides pg_dump for the Technical dashboard's on-demand backups.
+RUN apk add --no-cache ca-certificates tzdata curl postgresql16-client
 
 WORKDIR /app
 

@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   ActivityIndicator,
@@ -29,7 +30,10 @@ export default function SellerMessagesScreen() {
   const activeBusiness = useAuth((s) => s.activeBusiness)
 
   const [conversations, setConversations] = useState<ConversationListItem[]>([])
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  // web: ?order_id= opens that order's conversation (notification deep link)
+  const { order_id: orderIdParam } = useLocalSearchParams<{ order_id?: string }>()
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(typeof orderIdParam === 'string' && orderIdParam ? orderIdParam : null)
+  useEffect(() => { if (typeof orderIdParam === 'string' && orderIdParam) setSelectedOrderId(orderIdParam) }, [orderIdParam])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)

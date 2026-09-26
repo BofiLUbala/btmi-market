@@ -9,17 +9,18 @@ import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../sr
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
+import { StructuredAddressFields } from '../../src/components/StructuredAddressFields'
 import type { CreateShopRequest, Shop, UpdateShopRequest } from '../../src/types'
 
 const emptyForm: CreateShopRequest = {
   name: '', type: 'PHYSICAL', phone: '',
-  province: '', city: '', commune: '', street: '', building_number: '', address: '',
+  province: '', city: '', commune: '', province_id: '', city_id: '', commune_id: '', street: '', building_number: '', landmark: '', address: '',
   supports_shop_delivery: false,
   supports_partner_delivery: false, partner_delivery_provider: '',
   delivery_city: '', delivery_address: '',
 }
 
-interface ShopStats { productCount: number; unitCount: number }
+interface ShopStats { productCount: number; unitCount: number; categories: string[] }
 
 export default function SellerShopsScreen() {
   const { t } = useI18n()
@@ -31,6 +32,8 @@ export default function SellerShopsScreen() {
   const setActiveShop = useAuth((s) => s.setActiveShop)
 
   const shops = useQuery({ queryKey: ['seller', 'shops', activeBusiness?.id], queryFn: () => sellerApi.shops(activeBusiness!.id), enabled: Boolean(activeBusiness) })
+  // web: product metadata gives each shop card its category names
+  const products = useQuery({ queryKey: ['seller', 'products', activeBusiness?.id], queryFn: () => sellerApi.products(activeBusiness!.id), enabled: Boolean(activeBusiness) })
 
   // Per-shop product/unit counts, same figures web derives from each shop's
   // live stock rows so the card isn't just a name and an address.
@@ -42,6 +45,7 @@ export default function SellerShopsScreen() {
   })
   const stats = useMemo(() => {
     const out: Record<string, ShopStats> = {}
+    const meta = new Map((products.data ?? []).map((p) => [p.id, p]))
     ;(shops.data ?? []).forEach((shop, i) => {
       const rows = inventories[i]?.data ?? []
       const products = new Set<string>()
@@ -51,10 +55,12 @@ export default function SellerShopsScreen() {
         products.add(inventory.product_id)
         units += Number(inventory.quantity ?? 0)
       }
-      out[shop.id] = { productCount: products.size, unitCount: units }
+      const categoryNames = new Set<string>()
+      for (const pid of products) { const name = meta.get(pid)?.category_name; if (name) categoryNames.add(name) }
+      out[shop.id] = { productCount: products.size, unitCount: units, categories: Array.from(categoryNames).sort() }
     })
     return out
-  }, [shops.data, inventories])
+  }, [shops.data, inventories, products.data])
 
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -112,15 +118,19 @@ export default function SellerShopsScreen() {
       partner_delivery_provider: shop.partner_delivery_provider ?? '',
       delivery_city: shop.delivery_city ?? '',
       delivery_address: shop.delivery_address ?? '',
+      shop_delivery_fee: shop.shop_delivery_fee,
+      partner_delivery_fee: shop.partner_delivery_fee,
+      province: shop.province ?? '', city: shop.city ?? '', commune: shop.commune ?? '', street: shop.street ?? '', building_number: shop.building_number ?? '', landmark: shop.landmark ?? '',
     })
   }
 
-  if (!activeBusiness) return <View style={styles.center}><Text style={styles.muted}>{t('seller.noBusinessSelected')}</Text></View>
+  if (!activeBusiness) return <View style={styles.center}><Text style={styles.cardTitle}>{t('seller.noBusinessSelected')}</Text><Text style={styles.muted}>{t('seller.shopPage.noBusinessSubtitle')}</Text></View>
   if (shops.isLoading) return <Loading label={t('seller.shops.loading')} />
   if (shops.isError) return <ErrorState message={t('seller.shops.loadFailed')} retry={() => void shops.refetch()} />
 
   return <ScrollView contentContainerStyle={styles.page}>
-    <SectionTitle title={t('seller.shops')} action={<Button dense title={showCreate ? t('common.cancel') : t('seller.shops.createShop')} onPress={() => setShowCreate((v) => !v)} />} />
+    <SectionTitle title={t('seller.shopPage.title')} action={<Button dense title={showCreate ? t('common.cancel') : t('seller.shops.createShop')} onPress={() => setShowCreate((v) => !v)} />} />
+    <Text style={styles.muted}>{t('seller.shopPage.desc')}</Text>
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {deleteOutcome ? <Card><Text style={styles.success}>{t(deleteOutcome === 'archived' ? 'seller.shops.archivedOutcome' : 'seller.shops.deletedOutcome')}</Text></Card> : null}
 
@@ -131,11 +141,11 @@ export default function SellerShopsScreen() {
         <Pressable accessibilityRole="button" style={[styles.typeOption, form.type === 'PHYSICAL' && styles.typeOptionActive]} onPress={() => setForm((f) => ({ ...f, type: 'PHYSICAL' }))}><Text style={[styles.typeLabel, form.type === 'PHYSICAL' && styles.typeLabelActive]}>{t('seller.shopTypePhysical')}</Text></Pressable>
         <Pressable accessibilityRole="button" style={[styles.typeOption, form.type === 'ONLINE' && styles.typeOptionActive]} onPress={() => setForm((f) => ({ ...f, type: 'ONLINE' }))}><Text style={[styles.typeLabel, form.type === 'ONLINE' && styles.typeLabelActive]}>{t('seller.shopTypeOnline')}</Text></Pressable>
       </View>
-      <Field label={t('seller.province')} value={form.province} onChangeText={(v) => setForm((f) => ({ ...f, province: v }))} autoCapitalize="words" />
-      <Field label={t('seller.city')} value={form.city} onChangeText={(v) => setForm((f) => ({ ...f, city: v }))} autoCapitalize="words" />
-      <Field label={t('seller.commune')} value={form.commune} onChangeText={(v) => setForm((f) => ({ ...f, commune: v }))} autoCapitalize="words" />
-      <Field label={t('seller.street')} value={form.street} onChangeText={(v) => setForm((f) => ({ ...f, street: v }))} autoCapitalize="words" />
-      <Field label={t('seller.buildingNumber')} value={form.building_number} onChangeText={(v) => setForm((f) => ({ ...f, building_number: v }))} autoCapitalize="characters" />
+      {/* web: StructuredAddressFields — province → city → commune pickers with their ids */}
+      <StructuredAddressFields
+        value={{ province: form.province, city: form.city, commune: form.commune, province_id: form.province_id ?? '', city_id: form.city_id ?? '', commune_id: form.commune_id ?? '', street: form.street, building_number: form.building_number, landmark: form.landmark ?? '' }}
+        onChange={(address) => setForm((f) => ({ ...f, ...address }))}
+      />
       <Field label={t('auth.phone')} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} keyboardType="phone-pad" />
 
       <DeliverySection
@@ -152,6 +162,10 @@ export default function SellerShopsScreen() {
     {editing && <Card>
       <Text style={styles.cardTitle}>{t('seller.shops.settingsTitle', { shop: editing.name })}</Text>
       <Field label={t('seller.shops.name')} value={editForm.name ?? ''} onChangeText={(v) => setEditForm((f) => ({ ...f, name: v }))} autoCapitalize="words" />
+      <StructuredAddressFields
+        value={{ province: editForm.province ?? '', city: editForm.city ?? '', commune: editForm.commune ?? '', province_id: editForm.province_id ?? '', city_id: editForm.city_id ?? '', commune_id: editForm.commune_id ?? '', street: editForm.street ?? '', building_number: editForm.building_number ?? '', landmark: editForm.landmark ?? '' }}
+        onChange={(address) => setEditForm((f) => ({ ...f, ...address, address: [address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', ') }))}
+      />
       <DeliverySection
         value={editForm}
         onChange={(patch) => setEditForm((f) => ({ ...f, ...patch }))}
@@ -171,18 +185,19 @@ export default function SellerShopsScreen() {
       <Button variant="outline" title={t('common.cancel')} onPress={() => setPendingDelete(null)} />
     </View>}
 
-    {!shops.data?.length ? <Card><Text style={styles.muted}>{t('seller.shops.noShopsYet')}</Text></Card> : shops.data.map((shop) => {
+    {!shops.data?.length ? <Card><View style={styles.emptyInline}><Text style={styles.cardTitle}>{t('seller.shops.noShopsYet')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.shopPage.noShopsYetDesc')}</Text><Button title={t('seller.shopPage.emptyCta')} onPress={() => setShowCreate(true)} /></View></Card> : shops.data.map((shop) => {
       const archived = shop.status !== 'ACTIVE'
-      const s = stats[shop.id] ?? { productCount: 0, unitCount: 0 }
+      const s = stats[shop.id] ?? { productCount: 0, unitCount: 0, categories: [] }
       return <Card key={shop.id}>
         <View style={styles.row}>
           <Text style={styles.shopName}>{shop.name}</Text>
           <Text style={[styles.badge, archived ? styles.badgeMuted : styles.badgeActive]}>{t(`seller.shopStatus.${shop.status ?? 'ACTIVE'}` as TranslationKey)}</Text>
         </View>
-        <Text style={styles.muted}>{[shop.city, shop.address].filter(Boolean).join(' — ') || shop.type}</Text>
+        <Text style={styles.muted}>{[shop.building_number, shop.street, shop.commune, shop.city, shop.province].filter(Boolean).join(', ') || shop.address || shop.type}</Text>
         <Text style={styles.small}>{t('seller.shops.statsProducts', { count: s.productCount })} · {t('seller.shops.statsUnits', { count: s.unitCount })}</Text>
+        {s.categories.length > 0 ? <Text style={styles.small}>{s.categories.join(' • ')}</Text> : null}
         {shop.id === activeShop ? <Text style={styles.activeHint}>{t('seller.shops.currentShop')}</Text> : !archived && <Button variant="outline" dense title={t('seller.shops.setActive')} onPress={() => setActiveShop(shop.id)} />}
-        {!archived && <Button dense title={t('seller.shops.openShop')} onPress={() => { setActiveShop(shop.id); router.push('/seller/products') }} />}
+        {!archived && <Button dense title={t('seller.shops.openShop')} onPress={() => { setActiveShop(shop.id); router.push({ pathname: '/seller/shops/[shopId]/products', params: { shopId: shop.id } }) }} />}
         <View style={styles.row}>
           {!archived ? <>
             <Pressable accessibilityRole="button" onPress={() => openSettings(shop)}><Text style={styles.link}>{t('seller.shops.settings')}</Text></Pressable>
@@ -229,7 +244,8 @@ function CheckRow({ label, checked, onToggle, styles }: { label: string; checked
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  center: { flex: 1, justifyContent: 'center', padding: spacing.xl },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: 8 },
+  emptyInline: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   muted: { color: colors.muted },
   small: { color: colors.muted, fontSize: 12 },
   success: { color: colors.success, fontWeight: '700' },

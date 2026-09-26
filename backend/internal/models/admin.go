@@ -184,3 +184,49 @@ type AdminUserListItem struct {
 type UserStatusChangeRequest struct {
 	Reason string `json:"reason" binding:"required,min=5"`
 }
+
+// AdminBusinessListItem is a real business entity as Commerce supervises it.
+type AdminBusinessListItem struct {
+	ID                    uuid.UUID  `json:"id"`
+	Name                  string     `json:"name"`
+	BusinessType          string     `json:"business_type"`
+	Category              string     `json:"category"`
+	Email                 string     `json:"email"`
+	Phone                 string     `json:"phone"`
+	City                  string     `json:"city"`
+	Country               string     `json:"country"`
+	Currency              string     `json:"currency"`
+	Status                string     `json:"status"`
+	CreatedAt             time.Time  `json:"created_at"`
+	OwnerID               *uuid.UUID `json:"owner_id,omitempty"`
+	OwnerName             string     `json:"owner_name"`
+	OwnerEmail            string     `json:"owner_email"`
+	ShopCount             int        `json:"shop_count"`
+	ActiveShopCount       int        `json:"active_shop_count"`
+	ProductCount          int        `json:"product_count"`
+	PublishedProductCount int        `json:"published_product_count"`
+	OrderCount            int        `json:"order_count"`
+	CompletedSales        float64    `json:"completed_sales"`
+}
+
+// AdminShopListItem is a shop with its owning business and live activity.
+type AdminShopListItem struct {
+	ID                      uuid.UUID `json:"id"`
+	Name                    string    `json:"name"`
+	Type                    string    `json:"type"`
+	City                    string    `json:"city"`
+	Phone                   string    `json:"phone"`
+	Status                  string    `json:"status"`
+	CreatedAt               time.Time `json:"created_at"`
+	BusinessID              uuid.UUID `json:"business_id"`
+	BusinessName            string    `json:"business_name"`
+	BusinessStatus          string    `json:"business_status"`
+	SupportsShopDelivery    bool      `json:"supports_shop_delivery"`
+	SupportsPartnerDelivery bool      `json:"supports_partner_delivery"`
+	ProductCount            int       `json:"product_count"`
+	AvailableUnits          int       `json:"available_units"`
+	OrderCount              int       `json:"order_count"`
+	OpenOrderCount          int       `json:"open_order_count"`
+	ReviewScore             float64   `json:"review_score"`
+	ReviewCount             int       `json:"review_count"`
+}

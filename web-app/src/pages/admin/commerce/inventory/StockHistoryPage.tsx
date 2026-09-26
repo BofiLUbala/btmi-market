@@ -25,7 +25,7 @@ export default function StockHistoryPage() {
         from: fromDate || undefined,
         to: toDate || undefined,
         limit,
-        offset: page * limit,
+        offset: page,
       })
       setMovements(res.movements ?? [])
       setTotal(res.total ?? 0)

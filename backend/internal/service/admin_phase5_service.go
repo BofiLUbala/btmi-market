@@ -179,6 +179,9 @@ func canExport(r models.AdminRole, d string) bool {
 }
 func (s *AdminPhase5Service) CreateExport(c context.Context, id uuid.UUID, r models.AdminRole, q models.CreateExportRequest) (uuid.UUID, error) {
 	q.Dataset = strings.ToUpper(q.Dataset)
+	if _, known := exportQueries[q.Dataset]; !known {
+		return uuid.Nil, errors.New("unknown dataset")
+	}
 	if !canExport(r, q.Dataset) {
 		return uuid.Nil, errors.New("forbidden: missing EXPORT_CREATE permission for dataset")
 	}
@@ -192,6 +195,7 @@ func (s *AdminPhase5Service) CreateExport(c context.Context, id uuid.UUID, r mod
 	e := s.db.QueryRowContext(c, `INSERT INTO admin_export_jobs(dataset,filters,requested_by) VALUES($1,$2,$3) RETURNING id`, q.Dataset, q.Filters, id).Scan(&eid)
 	if e == nil {
 		_ = s.audit.Record(id, r, "EXPORT_REQUEST", "export_job", eid.String(), q.Reason, nil, map[string]interface{}{"dataset": q.Dataset}, "", "")
+		go s.runExport(eid, q.Dataset)
 	}
 	return eid, e
 }
@@ -227,7 +231,7 @@ func (s *AdminPhase5Service) Analytics(c context.Context, r models.AdminRole, d 
 		days = 30
 	}
 	type spec struct{ k, l, t string }
-	specs := map[string][]spec{"direction": {{"users", "User growth", "users"}, {"businesses", "Business growth", "businesses"}, {"shops", "Shop growth", "shops"}, {"orders", "Order growth", "orders"}}, "commerce": {{"products", "Products created", "products"}, {"shops", "Shops created", "shops"}, {"orders", "Orders created", "orders"}}, "finance": {{"orders", "Order volume", "orders"}, {"cases", "Case volume", "admin_cases"}, {"risk_events", "Risk events", "admin_risk_events"}}, "technical": {{"security_events", "Security events", "admin_security_events"}}}
+	specs := map[string][]spec{"direction": {{"users", "User growth", "users"}, {"businesses", "Business growth", "businesses"}, {"shops", "Shop growth", "shops"}, {"orders", "Order growth", "orders"}}, "commerce": {{"products", "Products created", "products"}, {"shops", "Shops created", "shops"}, {"orders", "Orders created", "orders"}}, "finance": {{"orders", "Order volume", "orders"}, {"payments", "Buyer payments", "buyer_payments"}, {"commissions", "Sale commissions", "sale_commissions"}, {"cases", "Case volume", "cases"}, {"risk_events", "Risk events", "risk_events"}}, "technical": {{"security_events", "Security events", "security_events"}, {"auth_security_events", "Authentication events", "auth_security_events"}, {"admin_actions", "Audited admin actions", "admin_audit_log"}}}
 	out := []models.AnalyticsMetric{}
 	for _, sp := range specs[d] {
 		m := models.AnalyticsMetric{Key: sp.k, Label: sp.l, Unit: "count", Trend: []models.AnalyticsPoint{}}
@@ -251,6 +255,25 @@ func (s *AdminPhase5Service) Analytics(c context.Context, r models.AdminRole, d 
 	}
 	return out, nil
 }
+var publicFlagKeys = []string{"BUYER_POINTS_ENABLED", "REVIEWS_ENABLED", "PRODUCT_REVIEWS_ENABLED", "SHOP_REVIEWS_ENABLED",
+	"VISUAL_SEARCH_ENABLED", "SELLER_PROMOTIONS_ENABLED", "NEW_SELLER_REGISTRATION_ENABLED", "MARKETPLACE_SEARCH_V2_ENABLED"}
+
+// maintenanceActive mirrors the enforcement middleware: a mode only counts
+// inside its optional start/end window.
+func maintenanceActive(m *models.MaintenanceState) bool {
+	if m == nil || m.Status == "" || m.Status == "OFF" {
+		return false
+	}
+	now := time.Now()
+	if m.StartsAt != nil && now.Before(*m.StartsAt) {
+		return false
+	}
+	if m.EndsAt != nil && !now.Before(*m.EndsAt) {
+		return false
+	}
+	return true
+}
+
 func (s *AdminPhase5Service) PublicState(c context.Context) (map[string]interface{}, error) {
 	m, e := s.GetMaintenance(c)
 	if e != nil {
@@ -267,5 +290,21 @@ func (s *AdminPhase5Service) PublicState(c context.Context) (map[string]interfac
 		_ = rows.Scan(&x.ID, &x.Title, &x.Message, &x.Audience, &x.Status, &x.StartsAt, &x.EndsAt, &x.CreatedBy, &x.CreatedAt, &x.UpdatedAt)
 		a = append(a, x)
 	}
-	return map[string]interface{}{"maintenance": m, "announcements": a, "server_time": time.Now().UTC()}, nil
+	// The client-facing switches, so the apps hide a feature the Control Center
+	// turned off instead of letting the user hit a refusal.
+	flags := map[string]bool{}
+	if fr, fe := s.db.QueryContext(c, `SELECT key, enabled FROM feature_flags WHERE key = ANY($1)`, pq.Array(publicFlagKeys)); fe == nil {
+		for fr.Next() {
+			var k string
+			var v bool
+			if fr.Scan(&k, &v) == nil {
+				flags[k] = v
+			}
+		}
+		fr.Close()
+	}
+	var minAndroid string
+	_ = s.db.QueryRowContext(c, `SELECT value FROM global_configs WHERE key = 'MIN_SUPPORTED_ANDROID_VERSION'`).Scan(&minAndroid)
+	return map[string]interface{}{"maintenance": m, "maintenance_active": maintenanceActive(m), "announcements": a, "feature_flags": flags,
+		"min_supported_android_version": minAndroid, "server_time": time.Now().UTC()}, nil
 }

@@ -111,7 +111,7 @@ func (r *AuditRepository) List(filter *models.AuditListFilter) ([]*models.AdminA
 	}
 	defer rows.Close()
 
-	var logs []*models.AdminAuditLog
+	logs := make([]*models.AdminAuditLog, 0)
 	for rows.Next() {
 		entry := &models.AdminAuditLog{}
 		var actorName sql.NullString

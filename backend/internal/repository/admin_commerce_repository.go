@@ -249,7 +249,7 @@ func (r *AdminCommerceRepository) ListProducts(search, businessID, categoryID, s
 	}
 	defer rows.Close()
 
-	var products []*models.AdminProductListItem
+	products := make([]*models.AdminProductListItem, 0)
 	for rows.Next() {
 		item := &models.AdminProductListItem{}
 		var catID, subID *uuid.UUID
@@ -435,7 +435,8 @@ func (r *AdminCommerceRepository) UpdateProductPublication(id uuid.UUID, newPub 
 }
 
 // 5. Global Inventory View
-func (r *AdminCommerceRepository) ListInventory(businessID, shopID, stockStatus string, limit, offset int) ([]*models.AdminInventoryItem, int, error) {
+func (r *AdminCommerceRepository) ListInventory(businessID, shopID, search, stockStatus string, limit, offset int) ([]*models.AdminInventoryItem, int, error) {
+	threshold := r.lowStockThreshold()
 	conditions := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
@@ -450,17 +451,30 @@ func (r *AdminCommerceRepository) ListInventory(businessID, shopID, stockStatus 
 		args = append(args, shopID)
 		argIdx++
 	}
-	if stockStatus == "OUT_OF_STOCK" {
+	if search != "" {
+		conditions = append(conditions, fmt.Sprintf("(p.name ILIKE $%d OR COALESCE(p.sku,'') ILIKE $%d OR COALESCE(v.sku,'') ILIKE $%d OR COALESCE(v.name,'') ILIKE $%d)", argIdx, argIdx, argIdx, argIdx))
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+	// The same LOW_STOCK_THRESHOLD that labels each row, so a filter never
+	// disagrees with the badge it returns.
+	switch stockStatus {
+	case "OUT_OF_STOCK":
 		conditions = append(conditions, "(inv.quantity - inv.reserved_quantity) <= 0")
-	} else if stockStatus == "LOW_STOCK" {
-		conditions = append(conditions, "(inv.quantity - inv.reserved_quantity) > 0 AND (inv.quantity - inv.reserved_quantity) <= 5")
-	} else if stockStatus == "IN_STOCK" {
-		conditions = append(conditions, "(inv.quantity - inv.reserved_quantity) > 5")
+	case "LOW_STOCK":
+		conditions = append(conditions, fmt.Sprintf("(inv.quantity - inv.reserved_quantity) > 0 AND (inv.quantity - inv.reserved_quantity) <= %d", threshold))
+	case "LOW_OR_OUT":
+		conditions = append(conditions, fmt.Sprintf("(inv.quantity - inv.reserved_quantity) <= %d", threshold))
+	case "IN_STOCK":
+		conditions = append(conditions, fmt.Sprintf("(inv.quantity - inv.reserved_quantity) > %d", threshold))
 	}
 
 	whereClause := strings.Join(conditions, " AND ")
 
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM inventory inv WHERE %s", whereClause)
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM inventory inv
+		LEFT JOIN products p ON inv.product_id = p.id
+		LEFT JOIN product_variants v ON inv.variant_id = v.id
+		WHERE %s`, whereClause)
 	var total int
 	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("failed to count inventory: %w", err)
@@ -499,7 +513,7 @@ func (r *AdminCommerceRepository) ListInventory(businessID, shopID, stockStatus 
 	}
 	defer rows.Close()
 
-	var items []*models.AdminInventoryItem
+	items := make([]*models.AdminInventoryItem, 0)
 	for rows.Next() {
 		item := &models.AdminInventoryItem{}
 		err := rows.Scan(
@@ -516,12 +530,12 @@ func (r *AdminCommerceRepository) ListInventory(businessID, shopID, stockStatus 
 
 		if item.Available <= 0 {
 			item.StockStatus = "OUT_OF_STOCK"
-		} else if item.Available <= r.lowStockThreshold() {
+		} else if item.Available <= threshold {
 			item.StockStatus = "LOW_STOCK"
 		} else {
 			item.StockStatus = "IN_STOCK"
 		}
-		item.LowStockThreshold = r.lowStockThreshold()
+		item.LowStockThreshold = threshold
 
 		items = append(items, item)
 	}
@@ -560,7 +574,7 @@ func (r *AdminCommerceRepository) ListStockAnomalies() ([]*models.StockAnomaly, 
 	}
 	defer rows.Close()
 
-	var anomalies []*models.StockAnomaly
+	anomalies := make([]*models.StockAnomaly, 0)
 	for rows.Next() {
 		a := &models.StockAnomaly{}
 		if err := rows.Scan(&a.ShopID, &a.ShopName, &a.ProductID, &a.ProductName, &a.VariantID, &a.Quantity, &a.ReservedQuantity, &a.Type, &a.Description); err == nil {
@@ -673,7 +687,7 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 	}
 	defer rows.Close()
 
-	var orders []*models.AdminOrderItem
+	orders := make([]*models.AdminOrderItem, 0)
 	for rows.Next() {
 		item := &models.AdminOrderItem{}
 		var stuckReason sql.NullString
@@ -1028,7 +1042,7 @@ func (r *AdminCommerceRepository) ListEmployees(limit, offset int) ([]*models.Ad
 	}
 	defer rows.Close()
 
-	var employees []*models.AdminEmployeeItem
+	employees := make([]*models.AdminEmployeeItem, 0)
 	for rows.Next() {
 		emp := &models.AdminEmployeeItem{}
 		var shopList string
@@ -1165,7 +1179,7 @@ func (r *AdminCommerceRepository) ListStockMovementHistory(businessID, shopID, p
 	}
 	defer rows.Close()
 
-	var items []*models.AdminStockMovementItem
+	items := make([]*models.AdminStockMovementItem, 0)
 	for rows.Next() {
 		item := &models.AdminStockMovementItem{}
 		var variantID, performedBy, employeeID, referenceID *uuid.UUID
@@ -1423,7 +1437,7 @@ func (r *AdminCommerceRepository) ListSearchQueries(limit, offset int) ([]*model
 	}
 	defer rows.Close()
 
-	var logs []*models.AdminSearchQueryLog
+	logs := make([]*models.AdminSearchQueryLog, 0)
 	for rows.Next() {
 		log := &models.AdminSearchQueryLog{}
 		if err := rows.Scan(&log.Query, &log.ResultsCount, &log.SearchType, &log.CreatedAt); err == nil {
@@ -1613,7 +1627,7 @@ func (r *AdminCommerceRepository) ListPromotionVisibility(limit, offset int) ([]
 	}
 	defer rows.Close()
 
-	var promos []*models.AdminPromotionVisibility
+	promos := make([]*models.AdminPromotionVisibility, 0)
 	for rows.Next() {
 		promo := &models.AdminPromotionVisibility{}
 		var discountStart, discountEnd *time.Time

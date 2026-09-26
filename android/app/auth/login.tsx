@@ -36,6 +36,10 @@ export default function LoginScreen() {
         router.replace('/courier')
         return
       }
+      if (u?.account_type === 'EMPLOYEE') {
+        router.replace('/seller/employee')
+        return
+      }
       router.replace('/(buyer)')
     } catch (cause) {
       if (cause instanceof ApiError) {

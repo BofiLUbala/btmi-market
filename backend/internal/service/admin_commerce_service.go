@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -241,8 +242,8 @@ func (s *AdminCommerceService) GetAttributeSuggestions() map[string][]string {
 }
 
 // 4. Inventory & Safe Stock Adjustment
-func (s *AdminCommerceService) ListInventory(businessID, shopID, stockStatus string, limit, offset int) ([]*models.AdminInventoryItem, int, error) {
-	return s.commerceRepo.ListInventory(businessID, shopID, stockStatus, limit, offset)
+func (s *AdminCommerceService) ListInventory(businessID, shopID, search, stockStatus string, limit, offset int) ([]*models.AdminInventoryItem, int, error) {
+	return s.commerceRepo.ListInventory(businessID, shopID, search, stockStatus, limit, offset)
 }
 
 func (s *AdminCommerceService) ListStockAnomalies() ([]*models.StockAnomaly, error) {
@@ -472,4 +473,59 @@ func (s *AdminCommerceService) GetShopPerformance(limit, offset int) ([]*models.
 // 18. Employee Shop Authorization
 func (s *AdminCommerceService) CheckEmployeeShopAuth(employeeID, shopID uuid.UUID) (*models.AdminEmployeeShopAuth, error) {
 	return s.commerceRepo.CheckEmployeeShopAuth(employeeID, shopID)
+}
+
+func (s *AdminCommerceService) ListBusinesses(search, status string, limit, offset int) ([]*models.AdminBusinessListItem, int, error) {
+	return s.commerceRepo.ListBusinesses(search, status, limit, offset)
+}
+
+func (s *AdminCommerceService) ListShops(search, status, businessID string, limit, offset int) ([]*models.AdminShopListItem, int, error) {
+	return s.commerceRepo.ListShops(search, status, businessID, limit, offset)
+}
+
+var businessStatuses = map[string]bool{"ACTIVE": true, "SUSPENDED": true, "DEACTIVATED": true}
+var shopStatuses = map[string]bool{"ACTIVE": true, "INACTIVE": true, "SUSPENDED": true}
+
+// SetEntityStatus suspends or reactivates a business or a shop. A suspended
+// business or shop disappears from the marketplace because every public
+// listing already filters on status = 'ACTIVE'.
+func (s *AdminCommerceService) SetEntityStatus(adminID uuid.UUID, adminRole models.AdminRole, kind string, id uuid.UUID, status, reason, ip, userAgent string) error {
+	status = strings.ToUpper(strings.TrimSpace(status))
+	if len(strings.TrimSpace(reason)) < 5 {
+		return errors.New("REASON_REQUIRED")
+	}
+	var old string
+	var err error
+	switch kind {
+	case "BUSINESS":
+		if !businessStatuses[status] {
+			return errors.New("INVALID_STATUS")
+		}
+		old, err = s.commerceRepo.SetBusinessStatus(id, status)
+	case "SHOP":
+		if !shopStatuses[status] {
+			return errors.New("INVALID_STATUS")
+		}
+		old, err = s.commerceRepo.SetShopStatus(id, status)
+	default:
+		return errors.New("INVALID_KIND")
+	}
+	if err != nil {
+		return err
+	}
+	oldRaw := json.RawMessage(fmt.Sprintf(`{"status": %q}`, old))
+	newRaw := json.RawMessage(fmt.Sprintf(`{"status": %q}`, status))
+	_ = s.auditRepo.Record(&models.AdminAuditLog{
+		ActorAdminID: adminID,
+		ActorRole:    adminRole,
+		Action:       kind + "_STATUS_" + status,
+		TargetType:   kind,
+		TargetID:     id.String(),
+		Reason:       reason,
+		OldValue:     &oldRaw,
+		NewValue:     &newRaw,
+		IPAddress:    &ip,
+		UserAgent:    &userAgent,
+	})
+	return nil
 }

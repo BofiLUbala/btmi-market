@@ -1,4 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { Image } from 'expo-image'
+import { Pressable } from 'react-native'
+import { resolveMediaUrl } from '../../src/api/client'
+import { OrderItemQRSection } from '../../src/components/OrderItemQRSection'
 import { DeliveryPlanCard } from '../../src/components/DeliveryPlanCard'
 import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../../src/lib/deliveryPlan'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -13,7 +17,7 @@ import { formatMoney } from '../../src/lib/money'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
-import type { OrderStatusHistory, BuyerPayment, ProductVerification } from '../../src/types'
+import type { OrderStatusHistory, BuyerPayment, ProductVerification, OrderLine } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
 import { courierReached } from '../../src/lib/courierSteps'
@@ -223,7 +227,10 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const t2 = tracking.data
   const p = payment.data ?? null
   const deliveryMethod = o.delivery_method || t2?.delivery_method || ''
-  const canReceive = deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP'
+  const canReceive = (deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP') || (Boolean(productVerification) && deliveryMethod !== 'PICKUP' && o.status === 'DELIVERED')
+  const needsDelivery = !o.delivery_method
+  const productsTotal = (o.final_total || 0) + (o.points_discount_amount || 0)
+  const grandTotal = (o.final_total || 0) + (o.delivery_fee_final || 0)
   const currency = p?.currency || o.currency
   const canVerify = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '')
   const canCancel = buyerCanCancel(o.status, o.delivery_status, p?.status)
@@ -262,6 +269,23 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       </Card>
 
       <DeliveryPlanCard plan={o} status={o.status} deliveryStatus={o.delivery_status} deliveryMethod={deliveryMethod} />
+
+      {/* web: products subtotal, points, delivery (struck base when points were used) and the total due */}
+      <Card>
+        <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsSubtotal')}</Text><Text style={styles.muted}>{formatMoney(productsTotal)}</Text></View>
+        {(o.points_used ?? 0) > 0 ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.pointsUsed', { count: o.points_used ?? 0 })}</Text><Text style={[styles.muted, { color: colors.success }]}>−{formatMoney(o.points_discount_amount ?? 0)}</Text></View> : null}
+        <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsTotal')}</Text><Text style={styles.muted}>{formatMoney(o.final_total)}</Text></View>
+        <View style={styles.breakRow}><Text style={[styles.muted, { flex: 1 }]}>{t('orders.delivery', { method: o.delivery_method || t('orders.notSelected') })}</Text><Text style={styles.muted}>{(o.delivery_points_used ?? 0) > 0 ? <Text style={{ textDecorationLine: 'line-through' }}>{formatMoney(o.delivery_fee_base ?? 0)} </Text> : null}{formatMoney(o.delivery_fee_final ?? 0)}</Text></View>
+        <View style={styles.breakRow}><Text style={[styles.muted, { fontWeight: '900', color: colors.ink }]}>{t('orders.totalDue')}</Text><Text style={[styles.muted, { fontWeight: '900', color: colors.ink }]}>{formatMoney(grandTotal)}</Text></View>
+        {o.delivery_method ? <View style={styles.deliveryBox}>
+          <Text style={[styles.muted, { fontWeight: '800', color: colors.ink }]}>{t('delivery.details')}</Text>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.contact')}</Text><Text style={styles.muted}>{o.delivery_contact_name || '—'}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('common.phone')}</Text><Text style={styles.muted}>{o.delivery_phone || '—'}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('common.address')}</Text><Text style={[styles.muted, { flexShrink: 1, textAlign: 'right' }]}>{o.delivery_address || '—'}</Text></View>
+          {o.delivery_notes ? <View style={styles.breakRow}><Text style={styles.muted}>{t('delivery.notes')}</Text><Text style={[styles.muted, { flexShrink: 1, textAlign: 'right' }]}>{o.delivery_notes}</Text></View> : null}
+        </View> : null}
+        {o.status === 'PENDING' && needsDelivery ? <Button title={t('orders.continueCheckout')} onPress={() => router.push({ pathname: '/checkout/delivery', params: { orderId: id } })} /> : null}
+      </Card>
 
       <Card>
         <Button
@@ -331,15 +355,25 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
 
         {p ? <Card>
           <Text style={styles.name}>{t('orders.paymentDetail')}</Text>
-          <Text style={styles.muted}>{t('orders.createdAtLabel')} : {formatDateTime(p.created_at, lang)}</Text>
-          <Text style={styles.muted}>{t('orders.reference')} : {p.receipt_reference || p.internal_reference || p.id.slice(0, 8).toUpperCase()}</Text>
-          {p.updated_at ? <Text style={styles.muted}>{t('orders.lastUpdate')} : {formatDateTime(p.updated_at, lang)}</Text> : null}
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.orderNumber', { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</Text><Text style={styles.muted}>{formatDateTime(o.created_at, lang)}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMethod')}</Text><Text style={styles.muted}>{t(paymentMethodKey(p.payment_method))}</Text></View>
+          {p.provider ? <View style={styles.breakRow}><Text style={styles.muted}>Opérateur</Text><Text style={styles.muted}>{p.provider_label || p.provider}</Text></View> : null}
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.amountDue', { amount: '' }).replace(/[:\s]+$/, '')}</Text><Text style={[styles.muted, { fontWeight: '800' }]}>{formatMoney(p.cash_due, p.currency)}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMarkup')}</Text><Text style={styles.muted}>{formatMoney(Math.max(p.payment_markup, 0), p.currency)}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.totalDue')}</Text><Text style={[styles.muted, { fontWeight: '800' }]}>{formatMoney(p.final_total, p.currency)}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentStatus')}</Text><Text style={styles.muted}>{t(paymentStatusKey(p))}</Text></View>
+          {isPaymentPaid(p) && confirmationActorKey(p.confirmation_actor) ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.confirmedBy')}</Text><Text style={styles.muted}>{t(confirmationActorKey(p.confirmation_actor)!)}</Text></View> : null}
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.createdAtLabel')}</Text><Text style={styles.muted}>{formatDateTime(p.created_at, lang)}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.reference')}</Text><Text style={styles.muted}>{p.receipt_reference || p.internal_reference || p.provider_reference || p.id.slice(0, 8).toUpperCase()}</Text></View>
+          {p.receipt_issued_at ? <View style={styles.breakRow}><Text style={styles.muted}>Reçu émis le</Text><Text style={styles.muted}>{formatDateTime(p.receipt_issued_at, lang)}</Text></View> : null}
+          {p.updated_at ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.lastUpdate')}</Text><Text style={styles.muted}>{formatDateTime(p.updated_at, lang)}</Text></View> : null}
+          {(p as BuyerPayment & { refund_status?: string | null }).refund_status ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentStatus')}</Text><Text style={styles.muted}>{(() => { const r = (p as BuyerPayment & { refund_status?: string | null }).refund_status; return r === 'IN_PROGRESS' ? t('orders.refundInProgress') : r === 'REFUNDED' ? t('orders.refunded') : r === 'FAILED' ? t('orders.refundFailed') : r })()}</Text></View> : null}
         </Card> : null}
 
         <PaymentAttempts p={p} o={o} lang={lang} t={t} styles={styles} />
       </> : null}
 
-      <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=>{const e=eligibility[i].data;return <Card key={line.id}><Text style={styles.name}>{line.product_name}</Text><Text style={styles.muted}>{line.variant_name||t('orders.standardOption')} · {t('orders.qty', { count: line.quantity })} · {formatMoney(line.final_unit_price*line.quantity, currency)}</Text>{e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? t(REASON_KEYS[e.reason] ?? 'orders.reviewUnavailable') : t('orders.reviewUnavailable')}</Text>}</Card>})}
+      <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=><PurchasedLine key={line.id} line={line} orderId={id!} eligibility={eligibility[i]?.data} styles={styles} reasonText={(r) => t(REASON_KEYS[r] ?? 'orders.reviewUnavailable')} />)}
       <SectionTitle title={t('orders.deliveryService')}/><Card><Text style={styles.muted}>{t('orders.deliveryServiceBody')}</Text>{service.data?.eligible?<Button variant="outline" title={t('orders.rateService')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,type:'service',productName:order.data.shop_name}})}/>:<Text style={styles.hint}>{service.data?.reason ? t(REASON_KEYS[service.data.reason] ?? 'orders.serviceReviewUnavailable') : t('orders.serviceReviewUnavailable')}</Text>}</Card>
     </ScrollView>
 
@@ -356,4 +390,34 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   </View>
 }
 
-const makeStyles = (colors: Colors) => StyleSheet.create({page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12},breakRow:{flexDirection:'row',justifyContent:'space-between',gap:8}})
+/** web PurchasedLine: the order-time snapshot of one line, its review action
+ *  and its own ORDER_ITEM QR on demand. */
+function PurchasedLine({ line, orderId, eligibility, styles, reasonText }: { line: OrderLine; orderId: string; eligibility?: { eligible: boolean; reason?: string; existing_review_id?: string }; styles: ReturnType<typeof makeStyles>; reasonText: (reason: string) => string }) {
+  const { t } = useI18n()
+  const [showQR, setShowQR] = useState(false)
+  const variantText = Object.values(line.variant_attributes ?? {}).filter(Boolean).join(' / ') || line.variant_name || line.variant_sku || t('orders.standardVariant')
+  const price = line.final_unit_price
+  const loadQR = useCallback(() => buyerApi.orderItemQR(orderId, line.id), [orderId, line.id])
+  const e = eligibility
+  return <Card>
+    <View style={styles.lineRow}>
+      <View style={styles.thumb}>{line.image_url ? <Image source={resolveMediaUrl(line.image_url)} style={styles.thumbImg} contentFit="cover" /> : <Text style={styles.thumbText}>{(line.product_name || t('orders.product')).slice(0, 2).toUpperCase()}</Text>}</View>
+      <View style={{ flex: 1 }}>
+        <Pressable accessibilityRole="link" onPress={() => router.push(`/products/${line.product_id}`)}><Text style={styles.name}>{line.product_name || t('orders.productWithId', { id: line.product_id.slice(0, 8) })}</Text></Pressable>
+        <Text style={styles.muted}>{variantText}</Text>
+        <Text style={styles.muted}>{line.quantity} × {formatMoney(price)}</Text>
+        <Text style={styles.hint}>{t('itemQr.snapshotNote')}</Text>
+      </View>
+      <Text style={[styles.name, { fontSize: 15 }]}>{formatMoney(line.quantity * price)}</Text>
+    </View>
+    {e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? reasonText(e.reason) : t('orders.reviewUnavailable')}</Text>}
+    <Button dense variant="outline" title={showQR ? t('itemQr.hide') : t('itemQr.action')} onPress={() => setShowQR((v) => !v)} />
+    {showQR ? <OrderItemQRSection load={loadQR} imagePath={buyerApi.orderItemQRImagePath(orderId, line.id)} instruction={t('itemQr.buyerInstruction')} fields={[
+      { label: t('itemQr.labelProduct'), value: line.product_name || '' },
+      { label: t('itemQr.labelVariant'), value: variantText },
+      { label: t('itemQr.labelQuantity'), value: String(line.quantity) },
+    ]} /> : null}
+  </Card>
+}
+
+const makeStyles = (colors: Colors) => StyleSheet.create({lineRow:{flexDirection:'row',gap:12,alignItems:'flex-start'},thumb:{width:56,height:56,borderRadius:10,backgroundColor:colors.surface2,alignItems:'center',justifyContent:'center',overflow:'hidden'},thumbImg:{width:56,height:56},thumbText:{color:colors.muted,fontWeight:'800'},deliveryBox:{marginTop:8,padding:12,borderRadius:10,backgroundColor:colors.surface2,gap:2},page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12},breakRow:{flexDirection:'row',justifyContent:'space-between',gap:8}})

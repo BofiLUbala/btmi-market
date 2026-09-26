@@ -215,7 +215,7 @@ export default function DirectionDashboardPage() {
   }
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(val)
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'USD' }).format(val)
   }
 
   const featureTitle = (() => {
@@ -425,21 +425,21 @@ export default function DirectionDashboardPage() {
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux d’achèvement commandes</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>
-                    {stats.total_orders > 0 ? `${Math.round((stats.completed_orders / stats.total_orders) * 100)}%` : '100%'}
+                    {stats.total_orders > 0 ? `${Math.round((stats.completed_orders / stats.total_orders) * 100)}%` : '—'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.completed_orders} sur {stats.total_orders} commandes</div>
                 </div>
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux d’activation boutiques</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>
-                    {stats.total_shops > 0 ? `${Math.round((stats.active_shops / stats.total_shops) * 100)}%` : '100%'}
+                    {stats.total_shops > 0 ? `${Math.round((stats.active_shops / stats.total_shops) * 100)}%` : '—'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.active_shops} actives sur {stats.total_shops}</div>
                 </div>
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux de litiges</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: stats.open_disputes > 0 ? '#ef4444' : '#10b981' }}>
-                    {stats.total_orders > 0 ? `${((stats.open_disputes / stats.total_orders) * 100).toFixed(1)}%` : '0%'}
+                    {stats.total_orders > 0 ? `${((stats.open_disputes / stats.total_orders) * 100).toFixed(1)}%` : '—'}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.open_disputes} cas ouverts</div>
                 </div>
@@ -458,7 +458,7 @@ export default function DirectionDashboardPage() {
                   <div style={{ backgroundColor: '#1e293b', padding: 14, borderRadius: 10 }}>
                     <div style={{ fontSize: 12, color: '#94a3b8' }}>Moyenne Boutiques par Entreprise</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', marginTop: 4 }}>
-                      {stats.total_businesses > 0 ? (stats.total_shops / stats.total_businesses).toFixed(1) : '1.0'}
+                      {stats.total_businesses > 0 ? (stats.total_shops / stats.total_businesses).toFixed(1) : '—'}
                     </div>
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{stats.total_shops} boutiques / {stats.total_businesses} entreprises</div>
                   </div>

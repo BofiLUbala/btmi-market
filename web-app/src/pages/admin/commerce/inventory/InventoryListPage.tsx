@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminCommerceApi, type AdminInventoryItem } from '@/api/admin'
+import { useSearchParams } from 'react-router-dom'
+import { adminCommerceApi, type AdminInventoryItem, type StockAnomaly } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { AdminStatusBadge } from '@/components/admin/AdminStatusBadge'
 
 export default function InventoryListPage() {
   const t = useT()
+  const [params] = useSearchParams()
   const [items, setItems] = useState<AdminInventoryItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [shopId, setShopId] = useState('')
-  const [search, setSearch] = useState('')
+  const [shopId, setShopId] = useState(params.get('shop_id') || '')
+  const [search, setSearch] = useState(params.get('search') || '')
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
   const [statusFilter, setStatusFilter] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(false)
   const [page, setPage] = useState(0)
@@ -18,15 +21,14 @@ export default function InventoryListPage() {
   const fetchInventory = useCallback(async () => {
     setLoading(true)
     try {
-      // The backend's /admin/commerce/inventory endpoint only supports
-      // business_id/shop_id/stock_status/limit/offset - there is no
-      // server-side "search" or "low_stock_only" filter, so those are
-      // applied client-side below instead of being sent to the API.
+      // Search and "low stock only" run in SQL so they cover every page,
+      // not just the rows already loaded.
       const res = await adminCommerceApi.listInventory({
         shop_id: shopId || undefined,
-        stock_status: statusFilter || undefined,
+        search: debouncedSearch || undefined,
+        stock_status: lowStockOnly && !statusFilter ? 'LOW_OR_OUT' : statusFilter || undefined,
         limit,
-        offset: page * limit,
+        offset: page,
       })
       setItems(res.inventory ?? [])
       setTotal(res.total ?? 0)
@@ -35,21 +37,51 @@ export default function InventoryListPage() {
     } finally {
       setLoading(false)
     }
-  }, [shopId, statusFilter, page, limit])
+  }, [shopId, debouncedSearch, statusFilter, lowStockOnly, page, limit])
 
   useEffect(() => { fetchInventory() }, [fetchInventory])
+  useEffect(() => {
+    const timer = setTimeout(() => { setDebouncedSearch(search.trim()); setPage(0) }, 350)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  const visibleItems = items.filter((inv) => {
-    if (lowStockOnly && inv.stock_status !== 'LOW_STOCK' && inv.stock_status !== 'OUT_OF_STOCK') return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (!inv.product_name?.toLowerCase().includes(q) && !inv.sku?.toLowerCase().includes(q)) return false
+  // Integrity problems (negative or over-reserved stock) found server-side.
+  const [anomalies, setAnomalies] = useState<StockAnomaly[]>([])
+  const loadAnomalies = useCallback(async () => {
+    try { setAnomalies((await adminCommerceApi.listStockAnomalies()) ?? []) } catch { setAnomalies([]) }
+  }, [])
+  useEffect(() => { void loadAnomalies() }, [loadAnomalies])
+
+  // Audited stock correction: the new on-hand quantity plus a mandatory reason.
+  const [adjusting, setAdjusting] = useState<AdminInventoryItem | null>(null)
+  const [newQty, setNewQty] = useState('')
+  const [adjustReason, setAdjustReason] = useState('')
+  const [adjustError, setAdjustError] = useState<string | null>(null)
+  const [adjustBusy, setAdjustBusy] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const openAdjust = (inv: AdminInventoryItem) => { setAdjusting(inv); setNewQty(String(inv.quantity)); setAdjustReason(''); setAdjustError(null) }
+  const submitAdjust = async () => {
+    if (!adjusting) return
+    const qty = Number(newQty)
+    if (!Number.isInteger(qty) || qty < adjusting.reserved_quantity) { setAdjustError(`Quantité entière ≥ ${adjusting.reserved_quantity} (déjà réservée) requise.`); return }
+    if (adjustReason.trim().length < 5) { setAdjustError('Motif obligatoire (5 caractères minimum).'); return }
+    setAdjustBusy(true); setAdjustError(null)
+    try {
+      await adminCommerceApi.adjustStock(adjusting.shop_id, adjusting.variant_id, qty, adjustReason.trim())
+      setNotice(`Stock de ${adjusting.product_name} ajusté : ${adjusting.quantity} → ${qty}.`)
+      setAdjusting(null)
+      await Promise.all([fetchInventory(), loadAnomalies()])
+    } catch (err) {
+      setAdjustError(err instanceof Error ? err.message : 'Ajustement impossible')
+    } finally {
+      setAdjustBusy(false)
     }
-    return true
-  })
+  }
+
+  // Every filter is applied server-side, so the rows are shown as returned.
+  const visibleItems = items
 
   const totalPages = Math.ceil(total / limit)
-  const hasClientFilter = Boolean(search || lowStockOnly)
 
   return (
     <div>
@@ -61,6 +93,21 @@ export default function InventoryListPage() {
           {t('admin.inventory.subtitle')}
         </p>
       </div>
+
+      {notice && <div className="admin-alert admin-alert-success" role="status">{notice} <button onClick={() => setNotice(null)} aria-label="Fermer">✕</button></div>}
+
+      {anomalies.length > 0 && (
+        <div role="alert" style={{ border: '1px solid #b91c1c', background: 'rgba(127,29,29,.25)', borderRadius: 10, padding: 12, marginBottom: 16 }}>
+          <strong style={{ color: '#fca5a5' }}>{anomalies.length} anomalie(s) de stock détectée(s)</strong>
+          <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--admin-text)' }}>
+            {anomalies.slice(0, 10).map((a) => (
+              <li key={`${a.shop_id}-${a.variant_id}-${a.type}`}>
+                <b>{a.type}</b> · {a.shop_name} · {a.product_name} — stock {a.quantity}, réservé {a.reserved_quantity}. {a.description}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
@@ -128,37 +175,6 @@ export default function InventoryListPage() {
         </span>
       </div>
 
-      {hasClientFilter && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '7px 12px',
-          borderRadius: 8,
-          backgroundColor: 'rgba(56, 189, 248, 0.08)',
-          border: '1px solid rgba(56, 189, 248, 0.25)',
-          color: 'var(--admin-info)',
-          fontSize: 12,
-          marginBottom: 16
-        }}>
-          <span>{t('admin.inventory.clientFilterNotice')}</span>
-          <button
-            type="button"
-            onClick={() => { setSearch(''); setLowStockOnly(false) }}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--admin-text)',
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: 'pointer',
-              textDecoration: 'underline'
-            }}
-          >
-            {t('common.reset')}
-          </button>
-        </div>
-      )}
 
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--admin-text-faint)' }}>{t('common.loading')}</div>
@@ -169,7 +185,7 @@ export default function InventoryListPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border-soft)', backgroundColor: 'var(--admin-surface)' }}>
-                {[t('admin.common.shopColumn'), t('admin.inventory.productColumn'), t('admin.inventory.variantSkuColumn'), t('admin.inventory.onHandColumn'), t('admin.inventory.reservedColumn'), t('admin.inventory.availableColumn'), t('common.status'), t('admin.inventory.lastUpdatedColumn')].map(h => (
+                {[t('admin.common.shopColumn'), t('admin.inventory.productColumn'), t('admin.inventory.variantSkuColumn'), t('admin.inventory.onHandColumn'), t('admin.inventory.reservedColumn'), t('admin.inventory.availableColumn'), t('common.status'), t('admin.inventory.lastUpdatedColumn'), 'Action'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: 'var(--admin-text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -189,6 +205,9 @@ export default function InventoryListPage() {
                   <td style={{ padding: '10px 12px' }}><AdminStatusBadge status={inv.stock_status} /></td>
                   <td style={{ padding: '10px 12px', color: 'var(--admin-text-faint)', fontSize: 11, whiteSpace: 'nowrap' }}>
                     {inv.updated_at ? new Date(inv.updated_at).toLocaleString() : '-'}
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <button className="admin-button admin-button-small" onClick={() => openAdjust(inv)}>Ajuster</button>
                   </td>
                 </tr>
               ))}
@@ -234,6 +253,31 @@ export default function InventoryListPage() {
           >
             {t('common.next')}
           </button>
+        </div>
+      )}
+      {adjusting && (
+        <div role="dialog" aria-modal="true" aria-label="Ajuster le stock"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,.7)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: 16 }}>
+          <div style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 12, padding: 20, width: 'min(440px, 100%)' }}>
+            <h3 style={{ marginTop: 0 }}>Ajuster le stock</h3>
+            <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>
+              {adjusting.product_name} · {adjusting.variant_name || adjusting.sku} · {adjusting.shop_name}<br />
+              En stock : {adjusting.quantity} · réservé : {adjusting.reserved_quantity}
+            </p>
+            <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>Nouvelle quantité en stock
+              <input type="number" min={adjusting.reserved_quantity} step={1} value={newQty} onChange={(e) => setNewQty(e.target.value)}
+                style={{ padding: 8, borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface-2)', color: 'var(--admin-text)' }} />
+            </label>
+            <label style={{ display: 'grid', gap: 4, fontSize: 13, marginTop: 10 }}>Motif (journalisé)
+              <textarea rows={3} value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)}
+                style={{ padding: 8, borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface-2)', color: 'var(--admin-text)' }} />
+            </label>
+            {adjustError && <p role="alert" style={{ color: '#f87171', fontSize: 13 }}>{adjustError}</p>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <button className="admin-button" onClick={() => setAdjusting(null)} disabled={adjustBusy}>Annuler</button>
+              <button className="admin-button admin-button-primary" onClick={() => void submitAdjust()} disabled={adjustBusy}>{adjustBusy ? '…' : 'Enregistrer'}</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

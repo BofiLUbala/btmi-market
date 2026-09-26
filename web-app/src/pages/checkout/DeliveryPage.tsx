@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useFeatureEnabled } from '@/lib/platformState'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { ApiError, type DeliveryOptionsResponse, type BuyerProfile } from '@/api/types'
@@ -48,6 +49,7 @@ function DeliveryInner() {
 
   const [data, setData] = useState<DeliveryOptionsResponse | null>(null)
   const [usePointsForDelivery, setUsePointsForDelivery] = useState(false)
+  const pointsEnabled = useFeatureEnabled('BUYER_POINTS_ENABLED')
   // The postal address itself lives in `address` below: this is only who the
   // courier calls on arrival.
   const [contact, setContact] = useState(() => ({
@@ -233,7 +235,7 @@ function DeliveryInner() {
               </div>
             </section>
 
-            {baseFee > 0 && (
+            {baseFee > 0 && pointsEnabled && (
               <section className={`checkout-card rewards-card ${usePointsForDelivery ? 'active' : ''}`}>
                 <div>
                   <span className="eyebrow">{t('delivery.rewards')}</span>

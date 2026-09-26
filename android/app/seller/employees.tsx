@@ -74,7 +74,7 @@ export default function SellerEmployeesScreen() {
     loadAssignments.mutate(employee.id)
   }
 
-  if (!activeBusiness) return <View style={styles.center}><Text style={styles.muted}>{t('seller.noBusinessSelected')}</Text></View>
+  if (!activeBusiness) return <View style={styles.center}><Text style={{ fontSize: 64 }}>👥</Text><Text style={styles.cardTitle}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.employees.noBusinessSelectedHint')}</Text></View>
   if (employees.isLoading || shops.isLoading) return <Loading label={t('seller.employees.loading')} />
   if (employees.isError) return <ErrorState message={t('seller.employees.loadFailed')} retry={() => void employees.refetch()} />
 
@@ -93,12 +93,13 @@ export default function SellerEmployeesScreen() {
       <Button title={t('seller.employees.create')} loading={create.isPending} onPress={() => create.mutate()} />
     </Card>}
 
-    {!employees.data?.length ? <Card><Text style={styles.muted}>{t('seller.employees.noneYet')}</Text></Card> : employees.data.map((employee) => {
+    {!employees.data?.length ? <Card><View style={styles.emptyInline}><Text style={{ fontSize: 48 }}>👥</Text><Text style={styles.cardTitle}>{t('seller.employees.noneYet')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.employees.noneYetHint')}</Text><Button title={t('seller.employees.add')} onPress={() => setShowCreate(true)} /></View></Card> : employees.data.map((employee) => {
       const managing = managingId === employee.id
       return <Card key={employee.id}>
         <View style={styles.row}>
-          <Text style={styles.name}>{employee.first_name} {employee.last_name}</Text>
-          <Text style={[styles.badge, employee.status !== 'ACTIVE' && styles.badgeMuted]}>{statusLabel(t, employee.status)}</Text>
+          <Text style={[styles.name, { flex: 1 }]}>{employee.first_name} {employee.last_name}{employee.middle_name ? <Text style={styles.muted}> {employee.middle_name}</Text> : null}</Text>
+          {/* web: badge-success / -warning / -danger by status */}
+          <Text style={[styles.badge, employee.status === 'ACTIVE' ? { backgroundColor: colors.successSoft, color: colors.success } : employee.status === 'INACTIVE' ? { backgroundColor: colors.warningSoft, color: colors.warning } : { backgroundColor: colors.dangerSoft, color: colors.danger }]}>{statusLabel(t, employee.status)}</Text>
         </View>
         <Text style={styles.muted}>{employee.job_title}</Text>
         <Text style={styles.muted}>{employee.phone} · {employee.email}</Text>
@@ -128,13 +129,14 @@ export default function SellerEmployeesScreen() {
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  center: { flex: 1, justifyContent: 'center', padding: spacing.xl },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: 8 },
+  emptyInline: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: '700' },
   cardTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   name: { fontSize: 17, fontWeight: '900', color: colors.ink },
-  badge: { color: colors.green, fontWeight: '900', fontSize: 12 },
+  badge: { fontWeight: '700', fontSize: 12, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden' },
   badgeMuted: { color: colors.muted },
   assignBox: { gap: spacing.xs, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border },
   assignRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.xs },

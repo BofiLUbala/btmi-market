@@ -1,116 +1,24 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { Image } from 'expo-image'
-import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi, authApi, courierApi } from '../../src/api'
-import { ApiError, resolveMediaUrl } from '../../src/api/client'
-import { prepareAvatarUpload } from '../../src/lib/imageUpload'
+import { AvatarPicker } from '../../src/components/AvatarPicker'
+import { formatDate } from '../../src/lib/format'
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { Button, Card, Loading, SectionTitle } from '../../src/components/ui'
+import { Button, Loading } from '../../src/components/ui'
 import { PreferenceToggles } from '../../src/components/PreferenceToggles'
 import { spacing, type Colors } from '../../src/theme'
 import { canSell, canOnboardSeller } from '../../src/types'
 
-const AVATAR_SIZE = 88
-
-function avatarErrorKey(error?: ApiError) {
-  if (!error) return 'profile.uploadFailedBody'
-  if (error.code === 'IMAGE_TOO_LARGE') return 'profile.uploadTooLarge'
-  if (error.code === 'INVALID_IMAGE_TYPE') return 'profile.uploadBadFormat'
-  if (error.status === 401 || error.status === 403) return 'profile.uploadSessionExpired'
-  return 'profile.uploadFailedBody'
-}
-
-function AvatarPicker() {
-  const user = useAuth((state) => state.user)
-  const refresh = useAuth((state) => state.refresh)
-  const { t } = useI18n()
-  const colors = useColors()
-  const [uploading, setUploading] = useState(false)
-
-  async function uploadFromAsset(asset: ImagePicker.ImagePickerAsset) {
-    setUploading(true)
-    try {
-      await authApi.uploadAvatar(await prepareAvatarUpload(asset))
-      await refresh()
-    } catch (error) {
-      const apiError = error instanceof ApiError ? error : undefined
-      // TEMP diagnostic: surfaces the raw error while we track down a
-      // production-only upload failure. `status` is 0 on a transport failure,
-      // so it is stringified before the empty parts are dropped. Remove once
-      // resolved.
-      const debugDetail = apiError
-        ? [String(apiError.status), apiError.code, apiError.detail].filter(Boolean).join(' ')
-        : error instanceof Error ? `${error.name}: ${error.message}` : String(error)
-      if (__DEV__) console.warn('[TBK] avatar upload failed', debugDetail)
-      Alert.alert(t('profile.uploadFailed'), `${t(avatarErrorKey(apiError))}\n\n[debug] ${debugDetail}`)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function takePhoto() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync()
-    if (!permission.granted) {
-      Alert.alert(t('profile.cameraNeeded'), t('profile.cameraNeededBody'))
-      return
-    }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 })
-    if (result.canceled || !result.assets[0]) return
-    await uploadFromAsset(result.assets[0])
-  }
-
-  async function pickFromLibrary() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!permission.granted) {
-      Alert.alert(t('profile.photosNeeded'), t('profile.photosNeededBody'))
-      return
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, selectionLimit: 1 })
-    if (result.canceled || !result.assets[0]) return
-    await uploadFromAsset(result.assets[0])
-  }
-
-  function onPress() {
-    Alert.alert(t('profile.photoTitle'), undefined, [
-      { text: t('profile.takePhoto'), onPress: takePhoto },
-      { text: t('profile.chooseFromGallery'), onPress: pickFromLibrary },
-      { text: t('common.cancel'), style: 'cancel' },
-    ])
-  }
-
-  const avatarUrl = user?.avatar_url
-
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={uploading}
-      style={styles.avatarWrap}
-      accessibilityRole="button"
-      accessibilityLabel={t('profile.changePhoto')}
-    >
-      {avatarUrl ? (
-        <Image source={resolveMediaUrl(avatarUrl)} style={[styles.avatarImage, { backgroundColor: colors.surfaceAlt }]} contentFit="cover" />
-      ) : (
-        <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceAlt }]}>
-          <Ionicons name="person" size={AVATAR_SIZE * 0.5} color={colors.mutedLight} />
-        </View>
-      )}
-      <View style={[styles.avatarBadge, { backgroundColor: colors.green, borderColor: colors.white }]}>
-        <Ionicons
-          name={uploading ? 'hourglass-outline' : 'camera'}
-          size={14}
-          color={colors.onGreen}
-        />
-      </View>
-    </Pressable>
-  )
-}
+// Port of web-app/src/pages/buyer/AccountPage.tsx at phone width, where its
+// `.order-summary-grid` collapses to one column: identity card (avatar + Edit,
+// name, email, contact, location, member since), then the points card, the
+// orders / favorites / reviews / pending-purchases cards and Sign out. Same
+// three requests as web: /buyer/points, /buyer/purchases/pending, /buyer/orders.
 
 export default function ProfileScreen() {
   const user = useAuth((s) => s.user)
@@ -118,7 +26,11 @@ export default function ProfileScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const themed = useMemo(() => makeStyles(colors), [colors])
-  const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: Boolean(user) && user?.account_type !== 'EMPLOYEE' })
+  const isBuyer = Boolean(user) && user?.account_type !== 'EMPLOYEE'
+  const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: isBuyer })
+  const points = useQuery({ queryKey: ['buyer', 'points'], queryFn: buyerApi.points, enabled: isBuyer })
+  const pending = useQuery({ queryKey: ['buyer', 'purchases', 'pending'], queryFn: buyerApi.pendingPurchases, enabled: isBuyer })
+  const orders = useQuery({ queryKey: ['buyer', 'orders'], queryFn: buyerApi.orders, enabled: isBuyer })
   // Courier space is shown only when the backend recognises this account as a courier.
   const courierProfile = useQuery({ queryKey: ['courier', 'profile'], queryFn: courierApi.profile, enabled: Boolean(user), retry: false, staleTime: 5 * 60_000 })
   const becomeSeller = useMutation({ mutationFn: authApi.becomeSeller, onSuccess: async () => { await useAuth.getState().refresh(); router.push('/seller/onboarding') }, onError: () => Alert.alert(t('common.error'), t('seller.becomeFailed')) })
@@ -135,124 +47,150 @@ export default function ProfileScreen() {
     )
   }
 
-  if (profile.isLoading && user.account_type !== 'EMPLOYEE') return <Loading label={t('profile.loading')} />
+  // web: one LoadingBlock until all three requests settle
+  if (isBuyer && (profile.isLoading || points.isLoading || pending.isLoading || orders.isLoading)) return <Loading label={t('account.loadingPage')} />
 
   const p = profile.data
+  const pts = points.data
+  const pendingList = pending.data ?? []
+  const orderList = Array.isArray(orders.data) ? orders.data : []
+  const fullName = `${p?.first_name ?? user.first_name ?? ''} ${p?.last_name ?? user.last_name ?? ''}`.trim()
+  const hasStructuredAddress = Boolean(p?.commune || p?.city || p?.province)
+  const available = pts?.available_points ?? 0
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <View style={styles.header}>
-        <AvatarPicker />
-        <View style={styles.headerText}>
-          <SectionTitle title={`${p?.first_name || user.first_name} ${p?.last_name || user.last_name}`} />
-          <Text style={themed.muted}>{user.email}</Text>
+      {/* ── Identity card ── */}
+      <View style={themed.card}>
+        <View style={styles.rowBetween}>
+          <AvatarPicker size={56} name={fullName} />
+          <Button dense variant="outline" title={t('common.edit')} onPress={() => router.push('/profile-edit')} />
         </View>
+        <View>
+          <Text style={themed.name}>{p?.first_name} {p?.last_name}</Text>
+          <Text style={themed.small}>{p?.email ?? user.email}</Text>
+        </View>
+        <View style={themed.contactBlock}>
+          <Text style={themed.eyebrow}>{t('account.contact')}</Text>
+          <InfoRow k={t('account.primary')} v={p?.phone || '—'} themed={themed} />
+          <InfoRow k={t('account.backup')} v={p?.backup_phone || '—'} themed={themed} />
+        </View>
+        <View style={themed.contactBlock}>
+          <Text style={themed.eyebrow}>{t('account.location')}</Text>
+          {hasStructuredAddress ? <>
+            <Text style={themed.address}>{[p?.street, p?.building_number].filter(Boolean).join(', ') || p?.address || t('account.noAddress')}</Text>
+            <Text style={themed.small}>{[p?.commune, p?.city, p?.province].filter(Boolean).join(', ')}</Text>
+            {p?.landmark ? <Text style={themed.small}>Point de repère : {p.landmark}</Text> : null}
+          </> : <>
+            <Text style={themed.address}>{p?.address || t('account.noAddress')}</Text>
+            <Text style={themed.small}>{[p?.commune, p?.city, p?.country].filter(Boolean).join(', ') || t('account.noLocation')}</Text>
+          </>}
+          {p?.latitude != null && p?.longitude != null ? <Text style={[themed.small, { marginTop: 4 }]}>📍 GPS: {p.latitude}, {p.longitude}</Text> : null}
+        </View>
+        <InfoRow k={t('common.memberSince')} v={formatDate(user.created_at)} themed={themed} />
       </View>
 
-      <SectionTitle title={t('profile.accountsTitle')} />
-      <Card>
-        <View style={styles.accountHeading}>
-          <View style={[styles.accountIcon, { backgroundColor: colors.greenSoft }]}>
-            <Ionicons name="bag-handle-outline" size={24} color={colors.green} />
+      {/* ── Points ── */}
+      <View style={themed.card}>
+        <View style={styles.rowBetween}>
+          <View style={styles.flex1}>
+            <Text style={themed.eyebrow}>{t('points.myPoints')}</Text>
+            <Text style={themed.pointsTitle}>{t('points.available', { count: available.toLocaleString() })}</Text>
           </View>
-          <View style={styles.accountCopy}>
-            <Text style={themed.accountTitle}>{t('profile.buyerAccount')}</Text>
-            <Text style={themed.muted}>{t('profile.buyerAccountActive')}</Text>
-          </View>
-          <Ionicons name="checkmark-circle" size={25} color={colors.green} />
+          <Pressable accessibilityRole="link" onPress={() => router.push('/points')}><Text style={themed.sectionLink}>{t('points.viewHistory')} →</Text></Pressable>
         </View>
-        <Button title={t('profile.openMarketplace')} variant="outline" onPress={() => router.push('/(buyer)')} />
-      </Card>
-
-      <Card>
-        <View style={styles.accountHeading}>
-          <View style={[styles.accountIcon, { backgroundColor: colors.goldSoft }]}>
-            <Ionicons name="storefront-outline" size={24} color={colors.gold} />
-          </View>
-          <View style={styles.accountCopy}>
-            <Text style={themed.accountTitle}>{t('profile.sellerAccount')}</Text>
-            <Text style={themed.muted}>
-              {canSell(user) ? t('profile.sellerAccountActive') : canOnboardSeller(user) ? t('profile.sellerAccountPending') : t('profile.sellerAccountInactive')}
-            </Text>
-          </View>
-          {canSell(user) ? <Ionicons name="checkmark-circle" size={25} color={colors.green} /> : null}
+        <View style={styles.pointsGrid}>
+          <PointsCell label={t('points.availableLabel')} value={available.toLocaleString()} themed={themed} />
+          <PointsCell label={t('points.reserved')} value={(pts?.reserved_points ?? 0).toLocaleString()} themed={themed} />
+          <PointsCell label={t('points.lifetimeEarned')} value={(pts?.lifetime_points ?? 0).toLocaleString()} themed={themed} />
+          <PointsCell label={t('points.level')} value={pts?.level ?? 'BRONZE'} themed={themed} />
         </View>
-        {canSell(user) ? (
-          <Button title={t('profile.openSellerSpace')} variant="gold" onPress={() => router.push('/seller')} />
-        ) : canOnboardSeller(user) ? (
-          <Button title={t('seller.finishSetup')} variant="gold" onPress={() => router.push('/seller/onboarding')} />
-        ) : (
-          <Button title={t('profile.createSellerAccount')} variant="gold" loading={becomeSeller.isPending} onPress={() => becomeSeller.mutate()} />
-        )}
-      </Card>
+        {available === 0 ? <Text style={[themed.small, { marginTop: 14 }]}>{t('points.earnByPurchase')}</Text> : null}
+      </View>
 
-      <Card>
-        <Text style={themed.eyebrow}>{t('profile.contact')}</Text>
-        <Text style={themed.value}>{p?.phone || t('profile.noPhone')}</Text>
-        <Text style={themed.value}>{p?.backup_phone || t('profile.noBackupPhone')}</Text>
-      </Card>
+      {/* ── Link cards ── */}
+      <LinkCard onPress={() => router.push('/orders')} label={t('account.myOrders')} title={t('account.ordersCount', { count: orderList.length })}
+        sub={orderList[0] ? t('account.lastOrder', { date: formatDate(orderList[0].created_at) }) : undefined} cta={`${t('common.viewAll')} →`} themed={themed} />
+      <LinkCard onPress={() => router.push('/favorites')} label={t('nav.favorites')} title={t('account.savedProducts')} cta={`${t('common.view')} →`} themed={themed} />
+      <LinkCard onPress={() => router.push('/reviews')} label={t('account.myReviews')} title={t('account.reviewsSubtitle')} cta={`${t('common.view')} →`} themed={themed} />
+      {pendingList.length > 0 ? <LinkCard onPress={() => router.push('/purchases')} label={t('account.pendingPurchases')} title={t('account.pendingToConfirm', { count: pendingList.length })} cta={`${t('account.reviewPending')} →`} themed={themed} /> : null}
 
-      <Card>
-        <Text style={themed.eyebrow}>{t('profile.address')}</Text>
-        {p?.commune || p?.city || p?.province ? (
-          <>
-            <Text style={themed.value}>{[p?.street, p?.building_number].filter(Boolean).join(', ') || t('profile.noAddress')}</Text>
-            <Text style={themed.value}>{[p?.commune, p?.city, p?.province].filter(Boolean).join(', ')}</Text>
-            {p?.landmark ? <Text style={themed.muted}>Point de repère : {p.landmark}</Text> : null}
-          </>
-        ) : (
-          <>
-            <Text style={themed.value}>{p?.address || t('profile.noAddress')}</Text>
-            <Text style={themed.muted}>{[p?.commune, p?.city, p?.country].filter(Boolean).join(', ') || t('profile.noLocation')}</Text>
-          </>
-        )}
-        {p?.latitude != null && p?.longitude != null && (
-          <Text style={[themed.muted, { fontSize: 13, marginTop: 4 }]}>
-            📍 GPS: {p.latitude}, {p.longitude}
-          </Text>
-        )}
-      </Card>
-
-      <Button variant="outline" title={t('profile.editProfile')} onPress={() => router.push('/profile-edit')} />
-
-      <Card>
-        <Pressable onPress={() => router.push('/notifications')}><Text style={themed.item}>{t('notifications.title')}  ›</Text></Pressable>
-        <Pressable onPress={() => router.push('/orders')}><Text style={themed.item}>{t('profile.myOrders')}  ›</Text></Pressable>
-        {courierProfile.data ? <Pressable onPress={() => router.push('/courier')}><Text style={themed.item}>{t('courier.spaceTitle')}  ›</Text></Pressable> : null}
-        <Text style={themed.item}>{t('profile.myPoints')}</Text>
-        <Pressable onPress={() => router.push('/reviews')}><Text style={themed.item}>{t('profile.myReviews')}  ›</Text></Pressable>
-      </Card>
-
-      <SectionTitle title={t('prefs.title')} />
+      {/* ── What web reaches from its header and drawer (notifications bell,
+           seller hub, courier space, language/theme) lives here on mobile ── */}
+      <LinkCard onPress={() => router.push('/notifications')} label={t('notifications.title')} title={t('notifications.title')} cta={`${t('common.view')} →`} themed={themed} />
+      {canSell(user) ? (
+        <LinkCard onPress={() => router.push('/seller')} label={t('profile.sellerAccount')} title={t('profile.openSellerSpace')} cta="→" themed={themed} />
+      ) : canOnboardSeller(user) ? (
+        <LinkCard onPress={() => router.push('/seller/onboarding')} label={t('profile.sellerAccount')} title={t('seller.finishSetup')} cta="→" themed={themed} />
+      ) : (
+        <LinkCard onPress={() => { if (!becomeSeller.isPending) becomeSeller.mutate() }} label={t('profile.sellerAccount')} title={becomeSeller.isPending ? t('common.oneMoment') : t('profile.createSellerAccount')} cta="→" themed={themed} />
+      )}
+      {user.account_type === 'EMPLOYEE' ? <LinkCard onPress={() => router.push('/seller/employee')} label={t('nav.workspace')} title={t('employee.dashboard.title')} cta="→" themed={themed} /> : null}
+      {courierProfile.data ? <LinkCard onPress={() => router.push('/courier')} label={t('courier.spaceTitle')} title={t('courier.spaceTitle')} cta="→" themed={themed} /> : null}
       <PreferenceToggles />
 
-      <Button variant="outline" title={t('common.signOut')} onPress={async () => { await logout(); router.replace('/(buyer)') }} />
+      <Pressable accessibilityRole="button" style={({ pressed }) => [themed.dangerButton, pressed && { opacity: 0.85 }]} onPress={async () => { await logout(); router.replace('/auth/login') }}>
+        <Text style={themed.dangerButtonText}>{t('common.signOut')}</Text>
+      </Pressable>
     </ScrollView>
   )
 }
 
+type Themed = ReturnType<typeof makeStyles>
+
+function InfoRow({ k, v, themed }: { k: string; v: string; themed: Themed }) {
+  return <View style={themed.infoRow}><Text style={themed.infoK}>{k}</Text><Text style={themed.infoV}>{v}</Text></View>
+}
+
+function PointsCell({ label, value, themed }: { label: string; value: string; themed: Themed }) {
+  return <View style={themed.pointsCell}><Text style={themed.pointsCellLabel} numberOfLines={2}>{label}</Text><Text style={themed.pointsCellValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text></View>
+}
+
+function LinkCard({ label, title, sub, cta, onPress, themed }: { label: string; title: string; sub?: string; cta: string; onPress: () => void; themed: Themed }) {
+  return <Pressable accessibilityRole="link" onPress={onPress} style={({ pressed }) => [themed.card, styles.linkCard, pressed && themed.cardPressed]}>
+    <View style={styles.flex1}>
+      <Text style={themed.small}>{label}</Text>
+      <Text style={themed.bold}>{title}</Text>
+      {sub ? <Text style={themed.small}>{sub}</Text> : null}
+    </View>
+    <Text style={themed.sectionLink}>{cta}</Text>
+  </Pressable>
+}
+
 /** Colour-bearing styles are rebuilt per theme; layout-only rules stay static
- *  in `styles` below so they are created once. */
+ *  in `styles` below so they are created once. Values follow web's `.card`,
+ *  `.info-row`, `.profile-contact-block`, `.eyebrow` and `.account-points-grid`. */
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     title: { fontSize: 25, fontWeight: '900', color: c.ink, textAlign: 'center' },
     muted: { color: c.muted },
-    eyebrow: { color: c.gold, fontWeight: '900', fontSize: 12 },
-    value: { color: c.ink, fontWeight: '700', fontSize: 16 },
-    item: { color: c.ink, fontWeight: '800', fontSize: 17, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border },
-    accountTitle: { color: c.ink, fontWeight: '900', fontSize: 17 },
+    small: { color: c.muted, fontSize: 14 },
+    bold: { color: c.ink, fontWeight: '700', fontSize: 16 },
+    card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 16, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
+    cardPressed: { boxShadow: '0px 4px 12px rgba(0,0,0,0.10)' },
+    name: { fontSize: 22.4, fontWeight: '700', color: c.ink, lineHeight: 28 },
+    eyebrow: { color: c.green, fontSize: 11.5, fontWeight: '800', letterSpacing: 1.3, marginBottom: 8 },
+    contactBlock: { paddingTop: 14, borderTopWidth: 1, borderTopColor: c.border },
+    address: { color: c.ink, fontWeight: '700', marginBottom: 4, fontSize: 16 },
+    infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: c.border, borderStyle: 'dashed' },
+    infoK: { color: c.muted, fontSize: 14 },
+    infoV: { color: c.ink, fontSize: 14, fontWeight: '600', textAlign: 'right', flexShrink: 1 },
+    pointsTitle: { color: c.ink, fontSize: 19.2, fontWeight: '700', marginTop: 5 },
+    sectionLink: { color: c.green, fontSize: 14, fontWeight: '600' },
+    pointsCell: { flex: 1, minWidth: 0, gap: 4, padding: 12, borderRadius: 10, backgroundColor: c.surface2 },
+    pointsCellLabel: { color: c.muted, fontSize: 12 },
+    pointsCellValue: { color: c.green, fontSize: 16.8, fontWeight: '700' },
+    // web: <Button variant="danger"> — full-width danger fill
+    dangerButton: { backgroundColor: c.danger, borderRadius: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 18 },
+    dangerButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
   })
 
+// web: .page (24px top) inside .container (16px sides); .stack gap 16
 const styles = StyleSheet.create({
-  page: { padding: spacing.md, gap: spacing.md },
+  page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  headerText: { flex: 1, gap: 2 },
-  accountHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  accountIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  accountCopy: { flex: 1, gap: 3 },
-  avatarWrap: { width: AVATAR_SIZE, height: AVATAR_SIZE },
-  avatarImage: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 },
-  avatarPlaceholder: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, alignItems: 'center', justifyContent: 'center' },
-  avatarBadge: { position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+  flex1: { flex: 1 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  linkCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pointsGrid: { flexDirection: 'row', gap: 10 },
 })

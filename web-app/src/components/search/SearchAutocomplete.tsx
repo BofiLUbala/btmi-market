@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react'
+import { useFeatureEnabled } from '@/lib/platformState'
 import { Link, useNavigate } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
 import type { CategoryResponse, PublicProduct, PublicShop, SubcategoryResponse } from '@/api/types'
@@ -37,6 +38,7 @@ export function SearchAutocomplete({
 }) {
   const navigate = useNavigate()
   const { t } = useI18n()
+  const visualSearchEnabled = useFeatureEnabled('VISUAL_SEARCH_ENABLED')
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -260,8 +262,10 @@ useEffect(() => {
         {query && <button className="search-clear" type="button" aria-label={t('search.clear')} onClick={() => { setValue(''); setSuggestions([]); setOpen(false); inputRef.current?.focus() }}>×</button>}
         <input ref={imageInputRef} className="visual-search-input" type="file" accept="image/jpeg,image/png" onChange={searchImage} tabIndex={-1} />
         <input ref={captureInputRef} className="visual-search-input" type="file" accept="image/*" capture="environment" onChange={searchImage} tabIndex={-1} />
+        {visualSearchEnabled && <>
         <button className="visual-search-button" type="button" aria-label={t('search.byCamera')} title={t('search.byCamera')} disabled={imageStatus === 'loading'} onClick={openCamera}><CameraIcon width="19" height="19" /></button>
         <button className="visual-search-button" type="button" aria-label={t('search.byImage')} title={t('search.byImage')} disabled={imageStatus === 'loading'} onClick={() => imageInputRef.current?.click()}>{imageStatus === 'loading' ? <span className="spinner" /> : <ImageIcon width="19" height="19" />}</button>
+        </>}
         <button className="search-submit" type="submit">{t('common.search')}</button>
       </form>
 

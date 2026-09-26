@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useFeatureEnabled } from '@/lib/platformState'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import { ApiError, type CartLineIssue, type CartPreview } from '@/api/types'
@@ -42,6 +43,10 @@ function issuesByLine(issues: CartLineIssue[]): Map<string, CartLineIssue> {
 
 export default function CartPage() {
   const cart = useCart()
+  // BUYER_POINTS_ENABLED off in the Control Center: hide redemption and drop
+  // any selection, since the API would refuse the order.
+  const pointsEnabled = useFeatureEnabled('BUYER_POINTS_ENABLED')
+  useEffect(() => { if (!pointsEnabled && cart.usePoints) cart.setUsePoints(false) }, [pointsEnabled, cart.usePoints])
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const isBuyNow = pathname === '/checkout/buy-now'
@@ -308,7 +313,7 @@ export default function CartPage() {
         </section>
         ))}
 
-        {user && (
+        {user && pointsEnabled && (
           <section className={`rewards-card ${cart.usePoints ? 'active' : ''}`}>
             <div><span className="eyebrow">{t('points.title')}</span><h2>{busy && !preview ? t('points.loading') : t('points.available', { count: (preview?.available_points ?? 0).toLocaleString() })}</h2><p>{(preview?.available_points ?? 0) > 0 ? t('points.applyToOrder') : t('points.earnByPurchase')}</p></div>
             <button type="button" role="switch" aria-label={t('points.useOnPurchase')} aria-checked={cart.usePoints} disabled={busy || !preview || preview.available_points <= 0} className={`toggle-switch ${cart.usePoints ? 'on' : ''}`} onClick={() => cart.setUsePoints(!cart.usePoints)}><span /></button>

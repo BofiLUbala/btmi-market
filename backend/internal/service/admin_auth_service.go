@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
+	"database/sql"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -19,6 +21,43 @@ import (
 type AdminAuthService struct {
 	adminRepo *repository.AdminRepository
 	config    *config.Config
+	security  SecurityEventRecorder
+	db        *sql.DB
+}
+
+// SecurityEventRecorder is the Technical dashboard's security event log.
+type SecurityEventRecorder interface {
+	RecordSecurityEvent(ctx context.Context, eventType, severity string, actorID, targetID *uuid.UUID, ip, ua string, details map[string]interface{}) error
+}
+
+// SetSecurityRecorder makes admin sign-in failures visible on the Technical
+// dashboard's Security Events screen.
+func (s *AdminAuthService) SetSecurityRecorder(r SecurityEventRecorder, db *sql.DB) {
+	s.security = r
+	s.db = db
+}
+
+// adminBruteForceThreshold failed sign-ins on one account within 15 minutes
+// escalate from WARNING to a CRITICAL alert.
+const adminBruteForceThreshold = 5
+
+func (s *AdminAuthService) recordLoginFailure(email, reason string, adminID *uuid.UUID, ip, ua string) {
+	if s.security == nil {
+		return
+	}
+	ctx := context.Background()
+	details := map[string]interface{}{"email": email, "reason": reason}
+	_ = s.security.RecordSecurityEvent(ctx, "ADMIN_LOGIN_FAILED", "WARNING", nil, adminID, ip, ua, details)
+	if s.db == nil {
+		return
+	}
+	var recent int
+	_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM security_events WHERE event_type='ADMIN_LOGIN_FAILED'
+		AND details->>'email' = $1 AND created_at > NOW() - INTERVAL '15 minutes'`, email).Scan(&recent)
+	if recent == adminBruteForceThreshold {
+		details["failed_attempts"] = recent
+		_ = s.security.RecordSecurityEvent(ctx, "ADMIN_BRUTE_FORCE_SUSPECTED", "CRITICAL", nil, adminID, ip, ua, details)
+	}
 }
 
 func NewAdminAuthService(adminRepo *repository.AdminRepository, cfg *config.Config) *AdminAuthService {
@@ -31,14 +70,17 @@ func NewAdminAuthService(adminRepo *repository.AdminRepository, cfg *config.Conf
 func (s *AdminAuthService) Login(email, password, ipAddress, userAgent string) (*models.AdminLoginResponse, error) {
 	admin, err := s.adminRepo.GetByEmail(email)
 	if err != nil {
+		s.recordLoginFailure(email, "UNKNOWN_ACCOUNT", nil, ipAddress, userAgent)
 		return nil, errors.New("INVALID_CREDENTIALS")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(password)); err != nil {
+		s.recordLoginFailure(email, "WRONG_PASSWORD", &admin.ID, ipAddress, userAgent)
 		return nil, errors.New("INVALID_CREDENTIALS")
 	}
 
 	if admin.Status != models.AdminStatusActive {
+		s.recordLoginFailure(email, "ACCOUNT_"+string(admin.Status), &admin.ID, ipAddress, userAgent)
 		return nil, errors.New("ADMIN_ACCOUNT_SUSPENDED")
 	}
 

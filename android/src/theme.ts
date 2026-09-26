@@ -68,6 +68,10 @@ export const lightColors = {
   purple: '#7C3AED',
   magenta: '#A21CAF',
   surface2: '#F0EDE6',
+  /* web --color-text-faint and the .status-out_for_delivery pill (--status-out on #ffedd5). */
+  faint: '#9A978D',
+  out: '#D1802F',
+  outSoft: '#FFEDD5',
 
   /* Foreground for text/icons sitting ON a filled brand colour. Flips with the
      theme: in dark mode `green` becomes light, so white text on it would be
@@ -118,6 +122,9 @@ export const darkColors: Colors = {
   purple: '#A78BFA',
   magenta: '#E879F9',
   surface2: '#26262C',
+  faint: '#7A786F',
+  out: '#FB923C',
+  outSoft: '#FFEDD5',
 
   onGreen: '#16161A',
   onGold: '#16161A',

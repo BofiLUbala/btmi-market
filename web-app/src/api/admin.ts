@@ -949,8 +949,9 @@ export const adminCommerceApi = {
   getAttributeSuggestions: async () => {
     return adminApi<Record<string, string[]>>('/admin/commerce/attribute-suggestions')
   },
-  listInventory: async (params?: { business_id?: string; shop_id?: string; stock_status?: string; limit?: number; offset?: number }) => {
+  listInventory: async (params?: { business_id?: string; shop_id?: string; search?: string; stock_status?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
+    if (params?.search) q.set('search', params.search)
     if (params?.business_id) q.set('business_id', params.business_id)
     if (params?.shop_id) q.set('shop_id', params.shop_id)
     if (params?.stock_status) q.set('stock_status', params.stock_status)
@@ -1141,7 +1142,73 @@ export const adminCommerceApi = {
     if (params.limit !== undefined) q.set('limit', String(params.limit))
     if (params.offset !== undefined) q.set('offset', String(params.offset))
     return adminApi<{ users: AdminUserListItem[]; total: number; limit: number; offset: number }>(`/admin/commerce/users?${q}`)
-  }
+  },
+  listBusinesses: async (params: { search?: string; status?: string; limit?: number; offset?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (params.search) q.set('search', params.search)
+    if (params.status) q.set('status', params.status)
+    q.set('limit', String(params.limit ?? 20))
+    q.set('offset', String(params.offset ?? 0))
+    return adminApi<{ businesses: AdminBusinessListItem[]; total: number; limit: number; offset: number }>(`/admin/commerce/businesses?${q}`)
+  },
+  setBusinessStatus: async (id: string, status: 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED', reason: string) =>
+    adminApi<{ id: string; status: string }>(`/admin/commerce/businesses/${id}/status`, { method: 'POST', body: JSON.stringify({ status, reason }) }),
+  listShops: async (params: { search?: string; status?: string; business_id?: string; limit?: number; offset?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (params.search) q.set('search', params.search)
+    if (params.status) q.set('status', params.status)
+    if (params.business_id) q.set('business_id', params.business_id)
+    q.set('limit', String(params.limit ?? 20))
+    q.set('offset', String(params.offset ?? 0))
+    return adminApi<{ shops: AdminShopListItem[]; total: number; limit: number; offset: number }>(`/admin/commerce/shops?${q}`)
+  },
+  setShopStatus: async (id: string, status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED', reason: string) =>
+    adminApi<{ id: string; status: string }>(`/admin/commerce/shops/${id}/status`, { method: 'POST', body: JSON.stringify({ status, reason }) })
+}
+
+/** A real business entity as Commerce supervises it. */
+export interface AdminBusinessListItem {
+  id: string
+  name: string
+  business_type: string
+  category: string
+  email: string
+  phone: string
+  city: string
+  country: string
+  currency: string
+  status: string
+  created_at: string
+  owner_id?: string
+  owner_name: string
+  owner_email: string
+  shop_count: number
+  active_shop_count: number
+  product_count: number
+  published_product_count: number
+  order_count: number
+  completed_sales: number
+}
+
+export interface AdminShopListItem {
+  id: string
+  name: string
+  type: string
+  city: string
+  phone: string
+  status: string
+  created_at: string
+  business_id: string
+  business_name: string
+  business_status: string
+  supports_shop_delivery: boolean
+  supports_partner_delivery: boolean
+  product_count: number
+  available_units: number
+  order_count: number
+  open_order_count: number
+  review_score: number
+  review_count: number
 }
 
 // Phase 3 Finance & Support Interfaces
@@ -1760,6 +1827,10 @@ getSummary: async (params?: { business_id?: string; shop_id?: string; seller_id?
     if (params?.limit) q.set('limit', String(params.limit))
     return adminApi<{ items: AdminRiskEvent[]; total: number; page: number; limit: number }>(`/admin/finance/risk?${q.toString()}`)
   },
+  /** Runs the risk rules now rather than waiting for the 5-minute background scan. */
+  scanRisk: async () => {
+    return adminApi<{ raised: number }>('/admin/finance/risk/scan', { method: 'POST', body: '{}' })
+  },
   resolveRiskEvent: async (id: string, status: 'RESOLVED' | 'DISMISSED', reason: string) => {
     return adminApi<{ message: string }>(`/admin/finance/risk/${id}/resolve`, {
       method: 'POST',
@@ -2106,5 +2177,19 @@ export const adminAdvancedApi = {
   decideApproval: (id:string, approve:boolean, reason:string) => adminApi(`/admin/approvals/${id}/${approve?'approve':'reject'}`,{method:'POST',body:JSON.stringify({reason})}),
   exports: () => adminApi<{exports:ExportJob[]}>('/admin/exports'),
   createExport: (dataset:string, reason:string, filters:Record<string,unknown>={}) => adminApi<{id:string;status:string}>('/admin/exports',{method:'POST',body:JSON.stringify({dataset,reason,filters})}),
+  /** Streams a finished export through the authenticated admin session and saves it. */
+  downloadExport: async (id:string, fallbackName:string) => {
+    const res = await fetch(`${API_BASE}/admin/exports/${id}/download`, { headers: { Authorization: `Bearer ${adminTokenStore.getAccess() ?? ''}` } })
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw new Error(body?.error?.message || body?.error || `Download failed (${res.status})`)
+    }
+    const blob = await res.blob()
+    const name = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') || '')?.[1] || fallbackName
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove()
+    URL.revokeObjectURL(url)
+  },
   analytics: (dashboard:string, days:number) => adminApi<{metrics:AnalyticsMetric[];days:number}>(`/admin/analytics/${dashboard}?days=${days}`),
 }

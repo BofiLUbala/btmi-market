@@ -45,13 +45,14 @@ export default function SellerStockScreen() {
     {error ? <Text style={styles.error}>{error}</Text> : null}
 
     {tab === 'inventory' ? (
-      inventory.isLoading ? <Loading label={t('seller.stockPage.loading')} /> : inventory.isError ? <ErrorState message={t('seller.stockPage.loadFailed')} retry={() => void inventory.refetch()} /> : !inventory.data?.length ? <Card><Text style={styles.muted}>{t('seller.stockPage.noInventoryTitle')}</Text></Card> : inventory.data.map((row) => <Card key={row.inventory.id}>
+      inventory.isLoading ? <Loading label={t('seller.stockPage.loading')} /> : inventory.isError ? <ErrorState message={t('seller.stockPage.loadFailed')} retry={() => void inventory.refetch()} /> : !inventory.data?.length ? <Card><Text style={styles.name}>{t('seller.stockPage.noInventoryTitle')}</Text><Text style={styles.muted}>{t('seller.stockPage.noInventoryDesc')}</Text></Card> : inventory.data.map((row) => <Card key={row.inventory.id}>
         <Text style={styles.name}>{row.product?.name || row.variant?.name || row.inventory.variant_id.slice(0, 8)}</Text>
-        <Text style={styles.muted}>{row.variant?.sku || row.variant?.name || ''}{row.variant?.sale_price != null ? ` · ${formatMoney(Number(row.variant.sale_price))}` : ''}</Text>
+        <Text style={styles.muted}>{row.variant?.sku || row.variant?.name || ''}{row.variant?.sale_price != null ? ` · ${formatMoney(Number(row.variant.sale_price), (row.product as { currency?: string } | undefined)?.currency)}` : ''}</Text>
         <View style={styles.statsRow}>
           <Text style={styles.muted}>{t('seller.stockPage.onHand')}: {row.inventory.quantity}</Text>
           <Text style={styles.muted}>{t('points.reserved')}: {row.inventory.reserved_quantity}</Text>
-          <Text style={[styles.available, row.inventory.available <= 5 && styles.low]}>{t('seller.productList.availableLabel')}: {row.inventory.available}</Text>
+          {/* web: danger when out of stock (or low with nothing available), warning when low, success otherwise */}
+          <Text style={[styles.available, stockTone(row.inventory, styles)]}>{t('seller.productList.availableLabel')}: {row.inventory.available}</Text>
         </View>
         <View style={styles.row}>
           <View style={styles.flex1}><Field label={t('seller.stockPage.restock')} value={restock[row.inventory.variant_id] ?? ''} onChangeText={(v) => setRestock((prev) => ({ ...prev, [row.inventory.variant_id]: v }))} keyboardType="numeric" /></View>
@@ -72,6 +73,12 @@ export default function SellerStockScreen() {
   </ScrollView>
 }
 
+function stockTone(inv: { stock_status?: string; available: number }, styles: ReturnType<typeof makeStyles>) {
+  if (inv.stock_status === 'OUT_OF_STOCK' || (inv.stock_status === 'LOW_STOCK' && inv.available <= 0)) return styles.low
+  if (inv.stock_status === 'LOW_STOCK') return styles.warn
+  return styles.ok
+}
+
 const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
@@ -83,6 +90,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: spacing.md, flexWrap: 'wrap' },
   available: { color: colors.green, fontWeight: '800' },
   low: { color: colors.danger },
+  warn: { color: colors.warning },
+  ok: { color: colors.success },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   flex1: { flex: 1 },
   badge: { color: colors.green, fontWeight: '900', fontSize: 12 },

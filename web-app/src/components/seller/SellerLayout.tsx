@@ -1,4 +1,5 @@
 import { Outlet, useLocation, NavLink, useNavigate, Link } from 'react-router-dom'
+import { PlatformBanner } from '@/lib/platformState'
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
@@ -407,6 +408,7 @@ export function SellerLayout() {
         {/* ── Main Scrollable Page Area ── */}
         <main className="seller-content-area">
           <div className="seller-content-container">
+            <PlatformBanner audience="SELLERS" />
             <Outlet />
           </div>
         </main>

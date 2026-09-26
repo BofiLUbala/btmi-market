@@ -241,6 +241,9 @@ func main() {
 	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService, paymentConfigRepo)
 	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB, migrationsDir)
 	adminTechnicalService := service.NewAdminTechnicalService(adminTechnicalRepo, db.DB, redisClient.GetRedis(), auditService, asynqInspector)
+	adminAuthService.SetSecurityRecorder(adminTechnicalService, db.DB)
+	riskScanner := service.NewRiskScanner(db.DB)
+	riskScanner.Start(context.Background(), 5*time.Minute)
 	adminPlatformService := service.NewAdminPlatformService(adminPlatformRepo, auditService)
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
 
@@ -266,7 +269,7 @@ func main() {
 			if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
 				c.Header("Access-Control-Allow-Origin", origin)
 				c.Header("Vary", "Origin")
-				c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+				c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Client-Platform, X-Client-App")
 				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			}
 			if c.Request.Method == http.MethodOptions {
@@ -276,6 +279,10 @@ func main() {
 			c.Next()
 		})
 	}
+
+	// Maintenance mode set from the Control Center applies to every public
+	// client; the admin API stays reachable so the mode can be lifted.
+	router.Use(middleware.Maintenance(db.DB))
 
 	// Serve persisted product media (public, read-only).
 	if err := os.MkdirAll(cfg.UploadDir, 0o755); err != nil {
@@ -329,6 +336,9 @@ func main() {
 
 		businessesGroup := api.Group("/businesses")
 		businessesGroup.Use(middleware.AuthMiddleware(authService))
+		// SELLER_PROMOTIONS_ENABLED gates turning a product discount on.
+		businessesGroup.Use(middleware.RejectBodyFlagWhenDisabled(adminPlatformRepo, "SELLER_PROMOTIONS_ENABLED",
+			"Seller promotions are temporarily disabled", "discount_active"))
 		{
 			businessesGroup.POST("", businessHandler.Create)
 			businessesGroup.GET("", businessHandler.List)
@@ -503,6 +513,10 @@ func main() {
 
 		buyerGroup := api.Group("/buyer")
 		buyerGroup.Use(middleware.AuthMiddleware(authService))
+		// BUYER_POINTS_ENABLED (Control Center) switches point redemption off
+		// for every checkout, order and delivery request.
+		buyerGroup.Use(middleware.RejectBodyFlagWhenDisabled(adminPlatformRepo, "BUYER_POINTS_ENABLED",
+			"Loyalty points are temporarily disabled", "use_points", "use_points_for_delivery"))
 		{
 			buyerGroup.POST("/profile", buyerHandler.CreateProfile)
 			buyerGroup.GET("/profile", buyerHandler.GetProfile)
@@ -523,8 +537,8 @@ func main() {
 			buyerGroup.GET("/orders/:order_id", orderHandler.GetBuyerOrder)
 			buyerGroup.GET("/orders/:order_id/delivery-options", orderHandler.GetDeliveryOptions)
 			buyerGroup.POST("/orders/:order_id/delivery", orderHandler.SelectDelivery)
-			buyerGroup.POST("/orders/:order_id/delivery-points-preview", orderHandler.DeliveryPointsPreview)
-			buyerGroup.POST("/orders/:order_id/points-preview", orderHandler.OrderPointsPreview)
+			buyerGroup.POST("/orders/:order_id/delivery-points-preview", middleware.RequireFeature(adminPlatformRepo, "Loyalty points are temporarily disabled", "BUYER_POINTS_ENABLED"), orderHandler.DeliveryPointsPreview)
+			buyerGroup.POST("/orders/:order_id/points-preview", middleware.RequireFeature(adminPlatformRepo, "Loyalty points are temporarily disabled", "BUYER_POINTS_ENABLED"), orderHandler.OrderPointsPreview)
 			buyerGroup.POST("/orders/:order_id/payment", orderHandler.CreateBuyerPayment)
 			buyerGroup.GET("/orders/:order_id/checkout-quote", orderHandler.GetCheckoutQuote)
 			buyerGroup.GET("/orders/:order_id/payment", orderHandler.GetBuyerPayment)
@@ -542,8 +556,8 @@ func main() {
 			buyerGroup.POST("/orders/:order_id/confirm-receipt", qrHandler.ConfirmReceipt)
 			buyerGroup.GET("/orders/:order_id/tracking", orderHandler.GetOrderTracking)
 			buyerGroup.GET("/orders/:order_id/review-eligibility", reviewHandler.GetReviewEligibility)
-			buyerGroup.POST("/orders/:order_id/review", reviewHandler.CreateReview)
-			buyerGroup.POST("/orders/:order_id/service-review", reviewHandler.CreateServiceReview)
+			buyerGroup.POST("/orders/:order_id/review", middleware.RequireFeature(adminPlatformRepo, "Reviews are temporarily disabled", "REVIEWS_ENABLED"), reviewHandler.CreateReview)
+			buyerGroup.POST("/orders/:order_id/service-review", middleware.RequireFeature(adminPlatformRepo, "Shop reviews are temporarily disabled", "REVIEWS_ENABLED", "SHOP_REVIEWS_ENABLED"), reviewHandler.CreateServiceReview)
 			buyerGroup.PATCH("/reviews/:review_id", reviewHandler.UpdateReview)
 			buyerGroup.DELETE("/reviews/:review_id", reviewHandler.WithdrawReview)
 			buyerGroup.GET("/reviews", reviewHandler.ListBuyerReviews)
@@ -605,7 +619,7 @@ func main() {
 			marketplaceGroup.GET("/products/:product_id/price", marketplaceHandler.GetProductPrice)
 			marketplaceGroup.GET("/products/:product_id/similar", marketplaceHandler.GetSimilarProducts)
 			marketplaceGroup.GET("/search", marketplaceHandler.SearchProducts)
-			marketplaceGroup.POST("/search/image", marketplaceHandler.SearchProductsByImage)
+			marketplaceGroup.POST("/search/image", middleware.RequireFeature(adminPlatformRepo, "Visual search is temporarily disabled", "VISUAL_SEARCH_ENABLED"), marketplaceHandler.SearchProductsByImage)
 			marketplaceGroup.GET("/categories", marketplaceHandler.ListCategories)
 			marketplaceGroup.GET("/categories/:category_slug/subcategories", marketplaceHandler.ListSubcategories)
 			marketplaceGroup.GET("/categories/:category_slug/attributes", marketplaceHandler.GetCategoryAttributes)
@@ -620,7 +634,7 @@ func main() {
 		{
 			reviewSocialGroup.POST("/:review_id/helpful", marketplaceReviewHandler.MarkHelpful)
 			reviewSocialGroup.DELETE("/:review_id/helpful", marketplaceReviewHandler.UnmarkHelpful)
-			reviewSocialGroup.POST("/:review_id/replies", marketplaceReviewHandler.Reply)
+			reviewSocialGroup.POST("/:review_id/replies", middleware.RequireFeature(adminPlatformRepo, "Reviews are temporarily disabled", "REVIEWS_ENABLED"), marketplaceReviewHandler.Reply)
 		}
 
 		// Category endpoints for sellers (public read for dropdowns)
@@ -732,6 +746,10 @@ func main() {
 					commerceGroup.POST("/orders/:id/confirm-return", orderHandler.AdminConfirmReturnToSeller)
 					commerceGroup.GET("/overview", adminCommerceHandler.Overview)
 					commerceGroup.GET("/users", adminCommerceHandler.ListOperationalUsers)
+					commerceGroup.GET("/businesses", adminCommerceHandler.ListBusinesses)
+					commerceGroup.POST("/businesses/:id/status", adminCommerceHandler.SetBusinessStatus)
+					commerceGroup.GET("/shops", adminCommerceHandler.ListShops)
+					commerceGroup.POST("/shops/:id/status", adminCommerceHandler.SetShopStatus)
 					commerceGroup.GET("/products", adminCommerceHandler.ListProducts)
 					commerceGroup.GET("/products/:id", adminCommerceHandler.GetProduct)
 					commerceGroup.POST("/products/:id/unpublish", adminCommerceHandler.UnpublishProduct)
@@ -835,6 +853,15 @@ func main() {
 
 					financeGroup.GET("/risk", adminFinanceHandler.ListRiskEvents)
 					financeGroup.POST("/risk/:id/resolve", adminFinanceHandler.ResolveRiskEvent)
+					// Runs the risk rules now instead of waiting for the next 5-minute scan.
+					financeGroup.POST("/risk/scan", func(c *gin.Context) {
+						raised, err := riskScanner.Scan(c.Request.Context())
+						if err != nil {
+							c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+							return
+						}
+						c.JSON(http.StatusOK, gin.H{"message": "Risk scan completed", "data": gin.H{"raised": raised}})
+					})
 				}
 
 				technicalGroup := protectedAdmin.Group("/technical")
@@ -905,6 +932,7 @@ func main() {
 				exportsGroup.Use(middleware.RequireAdminRoles(allAdminRoles...))
 				exportsGroup.GET("", adminPhase5Handler.ListExports)
 				exportsGroup.POST("", adminPhase5Handler.CreateExport)
+				exportsGroup.GET("/:id/download", adminPhase5Handler.DownloadExport)
 				approvalsGroup := protectedAdmin.Group("/approvals")
 				approvalsGroup.Use(middleware.RequireAdminRoles(allAdminRoles...))
 				approvalsGroup.GET("", adminPhase5Handler.ListApprovals)

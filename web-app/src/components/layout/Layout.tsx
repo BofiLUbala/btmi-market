@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Header, MobileNav } from './Header'
 import { useI18n } from '@/store/i18n'
+import { PlatformBanner } from '@/lib/platformState'
 
 function Footer() {
   const { t } = useI18n()
@@ -64,7 +65,7 @@ export function Layout() {
           <strong>Checkout</strong>
           <span aria-hidden>TBK</span>
         </header>
-        <main className="checkout-shell-main"><div className="container"><Outlet /></div></main>
+        <main className="checkout-shell-main"><div className="container"><PlatformBanner audience="BUYERS" /><Outlet /></div></main>
       </div>
     )
   }
@@ -74,6 +75,7 @@ export function Layout() {
       <Header />
       <main className="page fade-in">
         <div className="container">
+          <PlatformBanner audience="BUYERS" />
           <Outlet />
         </div>
       </main>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'expo-image'
 import {
@@ -89,12 +89,15 @@ export default function SellerProductCreateScreen() {
 
   /* Shop context. The list is always scoped to the active business, so a
      product can never be attached to another business's shop. */
+  // web: /seller/shops/:shopId/products/new pins the shop; `?shop=` is that on mobile
+  const { shop: shopParam } = useLocalSearchParams<{ shop?: string }>()
   const [shopId, setShopId] = useState('')
   useEffect(() => {
     if (shopId || !shops.data?.length) return
-    const restored = activeShop && shops.data.some((s: Shop) => s.id === activeShop) ? activeShop : ''
+    const preferred = typeof shopParam === 'string' && shopParam ? shopParam : activeShop
+    const restored = preferred && shops.data.some((s: Shop) => s.id === preferred) ? preferred : ''
     if (restored) setShopId(restored)
-  }, [shops.data, activeShop, shopId])
+  }, [shops.data, activeShop, shopId, shopParam])
 
   const [categoryId, setCategoryId] = useState('')
   const [subcategoryId, setSubcategoryId] = useState('')

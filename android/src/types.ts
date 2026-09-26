@@ -15,6 +15,11 @@ export interface User {
     employee?: boolean
   }
   avatar_url?: string | null
+  created_at?: string
+  middle_name?: string | null
+  city?: string | null
+  commune?: string | null
+  status?: string
 }
 
 export const canBuy = (user?: User | null) => user?.capabilities?.buyer ?? (user?.account_type !== 'EMPLOYEE' && user?.account_type !== 'COURIER')
@@ -136,6 +141,10 @@ export interface ProductReview {
   delivery_rating?: number
   service_rating?: number
   order_experience_rating?: number
+  /** Set on a shop's product-review tab (type=product): which item was reviewed. */
+  product_name?: string
+  variant_name?: string
+  image_url?: string
 }
 export interface ProductReviewSummary {
   average_rating: number
@@ -167,6 +176,7 @@ export interface UpdateShopRequest {
   supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
   delivery_city?: string; delivery_address?: string
   province?: string; commune?: string; street?: string; building_number?: string; landmark?: string
+  province_id?: string; city_id?: string; commune_id?: string
 }
 export interface CreateShopRequest {
   name: string; type: 'PHYSICAL' | 'ONLINE'; city: string; address: string; phone: string
@@ -174,6 +184,7 @@ export interface CreateShopRequest {
   supports_partner_delivery?: boolean; partner_delivery_fee?: number; partner_delivery_provider?: string
   delivery_city?: string; delivery_address?: string
   province: string; commune: string; street: string; building_number: string; landmark?: string
+  province_id?: string; city_id?: string; commune_id?: string
 }
 export interface BuyerProfile {
   id: string; first_name: string; last_name: string; email: string; phone: string
@@ -224,14 +235,14 @@ export interface DeliveryPlan {
   courier_started_at?: string | null
   courier_arrived_at?: string | null
 }
-export interface BuyerOrder extends DeliveryPlan { id: string; order_number?: string; shop_id: string; status: string; total_items: number; base_total?: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; delivery_fee_final?: number; delivery_contact_name?: string; delivery_phone?: string; delivery_address?: string; delivery_notes?: string; notes?: string }
+export interface BuyerOrder extends DeliveryPlan { points_used?: number; points_discount_amount?: number; delivery_points_used?: number; delivery_fee_base?: number; id: string; order_number?: string; shop_id: string; status: string; total_items: number; base_total?: number; final_total: number; currency?: string; created_at: string; delivery_method?: string; delivery_status?: string; delivery_fee_final?: number; delivery_contact_name?: string; delivery_phone?: string; delivery_address?: string; delivery_notes?: string; notes?: string }
 export interface SellerOrder extends BuyerOrder {
   business_id: string
   base_total?: number
   delivery_method?: string
   notes?: string
 }
-export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; unit_price?: number; final_unit_price: number; product_name: string; variant_name?: string; image_url?: string }
+export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; unit_price?: number; final_unit_price: number; product_name: string; variant_name?: string; variant_sku?: string; variant_attributes?: Record<string, string>; image_url?: string }
 export interface OrderStatusHistory { id: string; order_id: string; status: string; changed_by?: string | null; actor_type?: string; notes: string; created_at: string }
 export interface TrackingResponse extends DeliveryPlan { order_id: string; order_number: string; current_status: string; delivery_status?: string | null; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
 export interface BuyerPayment {
@@ -350,7 +361,7 @@ export interface CourierMission extends DeliveryPlan {
 }
 /** The package label the courier scans at pickup (GET /orders/:id/package-qr). */
 export interface PackageQR { reference: string; status: string; package_number: number; operational: boolean; pickup_verified_at?: string | null; delivery_scanned_at?: string | null }
-export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: OrderStatusHistory[]; shop_name: string }
+export interface OrderDetail { order: BuyerOrder; lines: OrderLine[]; history?: OrderStatusHistory[]; shop_name: string; business_name?: string; seller_name?: string }
 
 /* ---------- Checkout pipeline ----------
    These mirror the web contract exactly (web-app/src/api/types.ts). The
@@ -408,7 +419,7 @@ export interface DeliveryPointsPreview {
   redeem_rate: number; max_delivery_point_coverage: number
 }
 export interface ReviewEligibility { eligible: boolean; reason: string; existing_review_id?: string }
-export interface BuyerReview { id: string; order_id: string; product_id?: string; order_line_id?: string; rating: number; comment: string; verified_purchase: boolean; status: string; delivery_rating?: number; service_rating?: number; order_experience_rating?: number; created_at: string }
+export interface BuyerReview { id: string; order_id: string; product_id?: string; shop_id?: string; order_line_id?: string; rating: number; comment: string; verified_purchase: boolean; status: string; delivery_rating?: number; service_rating?: number; order_experience_rating?: number; created_at: string }
 export interface BuyerReviewsResponse { reviews: BuyerReview[]; pagination: { page: number; limit: number; total: number; has_more?: boolean } }
 export interface ShopReviewsResponse { shop_id: string; summary: ProductReviewSummary; reviews: ProductReview[]; pagination: { page: number; limit: number; total: number; has_more?: boolean } }
 
@@ -463,6 +474,8 @@ export interface ProductVariant {
   sale_price: number; purchase_price?: number; barcode?: string; unit?: string; status?: string
   created_at: string; updated_at: string
 }
+/** GET /variants/:id/inventory — one flat row per shop holding this variant. */
+export interface VariantInventoryRow { id: string; shop_id: string; product_id?: string; variant_id: string; quantity: number; reserved_quantity: number; available?: number }
 export interface CreateVariantRequest { sku?: string; name?: string; attributes?: Record<string, string>; sale_price: number; purchase_price?: number; barcode?: string; unit?: string }
 export interface UpdateVariantRequest { sku?: string; name?: string; attributes?: Record<string, string>; sale_price?: number; purchase_price?: number; barcode?: string; unit?: string; status?: string }
 export interface ProductImageResponse { id: string; product_id: string; variant_id?: string; url: string; file_name?: string; sort_order?: number; is_primary: boolean; created_at: string }
@@ -520,6 +533,12 @@ export interface SellerTrustInfo { trust_status: 'HIGH' | 'NORMAL' | 'LOW' | 'SU
 export interface LevelBenefitInfo { benefit_type: string; benefit_value: number }
 export interface SellerGrowth { points: PointAccount; level: SellerLevelInfo; trust: SellerTrustInfo; benefits: LevelBenefitInfo[]; high_value_buyer_eligible: boolean }
 export interface SellerPointsHistory { account: PointAccount; transactions: PointTransaction[]; level_name: string; next_level?: SellerLevelInfo }
+
+/* ---------- Buyer: points & in-store purchases (web api/types.ts) ---------- */
+export interface BuyerPointsSummary { available_points: number; reserved_points: number; lifetime_points: number; level: string }
+export interface BuyerLevelInfo { name: string; min_points: number; max_points: number; discount_percent: number; delivery_discount_percent: number; free_delivery: boolean; progress_to_next_level_percent: number; description: string }
+export interface PointHistoryResponse { account: PointAccount; transactions: PointTransaction[]; level_name: string; next_level?: unknown; buyer_next_level?: BuyerLevelInfo }
+export interface PendingPurchase { order_id: string; shop_id: string; shop_name: string; business_name: string; amount: number; currency: string; employee_name: string; created_at: string }
 
 /** A courier handover scan. The token is the opaque value encoded in the package QR. */
 export interface QRScanRequest {
@@ -581,6 +600,7 @@ export interface SellerSaleCommissionItem {
   commission_rate: number
   commission_amount: number
   seller_net_amount: number
+  currency?: string
   status: 'DUE' | 'COLLECTED' | 'WAIVED' | 'ADJUSTED'
   calculated_at: string
   collected_at?: string
@@ -716,4 +736,27 @@ export interface OrderItemQRResolution {
 
 export interface OrderItemQRResolveRequest {
   token: string
+}
+
+/* ---------- Seller: finances (same contract as web api/seller.ts sellerFinanceApi) ---------- */
+export interface SellerFinanceCurrencyTotal { currency: string; gross_sales: number; commission_amount: number; seller_net_amount: number; collected_commission: number; due_commission: number; payments_collected: number; payments_due: number; units_sold: number; verified_sales: number }
+export interface SellerFinanceDashboard {
+  gross_sales: number; commission_amount: number; seller_net_amount: number; collected_commission: number; due_commission: number; waived_commission: number
+  collected_cash: number; collected_mobile: number; payments_collected: number; payments_due: number; payments_pending?: number; refunded_amount?: number
+  units_sold: number; verified_sales: number; refunded_sales: number; pending_orders: number; commission_rate: number; currency?: string
+  mixed_currency: boolean; totals_by_currency: SellerFinanceCurrencyTotal[]
+}
+export interface SellerFinanceBreakdownItem { id?: string; label: string; sub_label: string; gross_sales: number; commission_amount: number; seller_net_amount: number; collected: number; due: number; payments_collected?: number; payments_due?: number; sales_count: number; units_sold: number; currency: string }
+export interface SellerFinanceTimeseriesPoint { period: string; gross_sales: number; commission_amount: number; seller_net_amount: number; collected: number; due: number; sales_count: number; currency: string }
+export type SellerBreakdownGroup = 'shop' | 'product' | 'variant' | 'business'
+export interface SellerFinanceParams { shop_id?: string; product_id?: string; variant_id?: string; payment_status?: string; commission_status?: string; date_from?: string; date_to?: string }
+export interface SaleFinanceLine { product_id?: string; product_name: string; product_sku: string; variant_id?: string; variant_name: string; variant_sku: string; quantity: number; unit_price: number; points_discount: number; final_unit_price: number; gross_amount: number }
+export interface SaleHistoryItem extends SellerSaleCommissionItem {
+  buyer_name: string; payment_method: string; provider?: string; payment_reference?: string; payment_status: string
+  order_status: string; delivery_method: string; delivery_status: string; total_quantity: number; lines: SaleFinanceLine[]
+}
+export interface SaleFinanceDetail {
+  sale: SellerSaleCommissionItem; buyer_name: string; payment_method: string; provider?: string; payment_reference?: string; payment_status: string
+  order_status: string; delivery_method: string; delivery_status: string; payment_markup: number; delivery_fee: number
+  products_subtotal: number; final_total: number; ordered_at: string; verified_at?: string; lines: SaleFinanceLine[]
 }

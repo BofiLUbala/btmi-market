@@ -25,7 +25,7 @@ func NewMarketplaceRepository(db *database.DB, productRepo *ProductRepository) *
 }
 
 func (r *MarketplaceRepository) ListPublicShops(searchQuery, city string, page, limit int) ([]*models.PublicShopResponse, int, error) {
-	where := []string{"s.status = 'ACTIVE'"}
+	where := []string{"s.status = 'ACTIVE'", "b.status = 'ACTIVE'"}
 	args := []interface{}{}
 	argIdx := 1
 	if searchQuery != "" {
@@ -98,7 +98,7 @@ func (r *MarketplaceRepository) GetPublicShopByID(shopID uuid.UUID) (*models.Pub
 		LEFT JOIN point_accounts pa ON pa.owner_type = 'SELLER_BUSINESS' AND pa.owner_id = s.business_id
 		LEFT JOIN seller_levels sl ON sl.id = pa.level_id
 		LEFT JOIN seller_trust st ON st.business_id = s.business_id
-		WHERE s.id = $1 AND s.status = 'ACTIVE'
+		WHERE s.id = $1 AND s.status = 'ACTIVE' AND b.status = 'ACTIVE'
 	`
 	s := &models.PublicShopResponse{}
 	err := r.db.QueryRow(query, shopID).Scan(
@@ -140,7 +140,7 @@ func (r *MarketplaceRepository) getProductDiscount(productID uuid.UUID) (*produc
 }
 
 func (r *MarketplaceRepository) ListPublicProducts(shopID uuid.UUID, page, limit int, sort string) ([]*models.PublicProductResponse, int, error) {
-	where := []string{"p.publication_status = 'PUBLISHED'", "p.status = 'ACTIVE'", "s.status = 'ACTIVE'"}
+	where := []string{"p.publication_status = 'PUBLISHED'", "p.status = 'ACTIVE'", "s.status = 'ACTIVE'", "b.status = 'ACTIVE'"}
 	args := []interface{}{}
 	argIdx := 1
 

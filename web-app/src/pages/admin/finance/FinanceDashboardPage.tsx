@@ -12,7 +12,8 @@ import {
   AdminCaseListItem,
   AdminCaseDetail,
   AdminPaymentDetail,
-  AdminRiskEvent
+  AdminRiskEvent,
+  AdminPointTransaction
   ,FinanceDashboardReport
   ,FinanceBreakdownItem
   ,FinanceTimeseriesPoint
@@ -131,6 +132,33 @@ export default function FinanceDashboardPage() {
   const [riskResolveReason, setRiskResolveReason] = useState('')
 
   const [paymentDetail, setPaymentDetail] = useState<AdminPaymentDetail | null>(null)
+  const [pointHistory, setPointHistory] = useState<AdminPointTransaction[] | null>(null)
+  const [scanningRisk, setScanningRisk] = useState(false)
+
+  // The buyer ledger for the account being adjusted, so the admin sees what
+  // they are correcting.
+  useEffect(() => {
+    setPointHistory(null)
+    if (!selectedPointUser || selectedPointAccount?.account_type !== 'BUYER') return
+    let cancelled = false
+    adminFinanceApi.getBuyerPointHistory(selectedPointUser.user_id)
+      .then((res) => { if (!cancelled) setPointHistory(res.history ?? []) })
+      .catch(() => { if (!cancelled) setPointHistory([]) })
+    return () => { cancelled = true }
+  }, [selectedPointUser, selectedPointAccount])
+
+  const handleRiskScan = async () => {
+    setScanningRisk(true)
+    try {
+      const res = await adminFinanceApi.scanRisk()
+      setActionSuccess(`Analyse des risques terminée : ${res.raised} nouvel(s) événement(s).`)
+      await loadTabContent()
+    } catch (err: any) {
+      setError(err?.message || t('admin.finance.actionFailed'))
+    } finally {
+      setScanningRisk(false)
+    }
+  }
 
   const [actionSuccess, setActionSuccess] = useState<string | null>(null)
 
@@ -1003,7 +1031,15 @@ if (tab === 'overview') {
       {/* TAB 8: FRAUD & RISK */}
       {!loading && tab === 'risk' && (
         <div>
-          <h3 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.riskTitle')}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 10, flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.riskTitle')}</h3>
+            <button className="admin-button" onClick={() => void handleRiskScan()} disabled={scanningRisk}>
+              {scanningRisk ? 'Analyse…' : 'Analyser maintenant'}
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 12px' }}>
+            Règles automatiques (toutes les 5 min) : commandes bloquées, litiges répétés, taux d’annulation, stock incohérent, paiement réglé sans confirmation. Seuils : Configuration globale.
+          </p>
           <FilterBar
             statusValue={statusFilter}
             onStatusChange={(v) => { setStatusFilter(v); setPage(1) }}
@@ -1253,6 +1289,24 @@ if (tab === 'overview') {
             </div>
 
             {adjustError && <div style={{ color: '#fca5a5', background: '#7f1d1d', padding: 8, borderRadius: 6, marginBottom: 12, fontSize: 12 }}>{adjustError}</div>}
+
+            {selectedPointAccount.account_type === 'BUYER' && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Derniers mouvements</div>
+                {pointHistory === null ? <div style={{ fontSize: 12, color: '#64748b' }}>Chargement…</div>
+                  : pointHistory.length === 0 ? <div style={{ fontSize: 12, color: '#64748b' }}>Aucun mouvement.</div>
+                  : (
+                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 140, overflowY: 'auto', fontSize: 12 }}>
+                      {pointHistory.slice(0, 20).map((h) => (
+                        <li key={h.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '3px 0', borderBottom: '1px solid #1e293b' }}>
+                          <span>{new Date(h.created_at).toLocaleDateString()} · {h.reason}{h.order_number ? ` · ${h.order_number}` : ''}</span>
+                          <span style={{ color: h.type === 'CREDIT' ? '#4ade80' : '#f87171', fontWeight: 700 }}>{h.type === 'CREDIT' ? '+' : '−'}{Math.abs(h.amount)} → {h.balance_after}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => { setSelectedPointUser(null); setSelectedPointAccount(null) }} disabled={adjustingPoints} style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>{t('common.cancel')}</button>

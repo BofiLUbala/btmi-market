@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { useOrderEvents } from '@/lib/orderEvents'
@@ -7,13 +7,15 @@ import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusB
 
 export default function OrderListPage() {
   const t = useT()
+  const [params] = useSearchParams()
+  const businessId = params.get('business_id') || ''
   const [orders, setOrders] = useState<AdminOrderItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [deliveryMethod, setDeliveryMethod] = useState('')
-  const [shopId, setShopId] = useState('')
-  const [search, setSearch] = useState('')
+  const [shopId, setShopId] = useState(params.get('shop_id') || '')
+  const [search, setSearch] = useState(params.get('search') || '')
   const [page, setPage] = useState(0)
   const [limit] = useState(20)
 
@@ -24,9 +26,10 @@ export default function OrderListPage() {
         status: statusFilter || undefined,
         delivery_method: deliveryMethod || undefined,
         shop_id: shopId || undefined,
+        business_id: businessId || undefined,
         search: search || undefined,
         limit,
-        offset: page * limit,
+        offset: page,
       })
       setOrders(res.orders ?? [])
       setTotal(res.total ?? 0)
@@ -35,7 +38,7 @@ export default function OrderListPage() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, deliveryMethod, shopId, search, page, limit])
+  }, [statusFilter, deliveryMethod, shopId, businessId, search, page, limit])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
   useOrderEvents(() => void fetchOrders(true), { audience: 'admin' })

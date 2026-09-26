@@ -15,7 +15,8 @@ export default function SellerGrowthScreen() {
   const activeBusiness = useAuth((s) => s.activeBusiness)
   const growth = useQuery({ queryKey: ['seller', 'growth', activeBusiness?.id], queryFn: () => sellerApi.growthLevel(activeBusiness!.id), enabled: Boolean(activeBusiness) })
 
-  if (!activeBusiness) return <View style={styles.center}><Text style={styles.muted}>{t('seller.noBusinessSelected')}</Text></View>
+  // web: empty-state with 📈, title and hint
+  if (!activeBusiness) return <View style={styles.center}><Text style={styles.emptyIcon}>📈</Text><Text style={styles.emptyTitle}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.growth.noBusinessSelectedHint')}</Text></View>
   if (growth.isLoading) return <Loading label={t('seller.growth.loading')} />
   if (growth.isError || !growth.data) return <ErrorState message={t('seller.growth.loadFailed')} retry={() => void growth.refetch()} />
 
@@ -30,7 +31,8 @@ export default function SellerGrowthScreen() {
     </View>
     <Card>
       <Text style={styles.cardTitle}>{t('seller.growth.trustStatus')}</Text>
-      <Text style={styles.badge}>{t(`seller.growth.trust.${g.trust.trust_status}` as any)}</Text>
+      {/* web: badge-success / -primary / -warning / -danger by trust status */}
+      <Text style={[styles.badge, trustTint(g.trust.trust_status, colors)]}>{t(`seller.growth.trust.${g.trust.trust_status}` as any)}</Text>
     </Card>
     <Card>
       <Text style={styles.cardTitle}>{t('seller.growth.progressToNextLevel')}</Text>
@@ -58,18 +60,28 @@ export default function SellerGrowthScreen() {
   </ScrollView>
 }
 
+function trustTint(status: string, colors: Colors) {
+  if (status === 'HIGH') return { backgroundColor: colors.successSoft, color: colors.success }
+  if (status === 'NORMAL') return { backgroundColor: colors.greenSoft, color: colors.green }
+  if (status === 'LOW') return { backgroundColor: colors.warningSoft, color: colors.warning }
+  return { backgroundColor: colors.dangerSoft, color: colors.danger }
+}
+
 function Metric({ label, value, styles }: { label: string; value: string; styles: ReturnType<typeof makeStyles> }) {
   return <Card><Text style={styles.metric}>{value}</Text><Text style={styles.muted}>{label}</Text></Card>
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  center: { flex: 1, justifyContent: 'center', padding: spacing.xl },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: 8 },
+  centerText: { textAlign: 'center' },
+  emptyIcon: { fontSize: 64 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: colors.ink, textAlign: 'center' },
   muted: { color: colors.muted },
   cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
   metric: { fontSize: 20, fontWeight: '900', color: colors.green },
   grid: { flexDirection: 'row', gap: spacing.sm },
-  badge: { color: colors.green, fontWeight: '900' },
+  badge: { alignSelf: 'flex-start', fontWeight: '700', fontSize: 13, paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden', marginTop: 6 },
   progressTrack: { height: 10, borderRadius: radius.sm, backgroundColor: colors.border, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: colors.green },
 })

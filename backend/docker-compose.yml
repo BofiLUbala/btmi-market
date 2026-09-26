@@ -44,6 +44,8 @@ services:
     volumes:
       - ./migrations:/migrations:ro
       - uploads_data:/app/uploads
+      - backups_data:/app/backups
+      - exports_data:/app/exports
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,6 +150,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  backups_data:
+  exports_data:
   postgres_data:
     driver: local
   uploads_data:

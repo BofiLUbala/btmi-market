@@ -268,38 +268,53 @@ func (s *AdminTechnicalService) GetWorkerMetrics(ctx context.Context, role model
 	metrics := &models.WorkerMetrics{
 		QueueStats: []models.QueueStatItem{},
 	}
-
-	if s.redisClient == nil {
+	if s.inspector == nil {
 		return metrics, nil
 	}
 
-	// Asynq stores queue data in Redis sorted sets / lists
-	// Default Asynq key patterns: asynq:{queue}:pending, asynq:{queue}:active, etc.
-	queues := []string{"default", "critical", "low"}
+	// Asynq's own inspector reads the real queue state, including the queues
+	// the worker registers, rather than guessing Redis key names.
+	queues, err := s.inspector.Queues()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list worker queues: %w", err)
+	}
 	for _, q := range queues {
-		pending, _ := s.redisClient.LLen(ctx, fmt.Sprintf("asynq:{%s}:pending", q)).Result()
-		active, _ := s.redisClient.LLen(ctx, fmt.Sprintf("asynq:{%s}:active", q)).Result()
-		failed, _ := s.redisClient.ZCard(ctx, fmt.Sprintf("asynq:{%s}:retry", q)).Result()
+		info, err := s.inspector.GetQueueInfo(q)
+		if err != nil {
+			continue
+		}
+		metrics.QueuedJobs += int64(info.Pending + info.Scheduled)
+		metrics.ActiveJobs += int64(info.Active)
+		metrics.CompletedJobs += int64(info.ProcessedTotal - info.FailedTotal)
+		metrics.FailedJobs += int64(info.FailedTotal)
+		metrics.RetryingJobs += int64(info.Retry)
+		metrics.DeadJobs += int64(info.Archived)
+		metrics.QueueStats = append(metrics.QueueStats, models.QueueStatItem{
+			QueueName:       q,
+			PendingCount:    int64(info.Pending + info.Scheduled),
+			ProcessingCount: int64(info.Active),
+			FailedCount:     int64(info.Retry + info.Archived),
+		})
+	}
+	return metrics, nil
+}
 
-		metrics.QueuedJobs += pending
-		metrics.ActiveJobs += active
-		metrics.FailedJobs += failed
-
-		if pending > 0 || active > 0 || failed > 0 {
-			metrics.QueueStats = append(metrics.QueueStats, models.QueueStatItem{
-				QueueName:       q,
-				PendingCount:    pending,
-				ProcessingCount: active,
-				FailedCount:     failed,
-			})
+// workerStatus reports whether a worker process is actually heartbeating,
+// which a Redis ping alone cannot tell.
+func (s *AdminTechnicalService) workerStatus() string {
+	if s.inspector == nil {
+		return "UNKNOWN"
+	}
+	servers, err := s.inspector.Servers()
+	if err != nil {
+		return "DOWN"
+	}
+	for _, srv := range servers {
+		if srv.Status == "active" || srv.Status == "running" {
+			return "HEALTHY"
 		}
 	}
-
-	// Dead letter queue
-	dead, _ := s.redisClient.ZCard(ctx, "asynq:dead").Result()
-	metrics.DeadJobs = dead
-
-	return metrics, nil
+	return "DOWN"
 }
 
 func (s *AdminTechnicalService) ListFailedJobs(ctx context.Context, role models.AdminRole, queue string, limit, offset int64) ([]models.WorkerJobItem, error) {
@@ -628,20 +643,15 @@ func (s *AdminTechnicalService) GetTechnicalOverview(ctx context.Context, role m
 	kpis.RedisStatus = redisItem.Status
 
 	// Workers
-	kpis.WorkerStatus = "UNKNOWN"
-	if s.redisClient != nil {
-		_, err := s.redisClient.Ping(ctx).Result()
-		if err == nil {
-			kpis.WorkerStatus = "HEALTHY"
-		} else {
-			kpis.WorkerStatus = "DOWN"
+	kpis.WorkerStatus = s.workerStatus()
+	if s.inspector != nil {
+		if queues, err := s.inspector.Queues(); err == nil {
+			for _, q := range queues {
+				if info, err := s.inspector.GetQueueInfo(q); err == nil {
+					kpis.FailedJobsCount += int64(info.Retry + info.Archived)
+				}
+			}
 		}
-	}
-
-	// Failed jobs (Asynq default queue)
-	if s.redisClient != nil {
-		failed, _ := s.redisClient.ZCard(ctx, "asynq:{default}:retry").Result()
-		kpis.FailedJobsCount = failed
 	}
 
 	// Security alerts
@@ -652,8 +662,11 @@ func (s *AdminTechnicalService) GetTechnicalOverview(ctx context.Context, role m
 	sessions, _ := s.repo.GetActiveAdminSessions(ctx)
 	kpis.ActiveSessionsCount = len(sessions)
 
-	// Backup
-	kpis.BackupStatus = "NOT_CONFIGURED"
+	// Backup — the same summary the Backups screen shows.
+	kpis.BackupStatus = "UNKNOWN"
+	if backup, err := s.GetBackupSummary(ctx, role); err == nil {
+		kpis.BackupStatus = backup.BackupStatus
+	}
 
 	// Migrations
 	kpis.MigrationStatus = "UP_TO_DATE"

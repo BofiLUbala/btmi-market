@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
@@ -7,10 +7,12 @@ import { BoxIcon } from '@/components/ui/Icons'
 
 export default function CommerceProductsPage() {
   const t = useT()
+  const [params] = useSearchParams()
+  const businessId = params.get('business_id') || ''
   const [products, setProducts] = useState<AdminProductListItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(params.get('search') || '')
   const [publicationStatus, setPublicationStatus] = useState('')
   const [stockStatus, setStockStatus] = useState('')
   const [page, setPage] = useState(0)
@@ -21,6 +23,7 @@ export default function CommerceProductsPage() {
     try {
       const res = await adminCommerceApi.listProducts({
         search: search || undefined,
+        business_id: businessId || undefined,
         publication_status: publicationStatus || undefined,
         stock_status: stockStatus || undefined,
         limit,
@@ -33,7 +36,7 @@ export default function CommerceProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, publicationStatus, stockStatus, page, limit])
+  }, [search, businessId, publicationStatus, stockStatus, page, limit])
 
   useEffect(() => { fetchProducts() }, [fetchProducts])
 

@@ -2,7 +2,7 @@ import { del, get, patch, post, postForm, uploadFile } from './client'
 import type { UploadFile } from '../lib/imageUpload'
 import type {
   AcceptEmployeeInvitationRequest, AddStockRequest, ArchiveBusinessResponse, AssignEmployeeRequest,
-  Business, BusinessLifecycleSummary, BuyerOrder, BuyerPayment, BuyerProfile, BuyerReviewsResponse, CheckoutQuote,
+  Business, BusinessLifecycleSummary, BuyerOrder, BuyerPayment, BuyerPointsSummary, BuyerProfile, PendingPurchase, PointHistoryResponse, BuyerReviewsResponse, CheckoutQuote,
   CashPayment, CashSession, CashSummary, Category, CategoryAttributeDefinition, Customer,
   CreateCustomerRequest, CreateEmployeeInvitationRequest,
   CreateEmployeeRequest, CreateProductRequest, CreateShopRequest, CreateStockReceiptRequest, CreateVariantRequest,
@@ -12,10 +12,17 @@ import type {
   PublicationStatus, PublicProduct, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
-  QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution,
+  SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
+  QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
   TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
   CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
   HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem } from '../types'
+
+/** Query string from defined params only, in the web client's style. */
+const qs = (params?: object) => {
+  const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()}` : ''
+}
 
 const list = <T>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[]
@@ -72,7 +79,11 @@ export const buyerApi = {
   profile: async () => (await get<{ profile: BuyerProfile }>('/buyer/profile')).profile,
   updateProfile: (body: { first_name?: string; last_name?: string; phone?: string; backup_phone?: string; address?: string; province?: string; province_id?: string; city?: string; city_id?: string; commune?: string; commune_id?: string; street?: string; building_number?: string; landmark?: string; country?: string; latitude?: number | null; longitude?: number | null }) =>
     patch<BuyerProfile>('/buyer/profile', body),
-  points: () => get<unknown>('/buyer/points'),
+  points: () => get<BuyerPointsSummary>('/buyer/points'),
+  pointsHistory: () => get<PointHistoryResponse>('/buyer/points/history'),
+  /* in-store purchases recorded by a shop employee, awaiting the buyer's confirmation */
+  pendingPurchases: async () => list<PendingPurchase>(await get<unknown>('/buyer/purchases/pending')),
+  confirmPurchase: (purchaseId: string, orderId: string) => post(`/buyer/purchases/${purchaseId}/confirm`, { order_id: orderId }),
 
   /* multi-shop cart — the whole cart is priced in one call, across every shop in it */
   previewCart: (items: CartLineInput[], usePoints: boolean) =>
@@ -103,6 +114,9 @@ export const buyerApi = {
   acknowledgeHandover: (id: string, lines: HandoverLineAcknowledgement[]) =>
     post<HandoverState>(`/buyer/orders/${id}/handover/acknowledge`, { lines }),
   verifyProduct: (id: string, body: { token?: string; product_number?: string }) => post<ProductVerification>(`/buyer/orders/${id}/verify-product`, body),
+  /** The buyer's own view of one line's ORDER_ITEM QR. */
+  orderItemQR: (orderId: string, itemId: string) => get<OrderItemQR>(`/buyer/orders/${orderId}/items/${itemId}/qr`),
+  orderItemQRImagePath: (orderId: string, itemId: string) => `/buyer/orders/${orderId}/items/${itemId}/qr/image`,
   cancelOrder: (id: string) => post(`/buyer/orders/${id}/cancel`),
   // The server prices the selected method; the client never adds a markup.
   checkoutQuote: (id: string, paymentMethod?: string) =>
@@ -133,7 +147,7 @@ export const buyerApi = {
 export const sellerApi = {
   /* Business */
   businesses: async () => list<Business>(await get<unknown>('/businesses')),
-  createBusiness: (body: { name: string; business_type: string; category: string; phone: string; whatsapp?: string; email: string; country: string; city: string; default_currency: string }) => post<Business>('/businesses', body),
+  createBusiness: (body: { name: string; business_type: string; category: string; phone: string; whatsapp?: string; email: string; country: string; city: string; default_currency: string; province?: string; commune?: string; street?: string; building_number?: string; landmark?: string }) => post<Business>('/businesses', body),
   business: (id: string) => get<Business>(`/businesses/${id}`),
   updateBusiness: (id: string, body: Partial<Business>) => patch<Business>(`/businesses/${id}`, body),
   businessLifecycleSummary: (id: string) => get<BusinessLifecycleSummary>(`/businesses/${id}/lifecycle-summary`),
@@ -175,6 +189,13 @@ export const sellerApi = {
   product: (businessId: string, productId: string) => get<Product>(`/businesses/${businessId}/products/${productId}`),
   updateProduct: (businessId: string, productId: string, body: Partial<CreateProductRequest & { status: string }>) => patch<Product>(`/businesses/${businessId}/products/${productId}`, body),
   variants: async (businessId: string, productId: string) => list<ProductVariant>(await get<unknown>(`/businesses/${businessId}/products/${productId}/variants`)),
+  /** Stock rows of one variant across every shop (flat rows, not nested under `inventory`). */
+  variantInventory: async (variantId: string) => list<VariantInventoryRow>(await get<unknown>(`/variants/${variantId}/inventory`)),
+  /** The product's TBK QR identity; its PNG label is …/qr/label. */
+  productQR: (businessId: string, productId: string) => get<{ reference: string; token?: string; status: string; label_url?: string; created_at?: string }>(`/businesses/${businessId}/products/${productId}/qr`),
+  /** Link an image to one variant, or pass null to make it product-wide again. */
+  assignImageVariant: (businessId: string, productId: string, imageId: string, variantId: string | null) =>
+    patch<ProductImageResponse>(`/businesses/${businessId}/products/${productId}/images/${imageId}/variant`, { variant_id: variantId }),
   createVariant: (businessId: string, productId: string, body: CreateVariantRequest) => post<ProductVariant>(`/businesses/${businessId}/products/${productId}/variants`, body),
   updateVariant: (id: string, body: UpdateVariantRequest) => patch<ProductVariant>(`/variants/${id}`, body),
   productImages: async (businessId: string, productId: string) => list<ProductImageResponse>(await get<unknown>(`/businesses/${businessId}/products/${productId}/images`)),
@@ -193,7 +214,7 @@ export const sellerApi = {
   deleteProductImage: (businessId: string, productId: string, imageId: string) => del<void>(`/businesses/${businessId}/products/${productId}/images/${imageId}`),
 
   /* Inventory & stock */
-  shopInventory: async (shopId: string) => list<InventoryItem>(await get<unknown>(`/shops/${shopId}/inventory`)),
+  shopInventory: async (shopId: string, params?: { limit?: number }) => list<InventoryItem>(await get<unknown>(`/shops/${shopId}/inventory${qs(params)}`)),
   addStock: (shopId: string, body: AddStockRequest) => post<InventoryItem>(`/shops/${shopId}/stock`, body),
   recordSale: (shopId: string, body: RecordSaleRequest) => post(`/shops/${shopId}/sales`, body),
   stockMovements: async (shopId: string, params?: { limit?: number }) => list<StockMovement>(await get<unknown>(`/shops/${shopId}/movements${params?.limit ? `?limit=${params.limit}` : ''}`)),
@@ -201,7 +222,7 @@ export const sellerApi = {
   stockReceipts: async (businessId: string) => list<StockReceipt>(await get<unknown>(`/businesses/${businessId}/receipts`)),
 
   /* Orders (business/shop listing + seller lifecycle actions) */
-  businessOrders: async (businessId: string) => list<SellerOrder>(await get<unknown>(`/businesses/${businessId}/orders`)),
+  businessOrders: async (businessId: string, params?: { limit?: number }) => list<SellerOrder>(await get<unknown>(`/businesses/${businessId}/orders${params?.limit ? `?limit=${params.limit}` : ''}`)),
   shopOrders: async (shopId: string) => list<SellerOrder>(await get<unknown>(`/shops/${shopId}/orders`)),
   order: (id: string) => get<OrderDetail>(`/orders/${id}`),
   acceptOrder: (id: string) => post<SellerOrder>(`/orders/${id}/accept`, {}),
@@ -214,6 +235,9 @@ export const sellerApi = {
   getOrderPayment: (id: string) => get<BuyerPayment>(`/orders/${id}/payment`),
   /** Package label metadata; the PNG itself is /orders/:id/package-qr/label. */
   packageQR: (id: string) => get<PackageQR>(`/orders/${id}/package-qr`),
+  /** ORDER_ITEM QR of one line of a seller's order (one QR per ordered item). */
+  orderItemQR: (orderId: string, itemId: string) => get<OrderItemQR>(`/orders/${orderId}/items/${itemId}/qr`),
+  orderItemQRImagePath: (orderId: string, itemId: string) => `/orders/${orderId}/items/${itemId}/qr/image`,
   // No sellerConfirmPayment: a seller is not at the handover, so they cannot attest
   // that cash changed hands. The assigned courier confirms it from their own app.
 
@@ -237,7 +261,7 @@ export const sellerApi = {
   growthHistory: (businessId: string) => get<SellerPointsHistory>(`/businesses/${businessId}/growth/history`),
 
   /* Reviews */
-  reviews: (shopId: string) => get<ShopReviewsResponse>(`/marketplace/shops/${shopId}/reviews?page=1&per_page=50&sort=newest`),
+  reviews: (shopId: string, type?: 'shop' | 'product') => get<ShopReviewsResponse>(`/marketplace/shops/${shopId}/reviews${type ? `?type=${type}` : '?page=1&per_page=50&sort=newest'}`),
 
   /* Finances & Platform Commissions */
   financeSummary: (businessId?: string, shopId?: string) => {
@@ -256,6 +280,17 @@ export const sellerApi = {
     return get<{ sales: SellerSaleCommissionItem[]; total: number }>(`/seller/finances/sales?${q.toString()}`)
   },
   financeSaleDetail: (orderId: string) => get<SellerSaleCommissionDetail>(`/seller/finances/sales/${orderId}`),
+
+  /* Finances — the endpoints the web finances page reads (sellerFinanceApi). The
+   * backend pins seller and business to the caller, so no business_id here. */
+  financeDashboard: (params?: SellerFinanceParams) => get<SellerFinanceDashboard>(`/seller/finances/dashboard${qs(params)}`),
+  financeBreakdown: (params?: SellerFinanceParams & { group?: SellerBreakdownGroup }) =>
+    get<{ group: string; items: SellerFinanceBreakdownItem[] }>(`/seller/finances/breakdown${qs(params)}`),
+  financeTimeseries: (params?: SellerFinanceParams & { interval?: 'day' | 'week' | 'month' }) =>
+    get<{ interval: string; points: SellerFinanceTimeseriesPoint[] }>(`/seller/finances/timeseries${qs(params)}`),
+  financeSalesHistory: (params?: SellerFinanceParams & { status?: string; search?: string; limit?: number; offset?: number }) =>
+    get<{ sales: SaleHistoryItem[]; total: number }>(`/seller/finances/sales${qs(params)}`),
+  financeSaleFullDetail: (orderId: string) => get<SaleFinanceDetail>(`/seller/finances/sales/${orderId}`),
 }
 
 export const employeeAuthApi = {

@@ -126,9 +126,9 @@ export default function SellerNotificationsScreen() {
     }
 
     if (item.type === 'NEW_MESSAGE' && item.metadata?.order_id) {
-      router.push(`/seller/messages` as any)
+      router.push({ pathname: '/seller/messages', params: { order_id: String(item.metadata.order_id) } })
     } else if (item.reference_type === 'ORDER' && item.reference_id) {
-      router.push(`/seller/orders` as any)
+      router.push({ pathname: '/seller/orders', params: { orderId: item.reference_id } })
     }
   }
 

@@ -5,6 +5,7 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { sellerApi } from '../api'
+import { fetchSellerUnreadCounts } from '../api/communication'
 import { useAuth } from '../store/auth'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
@@ -30,9 +31,19 @@ export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   const setActiveShop = useAuth((s) => s.setActiveShop)
   const [switcher, setSwitcher] = useState<'business' | 'shop' | null>(null)
 
+  const user = useAuth((s) => s.user)
+  const isEmployee = user?.account_type === 'EMPLOYEE'
   const shops = useQuery({ queryKey: ['seller', 'shops', activeBusiness?.id], queryFn: () => sellerApi.shops(activeBusiness!.id), enabled: Boolean(activeBusiness) })
   const shopList = shops.data ?? []
   const currentShop = shopList.find((s) => s.id === activeShop)
+  // web: SellerLayout polls /seller/unread-counts every 20s for the header bell
+  const unread = useQuery({
+    queryKey: ['seller', 'unreadCounts', activeShop, activeBusiness?.id],
+    queryFn: () => fetchSellerUnreadCounts({ shop_id: activeShop || undefined, business_id: activeBusiness?.id || undefined }),
+    enabled: Boolean(user),
+    refetchInterval: 20_000,
+  })
+  const unreadNotifications = unread.data?.unread_notifications ?? 0
 
   return <>
     <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
@@ -40,29 +51,40 @@ export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Pressable accessibilityRole="button" accessibilityLabel={t('nav.openMenu')} onPress={onOpenMenu} style={styles.toggle}>
           <Ionicons name="menu" size={22} color={colors.ink} />
         </Pressable>
-        <PreferenceToggleButtons round />
+        <View style={styles.headerRight}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('seller.notifications')} onPress={() => router.push('/seller/notifications')} style={styles.bell}>
+            <Ionicons name="notifications-outline" size={20} color={colors.ink} />
+            {unreadNotifications > 0 && <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text></View>}
+          </Pressable>
+          <PreferenceToggleButtons round />
+        </View>
       </View>
 
-      <View style={styles.contextRow}>
+      {/* web hides both switchers for an employee account */}
+      {!isEmployee && <View style={styles.contextRow}>
         <Pressable accessibilityRole="button" style={[styles.pill, !activeBusiness && styles.pillEmpty]} onPress={() => setSwitcher('business')}>
           <Ionicons name="business-outline" size={16} color={colors.green} />
           <Text numberOfLines={1} style={[styles.pillLabel, !activeBusiness && styles.pillLabelEmpty]}>{activeBusiness ? activeBusiness.name : t('seller.noBusinessSelected')}</Text>
           {sellerBusinesses.length > 1 && <Ionicons name="chevron-down" size={14} color={colors.muted} />}
         </Pressable>
         {activeBusiness && shopList.length > 0 && (
-          <Pressable accessibilityRole="button" style={styles.pill} onPress={() => setSwitcher('shop')}>
+          <Pressable accessibilityRole="button" style={styles.pill} onPress={() => { if (shopList.length > 1) setSwitcher('shop') }}>
             <Ionicons name="storefront-outline" size={16} color={colors.green} />
             <Text numberOfLines={1} style={styles.pillLabel}>{currentShop ? currentShop.name : t('seller.allShops')}</Text>
             {shopList.length > 1 && <Ionicons name="chevron-down" size={14} color={colors.muted} />}
           </Pressable>
         )}
-      </View>
+      </View>}
     </View>
 
     {switcher && <Pressable style={styles.backdrop} onPress={() => setSwitcher(null)}>
       <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
         {switcher === 'business' ? <>
           <Text style={styles.sheetTitle}>{t('seller.currentBusiness')}</Text>
+          {sellerBusinesses.length === 0 ? <View style={styles.sheetEmpty}>
+            <Text style={styles.sheetEmptyText}>{t('seller.noBusinessesFound')}</Text>
+            <Pressable accessibilityRole="button" onPress={() => { setSwitcher(null); router.push('/seller/onboarding') }}><Text style={styles.sheetAction}>{t('seller.createBusiness')}</Text></Pressable>
+          </View> : <>
           <ScrollView>
             {sellerBusinesses.map((business: Business) => (
               <Pressable key={business.id} accessibilityRole="button" style={styles.sheetRow} onPress={() => { setActiveBusiness(business); setSwitcher(null) }}>
@@ -73,6 +95,7 @@ export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
           </ScrollView>
           <Pressable accessibilityRole="button" onPress={() => { setSwitcher(null); router.push('/seller/onboarding') }}><Text style={styles.sheetAction}>{t('seller.addNewBusiness')}</Text></Pressable>
           <Pressable accessibilityRole="button" onPress={() => { setSwitcher(null); router.push('/seller/business') }}><Text style={styles.sheetAction}>{t('seller.manageBusiness')}</Text></Pressable>
+          </>}
         </> : <>
           <Text style={styles.sheetTitle}>{t('seller.selectActiveShop')}</Text>
           <ScrollView>
@@ -94,6 +117,11 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   // web: background #fff, border-bottom 1px, padding 56px 12px 10px
   header: { backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // web: .seller-header-right at <640px — gap 8, bell link padding 6/10
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bell: { paddingVertical: 6, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: -2, right: 2, minWidth: 18, height: 18, borderRadius: 10, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  bellBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   // web: .seller-mobile-toggle — 38px square, radius-sm, transparent, 1px border
   toggle: { width: 38, height: 38, borderRadius: 6, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   // web: .seller-header-left — grid of 2 equal columns, gap 8
@@ -109,5 +137,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   sheetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   sheetRowText: { fontSize: 16, fontWeight: '700', color: colors.ink },
   sheetRowActive: { color: colors.green },
-  sheetAction: { color: colors.gold, fontWeight: '800', paddingVertical: spacing.sm },
+  // web: .dropdown-action-item — primary colour, 700
+  sheetAction: { color: colors.green, fontWeight: '700', paddingVertical: spacing.sm },
+  sheetEmpty: { alignItems: 'center', paddingVertical: 12 },
+  sheetEmptyText: { color: colors.muted, fontSize: 13 },
 })

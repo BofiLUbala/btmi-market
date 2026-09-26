@@ -3,6 +3,7 @@ package admin
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -469,7 +470,7 @@ func (h *CommerceHandler) ListInventory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	items, total, err := h.commerceService.ListInventory(businessID, shopID, stockStatus, limit, offset)
+	items, total, err := h.commerceService.ListInventory(businessID, shopID, c.Query("search"), stockStatus, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: struct {
@@ -1233,3 +1234,60 @@ func (h *CommerceHandler) CheckEmployeeShopAuth(c *gin.Context) {
 		Data:    auth,
 	})
 }
+
+// GET /api/v1/admin/commerce/businesses
+func (h *CommerceHandler) ListBusinesses(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	items, total, err := h.commerceService.ListBusinesses(c.Query("search"), c.Query("status"), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Businesses retrieved", Data: gin.H{"businesses": items, "total": total, "limit": limit, "offset": offset}})
+}
+
+// GET /api/v1/admin/commerce/shops
+func (h *CommerceHandler) ListShops(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	items, total, err := h.commerceService.ListShops(c.Query("search"), c.Query("status"), c.Query("business_id"), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Shops retrieved", Data: gin.H{"shops": items, "total": total, "limit": limit, "offset": offset}})
+}
+
+// POST /api/v1/admin/commerce/businesses/:id/status and /shops/:id/status
+func (h *CommerceHandler) setEntityStatus(kind string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			return
+		}
+		var req struct {
+			Status string `json:"status" binding:"required"`
+			Reason string `json:"reason" binding:"required,min=5"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "status and a reason of at least 5 characters are required"})
+			return
+		}
+		adminID, _ := c.MustGet("admin_id").(uuid.UUID)
+		adminRole, _ := c.MustGet("admin_role").(models.AdminRole)
+		if err := h.commerceService.SetEntityStatus(adminID, adminRole, kind, id, req.Status, req.Reason, c.ClientIP(), c.Request.UserAgent()); err != nil {
+			code := http.StatusBadRequest
+			if strings.HasSuffix(err.Error(), "NOT_FOUND") {
+				code = http.StatusNotFound
+			}
+			c.JSON(code, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, models.SuccessResponse{Message: "Status updated", Data: gin.H{"id": id, "status": strings.ToUpper(req.Status)}})
+	}
+}
+
+func (h *CommerceHandler) SetBusinessStatus(c *gin.Context) { h.setEntityStatus("BUSINESS")(c) }
+func (h *CommerceHandler) SetShopStatus(c *gin.Context)     { h.setEntityStatus("SHOP")(c) }

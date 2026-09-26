@@ -614,6 +614,16 @@
 
 .admin-button:hover:not(:disabled) { background-color: #334155; color: #f8fafc; }
 .admin-button:disabled { opacity: 0.55; cursor: not-allowed; }
+a.admin-button { text-decoration: none; }
+.admin-button-small { padding: 4px 9px; font-size: 11.5px; }
+.admin-button-danger { background-color: #7f1d1d; border-color: #991b1b; color: #fecaca; }
+.admin-button-danger:hover:not(:disabled) { background-color: #991b1b; color: #fff; }
+.admin-button-primary { background-color: #1d4ed8; border-color: #2563eb; color: #fff; }
+.admin-button-primary:hover:not(:disabled) { background-color: #2563eb; color: #fff; }
+.admin-alert-success { background: #064e3b !important; color: #a7f3d0 !important; margin-bottom: 14px; }
+.admin-status.status-active, .admin-status.status-completed, .admin-status.status-published { color: #86efac; }
+.admin-status.status-suspended, .admin-status.status-deactivated, .admin-status.status-failed, .admin-status.status-archived { color: #fca5a5; }
+.admin-status.status-inactive, .admin-status.status-draft, .admin-status.status-queued, .admin-status.status-running, .admin-status.status-pending { color: #fde047; }
 
 @media (max-width: 640px) {
   .admin-page-head h1 { font-size: 19px; }

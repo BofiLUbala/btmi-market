@@ -1,211 +1,140 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { adminCommerceApi, type AdminUserListItem } from '@/api/admin'
+import { adminCommerceApi, type AdminBusinessListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
-import { BoxIcon } from '@/components/ui/Icons'
+import { EntityStatusDialog, type EntityStatusTarget } from '../shops/EntityStatusDialog'
 
+const LIMIT = 20
+const money = (value: number, currency: string) =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency || 'USD' }).format(value || 0)
+
+/** Real business entities: the registered name, owner and live counters, read
+ *  from /admin/commerce/businesses. Suspending one hides all its shops and
+ *  products from the marketplace. */
 export default function CommerceBusinessesPage() {
   const t = useT()
-  const [owners, setOwners] = useState<AdminUserListItem[]>([])
+  const [items, setItems] = useState<AdminBusinessListItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
-  const [limit] = useState(20)
+  const [target, setTarget] = useState<EntityStatusTarget | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearch(searchInput.trim()); setPage(0) }, 350)
+    return () => clearTimeout(timer)
+  }, [searchInput])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
-      const res = await adminCommerceApi.listOperationalUsers({
-        search: search || undefined,
-        account_type: 'SELLER',
-        limit,
-        offset: page * limit,
-      })
-      // Filter or sort sellers who have at least one business registered
-      setOwners(res.users ?? [])
+      const res = await adminCommerceApi.listBusinesses({ search: search || undefined, status: status || undefined, limit: LIMIT, offset: page * LIMIT })
+      setItems(res.businesses ?? [])
       setTotal(res.total ?? 0)
     } catch (err) {
-      console.error('Failed to load businesses', err)
+      setError(err instanceof Error ? err.message : 'Chargement impossible')
     } finally {
       setLoading(false)
     }
-  }, [search, page, limit])
+  }, [search, status, page])
 
-  useEffect(() => {
-    void fetchData()
-  }, [fetchData])
+  useEffect(() => { void fetchData() }, [fetchData])
 
-  const totalPages = Math.ceil(total / limit)
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT))
 
   return (
     <div>
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+      <div className="admin-page-head">
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🏢</span> {t('admin.commerce.businessesTitle') || 'Business Management'}
-          </h2>
-          <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
-            {t('admin.commerce.businessesSubtitle') || 'Supervise merchant business entities, parent organizations, and corporate accounts.'}
-          </p>
+          <p className="admin-page-eyebrow">{t('admin.layout.navCommerce')}</p>
+          <h1>{t('admin.commerce.businessesTitle')}</h1>
+          <p>{total} entreprise(s) enregistrée(s) · données en direct</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link
-            to="/admin/commerce/shops"
-            style={{
-              backgroundColor: 'var(--admin-surface-2)',
-              color: 'var(--admin-text)',
-              border: '1px solid var(--admin-border)',
-              borderRadius: 8,
-              padding: '8px 14px',
-              fontSize: 13,
-              fontWeight: 700,
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            🏪 {t('admin.commerce.shops') || 'View Shops'}
-          </Link>
-          <Link
-            to="/admin/commerce/inventory"
-            style={{
-              backgroundColor: 'var(--admin-surface-2)',
-              color: 'var(--admin-primary)',
-              border: '1px solid var(--admin-border)',
-              borderRadius: 8,
-              padding: '8px 14px',
-              fontSize: 13,
-              fontWeight: 700,
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6
-            }}
-          >
-            <BoxIcon style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} /> {t('admin.commerce.inventory') || 'Inventory'}
-          </Link>
+        <div className="admin-page-actions">
+          <Link className="admin-button" to="/admin/commerce/shops">Boutiques</Link>
+          <button className="admin-button" onClick={() => void fetchData()} disabled={loading}>Actualiser</button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      {notice && <div className="admin-alert admin-alert-success" role="status">{notice}</div>}
+      {error && <div className="admin-alert" role="alert">{error} <button onClick={() => void fetchData()}>Réessayer</button></div>}
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <input
-          placeholder={t('admin.users.searchPlaceholder') || 'Search business owner, phone, email...'}
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          style={{
-            flex: '1 1 260px',
-            padding: '8px 12px',
-            borderRadius: 8,
-            border: '1px solid var(--admin-border)',
-            backgroundColor: 'var(--admin-surface)',
-            color: 'var(--admin-text)',
-            fontSize: 13
-          }}
+          aria-label="Rechercher une entreprise"
+          placeholder="Nom, e-mail, ville ou propriétaire…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          style={{ flex: '1 1 260px', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
         />
-        <span style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>
-          {total} {t('admin.commerce.businessEntities') || 'business entities monitored'}
-        </span>
+        <select aria-label="Statut" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0) }}
+          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
+          <option value="">Tous les statuts</option>
+          <option value="ACTIVE">Actives</option>
+          <option value="SUSPENDED">Suspendues</option>
+          <option value="DEACTIVATED">Désactivées</option>
+        </select>
       </div>
 
       {loading ? (
-        <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>
-          <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
-        </div>
-      ) : owners.length === 0 ? (
-        <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
-          {t('admin.users.noResults') || 'No businesses found.'}
+        <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>Chargement…</div>
+      ) : items.length === 0 ? (
+        <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10 }}>
+          Aucune entreprise ne correspond à ces filtres.
         </div>
       ) : (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.businessOwner') || 'Business / Owner'}</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.contactColumn') || 'Contact'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.registeredShops') || 'Registered Shops'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.ordersColumn') || 'Orders Total'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.statusColumn') || 'Account Status'}</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions') || 'Actions'}</th>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text-muted)', textAlign: 'left' }}>
+                <th style={{ padding: '12px 14px' }}>Entreprise</th>
+                <th style={{ padding: '12px 14px' }}>Propriétaire</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Boutiques</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Produits en ligne</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Commandes</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Ventes terminées</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Statut</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {owners.map((o) => (
-                <tr key={o.id} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
+              {items.map((b) => (
+                <tr key={b.id} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
                   <td style={{ padding: '12px 14px' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>
-                      {o.first_name} {o.last_name} Enterprise
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>
-                      Owner: {o.first_name} {o.last_name}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>Account ID: {o.id.slice(0, 8)}...</div>
+                    <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{b.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{b.business_type} · {b.category || '—'} · {b.city}{b.country ? `, ${b.country}` : ''}</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>{b.email} · {b.phone}</div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
-                    <div style={{ color: 'var(--admin-text)' }}>{o.email}</div>
-                    <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{o.phone || '—'}</div>
+                    <div style={{ color: 'var(--admin-text)' }}>{b.owner_name || '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{b.owner_email}</div>
                   </td>
-                  <td style={{ textAlign: 'center', padding: '12px 14px' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      backgroundColor: 'var(--admin-surface-2)',
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      fontWeight: 700,
-                      color: o.shop_count > 0 ? 'var(--admin-primary)' : 'var(--admin-text-muted)'
-                    }}>
-                      {o.shop_count || 0}
-                    </span>
+                  <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                    <Link to={`/admin/commerce/shops?business_id=${b.id}`} style={{ color: 'var(--admin-primary)', fontWeight: 700 }}>
+                      {b.active_shop_count}/{b.shop_count}
+                    </Link>
                   </td>
-                  <td style={{ textAlign: 'center', padding: '12px 14px', fontWeight: 600 }}>
-                    {o.order_count || 0}
+                  <td style={{ padding: '12px 14px', textAlign: 'center' }}>{b.published_product_count}/{b.product_count}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center' }}>{b.order_count}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700 }}>{money(b.completed_sales, b.currency)}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                    <span className={`admin-status status-${b.status.toLowerCase()}`}>{b.status}</span>
                   </td>
-                  <td style={{ textAlign: 'center', padding: '12px 14px' }}>
-                    <span style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: 6,
-                      backgroundColor: o.status === 'ACTIVE' ? 'var(--admin-success-soft)' : o.status === 'SUSPENDED' ? 'var(--admin-danger-soft)' : 'var(--admin-surface-2)',
-                      color: o.status === 'ACTIVE' ? 'var(--admin-success)' : o.status === 'SUSPENDED' ? 'var(--admin-danger)' : 'var(--admin-text-muted)'
-                    }}>
-                      {o.status}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '12px 14px' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      <Link
-                        to={`/admin/commerce/products?search=${encodeURIComponent(o.first_name)}`}
-                        style={{
-                          fontSize: 12,
-                          color: 'var(--admin-text)',
-                          textDecoration: 'none',
-                          fontWeight: 600,
-                          backgroundColor: 'var(--admin-surface-2)',
-                          padding: '4px 8px',
-                          borderRadius: 6,
-                          border: '1px solid var(--admin-border-soft)'
-                        }}
-                      >
-                        {t('admin.commerce.products') || 'Products'}
-                      </Link>
-                      <Link
-                        to={`/admin/commerce/inventory?search=${encodeURIComponent(o.first_name)}`}
-                        style={{
-                          fontSize: 12,
-                          color: 'var(--admin-primary)',
-                          textDecoration: 'none',
-                          fontWeight: 600,
-                          backgroundColor: 'var(--admin-surface-2)',
-                          padding: '4px 8px',
-                          borderRadius: 6,
-                          border: '1px solid var(--admin-border-soft)'
-                        }}
-                      >
-                        {t('admin.commerce.stock') || 'Stock'}
-                      </Link>
-                    </div>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <Link className="admin-button admin-button-small" to={`/admin/commerce/products?business_id=${b.id}`}>Produits</Link>{' '}
+                    <Link className="admin-button admin-button-small" to={`/admin/commerce/orders?business_id=${b.id}`}>Commandes</Link>{' '}
+                    {b.status === 'ACTIVE' ? (
+                      <button className="admin-button admin-button-small admin-button-danger"
+                        onClick={() => setTarget({ kind: 'BUSINESS', id: b.id, name: b.name, status: 'SUSPENDED' })}>Suspendre</button>
+                    ) : (
+                      <button className="admin-button admin-button-small"
+                        onClick={() => setTarget({ kind: 'BUSINESS', id: b.id, name: b.name, status: 'ACTIVE' })}>Réactiver</button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -215,41 +144,19 @@ export default function CommerceBusinessesPage() {
       )}
 
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-          <button
-            disabled={page === 0}
-            onClick={() => setPage((p) => p - 1)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: '1px solid var(--admin-border)',
-              backgroundColor: 'var(--admin-surface)',
-              color: 'var(--admin-text)',
-              cursor: page === 0 ? 'not-allowed' : 'pointer',
-              opacity: page === 0 ? 0.5 : 1
-            }}
-          >
-            {t('common.previous') || 'Previous'}
-          </button>
-          <span style={{ padding: '6px 12px', color: 'var(--admin-text-muted)', fontSize: 13 }}>
-            {page + 1} / {totalPages}
-          </span>
-          <button
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage((p) => p + 1)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: '1px solid var(--admin-border)',
-              backgroundColor: 'var(--admin-surface)',
-              color: 'var(--admin-text)',
-              cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
-              opacity: page >= totalPages - 1 ? 0.5 : 1
-            }}
-          >
-            {t('common.next') || 'Next'}
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16 }}>
+          <button className="admin-button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Précédent</button>
+          <span style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>Page {page + 1} / {totalPages}</span>
+          <button className="admin-button" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Suivant</button>
         </div>
+      )}
+
+      {target && (
+        <EntityStatusDialog
+          target={target}
+          onClose={() => setTarget(null)}
+          onDone={(message) => { setTarget(null); setNotice(message); void fetchData() }}
+        />
       )}
     </div>
   )

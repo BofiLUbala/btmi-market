@@ -13,6 +13,8 @@ import {
   type AdminSessionItem,
   type AppVersionItem,
   type WorkerJobItem,
+  type BackupSummary,
+  type VisualSearchHealth,
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
@@ -83,9 +85,9 @@ function DataTable({ columns, rows }: { columns: string[]; rows: (string | React
   )
 }
 
-type TechnicalFeature = 'overview' | 'health' | 'database' | 'redis' | 'workers' | 'failed-jobs' | 'email' | 'security' | 'sessions' | 'migrations' | 'versions'
+type TechnicalFeature = 'overview' | 'health' | 'database' | 'redis' | 'workers' | 'failed-jobs' | 'email' | 'security' | 'sessions' | 'migrations' | 'versions' | 'backups' | 'visual-search'
 
-const FEATURES: TechnicalFeature[] = ['overview', 'health', 'database', 'redis', 'workers', 'failed-jobs', 'email', 'security', 'sessions', 'migrations', 'versions']
+const FEATURES: TechnicalFeature[] = ['overview', 'health', 'database', 'redis', 'workers', 'failed-jobs', 'email', 'security', 'sessions', 'migrations', 'versions', 'backups', 'visual-search']
 
 const FEATURE_TITLE_KEY: Record<TechnicalFeature, string> = {
   overview: 'admin.layout.itemOverview',
@@ -98,6 +100,8 @@ const FEATURE_TITLE_KEY: Record<TechnicalFeature, string> = {
   security: 'admin.layout.itemSecurityEvents',
   sessions: 'admin.layout.itemSessions',
   migrations: 'admin.layout.itemMigrations',
+  backups: 'admin.layout.itemBackups',
+  'visual-search': 'admin.layout.itemVisualSearch',
   versions: 'admin.layout.itemAppVersions'
 }
 
@@ -116,6 +120,11 @@ export default function TechnicalDashboardPage() {
   const [sessions, setSessions] = useState<AdminSessionItem[]>([])
   const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>([])
   const [versions, setVersions] = useState<AppVersionItem[]>([])
+  const [backups, setBackups] = useState<BackupSummary | null>(null)
+  const [visualSearch, setVisualSearch] = useState<VisualSearchHealth | null>(null)
+  const [backupReason, setBackupReason] = useState('')
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupMessage, setBackupMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [loading, setLoading] = useState(true)
   // Feature = route. The old Overview tab bundled four unrelated panels; each
   // is now its own sidebar entry, addressable and refresh-safe.
@@ -139,7 +148,7 @@ export default function TechnicalDashboardPage() {
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [kpisRes, healthRes, dbRes, redisRes, workersRes, failedRes, emailRes, migrRes, sessRes, secRes, versRes] = await Promise.allSettled([
+      const [kpisRes, healthRes, dbRes, redisRes, workersRes, failedRes, emailRes, migrRes, sessRes, secRes, versRes, backupRes, vsRes] = await Promise.allSettled([
         adminTechnicalApi.getOverview(),
         adminTechnicalApi.getSystemHealth(),
         adminTechnicalApi.getPostgresHealth(),
@@ -151,6 +160,8 @@ export default function TechnicalDashboardPage() {
         adminTechnicalApi.getAdminSessions(),
         adminTechnicalApi.getSecurityEvents({ limit: 20 }),
         adminTechnicalApi.getAppVersions(),
+        adminTechnicalApi.getBackupSummary(),
+        adminTechnicalApi.getVisualSearchHealth(),
       ])
       if (kpisRes.status === 'fulfilled') setKpis(kpisRes.value)
       if (healthRes.status === 'fulfilled') setHealth(healthRes.value)
@@ -163,6 +174,8 @@ export default function TechnicalDashboardPage() {
       if (sessRes.status === 'fulfilled') setSessions(sessRes.value.sessions ?? [])
       if (secRes.status === 'fulfilled') setSecurityEvents(secRes.value.events ?? [])
       if (versRes.status === 'fulfilled') setVersions(versRes.value.versions ?? [])
+      if (backupRes.status === 'fulfilled') setBackups(backupRes.value)
+      if (vsRes.status === 'fulfilled') setVisualSearch(vsRes.value)
     } finally {
       if (!silent) setLoading(false)
     }
@@ -326,6 +339,50 @@ export default function TechnicalDashboardPage() {
           </SectionCard>
         )}
         </>
+      )}
+
+      {/* ── BACKUPS ──────────────────────────────────────────────────── */}
+      {activeTab === 'backups' && (
+        <SectionCard title="Sauvegardes de la base" icon="💾" onRefresh={() => void loadAll(true)}>
+          {backups ? (
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 14, fontSize: 13, color: '#94a3b8' }}>
+              <div>Statut <StatusBadge status={backups.backup_status} /></div>
+              <div>Dernière réussie <strong style={{ color: '#f1f5f9' }}>{backups.last_successful_backup ? new Date(backups.last_successful_backup).toLocaleString() : 'jamais'}</strong></div>
+              <div>Taille <strong style={{ color: '#f1f5f9' }}>{backups.backup_size_formatted || '—'}</strong></div>
+              <div>Prochaine prévue <strong style={{ color: '#f1f5f9' }}>{backups.next_scheduled_backup ? new Date(backups.next_scheduled_backup).toLocaleString() : '—'}</strong></div>
+              <div>Rétention <strong style={{ color: '#f1f5f9' }}>{backups.retention_policy}</strong></div>
+            </div>
+          ) : <p style={{ color: '#94a3b8' }}>Résumé indisponible.</p>}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input aria-label="Motif de la sauvegarde" placeholder="Motif (journalisé, 5 caractères min.)" value={backupReason} onChange={(e) => setBackupReason(e.target.value)}
+              style={{ flex: '1 1 260px', padding: 8, background: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: 6 }} />
+            <button className="admin-button admin-button-primary" disabled={backupBusy || backupReason.trim().length < 5} onClick={async () => {
+              setBackupBusy(true); setBackupMessage(null)
+              try {
+                setBackups(await adminTechnicalApi.createBackup(backupReason.trim()))
+                setBackupReason('')
+                setBackupMessage({ ok: true, text: 'Sauvegarde créée.' })
+              } catch (err: any) {
+                setBackupMessage({ ok: false, text: err?.message || 'Échec de la sauvegarde' })
+              } finally { setBackupBusy(false) }
+            }}>{backupBusy ? 'Sauvegarde…' : 'Lancer une sauvegarde'}</button>
+          </div>
+          {backupMessage && <p role="status" style={{ color: backupMessage.ok ? '#4ade80' : '#f87171', fontSize: 13 }}>{backupMessage.text}</p>}
+        </SectionCard>
+      )}
+
+      {/* ── VISUAL SEARCH ────────────────────────────────────────────── */}
+      {activeTab === 'visual-search' && (
+        <SectionCard title="Recherche visuelle" icon="🖼️" onRefresh={() => void loadAll(true)}>
+          {visualSearch ? (
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13, color: '#94a3b8' }}>
+              <div>Service <strong style={{ color: '#f1f5f9' }}>{visualSearch.service_name}</strong></div>
+              <div>Statut <StatusBadge status={visualSearch.status} /></div>
+              <div>Joignable <strong style={{ color: visualSearch.reachable ? '#4ade80' : '#f87171' }}>{visualSearch.reachable ? 'oui' : 'non'}</strong></div>
+              <div>Latence <strong style={{ color: '#f1f5f9' }}>{visualSearch.latency_ms} ms</strong></div>
+            </div>
+          ) : <p style={{ color: '#94a3b8' }}>Santé indisponible.</p>}
+        </SectionCard>
       )}
 
       {/* ── EMAIL HEALTH ─────────────────────────────────────────────── */}

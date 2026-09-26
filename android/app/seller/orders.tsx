@@ -1,338 +1,376 @@
-import { useMemo, useState } from 'react'
-import { cancelStageText, expectedDeliveryText } from '../../src/lib/deliveryPlan'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native'
-import { Image } from 'expo-image'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocalSearchParams } from 'expo-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
-import { API_URL, ApiError } from '../../src/api/client'
-import { tokenStore } from '../../src/api/tokenStore'
-import { Button, Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
+import { ApiError } from '../../src/api/client'
+import { Button, Loading } from '../../src/components/ui'
+import { DeliveryPlanCard } from '../../src/components/DeliveryPlanCard'
+import { OrderItemQRSection, QRPanel } from '../../src/components/OrderItemQRSection'
+import { useAuth } from '../../src/store/auth'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
-import type { BuyerPayment, SellerOrder } from '../../src/types'
-import { statusLabel } from '../../src/lib/statusLabels'
-import { deliveryLabel } from '../../src/lib/deliveryLabels'
+import type { OrderLine, SellerOrder } from '../../src/types'
+import { expectedDeliveryText } from '../../src/lib/deliveryPlan'
+import { confirmationActorKey, isPaymentPaid, paymentStatusKey } from '../../src/lib/paymentStatus'
 import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
-import { lineLabel } from '../../src/lib/lineLabel'
+
+// Port of web-app/src/pages/seller/orders/SellerOrdersPage.tsx. Same data flow:
+// the active business (not the first one), an "all shops" / single-shop
+// filter, orders grouped by shop with a per-shop total, 30 s polling while an
+// order is still active, the live bar, the same seller actions and the same
+// expanded detail (delivery box, delivery plan, lines with their ORDER_ITEM QR,
+// payment box, package QR). `?orderId=` opens that order, as on web. Each web
+// table row is rendered as a card at phone width.
 
 const POLL_INTERVAL = 30_000
-const TERMINAL_STATUSES = ['COMPLETED', 'CANCELLED', 'REJECTED']
-const isTerminal = (status?: string) => !!status && TERMINAL_STATUSES.includes(status)
+const ACTIVE_STATUSES_DONE = ['COMPLETED', 'CANCELLED', 'REJECTED']
+const PACKAGE_QR_STATUSES = ['READY', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+type Translate = ReturnType<typeof useI18n>['t']
 
-/**
- * An order always renders in the currency it was sold in. Orders placed before
- * the platform moved to USD keep their own code, so a shop total is only shown
- * as one figure when every order under it agrees; otherwise each card speaks
- * for itself rather than adding CDF to USD.
- */
+function timeAgo(date: Date, t: Translate): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 5) return t('time.justNow')
+  if (seconds < 60) return t('time.secondsAgo', { count: seconds })
+  return t('time.minutesAgo', { count: Math.floor(seconds / 60) })
+}
+
 function sharedCurrency(orders: SellerOrder[]): string | null {
   const codes = new Set(orders.map((order) => order.currency || DEFAULT_CURRENCY))
   return codes.size === 1 ? [...codes][0] : null
 }
 
-interface SellerAction { label: TranslationKey; status: string; kind?: 'accept' | 'reject' | 'prepare' | 'transition' | 'cancel'; destructive?: boolean }
+type SellerAction = { label: string; status?: string; action?: 'accept' | 'reject' | 'prepare' }
 
-function nextActions(order: SellerOrder): SellerAction[] {
-  if (order.status === 'PENDING') return [{ label: 'seller.accept', status: 'ACCEPTED', kind: 'accept' }, { label: 'seller.reject', status: 'REJECTED', kind: 'reject', destructive: true }]
-  if (order.status === 'ACCEPTED') return [{ label: 'seller.startPreparation', status: 'PREPARING', kind: 'prepare' }]
+function nextActions(order: SellerOrder, t: Translate): SellerAction[] {
+  if (order.status === 'PENDING') return [{ label: t('seller.orders.accept'), action: 'accept' }, { label: t('seller.orders.reject'), action: 'reject' }]
+  if (order.status === 'ACCEPTED') return [{ label: t('seller.orders.startPreparing'), action: 'prepare' }]
   if (order.status === 'PREPARING') {
     return order.delivery_method === 'PICKUP'
-      ? [{ label: 'seller.readyForPickup', status: 'READY_FOR_PICKUP' }]
-      : [{ label: 'seller.readyForTbkPickup', status: 'READY' }]
+      ? [{ label: t('seller.orders.readyForPickup'), status: 'READY_FOR_PICKUP' }]
+      : [{ label: t('seller.orders.markReady'), status: 'READY' }]
   }
-  if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: 'seller.ship', status: 'OUT_FOR_DELIVERY' }]
-  if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: 'seller.handToCourier', status: 'HANDED_TO_PARTNER' }]
-  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: 'seller.markDelivered', status: 'DELIVERED' }]
+  if (order.status === 'READY' && order.delivery_method === 'SHOP_DELIVERY') return [{ label: t('seller.orders.dispatchOrder'), status: 'OUT_FOR_DELIVERY' }]
+  if (order.status === 'READY' && order.delivery_method === 'PARTNER') return [{ label: t('seller.orders.handToPartner'), status: 'HANDED_TO_PARTNER' }]
+  if (order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER') return [{ label: t('seller.orders.markDelivered'), status: 'DELIVERED' }]
   return []
 }
 
-/** Statuses in which the package label exists and the courier may still need it. */
-const PACKAGE_QR_STATUSES = ['READY', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
-/** The seller-cancel endpoint only accepts these; offering it later just fails. */
-const CANCELLABLE = ['PENDING', 'ACCEPTED']
-const SETTLED = ['PAID', 'VERIFIED']
-const METHOD_KEYS: Record<string, TranslationKey> = {
-  CASH_ON_DELIVERY: 'seller.method.CASH_ON_DELIVERY',
-  MOBILE_PAY_NOW: 'seller.method.MOBILE_PAY_NOW',
-  MOBILE_AT_DELIVERY: 'seller.method.MOBILE_AT_DELIVERY',
-}
-const PROVIDER_LABELS: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 'Airtel Money', ORANGE_MONEY: 'Orange Money' }
-
-type Translate = ReturnType<typeof useI18n>['t']
-function deliveryStatusLabel(t: Translate, status?: string): string {
-  if (!status) return '—'
-  const key = `delivery.status.${status}` as TranslationKey
-  const label = t(key)
-  return label === key ? status.replaceAll('_', ' ') : label
+function orderStatusLabel(status: string, t: Translate): string {
+  const key = `status.${status}`
+  const value = t(key as TranslationKey)
+  return value === key ? status : value
 }
 
-/** Who settles this payment and whether they already have - never a guess from the method name alone. */
-function paymentNote(t: Translate, payment: BuyerPayment): string {
-  if (SETTLED.includes(payment.status)) {
-    return payment.confirmation_actor === 'COURIER' ? t('seller.paidByCourier') : t('seller.paidByProvider')
+/** web getStatusColor → badge-success / warning / info / primary / danger / muted */
+function statusTint(status: string, c: Colors) {
+  switch (status) {
+    case 'COMPLETED': return { bg: c.successSoft, fg: c.success }
+    case 'PENDING': return { bg: c.warningSoft, fg: c.warning }
+    case 'ACCEPTED': case 'PREPARING': case 'READY': return { bg: c.infoSoft, fg: c.info }
+    case 'OUT_FOR_DELIVERY': case 'DELIVERED': return { bg: c.greenSoft, fg: c.green }
+    case 'CANCELLED': case 'REJECTED': return { bg: c.dangerSoft, fg: c.danger }
+    default: return { bg: c.surface2, fg: c.muted }
   }
-  return payment.payment_method === 'CASH_ON_DELIVERY' ? t('seller.awaitingCourierCash') : t('seller.awaitingProvider')
 }
 
 export default function SellerOrders() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
   const queryClient = useQueryClient()
-  const [shopId, setShopId] = useState('ALL')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const params = useLocalSearchParams<{ orderId?: string }>()
+  const activeBusiness = useAuth((s) => s.activeBusiness)
+  const [shopFilter, setShopFilter] = useState('ALL')
+  const [expandedId, setExpandedId] = useState<string | null>(typeof params.orderId === 'string' ? params.orderId : null)
   const [actionError, setActionError] = useState('')
-  const businesses = useQuery({ queryKey: ['seller', 'businesses'], queryFn: sellerApi.businesses })
-  const business = businesses.data?.[0]
-  const shops = useQuery({
-    queryKey: ['seller', 'shops', business?.id],
-    queryFn: () => sellerApi.shops(business!.id),
-    enabled: Boolean(business),
-  })
+  const [actingId, setActingId] = useState<string | null>(null)
+  const [, setTick] = useState(0)
+
+  useEffect(() => { if (typeof params.orderId === 'string') setExpandedId(params.orderId) }, [params.orderId])
+  useEffect(() => { setShopFilter('ALL') }, [activeBusiness?.id])
+  useEffect(() => { const id = setInterval(() => setTick((n) => n + 1), 10_000); return () => clearInterval(id) }, [])
+
+  const shops = useQuery({ queryKey: ['seller', 'shops', activeBusiness?.id], queryFn: () => sellerApi.shops(activeBusiness!.id), enabled: Boolean(activeBusiness) })
   const orders = useQuery({
-    queryKey: ['seller', 'orders', business?.id, shopId],
-    queryFn: () => shopId === 'ALL' ? sellerApi.businessOrders(business!.id) : sellerApi.shopOrders(shopId),
-    enabled: Boolean(business),
-    refetchInterval: (query) => {
-      const data = query.state.data
-      if (!data?.some((order) => !isTerminal(order.status))) return false
-      return POLL_INTERVAL
-    },
+    queryKey: ['seller', 'orders', activeBusiness?.id, shopFilter],
+    queryFn: () => shopFilter === 'ALL' ? sellerApi.businessOrders(activeBusiness!.id) : sellerApi.shopOrders(shopFilter),
+    enabled: Boolean(activeBusiness),
+    // web: polls every 30 s only while at least one order is still active
+    refetchInterval: (query) => (query.state.data?.some((o) => !ACTIVE_STATUSES_DONE.includes(o.status)) ? POLL_INTERVAL : false),
   })
 
-  // An action changes the list, the expanded detail, the payment card, the package
-  // label and the dashboard counters, so all of them refetch from the backend.
-  const invalidateOrders = (id?: string) => {
-    for (const key of ['orders', 'cashSummary', 'growth']) void queryClient.invalidateQueries({ queryKey: ['seller', key] })
-    if (id) for (const key of ['orderDetail', 'payment', 'packageQR']) void queryClient.invalidateQueries({ queryKey: ['seller', key, id] })
-  }
-
-  const transition = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: SellerAction }) => {
-      if (action.kind === 'accept') return sellerApi.acceptOrder(id)
-      if (action.kind === 'reject') return sellerApi.rejectOrder(id)
-      if (action.kind === 'prepare') return sellerApi.prepareOrder(id)
-      return sellerApi.sellerTransition(id, action.status)
-    },
-    onSuccess: (_data, variables) => invalidateOrders(variables.id),
-    onError: (e) => { setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')); invalidateOrders() },
-  })
-
-  const cancel = useMutation({
-    mutationFn: (id: string) => sellerApi.cancelOrder(id),
-    onSuccess: (_data, id) => invalidateOrders(id),
-    onError: (e) => { setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')); invalidateOrders() },
-  })
-
-  const groups = useMemo(() => {
-    const names = new Map((shops.data ?? []).map((shop) => [shop.id, shop.name]))
+  const shopNames = useMemo(() => new Map((shops.data ?? []).map((shop) => [shop.id, shop.name])), [shops.data])
+  const visibleOrders = orders.data ?? []
+  const orderGroups = useMemo(() => {
     const grouped = new Map<string, SellerOrder[]>()
-    for (const order of orders.data ?? []) grouped.set(order.shop_id, [...(grouped.get(order.shop_id) ?? []), order])
-    return [...grouped.entries()].map(([id, shopOrders]) => ({
-      id,
-      name: names.get(id) ?? t('seller.unknownShop'),
+    for (const order of visibleOrders) grouped.set(order.shop_id, [...(grouped.get(order.shop_id) ?? []), order])
+    return [...grouped.entries()].map(([shopId, shopOrders]) => ({
+      shopId,
+      shopName: shopNames.get(shopId) ?? t('seller.orders.unknownShop'),
       orders: shopOrders,
       total: shopOrders.reduce((sum, order) => sum + (order.final_total || 0), 0),
       currency: sharedCurrency(shopOrders),
-    })).sort((a, b) => a.name.localeCompare(b.name))
-  }, [orders.data, shops.data, t])
+    })).sort((a, b) => a.shopName.localeCompare(b.shopName))
+  }, [visibleOrders, shopNames, t])
 
-  const runAction = (order: SellerOrder, action: SellerAction) => {
+  const refreshAfterAction = useCallback(async (orderId: string) => {
+    await queryClient.invalidateQueries({ queryKey: ['seller', 'orders'] })
+    for (const key of ['orderDetail', 'payment', 'packageQR']) void queryClient.invalidateQueries({ queryKey: ['seller', key, orderId] })
+  }, [queryClient])
+
+  async function runAction(order: SellerOrder, fn: () => Promise<unknown>) {
+    setActingId(order.id)
     setActionError('')
-    if (action.kind === 'reject') {
-      Alert.alert(t('seller.rejectConfirmTitle'), t('seller.rejectConfirmBody'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('seller.reject'), style: 'destructive', onPress: () => transition.mutate({ id: order.id, action }) },
-      ])
-      return
+    try {
+      await fn()
+      await refreshAfterAction(order.id)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('seller.orders.actionFailed'))
+    } finally {
+      setActingId(null)
     }
-    transition.mutate({ id: order.id, action })
-  }
-  const runCancel = (order: SellerOrder) => {
-    setActionError('')
-    Alert.alert(t('seller.cancelConfirmTitle'), t('seller.cancelConfirmBody'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('seller.cancelOrder'), style: 'destructive', onPress: () => cancel.mutate(order.id) },
-    ])
   }
 
-  if (businesses.isLoading || shops.isLoading) return <Loading label={t('seller.loadingBusinesses')}/>
-  if (businesses.isError || shops.isError) return <ErrorState message={t('seller.loadFailed')} retry={() => { void businesses.refetch(); void shops.refetch() }}/>
-  if (!business) return <View style={styles.empty}><Text style={styles.title}>{t('seller.noBusiness')}</Text><Text style={styles.muted}>{t('seller.noBusinessBody')}</Text></View>
+  if (!activeBusiness) return <View style={styles.empty}>
+    <Text style={styles.emptyIcon}>🧾</Text>
+    <Text style={styles.emptyTitle}>{t('seller.noBusinessSelected')}</Text>
+    <Text style={[styles.muted, styles.centerText]}>{t('seller.orders.noBusinessSubtitle')}</Text>
+  </View>
+
+  const lastUpdated = orders.dataUpdatedAt ? new Date(orders.dataUpdatedAt) : null
+  const count = visibleOrders.length
 
   return <ScrollView
     contentContainerStyle={styles.page}
-    refreshControl={<RefreshControl refreshing={orders.isRefetching} onRefresh={() => void orders.refetch()} tintColor={colors.green}/>}
+    refreshControl={<RefreshControl refreshing={orders.isRefetching} onRefresh={() => void orders.refetch()} tintColor={colors.green} />}
   >
-    <SectionTitle title={t('seller.orders')}/>
-    <Text style={styles.muted}>{t('seller.liveStatusNote')}</Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-      <ShopFilter label={t('seller.allShops')} selected={shopId === 'ALL'} onPress={() => setShopId('ALL')}/>
-      {(shops.data ?? []).map((shop) => <ShopFilter key={shop.id} label={shop.name} selected={shopId === shop.id} onPress={() => setShopId(shop.id)}/>) }
-    </ScrollView>
-    {actionError ? <Card><Text style={styles.error}>{actionError}</Text></Card> : null}
-    {orders.isLoading ? <Loading label={t('orders.loading')}/> : orders.isError ? <ErrorState message={t('orders.loadFailed')} retry={() => void orders.refetch()}/> : !groups.length ? <Card><Text style={styles.emptyText}>{t('seller.noOrdersFilter')}</Text></Card> : groups.map((group) => <View key={group.id} style={styles.group}>
-      <View style={styles.groupHeader}>
-        <View><Text style={styles.shop}>{group.name}</Text><Text style={styles.muted}>{t('orders.orderCount', { count: group.orders.length })}</Text></View>
-        <Text style={styles.groupTotal}>{group.currency ? formatMoney(group.total, group.currency) : '—'}</Text>
+    <Text style={styles.h1}>{t('seller.orders')}</Text>
+
+    {/* Live sync bar */}
+    <View style={styles.liveBar}>
+      <View style={styles.liveLabel}><View style={styles.liveDot} /><Text style={styles.liveText}>{t('orders.live')}</Text></View>
+      <Text style={[styles.small, styles.flex1]}>{lastUpdated ? t('orders.updated', { time: timeAgo(lastUpdated, t) }) : t('orders.loading')}</Text>
+      <Pressable accessibilityRole="button" disabled={orders.isFetching} onPress={() => void orders.refetch()} style={styles.refreshBtn}>
+        <Text style={styles.refreshText}>{orders.isFetching ? '⟳' : t('orders.refresh')}</Text>
+      </Pressable>
+    </View>
+
+    <View style={styles.filters}>
+      <View>
+        <Text style={styles.bold}>{count === 1 ? t('seller.orders.count', { count }) : t('seller.orders.count_plural', { count })}</Text>
+        <Text style={styles.small}>{shopFilter === 'ALL'
+          ? (orderGroups.length === 1 ? t('seller.orders.classifiedAcross', { count: orderGroups.length }) : t('seller.orders.classifiedAcross_plural', { count: orderGroups.length }))
+          : t('seller.orders.forShop', { shop: shopNames.get(shopFilter) ?? t('seller.orders.selectedShop') })}</Text>
       </View>
-      {group.orders.map((order) => <OrderCard
-        key={order.id}
-        order={order}
-        expanded={expandedId === order.id}
-        busy={transition.isPending && transition.variables?.id === order.id}
-        cancelBusy={cancel.isPending && cancel.variables === order.id}
-        canCancel={CANCELLABLE.includes(order.status)}
-        onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
-        onAction={(action) => runAction(order, action)}
-        onCancel={() => runCancel(order)}
-      />)}
-    </View>)}
+      <Text style={styles.small}>{t('orders.shop')}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <Chip label={t('seller.allShops')} selected={shopFilter === 'ALL'} onPress={() => setShopFilter('ALL')} styles={styles} />
+        {(shops.data ?? []).map((shop) => <Chip key={shop.id} label={shop.name} selected={shopFilter === shop.id} onPress={() => setShopFilter(shop.id)} styles={styles} />)}
+      </ScrollView>
+    </View>
+
+    {orders.isLoading ? <Loading label={t('seller.orders.loading')} />
+      : orders.isError ? <View style={styles.errorBox}>
+        <Text style={styles.errorText}>{t('seller.orders.unableToLoad', { error: orders.error instanceof ApiError || orders.error instanceof Error ? orders.error.message : '' })}</Text>
+        <Pressable accessibilityRole="button" onPress={() => void orders.refetch()}><Text style={styles.retryText}>{t('common.retry')}</Text></Pressable>
+      </View>
+      : count === 0 ? <View style={styles.card}>
+        <View style={styles.emptyInline}>
+          <Text style={{ fontSize: 48 }}>🧾</Text>
+          <Text style={styles.h3}>{shopFilter === 'ALL' ? t('seller.orders.emptyTitle') : t('seller.orders.emptyShopTitle')}</Text>
+          <Text style={[styles.muted, styles.centerText]}>{shopFilter === 'ALL' ? t('seller.orders.emptyDesc') : t('seller.orders.emptyShopDesc')}</Text>
+        </View>
+      </View>
+      : <>
+        {actionError ? <View style={styles.errorBox}><Text style={styles.errorText}>{actionError}</Text></View> : null}
+        {orderGroups.map((group) => <View key={group.shopId} style={styles.group}>
+          <View style={styles.groupHeader}>
+            <Text style={[styles.flex1, styles.text]}><Text style={styles.bold}>{group.shopName}</Text><Text style={styles.muted}> · {group.orders.length === 1 ? t('seller.orders.count', { count: group.orders.length }) : t('seller.orders.count_plural', { count: group.orders.length })}</Text></Text>
+            <Text style={styles.bold}>{group.currency ? formatMoney(group.total, group.currency) : '—'}</Text>
+          </View>
+          {group.orders.map((order) => <OrderRow
+            key={order.id}
+            order={order}
+            expanded={expandedId === order.id}
+            acting={actingId === order.id}
+            businessName={activeBusiness.name}
+            onToggle={() => { setActionError(''); setExpandedId(expandedId === order.id ? null : order.id) }}
+            onAction={(a) => void runAction(order, () => {
+              if (a.action === 'accept') return sellerApi.acceptOrder(order.id)
+              if (a.action === 'reject') return sellerApi.rejectOrder(order.id)
+              if (a.action === 'prepare') return sellerApi.prepareOrder(order.id)
+              return sellerApi.sellerTransition(order.id, a.status!)
+            })}
+            onConfirmReturn={() => Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('deliveryPlan.confirmReturn'), onPress: () => void runAction(order, () => sellerApi.confirmReturn(order.id)) },
+            ])}
+            styles={styles}
+          />)}
+        </View>)}
+      </>}
   </ScrollView>
 }
 
-function OrderCard({ order, expanded, busy, cancelBusy, canCancel, onToggle, onAction, onCancel }: { order: SellerOrder; expanded: boolean; busy: boolean; cancelBusy: boolean; canCancel: boolean; onToggle: () => void; onAction: (action: SellerAction) => void; onCancel: () => void }) {
+type S = ReturnType<typeof makeStyles>
+
+function Chip({ label, selected, onPress, styles }: { label: string; selected: boolean; onPress: () => void; styles: S }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipActive]}><Text style={[styles.chipText, selected && styles.chipTextActive]}>{label}</Text></Pressable>
+}
+
+function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, onConfirmReturn, styles }: {
+  order: SellerOrder; expanded: boolean; acting: boolean; businessName: string
+  onToggle: () => void; onAction: (a: SellerAction) => void; onConfirmReturn: () => void; styles: S
+}) {
   const { t, lang } = useI18n()
   const colors = useColors()
-  const styles = useMemo(() => makeStyles(colors), [colors])
-  const actions = nextActions(order)
-  const orderCurrency = order.currency || DEFAULT_CURRENCY
+  const actions = nextActions(order, t)
+  const currency = order.currency || DEFAULT_CURRENCY
+  const displayStatus = order.delivery_status || order.status
+  const tint = statusTint(displayStatus, colors)
+  const detail = useQuery({ queryKey: ['seller', 'orderDetail', order.id], queryFn: () => sellerApi.order(order.id), enabled: expanded, retry: false })
   const payment = useQuery({
-    queryKey: ['seller','payment',order.id],
-    queryFn: () => sellerApi.getOrderPayment(order.id),
+    queryKey: ['seller', 'payment', order.id],
+    queryFn: () => sellerApi.getOrderPayment(order.id).catch((err) => { if (err instanceof Error && /PAYMENT_NOT_FOUND/i.test(`${(err as ApiError).code ?? ''} ${err.message}`)) return null; throw err }),
     enabled: expanded,
     retry: false,
   })
-  // The list endpoint carries only the summary, so the lines, the buyer and the
-  // delivery address are fetched on demand - the same detail the web dashboard
-  // shows, rather than a thinner mobile-only view.
-  const detail = useQuery({
-    queryKey: ['seller','orderDetail',order.id],
-    queryFn: () => sellerApi.order(order.id),
-    enabled: expanded,
-    retry: false,
-  })
-  // The courier scans this label at pickup. It was only shown on the web
-  // dashboard, so a seller working from the phone had nothing to present.
   const showPackageQR = expanded && PACKAGE_QR_STATUSES.includes(order.status)
-  const packageQR = useQuery({
-    queryKey: ['seller','packageQR',order.id],
-    queryFn: () => sellerApi.packageQR(order.id),
-    enabled: showPackageQR,
-    retry: false,
-  })
-  const accessToken = useQuery({ queryKey: ['auth','accessToken'], queryFn: () => tokenStore.getAccess(), enabled: showPackageQR, staleTime: 60_000 })
-  const queryClient = useQueryClient()
-  const confirmReturn = useMutation({
-    mutationFn: () => sellerApi.confirmReturn(order.id),
-    onSettled: () => { void queryClient.invalidateQueries({ queryKey: ['seller'] }) },
-    onError: (e) => Alert.alert(t('deliveryPlan.confirmReturnFailed'), e instanceof Error ? e.message : ''),
-  })
-  const planned = !['CANCELLED', 'COMPLETED'].includes(order.status) ? expectedDeliveryText(order, t, lang) : null
-  const stage = cancelStageText(order, t)
-  return <Card>
-    <View style={styles.row}><Text style={styles.number}>{order.order_number || `#${order.id.slice(0, 8)}`}</Text><Text style={[styles.status, isTerminal(order.status) && styles.statusDone]}>{statusLabel(t, order.status)}</Text></View>
-    <View style={styles.row}><Text style={styles.muted}>{t('orders.itemCount', { count: order.total_items })} · {order.delivery_method ? deliveryLabel(t, order.delivery_method) : '—'}</Text><Text style={styles.total}>{formatMoney(order.final_total, order.currency)}</Text></View>
-    {order.delivery_status ? <Text style={styles.muted}>{t('seller.deliveryStatus')} : {deliveryStatusLabel(t, order.delivery_status)}</Text> : null}
-    {planned ? <Text style={styles.detailHeading}>📅 {planned}</Text> : null}
-    {stage ? <Text style={styles.muted}>{stage}</Text> : null}
-    {order.delivery_status === 'RETURNING_TO_SELLER' ? (
-      <Button
-        title={t('deliveryPlan.confirmReturn')}
-        loading={confirmReturn.isPending}
-        style={styles.actionButton}
-        onPress={() => Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          { text: t('deliveryPlan.confirmReturn'), onPress: () => confirmReturn.mutate() },
-        ])}
-      />
-    ) : null}
-    <Text style={styles.date}>{new Date(order.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')}</Text>
-    {actions.length ? actions.map((action) => (
-      <Button key={action.status} variant={action.destructive ? 'outline' : 'primary'} title={t(action.label)} loading={busy} style={styles.actionButton} onPress={() => onAction(action)}/>
-    )) : null}
-    <Button variant="outline" title={expanded ? t('seller.hideDetails') : t('seller.viewDetails')} onPress={onToggle}/>
-    {canCancel && <Button variant="outline" title={t('seller.cancelOrder')} loading={cancelBusy} onPress={onCancel}/>}
+  const packageQR = useQuery({ queryKey: ['seller', 'packageQR', order.id], queryFn: () => sellerApi.packageQR(order.id), enabled: showPackageQR, retry: false })
+  const orderNumber = order.order_number || order.id.slice(0, 8)
+  const d = detail.data?.order
+  const p = payment.data
+
+  return <View style={styles.card}>
+    <View style={styles.rowBetween}>
+      <Text style={styles.bold}>{orderNumber}</Text>
+      <Text style={styles.small}>{new Date(order.created_at).toLocaleDateString()}</Text>
+    </View>
+    <View style={styles.rowBetween}>
+      <Text style={[styles.badge, { backgroundColor: tint.bg, color: tint.fg }]}>{orderStatusLabel(displayStatus, t)}</Text>
+      <Text style={styles.bold}>{formatMoney(order.final_total || 0, currency)}</Text>
+    </View>
+    {order.expected_delivery_date && !['CANCELLED', 'COMPLETED'].includes(order.status) ? <Text style={styles.small}>📅 {expectedDeliveryText(order, t, lang)}</Text> : null}
+
+    <View style={styles.actions}>
+      {actions.map((a) => <Button key={a.label} dense variant="outline" title={a.label} disabled={acting} onPress={() => onAction(a)} />)}
+      {order.delivery_status === 'RETURNING_TO_SELLER' ? <Button dense title={t('deliveryPlan.confirmReturn')} disabled={acting} onPress={onConfirmReturn} /> : null}
+      <Button dense variant="outline" title={expanded ? t('seller.orders.hide') : t('common.view')} onPress={onToggle} />
+    </View>
+
     {expanded && <View style={styles.details}>
-      {detail.data ? <>
-        <Text style={styles.detailHeading}>{t('seller.products')}</Text>
-        {detail.data.lines.map((line) => (
-          <Text key={line.id} style={styles.muted}>
-            {lineLabel(line.product_name, line.variant_name)}
-            {' · '}{t('orders.itemCount', { count: line.quantity })}
-            {' · '}{formatMoney(line.final_unit_price ?? line.unit_price ?? 0, orderCurrency)}
-            {' = '}{formatMoney((line.final_unit_price ?? line.unit_price ?? 0) * line.quantity, orderCurrency)}
-          </Text>
-        ))}
-        <Text style={styles.detailHeading}>{t('checkout.delivery')}</Text>
-        <Text style={styles.muted}>{t('seller.deliveryStatus')} : {deliveryStatusLabel(t, detail.data.order.delivery_status || order.delivery_status || 'PENDING_TBK_ASSIGNMENT')}</Text>
-        <Text style={styles.muted}>{detail.data.order.delivery_contact_name || '—'}{detail.data.order.delivery_phone ? ` · ${detail.data.order.delivery_phone}` : ''}</Text>
-        <Text style={styles.muted}>{detail.data.order.delivery_address || '—'}</Text>
-        {detail.data.order.delivery_notes ? <Text style={styles.muted}>{detail.data.order.delivery_notes}</Text> : null}
-        <Text style={styles.muted}>{t('orders.deliveryFee')} : {formatMoney(detail.data.order.delivery_fee_final ?? 0, orderCurrency)}</Text>
-        <Text style={styles.detailTotal}>{t('common.total')} : {formatMoney(order.final_total, orderCurrency)}</Text>
-      </> : detail.isLoading ? <Text style={styles.muted}>{t('common.loading')}</Text> : null}
-      <Text style={styles.detailHeading}>{t('seller.paymentHeading')}</Text>
-      {payment.isLoading ? <Text style={styles.muted}>{t('seller.loadingPayment')}</Text> : payment.data ? <>
-        <Text style={styles.muted}>{t('seller.paymentMode')} : {METHOD_KEYS[payment.data.payment_method] ? t(METHOD_KEYS[payment.data.payment_method]) : payment.data.payment_method}</Text>
-        {payment.data.provider ? <Text style={styles.muted}>{t('seller.paymentOperator')} : {payment.data.provider_label || PROVIDER_LABELS[payment.data.provider] || payment.data.provider}</Text> : null}
-        <Text style={styles.muted}>{t('orders.amountDue', { amount: formatMoney(payment.data.cash_due, payment.data.currency) })}</Text>
-        <Text style={styles.muted}>{t('seller.paymentMarkup')} : {formatMoney(payment.data.payment_markup ?? 0, payment.data.currency)}</Text>
-        <Text style={styles.detailTotal}>{t('seller.paymentTotal')} : {formatMoney(payment.data.final_total, payment.data.currency)}</Text>
-        <Text style={styles.muted}>{t('seller.paymentStatus')} : {statusLabel(t, payment.data.status)}</Text>
-        {(payment.data.receipt_reference || payment.data.internal_reference) ? <Text style={styles.muted}>{t('seller.paymentReference')} : {payment.data.receipt_reference || payment.data.internal_reference}</Text> : null}
-        <Text style={styles.muted}>{paymentNote(t, payment.data)}</Text>
-      </> : <Text style={styles.muted}>{t('seller.noPayment')}</Text>}
-      {showPackageQR ? <View style={styles.qrBox}>
-        <Text style={styles.detailHeading}>{t('seller.packageQr')}</Text>
-        {packageQR.data && accessToken.data ? <>
-          <Image
-            source={{ uri: `${API_URL}/orders/${order.id}/package-qr/label`, headers: { Authorization: `Bearer ${accessToken.data}` } }}
-            style={styles.qrImage}
-            contentFit="contain"
-            accessibilityLabel={t('seller.packageQr')}
-          />
-          <Text style={styles.number}>{packageQR.data.reference} · #{packageQR.data.package_number}</Text>
-          <Text style={styles.muted}>{t('seller.packageQrHint')}</Text>
-        </> : packageQR.isLoading || accessToken.isLoading ? <Text style={styles.muted}>{t('common.loading')}</Text> : <Text style={styles.muted}>{t('seller.packageQrUnavailable')}</Text>}
+      <Text style={styles.small}><Text style={styles.strong}>{t('orders.deliveryLabel')}:</Text> {order.delivery_method || '—'}</Text>
+      <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.baseTotal')}:</Text> {formatMoney(order.base_total ?? order.final_total, currency)}</Text>
+      {order.notes ? <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.notesLabel')}:</Text> {order.notes}</Text> : null}
+      <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.shopId')}:</Text> {order.shop_id}</Text>
+      {d ? <View style={styles.box}>
+        <Text style={styles.strong}>Livraison</Text>
+        <Text style={styles.small}>Statut: <Text style={styles.strong}>{d.delivery_status || '—'}</Text></Text>
+        <Text style={styles.small}>Client: {d.delivery_contact_name || '—'} · {d.delivery_phone || '—'}</Text>
+        <Text style={styles.small}>Adresse: {d.delivery_address || '—'}</Text>
+        {d.delivery_notes ? <Text style={styles.small}>Instructions: {d.delivery_notes}</Text> : null}
+        <Text style={styles.small}>Frais: {formatMoney(d.delivery_fee_final ?? 0, d.currency || currency)}</Text>
       </View> : null}
+      {d ? <DeliveryPlanCard plan={d} status={d.status} deliveryStatus={d.delivery_status ?? undefined} deliveryMethod={d.delivery_method ?? undefined} /> : null}
+      {detail.data?.lines?.length ? <View style={styles.box}>
+        <Text style={styles.strong}>{t('cart.products')}</Text>
+        {detail.data.lines.map((line) => <SellerOrderLineQR key={line.id} line={line} orderId={order.id} orderNumber={orderNumber} shopName={businessName} currency={d?.currency || currency} styles={styles} />)}
+      </View> : <Text style={styles.small}>{t('seller.orders.loadingDetails')}</Text>}
+      <View style={styles.box}>
+        <Text style={styles.strong}>{t('seller.orders.cashPayment')}</Text>
+        {p ? <>
+          <Text style={[styles.small, styles.strong]}>{t('orders.amountDue', { amount: formatMoney(p.cash_due, p.currency || currency) })}</Text>
+          <Text style={styles.small}>Mode: <Text style={styles.strong}>{p.payment_method}</Text>{p.provider ? ` · ${p.provider}` : ''}</Text>
+          <Text style={styles.small}>Majoration: {formatMoney(p.payment_markup ?? 0, p.currency || currency)} · Total: <Text style={styles.strong}>{formatMoney(p.final_total, p.currency || currency)}</Text></Text>
+          <Text style={styles.small}>{t('common.status')}: <Text style={styles.strong}>{t(paymentStatusKey(p))}</Text></Text>
+          {isPaymentPaid(p)
+            ? <Text style={styles.small}>{confirmationActorKey(p.confirmation_actor) ? t(confirmationActorKey(p.confirmation_actor)!) : t('orders.paymentPaid')}</Text>
+            : <Text style={styles.small}>{t('seller.orders.cashAwaitingCourier')}</Text>}
+        </> : payment.isLoading ? <Text style={styles.small}>{t('common.loading')}</Text> : <Text style={styles.small}>{t('seller.orders.noPaymentCreated')}</Text>}
+      </View>
+      {showPackageQR && packageQR.data ? <QRPanel
+        qr={packageQR.data}
+        title="TBK Package QR"
+        imagePath={`/orders/${order.id}/package-qr/label`}
+        fields={[
+          { label: 'Commande', value: orderNumber },
+          { label: 'Colis', value: `#${packageQR.data.package_number}` },
+          { label: 'Boutique', value: businessName },
+        ]}
+      /> : null}
     </View>}
-  </Card>
+  </View>
 }
 
-function ShopFilter({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const colors = useColors()
-  const styles = useMemo(() => makeStyles(colors), [colors])
-  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.filter, selected && styles.filterActive]}><Text style={[styles.filterText, selected && styles.filterTextActive]}>{label}</Text></Pressable>
+/** One order line with its own ORDER_ITEM QR (web SellerOrderLineQR). */
+function SellerOrderLineQR({ line, orderId, orderNumber, shopName, currency, styles }: { line: OrderLine; orderId: string; orderNumber: string; shopName: string; currency: string; styles: S }) {
+  const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const load = useCallback(() => sellerApi.orderItemQR(orderId, line.id), [orderId, line.id])
+  const price = formatMoney(line.final_unit_price || line.unit_price || 0, currency)
+  const name = line.product_name || line.product_id || ''
+  const variant = line.variant_name || line.variant_sku || ''
+  return <View style={{ marginBottom: 6 }}>
+    <View style={styles.lineRow}>
+      <Text style={[styles.small, styles.flex1]}>{variant
+        ? t('seller.orders.lineWithVariant', { name, variant, quantity: line.quantity, price })
+        : t('seller.orders.line', { name, quantity: line.quantity, price })}</Text>
+      <Button dense variant="outline" title={open ? t('itemQr.hide') : t('itemQr.action')} onPress={() => setOpen((v) => !v)} />
+    </View>
+    {open ? <OrderItemQRSection
+      load={load}
+      imagePath={sellerApi.orderItemQRImagePath(orderId, line.id)}
+      instruction={t('itemQr.sellerInstruction')}
+      fields={[
+        { label: t('itemQr.labelOrder'), value: orderNumber },
+        { label: t('itemQr.labelProduct'), value: name },
+        { label: t('itemQr.labelVariant'), value: variant },
+        { label: t('itemQr.labelQuantity'), value: String(line.quantity) },
+        { label: t('itemQr.labelShop'), value: shopName },
+      ]}
+    /> : null}
+  </View>
 }
 
-const makeStyles = (colors: Colors) => StyleSheet.create({
-  page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  filters: { gap: spacing.sm, paddingVertical: 2 },
-  filter: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  filterActive: { backgroundColor: colors.green, borderColor: colors.green },
-  filterText: { color: colors.ink, fontWeight: '800' },
-  filterTextActive: { color: colors.white },
-  group: { gap: spacing.sm, paddingTop: spacing.sm },
-  groupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.greenSoft },
-  shop: { color: colors.ink, fontSize: 19, fontWeight: '900' },
-  groupTotal: { color: colors.green, fontWeight: '900', fontSize: 17 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  number: { color: colors.ink, fontSize: 16, fontWeight: '900' },
-  status: { color: colors.green, fontSize: 12, fontWeight: '900' },
-  statusDone: { color: colors.muted },
-  total: { color: colors.green, fontSize: 16, fontWeight: '900' },
-  date: { color: colors.muted, fontSize: 12 },
-  actionButton: { marginTop: spacing.xs },
-  details: { gap: spacing.xs, paddingTop: spacing.xs },
-  detailHeading: { color: colors.ink, fontWeight: '900', marginTop: spacing.xs },
-  detailTotal: { color: colors.ink, fontWeight: '900' },
-  qrBox: { alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  qrImage: { width: 220, height: 220, maxWidth: '100%' },
-  muted: { color: colors.muted },
-  error: { color: colors.danger },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
-  title: { color: colors.ink, fontSize: 23, fontWeight: '900' },
-  emptyText: { color: colors.muted, textAlign: 'center' },
+const makeStyles = (c: Colors) => StyleSheet.create({
+  page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
+  flex1: { flex: 1 },
+  centerText: { textAlign: 'center' },
+  h1: { fontSize: 24, fontWeight: '700', color: c.ink },
+  h3: { fontSize: 18, fontWeight: '700', color: c.ink, textAlign: 'center' },
+  text: { color: c.ink, fontSize: 14 },
+  bold: { color: c.ink, fontSize: 14, fontWeight: '700' },
+  strong: { color: c.ink, fontWeight: '700' },
+  muted: { color: c.muted, fontSize: 14 },
+  small: { color: c.muted, fontSize: 13, lineHeight: 19 },
+  liveBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
+  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.success },
+  liveText: { color: c.success, fontWeight: '700', fontSize: 13 },
+  refreshBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
+  refreshText: { color: c.ink, fontSize: 12, fontWeight: '600' },
+  filters: { gap: 8 },
+  chips: { gap: 8, paddingVertical: 2 },
+  chip: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
+  chipActive: { backgroundColor: c.green, borderColor: c.green },
+  chipText: { color: c.ink, fontWeight: '600', fontSize: 13 },
+  chipTextActive: { color: c.onGreen },
+  errorBox: { padding: 12, borderRadius: radius.sm, backgroundColor: c.dangerSoft, borderWidth: 1, borderColor: c.danger, gap: 6 },
+  errorText: { color: c.danger, fontSize: 14 },
+  retryText: { color: c.green, fontWeight: '700' },
+  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 8, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
+  emptyInline: { alignItems: 'center', paddingVertical: 32, gap: 6 },
+  group: { gap: 10 },
+  groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: c.surface2 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  badge: { fontSize: 12, fontWeight: '700', paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  details: { gap: 6, marginTop: 8 },
+  box: { gap: 4, padding: 12, borderRadius: radius.sm, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
+  lineRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: 8 },
+  emptyIcon: { fontSize: 64 },
+  emptyTitle: { color: c.ink, fontSize: 20, fontWeight: '700', textAlign: 'center' },
 })

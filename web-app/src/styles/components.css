@@ -1072,3 +1072,13 @@ textarea.input:focus {
 .status-updated {
   animation: status-flash 1.5s ease-out;
 }
+
+/* Control Center maintenance notice and announcements (lib/platformState). */
+.platform-banners { display: grid; gap: 8px; margin-bottom: 12px; }
+.platform-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; border: 1px solid transparent; }
+.platform-banner strong { font-weight: 700; }
+.platform-banner span { flex: 1 1 220px; }
+.platform-banner button { background: none; border: 0; cursor: pointer; font-size: 14px; color: inherit; padding: 4px; }
+.platform-banner-info { background: var(--color-info-soft); border-color: var(--color-info-border); color: var(--color-info); }
+.platform-banner-warning { background: var(--color-warning-soft); border-color: var(--color-warning-border); color: var(--color-warning); }
+.platform-banner-danger { background: var(--color-danger-soft); border-color: var(--color-danger-border); color: var(--color-danger); }

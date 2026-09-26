@@ -204,7 +204,7 @@ func (s *AdminDirectionService) ListUsers(search, accountType, status string, li
 	}
 	defer rows.Close()
 
-	var users []*models.AdminUserListItem
+	users := make([]*models.AdminUserListItem, 0)
 	for rows.Next() {
 		item := &models.AdminUserListItem{}
 		err := rows.Scan(

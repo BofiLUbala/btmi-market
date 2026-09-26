@@ -30,7 +30,7 @@ export default function SellerCustomersScreen() {
     onError: (e) => setError(e instanceof ApiError ? e.message : t('seller.customers.createFailed')),
   })
 
-  if (!activeBusiness) return <View style={styles.center}><Text style={styles.muted}>{t('seller.noBusinessSelected')}</Text></View>
+  if (!activeBusiness) return <View style={styles.center}><Text style={styles.emptyIcon}>👤</Text><Text style={styles.name}>{t('seller.noBusinessSelected')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.customers.noBusinessSelectedHint')}</Text></View>
   if (customers.isLoading) return <Loading label={t('seller.customers.loading')} />
   if (customers.isError) return <ErrorState message={t('seller.customers.loadFailed')} retry={() => void customers.refetch()} />
 
@@ -47,11 +47,13 @@ export default function SellerCustomersScreen() {
       <Button title={t('seller.customers.create')} loading={create.isPending} onPress={() => create.mutate()} />
     </Card>}
 
-    {!customers.data?.length ? <Card><Text style={styles.muted}>{t('seller.customers.noneYet')}</Text></Card> : customers.data.map((customer) => (
+    {!customers.data?.length ? <Card><View style={styles.emptyInline}><Text style={{ fontSize: 48 }}>👤</Text><Text style={styles.name}>{t('seller.customers.noneYet')}</Text><Text style={[styles.muted, styles.centerText]}>{t('seller.customers.noneYetHint')}</Text><Button title={t('seller.customers.add')} onPress={() => setShowCreate(true)} /></View></Card> : customers.data.map((customer) => (
       <Pressable key={customer.id} accessibilityRole="button" onPress={() => router.push(`/seller/customers/${customer.id}`)}>
         <Card>
           <Text style={styles.name}>{customer.first_name} {customer.last_name}</Text>
           <Text style={styles.muted}>{customer.phone || '—'}{customer.email ? ` · ${customer.email}` : ''}</Text>
+          {/* web table columns: orders, total spent, joined */}
+          <Text style={styles.muted}>{t('seller.customers.orders')}: {customer.total_orders ?? 0} · {t('seller.customers.totalSpent')}: {Number(customer.total_purchased ?? 0).toLocaleString()}</Text>
           <Text style={styles.muted}>{t('seller.customers.joined')}: {new Date(customer.created_at).toLocaleDateString()}</Text>
         </Card>
       </Pressable>
@@ -61,7 +63,10 @@ export default function SellerCustomersScreen() {
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  center: { flex: 1, justifyContent: 'center', padding: spacing.xl },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: 8 },
+  centerText: { textAlign: 'center' },
+  emptyIcon: { fontSize: 64 },
+  emptyInline: { alignItems: 'center', paddingVertical: 32, gap: 8 },
   muted: { color: colors.muted },
   error: { color: colors.danger, fontWeight: '700' },
   cardTitle: { fontSize: 17, fontWeight: '900', color: colors.ink },

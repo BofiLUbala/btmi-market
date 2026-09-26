@@ -22,6 +22,8 @@ func phase5Fail(c *gin.Context, e error) {
 	status := http.StatusBadRequest
 	if strings.HasPrefix(e.Error(), "forbidden") {
 		status = 403
+	} else if strings.HasPrefix(e.Error(), "not found") {
+		status = 404
 	}
 	c.JSON(status, gin.H{"error": e.Error()})
 }
@@ -150,6 +152,21 @@ func (h *AdminPhase5Handler) CreateExport(c *gin.Context) {
 		return
 	}
 	c.JSON(202, gin.H{"id": x, "status": "QUEUED"})
+}
+func (h *AdminPhase5Handler) DownloadExport(c *gin.Context) {
+	id, r := phase5Actor(c)
+	jobID, e := uuid.Parse(c.Param("id"))
+	if e != nil {
+		c.JSON(400, gin.H{"error": "invalid export id"})
+		return
+	}
+	path, name, e := h.s.ExportFile(c, id, r, jobID)
+	if e != nil {
+		phase5Fail(c, e)
+		return
+	}
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.FileAttachment(path, name)
 }
 func (h *AdminPhase5Handler) Analytics(c *gin.Context) {
 	_, r := phase5Actor(c)

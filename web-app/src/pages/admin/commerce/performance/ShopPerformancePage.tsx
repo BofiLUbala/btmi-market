@@ -76,10 +76,10 @@ export default function ShopPerformancePage() {
                     </div>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#fbbf24', fontWeight: 600 }}>
-                    ★ {s.review_score ? s.review_score.toFixed(1) : '5.0'}
+                    {s.review_score ? `★ ${s.review_score.toFixed(1)}` : '—'}
                   </td>
                   <td style={{ padding: '10px 12px', color: '#34d399', fontWeight: 600 }}>
-                    {s.cash_confirmation_rate?.toFixed(0) ?? '100'}%
+                    {s.cash_confirmation_rate != null ? `${s.cash_confirmation_rate.toFixed(0)}%` : '—'}
                   </td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12 }}>
                     {s.avg_fulfillment_time_hours ? `${s.avg_fulfillment_time_hours.toFixed(1)}h` : '-'}

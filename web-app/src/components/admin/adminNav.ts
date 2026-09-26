@@ -122,7 +122,9 @@ export const SECTIONS: NavSection[] = [
       { to: '/admin/technical/security', labelKey: 'admin.layout.itemSecurityEvents' },
       { to: '/admin/technical/sessions', labelKey: 'admin.layout.itemSessions' },
       { to: '/admin/technical/migrations', labelKey: 'admin.layout.itemMigrations' },
-      { to: '/admin/technical/versions', labelKey: 'admin.layout.itemAppVersions' }
+      { to: '/admin/technical/versions', labelKey: 'admin.layout.itemAppVersions' },
+      { to: '/admin/technical/backups', labelKey: 'admin.layout.itemBackups' },
+      { to: '/admin/technical/visual-search', labelKey: 'admin.layout.itemVisualSearch' }
     ]
   }
 ]
@@ -131,6 +133,7 @@ export const SECTIONS: NavSection[] = [
 export const ADMINISTRATION: { to: string; labelKey: string; icon: IconName }[] = [
   { to: '/admin/admin-users', labelKey: 'admin.layout.navAdminUsers', icon: 'users' },
   { to: '/admin/platform/feature-flags', labelKey: 'admin.layout.navFlags', icon: 'flag' },
+  { to: '/admin/platform/config', labelKey: 'admin.layout.navGlobalConfig', icon: 'cog' },
   { to: '/admin/platform/advanced', labelKey: 'admin.layout.navAdvanced', icon: 'sliders' }
 ]
 

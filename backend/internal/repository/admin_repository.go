@@ -159,7 +159,7 @@ func (r *AdminRepository) List(roleFilter, statusFilter, search string, limit, o
 	}
 	defer rows.Close()
 
-	var admins []*models.AdminUser
+	admins := make([]*models.AdminUser, 0)
 	for rows.Next() {
 		a := &models.AdminUser{}
 		if err := rows.Scan(
