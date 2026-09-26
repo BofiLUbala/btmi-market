@@ -46,9 +46,9 @@ type CreateBuyerProfileRequest struct {
 	Phone          string   `json:"phone" binding:"required"`
 	BackupPhone    string   `json:"backup_phone"`
 	Address        string   `json:"address"`
-	Province       string   `json:"province" binding:"required"`
-	Street         string   `json:"street" binding:"required"`
-	BuildingNumber string   `json:"building_number" binding:"required"`
+	Province       string   `json:"province"`
+	Street         string   `json:"street"`
+	BuildingNumber string   `json:"building_number"`
 	Landmark       string   `json:"landmark"`
 	Email          string   `json:"email" binding:"required,email"`
 	City           string   `json:"city"`

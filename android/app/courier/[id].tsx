@@ -178,7 +178,7 @@ function CourierHandover({ orderId }: { orderId: string }) {
         </View>
       ) : null}
 
-      {/* The delivery QR shown by the buyer closes the handover. */}
+      {/* Scanning the parcel's QR at the buyer's door closes the handover. */}
       {state.courier_arrived && !state.delivery_scanned ? (
         <Button title={t('courier.scanDelivery')} onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'DELIVERY', order_id: orderId } })} />
       ) : null}

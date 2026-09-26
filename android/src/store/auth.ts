@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { authApi, sellerApi } from '../api'
 import { tokenStore } from '../api/tokenStore'
 import { onSessionInvalidated } from '../api/client'
+import { clearLastRoute } from '../lib/lastRoute'
 import { canSell, canOnboardSeller, type Business, type User } from '../types'
 
 /* Same storage mechanism as language/theme (AsyncStorage), mirroring the web's
@@ -81,7 +82,8 @@ export const useAuth = create<AuthState>((set) => ({
     const refreshToken = await tokenStore.getRefresh()
     try { if (refreshToken) await authApi.logout(refreshToken) } catch {}
     await tokenStore.clear()
-    await Promise.all([AsyncStorage.removeItem(ACTIVE_BUSINESS_KEY), AsyncStorage.removeItem(ACTIVE_SHOP_KEY)])
+    // The next person signing in on this phone must not reopen this one's screen.
+    await Promise.all([AsyncStorage.removeItem(ACTIVE_BUSINESS_KEY), AsyncStorage.removeItem(ACTIVE_SHOP_KEY), clearLastRoute()])
     set({ user: null, ready: true, sellerBusinesses: [], activeBusiness: null, activeShop: null })
   },
   setActiveBusiness: (business) => {

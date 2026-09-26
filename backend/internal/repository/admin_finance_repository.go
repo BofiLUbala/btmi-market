@@ -182,7 +182,7 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 
 	query := `
 		SELECT 
-			COALESCE(SUM(o.final_total), 0) as total_order_value,
+			COALESCE(SUM(COALESCE(p.final_total, o.final_total)), 0) as total_order_value,
 			COALESCE(SUM(CASE WHEN p.status IN ('PAID', 'VERIFIED') THEN p.cash_due ELSE 0 END), 0) as verified_cash,
 			COALESCE(SUM(CASE WHEN p.status IN ('PENDING', 'DUE', 'PROCESSING', 'CONFIRMED') THEN p.cash_due ELSE 0 END), 0) as unverified_cash,
 			COALESCE(SUM(CASE WHEN p.status = 'DISPUTED' THEN p.cash_due ELSE 0 END), 0) as disputed_cash,
@@ -209,7 +209,7 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 		argIdx++
 	}
 	if sellerID != "" {
-		query += fmt.Sprintf(" AND o.business_id IN (SELECT business_id FROM business_memberships WHERE user_id = $%d AND role = 'OWNER')", argIdx)
+		query += fmt.Sprintf(" AND o.business_id IN (SELECT business_id FROM business_memberships WHERE user_id = $%d AND role = 'OWNER' AND (status = 'ACTIVE' OR status IS NULL))", argIdx)
 		args = append(args, sellerID)
 		argIdx++
 	}
@@ -219,7 +219,8 @@ func (r *AdminFinanceRepository) GetFinancialSummary(businessID, shopID, sellerI
 		argIdx++
 	}
 	if dateTo != "" {
-		query += fmt.Sprintf(" AND o.created_at <= $%d", argIdx)
+		// date_to is a calendar day and includes all of it.
+		query += fmt.Sprintf(" AND o.created_at < ($%d::date + INTERVAL '1 day')", argIdx)
 		args = append(args, dateTo)
 		argIdx++
 	}
@@ -278,6 +279,12 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 		args = append(args, filter.ShopID)
 		argIdx++
 	}
+	if filter.SellerID != "" {
+		// Same seller scope as the finance dashboard: the businesses the seller owns.
+		where += fmt.Sprintf(" AND o.business_id IN (SELECT business_id FROM business_memberships WHERE user_id = $%d AND role = 'OWNER' AND (status = 'ACTIVE' OR status IS NULL))", argIdx)
+		args = append(args, filter.SellerID)
+		argIdx++
+	}
 	if filter.BuyerID != "" {
 		where += fmt.Sprintf(" AND bp.user_id = $%d", argIdx)
 		args = append(args, filter.BuyerID)
@@ -294,7 +301,8 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 		argIdx++
 	}
 	if filter.DateTo != "" {
-		where += fmt.Sprintf(" AND p.created_at <= $%d", argIdx)
+		// date_to is a calendar day and includes all of it.
+		where += fmt.Sprintf(" AND p.created_at < ($%d::date + INTERVAL '1 day')", argIdx)
 		args = append(args, filter.DateTo)
 		argIdx++
 	}
@@ -321,8 +329,9 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 			o.shop_id, COALESCE(s.name, '') as shop_name,
 			p.products_base_total, 0::numeric as discount_amount,
 			(p.products_points_discount + p.delivery_points_discount) as points_discount_amount,
-			p.delivery_fee_final, o.final_total as total_amount,
-			p.cash_due,
+			p.delivery_fee_final, COALESCE(p.payment_markup, 0),
+			COALESCE(p.final_total, o.final_total) as total_amount,
+			p.cash_due, COALESCE(p.currency, o.currency, ''),
 			p.buyer_confirmed, p.buyer_confirmed_at,
 			p.seller_confirmed, p.seller_confirmed_at,
 			p.status as payment_status, COALESCE(p.payment_method, '') as payment_method,
@@ -359,8 +368,8 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 			&item.BuyerName, &item.BuyerEmail,
 			&item.BusinessID, &item.BusinessName,
 			&item.ShopID, &item.ShopName,
-			&item.SubtotalAmount, &item.DiscountAmount, &item.PointsDiscountAmount, &item.DeliveryFee, &item.TotalAmount,
-			&item.CashDue,
+			&item.SubtotalAmount, &item.DiscountAmount, &item.PointsDiscountAmount, &item.DeliveryFee, &item.PaymentMarkup, &item.TotalAmount,
+			&item.CashDue, &item.Currency,
 			&item.BuyerConfirmedPaid, &item.BuyerConfirmedAt,
 			&item.SellerConfirmedReceived, &item.SellerConfirmedAt,
 			&item.PaymentStatus, &item.PaymentMethod, &item.CreatedAt, &item.VerifiedAt,
@@ -419,8 +428,9 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 			o.shop_id, COALESCE(s.name, '') as shop_name,
 			p.products_base_total, 0::numeric as discount_amount,
 			(p.products_points_discount + p.delivery_points_discount) as points_discount_amount,
-			p.delivery_fee_final, o.final_total as total_amount,
-			p.cash_due,
+			p.delivery_fee_final, COALESCE(p.payment_markup, 0),
+			COALESCE(p.final_total, o.final_total) as total_amount,
+			p.cash_due, COALESCE(p.currency, o.currency, ''),
 			p.buyer_confirmed, p.buyer_confirmed_at,
 			p.seller_confirmed, p.seller_confirmed_at,
 			p.status as payment_status, COALESCE(p.payment_method, '') as payment_method,
@@ -446,8 +456,8 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 		&detail.BuyerName, &detail.BuyerEmail,
 		&detail.BusinessID, &detail.BusinessName,
 		&detail.ShopID, &detail.ShopName,
-		&detail.SubtotalAmount, &detail.DiscountAmount, &detail.PointsDiscountAmount, &detail.DeliveryFee, &detail.TotalAmount,
-		&detail.CashDue,
+		&detail.SubtotalAmount, &detail.DiscountAmount, &detail.PointsDiscountAmount, &detail.DeliveryFee, &detail.PaymentMarkup, &detail.TotalAmount,
+		&detail.CashDue, &detail.Currency,
 		&detail.BuyerConfirmedPaid, &detail.BuyerConfirmedAt,
 		&detail.SellerConfirmedReceived, &detail.SellerConfirmedAt,
 		&detail.PaymentStatus, &detail.PaymentMethod, &detail.CreatedAt, &detail.VerifiedAt,
@@ -699,19 +709,19 @@ func (r *AdminFinanceRepository) ListSellerGrowth(page, limit int, search string
 
 	offset := (page - 1) * limit
 	query := fmt.Sprintf(`
-		SELECT 
+		SELECT
 			u.id as seller_id,
 			COALESCE(u.first_name || ' ' || u.last_name, u.email) as seller_name,
 			u.email as seller_email,
 			b.id as business_id, COALESCE(b.name, '') as business_name,
-			COUNT(DISTINCT s.id) as shop_count,
-			COUNT(DISTINCT o.id) as total_orders,
-			COUNT(DISTINCT CASE WHEN o.status = 'COMPLETED' THEN o.id END) as completed_orders,
-			COUNT(DISTINCT CASE WHEN o.status = 'CANCELLED' THEN o.id END) as cancelled_orders,
-			COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.final_total ELSE 0 END), 0) as total_gmv,
-			COALESCE(AVG(sr.rating), 5.0) as average_rating,
-			COUNT(DISTINCT sr.id) as review_count,
-			COUNT(DISTINCT c.id) as dispute_count,
+			COALESCE(sh.shop_count, 0) as shop_count,
+			COALESCE(od.total_orders, 0) as total_orders,
+			COALESCE(od.completed_orders, 0) as completed_orders,
+			COALESCE(od.cancelled_orders, 0) as cancelled_orders,
+			COALESCE(od.total_gmv, 0) as total_gmv,
+			COALESCE(rv.average_rating, 5.0) as average_rating,
+			COALESCE(rv.review_count, 0) as review_count,
+			COALESCE(ds.dispute_count, 0) as dispute_count,
 			CASE WHEN u.status = 'SUSPENDED' THEN 'SUSPENDED' ELSE COALESCE(st.trust_status, 'UNRATED') END as trust_status,
 			COALESCE(sl.name, 'UNRANKED') as level,
 			COALESCE(st.purchase_confirmation_rate, 0) as cash_confirmation_rate,
@@ -719,16 +729,29 @@ func (r *AdminFinanceRepository) ListSellerGrowth(page, limit int, search string
 		FROM users u
 		JOIN business_memberships bm ON bm.user_id = u.id
 		JOIN businesses b ON bm.business_id = b.id
-		LEFT JOIN shops s ON s.business_id = b.id
-		LEFT JOIN orders o ON o.business_id = b.id
-		LEFT JOIN seller_reviews sr ON sr.business_id = b.id
-		LEFT JOIN cases c ON c.seller_id = u.id AND c.case_type = 'PAYMENT_DISPUTE'
+		-- Each figure is aggregated on its own before joining: joining shops,
+		-- orders, reviews and cases side by side multiplies every order by the
+		-- number of shops x reviews x cases and inflates the GMV.
+		LEFT JOIN LATERAL (SELECT COUNT(*) AS shop_count FROM shops s WHERE s.business_id = b.id) sh ON true
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) AS total_orders,
+			       COUNT(*) FILTER (WHERE o.status = 'COMPLETED') AS completed_orders,
+			       COUNT(*) FILTER (WHERE o.status = 'CANCELLED') AS cancelled_orders,
+			       SUM(o.final_total) FILTER (WHERE o.status = 'COMPLETED') AS total_gmv
+			FROM orders o WHERE o.business_id = b.id
+		) od ON true
+		LEFT JOIN LATERAL (
+			SELECT AVG(sr.rating) AS average_rating, COUNT(*) AS review_count
+			FROM seller_reviews sr WHERE sr.business_id = b.id
+		) rv ON true
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) AS dispute_count FROM cases c
+			WHERE c.seller_id = u.id AND c.case_type = 'PAYMENT_DISPUTE'
+		) ds ON true
 		LEFT JOIN seller_trust st ON st.business_id = b.id
 		LEFT JOIN point_accounts pa ON pa.owner_type = 'SELLER_BUSINESS' AND pa.owner_id = b.id
 		LEFT JOIN seller_levels sl ON pa.level_id = sl.id
 		%s
-		GROUP BY u.id, u.first_name, u.last_name, u.email, u.status, b.id, b.name,
-		         st.trust_status, st.purchase_confirmation_rate, sl.name, pa.current_points
 		ORDER BY total_gmv DESC
 		LIMIT $%d OFFSET $%d
 	`, where, argIdx, argIdx+1)
@@ -1021,9 +1044,29 @@ func (r *AdminFinanceRepository) ListCases(filter *models.AdminCaseFilter) ([]mo
 		args = append(args, filter.Priority)
 		argIdx++
 	}
-	if filter.AssignedAdminID != "" {
-		where += fmt.Sprintf(" AND c.assigned_admin_id = $%d", argIdx)
-		args = append(args, filter.AssignedAdminID)
+	for _, f := range []struct{ column, value string }{
+		{"c.assigned_admin_id", filter.AssignedAdminID},
+		{"c.buyer_id", filter.BuyerID},
+		{"c.seller_id", filter.SellerID},
+		{"c.business_id", filter.BusinessID},
+		{"c.shop_id", filter.ShopID},
+		{"c.order_id", filter.OrderID},
+	} {
+		if f.value != "" {
+			where += fmt.Sprintf(" AND %s = $%d", f.column, argIdx)
+			args = append(args, f.value)
+			argIdx++
+		}
+	}
+	if filter.DateFrom != "" {
+		where += fmt.Sprintf(" AND c.created_at >= $%d", argIdx)
+		args = append(args, filter.DateFrom)
+		argIdx++
+	}
+	if filter.DateTo != "" {
+		// date_to is a calendar day and includes all of it.
+		where += fmt.Sprintf(" AND c.created_at < ($%d::date + INTERVAL '1 day')", argIdx)
+		args = append(args, filter.DateTo)
 		argIdx++
 	}
 
@@ -1088,23 +1131,39 @@ func (r *AdminFinanceRepository) ListCases(filter *models.AdminCaseFilter) ([]mo
 	return items, total, nil
 }
 
+// ErrCaseNotFound is returned when a case mutation targets no open case, so
+// the caller can answer 404 instead of reporting (and auditing) a no-op.
+var ErrCaseNotFound = fmt.Errorf("case not found")
+
 func (r *AdminFinanceRepository) AssignCase(caseID, adminID uuid.UUID) error {
-	_, err := r.db.Exec(`
-		UPDATE cases 
-		SET assigned_admin_id = $1, status = 'UNDER_REVIEW', updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $2
+	res, err := r.db.Exec(`
+		UPDATE cases
+		SET assigned_admin_id = $1, status = 'UNDER_REVIEW', updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2 AND status NOT IN ('RESOLVED', 'DISMISSED', 'REJECTED', 'CLOSED')
 	`, adminID, caseID)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrCaseNotFound
+	}
+	return nil
 }
 
 func (r *AdminFinanceRepository) ResolveCase(caseID uuid.UUID, status, resolution string) error {
 	now := time.Now()
-	_, err := r.db.Exec(`
-		UPDATE cases 
-		SET status = $1, resolution = $2, resolved_at = $3, updated_at = $3 
-		WHERE id = $4
+	res, err := r.db.Exec(`
+		UPDATE cases
+		SET status = $1, resolution = $2, resolved_at = $3, updated_at = $3
+		WHERE id = $4 AND status NOT IN ('RESOLVED', 'DISMISSED', 'REJECTED', 'CLOSED')
 	`, status, resolution, now, caseID)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrCaseNotFound
+	}
+	return nil
 }
 
 func (r *AdminFinanceRepository) AddCaseMessage(caseID uuid.UUID, senderType string, senderID *uuid.UUID, visibility, message string) (*models.AdminCaseMessage, error) {
@@ -1215,12 +1274,21 @@ func (r *AdminFinanceRepository) ListRiskEvents(page, limit int, status string) 
 	return events, total, nil
 }
 
+// ErrRiskEventNotFound is returned when no open risk event matches.
+var ErrRiskEventNotFound = fmt.Errorf("risk event not found or already closed")
+
 func (r *AdminFinanceRepository) ResolveRiskEvent(eventID, adminID uuid.UUID, status, reason string) error {
 	now := time.Now()
-	_, err := r.db.Exec(`
-		UPDATE risk_events 
-		SET status = $1, resolved_at = $2, resolved_by = $3 
-		WHERE id = $4
+	res, err := r.db.Exec(`
+		UPDATE risk_events
+		SET status = $1, resolved_at = $2, resolved_by = $3
+		WHERE id = $4 AND status IN ('OPEN', 'INVESTIGATING')
 	`, status, now, adminID, eventID)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrRiskEventNotFound
+	}
+	return nil
 }

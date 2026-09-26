@@ -191,7 +191,7 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
              state.all_products_verified && state.payment_verified && !state.delivery_scanned ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: 'Livreur (Vous)',
       actionType: 'SCAN_DELIVERY',
-      primaryButtonText: 'Scanner le QR acheteur',
+      primaryButtonText: 'Scanner le QR du colis',
       canAct: state.courier_can_scan_delivery === true,
       reason: state.courier_can_scan_delivery ? undefined : 'Produits et paiement requis'
     },

@@ -9,6 +9,16 @@ const money = (value: number, currency?: string) =>
 
 type SummaryCurrencyField = 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission' | 'payments_collected' | 'payments_due'
 
+const COMMISSION_STATUS_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
+  DUE: { label: 'À reverser', bg: 'rgba(234, 179, 8, 0.15)', fg: '#eab308' },
+  COLLECTED: { label: 'Réglée', bg: 'rgba(34, 197, 94, 0.15)', fg: '#4ade80' },
+  WAIVED: { label: 'Annulée', bg: 'rgba(148, 163, 184, 0.15)', fg: '#94a3b8' },
+  ADJUSTED: { label: 'Ajustée', bg: 'rgba(129, 140, 248, 0.15)', fg: '#818cf8' }
+}
+
+/** Rows fetched per page of the sales journal (the API caps a page at 100). */
+const JOURNAL_PAGE = 100
+
 const BREAKDOWN_LABELS: Record<FinanceBreakdownGroup, string> = {
   shop: 'Boutique',
   product: 'Produit',
@@ -26,7 +36,9 @@ export default function CommissionManagementPage() {
 
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [loadingMore, setLoadingMore] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
@@ -80,7 +92,7 @@ export default function CommissionManagementPage() {
           ...scope,
           status: statusFilter !== 'ALL' ? statusFilter : undefined,
           search: searchQuery || undefined,
-          limit: 100
+          limit: JOURNAL_PAGE
         })
       ])
       setConfig(configRes)
@@ -102,6 +114,34 @@ export default function CommissionManagementPage() {
   useEffect(() => {
     void fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // The journal is paged by the API; beyond the first page the admin loads
+  // more instead of silently never seeing the older sales.
+  const loadMore = async () => {
+    setLoadingMore(true)
+    try {
+      const res = await adminFinanceApi.listCommissions({
+        payment_status: paymentStatusFilter || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        search: searchQuery || undefined,
+        limit: JOURNAL_PAGE,
+        offset: commissions.length
+      })
+      setCommissions((rows) => [...rows, ...(res.commissions || [])])
+      setTotal(res.total || 0)
+    } catch (err) {
+      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Chargement impossible' })
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const loadBreakdown = useCallback(async () => {
     try {
@@ -371,7 +411,8 @@ export default function CommissionManagementPage() {
           {[
             { id: 'ALL', label: 'Toutes les ventes' },
             { id: 'DUE', label: '⏳ À reverser (DUE)' },
-            { id: 'COLLECTED', label: '✅ Réglées (COLLECTED)' }
+            { id: 'COLLECTED', label: '✅ Réglées (COLLECTED)' },
+            { id: 'WAIVED', label: '↩️ Annulées (WAIVED)' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -417,8 +458,8 @@ export default function CommissionManagementPage() {
           <input
             type="text"
             placeholder="Rechercher par N° commande, Entreprise ou Boutique..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             style={{
               flex: 1,
               minWidth: 220,
@@ -546,10 +587,10 @@ export default function CommissionManagementPage() {
                       fontWeight: 700,
                       padding: '3px 8px',
                       borderRadius: 6,
-                      backgroundColor: c.status === 'COLLECTED' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                      color: c.status === 'COLLECTED' ? '#4ade80' : '#eab308'
+                      backgroundColor: (COMMISSION_STATUS_BADGE[c.status] ?? COMMISSION_STATUS_BADGE.DUE).bg,
+                      color: (COMMISSION_STATUS_BADGE[c.status] ?? COMMISSION_STATUS_BADGE.DUE).fg
                     }}>
-                      {c.status === 'COLLECTED' ? 'Réglée' : 'À reverser'}
+                      {COMMISSION_STATUS_BADGE[c.status]?.label ?? c.status}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 14px' }}>
@@ -574,10 +615,47 @@ export default function CommissionManagementPage() {
                       </button>
                     ) : (
                       <span style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
-                        {c.collected_at ? `Réglée le ${new Date(c.collected_at).toLocaleDateString()}` : 'Encaissée'}
+                        {c.status === 'WAIVED'
+                          ? 'Vente annulée'
+                          : `${c.collected_at ? `Réglée le ${new Date(c.collected_at).toLocaleDateString()}` : 'Encaissée'}${c.collector_name ? ` par ${c.collector_name}` : ''}`}
                       </span>
                     )}
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {commissions.length < total && (
+            <div style={{ padding: 12, textAlign: 'center' }}>
+              <button onClick={() => void loadMore()} disabled={loadingMore}
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                {loadingMore ? 'Chargement…' : `Afficher plus (${commissions.length} / ${total})`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rate history: who changed the platform rate, when and why. */}
+      {config?.history && config.history.length > 0 && (
+        <div style={{ marginTop: 20, backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Historique du taux de commission</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}>
+                <th style={{ padding: '6px 8px' }}>Date</th>
+                <th style={{ padding: '6px 8px' }}>Ancien → nouveau</th>
+                <th style={{ padding: '6px 8px' }}>Par</th>
+                <th style={{ padding: '6px 8px' }}>Motif</th>
+              </tr>
+            </thead>
+            <tbody>
+              {config.history.slice(0, 10).map((h) => (
+                <tr key={h.id} style={{ borderTop: '1px solid var(--admin-border-soft)' }}>
+                  <td style={{ padding: '6px 8px' }}>{new Date(h.created_at).toLocaleString()}</td>
+                  <td style={{ padding: '6px 8px', fontWeight: 700 }}>{h.old_rate.toFixed(2)} % → {h.new_rate.toFixed(2)} %</td>
+                  <td style={{ padding: '6px 8px' }}>{h.admin_name || '—'}</td>
+                  <td style={{ padding: '6px 8px', color: 'var(--admin-text-muted)' }}>{h.reason || '—'}</td>
                 </tr>
               ))}
             </tbody>

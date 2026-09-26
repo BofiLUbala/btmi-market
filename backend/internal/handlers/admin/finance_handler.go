@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
 )
 
@@ -37,7 +39,7 @@ func (h *AdminFinanceHandler) UpdatePaymentConfig(c *gin.Context) {
 	}
 	item, err := h.financeService.UpdatePaymentConfig(c.MustGet("admin_id").(uuid.UUID), c.MustGet("admin_role").(models.AdminRole), c.Param("code"), &req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(mutationStatus(err), gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, item)
@@ -454,7 +456,7 @@ func (h *AdminFinanceHandler) AssignCase(c *gin.Context) {
 	}
 
 	if err := h.financeService.AssignCase(adminID, adminRole, caseID, req.AdminID, c.ClientIP(), c.Request.UserAgent()); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(mutationStatus(err), gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Case assigned successfully"})
@@ -477,7 +479,7 @@ func (h *AdminFinanceHandler) ResolveCase(c *gin.Context) {
 	}
 
 	if err := h.financeService.ResolveCase(adminID, adminRole, caseID, &req, c.ClientIP(), c.Request.UserAgent()); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(mutationStatus(err), gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Case resolved successfully"})
@@ -544,8 +546,22 @@ func (h *AdminFinanceHandler) ResolveRiskEvent(c *gin.Context) {
 	}
 
 	if err := h.financeService.ResolveRiskEvent(adminID, adminRole, id, &req, c.ClientIP(), c.Request.UserAgent()); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(mutationStatus(err), gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Risk event resolved successfully"})
+}
+
+// mutationStatus maps a Finance mutation error to its HTTP status: a missing
+// target is 404 and a role that may not act is 403, rather than every failure
+// reading as a malformed request.
+func mutationStatus(err error) int {
+	switch {
+	case errors.Is(err, repository.ErrCaseNotFound), errors.Is(err, repository.ErrRiskEventNotFound),
+		errors.Is(err, service.ErrPaymentMethodNotFound):
+		return http.StatusNotFound
+	case strings.HasPrefix(err.Error(), "forbidden"):
+		return http.StatusForbidden
+	}
+	return http.StatusBadRequest
 }

@@ -4,7 +4,7 @@ import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../..
 import { DeliveryPlanCard } from '../../components/checkout/DeliveryPlanCard'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
-import { OrderItemQRSection } from '@/components/qr/OrderItemQRSection'
+import { OrderRatingCard } from '@/components/checkout/OrderRatingCard'
 import { buyerApi } from '@/api/buyer'
 import { ApiError, type BuyerPayment, type OrderLine, type OrderWithLines, type ProductVerification } from '@/api/types'
 import { Button } from '@/components/ui/Button'
@@ -734,8 +734,8 @@ function OrderInner() {
             </Button>
             {o.status === 'COMPLETED' && (
               <>
-                <a href="#purchased-products"><Button variant="accent" block>{t('orders.reviewPurchasedProducts')}</Button></a>
-                <ServiceReviewAction orderId={orderId} />
+                <OrderRatingCard orderId={orderId} />
+                <a href="#purchased-products"><Button variant="outline" block>{t('orders.reviewPurchasedProducts')}</Button></a>
               </>
             )}
           </div>
@@ -789,7 +789,8 @@ function OrderInner() {
 }
 
 /**
- * One purchased line, with its own ORDER_ITEM QR on demand.
+ * One purchased line. The buyer no longer shows a QR at the door - the
+ * courier checks the label on the parcel - so there is no item QR here.
  *
  * Every amount shown here is the order snapshot the backend returned
  * (`final_unit_price` on the line), never the product's current catalogue price:
@@ -797,31 +798,16 @@ function OrderInner() {
  */
 function PurchasedLine({ line, orderId, completed }: { line: OrderLine; orderId: string; completed: boolean }) {
   const { t } = useI18n()
-  const [showQR, setShowQR] = useState(false)
   const variantText = Object.values(line.variant_attributes ?? {}).filter(Boolean).join(' / ') || line.variant_name || line.variant_sku || t('orders.standardVariant')
   const price = line.final_unit_price
-  const loadQR = useCallback(() => buyerApi.getOrderItemQR(orderId, line.id), [orderId, line.id])
   return <div className="stack" style={{ gap: 0, borderBottom: '1px dashed var(--color-border)' }}>
     <div className="cart-line">
       <div className="cart-line-thumb">{line.image_url ? <img src={line.image_url} alt="" /> : initials(line.product_name || t('orders.product'))}</div>
       <div className="stack" style={{ gap: 1, flex: 1 }}><div className="bold small">{line.product_name || t('orders.productWithId', { id: line.product_id.slice(0, 8) })}</div><div className="small muted">{variantText}</div><div className="small muted">{line.quantity} × {formatMoney(price)}</div><div className="small muted">{t('itemQr.snapshotNote')}</div><ReviewAction orderId={orderId} lineId={line.id} completed={completed} /></div>
       <div className="stack" style={{ gap: 4, alignItems: 'flex-end' }}>
         <div className="bold small">{formatMoney(line.quantity * price)}</div>
-        <Button variant="outline" size="sm" onClick={() => setShowQR(v => !v)}>{showQR ? t('itemQr.hide') : t('itemQr.action')}</Button>
       </div>
     </div>
-    {showQR && (
-      <OrderItemQRSection
-        load={loadQR}
-        imagePath={buyerApi.orderItemQRImagePath(orderId, line.id)}
-        instruction={t('itemQr.buyerInstruction')}
-        fields={[
-          { label: t('itemQr.labelProduct'), value: line.product_name || '' },
-          { label: t('itemQr.labelVariant'), value: variantText },
-          { label: t('itemQr.labelQuantity'), value: String(line.quantity) },
-        ]}
-      />
-    )}
   </div>
 }
 
@@ -833,15 +819,6 @@ function ReviewAction({ orderId, lineId, completed }: { orderId: string; lineId:
   if (eligibility?.existing_review_id) return <Link className="section-link small" to={`/orders/${orderId}/review?line=${lineId}`}>✓ {t('reviews.reviewedEdit')}</Link>
   if (eligibility?.eligible) return <Link className="section-link small" to={`/orders/${orderId}/review?line=${lineId}`}>★ {t('reviews.reviewProductLink')}</Link>
   return <span className="small muted">{t('reviews.notEligibleYet')}</span>
-}
-
-function ServiceReviewAction({ orderId }: { orderId: string }) {
-  const { t } = useI18n()
-  const [eligibility, setEligibility] = useState<{ eligible: boolean; existing_review_id?: string } | null>(null)
-  useEffect(() => { buyerApi.reviewEligibility(orderId).then(setEligibility).catch(() => setEligibility(null)) }, [orderId])
-  if (eligibility?.existing_review_id) return <Button variant="outline" block disabled>✓ {t('reviews.deliveryServiceReviewed')}</Button>
-  if (eligibility?.eligible) return <Link to={`/orders/${orderId}/review?type=service`}><Button variant="outline" block>{t('reviews.reviewDeliveryService')}</Button></Link>
-  return null
 }
 
 export default function OrderDetailPage() {

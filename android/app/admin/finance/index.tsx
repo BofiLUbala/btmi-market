@@ -17,6 +17,8 @@ export default function MobileFinanceScreen() {
   const [pendingPayments, setPendingPayments] = useState<any[]>([])
   const [openCases, setOpenCases] = useState<any[]>([])
   const [riskAlerts, setRiskAlerts] = useState<any[]>([])
+  // The sections list a few rows but their titles show the real totals.
+  const [totals, setTotals] = useState({ payments: 0, cases: 0, risks: 0 })
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -32,14 +34,16 @@ export default function MobileFinanceScreen() {
       const sum = await mobileAdminFinanceApi.getSummary()
       setSummary(sum)
 
-      const payRes = await mobileAdminFinanceApi.listPayments({ payment_status: 'PENDING', limit: 5 })
+      // Money still owed by buyers is DUE; no cash-on-delivery payment is ever PENDING.
+      const payRes = await mobileAdminFinanceApi.listPayments({ payment_status: 'DUE', limit: 5 })
       setPendingPayments(payRes.items || [])
 
       const caseRes = await mobileAdminFinanceApi.listCases({ status: 'OPEN', limit: 5 })
       setOpenCases(caseRes.items || [])
 
       const riskRes = await mobileAdminFinanceApi.listRiskEvents('OPEN')
-      setRiskAlerts(riskRes.items || [])
+      setRiskAlerts((riskRes.items || []).slice(0, 5))
+      setTotals({ payments: payRes.total ?? 0, cases: caseRes.total ?? 0, risks: riskRes.total ?? 0 })
     } catch (err: any) {
       setError(err?.message || t('admin.finance.connectFailed'))
     } finally {
@@ -106,7 +110,7 @@ export default function MobileFinanceScreen() {
 
           {/* PENDING PAYMENTS SECTION */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('admin.finance.pendingPayments', { count: pendingPayments.length })}</Text>
+            <Text style={styles.cardTitle}>{t('admin.finance.pendingPayments', { count: totals.payments })}</Text>
             {pendingPayments.length === 0 ? (
               <Text style={styles.emptyText}>{t('admin.finance.noPending')}</Text>
             ) : (
@@ -114,7 +118,7 @@ export default function MobileFinanceScreen() {
                 <View key={p.payment_id} style={styles.itemRow}>
                   <View>
                     <Text style={styles.itemTitle}>{p.order_number}</Text>
-                    <Text style={styles.itemSub}>{p.buyer_name} • {formatMoney(p.total_amount)}</Text>
+                    <Text style={styles.itemSub}>{p.buyer_name} • {formatMoney(p.total_amount, p.currency)}</Text>
                   </View>
                   <Text style={styles.chipPending}>{p.payment_status}</Text>
                 </View>
@@ -124,7 +128,7 @@ export default function MobileFinanceScreen() {
 
           {/* OPEN CASES SECTION */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('admin.finance.openDisputes', { count: openCases.length })}</Text>
+            <Text style={styles.cardTitle}>{t('admin.finance.openDisputes', { count: totals.cases })}</Text>
             {openCases.length === 0 ? (
               <Text style={styles.emptyText}>{t('admin.finance.noOpenCases')}</Text>
             ) : (
@@ -142,7 +146,7 @@ export default function MobileFinanceScreen() {
 
           {/* RISK ALERTS SECTION */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('admin.finance.riskAlertsSection', { count: riskAlerts.length })}</Text>
+            <Text style={styles.cardTitle}>{t('admin.finance.riskAlertsSection', { count: totals.risks })}</Text>
             {riskAlerts.length === 0 ? (
               <Text style={styles.emptyText}>{t('admin.finance.noRiskEvents')}</Text>
             ) : (

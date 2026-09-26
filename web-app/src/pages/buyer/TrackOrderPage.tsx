@@ -2,11 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useOrderEvents } from '@/lib/orderEvents'
 import { Link, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
-import type { TrackingResponse, DeliveryPackageQR, HandoverState } from '@/api/types'
+import type { TrackingResponse, HandoverState } from '@/api/types'
 import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
-import { QRPanel } from '@/components/qr/QRPanel'
+import { OrderRatingCard } from '@/components/checkout/OrderRatingCard'
 import { StatusBadge } from '@/components/ui/Badges'
-import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatDateTime, asArray } from '@/lib/format'
 import { isTerminalOrderStatus } from '@/lib/orderStatus'
@@ -76,7 +75,6 @@ function TrackInner() {
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [deliveryQR, setDeliveryQR] = useState<DeliveryPackageQR | null>(null)
   const [handover, setHandover] = useState<HandoverState | null>(null)
   const [statusFlash, setStatusFlash] = useState(false)
   const prevStatusRef = useRef<string | null>(null)
@@ -97,7 +95,6 @@ function TrackInner() {
       }
       if (effectiveStatus) prevStatusRef.current = effectiveStatus
       setData(normalized)
-      void buyerApi.deliveryQR(orderId).then(setDeliveryQR).catch(() => setDeliveryQR(null))
       // At the door the parcel check and the payment live on the handover.
       if (normalized && AT_DOOR.includes(normalized.delivery_status || '')) {
         void buyerApi.handover(orderId).then(setHandover).catch(() => undefined)
@@ -224,25 +221,16 @@ function TrackInner() {
       <p className="pay-note" style={{ marginTop: 12 }}>
         {t('tracking.note')}
       </p>
-      {data.current_status === 'COMPLETED' && (
-        <div className="card stack" style={{ marginTop: 12 }}>
-          <div>
-            <h2 style={{ fontSize: '1.1rem', marginBottom: 4 }}>{t('reviews.writeReview')}</h2>
-            <p className="small muted" style={{ margin: 0 }}>{t('reviews.completedOrderPrompt')}</p>
-          </div>
-          <Link to={`/orders/${orderId}#purchased-products`}>
-            <Button variant="accent" block>★ {t('orders.reviewPurchasedProducts')}</Button>
-          </Link>
-          <Link to={`/orders/${orderId}/review?type=service`}>
-            <Button variant="outline" block>★ {t('reviews.reviewDeliveryService')}</Button>
-          </Link>
-        </div>
-      )}
       {/* Same handover as the order page: items first, then receipt. */}
       <div style={{ marginTop: 12 }}>
         <BuyerHandoverPanel orderId={orderId} deliveryStatus={data.delivery_status || undefined} onChanged={() => void fetchTracking(true)} />
       </div>
-      {deliveryQR && <QRPanel qr={deliveryQR} title={t('tracking.deliveryQr')} imagePath={`/buyer/orders/${orderId}/delivery-qr/image`} />}
+      {/* Once delivered and paid, the buyer rates the order right here. */}
+      {data.current_status === 'COMPLETED' && (
+        <div style={{ marginTop: 12 }}>
+          <OrderRatingCard orderId={orderId} />
+        </div>
+      )}
     </div>
   )
 }

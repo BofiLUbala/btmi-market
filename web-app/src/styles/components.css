@@ -1082,3 +1082,6 @@ textarea.input:focus {
 .platform-banner-info { background: var(--color-info-soft); border-color: var(--color-info-border); color: var(--color-info); }
 .platform-banner-warning { background: var(--color-warning-soft); border-color: var(--color-warning-border); color: var(--color-warning); }
 .platform-banner-danger { background: var(--color-danger-soft); border-color: var(--color-danger-border); color: var(--color-danger); }
+
+/* Finance-set TBK delivery tariff shown to sellers (lib/deliveryTariff). */
+.delivery-tariff-note { padding: 10px 12px; border-radius: 10px; background: var(--color-info-soft); border: 1px solid var(--color-info-border); color: var(--color-info); font-size: 14px; margin: 8px 0; }

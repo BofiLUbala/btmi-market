@@ -7,6 +7,7 @@ import { focusManager, onlineManager } from '@tanstack/react-query'
 import { StatusBar } from 'expo-status-bar'
 import { useAuth } from '../src/store/auth'
 import { useLiveOrderQueries } from '../src/lib/orderEvents'
+import { useRememberRoute } from '../src/lib/lastRoute'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
@@ -21,6 +22,8 @@ function RootNavigator() {
   // Orders change under the user's eyes as the shop, TBK and the courier act.
   const signedIn = useAuth((state) => Boolean(state.user))
   useLiveOrderQueries(queryClient, signedIn)
+  // Reopening the app lands back on the screen the user left (see app/index).
+  useRememberRoute()
 
   return (
     <>

@@ -102,7 +102,7 @@ func (r *CommissionRepository) GetRateHistory() ([]models.CommissionHistory, err
 	rows, err := r.db.Query(`
 		SELECT h.id, h.old_rate, h.new_rate, h.changed_by, COALESCE(u.first_name || ' ' || u.last_name, u.email, ''), h.reason, h.created_at
 		FROM platform_commission_history h
-		LEFT JOIN users u ON h.changed_by = u.id
+		LEFT JOIN admin_users u ON h.changed_by = u.id
 		ORDER BY h.created_at DESC
 		LIMIT 50
 	`)
@@ -163,7 +163,7 @@ func (r *CommissionRepository) GetByOrderID(orderID uuid.UUID) (*models.SaleComm
 		LEFT JOIN businesses b ON c.business_id = b.id
 		LEFT JOIN shops s ON c.shop_id = s.id
 		LEFT JOIN users u ON c.seller_user_id = u.id
-		LEFT JOIN users adm ON c.collected_by = adm.id
+		LEFT JOIN admin_users adm ON c.collected_by = adm.id
 		WHERE c.order_id = $1
 	`
 	row := r.db.QueryRow(query, orderID)
@@ -287,7 +287,7 @@ func (r *CommissionRepository) ListCommissions(filter *models.CommissionFilter) 
 		LEFT JOIN businesses b ON c.business_id = b.id
 		LEFT JOIN shops s ON c.shop_id = s.id
 		LEFT JOIN users u ON c.seller_user_id = u.id
-		LEFT JOIN users adm ON c.collected_by = adm.id
+		LEFT JOIN admin_users adm ON c.collected_by = adm.id
 		LEFT JOIN buyer_payments pay ON pay.order_id = c.order_id
 		LEFT JOIN buyer_profiles bp ON bp.id = COALESCE(pay.buyer_profile_id, o.buyer_profile_id)
 		%s

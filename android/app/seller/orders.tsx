@@ -271,7 +271,7 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
         <Text style={styles.small}>Client: {d.delivery_contact_name || '—'} · {d.delivery_phone || '—'}</Text>
         <Text style={styles.small}>Adresse: {d.delivery_address || '—'}</Text>
         {d.delivery_notes ? <Text style={styles.small}>Instructions: {d.delivery_notes}</Text> : null}
-        <Text style={styles.small}>Frais: {formatMoney(d.delivery_fee_final ?? 0, d.currency || currency)}</Text>
+        <Text style={styles.small}>Frais de livraison TBK : <Text style={styles.strong}>{formatMoney(d.delivery_fee_final ?? 0, d.currency || currency)}</Text> (tarif TBK payé par l’acheteur, hors de votre revenu)</Text>
       </View> : null}
       {d ? <DeliveryPlanCard plan={d} status={d.status} deliveryStatus={d.delivery_status ?? undefined} deliveryMethod={d.delivery_method ?? undefined} /> : null}
       {detail.data?.lines?.length ? <View style={styles.box}>

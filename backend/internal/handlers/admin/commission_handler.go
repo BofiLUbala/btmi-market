@@ -3,6 +3,7 @@ package admin
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -16,6 +17,21 @@ type AdminCommissionHandler struct {
 
 func NewAdminCommissionHandler(commService *service.CommissionService) *AdminCommissionHandler {
 	return &AdminCommissionHandler{commService: commService}
+}
+
+// reportError answers a failed finance report: a malformed filter is the
+// caller's mistake (400), anything else is ours (500).
+func reportError(c *gin.Context, err error) {
+	status, code := http.StatusInternalServerError, "INTERNAL_ERROR"
+	if err.Error() == "INVALID_SELLER_ID" {
+		status, code = http.StatusBadRequest, "INVALID_SELLER_ID"
+	}
+	c.JSON(status, models.ErrorResponse{
+		Error: struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}{Code: code, Message: err.Error()},
+	})
 }
 
 // reportFilter reads the finance filter axes off the query string. Every
@@ -71,13 +87,16 @@ func (h *AdminCommissionHandler) UpdateCommissionConfig(c *gin.Context) {
 		return
 	}
 
-	config, err := h.commService.UpdateConfig(adminID, adminRole, req.Rate, req.Reason)
+	config, err := h.commService.UpdateConfig(adminID, adminRole, *req.Rate, req.Reason)
 	if err != nil {
+		// The service prefixes its errors with a code ("FORBIDDEN: ...").
 		status := http.StatusInternalServerError
 		code := "INTERNAL_ERROR"
-		if err.Error() == "FORBIDDEN" || err.Error() == "INVALID_RATE" {
-			status = http.StatusBadRequest
-			code = err.Error()
+		switch {
+		case strings.HasPrefix(err.Error(), "FORBIDDEN"):
+			status, code = http.StatusForbidden, "FORBIDDEN"
+		case strings.HasPrefix(err.Error(), "INVALID_RATE"):
+			status, code = http.StatusBadRequest, "INVALID_RATE"
 		}
 		c.JSON(status, models.ErrorResponse{
 			Error: struct {
@@ -110,12 +129,7 @@ func (h *AdminCommissionHandler) GetCommissionSummary(c *gin.Context) {
 
 	summary, err := h.commService.GetSummary(filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
-			}{Code: "INTERNAL_ERROR", Message: err.Error()},
-		})
+		reportError(c, err)
 		return
 	}
 
@@ -147,12 +161,7 @@ func (h *AdminCommissionHandler) ListCommissions(c *gin.Context) {
 
 	items, total, err := h.commService.ListCommissions(filter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
-			}{Code: "INTERNAL_ERROR", Message: err.Error()},
-		})
+		reportError(c, err)
 		return
 	}
 
@@ -195,12 +204,7 @@ func (h *AdminCommissionHandler) GetSaleDetail(c *gin.Context) {
 func (h *AdminCommissionHandler) GetFinanceDashboard(c *gin.Context) {
 	report, err := h.commService.GetDashboardReport(reportFilter(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
-			}{Code: "INTERNAL_ERROR", Message: err.Error()},
-		})
+		reportError(c, err)
 		return
 	}
 
@@ -225,12 +229,7 @@ func (h *AdminCommissionHandler) GetFinanceBreakdown(c *gin.Context) {
 
 	items, err := h.commService.GetBreakdownReport(group, reportFilter(c))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
-			}{Code: "INTERNAL_ERROR", Message: err.Error()},
-		})
+		reportError(c, err)
 		return
 	}
 
@@ -246,15 +245,21 @@ func (h *AdminCommissionHandler) GetFinanceBreakdown(c *gin.Context) {
 // GET /api/v1/admin/finance/timeseries?interval=day|week|month
 func (h *AdminCommissionHandler) GetFinanceTimeseries(c *gin.Context) {
 	interval := models.FinanceTimeseriesInterval(c.DefaultQuery("interval", "day"))
-
-	points, err := h.commService.GetTimeseriesReport(interval, reportFilter(c))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+	switch interval {
+	case models.FinanceIntervalDay, models.FinanceIntervalWeek, models.FinanceIntervalMonth:
+	default:
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error: struct {
 				Code    string `json:"code"`
 				Message string `json:"message"`
-			}{Code: "INTERNAL_ERROR", Message: err.Error()},
+			}{Code: "INVALID_INTERVAL", Message: "interval must be day, week or month"},
 		})
+		return
+	}
+
+	points, err := h.commService.GetTimeseriesReport(interval, reportFilter(c))
+	if err != nil {
+		reportError(c, err)
 		return
 	}
 
@@ -286,7 +291,11 @@ func (h *AdminCommissionHandler) MarkCommissionCollected(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	if err := h.commService.MarkCollected(adminID, adminRole, commID, req.Notes); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+		status := http.StatusBadRequest
+		if strings.HasPrefix(err.Error(), "FORBIDDEN") {
+			status = http.StatusForbidden
+		}
+		c.JSON(status, models.ErrorResponse{
 			Error: struct {
 				Code    string `json:"code"`
 				Message string `json:"message"`

@@ -180,14 +180,14 @@ export function getCourierWorkflow(
     },
     {
       key: 'scan_delivery',
-      label: 'QR de remise scanné',
+      label: 'QR du colis scanné',
       state: flags.deliveryScanned ? 'COMPLETED' :
         deliveryStatus === 'PAYMENT_VERIFIED' ? 'CURRENT_ACTION' :
         deliveryStatus === 'DELIVERY_SCAN_SUCCESS' || deliveryStatus === 'AWAITING_BUYER_CONFIRMATION' ? 'COMPLETED' :
         flags.allProductsVerified && flags.paymentVerified && !flags.deliveryScanned ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: 'Livreur (Vous)',
       actionType: 'SCAN_DELIVERY',
-      primaryButtonText: 'Scanner le QR acheteur',
+      primaryButtonText: 'Scanner le QR du colis',
       canAct: flags.courierCanScanDelivery === true,
       prerequisites: ['product_verified', 'payment']
     },
@@ -288,9 +288,9 @@ export function getCourierWorkflow(
       break
     case 'PAYMENT_VERIFIED':
       responsibleActor = 'Livreur (Vous)'
-      explanation = 'Paiement confirmé. Scannez le QR de remise affiché dans l\'application de l\'acheteur.'
+      explanation = 'Paiement confirmé. Scannez le QR imprimé sur le colis devant l\'acheteur.'
       actionType = 'SCAN_DELIVERY'
-      primaryButtonText = 'Scanner le QR acheteur'
+      primaryButtonText = 'Scanner le QR du colis'
       break
     case 'DELIVERY_SCAN_SUCCESS':
     case 'AWAITING_BUYER_CONFIRMATION':
@@ -331,9 +331,9 @@ export function getCourierWorkflow(
   if (deliveryStatus === 'COURIER_ARRIVED' || deliveryStatus === 'PRODUCT_VERIFIED') {
     if (flags.courierCanScanDelivery) {
       responsibleActor = 'Livreur (Vous)'
-      explanation = 'Paiement confirmé. Scannez le QR de remise affiché dans l\'application de l\'acheteur.'
+      explanation = 'Paiement confirmé. Scannez le QR imprimé sur le colis devant l\'acheteur.'
       actionType = 'SCAN_DELIVERY'
-      primaryButtonText = 'Scanner le QR acheteur'
+      primaryButtonText = 'Scanner le QR du colis'
     } else if (flags.courierCanConfirmCash) {
       responsibleActor = 'Livreur (Vous)'
       explanation = 'Produits vérifiés. Encaissez le montant en espèces auprès de l\'acheteur.'

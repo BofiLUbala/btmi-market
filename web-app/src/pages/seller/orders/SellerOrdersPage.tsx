@@ -370,7 +370,7 @@ export default function SellerOrdersPage() {
                                 <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
                                 <div>Adresse: {detail.order.delivery_address || '—'}</div>
                                 {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
-                                <div>Frais: {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)}</div>
+                                <div>Frais de livraison TBK : {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)} <span className="small muted">(tarif TBK payé par l’acheteur, hors de votre revenu)</span></div>
                               </div>}
                               {detail?.order && <DeliveryPlanCard plan={detail.order} status={detail.order.status} deliveryStatus={detail.order.delivery_status} deliveryMethod={detail.order.delivery_method} />}
                               {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <SellerOrderLineQR key={line.id} line={line} orderId={order.id} orderNumber={order.order_number || order.id.slice(0, 8)} shopName={activeBusiness?.name || ''} currency={detail.order?.currency || order.currency || DEFAULT_CURRENCY} />)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { DeliveryTariffNote } from '@/lib/deliveryTariff'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
@@ -218,6 +219,7 @@ export default function SellerShopsPage() {
 
             <h4 style={{ marginTop: 16, marginBottom: 4 }}>{t('seller.shopPage.deliveryOptions')}</h4>
             <p className="small muted" style={{ marginTop: 0 }}>{t('seller.shopPage.deliveryOptionsDesc')}</p>
+            <DeliveryTariffNote />
 
             <label className="checkbox-row">
               <input type="checkbox" checked={createForm.supports_shop_delivery} onChange={(e) => setCreateForm({ ...createForm, supports_shop_delivery: e.target.checked })} />

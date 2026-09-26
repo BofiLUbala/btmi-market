@@ -1346,8 +1346,12 @@ export interface AdminPaymentListItem {
   discount_amount: number
   points_discount_amount: number
   delivery_fee: number
+  /** Payment-method surcharge; total_amount = subtotal - points + delivery + markup. */
+  payment_markup?: number
+  /** What the buyer is charged for this payment, markup included. */
   total_amount: number
   cash_due: number
+  currency?: string
   /** Frozen history from the retired buyer/seller declaration rule. */
   buyer_confirmed_paid: boolean
   buyer_confirmed_at?: string

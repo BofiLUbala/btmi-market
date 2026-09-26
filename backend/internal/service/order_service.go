@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -50,6 +51,7 @@ type OrderService struct {
 	commSvc            *CommunicationService
 	commissionSvc      *CommissionService
 	qrSvc              *QRService
+	deliveryFees       *DeliveryFeeService
 	db                 *database.DB
 	orderEvents        []models.OrderEvent
 	eventsMutex        sync.RWMutex
@@ -103,6 +105,23 @@ func (s *OrderService) SetCommunicationService(commSvc *CommunicationService) {
 }
 
 func (s *OrderService) SetQRService(qrSvc *QRService) { s.qrSvc = qrSvc }
+
+// SetDeliveryFeeService makes TBK delivery priced by the Finance tariff
+// instead of each shop's legacy delivery fee.
+func (s *OrderService) SetDeliveryFeeService(df *DeliveryFeeService) { s.deliveryFees = df }
+
+// tbkDeliveryFee prices a TBK delivery for this order: the Finance tariff for
+// the destination city (default when unknown), free above the threshold.
+func (s *OrderService) tbkDeliveryFee(shop *models.Shop, order *models.Order, cityID *uuid.UUID) (float64, error) {
+	if s.deliveryFees == nil {
+		return deliveryFeeForMethod(shop, models.DeliveryMethodTBK)
+	}
+	q, err := s.deliveryFees.Quote(context.Background(), cityID, order.FinalTotal)
+	if err != nil {
+		return 0, err
+	}
+	return q.Fee, nil
+}
 
 func (s *OrderService) triggerStatusNotification(orderID uuid.UUID, status models.OrderStatus) {
 	if s.commSvc == nil {
@@ -1052,7 +1071,10 @@ func (s *OrderService) GetDeliveryOptions(buyerProfileID, orderID uuid.UUID) (*m
 		return nil, errors.New("SHOP_NOT_FOUND")
 	}
 
-	fee, _ := deliveryFeeForMethod(shop, models.DeliveryMethodTBK)
+	fee, err := s.tbkDeliveryFee(shop, order, order.DeliveryCityID)
+	if err != nil {
+		return nil, err
+	}
 	options := []models.DeliveryOption{
 		{
 			Method:    models.DeliveryMethodTBK,
@@ -1206,11 +1228,6 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		return nil, errors.New("SHOP_NOT_FOUND")
 	}
 
-	feeBase, err := deliveryFeeForMethod(shop, method)
-	if err != nil {
-		return nil, err
-	}
-
 	var resolved *models.ResolvedAddress
 	if method != models.DeliveryMethodPickup {
 		if strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.BuildingNumber) == "" {
@@ -1229,6 +1246,22 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 		if strings.TrimSpace(req.Phone) == "" {
 			return nil, errors.New("DELIVERY_PHONE_REQUIRED")
 		}
+	}
+
+	// Priced once the destination is validated: the city decides the tariff.
+	var feeBase float64
+	if method == models.DeliveryMethodTBK {
+		var cityID *uuid.UUID
+		if resolved != nil {
+			id := resolved.City.ID
+			cityID = &id
+		}
+		feeBase, err = s.tbkDeliveryFee(shop, order, cityID)
+	} else {
+		feeBase, err = deliveryFeeForMethod(shop, method)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	tx, err := s.db.Begin()

@@ -39,24 +39,28 @@ type AdminPaymentFilter struct {
 }
 
 type AdminPaymentListItem struct {
-	PaymentID               uuid.UUID  `json:"payment_id"`
-	OrderID                 uuid.UUID  `json:"order_id"`
-	OrderNumber             string     `json:"order_number"`
-	BuyerID                 uuid.UUID  `json:"buyer_id"`
-	BuyerName               string     `json:"buyer_name"`
-	BuyerEmail              string     `json:"buyer_email"`
-	SellerID                *uuid.UUID `json:"seller_id,omitempty"`
-	SellerName              string     `json:"seller_name"`
-	BusinessID              uuid.UUID  `json:"business_id"`
-	BusinessName            string     `json:"business_name"`
-	ShopID                  uuid.UUID  `json:"shop_id"`
-	ShopName                string     `json:"shop_name"`
-	SubtotalAmount          float64    `json:"subtotal_amount"`
-	DiscountAmount          float64    `json:"discount_amount"`
-	PointsDiscountAmount    float64    `json:"points_discount_amount"`
-	DeliveryFee             float64    `json:"delivery_fee"`
+	PaymentID            uuid.UUID  `json:"payment_id"`
+	OrderID              uuid.UUID  `json:"order_id"`
+	OrderNumber          string     `json:"order_number"`
+	BuyerID              uuid.UUID  `json:"buyer_id"`
+	BuyerName            string     `json:"buyer_name"`
+	BuyerEmail           string     `json:"buyer_email"`
+	SellerID             *uuid.UUID `json:"seller_id,omitempty"`
+	SellerName           string     `json:"seller_name"`
+	BusinessID           uuid.UUID  `json:"business_id"`
+	BusinessName         string     `json:"business_name"`
+	ShopID               uuid.UUID  `json:"shop_id"`
+	ShopName             string     `json:"shop_name"`
+	SubtotalAmount       float64    `json:"subtotal_amount"`
+	DiscountAmount       float64    `json:"discount_amount"`
+	PointsDiscountAmount float64    `json:"points_discount_amount"`
+	DeliveryFee          float64    `json:"delivery_fee"`
+	// PaymentMarkup is the payment-method surcharge; TotalAmount is what the
+	// buyer is charged, so subtotal - points + delivery + markup = total.
+	PaymentMarkup           float64    `json:"payment_markup"`
 	TotalAmount             float64    `json:"total_amount"`
 	CashDue                 float64    `json:"cash_due"`
+	Currency                string     `json:"currency"`
 	BuyerConfirmedPaid      bool       `json:"buyer_confirmed_paid"`
 	BuyerConfirmedAt        *time.Time `json:"buyer_confirmed_at,omitempty"`
 	SellerConfirmedReceived bool       `json:"seller_confirmed_received"`

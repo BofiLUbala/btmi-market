@@ -8,6 +8,7 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
+import { DeliveryTariffNote } from '../../src/components/DeliveryTariffNote'
 import { radius, spacing, type Colors } from '../../src/theme'
 import { StructuredAddressFields } from '../../src/components/StructuredAddressFields'
 import type { CreateShopRequest, Shop, UpdateShopRequest } from '../../src/types'
@@ -220,6 +221,7 @@ function DeliverySection({ value, onChange, showDesc, colors, styles, t }: { val
   return <>
     <Text style={styles.subhead}>{t('seller.shops.deliveryOptions')}</Text>
     {showDesc && <Text style={styles.small}>{t('seller.shops.deliveryOptionsDesc')}</Text>}
+    {showDesc && <DeliveryTariffNote />}
 
     <CheckRow label={t('seller.shops.shopDeliversItself')} checked={!!value.supports_shop_delivery} onToggle={() => onChange({ supports_shop_delivery: !value.supports_shop_delivery })} styles={styles} />
 

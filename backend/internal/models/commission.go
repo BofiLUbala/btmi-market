@@ -159,8 +159,10 @@ type SellerFinanceSummary struct {
 
 // Requests
 type UpdateCommissionRateRequest struct {
-	Rate   float64 `json:"rate" binding:"required,min=0,max=100"`
-	Reason string  `json:"reason"`
+	// A pointer so that 0% (no commission) is a valid rate: `required` on a
+	// plain float64 rejects its zero value.
+	Rate   *float64 `json:"rate" binding:"required,min=0,max=100"`
+	Reason string   `json:"reason"`
 }
 
 type MarkCommissionCollectedRequest struct {

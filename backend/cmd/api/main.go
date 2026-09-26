@@ -231,6 +231,10 @@ func main() {
 
 	adminAuthService := service.NewAdminAuthService(adminRepo, cfg)
 	auditService := service.NewAuditService(auditRepo)
+	// Finance owns TBK delivery pricing; checkout reads the same tariff.
+	deliveryFeeService := service.NewDeliveryFeeService(db.DB, auditService)
+	orderService.SetDeliveryFeeService(deliveryFeeService)
+	deliveryFeeHandler := adminhandlers.NewDeliveryFeeHandler(deliveryFeeService)
 	adminInvitationRepo := repository.NewAdminInvitationRepository(db)
 	adminManagementService := service.NewAdminManagementService(adminRepo, adminInvitationRepo, auditService, emailService)
 	adminDirectionService := service.NewAdminDirectionService(db, userRepo, refreshTokenRepo, auditService)
@@ -854,6 +858,11 @@ func main() {
 					financeGroup.GET("/risk", adminFinanceHandler.ListRiskEvents)
 					financeGroup.POST("/risk/:id/resolve", adminFinanceHandler.ResolveRiskEvent)
 					// Runs the risk rules now instead of waiting for the next 5-minute scan.
+					financeGroup.GET("/delivery-fees", deliveryFeeHandler.Get)
+					financeGroup.PATCH("/delivery-fees", deliveryFeeHandler.UpdateSettings)
+					financeGroup.GET("/delivery-fees/ledger", deliveryFeeHandler.Ledger)
+					financeGroup.PUT("/delivery-fees/zones/:city_id", deliveryFeeHandler.UpsertZone)
+					financeGroup.DELETE("/delivery-fees/zones/:city_id", deliveryFeeHandler.DeleteZone)
 					financeGroup.POST("/risk/scan", func(c *gin.Context) {
 						raised, err := riskScanner.Scan(c.Request.Context())
 						if err != nil {
@@ -946,6 +955,7 @@ func main() {
 		{
 			configGroup.GET("/feature-flags", configHandler.GetFeatureFlags)
 			configGroup.GET("/platform-state", adminPhase5Handler.PublicState)
+			configGroup.GET("/delivery-fees", deliveryFeeHandler.Public)
 		}
 
 		// ORDER_ITEM QR resolution for authenticated platform users (buyers,

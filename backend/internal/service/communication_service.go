@@ -589,9 +589,9 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		notifySeller = true
 		notifyAdmin = true
 		sellerTitle = fmt.Sprintf("Nouvelle commande reçue: %s", orderNum)
-		sellerBody = fmt.Sprintf("Vous avez reçu une nouvelle commande de %d article(s) pour un total de %.2f FCFA.", order.TotalItems, order.FinalTotal)
+		sellerBody = fmt.Sprintf("Vous avez reçu une nouvelle commande de %d article(s) pour un total de %s.", order.TotalItems, models.FormatMoneyFR(order.FinalTotal, order.Currency))
 		adminTitle = fmt.Sprintf("Nouvelle commande client: %s", orderNum)
-		adminBody = fmt.Sprintf("Commande de %.2f FCFA passée chez %s.", order.FinalTotal, shopName)
+		adminBody = fmt.Sprintf("Commande de %s passée chez %s.", models.FormatMoneyFR(order.FinalTotal, order.Currency), shopName)
 
 	case models.NotificationTypeOrderAccepted:
 		notifyBuyer = true
@@ -741,19 +741,19 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		notifyBuyer = true
 		notifySeller = true
 		buyerTitle = fmt.Sprintf("Paiement confirmé: %s", orderNum)
-		buyerBody = fmt.Sprintf("Le paiement de %.2f FCFA a été validé avec succès.", order.FinalTotal)
+		buyerBody = fmt.Sprintf("Le paiement de %s a été validé avec succès.", models.FormatMoneyFR(order.FinalTotal, order.Currency))
 		sellerTitle = fmt.Sprintf("Paiement reçu: %s", orderNum)
-		sellerBody = fmt.Sprintf("Le paiement de %.2f FCFA pour la commande %s est confirmé.", order.FinalTotal, orderNum)
+		sellerBody = fmt.Sprintf("Le paiement de %s pour la commande %s est confirmé.", models.FormatMoneyFR(order.FinalTotal, order.Currency), orderNum)
 
 	case models.NotificationTypeCashConfirmationRequired:
 		if courierUserID != uuid.Nil {
 			notifyCourier = true
 			courierTitle = fmt.Sprintf("Encaissement espèces à confirmer: %s", orderNum)
-			courierBody = fmt.Sprintf("Veuillez confirmer l'encaissement de %.2f FCFA pour la commande %s.", order.FinalTotal, orderNum)
+			courierBody = fmt.Sprintf("Veuillez confirmer l'encaissement de %s pour la commande %s.", models.FormatMoneyFR(order.FinalTotal, order.Currency), orderNum)
 		}
 		notifyAdmin = true
 		adminTitle = fmt.Sprintf("Encaissement espèces en attente: %s", orderNum)
-		adminBody = fmt.Sprintf("Encaissement espèces de %.2f FCFA en attente de confirmation pour la commande %s.", order.FinalTotal, orderNum)
+		adminBody = fmt.Sprintf("Encaissement espèces de %s en attente de confirmation pour la commande %s.", models.FormatMoneyFR(order.FinalTotal, order.Currency), orderNum)
 
 	case models.NotificationTypeNewReview:
 		notifySeller = true

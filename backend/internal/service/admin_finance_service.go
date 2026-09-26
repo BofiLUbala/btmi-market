@@ -10,6 +10,10 @@ import (
 	"github.com/btmi-ai-market/backend/internal/repository"
 )
 
+// ErrPaymentMethodNotFound is returned when Finance edits a payment method
+// code that does not exist, instead of answering 200 with an empty body.
+var ErrPaymentMethodNotFound = errors.New("payment method not found")
+
 type AdminFinanceService struct {
 	repo              *repository.AdminFinanceRepository
 	auditService      *AuditService
@@ -49,6 +53,9 @@ func (s *AdminFinanceService) UpdatePaymentConfig(adminID uuid.UUID, role models
 	updated, err := s.paymentConfigRepo.Update(code, req, adminID)
 	if err != nil {
 		return nil, err
+	}
+	if updated == nil {
+		return nil, ErrPaymentMethodNotFound
 	}
 	if s.auditService != nil {
 		_ = s.auditService.Record(adminID, role, "UPDATE_PAYMENT_CONFIGURATION", "PAYMENT_METHOD_CONFIG", code, "Finance payment configuration update", old, updated, "", "")
@@ -320,6 +327,11 @@ func (s *AdminFinanceService) ResolveCase(adminID uuid.UUID, role models.AdminRo
 	if req.Resolution == "" || len(req.Resolution) < 5 {
 		return fmt.Errorf("mandatory resolution detail required to resolve case")
 	}
+	switch req.Status {
+	case "RESOLVED", "DISMISSED", "REJECTED", "CLOSED":
+	default:
+		return fmt.Errorf("invalid case resolution status %q", req.Status)
+	}
 
 	if err := s.repo.ResolveCase(caseID, req.Status, req.Resolution); err != nil {
 		return err
@@ -363,6 +375,9 @@ func (s *AdminFinanceService) ListRiskEvents(role models.AdminRole, page, limit 
 func (s *AdminFinanceService) ResolveRiskEvent(adminID uuid.UUID, role models.AdminRole, eventID uuid.UUID, req *models.AdminRiskEventResolveRequest, ip, userAgent string) error {
 	if err := s.checkFinanceMutation(role); err != nil {
 		return err
+	}
+	if req.Status != "RESOLVED" && req.Status != "DISMISSED" {
+		return fmt.Errorf("invalid risk event status %q", req.Status)
 	}
 	if err := s.repo.ResolveRiskEvent(eventID, adminID, req.Status, req.Reason); err != nil {
 		return err

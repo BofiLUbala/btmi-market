@@ -20,6 +20,7 @@ import {
   ,FinanceTimeseriesPoint
   ,FinanceBreakdownGroup
   ,AdminPaymentMethodConfig
+  ,AdminSaleFinanceDetail
 } from '../../../api/admin'
 import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
 import { useT } from '@/store/i18n'
@@ -29,6 +30,8 @@ import { lineLabel } from '@/lib/lineLabel'
 
 /** PAID is what a settlement writes today; VERIFIED is the same fact on older rows. */
 const SETTLED_STATUSES = ['PAID', 'VERIFIED']
+/** Every status a buyer payment can actually hold (models.BuyerPaymentStatus). */
+const PAYMENT_STATUS_OPTIONS = ['DUE', 'PENDING', 'PROCESSING', 'CONFIRMED', 'PAID', 'VERIFIED', 'FAILED', 'CANCELLED', 'REFUNDED']
 
 type ActiveTab = 'overview' | 'payment_config' | 'payments' | 'confirmation' | 'points' | 'growth' | 'reviews_product' | 'reviews_shop' | 'cases' | 'support' | 'risk' | 'trust'
 
@@ -133,6 +136,9 @@ export default function FinanceDashboardPage() {
   const [riskResolveReason, setRiskResolveReason] = useState('')
 
   const [paymentDetail, setPaymentDetail] = useState<AdminPaymentDetail | null>(null)
+  // The commission snapshot actually recorded for the payment's order, not an
+  // estimate at today's rate: a sale keeps the rate it was verified at.
+  const [saleDetail, setSaleDetail] = useState<AdminSaleFinanceDetail | null | 'none'>(null)
   const [pointHistory, setPointHistory] = useState<AdminPointTransaction[] | null>(null)
   const [scanningRisk, setScanningRisk] = useState(false)
 
@@ -279,7 +285,7 @@ if (tab === 'overview') {
       } else if (tab === 'confirmation') {
         const res = await adminFinanceApi.listPayments({
           page, limit: PAGE_SIZE,
-          payment_status: statusFilter || 'PENDING',
+          payment_status: statusFilter || 'DUE',
           order_number: search || undefined
         })
         setPayments(res.items || [])
@@ -376,16 +382,24 @@ if (tab === 'overview') {
   const closePaymentModal = () => {
     setSelectedPayment(null)
     setPaymentDetail(null)
+    setSaleDetail(null)
   }
 
   const openPaymentDetail = async (p: AdminPaymentListItem) => {
     setSelectedPayment(p)
     setPaymentDetail(null)
-    try {
-      setPaymentDetail(await adminFinanceApi.getPaymentDetail(p.payment_id))
-    } catch {
-      // The modal still shows the list-row fields if the drill-down fails.
-    }
+    setSaleDetail(null)
+    const [detail, sale] = await Promise.allSettled([
+      adminFinanceApi.getPaymentDetail(p.payment_id),
+      // Only a settled payment has a commission snapshot; asking for the others
+      // would just 404.
+      SETTLED_STATUSES.includes(p.payment_status)
+        ? adminFinanceApi.getCommissionSaleDetail(p.order_id)
+        : Promise.reject(new Error('not settled'))
+    ])
+    // The modal still shows the list-row fields if the drill-down fails.
+    if (detail.status === 'fulfilled') setPaymentDetail(detail.value)
+    setSaleDetail(sale.status === 'fulfilled' ? sale.value : 'none')
   }
 
   const openCaseDetail = async (id: string) => {
@@ -418,7 +432,7 @@ if (tab === 'overview') {
     if (!selectedCase || !resolutionText.trim()) return
     try {
       await adminFinanceApi.resolveCase(selectedCase.id, status, resolutionText.trim())
-      setActionSuccess(t('admin.finance.caseCreatedSuccess'))
+      setActionSuccess(t('admin.finance.caseResolvedSuccess'))
       setSelectedCase(null)
       loadTabContent()
     } catch (err: any) {
@@ -442,7 +456,7 @@ if (tab === 'overview') {
     if (!resolvingRisk || !riskResolveReason.trim()) return
     try {
       await adminFinanceApi.resolveRiskEvent(resolvingRisk.id, status, riskResolveReason.trim())
-      setActionSuccess(t('admin.finance.reviewRestoredSuccess'))
+      setActionSuccess(t('admin.finance.riskResolvedSuccess'))
       setResolvingRisk(null)
       setRiskResolveReason('')
       loadTabContent()
@@ -539,6 +553,7 @@ if (tab === 'overview') {
               <select value={financePaymentStatus} onChange={(e) => setFinancePaymentStatus(e.target.value)} aria-label="Statut de paiement"
                 style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }}>
                 <option value="">Paiement · tous</option>
+                <option value="DUE">Dû</option>
                 <option value="VERIFIED">Paiement vérifié</option>
                 <option value="PAID">Payé</option>
                 <option value="PENDING">En attente</option>
@@ -686,7 +701,7 @@ if (tab === 'overview') {
             searchPlaceholder={t('admin.finance.searchOrderPlaceholder')}
             statusValue={statusFilter}
             onStatusChange={(v) => { setStatusFilter(v); setPage(1) }}
-            statusOptions={['PENDING', 'VERIFIED', 'DISPUTED']}
+            statusOptions={PAYMENT_STATUS_OPTIONS}
             statusAllLabel={t('admin.finance.allStatuses')}
           />
 
@@ -715,7 +730,7 @@ if (tab === 'overview') {
                     <div>{p.shop_name}</div>
                     <div style={{ fontSize: 11, color: '#64748b' }}>{p.business_name}</div>
                   </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>{formatMoney(p.total_amount)}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>{formatMoney(p.total_amount, p.currency || 'USD')}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div>{p.payment_method || '—'}</div>
                     {p.provider && <div style={{ fontSize: 11, fontWeight: 700 }}>{p.provider.replace(/_/g, ' ')}</div>}
@@ -1107,19 +1122,25 @@ if (tab === 'overview') {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                 <span style={{ color: '#94a3b8' }}>{t('admin.finance.labelSubtotal')}</span>
-                <span>{formatMoney(selectedPayment.subtotal_amount)}</span>
+                <span>{formatMoney(selectedPayment.subtotal_amount, selectedPayment.currency || 'USD')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                 <span style={{ color: '#94a3b8' }}>{t('admin.finance.labelPointsDiscount')}</span>
-                <span style={{ color: '#a78bfa' }}>-{formatMoney(selectedPayment.points_discount_amount)}</span>
+                <span style={{ color: '#a78bfa' }}>-{formatMoney(selectedPayment.points_discount_amount, selectedPayment.currency || 'USD')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                 <span style={{ color: '#94a3b8' }}>{t('admin.finance.labelDeliveryFee')}</span>
-                <span>+{formatMoney(selectedPayment.delivery_fee)}</span>
+                <span>+{formatMoney(selectedPayment.delivery_fee, selectedPayment.currency || 'USD')}</span>
+              </div>
+              {/* The payment-method surcharge is part of what the buyer pays;
+                  without it the lines above do not add up to the amount due. */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                <span style={{ color: '#94a3b8' }}>Majoration moyen de paiement</span>
+                <span>+{formatMoney(selectedPayment.payment_markup ?? 0, selectedPayment.currency || 'USD')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 800, borderTop: '1px solid #334155', paddingTop: 8, marginTop: 6, color: '#34d399' }}>
                 <span>{t('admin.finance.labelCashDue')}</span>
-                <span>{formatMoney(selectedPayment.cash_due)}</span>
+                <span>{formatMoney(selectedPayment.cash_due, selectedPayment.currency || 'USD')}</span>
               </div>
             </div>
 
@@ -1151,43 +1172,62 @@ if (tab === 'overview') {
               </div>
             </div>
 
-            {/* TBK PLATFORM COMMISSION BREAKDOWN */}
+            {/* TBK PLATFORM COMMISSION — the snapshot recorded when the payment
+                settled (its own rate and status), never a re-estimate at today's rate. */}
             {(() => {
-              const grossBase = Math.max(0, (selectedPayment.subtotal_amount || 0) - (selectedPayment.points_discount_amount || 0))
-              const commissionRate = financeReport && financeReport.commission_rate > 0
-                ? financeReport.commission_rate / 100
-                : 0
-              const estCommission = grossBase * commissionRate
-              const estNet = grossBase - estCommission
-              const isVerified = selectedPayment.payment_status === 'VERIFIED'
+              const settled = SETTLED_STATUSES.includes(selectedPayment.payment_status)
+              const sale = saleDetail && saleDetail !== 'none' ? saleDetail.sale : null
+              const currency = sale?.currency || selectedPayment.currency || 'USD'
+              const badge = !settled
+                ? { text: 'PAIEMENT NON RÉGLÉ · PAS DE COMMISSION', bg: '#78350f', fg: '#fde68a' }
+                : !sale
+                  ? { text: saleDetail === null ? 'CHARGEMENT…' : 'COMMISSION NON CALCULÉE', bg: '#7f1d1d', fg: '#fca5a5' }
+                  : sale.status === 'COLLECTED'
+                    ? { text: 'ENCAISSÉE PAR TBK', bg: '#065f46', fg: '#6ee7b7' }
+                    : sale.status === 'WAIVED'
+                      ? { text: 'ANNULÉE (REMBOURSEMENT)', bg: '#334155', fg: '#cbd5e1' }
+                      : { text: 'DUE · À ENCAISSER', bg: '#78350f', fg: '#fde68a' }
               return (
                 <div style={{ backgroundColor: '#1e1b4b', border: '1px solid #4338ca', borderRadius: 8, padding: 14, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#a5b4fc' }}>COMMISSION PLATEFORME TBK</h4>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 600, backgroundColor: isVerified ? '#065f46' : '#78350f', color: isVerified ? '#6ee7b7' : '#fde68a' }}>
-                      {isVerified ? 'VERIFIÉE · À REVERSER' : 'EN ATTENTE DE VERIFICATION'}
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 600, backgroundColor: badge.bg, color: badge.fg }}>
+                      {badge.text}
                     </span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Vente brute éligible</div>
-                      <div style={{ fontWeight: 700, color: '#f8fafc' }}>{formatMoney(grossBase)}</div>
+                  {sale ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
+                      <div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Vente brute éligible</div>
+                        <div style={{ fontWeight: 700, color: '#f8fafc' }}>{formatMoney(sale.commission_base, currency)}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Taux appliqué à la vente</div>
+                        <div style={{ fontWeight: 700, color: '#a5b4fc' }}>{sale.commission_rate.toFixed(2)}%</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Commission TBK</div>
+                        <div style={{ fontWeight: 700, color: '#f87171' }}>{formatMoney(sale.commission_amount, currency)}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Revenu net vendeur</div>
+                        <div style={{ fontWeight: 700, color: '#34d399' }}>{formatMoney(sale.seller_net_amount, currency)}</div>
+                      </div>
+                      {sale.status === 'COLLECTED' && (
+                        <div style={{ gridColumn: '1 / -1', color: '#94a3b8', fontSize: 11 }}>
+                          Encaissée{sale.collected_at ? ` le ${new Date(sale.collected_at).toLocaleString()}` : ''}{sale.collector_name ? ` par ${sale.collector_name}` : ''}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Taux de commission</div>
-                      <div style={{ fontWeight: 700, color: '#a5b4fc' }}>{commissionRate > 0 ? `${(commissionRate * 100).toFixed(2)}%` : '—'}</div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                      {settled
+                        ? 'Aucun enregistrement de commission pour cette vente réglée.'
+                        : 'La commission TBK est calculée au moment où le paiement est réglé.'}
                     </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Commission TBK</div>
-                      <div style={{ fontWeight: 700, color: '#f87171' }}>{formatMoney(estCommission)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: 11 }}>Revenu net vendeur</div>
-                      <div style={{ fontWeight: 700, color: '#34d399' }}>{formatMoney(estNet)}</div>
-                    </div>
-                  </div>
+                  )}
                   <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8, borderTop: '1px solid #312e81', paddingTop: 6 }}>
-                    Frais de livraison ({formatMoney(selectedPayment.delivery_fee)}) exclus de l'assiette de commission TBK.
+                    Frais de livraison ({formatMoney(selectedPayment.delivery_fee, currency)}) et majoration de paiement exclus de l'assiette de commission TBK.
                   </div>
                 </div>
               )

@@ -41,6 +41,7 @@ import CategoryPerformancePage from '@/pages/admin/commerce/performance/Category
 import ShopPerformancePage from '@/pages/admin/commerce/performance/ShopPerformancePage'
 import FinanceDashboardPage from '@/pages/admin/finance/FinanceDashboardPage'
 import CommissionManagementPage from '@/pages/admin/finance/CommissionManagementPage'
+import DeliveryFeesPage from '@/pages/admin/finance/DeliveryFeesPage'
 import TechnicalDashboardPage from '@/pages/admin/technical/TechnicalDashboardPage'
 import FeatureFlagsPage from '@/pages/admin/platform/FeatureFlagsPage'
 import GlobalConfigPage from '@/pages/admin/platform/GlobalConfigPage'
@@ -299,6 +300,7 @@ export default function App() {
                   <Route element={<RequireAdminRole allowedRoles={['FINANCE_SUPPORT_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/finance" element={<FinanceDashboardPage />} />
                     <Route path="/admin/finance/commissions" element={<CommissionManagementPage />} />
+                    <Route path="/admin/finance/delivery-fees" element={<DeliveryFeesPage />} />
                     <Route path="/admin/finance/:feature" element={<FinanceDashboardPage />} />
                   </Route>
                   <Route element={<RequireAdminRole allowedRoles={['TECHNICAL_ADMIN', 'SUPER_ADMIN']} />}>

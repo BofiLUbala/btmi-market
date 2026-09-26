@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Image } from 'expo-image'
 import { Pressable } from 'react-native'
 import { resolveMediaUrl } from '../../src/api/client'
-import { OrderItemQRSection } from '../../src/components/OrderItemQRSection'
+import { OrderRatingCard } from '../../src/components/OrderRatingCard'
 import { DeliveryPlanCard } from '../../src/components/DeliveryPlanCard'
 import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../../src/lib/deliveryPlan'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -218,7 +218,6 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
 
   const lines = order.data?.lines || []
   const eligibility = useQueries({ queries: lines.map(line=>({queryKey:['review-eligibility',id,line.id],queryFn:()=>buyerApi.reviewEligibility(id!,line.id)})) })
-  const service = useQuery({queryKey:['review-eligibility',id,'service'],queryFn:()=>buyerApi.reviewEligibility(id!),enabled:Boolean(id)})
 
   if(order.isLoading)return <Loading label={t('orders.loadingDetail')}/>
   if(order.isError||!order.data)return <ErrorState message={t('checkout.orderNotFound')} retry={()=>void order.refetch()}/>
@@ -374,7 +373,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       </> : null}
 
       <SectionTitle title={t('orders.itemsBought')}/>{lines.map((line,i)=><PurchasedLine key={line.id} line={line} orderId={id!} eligibility={eligibility[i]?.data} styles={styles} reasonText={(r) => t(REASON_KEYS[r] ?? 'orders.reviewUnavailable')} />)}
-      <SectionTitle title={t('orders.deliveryService')}/><Card><Text style={styles.muted}>{t('orders.deliveryServiceBody')}</Text>{service.data?.eligible?<Button variant="outline" title={t('orders.rateService')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId:id,type:'service',productName:order.data.shop_name}})}/>:<Text style={styles.hint}>{service.data?.reason ? t(REASON_KEYS[service.data.reason] ?? 'orders.serviceReviewUnavailable') : t('orders.serviceReviewUnavailable')}</Text>}</Card>
+      {o.status === 'COMPLETED' ? <OrderRatingCard orderId={id!} /> : null}
     </ScrollView>
 
     {showChat && (
@@ -390,14 +389,12 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   </View>
 }
 
-/** web PurchasedLine: the order-time snapshot of one line, its review action
- *  and its own ORDER_ITEM QR on demand. */
+/** web PurchasedLine: the order-time snapshot of one line and its review
+ *  action. No item QR: the courier checks the label on the parcel. */
 function PurchasedLine({ line, orderId, eligibility, styles, reasonText }: { line: OrderLine; orderId: string; eligibility?: { eligible: boolean; reason?: string; existing_review_id?: string }; styles: ReturnType<typeof makeStyles>; reasonText: (reason: string) => string }) {
   const { t } = useI18n()
-  const [showQR, setShowQR] = useState(false)
   const variantText = Object.values(line.variant_attributes ?? {}).filter(Boolean).join(' / ') || line.variant_name || line.variant_sku || t('orders.standardVariant')
   const price = line.final_unit_price
-  const loadQR = useCallback(() => buyerApi.orderItemQR(orderId, line.id), [orderId, line.id])
   const e = eligibility
   return <Card>
     <View style={styles.lineRow}>
@@ -411,12 +408,6 @@ function PurchasedLine({ line, orderId, eligibility, styles, reasonText }: { lin
       <Text style={[styles.name, { fontSize: 15 }]}>{formatMoney(line.quantity * price)}</Text>
     </View>
     {e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? reasonText(e.reason) : t('orders.reviewUnavailable')}</Text>}
-    <Button dense variant="outline" title={showQR ? t('itemQr.hide') : t('itemQr.action')} onPress={() => setShowQR((v) => !v)} />
-    {showQR ? <OrderItemQRSection load={loadQR} imagePath={buyerApi.orderItemQRImagePath(orderId, line.id)} instruction={t('itemQr.buyerInstruction')} fields={[
-      { label: t('itemQr.labelProduct'), value: line.product_name || '' },
-      { label: t('itemQr.labelVariant'), value: variantText },
-      { label: t('itemQr.labelQuantity'), value: String(line.quantity) },
-    ]} /> : null}
   </Card>
 }
 
