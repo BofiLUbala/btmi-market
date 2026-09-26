@@ -245,7 +245,9 @@ function SuccessInner() {
               <div key={ordDetail.order.id} style={{ marginTop: idx > 0 ? 20 : 12, paddingTop: idx > 0 ? 16 : 0, borderTop: idx > 0 ? '1px dashed var(--color-border)' : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <strong>Commande #{ordDetail.order.order_number || ordDetail.order.id.slice(0, 8)} — {ordDetail.shop_name || 'Boutique'}</strong>
-                  <span className="small muted">{formatMoney(ordDetail.order.final_total + ordDetail.order.delivery_fee_final, ordDetail.order.currency || 'USD')}</span>
+                  {/* One shop: the order is the whole payment, so show what the buyer pays,
+                      payment fee included - the same figure as the final total. */}
+                  <span className="small muted">{formatMoney(isMultiShop ? ordDetail.order.final_total + ordDetail.order.delivery_fee_final : finalTotal, ordDetail.order.currency || 'USD')}</span>
                 </div>
                 {ordDetail.lines.map(line => (
                   <div className="review-order-line" key={line.id}>

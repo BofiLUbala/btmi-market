@@ -27,7 +27,6 @@ import type {
   ReviewResponse,
   SelectDeliveryRequest,
   TrackingResponse, ProductVerification,
-  DeliveryPackageQR,
   UpdateBuyerProfileRequest
 } from './types'
 
@@ -137,7 +136,6 @@ export const buyerApi = {
     post<BuyerOrder>(`/buyer/orders/${orderId}/confirm-receipt`, {}),
 
   tracking: (orderId: string) => get<TrackingResponse>(`/buyer/orders/${orderId}/tracking`),
-  deliveryQR: (orderId: string) => get<DeliveryPackageQR>(`/buyer/orders/${orderId}/delivery-qr`),
 
   /**
    * ORDER_ITEM QR of one line of the buyer's own order. Buyer-specific route: it

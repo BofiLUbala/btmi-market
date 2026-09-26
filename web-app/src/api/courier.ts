@@ -95,12 +95,4 @@ export const courierApi = {
       device_metadata: { platform: 'web' }
     }),
 
-  /** Scan a delivery QR code at the buyer's location. */
-  scanDelivery: (orderId: string, token: string) =>
-    post<QRScanResponse>(`/courier/scans/delivery`, {
-      token,
-      order_id: orderId,
-      idempotency_key: `delivery:${orderId}:${token}`,
-      device_metadata: { platform: 'web' }
-    }),
 }

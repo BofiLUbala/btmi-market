@@ -72,6 +72,7 @@ func (s *QRService) CourierConfirmCash(courierUserID, orderID uuid.UUID, req mod
 		response.AlreadyConfirmed = true
 		response.PaymentStatus = string(payment.Status)
 		s.fillCommission(orderID, response)
+		s.CompleteHandoverIfReady(orderID, courierUserID)
 		return response, nil
 	}
 
@@ -86,6 +87,7 @@ func (s *QRService) CourierConfirmCash(courierUserID, orderID uuid.UUID, req mod
 		response.AlreadyConfirmed = true
 		response.PaymentStatus = string(models.BuyerPaymentStatusPaid)
 		s.fillCommission(orderID, response)
+		s.CompleteHandoverIfReady(orderID, courierUserID)
 		return response, nil
 	}
 
@@ -147,6 +149,8 @@ func (s *QRService) CourierConfirmCash(courierUserID, orderID uuid.UUID, req mod
 		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeBuyerReceiptRequired,
 			map[string]interface{}{"payment_status": string(models.BuyerPaymentStatusPaid), "payment_method": payment.PaymentMethod})
 	}
+	// Cash was the last step: the goods are verified, so the handover is complete.
+	s.CompleteHandoverIfReady(orderID, courierUserID)
 	return response, nil
 }
 
@@ -355,9 +359,9 @@ func (s *QRService) applyHandoverGates(state *models.HandoverState) {
 		state.Stage = models.HandoverStageArrived
 	case !state.PaymentVerified:
 		state.Stage = models.HandoverStagePaymentPending
-	case !state.DeliveryScanned:
-		state.Stage = models.HandoverStagePaymentVerified
 	default:
+		// Products verified and money settled: the handover is done on the courier's
+		// side, and only the buyer's confirmation remains.
 		state.Stage = models.HandoverStageAwaitingReceipt
 	}
 
@@ -368,12 +372,12 @@ func (s *QRService) applyHandoverGates(state *models.HandoverState) {
 	state.BuyerCanAcknowledge = state.CourierArrived && !state.AllLinesAcknowledged
 	state.CourierCanConfirmCash = state.CourierArrived && state.AllProductsVerified &&
 		state.PaymentMethod == models.PaymentMethodCashOnDelivery && !state.PaymentVerified
-	// The buyer's delivery QR is scanned only once the goods are checked and the money
-	// is settled: scanning it earlier would mark a handover complete that was not.
-	state.CourierCanScanDelivery = state.CourierArrived && state.AllProductsVerified &&
-		state.PaymentVerified && !state.DeliveryScanned && !state.ReceiptConfirmed
+	// There is no door QR any more: the handover is closed by the server from the
+	// verified products and the settled payment, never by a scan.
+	state.CourierCanScanDelivery = false
+	// Every step, in order, and none of them optional.
 	state.BuyerCanConfirmReceipt = state.CourierArrived && state.AllProductsVerified &&
-		state.AllLinesAcknowledged && state.PaymentVerified && state.DeliveryScanned
+		state.AllLinesAcknowledged && state.PaymentVerified
 
 	if state.BuyerCanConfirmReceipt {
 		return
@@ -391,7 +395,5 @@ func (s *QRService) applyHandoverGates(state *models.HandoverState) {
 		} else {
 			state.BlockedReason = "AWAITING_PROVIDER_CONFIRMATION"
 		}
-	case !state.DeliveryScanned:
-		state.BlockedReason = "DELIVERY_NOT_SCANNED"
 	}
 }

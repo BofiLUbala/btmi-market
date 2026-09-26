@@ -293,6 +293,9 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 				})
 			}
 		}
+		if s.onSettled != nil {
+			s.onSettled(payment.OrderID)
+		}
 		return nil
 	case models.ProviderPaymentFailed:
 		reason := strings.TrimSpace(event.Reason)

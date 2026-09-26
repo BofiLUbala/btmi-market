@@ -178,11 +178,7 @@ function CourierHandover({ orderId }: { orderId: string }) {
         </View>
       ) : null}
 
-      {/* Scanning the parcel's QR at the buyer's door closes the handover. */}
-      {state.courier_arrived && !state.delivery_scanned ? (
-        <Button title={t('courier.scanDelivery')} onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'DELIVERY', order_id: orderId } })} />
-      ) : null}
-
+      {/* No door QR: verified goods plus settled payment close the handover on the server. */}
       {isCash && !state.payment_verified ? (
         <View style={styles.block}>
           <Button
@@ -200,7 +196,7 @@ function CourierHandover({ orderId }: { orderId: string }) {
       {receipt ? (
         <Text style={styles.success}>✓ {t('courier.cashRecorded', { amount: formatMoney(receipt.amount_collected, receipt.currency) })}</Text>
       ) : null}
-      {state.receipt_confirmed ? <Text style={styles.success}>✓ {t('handover.receiptDone')}</Text> : state.delivery_scanned ? <Text style={styles.muted}>{t('courier.scan.waitingBuyer')}</Text> : null}
+      {state.receipt_confirmed ? <Text style={styles.success}>✓ {t('handover.receiptDone')}</Text> : state.all_products_verified && state.payment_verified ? <Text style={styles.muted}>{t('courier.scan.waitingBuyer')}</Text> : null}
     </Card>
   )
 }

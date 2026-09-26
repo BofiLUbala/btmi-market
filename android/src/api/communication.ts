@@ -206,17 +206,3 @@ export async function markAllNotificationsRead(audience?: NotificationAudience):
 export async function fetchUnreadNotificationsCount(): Promise<{ unread_count: number }> {
   return get<{ unread_count: number }>('/notifications/unread-count')
 }
-
-// ----------------- Courier Action APIs -----------------
-
-export async function confirmCourierArrival(orderId: string): Promise<{ message: string; delivery_status: string }> {
-  return post<{ message: string; delivery_status: string }>(`/orders/${orderId}/courier-arrived`)
-}
-
-export async function confirmCourierPickedUp(orderId: string): Promise<{ message: string; delivery_status: string }> {
-  return post<{ message: string; delivery_status: string }>(`/orders/${orderId}/courier-picked-up`)
-}
-
-export async function confirmCourierNearDestination(orderId: string): Promise<{ message: string; delivery_status: string }> {
-  return post<{ message: string; delivery_status: string }>(`/orders/${orderId}/courier-near-destination`)
-}

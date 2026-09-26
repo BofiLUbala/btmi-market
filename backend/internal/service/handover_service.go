@@ -37,6 +37,9 @@ var handoverActiveStages = map[string]bool{
 func (s *QRService) SetHandoverDependencies(payments *PaymentService, paymentRepo *repository.BuyerPaymentRepository) {
 	s.paymentSvc = payments
 	s.paymentRepo = paymentRepo
+	if payments != nil {
+		payments.onSettled = func(orderID uuid.UUID) { s.CompleteHandoverIfReady(orderID, uuid.Nil) }
+	}
 }
 
 // audit writes one handover step to the handover trail: who, in what role, on which
@@ -339,5 +342,7 @@ func (s *QRService) verifyProduct(ctx *handoverContext, actorID uuid.UUID, role 
 		_ = s.commSvc.TriggerOrderEventNotification(ctx.orderID, models.NotificationTypeBuyerReceiptRequired,
 			map[string]interface{}{"product_verified": true})
 	}
+	// A prepaid order has nothing left to settle: verifying the goods completes it.
+	s.CompleteHandoverIfReady(ctx.orderID, uuid.Nil)
 	return out, nil
 }

@@ -38,6 +38,9 @@ type PaymentService struct {
 	driver             PaymentProviderDriver
 	asynqClient        *asynq.Client
 	db                 *database.DB
+	// onSettled lets the handover close itself when a provider settles a payment
+	// while the courier is already at the door with verified goods.
+	onSettled func(orderID uuid.UUID)
 }
 
 // SetProviderDependencies wires the operator catalog, the payment audit trail and

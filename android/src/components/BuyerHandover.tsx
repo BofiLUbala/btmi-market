@@ -71,12 +71,13 @@ export function BuyerHandoverCard({ orderId, deliveryStatus, onChanged }: { orde
     ? isCash ? t('handover.paidCash') : t('handover.paidMobile')
     : isCash ? t('handover.cashToHand', { amount: formatMoney(state.amount_due, state.currency) }) : t('handover.awaitingMobile')
 
-  const blockedText = !state.payment_verified
-    ? t('handover.blockedPayment')
+  // Same order the server checks them in: goods, then each line, then money.
+  const blockedText = !state.all_products_verified
+    ? t('handover.blockedProducts')
     : !state.all_lines_acknowledged
       ? t('handover.blockedAck')
-      : !state.delivery_scanned
-        ? t('handover.blockedScan')
+      : !state.payment_verified
+        ? t('handover.blockedPayment')
         : t('handover.blockedOther')
 
   return (
@@ -86,7 +87,6 @@ export function BuyerHandoverCard({ orderId, deliveryStatus, onChanged }: { orde
       <Text style={styles.hint}>{t('handover.orderCodeHint')}</Text>
       <View style={styles.row}><Text style={styles.key}>{t('handover.payment')}</Text><Text style={styles.value}>{paymentText}</Text></View>
       <View style={styles.row}><Text style={styles.key}>{t('handover.productsVerified')}</Text><Text style={styles.value}>{state.all_products_verified ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</Text></View>
-      <View style={styles.row}><Text style={styles.key}>{t('handover.qrScanned')}</Text><Text style={styles.value}>{state.delivery_scanned ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</Text></View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 

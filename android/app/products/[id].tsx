@@ -154,12 +154,12 @@ export default function ProductScreen() {
       (typeof firstImage === 'string' ? firstImage : firstImage?.url || firstImage?.image_url)
   )
 
-  const stock =
-    selected?.stock_quantity ??
-    selected?.available_stock ??
-    selected?.stock_available ??
-    product.available_stock ??
-    0
+  const variantStock = (v: typeof selected) => v?.stock_quantity ?? v?.available_stock ?? v?.stock_available ?? 0
+  // Before an option is picked, the product is in stock if any variant is: the
+  // product-level figure is often absent, which read as a false "out of stock".
+  const stock = selected
+    ? variantStock(selected)
+    : product.available_stock ?? variants.reduce((sum, v) => sum + variantStock(v), 0)
 
   // Same resolver as the product card and the web app, so the price shown here
   // is the price the backend will charge at checkout.

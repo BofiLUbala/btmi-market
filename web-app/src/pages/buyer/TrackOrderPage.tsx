@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
 import type { TrackingResponse, HandoverState } from '@/api/types'
 import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
+import { timelineNote } from '@/lib/timelineNote'
 import { OrderRatingCard } from '@/components/checkout/OrderRatingCard'
 import { StatusBadge } from '@/components/ui/Badges'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -53,7 +54,9 @@ function tbkSteps(d: TrackingResponse, handover: HandoverState | null) {
     { status: 'COURIER_ARRIVED', done: reached('COURIER_ARRIVED') },
     { status: 'PRODUCT_VERIFIED', done: !!handover?.all_products_verified || orderReached('DELIVERED') },
     { status: 'PAYMENT_VERIFIED', done: paid },
-    { status: 'DELIVERY_SCAN_SUCCESS', done: reached('DELIVERY_SCAN_SUCCESS') },
+    // Handed over: the server records it once the goods are verified and the money is
+    // settled - there is no QR to scan at the door.
+    { status: 'DELIVERED', done: orderReached('DELIVERED') },
     { status: 'RECEIVED', done: orderReached('RECEIVED') },
     { status: 'COMPLETED', done: orderReached('COMPLETED') },
   ]
@@ -184,13 +187,13 @@ function TrackInner() {
         <StatusBadge status={currentStatus} />
       </div>
       <div className="small muted">
-        {t('tracking.summary', { number: data.order_number, method: data.delivery_method.replace(/_/g, ' ').toLowerCase(), status: data.payment_status.replace(/_/g, ' ').toLowerCase() })}
+        {t('tracking.summary', { number: data.order_number, method: labelOr(t, `tracking.method.${data.delivery_method}`, data.delivery_method), status: labelOr(t, `tracking.pay.${data.payment_status}`, data.payment_status) })}
       </div>
 
       {data.latest_update && (
         <div className="card" style={{ marginTop: 12, background: 'var(--color-accent-soft)', border: 'none' }}>
           <div className="bold small">{t('tracking.latestUpdate')}</div>
-          <p className="small mt-0">{data.latest_update}</p>
+          <p className="small mt-0">{labelOr(t, `status.${data.latest_update}`, data.latest_update)}</p>
           <div className="t-time">{formatDateTime(data.latest_update_at)}</div>
         </div>
       )}
@@ -211,7 +214,7 @@ function TrackInner() {
                   {reached ? '✓ ' : ''}{t(`status.${s}` as TranslationKey)}
                   {isCurrent && t('tracking.current')}
                 </div>
-                {event && <><div className="small muted">{actorLabel(event.actor_type, t)}{event.notes ? `${actorLabel(event.actor_type, t) ? ' · ' : ''}${event.notes}` : ''}</div><div className="t-time">{formatDateTime(event.created_at)}</div></>}
+                {event && <><div className="small muted">{actorLabel(event.actor_type, t)}{event.notes ? `${actorLabel(event.actor_type, t) ? ' · ' : ''}${timelineNote(t, event.notes)}` : ''}</div><div className="t-time">{formatDateTime(event.created_at)}</div></>}
               </li>
             )
           })}
@@ -233,6 +236,12 @@ function TrackInner() {
       )}
     </div>
   )
+}
+
+/** A translated label for a server code, or the code made readable when none exists. */
+function labelOr(t: (key: string) => string, key: string, raw: string): string {
+  const label = t(key)
+  return label !== key ? label : raw.replace(/_/g, ' ').toLowerCase()
 }
 
 export default function TrackOrderPage() {

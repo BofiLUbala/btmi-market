@@ -138,20 +138,16 @@ export default function CourierMissionPage(){
     handover ? {
       allProductsVerified: handover.all_products_verified,
       allLinesAcknowledged: handover.all_lines_acknowledged,
-      deliveryScanned: handover.delivery_scanned,
       receiptConfirmed: handover.receipt_confirmed,
       paymentVerified: handover.payment_verified,
       courierCanVerifyProduct: handover.courier_can_verify_product,
       courierCanConfirmCash: handover.courier_can_confirm_cash,
-      courierCanScanDelivery: handover.courier_can_scan_delivery,
       blockedReason: undefined
     } : {
       allProductsVerified: false,
       courierCanVerifyProduct: false,
       courierCanConfirmCash: false,
-      courierCanScanDelivery: false,
       allLinesAcknowledged: false,
-      deliveryScanned: false,
       receiptConfirmed: false,
       blockedReason: undefined
     }
@@ -272,17 +268,6 @@ export default function CourierMissionPage(){
                       exact amount was received: no one-tap money confirmation here. */}
                   <button className="courier-btn courier-btn-primary" onClick={scrollToHandover}>
                     {workflow.primaryButtonText || t('courier.handover.confirmCashAction')} ↓
-                  </button>
-                </div>
-              )}
-
-              {workflow.actionType === 'SCAN_DELIVERY' && m && (
-                <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
-                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
-                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
-                  <p className="courier-muted">{workflow.explanation}</p>
-                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=DELIVERY&order_id=${m.order_id}`)}>
-                    {workflow.primaryButtonText || t('courier.handover.stepDeliveryScanned')}
                   </button>
                 </div>
               )}

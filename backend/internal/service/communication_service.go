@@ -830,36 +830,6 @@ func withAudience(meta map[string]interface{}, audience string) map[string]inter
 	return out
 }
 
-// ConfirmCourierArrival updates the delivery status to COURIER_ARRIVED and notifies the buyer.
-func (s *CommunicationService) ConfirmCourierArrival(orderID uuid.UUID, courierUserID uuid.UUID) error {
-	if err := s.orderRepo.UpdateDeliveryStatus(orderID, "COURIER_ARRIVED"); err != nil {
-		return err
-	}
-	return s.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierArrived, map[string]interface{}{
-		"courier_user_id": courierUserID.String(),
-	})
-}
-
-// ConfirmCourierPickedUp updates the delivery status to IN_TRANSIT and triggers notifications.
-func (s *CommunicationService) ConfirmCourierPickedUp(orderID uuid.UUID, courierUserID uuid.UUID) error {
-	if err := s.orderRepo.UpdateDeliveryStatus(orderID, "IN_TRANSIT"); err != nil {
-		return err
-	}
-	return s.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierPickedUp, map[string]interface{}{
-		"courier_user_id": courierUserID.String(),
-	})
-}
-
-// ConfirmCourierNearDestination updates the delivery status to NEAR_DESTINATION and notifies the buyer.
-func (s *CommunicationService) ConfirmCourierNearDestination(orderID uuid.UUID, courierUserID uuid.UUID) error {
-	if err := s.orderRepo.UpdateDeliveryStatus(orderID, "NEAR_DESTINATION"); err != nil {
-		return err
-	}
-	return s.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierNearDestination, map[string]interface{}{
-		"courier_user_id": courierUserID.String(),
-	})
-}
-
 // GetUserNotifications returns paginated notifications for the user.
 func (s *CommunicationService) GetUserNotifications(userID uuid.UUID, audience string, limit, offset int) ([]models.NotificationResponse, int, error) {
 	return s.notifRepo.GetByUserIDForAudience(userID, audience, limit, offset)

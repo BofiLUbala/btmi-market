@@ -28,7 +28,6 @@ export default function CourierScanPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const type = params.get('type') === 'DELIVERY' ? 'DELIVERY' : 'PICKUP'
   const orderId = params.get('order_id') || ''
 
   const video = useRef<HTMLVideoElement>(null)
@@ -59,10 +58,10 @@ export default function CourierScanPage() {
       setSending(true)
       setError('')
       try {
-        await (type === 'PICKUP' ? courierApi.scanPickup(orderId, token) : courierApi.scanDelivery(orderId, token))
+        await courierApi.scanPickup(orderId, token)
         done.current = true
         stopCamera()
-        setMessage(t(type === 'PICKUP' ? 'courier.scan.pickupSuccess' : 'courier.scan.deliverySuccess'))
+        setMessage(t('courier.scan.pickupSuccess'))
       } catch (e) {
         lastRejected.current = { code: token, at: Date.now() }
         const code = (e as { code?: string })?.code ?? (e instanceof Error ? e.message : '')
@@ -76,7 +75,7 @@ export default function CourierScanPage() {
         setSending(false)
       }
     },
-    [orderId, stopCamera, t, type]
+    [orderId, stopCamera, t]
   )
 
   useEffect(() => {
@@ -160,7 +159,7 @@ export default function CourierScanPage() {
     <main style={{ position: 'fixed', inset: 0, background: '#050505', display: 'grid', placeItems: 'center', color: '#fff', zIndex: 1000, overflowY: 'auto' }}>
       <video ref={video} playsInline muted style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       <div style={{ position: 'relative', width: 'min(88vw,360px)', textAlign: 'center', padding: '24px 0' }}>
-        <h1 style={{ fontSize: 20 }}>{t(type === 'PICKUP' ? 'courier.scan.pickupTitle' : 'courier.scan.deliveryTitle')}</h1>
+        <h1 style={{ fontSize: 20 }}>{t('courier.scan.pickupTitle')}</h1>
         {!message && !cameraError && (
           <div style={{ height: 280, border: `3px solid ${error ? '#f87171' : 'white'}`, borderRadius: 20, boxShadow: '0 0 0 9999px rgba(0,0,0,.35)' }} />
         )}

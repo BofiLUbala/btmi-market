@@ -65,6 +65,16 @@ func (h *Handler) sellerActionError(c *gin.Context, userID, orderID uuid.UUID, a
 		statusCode = http.StatusBadRequest
 		errorCode = "INVALID_STATUS_TRANSITION"
 		message = "This order is no longer pending - it has already been handled. Refresh to see its current status."
+	case "DELIVERY_METHOD_REQUIRED", "PAYMENT_METHOD_REQUIRED", "PAYMENT_NOT_SETTLED", "COURIER_STEP_ONLY":
+		// A step before this one is still open; the seller waits for it rather than skipping it.
+		statusCode = http.StatusConflict
+		errorCode = err.Error()
+		message = map[string]string{
+			"DELIVERY_METHOD_REQUIRED": "The buyer has not confirmed the delivery address yet.",
+			"PAYMENT_METHOD_REQUIRED":  "The buyer has not chosen how to pay yet.",
+			"PAYMENT_NOT_SETTLED":      "This order is paid in advance and the payment has not been received yet.",
+			"COURIER_STEP_ONLY":        "Only the TBK courier can record this delivery step.",
+		}[err.Error()]
 	}
 
 	// Current status is read separately: the action failed, so the service
@@ -325,6 +335,9 @@ func (h *Handler) SellerTransitionOrder(c *gin.Context) {
 		case "SELLER_CANNOT_CONFIRM_RECEIVED":
 			statusCode = http.StatusBadRequest
 			errorCode = "SELLER_CANNOT_CONFIRM_RECEIVED"
+		case "DELIVERY_METHOD_REQUIRED", "PAYMENT_METHOD_REQUIRED", "PAYMENT_NOT_SETTLED", "COURIER_STEP_ONLY", "ACTOR_NOT_ALLOWED":
+			statusCode = http.StatusConflict
+			errorCode = err.Error()
 		}
 		if strings.HasPrefix(err.Error(), "INVALID_TRANSITION:") {
 			statusCode = http.StatusBadRequest

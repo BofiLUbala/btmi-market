@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Image } from 'expo-image'
 import { Pressable } from 'react-native'
 import { resolveMediaUrl } from '../../src/api/client'
+import { timelineNote } from '../../src/lib/timelineNote'
 import { OrderRatingCard } from '../../src/components/OrderRatingCard'
 import { DeliveryPlanCard } from '../../src/components/DeliveryPlanCard'
 import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../../src/lib/deliveryPlan'
@@ -229,7 +230,8 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const canReceive = (deliveryMethod === 'PICKUP' && o.status === 'READY_FOR_PICKUP') || (Boolean(productVerification) && deliveryMethod !== 'PICKUP' && o.status === 'DELIVERED')
   const needsDelivery = !o.delivery_method
   const productsTotal = (o.final_total || 0) + (o.points_discount_amount || 0)
-  const grandTotal = (o.final_total || 0) + (o.delivery_fee_final || 0)
+  // Once a payment exists it is what the buyer owes, payment surcharge included.
+  const grandTotal = p?.final_total ?? (o.final_total || 0) + (o.delivery_fee_final || 0)
   const currency = p?.currency || o.currency
   const canVerify = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '')
   const canCancel = buyerCanCancel(o.status, o.delivery_status, p?.status)
@@ -274,7 +276,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsSubtotal')}</Text><Text style={styles.muted}>{formatMoney(productsTotal)}</Text></View>
         {(o.points_used ?? 0) > 0 ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.pointsUsed', { count: o.points_used ?? 0 })}</Text><Text style={[styles.muted, { color: colors.success }]}>−{formatMoney(o.points_discount_amount ?? 0)}</Text></View> : null}
         <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.productsTotal')}</Text><Text style={styles.muted}>{formatMoney(o.final_total)}</Text></View>
-        <View style={styles.breakRow}><Text style={[styles.muted, { flex: 1 }]}>{t('orders.delivery', { method: o.delivery_method || t('orders.notSelected') })}</Text><Text style={styles.muted}>{(o.delivery_points_used ?? 0) > 0 ? <Text style={{ textDecorationLine: 'line-through' }}>{formatMoney(o.delivery_fee_base ?? 0)} </Text> : null}{formatMoney(o.delivery_fee_final ?? 0)}</Text></View>
+        <View style={styles.breakRow}><Text style={[styles.muted, { flex: 1 }]}>{t('orders.delivery', { method: o.delivery_method ? deliveryLabel(t, o.delivery_method) : t('orders.notSelected') })}</Text><Text style={styles.muted}>{(o.delivery_points_used ?? 0) > 0 ? <Text style={{ textDecorationLine: 'line-through' }}>{formatMoney(o.delivery_fee_base ?? 0)} </Text> : null}{formatMoney(o.delivery_fee_final ?? 0)}</Text></View>
         <View style={styles.breakRow}><Text style={[styles.muted, { fontWeight: '900', color: colors.ink }]}>{t('orders.totalDue')}</Text><Text style={[styles.muted, { fontWeight: '900', color: colors.ink }]}>{formatMoney(grandTotal)}</Text></View>
         {o.delivery_method ? <View style={styles.deliveryBox}>
           <Text style={[styles.muted, { fontWeight: '800', color: colors.ink }]}>{t('delivery.details')}</Text>
@@ -319,7 +321,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
           <View style={{flex:1}}>
             <Text style={[styles.stepStatus, step.done && styles.stepDone]}>{statusLabel(t, step.status)}</Text>
             {step.event ? <>
-              {step.event.notes ? <Text style={styles.muted}>{step.event.notes}</Text> : null}
+              {step.event.notes ? <Text style={styles.muted}>{timelineNote(t, step.event.notes)}</Text> : null}
               <Text style={styles.time}>{t(ACTOR_KEYS[step.event.actor_type || ''] ?? 'orders.actorSystem')} · {formatDateTime(step.event.created_at, lang)}</Text>
             </> : step.done ? null : <Text style={styles.time}>{t('orders.upcoming')}</Text>}
           </View>

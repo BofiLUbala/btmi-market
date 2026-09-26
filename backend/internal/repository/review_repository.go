@@ -151,10 +151,10 @@ func (r *ReviewRepository) UpdateReview(reviewID uuid.UUID, rating int, comment 
 	// breakdown with it, so the stars shown per criterion never contradict the
 	// overall rating the buyer just chose.
 	_, err = tx.Exec(
-		`UPDATE seller_reviews SET rating = $2, comment = $3,
-			delivery_rating = CASE WHEN delivery_rating IS NULL THEN NULL ELSE $2 END,
-			service_rating = CASE WHEN service_rating IS NULL THEN NULL ELSE $2 END,
-			order_experience_rating = CASE WHEN order_experience_rating IS NULL THEN NULL ELSE $2 END,
+		`UPDATE seller_reviews SET rating = $2::smallint, comment = $3,
+			delivery_rating = CASE WHEN delivery_rating IS NULL THEN NULL ELSE $2::smallint END,
+			service_rating = CASE WHEN service_rating IS NULL THEN NULL ELSE $2::smallint END,
+			order_experience_rating = CASE WHEN order_experience_rating IS NULL THEN NULL ELSE $2::smallint END,
 			updated_at = NOW() WHERE id = $1`,
 		reviewID, rating, comment,
 	)

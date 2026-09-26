@@ -437,9 +437,6 @@ func main() {
 			ordersGroup.POST("/:order_id/confirm-return", orderHandler.ConfirmReturnToSeller)
 			ordersGroup.POST("/:order_id/cancel", orderHandler.CancelOrder)
 			ordersGroup.POST("/:order_id/tracking/status", orderHandler.SellerTransitionOrder)
-			ordersGroup.POST("/:order_id/courier-arrived", commHandler.ConfirmCourierArrival)
-			ordersGroup.POST("/:order_id/courier-picked-up", commHandler.ConfirmCourierPickedUp)
-			ordersGroup.POST("/:order_id/courier-near-destination", commHandler.ConfirmCourierNearDestination)
 			ordersGroup.GET("/:order_id/package-qr", qrHandler.SellerPackage)
 			ordersGroup.GET("/:order_id/package-qr/label", qrHandler.SellerPackageLabel)
 			// Per-order-item QR identities for printing/picklists. The QR itself is

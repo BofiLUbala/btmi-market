@@ -27,7 +27,7 @@ interface StepInfo {
   label: string
   state: StepState
   responsibleActor: string
-  actionType?: 'VERIFY_PRODUCT' | 'CONFIRM_CASH' | 'SCAN_DELIVERY' | 'WAIT_PAYMENT' | 'WAIT_BUYER' | 'COMPLETED'
+  actionType?: 'VERIFY_PRODUCT' | 'CONFIRM_CASH' | 'WAIT_PAYMENT' | 'WAIT_BUYER' | 'COMPLETED'
   primaryButtonText?: string
   canAct: boolean
   reason?: string
@@ -80,9 +80,7 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
   // Notify parent when a new actionable step becomes available
   useEffect(() => {
     if (state && onActionReady) {
-      const hasActiveAction = state.courier_can_verify_product ||
-                              state.courier_can_confirm_cash ||
-                              state.courier_can_scan_delivery
+      const hasActiveAction = state.courier_can_verify_product || state.courier_can_confirm_cash
       if (hasActiveAction) {
         onActionReady()
       }
@@ -130,11 +128,6 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
     } finally {
       setBusy(false)
     }
-  }
-
-  async function scanDelivery() {
-    // Navigate to the delivery scan page - the actual QR scanning happens there
-    window.location.href = `/courier/scan?type=DELIVERY&order_id=${orderId}`
   }
 
   if (!state) return null
@@ -185,21 +178,10 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
               isCash ? 'En attente de confirmation espèces' : 'En attente de confirmation opérateur'
     },
     {
-      key: 'scan_delivery',
-      label: t('courier.handover.stepDeliveryScanned'),
-      state: state.delivery_scanned ? 'COMPLETED' :
-             state.all_products_verified && state.payment_verified && !state.delivery_scanned ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: 'Livreur (Vous)',
-      actionType: 'SCAN_DELIVERY',
-      primaryButtonText: 'Scanner le QR du colis',
-      canAct: state.courier_can_scan_delivery === true,
-      reason: state.courier_can_scan_delivery ? undefined : 'Produits et paiement requis'
-    },
-    {
       key: 'buyer_acknowledged',
       label: t('courier.handover.stepBuyerAcknowledged'),
       state: state.all_lines_acknowledged ? 'COMPLETED' :
-             state.delivery_scanned && !state.all_lines_acknowledged ? 'WAITING_FOR_OTHER' : 'LOCKED',
+             state.all_products_verified && !state.all_lines_acknowledged ? 'WAITING_FOR_OTHER' : 'LOCKED',
       responsibleActor: 'Acheteur',
       actionType: 'WAIT_BUYER',
       canAct: false,
@@ -209,7 +191,7 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
       key: 'delivered',
       label: t('courier.handover.stepDelivered'),
       state: state.receipt_confirmed ? 'COMPLETED' :
-             state.all_lines_acknowledged && state.delivery_scanned && state.payment_verified ? 'CURRENT_ACTION' : 'LOCKED',
+             state.all_lines_acknowledged && state.payment_verified ? 'WAITING_FOR_OTHER' : 'LOCKED',
       responsibleActor: 'Acheteur',
       actionType: 'WAIT_BUYER',
       canAct: false,
@@ -326,17 +308,6 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
             </button>
           </div>
         </div>
-      )}
-
-      {/* Delivery scan button — only when actionable */}
-      {state.courier_can_scan_delivery && (
-        <button
-          className="courier-btn courier-btn-primary courier-btn-scan"
-          onClick={() => void scanDelivery()}
-          disabled={busy}
-        >
-          {t('courier.handover.stepDeliveryScanned')}
-        </button>
       )}
 
       {/* Why the button is not usable yet, so the courier is never left guessing. */}

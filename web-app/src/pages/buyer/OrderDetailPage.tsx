@@ -4,6 +4,7 @@ import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../..
 import { DeliveryPlanCard } from '../../components/checkout/DeliveryPlanCard'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
+import { timelineNote } from '@/lib/timelineNote'
 import { OrderRatingCard } from '@/components/checkout/OrderRatingCard'
 import { buyerApi } from '@/api/buyer'
 import { ApiError, type BuyerPayment, type OrderLine, type OrderWithLines, type ProductVerification } from '@/api/types'
@@ -50,8 +51,7 @@ interface TimelineStep {
   tbkOnly?: boolean
 }
 
-const HANDOVER_SCANNED = ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
-const COURIER_AT_DOOR = ['COURIER_ARRIVED', ...HANDOVER_SCANNED]
+const COURIER_AT_DOOR = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
 const isTbkDelivery = (o: OrderWithLines['order']) => (o.delivery_method || '').startsWith('TBK')
 const reachedCourierStep = (o: OrderWithLines['order'], step: CourierStep) => courierReached(o, step)
 
@@ -122,11 +122,6 @@ const TIMELINE_STEPS: TimelineStep[] = [
     done: (o) => COURIER_AT_DOOR.includes(o.delivery_status || '') || ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('DELIVERED')
   },
   {
-    key: 'handover',
-    labelKey: 'orders.handoverScanned',
-    done: (o) => HANDOVER_SCANNED.includes(o.delivery_status || '') || ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('DELIVERED')
-  },
-  {
     key: 'received',
     labelKey: 'orders.received',
     done: (o) => ORDER_STAGES.indexOf(o.status) >= ORDER_STAGES.indexOf('RECEIVED')
@@ -135,7 +130,15 @@ const TIMELINE_STEPS: TimelineStep[] = [
 
 function OrderTimeline({ o, payment }: { o: OrderWithLines['order']; payment: BuyerPayment | null }) {
   const { t } = useI18n()
-  const visible = TIMELINE_STEPS.filter((step) => !step.tbkOnly || isTbkDelivery(o))
+  let visible = TIMELINE_STEPS.filter((step) => !step.tbkOnly || isTbkDelivery(o))
+  // Paid at the door (cash or mobile money on delivery): the payment happens after the
+  // courier arrives, so that is where it sits - not before the seller starts, where it
+  // would read as a step that was skipped.
+  if (!payment || payment.payment_timing === 'DELIVERY') {
+    const pay = visible.find((step) => step.key === 'payment')
+    visible = visible.filter((step) => step.key !== 'payment')
+    if (pay) visible.splice(visible.findIndex((step) => step.key === 'arrived') + 1, 0, pay)
+  }
   const steps = visible.map((step) => step.done(o, payment))
   const currentIndex = steps.findIndex((done) => !done)
   return (
@@ -749,7 +752,7 @@ function OrderInner() {
                     <div className="t-status small">
                       <StatusBadge status={h.status} />
                     </div>
-                    {h.notes && <div className="small muted">{h.notes}</div>}
+                    {h.notes && <div className="small muted">{timelineNote(t, h.notes)}</div>}
                     <div className="t-time">{formatDateTime(h.created_at)}</div>
                   </li>
                 ))}

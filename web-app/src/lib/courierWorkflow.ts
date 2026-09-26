@@ -20,7 +20,7 @@ export interface WorkflowStep {
   state: 'COMPLETED' | 'CURRENT_ACTION' | 'WAITING_FOR_OTHER' | 'LOCKED' | 'PENDING'
   responsibleActor: string
   reason?: string
-  actionType?: 'ACCEPT_REJECT' | 'PICKUP' | 'START_DELIVERY' | 'ARRIVE' | 'VERIFY_PRODUCT' | 'CONFIRM_CASH' | 'SCAN_DELIVERY' | 'WAIT_SELLER' | 'WAIT_PAYMENT' | 'WAIT_BUYER' | 'COMPLETED'
+  actionType?: 'ACCEPT_REJECT' | 'PICKUP' | 'START_DELIVERY' | 'ARRIVE' | 'VERIFY_PRODUCT' | 'CONFIRM_CASH' | 'WAIT_SELLER' | 'WAIT_PAYMENT' | 'WAIT_BUYER' | 'COMPLETED'
   primaryButtonText?: string
   secondaryButtonText?: string
   canAct: boolean
@@ -42,12 +42,10 @@ export interface CourierWorkflowState {
   handoverFlags?: {
     allProductsVerified?: boolean
     allLinesAcknowledged?: boolean
-    deliveryScanned?: boolean
     receiptConfirmed?: boolean
     paymentVerified?: boolean
     courierCanVerifyProduct?: boolean
     courierCanConfirmCash?: boolean
-    courierCanScanDelivery?: boolean
     buyerCanAcknowledge?: boolean
     buyerCanConfirmReceipt?: boolean
     blockedReason?: string
@@ -168,9 +166,8 @@ export function getCourierWorkflow(
     {
       key: 'payment',
       label: isCash ? 'Espèces encaissées' : 'Paiement confirmé',
-      state: flags.deliveryScanned || flags.receiptConfirmed ? 'COMPLETED' :
-        ['PAYMENT_VERIFIED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus) ? 'COMPLETED' :
-        flags.paymentVerified ? 'COMPLETED' :
+      state: flags.paymentVerified || flags.receiptConfirmed ? 'COMPLETED' :
+        ['PAYMENT_VERIFIED', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus) ? 'COMPLETED' :
         flags.allProductsVerified ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: isCash ? 'Livreur (Vous)' : 'Acheteur / Opérateur',
       actionType: isCash ? 'CONFIRM_CASH' : 'WAIT_PAYMENT',
@@ -178,39 +175,27 @@ export function getCourierWorkflow(
       canAct: flags.courierCanConfirmCash === true,
       prerequisites: ['product_verified']
     },
-    {
-      key: 'scan_delivery',
-      label: 'QR du colis scanné',
-      state: flags.deliveryScanned ? 'COMPLETED' :
-        deliveryStatus === 'PAYMENT_VERIFIED' ? 'CURRENT_ACTION' :
-        deliveryStatus === 'DELIVERY_SCAN_SUCCESS' || deliveryStatus === 'AWAITING_BUYER_CONFIRMATION' ? 'COMPLETED' :
-        flags.allProductsVerified && flags.paymentVerified && !flags.deliveryScanned ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: 'Livreur (Vous)',
-      actionType: 'SCAN_DELIVERY',
-      primaryButtonText: 'Scanner le QR du colis',
-      canAct: flags.courierCanScanDelivery === true,
-      prerequisites: ['product_verified', 'payment']
-    },
+    // No door QR: once the goods are verified and the money settled, the server
+    // closes the handover itself. Only the buyer's confirmation remains.
     {
       key: 'buyer_acknowledged',
-      label: 'Articles confirmés par l\'acheteur',
+      label: 'Articles confirmés par l’acheteur',
       state: flags.allLinesAcknowledged ? 'COMPLETED' :
-        deliveryStatus === 'DELIVERY_SCAN_SUCCESS' || deliveryStatus === 'AWAITING_BUYER_CONFIRMATION' ? 'CURRENT_ACTION' :
-        flags.deliveryScanned ? 'CURRENT_ACTION' : 'LOCKED',
+        flags.allProductsVerified ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: 'Acheteur',
       actionType: 'WAIT_BUYER',
       canAct: flags.buyerCanAcknowledge === true,
-      prerequisites: ['scan_delivery']
+      prerequisites: ['product_verified']
     },
     {
       key: 'delivered',
       label: 'Livraison terminée',
       state: flags.receiptConfirmed ? 'COMPLETED' :
-        flags.allLinesAcknowledged && flags.deliveryScanned && flags.paymentVerified ? 'CURRENT_ACTION' : 'LOCKED',
+        flags.allLinesAcknowledged && flags.paymentVerified ? 'CURRENT_ACTION' : 'LOCKED',
       responsibleActor: 'Acheteur',
       actionType: 'WAIT_BUYER',
       canAct: flags.buyerCanConfirmReceipt === true,
-      prerequisites: ['buyer_acknowledged', 'scan_delivery', 'payment']
+      prerequisites: ['buyer_acknowledged', 'payment']
     }
   ]
 
@@ -287,11 +272,6 @@ export function getCourierWorkflow(
       }
       break
     case 'PAYMENT_VERIFIED':
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Paiement confirmé. Scannez le QR imprimé sur le colis devant l\'acheteur.'
-      actionType = 'SCAN_DELIVERY'
-      primaryButtonText = 'Scanner le QR du colis'
-      break
     case 'DELIVERY_SCAN_SUCCESS':
     case 'AWAITING_BUYER_CONFIRMATION':
       responsibleActor = 'Acheteur'
@@ -323,17 +303,16 @@ export function getCourierWorkflow(
 
   // The handover endpoint's permission flags are the server's single source of
   // truth for what the courier may do next at the door. When the delivery status
-  // alone cannot tell (product verify, cash, remise all happen under
+  // alone cannot tell (product verify, cash and the buyer's confirmation all happen under
   // COURIER_ARRIVED), drive the action panel from these instead of guessing.
   // The override is restricted to the door states: once the status itself is
   // definitive (payment confirmed, scan done, delivered), the status mapping
   // above must win instead of the generic flag fallbacks.
   if (deliveryStatus === 'COURIER_ARRIVED' || deliveryStatus === 'PRODUCT_VERIFIED') {
-    if (flags.courierCanScanDelivery) {
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Paiement confirmé. Scannez le QR imprimé sur le colis devant l\'acheteur.'
-      actionType = 'SCAN_DELIVERY'
-      primaryButtonText = 'Scanner le QR du colis'
+    if (flags.allProductsVerified && flags.paymentVerified) {
+      responsibleActor = 'Acheteur'
+      explanation = 'Produits vérifiés et paiement réglé. En attente de la confirmation de réception par l’acheteur.'
+      actionType = 'WAIT_BUYER'
     } else if (flags.courierCanConfirmCash) {
       responsibleActor = 'Livreur (Vous)'
       explanation = 'Produits vérifiés. Encaissez le montant en espèces auprès de l\'acheteur.'

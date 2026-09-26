@@ -25,7 +25,7 @@ var (
 	ErrQRWrongCourier       = errors.New("QR_WRONG_COURIER")
 	ErrQRDuplicate          = errors.New("QR_DUPLICATE")
 	ErrQRAlreadyCompleted   = errors.New("QR_ALREADY_COMPLETED")
-	ErrQRDeliveryNotScanned = errors.New("DELIVERY_NOT_SCANNED")
+	ErrQRDeliveryNotScanned = errors.New("HANDOVER_NOT_COMPLETE")
 	ErrProductNotVerified   = errors.New("PRODUCT_NOT_VERIFIED")
 	ErrProductMismatch      = errors.New("PRODUCT_MISMATCH")
 	// ErrQRNotReady is returned before the seller has marked the order ready, i.e. before a
@@ -346,21 +346,10 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 		}
 		column, target, deliveryStatus, resultStatus = "pickup_verified_at", models.OrderStatusOutForDelivery, "PICKED_UP", "PICKED_UP"
 	case "DELIVERY":
-		if pickup == nil {
-			return reject("REJECTED", "PICKUP_NOT_VERIFIED", ErrQRNotOperational)
-		}
-		if delivery != nil {
-			s.recordScan(tx, pkgID, orderID, &courierID, typ, "DUPLICATE", "DELIVERY_ALREADY_SCANNED", req)
-			if err = tx.Commit(); err != nil {
-				return nil, err
-			}
-			return &models.QRScanResponse{Result: "DUPLICATE", OrderID: orderID, PackageID: pkgID, DeliveryStatus: "AWAITING_BUYER_CONFIRMATION", RequiresBuyerConfirmation: true}, nil
-		}
-		if currentDeliveryStatus != "COURIER_ARRIVED" {
-			return reject("REJECTED", "INVALID_ORDER_STATE", ErrQRNotOperational)
-		}
-		column, target, deliveryStatus, resultStatus = "delivery_scanned_at", models.OrderStatusDelivered, "DELIVERY_SCAN_SUCCESS", "AWAITING_BUYER_CONFIRMATION"
-		requiresBuyerConfirmation = true
+		// The door QR is retired: the handover closes itself once the products are
+		// verified and the payment is settled (CompleteHandoverIfReady). A scan from an
+		// older app is refused and recorded, never used as a shortcut.
+		return reject("REJECTED", "DELIVERY_QR_RETIRED", ErrQRNotOperational)
 	default:
 		return reject("INVALID", "UNKNOWN_SCAN_TYPE", ErrQRInvalid)
 	}
@@ -401,9 +390,80 @@ func (s *QRService) Scan(courierID uuid.UUID, typ string, req models.QRScanReque
 	return &models.QRScanResponse{Result: "SUCCESS", OrderID: orderID, PackageID: pkgID, DeliveryStatus: resultStatus, RequiresBuyerConfirmation: requiresBuyerConfirmation}, nil
 }
 
+// CompleteHandoverIfReady marks the parcel handed over - order DELIVERED, awaiting the
+// buyer's confirmation - once, and only once, every earlier step is on record: the
+// courier picked the parcel up, travelled and arrived, every line was verified against
+// the order, and the payment is settled (cash counted by the courier, or confirmed by the
+// provider). It replaces the door QR: the checks it relied on are the ones below, run by
+// the server, so there is no step a client can skip. It is safe to call from any path
+// that may have completed the last missing step; it is a no-op otherwise.
+func (s *QRService) CompleteHandoverIfReady(orderID, triggeredBy uuid.UUID) bool {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return false
+	}
+	defer tx.Rollback()
+
+	var pkgID uuid.UUID
+	var courier *uuid.UUID
+	var deliveryStatus string
+	var pickup, handedOver, receipt *time.Time
+	err = tx.QueryRow(`SELECT p.id, o.assigned_courier_id, COALESCE(o.delivery_status,''),
+		       p.pickup_verified_at, p.delivery_scanned_at, p.receipt_confirmed_at
+		FROM orders o JOIN delivery_packages p ON p.order_id=o.id AND p.qr_status='ACTIVE'
+		WHERE o.id=$1 FOR UPDATE OF o, p`, orderID).
+		Scan(&pkgID, &courier, &deliveryStatus, &pickup, &handedOver, &receipt)
+	if err != nil || courier == nil || pickup == nil || handedOver != nil || receipt != nil ||
+		deliveryStatus != "COURIER_ARRIVED" {
+		return false
+	}
+	var lines, verified int
+	if err = tx.QueryRow(`
+		SELECT COUNT(*), COUNT(*) FILTER (WHERE EXISTS(
+			SELECT 1 FROM product_handover_verifications v
+			WHERE v.order_line_id = ol.id AND v.order_id = ol.order_id AND v.result = 'SUCCESS'))
+		FROM order_lines ol WHERE ol.order_id = $1`, orderID).Scan(&lines, &verified); err != nil ||
+		lines == 0 || verified < lines {
+		return false
+	}
+	var paymentStatus string
+	if err = tx.QueryRow(`SELECT status FROM buyer_payments WHERE order_id=$1`, orderID).Scan(&paymentStatus); err != nil ||
+		!paymentSettled(models.BuyerPaymentStatus(paymentStatus)) {
+		return false
+	}
+	// The courier is the one physically handing the parcel over, so the transition is
+	// theirs whichever step (cash, provider callback, last verification) completed it.
+	if err = applyTransitionTx(tx, orderID, *courier, models.OrderStatusDelivered,
+		"Handover complete: products verified and payment settled", "COURIER"); err != nil {
+		return false
+	}
+	if _, err = tx.Exec(`UPDATE delivery_packages SET delivery_scanned_at=NOW(),updated_at=NOW() WHERE id=$1`, pkgID); err != nil {
+		return false
+	}
+	if _, err = tx.Exec(`UPDATE orders SET delivery_status='AWAITING_BUYER_CONFIRMATION',updated_at=NOW() WHERE id=$1`, orderID); err != nil {
+		return false
+	}
+	if err = tx.Commit(); err != nil {
+		return false
+	}
+	actor := *courier
+	if triggeredBy != uuid.Nil {
+		actor = triggeredBy
+	}
+	s.RecordHandoverEvent(orderID, actor, "COURIER", "HANDOVER_COMPLETED", "SUCCESS",
+		"Products verified and payment settled; awaiting buyer confirmation")
+	if s.commSvc != nil {
+		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeOrderDelivered,
+			map[string]interface{}{"package_id": pkgID.String(), "courier_user_id": courier.String()})
+		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeBuyerReceiptRequired,
+			map[string]interface{}{"package_id": pkgID.String()})
+	}
+	return true
+}
+
 // ConfirmReceipt is the buyer's final word on the handover, and the only thing that can
 // move the order to RECEIVED. It refuses until every earlier step is on record: the
-// courier scanned the package, every line's physical product was verified, the buyer
+// handover was completed at the door, every line's physical product was verified, the buyer
 // acknowledged each line, and the payment is actually settled — cash counted by the
 // courier, or an online payment the provider confirmed. A courier alone can never reach
 // this point, and confirming receipt still does not complete the order: COMPLETED comes
@@ -415,6 +475,10 @@ func (s *QRService) ConfirmReceipt(userID, orderID uuid.UUID) error {
 	}
 	defer tx.Rollback()
 
+	// The handover may be complete in fact but not yet on record (a provider callback
+	// that raced the last verification); close it first so the checks below see it.
+	s.CompleteHandoverIfReady(orderID, uuid.Nil)
+
 	var owner, pkg uuid.UUID
 	var scanned, confirmed *time.Time
 	err = tx.QueryRow(`SELECT bp.user_id,p.id,p.delivery_scanned_at,p.receipt_confirmed_at
@@ -425,9 +489,6 @@ func (s *QRService) ConfirmReceipt(userID, orderID uuid.UUID) error {
 	}
 	if confirmed != nil {
 		return nil
-	}
-	if scanned == nil {
-		return ErrQRDeliveryNotScanned
 	}
 	// Every line, not merely one: a two-product order where only one box was checked is
 	// not a verified handover.
@@ -464,12 +525,17 @@ func (s *QRService) ConfirmReceipt(userID, orderID uuid.UUID) error {
 	if !paymentSettled(models.BuyerPaymentStatus(paymentStatus)) {
 		return ErrPaymentNotVerified
 	}
+	// Products and payment are in, so the only thing that can still be missing is the
+	// courier's side of the handover itself (pickup, arrival).
+	if scanned == nil {
+		return ErrQRDeliveryNotScanned
+	}
 
 	if _, err = tx.Exec(`UPDATE delivery_packages SET receipt_confirmed_at=NOW(),updated_at=NOW() WHERE id=$1`, pkg); err != nil {
 		return err
 	}
 	if s.orderSvc != nil {
-		if err = applyTransitionTx(tx, orderID, userID, models.OrderStatusReceived, "Buyer confirmed receipt after delivery QR scan", "BUYER"); err != nil {
+		if err = applyTransitionTx(tx, orderID, userID, models.OrderStatusReceived, "Buyer confirmed receipt after verified handover", "BUYER"); err != nil {
 			return err
 		}
 	}

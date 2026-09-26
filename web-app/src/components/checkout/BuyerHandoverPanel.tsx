@@ -48,7 +48,7 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
     }
   }, [orderId])
 
-  // The courier drives this (parcel check, cash, QR scan): follow it live.
+  // The courier drives this (parcel check, cash): follow it live.
   useOrderEvents(() => { if (atDoor) void load() }, { orderId })
 
   useEffect(() => {
@@ -116,10 +116,6 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
         <span className="k">{t('handover.productsVerified')}</span>
         <span className="v">{state.all_products_verified ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</span>
       </div>
-      <div className="info-row">
-        <span className="k">{t('handover.qrScanned')}</span>
-        <span className="v">{state.delivery_scanned ? `✓ ${t('handover.yes')}` : t('handover.notYet')}</span>
-      </div>
 
       {error && <ErrorBox error={error} />}
 
@@ -153,12 +149,13 @@ export function BuyerHandoverPanel({ orderId, deliveryStatus, onChanged }: {
           </Button>
           {!state.buyer_can_confirm_receipt && (
             <p className="small muted">
-              {!state.payment_verified
-                ? t('handover.blockedPayment')
+              {/* Same order the server checks them in: goods, then each line, then money. */}
+              {!state.all_products_verified
+                ? t('handover.blockedProducts')
                 : !state.all_lines_acknowledged
                 ? t('handover.blockedAck')
-                : !state.delivery_scanned
-                ? t('handover.blockedScan')
+                : !state.payment_verified
+                ? t('handover.blockedPayment')
                 : t('handover.blockedOther')}
             </p>
           )}

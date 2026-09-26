@@ -326,6 +326,18 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 	if !canActorSetStatus(actorType, newStatus) {
 		return errors.New("ACTOR_NOT_ALLOWED")
 	}
+	// On a TBK delivery the parcel leaves and arrives in the courier's hands, recorded by
+	// the courier's own scans and handover. A seller writing those statuses would skip
+	// the pickup, the product check and the payment at the door.
+	if actorType == "SELLER" && (newStatus == models.OrderStatusOutForDelivery || newStatus == models.OrderStatusDelivered) &&
+		isCourierPickupReady(deliveryMethod, deliveryStatus, hasAssignedCourier) {
+		return errors.New("COURIER_STEP_ONLY")
+	}
+	if newStatus == models.OrderStatusAccepted {
+		if err := requireCheckoutCompleteTx(tx, orderID, deliveryMethod); err != nil {
+			return err
+		}
+	}
 
 	// A seller marking the order ready on a courier delivery flow advances the
 	// delivery handover milestone so the assigned courier can pick the package up.
@@ -380,6 +392,30 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 		uuid.New(), orderID, newStatus, changedBy, notes,
 	)
 	return err
+}
+
+// requireCheckoutCompleteTx refuses to let the seller start on an order whose checkout
+// is not finished: the buyer must have confirmed the delivery address and chosen how to
+// pay, and an order paid in advance must actually be paid. Each of these is a step on
+// the buyer's timeline before "seller preparing", and none of them may be skipped.
+func requireCheckoutCompleteTx(tx *sql.Tx, orderID uuid.UUID, deliveryMethod string) error {
+	if strings.TrimSpace(deliveryMethod) == "" {
+		return errors.New("DELIVERY_METHOD_REQUIRED")
+	}
+	var method, timing string
+	var status models.BuyerPaymentStatus
+	err := tx.QueryRow(`SELECT payment_method, COALESCE(payment_timing,''), status FROM buyer_payments WHERE order_id=$1`, orderID).
+		Scan(&method, &timing, &status)
+	if errors.Is(err, sql.ErrNoRows) || status == models.BuyerPaymentStatusCancelled || status == models.BuyerPaymentStatusRefunded {
+		return errors.New("PAYMENT_METHOD_REQUIRED")
+	}
+	if err != nil {
+		return err
+	}
+	if (method == models.PaymentMethodMobilePayNow || timing == "NOW") && !models.PaymentSettled(status) {
+		return errors.New("PAYMENT_NOT_SETTLED")
+	}
+	return nil
 }
 
 // TransitionOrder validates and applies a status transition atomically.
@@ -1672,6 +1708,9 @@ func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, er
 
 	if locked.Status != models.OrderStatusPending {
 		return nil, errors.New("INVALID_STATUS_TRANSITION")
+	}
+	if err := requireCheckoutCompleteTx(tx, orderID, locked.DeliveryMethod); err != nil {
+		return nil, err
 	}
 
 	updatedOrder, err := txOrderRepo.UpdateStatus(orderID, models.OrderStatusAccepted)

@@ -6,6 +6,9 @@ const DELIVERY_KEYS: Record<string, TranslationKey> = {
   PICKUP: 'orders.deliveryPickup',
   SHOP_DELIVERY: 'orders.deliveryShop',
   PARTNER: 'orders.deliveryPartner',
+  TBK: 'orders.deliveryTbk',
+  TBK_STANDARD: 'orders.deliveryTbk',
+  TBK_DELIVERY: 'orders.deliveryTbk',
 }
 
 export function deliveryLabel(t: Translate, value: string | null | undefined): string {
