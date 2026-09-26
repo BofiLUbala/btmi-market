@@ -1298,6 +1298,20 @@ export interface FinanceTimeseriesPoint {
 
 export type FinanceBreakdownGroup = 'shop' | 'product' | 'variant' | 'seller' | 'business'
 
+/** Delivery is a platform (TBK) revenue stream, separate from seller
+ *  commission — see FinanceDeliveryLedger.currency for the shared money type. */
+export interface FinanceDeliveryLedger {
+  currency: string
+  orders: number
+  fees_charged: number
+  points_discount: number
+  fees_billed: number
+  fees_collected: number
+  fees_outstanding: number
+  free_deliveries: number
+  by_city: { city: string; orders: number; fees_billed: number; fees_collected: number }[]
+}
+
 /** The filter axes every Finance Admin finance endpoint accepts. Payment
  *  status and commission status are separate axes on purpose: a buyer can have
  *  settled in full while TBK's cut is still due. */
@@ -1669,6 +1683,14 @@ getSummary: async (params?: { business_id?: string; shop_id?: string; seller_id?
     const q = new URLSearchParams(financeQuery(params))
     q.set('interval', params?.interval || 'day')
     return adminApi<{ interval: string; points: FinanceTimeseriesPoint[] }>(`/admin/finance/timeseries?${q.toString()}`)
+  },
+  // Delivery fees are TBK revenue, priced by Finance and never part of the
+  // seller commission base — kept as its own ledger so the two never blend.
+  getDeliveryFeesLedger: async (params?: { date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.date_from) q.set('date_from', params.date_from)
+    if (params?.date_to) q.set('date_to', params.date_to)
+    return adminApi<FinanceDeliveryLedger>(`/admin/finance/delivery-fees/ledger?${q.toString()}`)
   },
   listPayments: async (params?: { payment_status?: string; buyer_confirmed?: boolean; seller_confirmed?: boolean; business_id?: string; shop_id?: string; order_number?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams()

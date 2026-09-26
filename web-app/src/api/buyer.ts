@@ -85,8 +85,8 @@ export const buyerApi = {
 
   cancelOrder: (orderId: string) => post<BuyerOrder>(`/buyer/orders/${orderId}/cancel`, {}),
 
-  deliveryOptions: (orderId: string) =>
-    get<DeliveryOptionsResponse>(`/buyer/orders/${orderId}/delivery-options`),
+  deliveryOptions: (orderId: string, cityId?: string) =>
+    get<DeliveryOptionsResponse>(`/buyer/orders/${orderId}/delivery-options`, cityId ? { city_id: cityId } : undefined),
 
   selectDelivery: (orderId: string, body: SelectDeliveryRequest) =>
     post<DeliverySelectResponse>(`/buyer/orders/${orderId}/delivery`, body),

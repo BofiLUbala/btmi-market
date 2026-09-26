@@ -467,6 +467,9 @@ func main() {
 			notificationsGroup.POST("/:id/read", commHandler.MarkNotificationRead)
 			notificationsGroup.POST("/read-all", commHandler.MarkAllNotificationsRead)
 			notificationsGroup.GET("/unread-count", commHandler.GetUnreadNotificationsCount)
+			notificationsGroup.POST("/:id/archive", commHandler.ArchiveNotification)
+			notificationsGroup.POST("/:id/unarchive", commHandler.UnarchiveNotification)
+			notificationsGroup.DELETE("/:id", commHandler.DeleteNotification)
 		}
 
 		variantsGroup := api.Group("/variants")

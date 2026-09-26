@@ -99,6 +99,8 @@ type Notification struct {
 	ReferenceID   uuid.UUID              `json:"reference_id" db:"reference_id"`
 	Metadata      map[string]interface{} `json:"metadata" db:"metadata"`
 	ReadAt        *time.Time             `json:"read_at,omitempty" db:"read_at"`
+	ArchivedAt    *time.Time             `json:"archived_at,omitempty" db:"archived_at"`
+	DeletedAt     *time.Time             `json:"deleted_at,omitempty" db:"deleted_at"`
 	CreatedAt     time.Time              `json:"created_at" db:"created_at"`
 }
 
@@ -159,8 +161,10 @@ type NotificationResponse struct {
 	ReferenceID   string                 `json:"reference_id"`
 	Metadata      map[string]interface{} `json:"metadata"`
 	ReadAt        *time.Time             `json:"read_at,omitempty"`
+	ArchivedAt    *time.Time             `json:"archived_at,omitempty"`
 	CreatedAt     time.Time              `json:"created_at"`
 	IsRead        bool                   `json:"is_read"`
+	IsArchived    bool                   `json:"is_archived"`
 }
 
 type UnreadCountsResponse struct {

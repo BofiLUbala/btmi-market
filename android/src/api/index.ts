@@ -97,8 +97,10 @@ export const buyerApi = {
     post<PointRedemptionPreview>('/buyer/orders/preview', { shop_id: shopId, items, use_points: usePoints }),
   createOrder: (shopId: string, items: OrderLineInput[], usePoints: boolean, idempotencyKey: string) =>
     post<OrderWithLines>('/buyer/orders', { shop_id: shopId, items, use_points: usePoints, idempotency_key: idempotencyKey }),
-  deliveryOptions: (orderId: string) =>
-    get<DeliveryOptionsResponse>(`/buyer/orders/${orderId}/delivery-options`),
+  deliveryOptions: (orderId: string, cityId?: string) =>
+    get<DeliveryOptionsResponse>(
+      cityId ? `/buyer/orders/${orderId}/delivery-options?city_id=${encodeURIComponent(cityId)}` : `/buyer/orders/${orderId}/delivery-options`
+    ),
   deliveryPointsPreview: (orderId: string, usePointsForDelivery: boolean) =>
     post<DeliveryPointsPreview>(`/buyer/orders/${orderId}/delivery-points-preview`, { use_points_for_delivery: usePointsForDelivery }),
   selectDelivery: (orderId: string, body: SelectDeliveryRequest) =>

@@ -78,6 +78,25 @@ function emptyVariantDraft(price = ''): VariantDraft {
   return { clientId: newDraftId(), sku: '', attributes: {}, price, stock: '0' }
 }
 
+/** A seller-typed variant attribute type (e.g. "Longueur de manche") shaped like
+ *  the DB-backed CategoryAttributeDefinition so it can flow through the same
+ *  rendering and payload helpers. Never required — only admin-configured
+ *  attributes gate publication. */
+function makeCustomVariantDef(key: string, categoryId: string): CategoryAttributeDefinition {
+  return {
+    id: `custom-${key}`,
+    category_id: categoryId,
+    key,
+    label_en: key,
+    label_fr: key,
+    required: false,
+    variant_attribute: true,
+    input_type: 'TEXT',
+    allowed_values: [],
+    display_order: 999,
+  }
+}
+
 
 export default function SellerProductCreatePage() {
   const { shopId = '' } = useParams()
@@ -123,6 +142,11 @@ export default function SellerProductCreatePage() {
 
   /* One card per purchasable variant — required variant attributes live here */
   const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([emptyVariantDraft()])
+  /* Seller-defined variant attribute types, on top of whatever the category
+     pre-configures. Lets a seller sell in "Couleur + Taille" style combos in
+     any category, including ones with no admin-configured attributes. */
+  const [customVariantAttrKeys, setCustomVariantAttrKeys] = useState<string[]>([])
+  const [newVariantAttrName, setNewVariantAttrName] = useState('')
   const [focusTarget, setFocusTarget] = useState<{ clientId: string; key: string } | null>(null)
   const [missingIssues, setMissingIssues] = useState<MissingVariantIssue[]>([])
   const [missingProductKeys, setMissingProductKeys] = useState<string[]>([])
@@ -233,10 +257,16 @@ export default function SellerProductCreatePage() {
     [subcategories, subcategoryId]
   )
 
-  const variantAttrDefs = useMemo(
+  const dbVariantAttrDefs = useMemo(
     () => dbAttrDefs.filter((d) => d.variant_attribute),
     [dbAttrDefs]
   )
+  const variantAttrDefs = useMemo(() => {
+    const custom = customVariantAttrKeys
+      .filter((key) => !dbVariantAttrDefs.some((def) => matchesAttributeName(key, def)))
+      .map((key) => makeCustomVariantDef(key, categoryId))
+    return [...dbVariantAttrDefs, ...custom]
+  }, [dbVariantAttrDefs, customVariantAttrKeys, categoryId])
   const productAttrDefs = useMemo(
     () => dbAttrDefs.filter((d) => !d.variant_attribute),
     [dbAttrDefs]
@@ -365,7 +395,7 @@ export default function SellerProductCreatePage() {
   }, [liveMissingIssues, t])
 
   function handleCategoryChange(newCatId: string) {
-    if (categoryId && newCatId !== categoryId && (characteristics.length > 0 || variantDrafts.some((d) => Object.values(d.attributes).some(Boolean)))) {
+    if (categoryId && newCatId !== categoryId && (characteristics.length > 0 || customVariantAttrKeys.length > 0 || variantDrafts.some((d) => Object.values(d.attributes).some(Boolean)))) {
       const hasValues = characteristics.some((c) => c.name.trim() || c.values.trim())
         || variantDrafts.some((d) => Object.values(d.attributes).some((v) => String(v).trim()))
       if (hasValues) {
@@ -386,6 +416,8 @@ export default function SellerProductCreatePage() {
     setCategoryId(newCatId)
     setSubcategoryId('')
     setVariantDrafts([emptyVariantDraft(form.unit_price)])
+    setCustomVariantAttrKeys([])
+    setNewVariantAttrName('')
     setMissingIssues([])
     setMissingProductKeys([])
     setFocusTarget(null)
@@ -439,6 +471,19 @@ export default function SellerProductCreatePage() {
 
   function removeVariantDraft(clientId: string) {
     setVariantDrafts((prev) => (prev.length <= 1 ? prev : prev.filter((d) => d.clientId !== clientId)))
+  }
+
+  function addCustomVariantAttr() {
+    const name = newVariantAttrName.trim()
+    if (!name) return
+    const alreadyExists = variantAttrDefs.some((def) => matchesAttributeName(name, def))
+    setNewVariantAttrName('')
+    if (alreadyExists) return
+    setCustomVariantAttrKeys((prev) => [...prev, name])
+  }
+
+  function removeCustomVariantAttr(key: string) {
+    setCustomVariantAttrKeys((prev) => prev.filter((k) => k.toLowerCase() !== key.toLowerCase()))
   }
 
   function focusVariantField(clientId: string, key: string) {
@@ -791,6 +836,8 @@ export default function SellerProductCreatePage() {
     setCharacteristics([])
     setSimpleStock('0')
     setVariantDrafts([emptyVariantDraft()])
+    setCustomVariantAttrKeys([])
+    setNewVariantAttrName('')
     setMissingIssues([])
     setFocusTarget(null)
     setSelfRating(0)
@@ -1254,8 +1301,7 @@ export default function SellerProductCreatePage() {
               )}
             </Card>
 
-            {variantAttrDefs.length > 0 && (
-              <Card className="reveal-section">
+            <Card className="reveal-section">
                 <div id="variant-editor">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                   <div>
@@ -1264,11 +1310,71 @@ export default function SellerProductCreatePage() {
                       {t('seller.productForm.variantsDesc')}
                     </p>
                   </div>
-                  <div className="badge badge-primary" style={{ padding: '6px 12px' }}>
-                    {t('seller.productForm.totalStock')} <strong>{totalUnits} {t('seller.productForm.unitsPlural')}</strong>
-                  </div>
+                  {variantAttrDefs.length > 0 && (
+                    <div className="badge badge-primary" style={{ padding: '6px 12px' }}>
+                      {t('seller.productForm.totalStock')} <strong>{totalUnits} {t('seller.productForm.unitsPlural')}</strong>
+                    </div>
+                  )}
                 </div>
 
+                {/* Variant attribute types (Couleur, Taille, ...). DB-configured
+                    ones for this category come pre-filled; the seller can add
+                    any other type by name — this is what makes variants work
+                    in every category, not just the ones an admin pre-wired. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '16px 0 12px' }}>
+                  {variantAttrDefs.map((def) => {
+                    const isCustom = customVariantAttrKeys.some((k) => matchesAttributeName(k, def))
+                    return (
+                      <span
+                        key={def.key}
+                        className="badge"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px' }}
+                      >
+                        {attributeLabel(def)}{def.required ? ' *' : ''}
+                        {isCustom && (
+                          <button
+                            type="button"
+                            onClick={() => removeCustomVariantAttr(def.key)}
+                            title={t('seller.productForm.removeVariantAttrType')}
+                            aria-label={t('seller.productForm.removeVariantAttrType')}
+                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '0.9em' }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    )
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
+                  <input
+                    className="input"
+                    style={{ maxWidth: 260 }}
+                    placeholder={t('seller.productForm.newVariantAttrPlaceholder')}
+                    value={newVariantAttrName}
+                    onChange={(e) => setNewVariantAttrName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addCustomVariantAttr()
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!newVariantAttrName.trim()}
+                    onClick={addCustomVariantAttr}
+                  >
+                    {t('seller.productForm.addVariantAttrType')}
+                  </Button>
+                </div>
+
+                {variantAttrDefs.length === 0 ? (
+                  <p className="small muted">{t('seller.productForm.noVariantAttrsHint')}</p>
+                ) : (
+                <>
                 <div className="variant-draft-list">
                   {variantDrafts.map((draft, index) => {
                     const title = variantDisplayLabel(
@@ -1349,9 +1455,10 @@ export default function SellerProductCreatePage() {
                 <Button type="button" variant="outline" size="sm" onClick={addVariantDraft}>
                   {t('seller.productForm.addVariant')}
                 </Button>
+                </>
+                )}
                 </div>
               </Card>
-            )}
 
             {/* Product-level characteristics only (not Couleur / Pointure) */}
             <Card className="reveal-section">

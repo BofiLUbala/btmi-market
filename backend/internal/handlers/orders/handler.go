@@ -796,7 +796,17 @@ func (h *Handler) GetDeliveryOptions(c *gin.Context) {
 		return
 	}
 
-	result, err := h.orderService.GetDeliveryOptions(buyerProfileID, orderID)
+	var cityIDOverride *uuid.UUID
+	if raw := strings.TrimSpace(c.Query("city_id")); raw != "" {
+		cityID, err := uuid.Parse(raw)
+		if err != nil {
+			h.errResponse(c, http.StatusBadRequest, "INVALID_CITY_ID", "Invalid city_id format")
+			return
+		}
+		cityIDOverride = &cityID
+	}
+
+	result, err := h.orderService.GetDeliveryOptions(buyerProfileID, orderID, cityIDOverride)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"

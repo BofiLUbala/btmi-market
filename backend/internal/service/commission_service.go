@@ -96,8 +96,13 @@ func (s *CommissionService) CalculateAndRecordCommission(orderID uuid.UUID) (*mo
 
 	// Commission base is merchandise total after discounts (EXCLUDES delivery fees!).
 	// gross_amount is kept equal to that base so the reporting invariant
-	// GROSS - COMMISSION = SELLER NET always holds; the delivery fee is the
-	// seller's to keep and reported separately in buyer_payments.cash_due.
+	// GROSS - COMMISSION = SELLER NET always holds. TBK runs delivery for every
+	// order (see migration 098), so the delivery fee is TBK's own revenue, not
+	// the seller's — it never enters this calculation. The courier still
+	// collects it together with the merchandise total (buyer_payments.cash_due
+	// = order.FinalTotal + order.DeliveryFeeFinal), but it is reported on its
+	// own in DeliveryFeeService's ledger so it never blends into the numbers
+	// below.
 	grossAmount := models.RoundMoney(order.BaseTotal - order.PointsDiscountAmount)
 	commissionBase := grossAmount
 	if payment != nil {

@@ -240,12 +240,26 @@ func audienceFilter(audience string) string {
 	return ""
 }
 
-// GetByUserIDForAudience lists a user's notifications for one audience.
-func (r *NotificationRepository) GetByUserIDForAudience(userID uuid.UUID, audience string, limit, offset int) ([]models.NotificationResponse, int, error) {
+// Notification views. A user only ever sees active or archived notifications;
+// deleted ones are hidden everywhere but kept in the table for audit.
+const (
+	NotificationViewActive   = "active"
+	NotificationViewArchived = "archived"
+)
+
+func notificationViewFilter(view string) string {
+	if view == NotificationViewArchived {
+		return ` AND n.deleted_at IS NULL AND n.archived_at IS NOT NULL`
+	}
+	return ` AND n.deleted_at IS NULL AND n.archived_at IS NULL`
+}
+
+// GetByUserIDForAudience lists a user's notifications for one audience and view (active/archived).
+func (r *NotificationRepository) GetByUserIDForAudience(userID uuid.UUID, audience, view string, limit, offset int) ([]models.NotificationResponse, int, error) {
 	if limit <= 0 {
 		limit = 20
 	}
-	filter := audienceFilter(audience)
+	filter := audienceFilter(audience) + notificationViewFilter(view)
 
 	var total int
 	if err := r.db.QueryRow(`SELECT COUNT(*) FROM notifications n WHERE n.user_id = $1`+filter, userID).Scan(&total); err != nil {
@@ -253,7 +267,7 @@ func (r *NotificationRepository) GetByUserIDForAudience(userID uuid.UUID, audien
 	}
 
 	rows, err := r.db.Query(`
-		SELECT n.id, n.type, n.title, n.body, n.reference_type, n.reference_id, n.metadata, n.read_at, n.created_at
+		SELECT n.id, n.type, n.title, n.body, n.reference_type, n.reference_id, n.metadata, n.read_at, n.archived_at, n.created_at
 		FROM notifications n
 		WHERE n.user_id = $1`+filter+`
 		ORDER BY n.created_at DESC
@@ -269,7 +283,8 @@ func (r *NotificationRepository) GetByUserIDForAudience(userID uuid.UUID, audien
 		var refID uuid.UUID
 		var metaRaw []byte
 		var readAt sql.NullTime
-		if err := rows.Scan(&n.ID, &n.Type, &n.Title, &n.Body, &n.ReferenceType, &refID, &metaRaw, &readAt, &n.CreatedAt); err != nil {
+		var archivedAt sql.NullTime
+		if err := rows.Scan(&n.ID, &n.Type, &n.Title, &n.Body, &n.ReferenceType, &refID, &metaRaw, &readAt, &archivedAt, &n.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan notification: %w", err)
 		}
 		n.ReferenceID = refID.String()
@@ -279,20 +294,65 @@ func (r *NotificationRepository) GetByUserIDForAudience(userID uuid.UUID, audien
 			n.ReadAt = &t
 			n.IsRead = true
 		}
+		if archivedAt.Valid {
+			t := archivedAt.Time
+			n.ArchivedAt = &t
+			n.IsArchived = true
+		}
 		notifs = append(notifs, n)
 	}
 	return notifs, total, rows.Err()
 }
 
-// GetUnreadCountForAudience counts a user's unread notifications for one audience.
+// ArchiveNotification archives one of the user's own notifications.
+func (r *NotificationRepository) ArchiveNotification(id, userID uuid.UUID) error {
+	res, err := r.db.Exec(`UPDATE notifications SET archived_at = NOW() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL AND archived_at IS NULL`, id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to archive notification: %w", err)
+	}
+	return r.assertRowFound(res, id, userID)
+}
+
+// UnarchiveNotification restores an archived notification back to the active view.
+func (r *NotificationRepository) UnarchiveNotification(id, userID uuid.UUID) error {
+	res, err := r.db.Exec(`UPDATE notifications SET archived_at = NULL WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL AND archived_at IS NOT NULL`, id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to unarchive notification: %w", err)
+	}
+	return r.assertRowFound(res, id, userID)
+}
+
+// DeleteNotification soft-deletes one of the user's own notifications.
+func (r *NotificationRepository) DeleteNotification(id, userID uuid.UUID) error {
+	res, err := r.db.Exec(`UPDATE notifications SET deleted_at = NOW() WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`, id, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete notification: %w", err)
+	}
+	return r.assertRowFound(res, id, userID)
+}
+
+func (r *NotificationRepository) assertRowFound(res sql.Result, id, userID uuid.UUID) error {
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected > 0 {
+		return nil
+	}
+	var exists bool
+	_ = r.db.QueryRow("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL)", id, userID).Scan(&exists)
+	if !exists {
+		return ErrNotificationNotFound
+	}
+	return nil
+}
+
+// GetUnreadCountForAudience counts a user's unread, active (non-archived, non-deleted) notifications for one audience.
 func (r *NotificationRepository) GetUnreadCountForAudience(userID uuid.UUID, audience string) (int, error) {
 	var count int
-	err := r.db.QueryRow(`SELECT COUNT(*) FROM notifications n WHERE n.user_id = $1 AND n.read_at IS NULL`+audienceFilter(audience), userID).Scan(&count)
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM notifications n WHERE n.user_id = $1 AND n.read_at IS NULL`+audienceFilter(audience)+notificationViewFilter(NotificationViewActive), userID).Scan(&count)
 	return count, err
 }
 
-// MarkAllAsReadForAudience marks one audience's unread notifications as read.
+// MarkAllAsReadForAudience marks one audience's unread, active notifications as read.
 func (r *NotificationRepository) MarkAllAsReadForAudience(userID uuid.UUID, audience string) error {
-	_, err := r.db.Exec(`UPDATE notifications n SET read_at = NOW() WHERE n.user_id = $1 AND n.read_at IS NULL`+audienceFilter(audience), userID)
+	_, err := r.db.Exec(`UPDATE notifications n SET read_at = NOW() WHERE n.user_id = $1 AND n.read_at IS NULL`+audienceFilter(audience)+notificationViewFilter(NotificationViewActive), userID)
 	return err
 }

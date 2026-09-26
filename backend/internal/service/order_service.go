@@ -1102,7 +1102,11 @@ func deliveryFeeForMethod(shop *models.Shop, method string) (float64, error) {
 
 // GetDeliveryOptions returns the available delivery options for a buyer order.
 // In the TBK Centralized Delivery model, TBK manages and assigns delivery for all orders.
-func (s *OrderService) GetDeliveryOptions(buyerProfileID, orderID uuid.UUID) (*models.DeliveryOptionsResponse, error) {
+// cityIDOverride lets the caller preview the fee for a city the buyer is
+// currently entering, before that address is actually saved on the order
+// (which only happens on SelectDelivery) — without it, the quote silently
+// falls back to the platform default and never matches what gets charged.
+func (s *OrderService) GetDeliveryOptions(buyerProfileID, orderID uuid.UUID, cityIDOverride *uuid.UUID) (*models.DeliveryOptionsResponse, error) {
 	order, err := s.getBuyerOrder(buyerProfileID, orderID)
 	if err != nil {
 		return nil, err
@@ -1113,7 +1117,12 @@ func (s *OrderService) GetDeliveryOptions(buyerProfileID, orderID uuid.UUID) (*m
 		return nil, errors.New("SHOP_NOT_FOUND")
 	}
 
-	fee, err := s.tbkDeliveryFee(shop, order, order.DeliveryCityID)
+	cityID := order.DeliveryCityID
+	if cityIDOverride != nil {
+		cityID = cityIDOverride
+	}
+
+	fee, err := s.tbkDeliveryFee(shop, order, cityID)
 	if err != nil {
 		return nil, err
 	}

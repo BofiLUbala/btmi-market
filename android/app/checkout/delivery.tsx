@@ -70,17 +70,22 @@ export default function DeliveryScreen() {
     }))
   }, [profileQuery.data, user])
 
+  // The fee must track the city the buyer is actually entering — otherwise it's
+  // stuck on the platform default and can silently differ from what
+  // selectDelivery charges once the real city is submitted.
+  const effectiveCityId = mode === 'saved' ? savedAddress?.city_id || '' : address.city_id || ''
+
   const options = useQuery({
-    queryKey: ['checkout', 'delivery-options', orderId],
-    queryFn: () => buyerApi.deliveryOptions(orderId!),
+    queryKey: ['checkout', 'delivery-options', orderId, effectiveCityId],
+    queryFn: () => buyerApi.deliveryOptions(orderId!, effectiveCityId || undefined),
     enabled: Boolean(orderId),
   })
 
   // Every order of the checkout group has its own delivery fee, priced by the backend.
   const groupOptions = useQueries({
     queries: orderIds.map((id) => ({
-      queryKey: ['checkout', 'delivery-options', id],
-      queryFn: () => buyerApi.deliveryOptions(id),
+      queryKey: ['checkout', 'delivery-options', id, effectiveCityId],
+      queryFn: () => buyerApi.deliveryOptions(id, effectiveCityId || undefined),
     })),
   })
   const baseFee = groupOptions.reduce((sum, q) => sum + (q.data?.options?.[0]?.fee ?? 0), 0)

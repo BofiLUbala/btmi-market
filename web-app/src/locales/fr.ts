@@ -1132,6 +1132,15 @@ export const fr = {
   'notifications.empty.title': 'Aucune notification pour le moment',
   'notifications.empty.description':
     "Vous n'avez aucune notification pour le moment. Vos alertes de commande et messages apparaîtront ici.",
+  'notifications.tabs.active': 'Actives',
+  'notifications.tabs.archived': 'Archivées',
+  'notifications.archive': 'Archiver',
+  'notifications.unarchive': 'Désarchiver',
+  'notifications.delete': 'Supprimer',
+  'notifications.deleteConfirm': 'Supprimer définitivement cette notification ?',
+  'notifications.archived.empty.title': 'Aucune notification archivée',
+  'notifications.archived.empty.description': 'Les notifications que vous archivez apparaîtront ici.',
+  'notifications.actionFailed': "L'action a échoué. Veuillez réessayer.",
 
   /* ── Suivi de commande ──────────────────────────────────── */
   'tracking.byShop': 'par la boutique',
@@ -1638,6 +1647,11 @@ export const fr = {
   'seller.productForm.variantN': 'Variante {n}',
   'seller.productForm.addVariant': '+ Ajouter une variante',
   'seller.productForm.removeVariant': 'Retirer',
+  'seller.productForm.newVariantAttrPlaceholder': "Nouveau type de variante (ex. Couleur, Taille)",
+  'seller.productForm.addVariantAttrType': "+ Ajouter ce type",
+  'seller.productForm.removeVariantAttrType': 'Supprimer ce type de variante',
+  'seller.productForm.noVariantAttrsHint':
+    "Ce produit n'a qu'une seule version pour l'instant. Ajoutez un type de variante ci-dessus (ex. Couleur, Taille, Parfum) pour proposer plusieurs versions du même produit.",
   'seller.productForm.missingOn': 'Manquante sur :',
   'seller.productForm.completeAttribute': 'Compléter {label}',
   'seller.productForm.completeVariants': 'Compléter les variantes',

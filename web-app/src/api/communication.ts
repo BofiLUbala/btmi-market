@@ -1,4 +1,4 @@
-import { get, post } from './client'
+import { get, post, del } from './client'
 import { adminApi } from './admin'
 
 export type SenderType =
@@ -106,8 +106,10 @@ export interface NotificationItem {
   reference_id: string
   metadata: Record<string, unknown>
   read_at?: string
+  archived_at?: string
   created_at: string
   is_read: boolean
+  is_archived: boolean
 }
 
 export interface UnreadCounts {
@@ -174,8 +176,14 @@ export async function fetchSellerUnreadCounts(params?: {
 // A user can be buyer and seller at once: each space asks only for its own
 // notifications so seller alerts never open buyer pages (and vice versa).
 export type NotificationAudience = 'BUYER' | 'SELLER' | 'COURIER'
+export type NotificationView = 'active' | 'archived'
 
-export async function fetchNotifications(params?: { limit?: number; offset?: number; audience?: NotificationAudience }): Promise<{
+export async function fetchNotifications(params?: {
+  limit?: number
+  offset?: number
+  audience?: NotificationAudience
+  view?: NotificationView
+}): Promise<{
   items: NotificationItem[]
   total: number
   limit: number
@@ -199,6 +207,20 @@ export async function markAllNotificationsRead(audience?: NotificationAudience):
 
 export async function fetchUnreadNotificationsCount(audience?: NotificationAudience): Promise<{ unread_count: number }> {
   return get<{ unread_count: number }>('/notifications/unread-count', audience ? { audience } : undefined)
+}
+
+// Buyers and sellers can archive or delete their own notifications to keep
+// their list tidy. This is intentionally NOT exposed on the admin dashboard.
+export async function archiveNotification(id: string): Promise<{ status: string }> {
+  return post<{ status: string }>(`/notifications/${id}/archive`)
+}
+
+export async function unarchiveNotification(id: string): Promise<{ status: string }> {
+  return post<{ status: string }>(`/notifications/${id}/unarchive`)
+}
+
+export async function deleteNotification(id: string): Promise<{ status: string }> {
+  return del<{ status: string }>(`/notifications/${id}`)
 }
 
 // ----------------- Admin Supervision APIs -----------------

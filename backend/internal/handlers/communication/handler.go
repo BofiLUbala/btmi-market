@@ -349,7 +349,7 @@ func (h *Handler) GetUserNotifications(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	notifs, total, err := h.commService.GetUserNotifications(userID, notificationAudience(c), limit, offset)
+	notifs, total, err := h.commService.GetUserNotifications(userID, notificationAudience(c), notificationView(c), limit, offset)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "NOTIFICATIONS_FAILED", err.Error())
 		return
@@ -365,6 +365,88 @@ func (h *Handler) GetUserNotifications(c *gin.Context) {
 		"limit":  limit,
 		"offset": offset,
 	})
+}
+
+// notificationView reads ?view=active|archived (defaults to active) so a buyer
+// or seller can browse notifications they archived without them cluttering
+// the main list.
+func notificationView(c *gin.Context) string {
+	if strings.ToLower(c.Query("view")) == repository.NotificationViewArchived {
+		return repository.NotificationViewArchived
+	}
+	return repository.NotificationViewActive
+}
+
+// ArchiveNotification handles POST /api/v1/notifications/:id/archive
+func (h *Handler) ArchiveNotification(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	notifID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+
+	if err := h.commService.ArchiveNotification(notifID, userID); err != nil {
+		if err == repository.ErrNotificationNotFound {
+			h.errResponse(c, http.StatusNotFound, "NOT_FOUND", "Notification not found")
+			return
+		}
+		h.errResponse(c, http.StatusInternalServerError, "ARCHIVE_FAILED", err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// UnarchiveNotification handles POST /api/v1/notifications/:id/unarchive
+func (h *Handler) UnarchiveNotification(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	notifID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+
+	if err := h.commService.UnarchiveNotification(notifID, userID); err != nil {
+		if err == repository.ErrNotificationNotFound {
+			h.errResponse(c, http.StatusNotFound, "NOT_FOUND", "Notification not found")
+			return
+		}
+		h.errResponse(c, http.StatusInternalServerError, "UNARCHIVE_FAILED", err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// DeleteNotification handles DELETE /api/v1/notifications/:id
+func (h *Handler) DeleteNotification(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+
+	notifID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+
+	if err := h.commService.DeleteNotification(notifID, userID); err != nil {
+		if err == repository.ErrNotificationNotFound {
+			h.errResponse(c, http.StatusNotFound, "NOT_FOUND", "Notification not found")
+			return
+		}
+		h.errResponse(c, http.StatusInternalServerError, "DELETE_FAILED", err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 // MarkNotificationRead handles POST /api/v1/notifications/:id/read

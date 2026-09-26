@@ -1124,6 +1124,15 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'notifications.empty.title': 'No notifications yet',
   'notifications.empty.description':
     'You have no notifications at the moment. Your order alerts and messages will appear here.',
+  'notifications.tabs.active': 'Active',
+  'notifications.tabs.archived': 'Archived',
+  'notifications.archive': 'Archive',
+  'notifications.unarchive': 'Unarchive',
+  'notifications.delete': 'Delete',
+  'notifications.deleteConfirm': 'Permanently delete this notification?',
+  'notifications.archived.empty.title': 'No archived notifications',
+  'notifications.archived.empty.description': 'Notifications you archive will appear here.',
+  'notifications.actionFailed': 'The action failed. Please try again.',
 
   /* ── Order tracking ─────────────────────────────────────── */
   'tracking.byShop': 'by Shop',
@@ -1648,6 +1657,11 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.variantN': 'Variant {n}',
   'seller.productForm.addVariant': '+ Add a variant',
   'seller.productForm.removeVariant': 'Remove',
+  'seller.productForm.newVariantAttrPlaceholder': 'New variant type (e.g. Color, Size)',
+  'seller.productForm.addVariantAttrType': '+ Add this type',
+  'seller.productForm.removeVariantAttrType': 'Remove this variant type',
+  'seller.productForm.noVariantAttrsHint':
+    "This product has a single version for now. Add a variant type above (e.g. Color, Size, Scent) to offer several versions of the same product.",
   'seller.productForm.missingOn': 'Missing on:',
   'seller.productForm.completeAttribute': 'Complete {label}',
   'seller.productForm.completeVariants': 'Complete variants',

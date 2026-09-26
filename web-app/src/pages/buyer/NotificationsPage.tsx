@@ -4,7 +4,11 @@ import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  archiveNotification,
+  unarchiveNotification,
+  deleteNotification,
   type NotificationItem,
+  type NotificationView,
 } from '@/api/communication'
 import { formatDateTime } from '@/lib/format'
 import { Button } from '@/components/ui/Button'
@@ -61,14 +65,16 @@ function NotificationsInner() {
   const { t } = useI18n()
   const navigate = useNavigate()
   const [items, setItems] = useState<NotificationItem[]>([])
+  const [view, setView] = useState<NotificationView>('active')
   const [loading, setLoading] = useState(true)
   const [markingAll, setMarkingAll] = useState(false)
+  const [actingId, setActingId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const res = await fetchNotifications({ limit: 50, offset: 0, audience: 'BUYER' })
+      const res = await fetchNotifications({ limit: 50, offset: 0, audience: 'BUYER', view })
       setItems(res.items || [])
       setError('')
     } catch (err) {
@@ -76,11 +82,51 @@ function NotificationsInner() {
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [t])
+  }, [t, view])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  const handleArchive = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setActingId(id)
+    try {
+      await archiveNotification(id)
+      setItems((prev) => prev.filter((n) => n.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('notifications.actionFailed'))
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  const handleUnarchive = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setActingId(id)
+    try {
+      await unarchiveNotification(id)
+      setItems((prev) => prev.filter((n) => n.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('notifications.actionFailed'))
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!window.confirm(t('notifications.deleteConfirm'))) return
+    setActingId(id)
+    try {
+      await deleteNotification(id)
+      setItems((prev) => prev.filter((n) => n.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('notifications.actionFailed'))
+    } finally {
+      setActingId(null)
+    }
+  }
 
   const handleMarkAll = async () => {
     setMarkingAll(true)
@@ -148,11 +194,20 @@ function NotificationsInner() {
           </p>
         </div>
 
-        {unreadCount > 0 && (
+        {view === 'active' && unreadCount > 0 && (
           <Button variant="outline" size="sm" loading={markingAll} onClick={handleMarkAll}>
             ✓ {t('notifications.markAllRead')}
           </Button>
         )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <Button variant={view === 'active' ? 'primary' : 'outline'} size="sm" onClick={() => setView('active')}>
+          {t('notifications.tabs.active')}
+        </Button>
+        <Button variant={view === 'archived' ? 'primary' : 'outline'} size="sm" onClick={() => setView('archived')}>
+          {t('notifications.tabs.archived')}
+        </Button>
       </div>
 
       {error && <ErrorBox error={error} />}
@@ -162,8 +217,10 @@ function NotificationsInner() {
       ) : items.length === 0 ? (
         <EmptyState
           icon="🔔"
-          title={t('notifications.empty.title')}
-          description={t('notifications.empty.description')}
+          title={view === 'archived' ? t('notifications.archived.empty.title') : t('notifications.empty.title')}
+          description={
+            view === 'archived' ? t('notifications.archived.empty.description') : t('notifications.empty.description')
+          }
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -241,8 +298,8 @@ function NotificationsInner() {
                     {n.body}
                   </div>
 
-                  {n.reference_type === 'ORDER' && n.reference_id && (
-                    <div style={{ marginTop: 8 }}>
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                    {n.reference_type === 'ORDER' && n.reference_id && (
                       <span
                         className="small"
                         style={{
@@ -253,8 +310,40 @@ function NotificationsInner() {
                       >
                         {t('notifications.viewOrder')} →
                       </span>
-                    </div>
-                  )}
+                    )}
+
+                    {view === 'active' ? (
+                      <button
+                        type="button"
+                        className="small muted"
+                        disabled={actingId === n.id}
+                        onClick={(e) => handleArchive(e, n.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                      >
+                        {t('notifications.archive')}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="small muted"
+                        disabled={actingId === n.id}
+                        onClick={(e) => handleUnarchive(e, n.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                      >
+                        {t('notifications.unarchive')}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className="small"
+                      disabled={actingId === n.id}
+                      onClick={(e) => handleDelete(e, n.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--color-danger, #d33)', textDecoration: 'underline' }}
+                    >
+                      {t('notifications.delete')}
+                    </button>
+                  </div>
                 </div>
 
                 {!n.is_read && (

@@ -94,6 +94,11 @@ function DeliveryInner() {
     return !contact.contact_name.trim() || !contact.phone.trim() || (mode === 'custom' && isAddressIncomplete)
   }, [contact.contact_name, contact.phone, isAddressIncomplete, mode])
 
+  // The fee shown here must track the city the buyer is actually entering —
+  // otherwise it's stuck on the platform default and can silently differ from
+  // what SelectDelivery charges once the real city is submitted.
+  const effectiveCityId = mode === 'saved' ? savedAddress?.city_id || '' : address.city_id || ''
+
   useEffect(() => {
     if (!orderId) {
       navigate('/cart', { replace: true })
@@ -101,7 +106,7 @@ function DeliveryInner() {
     }
     let mounted = true
     buyerApi
-      .deliveryOptions(orderId)
+      .deliveryOptions(orderId, effectiveCityId || undefined)
       .then(
         (d) => {
           if (!mounted) return
@@ -119,7 +124,7 @@ function DeliveryInner() {
     return () => {
       mounted = false
     }
-  }, [orderId, navigate, t])
+  }, [orderId, navigate, t, effectiveCityId])
 
   const option = data?.options?.[0]
   const baseFee = option?.fee ?? 0

@@ -236,7 +236,13 @@ export default function SellerOrdersPage() {
         total: shopOrders.reduce((sum, order) => sum + (order.final_total || 0), 0),
         currency: sharedCurrency(shopOrders),
       }))
-      .sort((a, b) => a.shopName.localeCompare(b.shopName))
+      .sort((a, b) => {
+        // Newest order first, across shops, so a fresh order never gets buried
+        // under a shop that only sorts earlier alphabetically.
+        const aLatest = a.orders[0]?.created_at ? new Date(a.orders[0].created_at).getTime() : 0
+        const bLatest = b.orders[0]?.created_at ? new Date(b.orders[0].created_at).getTime() : 0
+        return bLatest - aLatest
+      })
   }, [visibleOrders, shops, t])
 
   if (!activeBusiness) {

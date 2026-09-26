@@ -243,7 +243,7 @@ export default function DeliveryFeesPage() {
             </>}
           </div>
         </div>
-        <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>Calculé sur les montants figés de chaque commande livrée par TBK (hors commandes annulées). Les frais reviennent à TBK et sont exclus de la commission vendeur.</p>
+        <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>Calculé sur les montants figés de chaque commande livrée par TBK (hors commandes annulées). C'est un revenu TBK (la livraison est assurée par TBK, pas le vendeur) : exclu de la commission vendeur, jamais mélangé à ses ventes. Vue résumée aussi disponible dans l'onglet Aperçu.</p>
         {ledger && <>
           <div className="admin-kpi-grid" style={{ marginBottom: 14 }}>
             {[

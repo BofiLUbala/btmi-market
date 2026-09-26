@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { formatMoney, formatDateTime } from '@/lib/format'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import {
   adminFinanceApi,
   AdminFinancialSummary,
@@ -21,6 +21,7 @@ import {
   ,FinanceBreakdownGroup
   ,AdminPaymentMethodConfig
   ,AdminSaleFinanceDetail
+  ,FinanceDeliveryLedger
 } from '../../../api/admin'
 import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
 import { useT } from '@/store/i18n'
@@ -88,6 +89,7 @@ export default function FinanceDashboardPage() {
   // Data states
   const [summary, setSummary] = useState<AdminFinancialSummary | null>(null)
   const [financeReport, setFinanceReport] = useState<FinanceDashboardReport | null>(null)
+  const [deliveryLedger, setDeliveryLedger] = useState<FinanceDeliveryLedger | null>(null)
   const [breakdownItems, setBreakdownItems] = useState<FinanceBreakdownItem[]>([])
   const [breakdownGroup, setBreakdownGroup] = useState<FinanceBreakdownGroup>('shop')
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'all' | 'custom'>('today')
@@ -258,21 +260,25 @@ export default function FinanceDashboardPage() {
     if (!silent) {
       setLoading(true)
       setError(null)
-      if (tab === 'overview') { setSummary(null); setFinanceReport(null); setBreakdownItems([]); setTrend([]) }
+      if (tab === 'overview') { setSummary(null); setFinanceReport(null); setDeliveryLedger(null); setBreakdownItems([]); setTrend([]) }
     }
     try {
 if (tab === 'overview') {
         const scope = financeScope()
-        const [sum, report, breakdown, series] = await Promise.all([
+        const [sum, report, breakdown, series, ledger] = await Promise.all([
           adminFinanceApi.getSummary(),
           adminFinanceApi.getFinanceDashboard(scope),
           adminFinanceApi.getFinanceBreakdown({ ...scope, group: breakdownGroup }),
-          adminFinanceApi.getFinanceTimeseries({ ...scope, interval: 'day' })
+          adminFinanceApi.getFinanceTimeseries({ ...scope, interval: 'day' }),
+          // Same date_from/date_to as the commission scope above, so the two
+          // revenue streams shown side by side always describe the same period.
+          adminFinanceApi.getDeliveryFeesLedger(rangeParams(dateRange))
         ])
         setSummary(sum)
         setFinanceReport(report)
         setBreakdownItems(breakdown.items || [])
         setTrend(series.points || [])
+        setDeliveryLedger(ledger)
       } else if (tab === 'payment_config') {
         const res = await adminFinanceApi.listPaymentConfigs()
         setPaymentConfigs(res.items || [])
@@ -646,6 +652,35 @@ if (tab === 'overview') {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Delivery fees are TBK's own revenue stream — priced by Finance, paid
+              by the buyer, never part of the seller commission above. Kept in a
+              clearly separate box (same period filter) so the two are never
+              read as one number. */}
+          <div style={{ border: '1px solid #b45309', backgroundColor: '#292008', borderRadius: 10, padding: 18, marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 10 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fbbf24' }}>Frais de livraison — revenu TBK</h3>
+              <Link to="/admin/finance/delivery-fees" style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24', textDecoration: 'underline' }}>
+                Tarifs &amp; détail par ville →
+              </Link>
+            </div>
+            <p style={{ color: '#d4b483', fontSize: 12, marginTop: 0, marginBottom: 14 }}>
+              La livraison est assurée par TBK (pas le vendeur) : ce que le client paie pour la livraison est donc un revenu de la
+              plateforme, distinct de la commission sur les ventes ci-dessus. Même période que le panneau Commission.
+            </p>
+            {deliveryLedger ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                <MetricCard title="Commandes livrées par TBK" value={String(deliveryLedger.orders)} sub="sur la période" color="#fbbf24" />
+                <MetricCard title="Frais facturés (brut)" value={financeMoney(deliveryLedger.fees_charged, deliveryLedger.currency)} sub="avant remise en points" color="#fbbf24" />
+                <MetricCard title="Frais dus par les acheteurs" value={financeMoney(deliveryLedger.fees_billed, deliveryLedger.currency)} sub="après remise en points" color="#f59e0b" />
+                <MetricCard title="Frais encaissés" value={financeMoney(deliveryLedger.fees_collected, deliveryLedger.currency)} sub="revenu TBK déjà perçu" color="#34d399" />
+                <MetricCard title="Reste à encaisser" value={financeMoney(deliveryLedger.fees_outstanding, deliveryLedger.currency)} sub="livré, pas encore réglé" color="#fb923c" />
+                <MetricCard title="Livraisons gratuites" value={String(deliveryLedger.free_deliveries)} sub="seuil de gratuité atteint" color="#94a3b8" />
+              </div>
+            ) : (
+              <p style={{ color: '#d4b483', fontSize: 13 }}>Aucune livraison TBK sur cette période.</p>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 24 }}>

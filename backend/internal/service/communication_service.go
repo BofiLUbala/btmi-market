@@ -831,8 +831,23 @@ func withAudience(meta map[string]interface{}, audience string) map[string]inter
 }
 
 // GetUserNotifications returns paginated notifications for the user.
-func (s *CommunicationService) GetUserNotifications(userID uuid.UUID, audience string, limit, offset int) ([]models.NotificationResponse, int, error) {
-	return s.notifRepo.GetByUserIDForAudience(userID, audience, limit, offset)
+func (s *CommunicationService) GetUserNotifications(userID uuid.UUID, audience, view string, limit, offset int) ([]models.NotificationResponse, int, error) {
+	return s.notifRepo.GetByUserIDForAudience(userID, audience, view, limit, offset)
+}
+
+// ArchiveNotification archives one of the user's own notifications (buyer/seller only).
+func (s *CommunicationService) ArchiveNotification(id, userID uuid.UUID) error {
+	return s.notifRepo.ArchiveNotification(id, userID)
+}
+
+// UnarchiveNotification restores one of the user's own notifications back to the active view.
+func (s *CommunicationService) UnarchiveNotification(id, userID uuid.UUID) error {
+	return s.notifRepo.UnarchiveNotification(id, userID)
+}
+
+// DeleteNotification soft-deletes one of the user's own notifications (buyer/seller only).
+func (s *CommunicationService) DeleteNotification(id, userID uuid.UUID) error {
+	return s.notifRepo.DeleteNotification(id, userID)
 }
 
 // GetUnreadNotificationCount counts unread notifications for one audience.
