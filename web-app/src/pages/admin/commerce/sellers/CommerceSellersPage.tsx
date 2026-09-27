@@ -1,8 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminSellerPerformance, type AdminUserListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { BarChartIcon } from '@/components/ui/Icons'
+
+/** Every seller's performance: the list is paginated separately, so a single
+ *  page of 100 left later sellers without figures. */
+async function loadAllSellerPerformance() {
+  const PAGE = 100
+  const first = await adminCommerceApi.getSellerPerformance({ limit: PAGE, offset: 0 })
+  const performance = [...(first.performance ?? [])]
+  for (let offset = PAGE; offset < Math.min(first.total ?? 0, 2000); offset += PAGE) {
+    const next = await adminCommerceApi.getSellerPerformance({ limit: PAGE, offset })
+    performance.push(...(next.performance ?? []))
+  }
+  return { performance }
+}
 
 export default function CommerceSellersPage() {
   const t = useT()
@@ -26,7 +40,7 @@ export default function CommerceSellersPage() {
           limit,
           offset: page * limit,
         }),
-        adminCommerceApi.getSellerPerformance({ limit: 100, offset: 0 }).catch(() => ({ performance: [] })),
+        loadAllSellerPerformance().catch(() => ({ performance: [] as AdminSellerPerformance[] })),
       ])
 
       setSellers(usersRes.users ?? [])
@@ -195,7 +209,7 @@ export default function CommerceSellersPage() {
                         backgroundColor: s.status === 'ACTIVE' ? 'var(--admin-success-soft)' : s.status === 'SUSPENDED' ? 'var(--admin-danger-soft)' : 'var(--admin-surface-2)',
                         color: s.status === 'ACTIVE' ? 'var(--admin-success)' : s.status === 'SUSPENDED' ? 'var(--admin-danger)' : 'var(--admin-text-muted)'
                       }}>
-                        {s.status}
+                        {adminLabel(s.status)}
                       </span>
                     </td>
                     <td style={{ textAlign: 'right', padding: '12px 14px' }}>

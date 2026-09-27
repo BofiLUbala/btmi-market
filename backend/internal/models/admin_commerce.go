@@ -369,17 +369,19 @@ type AdminSellerPerformance struct {
 }
 
 type AdminProductPerformance struct {
-	ProductID      uuid.UUID `json:"product_id"`
-	ProductName    string    `json:"product_name"`
-	SKU            string    `json:"sku"`
-	Views          int       `json:"views"`
-	Favorites      int       `json:"favorites"`
-	AddToCart      int       `json:"add_to_cart"`
-	Orders         int       `json:"orders"`
-	ConversionRate float64   `json:"conversion_rate"`
-	SalesValue     float64   `json:"sales_value"`
-	ReviewScore    float64   `json:"review_score"`
-	StockState     string    `json:"stock_state"`
+	ProductID   uuid.UUID `json:"product_id"`
+	ProductName string    `json:"product_name"`
+	SKU         string    `json:"sku"`
+	// Views, favourites, add-to-cart and conversion are not tracked server-side
+	// yet: they are null (not zero) so the console can show "not measured".
+	Views          *int     `json:"views"`
+	Favorites      *int     `json:"favorites"`
+	AddToCart      *int     `json:"add_to_cart"`
+	Orders         int      `json:"orders"`
+	ConversionRate *float64 `json:"conversion_rate"`
+	SalesValue     float64  `json:"sales_value"`
+	ReviewScore    float64  `json:"review_score"`
+	StockState     string   `json:"stock_state"`
 }
 
 type AdminCategoryPerformance struct {
@@ -391,8 +393,8 @@ type AdminCategoryPerformance struct {
 	Orders            int       `json:"orders"`
 	SalesValue        float64   `json:"sales_value"`
 	AvailabilityScore float64   `json:"availability_score"`
-	SearchVolume      int       `json:"search_volume"`
-	ConversionRate    float64   `json:"conversion_rate"`
+	SearchVolume      int       `json:"search_volume"`   // searches naming the category, last 30 days
+	ConversionRate    *float64  `json:"conversion_rate"` // orders per 100 such searches; null without searches
 }
 
 type AdminShopPerformance struct {
@@ -418,4 +420,17 @@ type AdminEmployeeShopAuth struct {
 	ShopName     string    `json:"shop_name"`
 	CanOperate   bool      `json:"can_operate"`
 	Reason       string    `json:"reason,omitempty"`
+}
+
+// AdminCategoryAttribute is one attribute definition from category_attribute_definitions,
+// as the seller product form uses it (required fields, variant axes).
+type AdminCategoryAttribute struct {
+	Key              string   `json:"key"`
+	Label            string   `json:"label"`
+	LabelEN          string   `json:"label_en"`
+	Required         bool     `json:"required"`
+	VariantAttribute bool     `json:"variant_attribute"`
+	InputType        string   `json:"input_type"`
+	AllowedValues    []string `json:"allowed_values"`
+	Subcategory      string   `json:"subcategory,omitempty"`
 }

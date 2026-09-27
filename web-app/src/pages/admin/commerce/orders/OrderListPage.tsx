@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney, formatDateTime } from '@/lib/format'
 import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
@@ -120,7 +121,7 @@ export default function OrderListPage() {
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 6px', borderRadius: 4, backgroundColor: '#1e293b', color: '#94a3b8' }}>
-                      {o.delivery_method || t('admin.common.notAvailable')}
+                      {o.delivery_method ? adminLabel(o.delivery_method) : t('admin.common.notAvailable')}
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px' }}>

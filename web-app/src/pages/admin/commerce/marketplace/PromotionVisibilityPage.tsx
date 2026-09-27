@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney } from '@/lib/format'
 import { adminCommerceApi, type AdminPromotionVisibility } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -104,7 +105,7 @@ export default function PromotionVisibilityPage() {
                         fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                         backgroundColor: p.status === 'ACTIVE' ? '#064e3b' : p.status === 'SCHEDULED' ? '#1e3a5f' : '#334155',
                         color: p.status === 'ACTIVE' ? '#a7f3d0' : p.status === 'SCHEDULED' ? '#93c5fd' : '#94a3b8'
-                      }}>{p.status}</span>
+                      }}>{adminLabel(p.status)}</span>
                     </td>
                   </tr>
                 )

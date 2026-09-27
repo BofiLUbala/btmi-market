@@ -13,8 +13,11 @@ import (
 // ListBusinesses is Commerce's register of real business entities: the name the
 // merchant registered, its owner, and live shop/product/order/GMV counters.
 func (r *AdminCommerceRepository) ListBusinesses(search, status string, limit, offset int) ([]*models.AdminBusinessListItem, int, error) {
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	conds := []string{"1=1"}
 	args := []interface{}{}
@@ -81,8 +84,11 @@ func (r *AdminCommerceRepository) ListBusinesses(search, status string, limit, o
 
 // ListShops lists every shop with its owning business and live activity.
 func (r *AdminCommerceRepository) ListShops(search, status, businessID string, limit, offset int) ([]*models.AdminShopListItem, int, error) {
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	conds := []string{"1=1"}
 	args := []interface{}{}

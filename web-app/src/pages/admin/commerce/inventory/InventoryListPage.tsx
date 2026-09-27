@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminInventoryItem, type StockAnomaly } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -101,8 +102,8 @@ export default function InventoryListPage() {
           <strong style={{ color: '#fca5a5' }}>{anomalies.length} anomalie(s) de stock détectée(s)</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--admin-text)' }}>
             {anomalies.slice(0, 10).map((a) => (
-              <li key={`${a.shop_id}-${a.variant_id}-${a.type}`}>
-                <b>{a.type}</b> · {a.shop_name} · {a.product_name} — stock {a.quantity}, réservé {a.reserved_quantity}. {a.description}
+              <li key={`${a.shop_id}-${a.variant_id}-${adminLabel(a.type)}`}>
+                <b>{adminLabel(a.type)}</b> · {a.shop_name} · {a.product_name} — stock {a.quantity}, réservé {a.reserved_quantity}. {a.description}
               </li>
             ))}
           </ul>

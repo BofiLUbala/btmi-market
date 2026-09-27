@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { NavLink } from 'react-router-dom'
 import { adminPlatformApi, GlobalConfigItem } from '../../../api/admin'
 import { useT } from '@/store/i18n'
@@ -110,7 +111,7 @@ export default function GlobalConfigPage() {
                     <div style={{ fontSize: 11, color: '#64748b', maxWidth: 340 }}>{c.description}</div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: CATEGORY_COLORS[c.category] || '#94a3b8' }}>{c.category}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: CATEGORY_COLORS[c.category] || '#94a3b8' }}>{adminLabel(c.category)}</span>
                   </td>
                   <td style={{ padding: '12px 14px', fontWeight: 700, color: '#60a5fa' }}>{c.value}</td>
                   <td style={{ padding: '12px 14px' }}>

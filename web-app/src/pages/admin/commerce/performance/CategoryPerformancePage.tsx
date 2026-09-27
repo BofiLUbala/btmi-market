@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { formatMoney } from '@/lib/format'
+import { categoryLabel } from '@/lib/categoryLabels'
 import { adminCommerceApi, type AdminCategoryPerformance } from '@/api/admin'
 import { useT } from '@/store/i18n'
 
@@ -39,7 +41,7 @@ export default function CategoryPerformancePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                {[t('admin.performance.categoryColumn'), t('admin.performance.productsPubTotalColumn'), t('admin.performance.activeSellersColumn'), t('admin.performance.ordersColumn'), t('admin.performance.salesValueColumn'), t('admin.performance.availabilityScoreColumn'), t('admin.performance.conversionRateColumn')].map(h => (
+                {[t('admin.performance.categoryColumn'), t('admin.performance.productsPubTotalColumn'), t('admin.performance.activeSellersColumn'), t('admin.performance.ordersColumn'), t('admin.performance.salesValueColumn'), t('admin.performance.availabilityScoreColumn'), t('admin.performance.colSearches30d'), t('admin.performance.conversionRateColumn')].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -47,7 +49,7 @@ export default function CategoryPerformancePage() {
             <tbody>
               {performance.map(cat => (
                 <tr key={cat.category_id} style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{cat.category_name}</td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{categoryLabel(t, undefined, cat.category_name)}</td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc' }}>
                     <span style={{ color: '#34d399', fontWeight: 600 }}>{cat.published_products}</span>
                     <span style={{ color: '#64748b', margin: '0 4px' }}>/</span>
@@ -55,7 +57,7 @@ export default function CategoryPerformancePage() {
                   </td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{cat.active_sellers}</td>
                   <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{cat.orders}</td>
-                  <td style={{ padding: '10px 12px', color: '#34d399', fontWeight: 700 }}>${cat.sales_value?.toFixed(2) ?? '0.00'}</td>
+                  <td style={{ padding: '10px 12px', color: '#34d399', fontWeight: 700 }}>{formatMoney(cat.sales_value ?? 0)}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ width: 60, height: 6, borderRadius: 3, backgroundColor: '#1e293b', overflow: 'hidden' }}>
@@ -64,6 +66,7 @@ export default function CategoryPerformancePage() {
                       <span style={{ fontWeight: 700, color: scoreColor(cat.availability_score), fontSize: 12 }}>{cat.availability_score?.toFixed(0) ?? '0'}%</span>
                     </div>
                   </td>
+                  <td style={{ padding: '10px 12px', color: '#f8fafc' }}>{cat.search_volume}</td>
                   <td style={{ padding: '10px 12px', color: '#94a3b8' }}>
                     {cat.conversion_rate != null ? `${cat.conversion_rate.toFixed(1)}%` : '-'}
                   </td>

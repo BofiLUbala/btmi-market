@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminShopListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -103,7 +104,7 @@ export default function CommerceShopsPage() {
                 <tr key={s.id} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{s.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{s.type} · {s.city || '—'} · {s.phone || '—'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{adminLabel(s.type)} · {s.city || '—'} · {s.phone || '—'}</div>
                     <div style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>
                       Livraison : {[s.supports_shop_delivery && 'boutique', s.supports_partner_delivery && 'partenaire'].filter(Boolean).join(', ') || 'retrait uniquement'}
                     </div>
@@ -116,7 +117,7 @@ export default function CommerceShopsPage() {
                   <td style={{ padding: '12px 14px', textAlign: 'center', color: s.available_units > 0 ? 'inherit' : '#f87171' }}>{s.available_units}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>{s.order_count} ({s.open_order_count})</td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>{s.review_count > 0 ? `★ ${s.review_score.toFixed(1)} (${s.review_count})` : '—'}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'center' }}><span className={`admin-status status-${s.status.toLowerCase()}`}>{s.status}</span></td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center' }}><span className={`admin-status status-${s.status.toLowerCase()}`}>{adminLabel(s.status)}</span></td>
                   <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <Link className="admin-button admin-button-small" to={`/admin/commerce/inventory?shop_id=${s.id}`}>Stock</Link>{' '}
                     <Link className="admin-button admin-button-small" to={`/admin/commerce/orders?shop_id=${s.id}`}>Commandes</Link>{' '}

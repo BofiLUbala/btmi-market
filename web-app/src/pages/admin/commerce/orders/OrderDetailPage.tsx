@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney } from '@/lib/format'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderDetail, type AdminDeliveryHandover } from '@/api/admin'
@@ -133,7 +134,7 @@ export default function OrderDetailPage() {
               />
             )}
             {order.order.seller_name && <Field label="Vendeur" value={order.order.seller_name} />}
-            <Field label={t('admin.orders.fieldDeliveryMethod')} value={order.order.delivery_method || t('admin.common.notAvailable')} />
+            <Field label={t('admin.orders.fieldDeliveryMethod')} value={order.order.delivery_method ? adminLabel(order.order.delivery_method) : t('admin.common.notAvailable')} />
             {order.order.is_stuck && <Field label={t('admin.orders.fieldStuckReason')} value={order.order.stuck_reason || t('admin.orders.stuckReasonDefault')} />}
           </Section>
 
@@ -160,7 +161,7 @@ export default function OrderDetailPage() {
                 </button>
               </div>
             )}
-            <Field label={t('admin.orders.deliveryMethodLabel')} value={order.order.delivery_method || 'TBK_STANDARD'} />
+            <Field label={t('admin.orders.deliveryMethodLabel')} value={adminLabel(order.order.delivery_method || 'TBK_STANDARD')} />
             <Field label={t('admin.orders.deliveryContact')} value={order.order.delivery_contact_name || order.order.buyer_name} />
             <Field label={t('admin.orders.deliveryPhone')} value={order.order.delivery_phone || order.order.buyer_phone} />
             <Field label={t('admin.orders.deliveryAddress')} value={order.order.delivery_address || '-'} />
@@ -270,7 +271,7 @@ export default function OrderDetailPage() {
                   <div key={event.id} style={{ display: 'flex', gap: 10, padding: 8, backgroundColor: '#1e293b', borderRadius: 6 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981', marginTop: 5, flexShrink: 0 }} />
                     <div>
-                      <div style={{ fontSize: 13, color: '#f8fafc' }}>{event.status}</div>
+                      <div style={{ fontSize: 13, color: '#f8fafc' }}>{adminLabel(event.status)}</div>
                       {event.notes && <div style={{ fontSize: 12, color: '#94a3b8' }}>{event.notes}</div>}
                       <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.created_at).toLocaleString('fr-FR')}</div>
                     </div>
@@ -286,7 +287,7 @@ export default function OrderDetailPage() {
                 <Field label="Colis n°" value={`#${handover.package.package_number}`} />
                 <Field
                   label="État du QR"
-                  value={`${handover.package.status}${handover.package.operational ? ' · opérationnel' : ' · non opérationnel'}`}
+                  value={`${adminLabel(handover.package.status)}${handover.package.operational ? ' · opérationnel' : ' · non opérationnel'}`}
                 />
                 <Field label="Livreur assigné" value={handover.assigned_courier_id || 'Non assigné'} />
                 <Field

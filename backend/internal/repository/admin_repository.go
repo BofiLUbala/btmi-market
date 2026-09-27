@@ -137,8 +137,11 @@ func (r *AdminRepository) List(roleFilter, statusFilter, search string, limit, o
 		return nil, 0, fmt.Errorf("failed to count admin users: %w", err)
 	}
 
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	if offset < 0 {
 		offset = 0

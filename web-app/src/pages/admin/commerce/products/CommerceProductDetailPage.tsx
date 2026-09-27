@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney } from '@/lib/format'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductDetail } from '@/api/admin'
@@ -155,7 +156,7 @@ export default function CommerceProductDetailPage() {
             <Field label={t('admin.products.fieldBusiness')} value={business_name} />
             <Field label={t('admin.products.fieldCategory')} value={category_name} />
             <Field label={t('admin.products.fieldSubcategory')} value={subcategory_name} />
-            <Field label={t('common.status')} value={p.status} />
+            <Field label={t('common.status')} value={adminLabel(p.status)} />
             <Field label={t('admin.products.fieldPublication')} value={p.publication_status} />
             <Field label={t('admin.products.fieldCreated')} value={new Date(p.created_at).toLocaleString('fr-FR')} />
           </Section>
@@ -205,7 +206,7 @@ export default function CommerceProductDetailPage() {
                       <td style={{ padding: '6px 8px', color: '#f8fafc' }}>{v.name}</td>
                       <td style={{ padding: '6px 8px', color: '#94a3b8' }}>{Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ') || '-'}</td>
                       <td style={{ padding: '6px 8px', color: '#f8fafc' }}>{formatMoney(v.sale_price)}</td>
-                      <td style={{ padding: '6px 8px' }}><span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: v.status === 'ACTIVE' ? '#064e3b' : '#334155', color: v.status === 'ACTIVE' ? '#a7f3d0' : '#94a3b8' }}>{v.status}</span></td>
+                      <td style={{ padding: '6px 8px' }}><span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: v.status === 'ACTIVE' ? '#064e3b' : '#334155', color: v.status === 'ACTIVE' ? '#a7f3d0' : '#94a3b8' }}>{adminLabel(v.status)}</span></td>
                     </tr>
                   ))}
                 </tbody>

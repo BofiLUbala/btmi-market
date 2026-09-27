@@ -731,6 +731,10 @@ func main() {
 					directionGroup.GET("/users", adminDirectionHandler.ListUsers)
 					directionGroup.POST("/users/:id/suspend", adminDirectionHandler.SuspendUser)
 					directionGroup.POST("/users/:id/reactivate", adminDirectionHandler.ReactivateUser)
+					// Manual activation when the e-mailed activation link failed: SUPER_ADMIN only.
+					directionGroup.POST("/users/:id/activate",
+						middleware.RequireAdminRoles(models.AdminRoleSuperAdmin),
+						adminDirectionHandler.ActivateUser)
 					directionGroup.POST("/users/:id/force-logout", adminDirectionHandler.ForceLogoutUser)
 					// Permanent erasure destroys order and payment history, so it is
 					// held to SUPER_ADMIN even though the rest of the group is not.

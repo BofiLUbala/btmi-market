@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   adminCommerceApi,
@@ -20,6 +21,24 @@ const canAssign = (o: AdminOrderItem) =>
 // Every ACTIVE courier can be assigned; availability only orders the list and
 // tells the admin whether the courier is currently on shift.
 const AVAILABILITY_LABEL: Record<string, string> = { AVAILABLE: 'Disponible', BUSY: 'En livraison', UNAVAILABLE: 'Hors ligne' }
+const TRANSPORT_LABEL: Record<string, string> = { MOTORCYCLE: 'Moto', BICYCLE: 'Vélo', CAR: 'Voiture', VAN: 'Camionnette', FOOT: 'À pied', TRUCK: 'Camion' }
+const SCAN_TYPE_LABEL: Record<string, string> = { PICKUP: 'Scan de retrait', DELIVERY: 'Scan de remise', PRODUCT: 'Vérification produit' }
+const SCAN_RESULT_LABEL: Record<string, string> = { SUCCESS: 'Réussi', FAILED: 'Échec', INVALID_QR: 'QR invalide', WRONG_ORDER: 'Mauvaise commande', ALREADY_USED: 'Déjà utilisé', EXPIRED: 'Expiré' }
+const ASSIGNED_STATUSES = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'COURIER_EN_ROUTE_TO_SHOP']
+const IN_TRANSIT_STATUSES = ['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'COURIER_EN_ROUTE_TO_BUYER', 'COURIER_ARRIVED']
+
+/** Every order, page by page: the dispatch KPIs and filters must not stop at the first 100. */
+async function loadAllOrders() {
+  const PAGE = 100
+  const first = await adminCommerceApi.listOrders({ limit: PAGE })
+  const all = [...(first.orders || [])]
+  for (let offset = PAGE; offset < Math.min(first.total, 2000); offset += PAGE) {
+    const next = await adminCommerceApi.listOrders({ limit: PAGE, offset })
+    all.push(...(next.orders || []))
+  }
+  return all
+}
+
 const AVAILABILITY_ORDER: Record<string, number> = { AVAILABLE: 0, BUSY: 1, UNAVAILABLE: 2 }
 
 type DeliveryStatusFilter = 'ALL' | 'READY_FOR_PICKUP' | 'COURIER_ASSIGNED' | 'PICKED_UP' | 'IN_TRANSIT' | 'RECEIVED'
@@ -46,21 +65,20 @@ export default function CommerceDeliveryAssignmentsPage() {
   const [fullOrderDetail, setFullOrderDetail] = useState<AdminOrderDetail | null>(null)
   const [handoverDetail, setHandoverDetail] = useState<AdminDeliveryHandover | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailCourier, setDetailCourier] = useState<AdminCourierListItem | null>(null)
 
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [orderRes, courierRes] = await Promise.all([
-        adminCommerceApi.listOrders({
-          limit: 100,
-        }),
+      const [allOrders, courierRes] = await Promise.all([
+        loadAllOrders(),
         adminCommerceApi.listCouriers({
           limit: 100,
         }),
       ])
-      setOrders(orderRes.orders || [])
+      setOrders(allOrders)
       setCouriers((courierRes.couriers || [])
         .filter(c => c.status === 'ACTIVE')
         .sort((a, b) => (AVAILABILITY_ORDER[a.availability] ?? 3) - (AVAILABILITY_ORDER[b.availability] ?? 3)))
@@ -79,11 +97,18 @@ export default function CommerceDeliveryAssignmentsPage() {
   const openOperationalDetail = async (order: AdminOrderItem) => {
     setDetailOrder(order)
     setDetailLoading(true)
+    setDetailCourier(null)
+    // The order carries the courier's user id; the courier record (contact,
+    // vehicle, delivery record) is fetched fresh for the sheet.
+    const courierRef = couriers.find(c => c.user_id === order.assigned_courier_id)
     try {
-      const [detailRes, handoverRes] = await Promise.allSettled([
+      const [detailRes, handoverRes, courierRes] = await Promise.allSettled([
         adminCommerceApi.getOrder(order.id),
-        adminCommerceApi.getDeliveryHandover(order.id)
+        adminCommerceApi.getDeliveryHandover(order.id),
+        courierRef ? adminCommerceApi.getCourierDetail(courierRef.id) : Promise.reject(new Error('NO_COURIER'))
       ])
+      if (courierRes.status === 'fulfilled') setDetailCourier(courierRes.value)
+      else if (courierRef) setDetailCourier(courierRef)
 
       if (detailRes.status === 'fulfilled') setFullOrderDetail(detailRes.value)
       else setFullOrderDetail(null)
@@ -146,9 +171,11 @@ export default function CommerceDeliveryAssignmentsPage() {
   })
 
   // Quick stats counters
-  const countReady = orders.filter(o => (o.delivery_status || o.status || '').includes('READY')).length
-  const countAssigned = orders.filter(o => o.delivery_status === 'COURIER_ASSIGNED').length
-  const countInTransit = orders.filter(o => o.delivery_status === 'IN_TRANSIT' || o.delivery_status === 'PICKED_UP').length
+  // KPIs are computed on every order (all pages), with the same rules as the table.
+  const countReady = orders.filter(o => canAssign(o) && !o.assigned_courier_id).length
+  const countAssigned = orders.filter(o => ASSIGNED_STATUSES.includes(o.delivery_status || '')).length
+  const countInTransit = orders.filter(o => IN_TRANSIT_STATUSES.includes(o.delivery_status || '')).length
+  const countAvailableCouriers = couriers.filter(c => c.availability === 'AVAILABLE').length
 
   const getStatusBadge = (order: AdminOrderItem) => {
     const status = order.delivery_status || order.status || 'PENDING'
@@ -249,16 +276,16 @@ export default function CommerceDeliveryAssignmentsPage() {
           <div style={{ fontSize: 24, fontWeight: 800, color: '#eab308', marginTop: 4 }}>{countReady}</div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livreurs Assignés</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livreurs assignés</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#818cf8', marginTop: 4 }}>{countAssigned}</div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>En Cours d'Acheminement</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>En cours d’acheminement</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#c084fc', marginTop: 4 }}>{countInTransit}</div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livreurs Disponibles</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>{couriers.length}</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livreurs disponibles</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>{countAvailableCouriers} <span style={{ fontSize: 13, color: 'var(--admin-text-muted)', fontWeight: 600 }}>/ {couriers.length} actifs</span></div>
         </div>
       </div>
 
@@ -416,7 +443,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                             cursor: 'pointer'
                           }}
                         >
-                          👁️ Fiche Livreur
+                          👁️ Détail livraison
                         </button>
                         {canAssign(o) && <button
                           onClick={() => {
@@ -581,10 +608,10 @@ export default function CommerceDeliveryAssignmentsPage() {
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
-                  Fiche Opérationnelle Livreur #{detailOrder.order_number}
+                  Fiche opérationnelle · commande #{detailOrder.order_number}
                 </h3>
                 <span style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>
-                  Statut: {detailOrder.delivery_status || detailOrder.status}
+                  Statut : {adminLabel(detailOrder.delivery_status || detailOrder.status)}
                 </span>
               </div>
               <button
@@ -608,6 +635,47 @@ export default function CommerceDeliveryAssignmentsPage() {
                 </div>
               ) : (
                 <>
+                  {/* ASSIGNED COURIER */}
+                  <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 12px', color: '#f472b6', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>🛵</span> LIVREUR ASSIGNÉ
+                    </h4>
+                    {detailCourier ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: 12, fontSize: 13 }}>
+                        <div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Nom</div>
+                          <div style={{ fontWeight: 700 }}>{detailCourier.first_name} {detailCourier.last_name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{detailCourier.email}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Téléphone</div>
+                          <div style={{ fontWeight: 700 }}>📞 {detailCourier.phone || '—'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Véhicule</div>
+                          <div style={{ fontWeight: 700 }}>{TRANSPORT_LABEL[detailCourier.transport_type] ?? adminLabel(detailCourier.transport_type)}{detailCourier.vehicle_info ? ` · ${detailCourier.vehicle_info}` : ''}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Zone · disponibilité</div>
+                          <div style={{ fontWeight: 700 }}>{detailCourier.service_zone || '—'} · {AVAILABILITY_LABEL[detailCourier.availability] ?? adminLabel(detailCourier.availability)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Livraisons réussies</div>
+                          <div style={{ fontWeight: 700 }}>
+                            {detailCourier.successful_deliveries} / {detailCourier.total_deliveries}
+                            {detailCourier.total_deliveries > 0 ? ` (${Math.round((detailCourier.successful_deliveries / detailCourier.total_deliveries) * 100)} %)` : ''}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Statut du compte</div>
+                          <div style={{ fontWeight: 700 }}>{adminLabel(detailCourier.status)}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>Aucun livreur assigné à cette commande pour le moment.</div>
+                    )}
+                  </div>
+
                   {/* BUYER / DESTINATION DETAILS */}
                   <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>
                     <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 12px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -687,8 +755,8 @@ export default function CommerceDeliveryAssignmentsPage() {
                           {handoverDetail.events.map((ev) => (
                             <div key={ev.id} style={{ fontSize: 12, padding: 8, backgroundColor: 'var(--admin-surface)', borderRadius: 6, border: '1px solid var(--admin-border-soft)' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                                <span>TYPE: {ev.scan_type}</span>
-                                <span style={{ color: ev.scan_result === 'SUCCESS' ? '#4ade80' : '#f87171' }}>{ev.scan_result}</span>
+                                <span>{SCAN_TYPE_LABEL[ev.scan_type] ?? adminLabel(ev.scan_type)}</span>
+                                <span style={{ color: ev.scan_result === 'SUCCESS' ? '#4ade80' : '#f87171' }}>{SCAN_RESULT_LABEL[ev.scan_result] ?? adminLabel(ev.scan_result)}</span>
                               </div>
                               <div style={{ fontSize: 11, color: 'var(--admin-text-muted)', marginTop: 4 }}>
                                 Horodatage: {new Date(ev.created_at).toLocaleString('fr-FR')}

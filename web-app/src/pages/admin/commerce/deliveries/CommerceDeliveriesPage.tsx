@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney, formatDateTime } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderItem } from '@/api/admin'
@@ -194,7 +195,7 @@ export default function CommerceDeliveriesPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>{o.delivery_method === 'SCHEDULED_DELIVERY' ? '🚚' : o.delivery_method === 'PICKUP' ? '🏬' : '📲'}</span>
                         <span style={{ fontWeight: 600, color: 'var(--admin-text)' }}>
-                          {o.delivery_method === 'SCHEDULED_DELIVERY' ? 'Courier Delivery' : o.delivery_method}
+                          {o.delivery_method === 'SCHEDULED_DELIVERY' ? 'Livraison par livreur' : adminLabel(o.delivery_method)}
                         </span>
                       </div>
                     </td>

@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminCommerceApi, type AdminCategoryItem } from '@/api/admin'
-import { useT } from '@/store/i18n'
+import { adminLabel } from '@/lib/adminLabels'
+import { adminCommerceApi, type AdminCategoryAttribute, type AdminCategoryItem } from '@/api/admin'
+import { useI18n, useT } from '@/store/i18n'
 
 export default function CommerceCategoriesPage() {
   const t = useT()
+  const { lang } = useI18n()
   const [categories, setCategories] = useState<AdminCategoryItem[]>([])
+  const [attributes, setAttributes] = useState<Record<string, AdminCategoryAttribute[]>>({})
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [newCatName, setNewCatName] = useState('')
@@ -23,8 +26,12 @@ export default function CommerceCategoriesPage() {
   const fetchCategories = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await adminCommerceApi.listCategories()
+      const [res, attrs] = await Promise.all([
+        adminCommerceApi.listCategories(),
+        adminCommerceApi.getAttributeSuggestions().catch(() => ({})),
+      ])
       setCategories(res)
+      setAttributes(attrs)
     } catch (err) {
       console.error('Failed to load categories', err)
     } finally {
@@ -102,7 +109,7 @@ export default function CommerceCategoriesPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.categories.title')}</h2>
           <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.categories.subtitle')}</p>
@@ -143,7 +150,7 @@ export default function CommerceCategoriesPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {categories.map(cat => (
             <div key={cat.ID} style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: '#1e293b', color: '#94a3b8' }}>#{cat.SortOrder}</span>
                   {editingId === cat.ID ? (
@@ -160,9 +167,9 @@ export default function CommerceCategoriesPage() {
                     fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                     backgroundColor: cat.Status === 'ACTIVE' ? '#064e3b' : '#7f1d1d',
                     color: cat.Status === 'ACTIVE' ? '#a7f3d0' : '#fca5a5'
-                  }}>{cat.Status}</span>
+                  }}>{adminLabel(cat.Status)}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   <button onClick={() => { setEditingId(cat.ID); setEditName(cat.Name); setEditSlug(cat.Slug) }} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #334155', color: '#94a3b8', fontSize: 11, cursor: 'pointer' }}>{t('common.edit')}</button>
                   <button onClick={() => setShowSubCreate(showSubCreate === cat.ID ? null : cat.ID)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #10b981', color: '#10b981', fontSize: 11, cursor: 'pointer' }}>+ {t('admin.categories.sub')}</button>
                   <button onClick={() => handleToggleCategory(cat.ID, cat.Status)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #f59e0b', color: '#f59e0b', fontSize: 11, cursor: 'pointer' }}>
@@ -192,7 +199,7 @@ export default function CommerceCategoriesPage() {
                         ) : (
                           <span style={{ color: '#f8fafc' }}>{sub.name}</span>
                         )}
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 3, backgroundColor: sub.status === 'ACTIVE' ? '#064e3b' : '#7f1d1d', color: sub.status === 'ACTIVE' ? '#a7f3d0' : '#fca5a5' }}>{sub.status}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 3, backgroundColor: sub.status === 'ACTIVE' ? '#064e3b' : '#7f1d1d', color: sub.status === 'ACTIVE' ? '#a7f3d0' : '#fca5a5' }}>{adminLabel(sub.status)}</span>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {subEditId === sub.id ? (
@@ -210,6 +217,30 @@ export default function CommerceCategoriesPage() {
               ) : (
                 <div style={{ color: '#475569', fontSize: 12, marginLeft: 20 }}>{t('admin.categories.noSubcategories')}</div>
               )}
+
+              {/* Attribute definitions the seller product form enforces for this category. */}
+              <div style={{ marginTop: 10, marginLeft: 20 }}>
+                <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>{t('admin.categories.formAttributes').toUpperCase()}</div>
+                {(attributes[cat.Slug] ?? []).length === 0 ? (
+                  <div style={{ color: '#475569', fontSize: 12 }}>{t('admin.categories.noAttributes')}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {(attributes[cat.Slug] ?? []).map((a) => (
+                      <span
+                        key={`${a.subcategory ?? ''}-${a.key}`}
+                        title={a.allowed_values.length ? a.allowed_values.join(', ') : t('admin.categories.attrFreeText')}
+                        style={{ fontSize: 11, padding: '3px 8px', borderRadius: 999, border: '1px solid #334155', backgroundColor: '#1e293b', color: '#e2e8f0' }}
+                      >
+                        {lang === 'en' ? a.label_en || a.label : a.label}
+                        {a.subcategory ? <span style={{ color: '#64748b' }}> · {a.subcategory}</span> : null}
+                        {a.required ? <span style={{ color: '#fbbf24', fontWeight: 700 }}> · {t('admin.categories.attrRequired')}</span> : null}
+                        {a.variant_attribute ? <span style={{ color: '#60a5fa', fontWeight: 700 }}> · {t('admin.categories.attrVariant')}</span> : null}
+                        {a.allowed_values.length ? <span style={{ color: '#64748b' }}> · {t('admin.categories.attrValues', { count: a.allowed_values.length })}</span> : null}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -673,3 +673,19 @@ a.admin-button { text-decoration: none; }
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* Phones and small tablets: a wide data table scrolls inside its card instead
+   of widening the whole page (every admin table, including inline-styled ones). */
+@media (max-width: 900px) {
+  .admin-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Long unbreakable values (versions, UUIDs, e-mails) wrap instead of widening
+   the page; tables keep whole words and scroll instead (see rule above). */
+.admin-content { overflow-wrap: anywhere; }
+.admin-content table { overflow-wrap: normal; }

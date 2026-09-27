@@ -373,15 +373,27 @@ export interface AdminSellerPerformance {
   cash_confirmation_rate: number
 }
 
+export interface AdminCategoryAttribute {
+  key: string
+  label: string
+  label_en: string
+  required: boolean
+  variant_attribute: boolean
+  input_type: string
+  allowed_values: string[]
+  subcategory?: string
+}
+
 export interface AdminProductPerformance {
   product_id: string
   product_name: string
   sku: string
-  views: number
-  favorites: number
-  add_to_cart: number
+  /** Not tracked server-side yet: null means "not measured". */
+  views: number | null
+  favorites: number | null
+  add_to_cart: number | null
   orders: number
-  conversion_rate: number
+  conversion_rate: number | null
   sales_value: number
   review_score: number
   stock_state: string
@@ -396,8 +408,10 @@ export interface AdminCategoryPerformance {
   orders: number
   sales_value: number
   availability_score: number
+  /** Searches naming the category over the last 30 days. */
   search_volume: number
-  conversion_rate: number
+  /** Orders per 100 such searches; null when there were no searches. */
+  conversion_rate: number | null
 }
 
 export interface AdminShopPerformance {
@@ -859,6 +873,13 @@ export const adminDirectionApi = {
       body: JSON.stringify({ reason })
     })
   },
+  /** SUPER_ADMIN only: finish the activation of an account whose e-mailed link failed. */
+  activateUser: async (id: string, reason: string) => {
+    return adminApi<{ message: string }>(`/admin/direction/users/${id}/activate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    })
+  },
   forceLogoutUser: async (id: string, reason: string) => {
     return adminApi<{ message: string }>(`/admin/direction/users/${id}/force-logout`, {
       method: 'POST',
@@ -946,8 +967,9 @@ export const adminCommerceApi = {
       body: JSON.stringify(data)
     })
   },
+  /** Active attribute definitions per category slug (the ones seller product forms enforce). */
   getAttributeSuggestions: async () => {
-    return adminApi<Record<string, string[]>>('/admin/commerce/attribute-suggestions')
+    return adminApi<Record<string, AdminCategoryAttribute[]>>('/admin/commerce/attribute-suggestions')
   },
   listInventory: async (params?: { business_id?: string; shop_id?: string; search?: string; stock_status?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams()

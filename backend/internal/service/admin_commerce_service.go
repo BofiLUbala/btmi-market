@@ -226,19 +226,10 @@ func (s *AdminCommerceService) UpdateSubcategory(adminID uuid.UUID, adminRole mo
 	return nil
 }
 
-func (s *AdminCommerceService) GetAttributeSuggestions() map[string][]string {
-	return map[string][]string{
-		"fashion":     {"Color", "Size", "Material", "Fit"},
-		"shoes":       {"Color", "Shoe Size", "Material", "Gender"},
-		"food":        {"Flavor", "Weight", "Volume", "Pack Size", "Expiration Date"},
-		"beauty":      {"Shade", "Volume", "Scent", "Skin Type"},
-		"electronics": {"Color", "Storage", "RAM", "Capacity", "Model"},
-		"children":    {"Age Range", "Size", "Color"},
-		"home":        {"Dimensions", "Material", "Color", "Capacity"},
-		"sport":       {"Size", "Weight", "Color"},
-		"automotive":  {"Model", "Compatibility", "Capacity", "Size"},
-		"services":    {},
-	}
+// GetAttributeSuggestions returns the attribute definitions stored per category
+// (category_attribute_definitions): the same ones the seller product form enforces.
+func (s *AdminCommerceService) GetAttributeSuggestions() (map[string][]models.AdminCategoryAttribute, error) {
+	return s.commerceRepo.ListCategoryAttributes()
 }
 
 // 4. Inventory & Safe Stock Adjustment
@@ -281,7 +272,7 @@ func (s *AdminCommerceService) AdjustStock(adminID uuid.UUID, adminRole models.A
 		Quantity:         diff,
 		PreviousQuantity: oldQty,
 		NewQuantity:      newQty,
-		Notes:            fmt.Sprintf("Admin stock adjustment by %s: %s", adminRole, req.Reason),
+		Notes:            fmt.Sprintf("Ajustement de stock par l’administration (%s) : %s", adminRoleLabel(adminRole), req.Reason),
 		CreatedAt:        time.Now(),
 	}
 	_ = s.movementRepo.Create(movement)
@@ -528,4 +519,21 @@ func (s *AdminCommerceService) SetEntityStatus(adminID uuid.UUID, adminRole mode
 		UserAgent:    &userAgent,
 	})
 	return nil
+}
+
+// adminRoleLabel names an admin role in stock-movement notes shown to sellers and admins.
+func adminRoleLabel(role models.AdminRole) string {
+	switch role {
+	case models.AdminRoleSuperAdmin:
+		return "super admin"
+	case models.AdminRoleCommerceAdmin:
+		return "admin commerce"
+	case models.AdminRoleFinanceSupportAdmin:
+		return "admin finance"
+	case models.AdminRoleTechnicalAdmin:
+		return "admin technique"
+	case models.AdminRoleDirectionAdmin:
+		return "admin direction"
+	}
+	return string(role)
 }

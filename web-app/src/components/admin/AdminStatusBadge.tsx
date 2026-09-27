@@ -1,4 +1,5 @@
 import React from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 
 export interface AdminStatusBadgeProps {
   status?: string
@@ -94,7 +95,7 @@ export function AdminStatusBadge({
   }
 
   const s = STATUS_MAP[resolvedStatus] ?? DEFAULT_STYLE
-  const displayText = label ?? (status ? status.replace(/_/g, ' ') : resolvedStatus)
+  const displayText = label ?? adminLabel(status || resolvedStatus, '')
 
   const padding = size === 'sm' ? '1px 7px' : '2px 9px'
   const fontSize = size === 'sm' ? 10 : 11

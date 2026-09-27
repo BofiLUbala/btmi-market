@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { useAdminAuth } from '@/store/adminAuth'
 import { adminAdvancedApi, Announcement, ApprovalRequest, ExportJob, MaintenanceState, AnalyticsMetric } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -137,7 +138,7 @@ export default function AdvancedManagementPage() {
       <section className="admin-panel">
         <div className="admin-section-title">
           <div><h2>{t('admin.advanced.maintenanceTitle')}</h2><p>{t('admin.advanced.maintenanceDesc')} Appliquée par l’API : PARTIELLE bloque les écritures, COMPLÈTE bloque tout.</p></div>
-          <span className={`admin-status status-${maintenance?.status?.toLowerCase()}`}>{maintenance?.status || '—'}</span>
+          <span className={`admin-status status-${maintenance?.status?.toLowerCase()}`}>{adminLabel(maintenance?.status || '—')}</span>
         </div>
         {canWriteMaintenance ? (
           <>
@@ -201,7 +202,7 @@ export default function AdvancedManagementPage() {
               <div className="admin-actions">
                 <button onClick={() => { setDraft({ ...draft, status: 'DRAFT' }); }}>Brouillon</button>
                 <button onClick={() => setDraft({ ...draft, status: 'ACTIVE' })}>Publier</button>
-                <span className="admin-muted" style={{ fontSize: 12 }}>Statut à l’enregistrement : <b>{draft.status}</b></span>
+                <span className="admin-muted" style={{ fontSize: 12 }}>Statut à l’enregistrement : <b>{adminLabel(draft.status)}</b></span>
               </div>
               <div className="admin-actions">
                 <button onClick={saveDraft}>Enregistrer</button>
@@ -217,7 +218,7 @@ export default function AdvancedManagementPage() {
                 <p>{a.audience} · {fmtDate(a.starts_at)} → {fmtDate(a.ends_at)}</p>
               </div>
               <div className="admin-actions">
-                <span className={`admin-status status-${a.status.toLowerCase()}`}>{a.status}</span>
+                <span className={`admin-status status-${a.status.toLowerCase()}`}>{adminLabel(a.status)}</span>
                 {canWriteAnnouncements && (
                   <>
                     {a.status !== 'ACTIVE' && <button onClick={() => setAnnouncementStatus(a, 'ACTIVE')}>Publier</button>}
@@ -241,13 +242,13 @@ export default function AdvancedManagementPage() {
           )}
           {approvals.length === 0 ? <p className="admin-empty">{t('admin.advanced.noApprovals')}</p> : approvals.map((a) => (
             <article className="admin-list-row" key={a.id}>
-              <div><strong>{a.action_type}</strong><p>{a.reason}</p><p>{a.target_type} {a.target_id} · {fmtDate(a.created_at)}</p></div>
+              <div><strong>{adminLabel(a.action_type)}</strong><p>{a.reason}</p><p>{adminLabel(a.target_type)} {a.target_id} · {fmtDate(a.created_at)}</p></div>
               {a.status === 'PENDING' && canDecide ? (
                 <div className="admin-actions">
                   <button onClick={() => decide(a, true)}>{t('admin.advanced.approve')}</button>
                   <button onClick={() => decide(a, false)}>{t('admin.advanced.reject')}</button>
                 </div>
-              ) : <span className={`admin-status status-${a.status.toLowerCase()}`}>{a.status}</span>}
+              ) : <span className={`admin-status status-${a.status.toLowerCase()}`}>{adminLabel(a.status)}</span>}
             </article>
           ))}
         </section>
@@ -273,7 +274,7 @@ export default function AdvancedManagementPage() {
               {x.error_message && <p style={{ color: '#fca5a5' }}>{x.error_message}</p>}
             </div>
             <div className="admin-actions">
-              <span className={`admin-status status-${x.status.toLowerCase()}`}>{x.status}</span>
+              <span className={`admin-status status-${x.status.toLowerCase()}`}>{adminLabel(x.status)}</span>
               {x.status === 'COMPLETED' && (
                 <button onClick={() => void adminAdvancedApi.downloadExport(x.id, `${x.dataset}.csv`).catch((err) => setError((err as Error).message))}>Télécharger CSV</button>
               )}

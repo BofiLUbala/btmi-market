@@ -455,7 +455,11 @@ func (h *CommerceHandler) UpdateSubcategory(c *gin.Context) {
 
 // GET /api/v1/admin/commerce/attribute-suggestions
 func (h *CommerceHandler) AttributeSuggestions(c *gin.Context) {
-	suggestions := h.commerceService.GetAttributeSuggestions()
+	suggestions, err := h.commerceService.GetAttributeSuggestions()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "ATTRIBUTES_LOAD_FAILED", "message": err.Error()}})
+		return
+	}
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Attribute suggestions retrieved",
 		Data:    suggestions,

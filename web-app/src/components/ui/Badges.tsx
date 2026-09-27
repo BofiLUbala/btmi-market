@@ -1,18 +1,22 @@
+import { adminLabel } from '@/lib/adminLabels'
 import type { OrderStatus } from '@/api/types'
 import { formatMoney } from '@/lib/format'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
 export function StatusBadge({ status }: { status: string }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const key = `status.${status}` as TranslationKey
   // An unknown status from the API still has to render something readable, so
-  // fall back to prettifying the raw value rather than showing the key.
+  // fall back to the shared French labels (or a prettified value in English)
+  // rather than showing the key.
   const translated = t(key)
   const label =
-    translated === key
-      ? status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
-      : translated
+    translated !== key
+      ? translated
+      : lang === 'fr'
+        ? adminLabel(status)
+        : status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
   return <span className={`badge badge-status badge-${status}`}>{label}</span>
 }
 

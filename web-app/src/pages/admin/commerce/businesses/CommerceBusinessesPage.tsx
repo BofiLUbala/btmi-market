@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminBusinessListItem } from '@/api/admin'
@@ -108,7 +109,7 @@ export default function CommerceBusinessesPage() {
                 <tr key={b.id} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{b.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{b.business_type} · {b.category || '—'} · {b.city}{b.country ? `, ${b.country}` : ''}</div>
+                    <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{b.business_type} · {adminLabel(b.category || '—')} · {b.city}{b.country ? `, ${b.country}` : ''}</div>
                     <div style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>{b.email} · {b.phone}</div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
@@ -124,7 +125,7 @@ export default function CommerceBusinessesPage() {
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>{b.order_count}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700 }}>{money(b.completed_sales, b.currency)}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                    <span className={`admin-status status-${b.status.toLowerCase()}`}>{b.status}</span>
+                    <span className={`admin-status status-${b.status.toLowerCase()}`}>{adminLabel(b.status)}</span>
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <Link className="admin-button admin-button-small" to={`/admin/commerce/products?business_id=${b.id}`}>Produits</Link>{' '}

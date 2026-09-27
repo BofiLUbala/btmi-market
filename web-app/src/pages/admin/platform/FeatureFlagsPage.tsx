@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { NavLink } from 'react-router-dom'
 import { adminPlatformApi, FeatureFlag, HighRiskConfirmError } from '../../../api/admin'
 import { useT } from '@/store/i18n'
@@ -123,7 +124,7 @@ export default function FeatureFlagsPage() {
                     <div style={{ fontSize: 11, color: '#64748b', maxWidth: 320 }}>{f.description}</div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: CATEGORY_COLORS[f.category] || '#94a3b8' }}>{f.category}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: CATEGORY_COLORS[f.category] || '#94a3b8' }}>{adminLabel(f.category)}</span>
                   </td>
                   <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{f.scope}</td>
                   <td style={{ padding: '12px 14px' }}>

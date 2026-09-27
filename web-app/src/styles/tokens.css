@@ -62,8 +62,8 @@
   /* Boutique type pairing: an editorial serif for titles and prices, a
      neutral grotesk that stays legible at 12px for everything else. Both
      fall back to system fonts, so an offline load keeps the same hierarchy. */
-  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Fraunces Variable', 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, 'Times New Roman', serif;
   --tracking-kicker: 0.14em;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --text-xs: 0.75rem;

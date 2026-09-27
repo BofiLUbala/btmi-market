@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { useParams } from 'react-router-dom'
 import {
   adminTechnicalApi,
@@ -49,7 +50,7 @@ function KPICard({ label, value, status, icon }: { label: string; value: string 
   return (
     <div style={{ background: '#0f172a', border: `1px solid ${borderColor}`, borderRadius: 12, padding: '14px 18px', minWidth: 0 }}>
       <div style={{ fontSize: 20, marginBottom: 6 }}>{icon}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: isBad ? '#f87171' : isGood ? '#4ade80' : '#f1f5f9', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: isBad ? '#f87171' : isGood ? '#4ade80' : '#f1f5f9', lineHeight: 1.15, overflowWrap: 'anywhere' }}>{value}</div>
       <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{label}</div>
     </div>
   )
@@ -279,7 +280,7 @@ export default function TechnicalDashboardPage() {
             <KPICard label={t('admin.technical.kpiSecurityAlerts')} value={kpis.security_alerts_count} icon="🚨" />
             <KPICard label={t('admin.technical.kpiActiveSessions')} value={kpis.active_sessions_count} icon="🔑" />
             <KPICard label={t('admin.technical.kpiBackup')} value={kpis.backup_status} status={kpis.backup_status === 'OK' ? 'HEALTHY' : 'NOT_CONFIGURED'} icon="💾" />
-            <KPICard label={t('admin.technical.kpiMigrations')} value={kpis.migration_status} status={kpis.migration_status === 'UP_TO_DATE' ? 'HEALTHY' : 'WARNING'} icon="🔄" />
+            <KPICard label={t('admin.technical.kpiMigrations')} value={adminLabel(kpis.migration_status)} status={kpis.migration_status === 'UP_TO_DATE' ? 'HEALTHY' : 'WARNING'} icon="🔄" />
             <KPICard label={t('admin.technical.kpiWebVersion')} value={kpis.web_version || '—'} icon="🌐" />
             <KPICard label={t('admin.technical.kpiAndroidVersion')} value={kpis.android_version || '—'} icon="📱" />
           </div>
@@ -484,7 +485,7 @@ export default function TechnicalDashboardPage() {
                 j.job_type,
                 j.queue,
                 String(j.retry_count),
-                <span key={`err-${j.job_id}`} style={{ color: '#f87171', fontSize: 11 }}>{j.last_error || 'Execution failed'}</span>,
+                <span key={`err-${j.job_id}`} style={{ color: '#f87171', fontSize: 11 }}>{j.last_error ? adminLabel(j.last_error) : 'Échec d’exécution'}</span>,
                 <button
                   key={`btn-${j.job_id}`}
                   onClick={() => handleRetryJob(j.job_id)}
@@ -508,7 +509,7 @@ export default function TechnicalDashboardPage() {
             columns={[t('admin.technical.colSeverity'), t('admin.technical.colEventType'), t('admin.technical.colIp'), t('common.status'), t('admin.technical.colTime'), t('admin.common.actions')]}
             rows={securityEvents.map((e) => [
               <StatusBadge key={e.id} status={e.severity} />,
-              e.event_type,
+              adminLabel(e.event_type),
               e.ip_address || '—',
               <StatusBadge key={`s-${e.id}`} status={e.status} />,
               new Date(e.created_at).toLocaleString('fr-FR'),
@@ -541,7 +542,7 @@ export default function TechnicalDashboardPage() {
             columns={[t('admin.technical.colAdminEmail'), t('admin.technical.colRole'), t('admin.technical.colIp'), t('admin.technical.colDevice'), t('admin.common.created'), t('admin.technical.colExpires'), t('admin.common.actions')]}
             rows={sessions.map((s) => [
               s.admin_email,
-              <span key={s.session_id} style={{ fontSize: 11, color: '#2dd4bf', background: '#134e4a', padding: '2px 6px', borderRadius: 4 }}>{s.admin_role}</span>,
+              <span key={s.session_id} style={{ fontSize: 11, color: '#2dd4bf', background: '#134e4a', padding: '2px 6px', borderRadius: 4 }}>{adminLabel(s.admin_role)}</span>,
               s.ip_address,
               <span key={`d-${s.session_id}`} style={{ fontSize: 10, color: '#64748b', wordBreak: 'break-all' }}>{s.device_info.substring(0, 30)}…</span>,
               new Date(s.created_at).toLocaleDateString('fr-FR'),

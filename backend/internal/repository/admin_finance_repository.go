@@ -16,8 +16,10 @@ func (r *AdminFinanceRepository) ListPointUsers(page, limit int, search string) 
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	if limit < 1 {
 		limit = 20
+	} else if limit > 100 {
+		limit = 100
 	}
 	pattern := "%" + search + "%"
 	var total int

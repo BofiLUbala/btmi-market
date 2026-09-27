@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type AdminCommerceRepository struct {
@@ -55,8 +57,11 @@ func (r *AdminCommerceRepository) ListOperationalUsers(search, accountType, stat
 		n++
 	}
 	where := strings.Join(conditions, " AND ")
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
@@ -198,8 +203,11 @@ func (r *AdminCommerceRepository) ListProducts(search, businessID, categoryID, s
 		return nil, 0, fmt.Errorf("failed to count products: %w", err)
 	}
 
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
@@ -480,8 +488,11 @@ func (r *AdminCommerceRepository) ListInventory(businessID, shopID, search, stoc
 		return nil, 0, fmt.Errorf("failed to count inventory: %w", err)
 	}
 
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
@@ -630,8 +641,11 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 		return nil, 0, fmt.Errorf("failed to count orders: %w", err)
 	}
 
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
@@ -1015,8 +1029,11 @@ func (r *AdminCommerceRepository) ListEmployees(limit, offset int) ([]*models.Ad
 		return nil, 0, err
 	}
 
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
@@ -1133,8 +1150,11 @@ func (r *AdminCommerceRepository) ListStockMovementHistory(businessID, shopID, p
 		return nil, 0, fmt.Errorf("failed to count stock movements: %w", err)
 	}
 
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	} else if limit > 100 {
+		// Cap, never fall back to the default: asking for more must not return less.
+		limit = 100
 	}
 	if offset < 0 {
 		offset = 0
@@ -1640,6 +1660,7 @@ func (r *AdminCommerceRepository) ListPromotionVisibility(limit, offset int) ([]
 			&promo.Status,
 		)
 		if err != nil {
+			log.Printf("admin commerce: skipped unreadable row: %v", err)
 			continue
 		}
 		promo.StartDate = discountStart
@@ -1726,6 +1747,7 @@ func (r *AdminCommerceRepository) GetSellerPerformance(limit, offset int) ([]*mo
 			&p.ReviewScore, &p.DisputeRate,
 		)
 		if err != nil {
+			log.Printf("admin commerce: skipped unreadable row: %v", err)
 			continue
 		}
 		if p.OrdersReceived > 0 {
@@ -1767,7 +1789,7 @@ func (r *AdminCommerceRepository) GetProductPerformance(limit, offset int) ([]*m
 			SELECT product_id, SUM(quantity - reserved_quantity) AS total_avail
 			FROM inventory GROUP BY product_id
 		) inv ON p.id = inv.product_id
-		ORDER BY ord.orders DESC
+		ORDER BY COALESCE(ord.orders, 0) DESC, COALESCE(ord.sales_value, 0) DESC, p.name
 		LIMIT $1 OFFSET $2
 	`
 
@@ -1790,7 +1812,8 @@ func (r *AdminCommerceRepository) GetProductPerformance(limit, offset int) ([]*m
 			&p.ConversionRate, &p.SalesValue, &p.ReviewScore, &p.StockState,
 		)
 		if err != nil {
-			continue
+			// A silent skip here once returned an empty list for every product.
+			return nil, 0, fmt.Errorf("scan product performance: %w", err)
 		}
 		perf = append(perf, p)
 	}
@@ -1818,8 +1841,15 @@ func (r *AdminCommerceRepository) GetCategoryPerformance() ([]*models.AdminCateg
 		SELECT c.id,c.name,COALESCE(prod.product_count,0),COALESCE(prod.published_products,0),
 			COALESCE(prod.active_sellers,0),COALESCE(sales.orders,0),COALESCE(sales.sales_value,0),
 			CASE WHEN COALESCE(prod.product_count,0)=0 THEN 0 ELSE prod.available_products::float/prod.product_count*100 END,
-			NULL::integer, NULL::float8
+			COALESCE(srch.searches,0),
+			CASE WHEN COALESCE(srch.searches,0)=0 THEN NULL ELSE COALESCE(sales.orders,0)::float/srch.searches*100 END
 		FROM categories c LEFT JOIN prod ON prod.category_id=c.id LEFT JOIN sales ON sales.category_id=c.id
+		-- Searches of the last 30 days that name the category (the log has no category column).
+		LEFT JOIN LATERAL (
+			SELECT COUNT(*) searches FROM search_query_log q
+			WHERE q.created_at >= NOW() - INTERVAL '30 days'
+			  AND (lower(q.query) LIKE '%' || lower(c.name) || '%' OR lower(q.query) LIKE '%' || lower(c.slug) || '%')
+		) srch ON TRUE
 		ORDER BY c.sort_order
 	`
 
@@ -1839,7 +1869,8 @@ func (r *AdminCommerceRepository) GetCategoryPerformance() ([]*models.AdminCateg
 			&p.SearchVolume, &p.ConversionRate,
 		)
 		if err != nil {
-			continue
+			// A silent skip here once returned an empty list for every category.
+			return nil, fmt.Errorf("scan category performance: %w", err)
 		}
 		perf = append(perf, p)
 	}
@@ -1895,6 +1926,7 @@ func (r *AdminCommerceRepository) GetShopPerformance(limit, offset int) ([]*mode
 			&p.CashConfirmationRate, &p.AvgFulfillmentTime,
 		)
 		if err != nil {
+			log.Printf("admin commerce: skipped unreadable row: %v", err)
 			continue
 		}
 		perf = append(perf, p)
@@ -1967,4 +1999,34 @@ func (r *AdminCommerceRepository) CheckEmployeeShopAuth(employeeID, shopID uuid.
 
 	auth.CanOperate = true
 	return auth, nil
+}
+
+// ListCategoryAttributes returns the active attribute definitions keyed by category slug.
+func (r *AdminCommerceRepository) ListCategoryAttributes() (map[string][]models.AdminCategoryAttribute, error) {
+	rows, err := r.db.Query(`
+		SELECT c.slug, d.key, d.label_fr, d.label_en, d.required, d.variant_attribute, d.input_type,
+			COALESCE((SELECT array_agg(v) FROM jsonb_array_elements_text(d.allowed_values) v), '{}'),
+			COALESCE(s.name, '')
+		FROM category_attribute_definitions d
+		JOIN categories c ON c.id = d.category_id
+		LEFT JOIN subcategories s ON s.id = d.subcategory_id
+		WHERE d.status = 'ACTIVE'
+		ORDER BY c.sort_order, s.name NULLS FIRST, d.display_order, d.label_fr`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[string][]models.AdminCategoryAttribute{}
+	for rows.Next() {
+		var slug string
+		var a models.AdminCategoryAttribute
+		var allowed pq.StringArray
+		if err := rows.Scan(&slug, &a.Key, &a.Label, &a.LabelEN, &a.Required, &a.VariantAttribute, &a.InputType, &allowed, &a.Subcategory); err != nil {
+			return nil, fmt.Errorf("scan category attribute: %w", err)
+		}
+		a.AllowedValues = []string(allowed)
+		out[slug] = append(out[slug], a)
+	}
+	return out, rows.Err()
 }

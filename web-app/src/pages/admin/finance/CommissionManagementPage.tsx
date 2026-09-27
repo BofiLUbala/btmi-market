@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney, formatDateTime } from '@/lib/format'
 import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminSaleHistoryItem, type AdminCommissionSummary, type FinanceBreakdownItem, type FinanceBreakdownGroup } from '@/api/admin'
 
@@ -577,11 +578,11 @@ export default function CommissionManagementPage() {
                     {money(c.seller_net_amount, c.currency)}
                   </td>
                   <td style={{ padding: '12px 14px' }}>
-                    <div style={{ fontWeight: 600 }}>{c.payment_method || '—'}</div>
+                    <div style={{ fontWeight: 600 }}>{adminLabel(c.payment_method || '—')}</div>
                     <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{c.payment_status || '—'}</div>
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 14px', fontSize: 12 }}>
-                    {c.delivery_status || c.delivery_method || c.order_status || '—'}
+                    {adminLabel(c.delivery_status || c.delivery_method || c.order_status)}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 14px' }}>
                     <span style={{

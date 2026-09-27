@@ -279,6 +279,12 @@ func (s *AdminDirectionService) ReactivateUser(adminID uuid.UUID, adminRole mode
 	if oldStatus == models.UserStatusActive {
 		return errors.New("USER_ALREADY_ACTIVE")
 	}
+	// An account that never completed its e-mail activation is not "reactivated":
+	// that is the super admin's manual activation (ActivateUserManually), which
+	// also verifies the e-mail and burns the pending activation links.
+	if oldStatus == models.UserStatusPendingVerification {
+		return errors.New("USER_PENDING_ACTIVATION")
+	}
 
 	query := `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`
 	if _, err := s.db.Exec(query, models.UserStatusActive, userID); err != nil {
@@ -429,4 +435,58 @@ func (s *AdminDirectionService) DeleteUser(adminID uuid.UUID, adminRole models.A
 	}
 
 	return tx.Commit()
+}
+
+// ActivateUserManually finishes the account activation on the user's behalf when
+// the e-mailed link cannot be used (never received, expired, broken). It does
+// exactly what a successful link does: the account becomes ACTIVE, the e-mail is
+// marked verified and every pending activation link is invalidated. SUPER_ADMIN
+// only (enforced on the route); the reason is kept in the audit log.
+func (s *AdminDirectionService) ActivateUserManually(adminID uuid.UUID, adminRole models.AdminRole, userID uuid.UUID, reason, ip, userAgent string) error {
+	if adminRole != models.AdminRoleSuperAdmin {
+		return errors.New("SUPER_ADMIN_REQUIRED")
+	}
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return errors.New("USER_NOT_FOUND")
+	}
+	if user.Status != models.UserStatusPendingVerification {
+		return errors.New("USER_NOT_PENDING_ACTIVATION")
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start activation: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec(
+		`UPDATE users SET status = $1, email_verified = TRUE, updated_at = NOW() WHERE id = $2 AND status = $3`,
+		models.UserStatusActive, userID, models.UserStatusPendingVerification,
+	); err != nil {
+		return fmt.Errorf("failed to activate user: %w", err)
+	}
+	if _, err := tx.Exec(
+		`UPDATE account_activation_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL AND purpose = 'ACTIVATION'`,
+		userID,
+	); err != nil {
+		return fmt.Errorf("failed to invalidate activation links: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to activate user: %w", err)
+	}
+
+	_ = s.auditService.Record(
+		adminID,
+		adminRole,
+		"USER_MANUALLY_ACTIVATED",
+		"USER",
+		userID.String(),
+		reason,
+		map[string]interface{}{"status": user.Status, "email_verified": user.EmailVerified},
+		map[string]interface{}{"status": models.UserStatusActive, "email_verified": true},
+		ip,
+		userAgent,
+	)
+	return nil
 }

@@ -181,6 +181,61 @@ func (h *DirectionHandler) ReactivateUser(c *gin.Context) {
 	})
 }
 
+// ActivateUser — POST /admin/direction/users/:id/activate (SUPER_ADMIN only):
+// manual activation when the user's e-mailed activation link failed.
+func (h *DirectionHandler) ActivateUser(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_ID",
+				Message: "Invalid user UUID",
+			},
+		})
+		return
+	}
+
+	var req models.UserStatusChangeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_INPUT",
+				Message: "Reason is required (minimum 5 characters)",
+			},
+		})
+		return
+	}
+
+	adminID := c.MustGet("admin_id").(uuid.UUID)
+	adminRole := c.MustGet("admin_role").(models.AdminRole)
+	ip := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+
+	if err := h.directionService.ActivateUserManually(adminID, adminRole, userID, req.Reason, ip, userAgent); err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "ACTION_FAILED",
+				Message: err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "User account activated",
+	})
+}
+
 func (h *DirectionHandler) ForceLogoutUser(c *gin.Context) {
 	userIDStr := c.Param("id")
 	userID, err := uuid.Parse(userIDStr)

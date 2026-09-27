@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminCommerceApi, type AdminEmployeeItem } from '@/api/admin'
+import { adminLabel } from '@/lib/adminLabels'
+import { adminCommerceApi, type AdminEmployeeItem, type AdminEmployeeShopAuth } from '@/api/admin'
 import { useT } from '@/store/i18n'
 
 const ROLE_COLORS: Record<string, { bg: string; fg: string }> = {
@@ -15,6 +16,12 @@ function RoleBadge({ role }: { role: string }) {
   return <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: c.bg, color: c.fg }}>{role}</span>
 }
 
+const SHOP_AUTH_REASON: Record<string, string> = {
+  'Employee not assigned to this shop': 'employé non affecté à cette boutique',
+}
+const shopAuthReason = (reason: string) =>
+  SHOP_AUTH_REASON[reason] ?? reason.replace(/^Employee status is (\w+)$/, (_, st: string) => `statut de l’employé : ${adminLabel(st).toLowerCase()}`)
+
 export default function EmployeeManagementPage() {
   const t = useT()
   const [employees, setEmployees] = useState<AdminEmployeeItem[]>([])
@@ -23,6 +30,23 @@ export default function EmployeeManagementPage() {
   const [page, setPage] = useState(0)
   const [limit] = useState(20)
   const [revokeModal, setRevokeModal] = useState<string | null>(null)
+  // Per-shop operating rights of one employee (GET /employees/:id/shop-auth/:shopId).
+  const [accessFor, setAccessFor] = useState<AdminEmployeeItem | null>(null)
+  const [accessRows, setAccessRows] = useState<AdminEmployeeShopAuth[] | null>(null)
+  const [accessError, setAccessError] = useState('')
+
+  const checkAccess = async (emp: AdminEmployeeItem) => {
+    setAccessFor(emp)
+    setAccessRows(null)
+    setAccessError('')
+    try {
+      const { shops } = await adminCommerceApi.listShops({ business_id: emp.business_id, limit: 100 })
+      const checks = await Promise.all(shops.map((shop) => adminCommerceApi.checkEmployeeShopAuth(emp.id, shop.id)))
+      setAccessRows(checks)
+    } catch (err) {
+      setAccessError(err instanceof Error ? err.message : t('admin.employees.checkFailed'))
+    }
+  }
   const [revokeReason, setRevokeReason] = useState('')
   const [revoking, setRevoking] = useState(false)
 
@@ -116,12 +140,16 @@ export default function EmployeeManagementPage() {
                       fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                       backgroundColor: emp.status === 'ACTIVE' ? '#064e3b' : emp.status === 'REVOKED' ? '#7f1d1d' : '#78350f',
                       color: emp.status === 'ACTIVE' ? '#a7f3d0' : emp.status === 'REVOKED' ? '#fca5a5' : '#fde68a'
-                    }}>{emp.status}</span>
+                    }}>{adminLabel(emp.status)}</span>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11 }}>
                     {emp.created_at ? new Date(emp.created_at).toLocaleDateString('fr-FR') : '-'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
+                    <button onClick={() => void checkAccess(emp)}
+                      style={{ padding: '4px 10px', marginRight: 6, borderRadius: 4, border: '1px solid #334155', backgroundColor: 'transparent', color: '#94a3b8', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+                      {t('admin.employees.shopAccess')}
+                    </button>
                     {emp.status === 'ACTIVE' && (
                       <button onClick={() => setRevokeModal(emp.id)}
                         style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #dc2626', backgroundColor: 'transparent', color: '#dc2626', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
@@ -133,6 +161,30 @@ export default function EmployeeManagementPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {accessFor && (
+        <div className="admin-card" style={{ marginTop: 16, padding: 16, border: '1px solid #1e293b', borderRadius: 10, background: '#0f172a' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            <strong style={{ color: '#f8fafc' }}>{t('admin.employees.shopAccessTitle', { name: `${accessFor.first_name || ''} ${accessFor.last_name || ''}`.trim() || accessFor.email, business: accessFor.business_name })}</strong>
+            <button onClick={() => setAccessFor(null)} style={{ padding: '4px 10px', borderRadius: 4, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', fontSize: 11, cursor: 'pointer' }}>{t('common.close')}</button>
+          </div>
+          {accessError ? <div style={{ color: '#fca5a5', fontSize: 13 }}>{accessError}</div>
+            : accessRows === null ? <div style={{ color: '#64748b', fontSize: 13 }}>{t('admin.employees.checking')}</div>
+            : accessRows.length === 0 ? <div style={{ color: '#64748b', fontSize: 13 }}>{t('admin.employees.noShops')}</div>
+            : (
+              <div style={{ display: 'grid', gap: 6 }}>
+                {accessRows.map((r) => (
+                  <div key={r.shop_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: '6px 10px', background: '#1e293b', borderRadius: 6, fontSize: 13 }}>
+                    <span style={{ color: '#f8fafc' }}>{r.shop_name}</span>
+                    <span style={{ color: r.can_operate ? '#4ade80' : '#fca5a5', fontWeight: 700 }}>
+                      {r.can_operate ? t('admin.employees.allowed') : `${t('admin.employees.notAllowed')}${r.reason ? ` — ${shopAuthReason(r.reason)}` : ''}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
         </div>
       )}
 

@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { adminCommerceApi, type AdminStockMovementItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
+
+/** Older admin adjustments were logged in English ("Admin stock adjustment by ROLE: …"). */
+const stockNote = (note?: string | null) =>
+  note?.replace(/^Admin stock adjustment by ([A-Z_]+): /, (_, role: string) => `Ajustement de stock par l’administration (${adminLabel(role).toLowerCase()}) : `) ?? ''
 
 export default function StockHistoryPage() {
   const t = useT()
@@ -115,8 +120,8 @@ export default function StockHistoryPage() {
                     <td style={{ padding: '10px 12px', fontWeight: 700, color: delta > 0 ? '#34d399' : delta < 0 ? '#ef4444' : '#94a3b8' }}>
                       {delta > 0 ? '+' : ''}{delta}
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.notes || ''}>
-                      {m.notes || '-'}
+                    <td style={{ padding: '10px 12px', color: '#94a3b8', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={stockNote(m.notes) || ''}>
+                      {stockNote(m.notes) || '-'}
                     </td>
                   </tr>
                 )

@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom'
 import SellerPerformancePage from './SellerPerformancePage'
 import ShopPerformancePage from './ShopPerformancePage'
 import CategoryPerformancePage from './CategoryPerformancePage'
+import ProductPerformancePage from './ProductPerformancePage'
 import { useT } from '@/store/i18n'
 import { BoxIcon, BarChartIcon } from '@/components/ui/Icons'
 
-type TabType = 'sellers' | 'shops' | 'categories'
+type TabType = 'sellers' | 'shops' | 'products' | 'categories'
 
 export default function CommercePerformanceHubPage() {
   const t = useT()
@@ -64,7 +65,7 @@ export default function CommercePerformanceHubPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--admin-border)', marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--admin-border)', marginBottom: 20, overflowX: 'auto' }}>
         <button
           onClick={() => setActiveTab('sellers')}
           style={{
@@ -100,6 +101,23 @@ export default function CommercePerformanceHubPage() {
           🏪 {t('admin.performance.shopTitle') || 'Shop Performance'}
         </button>
         <button
+          onClick={() => setActiveTab('products')}
+          style={{
+            padding: '10px 18px',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+            backgroundColor: activeTab === 'products' ? 'var(--admin-surface-2)' : 'transparent',
+            color: activeTab === 'products' ? 'var(--admin-primary)' : 'var(--admin-text-muted)',
+            border: 'none',
+            borderBottom: activeTab === 'products' ? '2px solid var(--admin-primary)' : '2px solid transparent',
+            borderRadius: '6px 6px 0 0',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          📦 {t('admin.performance.productTab')}
+        </button>
+        <button
           onClick={() => setActiveTab('categories')}
           style={{
             padding: '10px 18px',
@@ -122,6 +140,7 @@ export default function CommercePerformanceHubPage() {
       <div>
         {activeTab === 'sellers' && <SellerPerformancePage />}
         {activeTab === 'shops' && <ShopPerformancePage />}
+        {activeTab === 'products' && <ProductPerformancePage />}
         {activeTab === 'categories' && <CategoryPerformancePage />}
       </div>
     </div>

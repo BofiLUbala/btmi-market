@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney } from '@/lib/format'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import {
@@ -64,7 +65,7 @@ export default function DirectionDashboardPage() {
 
   // User Action Modal State
   const [actionTargetUser, setActionTargetUser] = useState<AdminUserListItem | null>(null)
-  const [actionType, setActionType] = useState<'suspend' | 'reactivate' | 'force_logout' | 'delete' | null>(null)
+  const [actionType, setActionType] = useState<'suspend' | 'reactivate' | 'activate' | 'force_logout' | 'delete' | null>(null)
   const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [actionReason, setActionReason] = useState('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
@@ -192,6 +193,8 @@ export default function DirectionDashboardPage() {
         res = await adminDirectionApi.suspendUser(actionTargetUser.id, actionReason)
       } else if (actionType === 'reactivate') {
         res = await adminDirectionApi.reactivateUser(actionTargetUser.id, actionReason)
+      } else if (actionType === 'activate') {
+        res = await adminDirectionApi.activateUser(actionTargetUser.id, actionReason)
       } else if (actionType === 'force_logout') {
         res = await adminDirectionApi.forceLogoutUser(actionTargetUser.id, actionReason)
       } else if (actionType === 'delete') {
@@ -623,7 +626,7 @@ export default function DirectionDashboardPage() {
                           backgroundColor: u.status === 'ACTIVE' ? '#064e3b' : u.status === 'SUSPENDED' ? '#7f1d1d' : '#78350f',
                           color: '#ffffff'
                         }}>
-                          {u.status}
+                          {adminLabel(u.status)}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
@@ -660,6 +663,33 @@ export default function DirectionDashboardPage() {
                             >
                               {t('admin.direction.suspend')}
                             </button>
+                          ) : u.status === 'PENDING_VERIFICATION' ? (
+                            isSuperAdmin ? (
+                              <button
+                                onClick={() => {
+                                  setActionTargetUser(u)
+                                  setActionType('activate')
+                                  setActionReason('')
+                                }}
+                                title={t('admin.direction.activateTooltip')}
+                                style={{
+                                  backgroundColor: '#1e3a8a',
+                                  color: '#bfdbfe',
+                                  border: 'none',
+                                  borderRadius: 6,
+                                  padding: '5px 10px',
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {t('admin.direction.activate')}
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: 11, color: '#fbbf24', fontWeight: 600, alignSelf: 'center' }}>
+                                {t('admin.direction.pendingActivation')}
+                              </span>
+                            )
                           ) : (
                             <button
                               onClick={() => {
@@ -1009,7 +1039,7 @@ export default function DirectionDashboardPage() {
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ fontWeight: 700, color: '#ffffff' }}>{l.actor_admin_name || l.actor_admin_email || t('admin.direction.adminFallback')}</div>
                         <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, backgroundColor: '#334155', color: '#cbd5e1' }}>
-                          {l.actor_role}
+                          {adminLabel(l.actor_role)}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
@@ -1021,11 +1051,11 @@ export default function DirectionDashboardPage() {
                           backgroundColor: l.action.includes('SUSPEND') ? '#7f1d1d' : l.action.includes('REACTIVATE') ? '#064e3b' : '#1e293b',
                           color: '#ffffff'
                         }}>
-                          {l.action}
+                          {adminLabel(l.action)}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <div>{l.target_type}</div>
+                        <div>{adminLabel(l.target_type)}</div>
                         <div style={{ fontSize: 11, color: '#64748b' }}>{l.target_id.substring(0, 10)}...</div>
                       </td>
                       <td style={{ padding: '12px 16px', color: '#cbd5e1', maxWidth: 300 }}>
@@ -1108,7 +1138,7 @@ export default function DirectionDashboardPage() {
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>Statut / vérification</div>
-                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.status} · {inspectedUser.email_verified ? 'Email vérifié' : 'Email non vérifié'}</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{adminLabel(inspectedUser.status)} · {inspectedUser.email_verified ? 'Email vérifié' : 'Email non vérifié'}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>Entreprises rattachées</div>
@@ -1179,6 +1209,12 @@ export default function DirectionDashboardPage() {
                 color: actionMessage.type === 'error' ? '#fca5a5' : '#a7f3d0'
               }}>
                 {actionMessage.text}
+              </div>
+            )}
+
+            {actionType === 'activate' && (
+              <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 12.5, lineHeight: 1.5, backgroundColor: '#172554', color: '#bfdbfe', border: '1px solid #1e40af' }}>
+                {t('admin.direction.activateExplanation')}
               </div>
             )}
 

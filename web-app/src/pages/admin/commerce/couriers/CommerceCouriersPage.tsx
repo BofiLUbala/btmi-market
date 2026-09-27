@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminCourierInvitationItem, type AdminCourierListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -287,7 +288,7 @@ export default function CommerceCouriersPage() {
                       backgroundColor: c.status === 'ACTIVE' ? 'var(--admin-success-soft)' : c.status === 'SUSPENDED' ? 'var(--admin-danger-soft)' : 'var(--admin-surface-2)',
                       color: c.status === 'ACTIVE' ? 'var(--admin-success)' : c.status === 'SUSPENDED' ? 'var(--admin-danger)' : 'var(--admin-text-muted)'
                     }}>
-                      {c.status}
+                      {adminLabel(c.status)}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 14px' }}>

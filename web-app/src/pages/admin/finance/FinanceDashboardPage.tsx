@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney, formatDateTime } from '@/lib/format'
 import { useParams, Link } from 'react-router-dom'
 import {
@@ -623,18 +624,18 @@ if (tab === 'overview') {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ backgroundColor: '#312e81', textAlign: 'left', color: '#c7d2fe' }}>
-                  <th style={{ padding: '8px 10px' }}>Entity</th>
-                  <th style={{ padding: '8px 10px' }}>Orders</th>
-                  <th style={{ padding: '8px 10px' }}>Units</th>
-                  <th style={{ padding: '8px 10px' }}>Gross</th>
+                  <th style={{ padding: '8px 10px' }}>Entité</th>
+                  <th style={{ padding: '8px 10px' }}>Commandes</th>
+                  <th style={{ padding: '8px 10px' }}>Unités</th>
+                  <th style={{ padding: '8px 10px' }}>Vente brute</th>
                   <th style={{ padding: '8px 10px' }}>Commission</th>
-                  <th style={{ padding: '8px 10px' }}>Seller net</th>
-                  <th style={{ padding: '8px 10px' }}>Collected / Due</th>
+                  <th style={{ padding: '8px 10px' }}>Net vendeur</th>
+                  <th style={{ padding: '8px 10px' }}>Réglée / due</th>
                 </tr>
               </thead>
               <tbody>
                 {breakdownItems.length === 0 && (
-                  <tr><td colSpan={7} style={{ padding: 12, color: '#818cf8', textAlign: 'center' }}>No sale commissions recorded in this range yet.</td></tr>
+                  <tr><td colSpan={7} style={{ padding: 12, color: '#818cf8', textAlign: 'center' }}>Aucune commission enregistrée sur cette période.</td></tr>
                 )}
                 {breakdownItems.map((item) => (
                   <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid #4338ca' }}>
@@ -700,7 +701,7 @@ if (tab === 'overview') {
         <div style={{ display: 'grid', gap: 14 }}>
           {paymentConfigs.map((config, index) => (
             <div key={config.code} style={{ padding: 16, background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 2fr auto', gap: 10, alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: 10, alignItems: 'end' }}>
                 <label>Libellé<input value={config.label} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, label:e.target.value} : item))} /></label>
                 <label>Actif<input type="checkbox" checked={config.enabled} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, enabled:e.target.checked} : item))} /></label>
                 <label>Majoration<select value={config.markup_type} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_type:e.target.value as AdminPaymentMethodConfig['markup_type']} : item))}><option value="NONE">Aucune</option><option value="PERCENTAGE">%</option><option value="FIXED">Fixe</option></select></label>
@@ -716,7 +717,7 @@ if (tab === 'overview') {
                 <label>Fournisseur<input value={config.provider} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, provider:e.target.value} : item))} /></label>
                 <button className="admin-button" onClick={() => void savePaymentConfig(config)}>Enregistrer</button>
               </div>
-              <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>{config.code} · {config.timing} · {config.channel}</div>
+              <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>{adminLabel(config.code)} · {adminLabel(config.timing)} · {adminLabel(config.channel)} <span style={{ opacity: 0.6 }}>({config.code})</span></div>
             </div>
           ))}
         </div>
@@ -769,12 +770,12 @@ if (tab === 'overview') {
                   </td>
                   <td style={{ padding: '12px 14px', fontWeight: 700, color: '#34d399' }}>{formatMoney(p.total_amount, p.currency || 'USD')}</td>
                   <td style={{ padding: '12px 14px' }}>
-                    <div>{p.payment_method || '—'}</div>
+                    <div>{adminLabel(p.payment_method || '—')}</div>
                     {p.provider && <div style={{ fontSize: 11, fontWeight: 700 }}>{p.provider.replace(/_/g, ' ')}</div>}
                     {p.payment_reference && <div style={{ fontSize: 10, color: '#64748b' }}>{p.payment_reference}</div>}
                     {p.delivery_status && (
                       <div style={{ fontSize: 10, color: '#64748b' }}>
-                        {p.delivery_status}{p.courier_name ? ` · ${p.courier_name}` : ''}
+                        {adminLabel(p.delivery_status)}{p.courier_name ? ` · ${p.courier_name}` : ''}
                       </div>
                     )}
                   </td>
@@ -1060,7 +1061,7 @@ if (tab === 'overview') {
               {cases.map((c) => (
                 <tr key={c.id} onClick={() => openCaseDetail(c.id)} style={{ borderBottom: '1px solid #1e293b', fontSize: 13, cursor: 'pointer' }}>
                   <td style={{ padding: '12px 14px', fontWeight: 700 }}>{c.case_number}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 11, color: '#94a3b8' }}>{c.case_type}</td>
+                  <td style={{ padding: '12px 14px', fontSize: 11, color: '#94a3b8' }}>{adminLabel(c.case_type)}</td>
                   <td style={{ padding: '12px 14px', fontWeight: 700 }}>{c.title}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: c.priority === 'HIGH' || c.priority === 'URGENT' ? '#7f1d1d' : '#1e293b', color: c.priority === 'HIGH' || c.priority === 'URGENT' ? '#fca5a5' : '#94a3b8' }}>
@@ -1070,7 +1071,7 @@ if (tab === 'overview') {
                   <td style={{ padding: '12px 14px', color: '#cbd5e1' }}>{c.assigned_admin || t('admin.finance.unassigned')}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: c.status === 'RESOLVED' ? '#064e3b' : '#78350f', color: c.status === 'RESOLVED' ? '#34d399' : '#fcd34d' }}>
-                      {c.status}
+                      {adminLabel(c.status)}
                     </span>
                   </td>
                 </tr>
@@ -1113,15 +1114,15 @@ if (tab === 'overview') {
             <tbody>
               {riskEvents.map((r) => (
                 <tr key={r.id} style={{ borderBottom: '1px solid #1e293b', fontSize: 13 }}>
-                  <td style={{ padding: '12px 14px', fontWeight: 700 }}>{r.event_type}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700 }}>{adminLabel(r.event_type)}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: r.severity === 'CRITICAL' ? '#7f1d1d' : '#78350f', color: r.severity === 'CRITICAL' ? '#fca5a5' : '#fcd34d' }}>
                       {r.severity}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 14px' }}>{r.target_name} ({r.target_type})</td>
-                  <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: '#94a3b8' }}>{r.rule_code}</td>
-                  <td style={{ padding: '12px 14px' }}>{r.status}</td>
+                  <td style={{ padding: '12px 14px' }}>{r.target_name} ({adminLabel(r.target_type)})</td>
+                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{adminLabel(r.rule_code)}</td>
+                  <td style={{ padding: '12px 14px' }}>{adminLabel(r.status)}</td>
                   <td style={{ padding: '12px 14px' }}>
                     {(r.status === 'OPEN' || r.status === 'INVESTIGATING') ? (
                       <button onClick={() => setResolvingRisk(r)} style={{ padding: '4px 10px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
@@ -1185,7 +1186,7 @@ if (tab === 'overview') {
               <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#fbbf24' }}>{t('admin.finance.settlementTitle')}</h4>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 6 }}>
                 <span>{t('admin.finance.labelPaymentMethod')}</span>
-                <span style={{ fontWeight: 700 }}>{selectedPayment.payment_method || '—'}</span>
+                <span style={{ fontWeight: 700 }}>{adminLabel(selectedPayment.payment_method || '—')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 6 }}>
                 <span>{t('admin.finance.labelConfirmedBy')}</span>
@@ -1291,8 +1292,8 @@ if (tab === 'overview') {
                 <h4 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', color: '#94a3b8' }}>{t('admin.finance.orderHistoryTitle')}</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 130, overflowY: 'auto' }}>
                   {paymentDetail.order_history.map((h, i) => (
-                    <div key={`${h.status}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#cbd5e1' }}>
-                      <span>{h.status}{h.note ? ` — ${h.note}` : ''}</span>
+                    <div key={`${adminLabel(h.status)}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#cbd5e1' }}>
+                      <span>{adminLabel(h.status)}{h.note ? ` — ${h.note}` : ''}</span>
                       <span style={{ color: '#64748b', flexShrink: 0 }}>{new Date(h.timestamp).toLocaleString('fr-FR')}</span>
                     </div>
                   ))}
@@ -1424,9 +1425,9 @@ if (tab === 'overview') {
                   <button onClick={() => setSelectedCase(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16 }}>✕</button>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: '#1e293b', color: '#94a3b8' }}>{selectedCase.case_type}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: '#1e293b', color: '#94a3b8' }}>{adminLabel(selectedCase.case_type)}</span>
                   <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#7f1d1d' : '#1e293b', color: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#fca5a5' : '#94a3b8' }}>{selectedCase.priority}</span>
-                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.status === 'RESOLVED' ? '#064e3b' : '#78350f', color: selectedCase.status === 'RESOLVED' ? '#34d399' : '#fcd34d' }}>{selectedCase.status}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.status === 'RESOLVED' ? '#064e3b' : '#78350f', color: selectedCase.status === 'RESOLVED' ? '#34d399' : '#fcd34d' }}>{adminLabel(selectedCase.status)}</span>
                 </div>
 
                 <div style={{ backgroundColor: '#1e293b', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 13 }}>
@@ -1514,7 +1515,7 @@ if (tab === 'overview') {
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 420 }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>{t('admin.finance.resolveRiskTitle')}</h3>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 16px' }}>{resolvingRisk.event_type} — {resolvingRisk.target_name}</p>
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 16px' }}>{adminLabel(resolvingRisk.event_type)} — {resolvingRisk.target_name}</p>
             <textarea
               value={riskResolveReason}
               onChange={(e) => setRiskResolveReason(e.target.value)}
@@ -1609,7 +1610,7 @@ function FilterBar({
           style={{ padding: '8px 10px', backgroundColor: '#0f172a', border: '1px solid #1e293b', color: '#f8fafc', borderRadius: 6, fontSize: 13 }}
         >
           <option value="">{statusAllLabel}</option>
-          {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+          {statusOptions.map((s) => <option key={s} value={s}>{adminLabel(s)}</option>)}
         </select>
       )}
     </div>
