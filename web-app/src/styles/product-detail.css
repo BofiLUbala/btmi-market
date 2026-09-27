@@ -393,3 +393,9 @@
   border-radius: 2px;
   background: var(--pdx-accent);
 }
+
+/* A value that exists, but not with the options currently chosen: still
+   clickable (it switches to that combination), drawn dashed so the change is
+   expected. */
+.pdx .pdx-colour.is-other:not(.is-selected),
+.pdx .pdx-tile.is-other:not(.is-selected) { border-style: dashed; }

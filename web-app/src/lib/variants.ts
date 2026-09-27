@@ -110,6 +110,70 @@ export function isValueAvailable(
   )
 }
 
+export interface OptionValueState {
+  /** Some variant carries this value — the only reason to disable it. */
+  exists: boolean
+  /** A variant pairs this value with every other option already chosen. */
+  compatible: boolean
+  /** Units behind the value: with the current choices when compatible,
+   *  otherwise across every variant that carries it. */
+  units: number
+}
+
+/**
+ * State of one option value for the buyer. Unlike `isValueAvailable`, a value
+ * is never locked just because it doesn't pair with the current choices:
+ * variants rarely cover every combination (64 Go only in Noir, 256 Go only in
+ * Bleu), and locking left the buyer unable to reach whole variants.
+ */
+export function optionValueState(
+  variants: PublicVariantDetail[],
+  selection: VariantSelection,
+  key: string,
+  value: string
+): OptionValueState {
+  const carrying = variants.filter((v) => (v.attributes ?? {})[key] === value)
+  const partial: VariantSelection = {}
+  for (const [k, v] of Object.entries(selection)) {
+    if (k !== key && k !== '__variant_id') partial[k] = v
+  }
+  const compatible = carrying.filter((v) => matches(v, partial))
+  const pool = compatible.length > 0 ? compatible : carrying
+  return {
+    exists: carrying.length > 0,
+    compatible: compatible.length > 0,
+    units: pool.reduce((sum, v) => sum + Math.max(0, v.stock_quantity ?? 0), 0),
+  }
+}
+
+/**
+ * The variant a click on `key = value` should land on: the one keeping the
+ * most of the buyer's other choices, in stock first.
+ */
+export function bestVariantFor(
+  variants: PublicVariantDetail[],
+  selection: VariantSelection,
+  key: string,
+  value: string
+): PublicVariantDetail | null {
+  let best: PublicVariantDetail | null = null
+  let bestScore = -1
+  for (const v of variants) {
+    const attrs = v.attributes ?? {}
+    if (attrs[key] !== value) continue
+    let score = 0
+    for (const [k, chosen] of Object.entries(selection)) {
+      if (k !== key && attrs[k] === chosen) score += 2
+    }
+    if (v.stock !== 'OUT_OF_STOCK') score += 1
+    if (score > bestScore) {
+      best = v
+      bestScore = score
+    }
+  }
+  return best
+}
+
 /** True when variants carry no meaningful choice (0 or 1 effective option). */
 export function hasRealVariants(variants: PublicVariantDetail[]): boolean {
   return buildAttributeGroups(variants).length > 0 && variants.length > 1
@@ -156,3 +220,18 @@ export function extractSpecifications(variants: PublicVariantDetail[]): ProductS
 }
 
 export { titleCase }
+
+/**
+ * What tells a nameless-dimension variant apart. The seller form stores names
+ * as "<product> — <label>", so every option used to repeat the product name
+ * (and truncated to identical text on a phone). Keep only the label.
+ */
+export function variantOptionLabel(variant: { name?: string; sku?: string }, productName?: string): string {
+  const name = (variant.name || '').trim()
+  const product = (productName || '').trim()
+  if (name && product && name.toLowerCase().startsWith(product.toLowerCase())) {
+    const rest = name.slice(product.length).replace(/^\s*[—–\-:|/]\s*/, '').trim()
+    if (rest) return rest
+  }
+  return name || variant.sku || ''
+}

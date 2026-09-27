@@ -39,7 +39,9 @@ import {
   resolveVariant,
   extractSpecifications,
   describeAttributes,
-  isValueAvailable,
+  optionValueState,
+  selectOptionValue,
+  variantOptionLabel,
   type VariantSelection,
 } from '../../src/lib/variants'
 
@@ -213,29 +215,12 @@ export default function ProductScreen() {
   const optionsComplete = missingOptions.length === 0
 
   // Picking a value can rule out an earlier one (a colour that size never comes
-  // in). Drop those rather than leaving a combination no variant satisfies.
+  // in). Keep the choices the closest variant agrees with and clear only the
+  // others: dropping them one by one used to clear choices that still fit.
   const chooseValue = (key: string, value: string) => {
-    setSelection((prev) => {
-      const next: VariantSelection = { ...prev, [key]: value }
-      for (const g of attributeGroups) {
-        if (g.key === key) continue
-        const chosen = next[g.key]
-        if (chosen && !isValueAvailable(variants, next, g.key, chosen, false)) delete next[g.key]
-      }
-      return next
-    })
+    setSelection((prev) => selectOptionValue(variants, prev, key, value))
     setQuantity(1)
   }
-
-  /** Units left for one option value, given the other options already chosen. */
-  const valueStock = (key: string, value: string) =>
-    variants
-      .filter((v) => {
-        const attrs = v.attributes ?? {}
-        if (attrs[key] !== value) return false
-        return Object.entries(selection).every(([k, chosen]) => k === key || attrs[k] === chosen)
-      })
-      .reduce((sum, v) => sum + variantStock(v), 0)
 
   if (query.isLoading) return <Loading label={t('product.loading')} />
   if (!product || query.isError) {
@@ -517,9 +502,12 @@ export default function ProductScreen() {
                 <View style={colourGroup ? styles.colourGrid : styles.tileRow}>
                   {g.values.map((val) => {
                     const isSelected = activeVal === val
-                    const exists = isValueAvailable(variants, selection, g.key, val, false)
-                    const units = valueStock(g.key, val)
+                    // Only a value no variant carries is disabled: variants rarely
+                    // cover every combination, and locking values left whole
+                    // variants unreachable. Picking one drops the choices it rules out.
+                    const { exists, compatible, units } = optionValueState(variants, selection, g.key, val)
                     const soldOut = !exists || units < 1
+                    const otherCombo = exists && !compatible
                     if (colourGroup) {
                       const swatch = colorSwatch(val)
                       return (
@@ -530,7 +518,7 @@ export default function ProductScreen() {
                           accessibilityState={{ selected: isSelected, disabled: !exists }}
                           disabled={!exists}
                           onPress={() => chooseValue(g.key, val)}
-                          style={[styles.colourCard, isSelected && styles.optionSelected, !exists && styles.optionDisabled]}
+                          style={[styles.colourCard, otherCombo && styles.optionOther, isSelected && styles.optionSelected, !exists && styles.optionDisabled]}
                         >
                           <View style={[styles.colourDot, { backgroundColor: swatch ?? colors.surfaceAlt }]}>
                             {isSelected ? <View style={styles.colourDotInner} /> : null}
@@ -562,6 +550,7 @@ export default function ProductScreen() {
                         style={[
                           styles.tile,
                           shortValues && styles.tileEven,
+                          otherCombo && styles.optionOther,
                           isSelected && styles.optionSelected,
                           !exists && styles.optionDisabled,
                         ]}
@@ -580,7 +569,12 @@ export default function ProductScreen() {
           }) : variants.length > 1 ? (
             <View style={styles.optionSection}>
               <View style={styles.optionHeader}>
-                <Text style={styles.optionLabel}>{t('product.chooseOption')}</Text>
+                <Text style={styles.optionLabel}>
+                  {t('product.option')} :{' '}
+                  <Text style={[styles.optionValue, !selected && { color: colors.muted }]}>
+                    {selected ? variantOptionLabel(selected, product.name) || describeAttributes(selected) : t('product.toChoose')}
+                  </Text>
+                </Text>
               </View>
               <View style={styles.tileRow}>
                 {variants.map((v) => {
@@ -598,7 +592,7 @@ export default function ProductScreen() {
                       style={[styles.tile, isSelected && styles.optionSelected]}
                     >
                       <Text style={[styles.tileText, isSelected && styles.tileTextSelected, soldOut && styles.tileTextOut]} numberOfLines={1}>
-                        {v.name || describeAttributes(v) || v.sku || t('product.option')}
+                        {variantOptionLabel(v, product.name) || describeAttributes(v) || t('product.option')}
                       </Text>
                       {soldOut ? <Text style={styles.tileSub}>{t('product.valueSoldOut')}</Text> : null}
                       {isSelected ? <View style={styles.tileBadge} /> : null}
@@ -860,7 +854,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   optionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   optionLabel: { ...kicker, fontSize: 11, color: colors.muted, flexShrink: 1 },
   optionValue: { color: colors.ink, fontWeight: '800' },
-  optionSelected: { borderColor: colors.gold, borderWidth: 2 },
+  optionSelected: { borderColor: colors.gold, borderWidth: 2, borderStyle: 'solid' },
+  optionOther: { borderStyle: 'dashed', borderColor: colors.borderControl },
   optionDisabled: { opacity: 0.4 },
   colourGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   colourCard: { width: '48.5%', minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },

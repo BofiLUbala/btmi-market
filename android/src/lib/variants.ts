@@ -87,6 +87,44 @@ export function isValueAvailable(
   )
 }
 
+export interface OptionValueState {
+  /** Some variant carries this value — the only reason to disable it. */
+  exists: boolean
+  /** A variant pairs this value with every other option already chosen. */
+  compatible: boolean
+  /** Units behind the value: with the current choices when compatible,
+   *  otherwise across every variant that carries it. */
+  units: number
+}
+
+/**
+ * State of one option value for the buyer. Unlike `isValueAvailable`, a value
+ * is never locked just because it doesn't pair with the current choices:
+ * variants rarely cover every combination (64 Go only in Noir, 256 Go only in
+ * Bleu), and locking left the buyer unable to reach whole variants. Picking an
+ * incompatible value drops the choices it rules out (see the product screen).
+ */
+export function optionValueState(
+  variants: PublicVariant[],
+  selection: VariantSelection,
+  key: string,
+  value: string
+): OptionValueState {
+  const stockOf = (v: PublicVariant) => v.stock_quantity ?? v.available_stock ?? v.stock_available ?? 0
+  const carrying = variants.filter((v) => (v.attributes ?? {})[key] === value)
+  const partial: VariantSelection = {}
+  for (const [k, v] of Object.entries(selection)) {
+    if (k !== key) partial[k] = v
+  }
+  const compatible = carrying.filter((v) => matches(v, partial))
+  const pool = compatible.length > 0 ? compatible : carrying
+  return {
+    exists: carrying.length > 0,
+    compatible: compatible.length > 0,
+    units: pool.reduce((sum, v) => sum + Math.max(0, stockOf(v)), 0),
+  }
+}
+
 export function resolveVariant(
   variants: PublicVariant[],
   selection: VariantSelection
@@ -132,4 +170,67 @@ export function extractSpecifications(variants: PublicVariant[]): ProductSpecifi
     }
   }
   return specs
+}
+
+/**
+ * What tells a nameless-dimension variant apart. The seller form stores names
+ * as "<product> — <label>", so every option used to repeat the product name
+ * (and truncated to identical text on a phone). Keep only the label.
+ */
+export function variantOptionLabel(variant: { name?: string; sku?: string }, productName?: string): string {
+  const name = (variant.name || '').trim()
+  const product = (productName || '').trim()
+  if (name && product && name.toLowerCase().startsWith(product.toLowerCase())) {
+    const rest = name.slice(product.length).replace(/^\s*[—–\-:|/]\s*/, '').trim()
+    if (rest) return rest
+  }
+  return name || variant.sku || ''
+}
+
+/**
+ * The variant closest to the buyer's current choices that carries
+ * `key = value`: most other choices kept, in stock first.
+ */
+export function bestVariantFor(
+  variants: PublicVariant[],
+  selection: VariantSelection,
+  key: string,
+  value: string
+): PublicVariant | null {
+  let best: PublicVariant | null = null
+  let bestScore = -1
+  for (const v of variants) {
+    const attrs = v.attributes ?? {}
+    if (attrs[key] !== value) continue
+    let score = 0
+    for (const [k, chosen] of Object.entries(selection)) {
+      if (k !== key && attrs[k] === chosen) score += 2
+    }
+    if ((v.stock_quantity ?? v.available_stock ?? v.stock_available ?? 0) > 0) score += 1
+    if (score > bestScore) {
+      best = v
+      bestScore = score
+    }
+  }
+  return best
+}
+
+/**
+ * Selection after the buyer picks `key = value`: earlier choices survive when
+ * the closest variant agrees with them, the rest are cleared for the buyer to
+ * choose again. Nothing is filled in on the buyer's behalf.
+ */
+export function selectOptionValue(
+  variants: PublicVariant[],
+  selection: VariantSelection,
+  key: string,
+  value: string
+): VariantSelection {
+  const best = bestVariantFor(variants, selection, key, value)
+  const next: VariantSelection = { [key]: value }
+  const attrs = best?.attributes ?? {}
+  for (const [k, chosen] of Object.entries(selection)) {
+    if (k !== key && attrs[k] === chosen) next[k] = chosen
+  }
+  return next
 }

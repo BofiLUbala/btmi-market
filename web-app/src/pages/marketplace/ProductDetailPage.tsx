@@ -13,8 +13,10 @@ import {
   describeAttributes,
   extractSpecifications,
   hasRealVariants,
-  isValueAvailable,
+  bestVariantFor,
+  optionValueState,
   resolveVariant,
+  variantOptionLabel,
   type VariantSelection
 } from '@/lib/variants'
 import { resolvePromotion } from '@/lib/promotion'
@@ -162,9 +164,9 @@ export default function ProductDetailPage() {
   const shortDescription = descriptionParts[0] || t('product.discoverFrom', { name: p.name })
 
   function selectValue(key: string, value: string) {
-    const matching = variants.find(
-      (candidate) => candidate.stock !== 'OUT_OF_STOCK' && candidate.attributes?.[key] === value
-    ) ?? variants.find((candidate) => candidate.attributes?.[key] === value)
+    // Land on the variant that keeps most of the other choices: jumping to the
+    // first in-stock match used to reset colour when the buyer changed size.
+    const matching = bestVariantFor(variants, selection, key, value)
     setSelection(matching ? { ...matching.attributes } : (prev) => ({ ...prev, [key]: value }))
     setQty(1)
     setAdded(false)
@@ -226,17 +228,6 @@ export default function ProductDetailPage() {
       unit: p.unit,
       addedAt: new Date().toISOString()
     })
-  }
-
-  /** Units left for one option value, given the other options already chosen. */
-  function valueStock(key: string, value: string) {
-    return variants
-      .filter((candidate) => {
-        const attrs = candidate.attributes ?? {}
-        if (attrs[key] !== value) return false
-        return Object.entries(selection).every(([k, chosen]) => k === key || k === '__variant_id' || attrs[k] === chosen)
-      })
-      .reduce((sum, candidate) => sum + (candidate.stock_quantity ?? 0), 0)
   }
 
   const stockState = outOfStock ? 'out' : lowStock ? 'low' : 'in'
@@ -403,10 +394,10 @@ export default function ProductDetailPage() {
                   <div className={colour ? 'pdx-colour-grid' : `pdx-tiles ${shortValues ? 'is-even' : ''}`} role="group" aria-label={g.label}>
                     {g.values.map((val) => {
                       const selectedVal = selection[g.key] === val
-                      const exists = isValueAvailable(variants, selection, g.key, val, false)
-                      const units = valueStock(g.key, val)
+                      const { exists, compatible, units } = optionValueState(variants, selection, g.key, val)
                       const soldOut = !exists || units < 1
                       const title = !exists ? t('product.combinationUnavailable', { name: val }) : soldOut ? t('product.combinationOutOfStock', { name: val }) : val
+                      const otherCombo = exists && !compatible
                       if (colour) {
                         return (
                           <button
@@ -415,7 +406,7 @@ export default function ProductDetailPage() {
                             aria-pressed={selectedVal}
                             disabled={!exists}
                             title={title}
-                            className={`pdx-colour ${selectedVal ? 'is-selected' : ''}`}
+                            className={`pdx-colour ${selectedVal ? 'is-selected' : ''} ${otherCombo ? 'is-other' : ''}`}
                             onClick={() => selectValue(g.key, val)}
                           >
                             <span className="pdx-colour-dot" style={{ background: colorSwatch(val) ?? 'var(--color-surface-muted)' }}>{selectedVal && <i />}</span>
@@ -435,7 +426,7 @@ export default function ProductDetailPage() {
                           aria-pressed={selectedVal}
                           disabled={!exists}
                           title={title}
-                          className={`pdx-tile ${selectedVal ? 'is-selected' : ''} ${soldOut ? 'is-out' : ''}`}
+                          className={`pdx-tile ${selectedVal ? 'is-selected' : ''} ${soldOut ? 'is-out' : ''} ${otherCombo ? 'is-other' : ''}`}
                           onClick={() => selectValue(g.key, val)}
                         >
                           <span>{val}</span>
@@ -451,7 +442,7 @@ export default function ProductDetailPage() {
           {!multiVariant && variants.length > 1 && (
             <section className="pdx-option" aria-labelledby="option-variant">
               <div className="pdx-option-head">
-                <span id="option-variant" className="pdx-meta pdx-option-label">{t('product.variant')} : <strong>{v.name || v.sku}</strong></span>
+                <span id="option-variant" className="pdx-meta pdx-option-label">{t('product.variant')} : <strong>{variantOptionLabel(v, p.name)}</strong></span>
               </div>
               <div className="pdx-tiles" role="group" aria-label={t('product.variant')}>
                 {variants.map((item) => (
@@ -463,7 +454,7 @@ export default function ProductDetailPage() {
                     className={`pdx-tile ${item.id === v.id ? 'is-selected' : ''} ${item.stock === 'OUT_OF_STOCK' ? 'is-out' : ''}`}
                     onClick={() => selectVariantId(item.id)}
                   >
-                    <span>{item.name || item.sku || `${t('product.variant')} ${variants.indexOf(item) + 1}`}</span>
+                    <span>{variantOptionLabel(item, p.name) || `${t('product.variant')} ${variants.indexOf(item) + 1}`}</span>
                     {item.stock === 'OUT_OF_STOCK' && <small>{t('product.valueSoldOut')}</small>}
                   </button>
                 ))}
