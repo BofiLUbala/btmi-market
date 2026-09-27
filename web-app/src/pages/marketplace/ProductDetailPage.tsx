@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
 import { ApiError } from '@/api/types'
 import type { ProductReviewsResponse, PublicProduct, PublicProductDetail, PublicVariantDetail } from '@/api/types'
 import { ErrorBox, LoadingBlock, SuccessBox } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
-import { StockChip } from '@/components/ui/Badges'
 import { ProductCard } from '@/components/ui/ProductCard'
 import { Gallery } from '@/components/ui/Gallery'
 import { formatMoney, formatDate } from '@/lib/format'
@@ -24,10 +23,11 @@ import { loginWithReturnTo } from '@/lib/returnTo'
 import { useCart } from '@/store/cart'
 import { useAuth } from '@/store/auth'
 import { useFavorites } from '@/store/favorites'
-import { Accordion, DescriptionParagraphs, descriptionAccordionItems, type AccordionItem } from '@/components/ui/DescriptionSections'
+import { DescriptionParagraphs, descriptionAccordionItems } from '@/components/ui/DescriptionSections'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { colorSwatch, isColorAttribute } from '@/lib/colorSwatch'
 import { useI18n } from '@/store/i18n'
+import '@/styles/product-detail.css'
 
 function productErrorMessage(e: unknown, t: ReturnType<typeof useI18n>['t']): string {
   if (e instanceof ApiError) {
@@ -159,7 +159,6 @@ export default function ProductDetailPage() {
     .split(/\r?\n|(?<=[.!?])\s+/)
     .map((part) => part.replace(/^[-•]\s*/, '').trim())
     .filter(Boolean)
-  const highlights = descriptionParts.slice(0, 5)
   const shortDescription = descriptionParts[0] || t('product.discoverFrom', { name: p.name })
 
   function selectValue(key: string, value: string) {
@@ -229,19 +228,80 @@ export default function ProductDetailPage() {
     })
   }
 
+  /** Units left for one option value, given the other options already chosen. */
+  function valueStock(key: string, value: string) {
+    return variants
+      .filter((candidate) => {
+        const attrs = candidate.attributes ?? {}
+        if (attrs[key] !== value) return false
+        return Object.entries(selection).every(([k, chosen]) => k === key || k === '__variant_id' || attrs[k] === chosen)
+      })
+      .reduce((sum, candidate) => sum + (candidate.stock_quantity ?? 0), 0)
+  }
+
+  const stockState = outOfStock ? 'out' : lowStock ? 'low' : 'in'
+  const categoryName = p.category ? categoryLabel(t, p.category.slug, p.category.name) : ''
+  const subcategoryName = p.subcategory?.name ? subcategoryLabel(t, p.subcategory.slug, p.subcategory.name) : ''
+  const sku = v.sku || p.sku
+  const trusted = p.seller_trust === 'HIGH'
+  const currency = p.currency ?? 'USD'
+  const specRows = [
+    ...(categoryName ? [{ key: 'category', label: t('product.category'), value: categoryName }] : []),
+    ...(subcategoryName ? [{ key: 'subcategory', label: t('product.subcategory'), value: subcategoryName }] : []),
+    ...(p.unit ? [{ key: 'unit', label: t('product.unit'), value: p.unit }] : []),
+    ...specifications.map((spec) => ({ key: spec.key, label: spec.label, value: spec.value })),
+    { key: 'seller-level', label: t('product.sellerLevel'), value: p.seller_level },
+    { key: 'listed', label: t('product.listed'), value: formatDate(p.created_at) },
+  ]
+  const stockLabel = outOfStock
+    ? t('stock.outOfStock')
+    : lowStock
+    ? t('stock.onlyLeft', { count: v.stock_quantity })
+    : t('stock.available', { count: v.stock_quantity })
+
+  const actionButtons = (
+    <>
+      <button type="button" className="pdx-cart-btn" disabled={outOfStock} onClick={addToCart}>
+        <BagIcon />
+        <span>{t('product.cartShort')}</span>
+      </button>
+      <button type="button" className="pdx-order-btn" disabled={outOfStock} onClick={buyNow}>
+        {outOfStock ? t('product.unavailable') : t('product.orderNow')}
+      </button>
+    </>
+  )
+
   return (
-    <div className="fade-in product-detail-page">
+    <div className="fade-in product-detail-page pdx">
       <nav className="pd-breadcrumb" aria-label={t('product.breadcrumb')}>
         <Link to="/">{t('nav.marketplace')}</Link><span>›</span>
-        {p.category && <><Link to={`/categories/${p.category.slug}`}>{categoryLabel(t, p.category.slug, p.category.name)}</Link><span>›</span></>}
+        {p.category && <><Link to={`/categories/${p.category.slug}`}>{categoryName}</Link><span>›</span></>}
         <span aria-current="page">{p.name}</span>
       </nav>
 
-      <div className="pd-grid" style={{ marginTop: 12 }}>
+      <div className="pd-grid pdx-grid">
         <Gallery
           name={p.name}
           fallback={getCategoryVisual(p.category?.slug ?? '')}
-          badge={<StockChip stock={v.stock} quantity={v.stock_quantity} />}
+          badge={
+            <span className={`pdx-stock-chip is-${stockState}`}>
+              <i aria-hidden="true" />
+              {outOfStock ? t('stock.outOfStock') : lowStock ? t('stock.lowStock') : t('stock.inStock')}
+            </span>
+          }
+          topRight={
+            <button
+              type="button"
+              className={`pdx-fav ${isFav ? 'is-active' : ''}`}
+              onClick={toggleFavorite}
+              aria-pressed={isFav}
+              aria-label={isFav ? t('product.inFavorites') : t('product.addToFavorites')}
+              title={isFav ? t('product.inFavorites') : t('product.addToFavorites')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+            </button>
+          }
+          caption={categoryName ? `${categoryName}${subcategoryName ? ` / ${subcategoryName}` : ''}` : undefined}
           images={(p.images ?? []).map((img) => ({
             url: img.url,
             alt: img.file_name || p.name,
@@ -250,73 +310,59 @@ export default function ProductDetailPage() {
           focusUrl={(p.images ?? []).find((img) => img.variant_id === v.id)?.url}
         />
 
-        <div className="pd-details">
-          <header className="pd-header">
-            {p.category && (
-              <Link to={`/categories/${p.category.slug}`} className="kicker pd-kicker">
-                {categoryLabel(t, p.category.slug, p.category.name)}
-                {p.subcategory?.name ? ` · ${subcategoryLabel(t, p.subcategory.slug, p.subcategory.name)}` : ''}
-              </Link>
-            )}
-            <h1 className="display-title">{p.name}</h1>
-            {reviewSummary && reviewSummary.total_reviews > 0 ? (
-              <a className="pd-rating-link" href="#customer-reviews">
-                <strong>{reviewSummary.average_rating.toFixed(1)} ★</strong>
-                <span>{reviewSummary.total_reviews} {reviewSummary.total_reviews === 1 ? t('reviews.rating') : t('reviews.ratingsPlural')}</span>
-              </a>
-            ) : (
-              <a className="pd-rating-link pd-rating-link--empty" href="#customer-reviews">
-                <strong>0.0 ★</strong>
-                <span>{t('reviews.noneYet')}</span>
-              </a>
-            )}
-            {typeof p.self_rating === 'number' && p.self_rating > 0 && (
-              <div className="pd-self-rating" title={t('product.selfRatingHint')}>
-                <span className="pd-self-rating-stars" aria-hidden="true">
-                  {'★'.repeat(p.self_rating)}{'☆'.repeat(5 - p.self_rating)}
-                </span>
-                <span className="small muted">{t('product.selfRatingLabel')}</span>
-              </div>
-            )}
-            <div className="pd-seller-line">{t('product.soldBy')} <Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link> · {p.seller_level} {t('product.sellerLevelSuffix')}</div>
-          </header>
-
-          <section className="pd-price-block" aria-label={t('common.price')} aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <strong className="pd-price-main">{formatMoney(displayPrice)}</strong>
-              {hasSellerDiscount && <del className="pd-price-was">{formatMoney(regularPrice)}</del>}
-              <span className="muted pd-price-unit">{t('product.perUnit', { unit: p.unit })}</span>
-              
-              {hasSellerDiscount && (
-                <span className="badge badge-success" style={{ fontWeight: 'bold' }}>
-                  {t('product.discountOff', { percent: promotion.discountPercent })}
-                </span>
-              )}
-
-              {hasBuyerDiscount && (
-                <span className="badge badge-primary" style={{ fontWeight: 'bold' }}>
-                  {t('product.loyaltyDiscount', { percent: buyerDiscountPercent })}
-                </span>
+        <div className="pd-details pdx-details">
+          <div className="pdx-seller-row">
+            <div className="pdx-seller">
+              <span className="pdx-meta">{t('product.soldBy')}</span>
+              <Link to={`/shops/${p.shop_id}`} className="pdx-shop-chip">{p.shop_name}</Link>
+              {trusted && (
+                <svg className="pdx-trusted" width="16" height="16" viewBox="0 0 24 24" role="img" aria-label={t('product.trustedSeller')}>
+                  <circle cx="12" cy="12" r="10" fill="currentColor" />
+                  <path d="m7.5 12.5 3 3 6-6.5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               )}
             </div>
+            {sku && <span className="pdx-meta">{t('product.skuLabel', { sku })}</span>}
+          </div>
 
-            {(hasSellerDiscount || hasBuyerDiscount) && (
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }} className="small muted">
-                {hasSellerDiscount && (
-                  <span>
-                    {t('product.regular')}: <del>{formatMoney(regularPrice)}</del>
-                  </span>
-                )}
-                {hasSellerDiscount && hasBuyerDiscount && (
-                  <span>
-                    {t('product.promo')}: <strong>{formatMoney(sellerSalePrice)}</strong>
-                  </span>
-                )}
-                {hasBuyerDiscount && (
-                  <span>
-                    {t('product.levelDiscount')}: <strong>{formatMoney(sellerSalePrice - finalPrice)} {t('product.saved')}</strong>
-                  </span>
-                )}
+          <h1 className="pdx-title">{p.name}</h1>
+
+          <div className="pdx-rating">
+            {reviewSummary && reviewSummary.total_reviews > 0 ? (
+              <>
+                <span className="pdx-stars" aria-hidden="true">{stars(reviewSummary.average_rating)}</span>
+                <strong>{reviewSummary.average_rating.toFixed(1)}</strong>
+                <span className="pdx-dot-sep">•</span>
+                <a href="#customer-reviews">{reviewSummary.total_reviews} {reviewSummary.total_reviews === 1 ? t('reviews.rating') : t('reviews.ratingsPlural')}</a>
+              </>
+            ) : typeof p.self_rating === 'number' && p.self_rating > 0 ? (
+              <span title={t('product.selfRatingHint')}>
+                <span className="pdx-stars" aria-hidden="true">{stars(p.self_rating)}</span>{' '}
+                <span className="pdx-muted">{t('product.selfRatingLabel')}</span>
+              </span>
+            ) : (
+              <a href="#customer-reviews" className="pdx-muted">{t('reviews.noneYet')}</a>
+            )}
+          </div>
+
+          <section className="pdx-card pdx-price-card" aria-label={t('common.price')} aria-live="polite">
+            <div className="pdx-price-top">
+              <div>
+                <span className="pdx-meta">{t('product.unitPriceLabel')}</span>
+                <div className="pdx-price-row">
+                  <strong className={`pdx-price ${hasSellerDiscount ? 'is-sale' : ''}`}>{formatMoney(displayPrice, currency)}</strong>
+                  {p.unit && <span className="pdx-meta">/ {p.unit}</span>}
+                </div>
+                {hasSellerDiscount && <del className="pdx-was">{formatMoney(regularPrice, currency)}</del>}
+              </div>
+              <div className="pdx-badges">
+                {hasSellerDiscount && <span className="pdx-promo">-{promotion.discountPercent}%</span>}
+                {hasBuyerDiscount && <span className="pdx-promo">{t('product.loyaltyDiscount', { percent: buyerDiscountPercent })}</span>}
+              </div>
+            </div>
+            {hasSellerDiscount && hasBuyerDiscount && (
+              <div className="pdx-muted pdx-small">
+                {t('product.promo')}: <strong>{formatMoney(sellerSalePrice, currency)}</strong> · {t('product.levelDiscount')}: <strong>{formatMoney(sellerSalePrice - finalPrice, currency)} {t('product.saved')}</strong>
               </div>
             )}
             {promotionUpcoming && (
@@ -327,109 +373,119 @@ export default function ProductDetailPage() {
               </div>
             )}
             {hasSellerDiscount && (p.discount_start || p.discount_end) && (
-              <div className="small muted">
+              <div className="pdx-muted pdx-small">
                 {t('product.offerPeriod')}: {p.discount_start ? formatDate(p.discount_start) : t('product.activeNow')}
                 {' → '}{p.discount_end ? formatDate(p.discount_end) : t('product.untilFurtherNotice')}
               </div>
             )}
+            <hr />
+            <div className="pdx-price-bottom">
+              <span className={`pdx-stock is-${stockState}`}><i aria-hidden="true" />{stockLabel}</span>
+              <span className="pdx-delivery">
+                <span className="pdx-meta">{t('product.delivery')}</span>
+                <strong>{p.free_delivery ? t('product.deliveryFree') : t('product.deliveryAtCheckout')}</strong>
+              </span>
+            </div>
           </section>
 
-          <p className="pd-summary">{shortDescription}</p>
-
           {multiVariant &&
-            groups.map((g) => (
-              <section className="pd-option-group" key={g.key} aria-labelledby={`option-${g.key}`}>
-                <div id={`option-${g.key}`} className="pd-option-label">{g.label}: <strong>{selection[g.key]}</strong></div>
-                <div className={`attr-options ${isColorAttribute(g.key, g.label) ? 'attr-options--swatch' : ''}`} role="group" aria-label={g.label}>
-                  {g.values.map((val) => {
-                    const swatch = isColorAttribute(g.key, g.label) ? colorSwatch(val) : null
-                    const selectedVal = selection[g.key] === val
-                    const exists = isValueAvailable(variants, selection, g.key, val, false)
-                    const inStock = isValueAvailable(variants, selection, g.key, val, true)
-                    const disabled = !exists
-                    return (
-                      <button
-                        key={val}
-                        type="button"
-                        aria-pressed={selectedVal}
-                        disabled={disabled}
-                        title={disabled ? t('product.combinationUnavailable', { name: val }) : !inStock ? t('product.combinationOutOfStock', { name: val }) : val}
-                        className={`attr-option ${swatch ? 'attr-swatch' : ''} ${selectedVal ? 'selected' : ''} ${disabled ? 'unavailable' : !inStock ? 'low-stock' : ''}`}
-                        onClick={() => selectValue(g.key, val)}
-                        aria-label={swatch ? val : undefined}
-                      >
-                        {swatch ? <span className="attr-swatch-dot" style={{ background: swatch }} /> : val}
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-            ))}
+            groups.map((g) => {
+              const colour = isColorAttribute(g.key, g.label)
+              const shortValues = g.values.every((val) => val.length <= 4)
+              return (
+                <section className="pdx-option" key={g.key} aria-labelledby={`option-${g.key}`}>
+                  <div className="pdx-option-head">
+                    <span id={`option-${g.key}`} className="pdx-meta pdx-option-label">
+                      {g.label} : <strong>{selection[g.key] ?? t('product.toChoose')}</strong>
+                    </span>
+                    {g.values.length > 1 && <span className="pdx-meta">{t('product.optionsCount', { count: g.values.length })}</span>}
+                  </div>
+                  <div className={colour ? 'pdx-colour-grid' : `pdx-tiles ${shortValues ? 'is-even' : ''}`} role="group" aria-label={g.label}>
+                    {g.values.map((val) => {
+                      const selectedVal = selection[g.key] === val
+                      const exists = isValueAvailable(variants, selection, g.key, val, false)
+                      const units = valueStock(g.key, val)
+                      const soldOut = !exists || units < 1
+                      const title = !exists ? t('product.combinationUnavailable', { name: val }) : soldOut ? t('product.combinationOutOfStock', { name: val }) : val
+                      if (colour) {
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            aria-pressed={selectedVal}
+                            disabled={!exists}
+                            title={title}
+                            className={`pdx-colour ${selectedVal ? 'is-selected' : ''}`}
+                            onClick={() => selectValue(g.key, val)}
+                          >
+                            <span className="pdx-colour-dot" style={{ background: colorSwatch(val) ?? 'var(--color-surface-muted)' }}>{selectedVal && <i />}</span>
+                            <span className="pdx-colour-text">
+                              <strong>{val}</strong>
+                              <small className={soldOut ? 'is-out' : units <= 3 ? 'is-low' : 'is-in'}>
+                                {soldOut ? t('product.valueSoldOut') : units <= 3 ? t('product.valueLowStock', { count: units }) : t('product.valueStock', { count: units })}
+                              </small>
+                            </span>
+                          </button>
+                        )
+                      }
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          aria-pressed={selectedVal}
+                          disabled={!exists}
+                          title={title}
+                          className={`pdx-tile ${selectedVal ? 'is-selected' : ''} ${soldOut ? 'is-out' : ''}`}
+                          onClick={() => selectValue(g.key, val)}
+                        >
+                          <span>{val}</span>
+                          {soldOut && <small>{t('product.valueSoldOut')}</small>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+              )
+            })}
 
           {!multiVariant && variants.length > 1 && (
-            <section className="pd-option-group" aria-labelledby="option-variant">
-              <div id="option-variant" className="pd-option-label">{t('product.variant')}: <strong>{v.name || v.sku}</strong></div>
-              <div className="attr-options" role="group" aria-label={t('product.variant')}>
+            <section className="pdx-option" aria-labelledby="option-variant">
+              <div className="pdx-option-head">
+                <span id="option-variant" className="pdx-meta pdx-option-label">{t('product.variant')} : <strong>{v.name || v.sku}</strong></span>
+              </div>
+              <div className="pdx-tiles" role="group" aria-label={t('product.variant')}>
                 {variants.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     aria-pressed={item.id === v.id}
                     disabled={item.stock === 'OUT_OF_STOCK'}
-                    className={`attr-option ${item.id === v.id ? 'selected' : ''} ${item.stock === 'OUT_OF_STOCK' ? 'unavailable' : ''}`}
+                    className={`pdx-tile ${item.id === v.id ? 'is-selected' : ''} ${item.stock === 'OUT_OF_STOCK' ? 'is-out' : ''}`}
                     onClick={() => selectVariantId(item.id)}
                   >
-                    {item.name || item.sku || `${t('product.variant')} ${variants.indexOf(item) + 1}`}
+                    <span>{item.name || item.sku || `${t('product.variant')} ${variants.indexOf(item) + 1}`}</span>
+                    {item.stock === 'OUT_OF_STOCK' && <small>{t('product.valueSoldOut')}</small>}
                   </button>
                 ))}
               </div>
             </section>
           )}
 
-          <section className={`pd-stock ${outOfStock ? 'out' : lowStock ? 'low' : 'in'}`} aria-live="polite">
-            <strong>{outOfStock ? t('stock.outOfStock') : lowStock ? t('stock.onlyLeft', { count: v.stock_quantity }) : t('stock.available', { count: v.stock_quantity })}</strong>
-            <span>{t('product.selectedSku')} {v.sku || p.sku}</span>
-          </section>
-
-          <div className="pd-quantity-row">
-            <strong>{t('common.quantity')}</strong>
-            <div className="stepper" role="group" aria-label={t('common.quantity')}>
-              <button onClick={() => changeQty(qty - 1)} disabled={qty <= 1} aria-label={t('product.decreaseQuantity')}>
-                −
-              </button>
-              <span className="stepper-qty" aria-live="polite">{qty}</span>
-              <button onClick={() => changeQty(qty + 1)} disabled={qty >= maxQty} aria-label={t('product.increaseQuantity')}>
-                +
-              </button>
+          <div className="pdx-card pdx-qty">
+            <div>
+              <strong className="pdx-meta pdx-qty-title">{t('common.quantity')}</strong>
+              <span className="pdx-muted pdx-small" aria-live="polite">{t('product.subtotalValue', { amount: formatMoney(displayPrice * qty, currency) })}</span>
+            </div>
+            <div className="pdx-stepper" role="group" aria-label={t('common.quantity')}>
+              <button type="button" onClick={() => changeQty(qty - 1)} disabled={qty <= 1} aria-label={t('product.decreaseQuantity')}>−</button>
+              <span aria-live="polite">{qty}</span>
+              <button type="button" onClick={() => changeQty(qty + 1)} disabled={qty >= maxQty} aria-label={t('product.increaseQuantity')}>+</button>
             </div>
           </div>
 
-          <section className="pd-delivery">
-            <strong>{t('product.delivery')}</strong>
-            <span>{p.free_delivery ? t('product.freeDelivery') : t('product.deliveryNote')}</span>
-            {Boolean(p.delivery_discount_percent) && <small>{t('product.deliveryDiscount', { percent: p.delivery_discount_percent as number })}</small>}
-          </section>
-
-          <div className="pd-subtotal"><span>{t('product.subtotalWithQty', { qty, unit: qty === 1 ? p.unit : `${p.unit}s` })}</span><strong aria-live="polite">{formatMoney(displayPrice * qty)}</strong></div>
-
           {added && <SuccessBox message={t('product.addedToCart')} />}
 
-          <div className="pd-actions">
-            <Button variant="primary" size="lg" block disabled={outOfStock} onClick={addToCart}>{outOfStock ? t('product.unavailable') : t('product.addToCart')}</Button>
-            <button
-              type="button"
-              className={`pd-fav-btn ${isFav ? 'is-active' : ''}`}
-              onClick={toggleFavorite}
-              aria-pressed={isFav}
-              aria-label={isFav ? t('product.inFavorites') : t('product.addToFavorites')}
-              title={isFav ? t('product.inFavorites') : t('product.addToFavorites')}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" /></svg>
-            </button>
-          </div>
-          {!outOfStock && (
-            <Button variant="outline" size="lg" block onClick={buyNow}>{t('product.buyNow')}</Button>
-          )}
+          <div className="pdx-actions">{actionButtons}</div>
 
           {!user && (
             <p className="small muted">
@@ -442,89 +498,121 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="pd-information">
-        <Accordion
-          items={[
-            {
-              id: 'product-description',
-              title: t('product.description'),
-              defaultOpen: true,
-              content: (
-                <>
-                  <ul className="pd-highlights">
-                    {(highlights.length > 0 ? highlights : [shortDescription]).map((highlight, index) => (
-                      <li key={`${highlight}-${index}`}>{highlight}</li>
-                    ))}
-                    <li>{v.stock_quantity > 0 ? t('product.unitsAvailable', { count: v.stock_quantity }) : t('product.currentlyOutOfStock')}</li>
-                  </ul>
-                  {descriptionParts.length > highlights.length && (
-                    <div className="pd-description-copy">
-                      <DescriptionParagraphs text={descriptionParts.slice(highlights.length).join('\n')} />
-                    </div>
-                  )}
-                </>
-              )
-            },
-            ...structured.items,
-            {
-              id: 'product-specifications',
-              title: t('product.specifications'),
-              content: (
-                <dl className="pd-specifications">
-                  <div><dt>{t('product.product')}</dt><dd>{p.name}</dd></div>
-                  <div><dt>{t('product.category')}</dt><dd>{p.category ? categoryLabel(t, p.category.slug, p.category.name) : t('product.general')}</dd></div>
-                  {p.subcategory && <div><dt>{t('product.subcategory')}</dt><dd>{subcategoryLabel(t, p.subcategory.slug, p.subcategory.name)}</dd></div>}
-                  {specifications.map((spec) => (
-                    <div key={spec.key}><dt>{spec.label}</dt><dd>{spec.value}</dd></div>
-                  ))}
-                  {(v.sku || p.sku) && <div><dt>SKU</dt><dd className="mono">{v.sku || p.sku}</dd></div>}
-                  <div><dt>{t('product.unit')}</dt><dd>{p.unit}</dd></div>
-                  <div><dt>{t('product.seller')}</dt><dd><Link to={`/shops/${p.shop_id}`}>{p.shop_name}</Link></dd></div>
-                  <div><dt>{t('product.sellerLevel')}</dt><dd>{p.seller_level}</dd></div>
-                  <div><dt>{t('product.listed')}</dt><dd>{formatDate(p.created_at)}</dd></div>
-                </dl>
-              )
-            },
-            {
-              id: 'product-delivery',
-              title: t('product.delivery'),
-              content: (
-                <>
-                  <p>{p.free_delivery ? t('product.freeDelivery') : t('product.deliveryNote')}</p>
-                  {Boolean(p.delivery_discount_percent) && <p>{t('product.deliveryDiscount', { percent: p.delivery_discount_percent as number })}</p>}
-                </>
-              )
-            }
-          ] satisfies AccordionItem[]}
-        />
+      <div className="pdx-info-grid">
+        <section className="pdx-block">
+          <SectionHeader title={t('product.specifications')} />
+          <dl className="pdx-card pdx-specs">
+            {specRows.map((row) => (
+              <div key={row.key}><dt>{row.label}</dt><dd>{row.value}</dd></div>
+            ))}
+          </dl>
+        </section>
+        <section className="pdx-block">
+          <SectionHeader title={t('product.infoTitle')} />
+          <InfoCards
+            items={[
+              {
+                id: 'product-description',
+                title: t('product.description'),
+                icon: <DocIcon />,
+                defaultOpen: true,
+                content: <DescriptionParagraphs text={descriptionParts.length > 0 ? descriptionParts.join('\n') : shortDescription} />
+              },
+              ...structured.items.map((item) => ({ ...item, icon: <ListIcon /> })),
+              {
+                id: 'product-delivery',
+                title: t('product.delivery'),
+                icon: <BoxIcon />,
+                content: (
+                  <>
+                    <p>{p.free_delivery ? t('product.freeDelivery') : t('product.deliveryNote')}</p>
+                    {Boolean(p.delivery_discount_percent) && <p>{t('product.deliveryDiscount', { percent: p.delivery_discount_percent as number })}</p>}
+                  </>
+                )
+              }
+            ]}
+          />
+        </section>
       </div>
 
       <ProductReviews productId={p.id} signedIn={Boolean(user)} onRequireLogin={() => navigate(loginWithReturnTo(`/products/${p.id}`))} />
 
       {similar.length > 0 && (
-        <>
-          <div className="section-head">
-            <h2 className="display-title">{t('product.similarProducts')}</h2>
-          </div>
-          <div className="product-grid">
+        <section className="pdx-similar-section" aria-label={t('product.similarProducts')}>
+          <SectionHeader title={t('product.similarProducts')} />
+          <div className="pdx-similar">
             {similar.map((sp) => (
               <ProductCard key={sp.id} product={sp} />
             ))}
           </div>
-        </>
+        </section>
       )}
 
-      <div className="pd-sticky-bar" role="region" aria-label={t('product.addToCart')}>
-        <div className="pd-sticky-price">
-          <strong>{formatMoney(displayPrice)}</strong>
-          <span className="small muted">{p.name}</span>
+      <div className="pdx-bar" role="region" aria-label={t('product.addToCart')}>
+        <div className="pdx-bar-total">
+          <span className="pdx-meta">{t('product.total')}</span>
+          <strong>{formatMoney(displayPrice * qty, currency)}</strong>
+          <small>{t('product.totalDetail', { qty, price: formatMoney(displayPrice, currency) })}</small>
         </div>
-        <Button variant="primary" disabled={outOfStock} onClick={addToCart}>
-          {outOfStock ? t('product.unavailable') : t('product.addToCart')}
-        </Button>
+        {actionButtons}
       </div>
     </div>
   )
+}
+
+const stars = (rating: number) => {
+  const full = Math.max(0, Math.min(5, Math.round(rating)))
+  return '★'.repeat(full) + '☆'.repeat(5 - full)
+}
+
+/** Accent square + uppercase label heading a page section. */
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <h2 className="pdx-section-header">
+      <i aria-hidden="true" />
+      {title}
+    </h2>
+  )
+}
+
+interface InfoCardItem {
+  id: string
+  title: string
+  icon: ReactNode
+  content: ReactNode
+  defaultOpen?: boolean
+}
+
+/** Framed, individually collapsible cards for the long-form product text. */
+function InfoCards({ items }: { items: InfoCardItem[] }) {
+  return (
+    <div className="pdx-info-cards">
+      {items.map((item) => (
+        <details key={item.id} className="pdx-card pdx-info-card" open={item.defaultOpen}>
+          <summary>
+            <span className="pdx-info-icon" aria-hidden="true">{item.icon}</span>
+            <span className="pdx-info-title">{item.title}</span>
+            <svg className="pdx-chevron" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div className="pdx-info-body">{item.content}</div>
+        </details>
+      ))}
+    </div>
+  )
+}
+
+const iconProps = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
+function BagIcon() {
+  return <svg {...iconProps} aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></svg>
+}
+function DocIcon() {
+  return <svg {...iconProps}><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></svg>
+}
+function ListIcon() {
+  return <svg {...iconProps}><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></svg>
+}
+function BoxIcon() {
+  return <svg {...iconProps}><path d="m21 8-9-5-9 5 9 5 9-5Z" /><path d="M3 8v8l9 5 9-5V8M12 13v8" /></svg>
 }
 
 function ProductReviews({ productId, signedIn, onRequireLogin }: { productId: string; signedIn: boolean; onRequireLogin: () => void }) {

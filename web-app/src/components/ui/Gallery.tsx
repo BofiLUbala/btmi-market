@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { initials } from '@/lib/format'
 import { useI18n } from '@/store/i18n'
 
@@ -18,12 +18,18 @@ export function Gallery({
   name,
   images = [],
   badge,
+  topRight,
+  caption,
   focusUrl,
   fallback
 }: {
   name: string
   images?: ProductImage[]
-  badge?: React.ReactNode
+  badge?: ReactNode
+  /** Overlay in the frame's top-right corner (e.g. the favourite button). */
+  topRight?: ReactNode
+  /** Short label pinned bottom-left of the frame (category path). */
+  caption?: string
   focusUrl?: string
   /** Category artwork shown instead of initials when there is no photo. */
   fallback?: { image: string; background: string }
@@ -83,6 +89,13 @@ export function Gallery({
           <span aria-hidden>{initials(name)}</span>
         )}
         {badge}
+        {topRight && <div className="pd-gallery-top-right">{topRight}</div>}
+        {(caption || usable.length > 1) && (
+          <div className="pd-gallery-bottom" aria-hidden="true">
+            {caption ? <span className="pd-gallery-caption">{caption}</span> : <span />}
+            {usable.length > 1 && <span className="pd-gallery-counter">{Math.min(active, usable.length - 1) + 1} / {usable.length}</span>}
+          </div>
+        )}
       </div>
       {usable.length > 1 && (
         <div className="pd-thumbs" role="tablist" aria-label={t('gallery.productImages')}>

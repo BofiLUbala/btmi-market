@@ -489,19 +489,9 @@ func (h *Handler) GetSimilarProducts(c *gin.Context) {
 	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
 
-	// Optional buyer price calculation
-	var buyerProfileID *uuid.UUID
-	if userIDStr, exists := c.Get("user_id"); exists {
-		if userID, ok := userIDStr.(uuid.UUID); ok {
-			if profile, err := h.buyerService.GetProfileByIDFromUser(userID); err == nil && profile != nil {
-				buyerProfileID = &profile.ID
-			}
-		}
-	}
-
-	products, total, err := h.marketplaceService.GetSimilarProducts(c.Request.Context(), productID, buyerProfileID, page, limit)
+	products, total, err := h.marketplaceService.GetSimilarProducts(c.Request.Context(), productID, page, limit)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return

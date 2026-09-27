@@ -213,6 +213,12 @@ func (s *MarketplaceService) ListShopProducts(shopID uuid.UUID, params *models.S
 	return products, total, err
 }
 
-func (s *MarketplaceService) GetSimilarProducts(ctx context.Context, productID uuid.UUID, buyerProfileID *uuid.UUID, page, limit int) ([]*models.PublicProductDetailResponse, int, error) {
-	return s.marketplaceRepo.GetSimilarProducts(ctx, productID, page, limit, buyerProfileID)
+// GetSimilarProducts returns scored look-alike offers in the listing shape, so
+// the product page can render them with the same card as the storefront.
+func (s *MarketplaceService) GetSimilarProducts(ctx context.Context, productID uuid.UUID, page, limit int) ([]*models.PublicProductResponse, int, error) {
+	products, total, err := s.marketplaceRepo.GetSimilarProducts(ctx, productID, page, limit)
+	if err == nil {
+		s.attachImages(products)
+	}
+	return products, total, err
 }

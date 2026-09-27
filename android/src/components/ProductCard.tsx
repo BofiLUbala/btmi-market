@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Image } from 'expo-image'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import type { PublicProduct } from '../types'
 import { fonts, kicker, radius, spacing, type Colors } from '../theme'
 import { categoryImage } from '../lib/categoryVisuals'
@@ -15,7 +15,7 @@ import { useFavorites, useIsFavorite } from '../store/favorites'
 
 const money = (value = 0, currency?: string) => formatMoney(value, currency)
 
-export function ProductCard({ product, onPress }: { product: PublicProduct; onPress: () => void }) {
+export function ProductCard({ product, onPress, style }: { product: PublicProduct; onPress: () => void; style?: StyleProp<ViewStyle> }) {
   const c = useColors()
   const { t } = useI18n()
   const styles = useMemo(() => makeStyles(c), [c])
@@ -39,7 +39,7 @@ export function ProductCard({ product, onPress }: { product: PublicProduct; onPr
   const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(Math.max(0, 5 - Math.round(rating)))
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && staticStyles.pressed]} accessibilityRole="button">
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && staticStyles.pressed]} accessibilityRole="button">
       <View style={styles.media}>
         <Image
           source={image ?? categoryImage(product.category_slug, product.category_name)}
