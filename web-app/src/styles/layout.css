@@ -643,6 +643,7 @@
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .seller-mobile-toggle {
@@ -800,6 +801,16 @@
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  /* Never let the context pickers slide under the right-hand controls. */
+  flex-shrink: 0;
+  margin-left: var(--space-3);
+}
+
+/* Tablets / narrow laptops: two context pickers plus every right-hand control
+   do not fit on one row; keep the essentials. */
+@media (min-width: 640px) and (max-width: 1099px) {
+  .seller-marketplace-link,
+  .seller-user-badge { display: none; }
 }
 
 .seller-marketplace-link {

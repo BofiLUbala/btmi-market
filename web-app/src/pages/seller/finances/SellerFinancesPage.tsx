@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, type CSSProperties } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDateTime } from '@/lib/format'
+import { useI18n } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 import { sellerFinanceApi, type SellerFinanceDashboard, type SaleHistoryItem, type SellerFinanceBreakdownItem, type SaleFinanceDetail, type SellerFinanceTimeseriesPoint, type SellerBreakdownGroup } from '@/api/seller'
 import FinanceTrendChart from '@/components/ui/FinanceTrendChart'
 import { SearchIcon } from '@/components/ui/Icons'
@@ -20,6 +22,14 @@ const GROUP_TABS: Array<{ id: SellerBreakdownGroup; label: string }> = [
 ]
 
 export default function SellerFinancesPage() {
+  const { t, lang } = useI18n()
+  /** Translated API code (`prefix` + code), falling back to the code itself. */
+  const code = (prefix: string, value?: string | null) => {
+    if (!value) return '—'
+    const key = `${prefix}${value}`
+    const label = t(key as TranslationKey)
+    return label === key ? value : label
+  }
   const [summary, setSummary] = useState<SellerFinanceDashboard | null>(null)
   const [sales, setSales] = useState<SaleHistoryItem[]>([])
   const [total, setTotal] = useState(0)
@@ -358,7 +368,7 @@ export default function SellerFinancesPage() {
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ fontWeight: 800 }}>#{item.order_number}</div>
                     <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                      {new Date(item.calculated_at).toLocaleString()}
+                      {formatDateTime(item.calculated_at, lang)}
                     </div>
                   </td>
                   <td style={{ padding: '12px 16px' }}>{item.buyer_name || '—'}</td>
@@ -391,19 +401,19 @@ export default function SellerFinancesPage() {
                     {money(item.seller_net_amount, item.currency)}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
-                    <div style={{ fontWeight: 600 }}>{item.payment_method || '—'}</div>
+                    <div style={{ fontWeight: 600 }}>{code('payment.method.', item.payment_method)}</div>
                     {/* The operator, so a mobile sale can be reconciled against
                         that operator's own statement. */}
                     {item.provider && (
                       <div style={{ fontSize: 11, fontWeight: 600 }}>{item.provider.replace(/_/g, ' ')}</div>
                     )}
-                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{item.payment_status || '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{code('tracking.pay.', item.payment_status)}</div>
                     {item.payment_reference && (
                       <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{item.payment_reference}</div>
                     )}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 16px', fontSize: 12 }}>
-                    {item.delivery_status || item.delivery_method || item.order_status || '—'}
+                    {code('status.', item.delivery_status || item.delivery_method || item.order_status)}
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 16px' }}>
                     <span style={{
@@ -465,12 +475,12 @@ export default function SellerFinancesPage() {
               <div><strong>Acheteur :</strong> {selectedSale.buyer_name || '—'}</div>
               <div><strong>Entreprise / boutique :</strong> {selectedSale.sale.business_name} / {selectedSale.sale.shop_name}</div>
               <div>
-                <strong>Paiement :</strong> {selectedSale.payment_method || '—'}
-                {selectedSale.provider ? ` · ${selectedSale.provider.replace(/_/g, ' ')}` : ''} · {selectedSale.payment_status || '—'}
+                <strong>Paiement :</strong> {code('payment.method.', selectedSale.payment_method)}
+                {selectedSale.provider ? ` · ${selectedSale.provider.replace(/_/g, ' ')}` : ''} · {code('tracking.pay.', selectedSale.payment_status)}
                 {selectedSale.payment_reference ? ` · réf. ${selectedSale.payment_reference}` : ''}
               </div>
-              <div><strong>Commande / livraison :</strong> {selectedSale.order_status} · {selectedSale.delivery_status || selectedSale.delivery_method || '—'}</div>
-              <div><strong>Date :</strong> {new Date(selectedSale.ordered_at).toLocaleString()}</div>
+              <div><strong>Commande / livraison :</strong> {code('status.', selectedSale.order_status)} · {code('status.', selectedSale.delivery_status || selectedSale.delivery_method)}</div>
+              <div><strong>Date :</strong> {formatDateTime(selectedSale.ordered_at, lang)}</div>
             </div>
             <div style={{ overflowX: 'auto', marginBottom: 16 }}>
               <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>

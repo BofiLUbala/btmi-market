@@ -525,6 +525,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'orders.actorBuyer': 'Buyer',
   'orders.actorSystem': 'System',
   'orders.cashPayment': 'Cash payment',
+  'orders.amountBeforeMarkup': 'Order (products + delivery)',
   'orders.amountDue': 'Amount due: {amount}',
   'orders.you': 'You',
   'orders.paymentDeclared': '✓ Payment reported',

@@ -146,7 +146,7 @@ export default function CommerceProductsPage() {
                   <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{p.variant_count}</td>
                   <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{p.image_count}</td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                    {new Date(p.updated_at).toLocaleDateString()}
+                    {new Date(p.updated_at).toLocaleDateString('fr-FR')}
                   </td>
                 </tr>
               ))}

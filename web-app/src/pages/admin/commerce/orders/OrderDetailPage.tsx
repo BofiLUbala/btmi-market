@@ -106,7 +106,7 @@ export default function OrderDetailPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.orders.detailTitle', { number: order.order.order_number })}</h2>
-          <div style={{ color: '#64748b', fontSize: 12 }}>{t('admin.orders.placedAt', { date: new Date(order.order.created_at).toLocaleString() })}</div>
+          <div style={{ color: '#64748b', fontSize: 12 }}>{t('admin.orders.placedAt', { date: new Date(order.order.created_at).toLocaleString('fr-FR') })}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <StatusBadge status={order.order.status} />
@@ -129,7 +129,7 @@ export default function OrderDetailPage() {
             {order.order.paid_at && (
               <Field
                 label="Paiement confirmé le"
-                value={`${new Date(order.order.paid_at).toLocaleString()}${order.order.payment_confirmation_actor ? ` · ${order.order.payment_confirmation_actor}` : ''}`}
+                value={`${new Date(order.order.paid_at).toLocaleString('fr-FR')}${order.order.payment_confirmation_actor ? ` · ${order.order.payment_confirmation_actor}` : ''}`}
               />
             )}
             {order.order.seller_name && <Field label="Vendeur" value={order.order.seller_name} />}
@@ -169,7 +169,7 @@ export default function OrderDetailPage() {
               <>
                 <Field label={t('admin.orders.assignedCourierId')} value={order.order.courier_name ? `${order.order.courier_name} · ${order.order.assigned_courier_id}` : order.order.assigned_courier_id} />
                 {order.order.courier_assigned_at && (
-                  <Field label={t('admin.orders.assignedAt')} value={new Date(order.order.courier_assigned_at).toLocaleString()} />
+                  <Field label={t('admin.orders.assignedAt')} value={new Date(order.order.courier_assigned_at).toLocaleString('fr-FR')} />
                 )}
                 {order.order.courier_notes && <Field label={t('admin.orders.courierNotes')} value={order.order.courier_notes} />}
               </>
@@ -272,7 +272,7 @@ export default function OrderDetailPage() {
                     <div>
                       <div style={{ fontSize: 13, color: '#f8fafc' }}>{event.status}</div>
                       {event.notes && <div style={{ fontSize: 12, color: '#94a3b8' }}>{event.notes}</div>}
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.created_at).toLocaleString()}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.created_at).toLocaleString('fr-FR')}</div>
                     </div>
                   </div>
                 ))}
@@ -291,15 +291,15 @@ export default function OrderDetailPage() {
                 <Field label="Livreur assigné" value={handover.assigned_courier_id || 'Non assigné'} />
                 <Field
                   label="Scan de récupération"
-                  value={handover.package.pickup_verified_at ? new Date(handover.package.pickup_verified_at).toLocaleString() : 'En attente'}
+                  value={handover.package.pickup_verified_at ? new Date(handover.package.pickup_verified_at).toLocaleString('fr-FR') : 'En attente'}
                 />
                 <Field
                   label="Scan de livraison"
-                  value={handover.package.delivery_scanned_at ? new Date(handover.package.delivery_scanned_at).toLocaleString() : 'En attente'}
+                  value={handover.package.delivery_scanned_at ? new Date(handover.package.delivery_scanned_at).toLocaleString('fr-FR') : 'En attente'}
                 />
                 <Field
                   label="Réception confirmée"
-                  value={handover.package.receipt_confirmed_at ? new Date(handover.package.receipt_confirmed_at).toLocaleString() : 'En attente'}
+                  value={handover.package.receipt_confirmed_at ? new Date(handover.package.receipt_confirmed_at).toLocaleString('fr-FR') : 'En attente'}
                 />
                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
                   La réception de la marchandise est indépendante de la vérification du paiement en espèces.
@@ -342,7 +342,7 @@ export default function OrderDetailPage() {
                           {e.latitude.toFixed(5)}, {e.longitude.toFixed(5)}
                         </div>
                       )}
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(e.created_at).toLocaleString()}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(e.created_at).toLocaleString('fr-FR')}</div>
                     </div>
                   </div>
                 ))}

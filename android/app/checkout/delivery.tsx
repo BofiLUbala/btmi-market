@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrollView'
 import { router, useLocalSearchParams } from 'expo-router'
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import { useMutation, useQueries, useQuery } from '@tanstack/react-query'
@@ -168,7 +169,7 @@ export default function DeliveryScreen() {
   // Same sections, order and wording as web-app/src/pages/checkout/DeliveryPage.tsx.
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={checkoutPage} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={checkoutPage} keyboardShouldPersistTaps="handled">
         <CheckoutProgress current="delivery" />
         <CheckoutHeading title={w('delivery.title')} subtitle={w('delivery.subtitle')} />
 
@@ -235,7 +236,7 @@ export default function DeliveryScreen() {
         </CheckoutCard>
 
         {error ? <ErrorState message={error} /> : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </KeyboardAvoidingView>
   )
 }

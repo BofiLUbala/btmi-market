@@ -295,7 +295,7 @@ export default function TechnicalDashboardPage() {
           <SectionCard title={t('admin.technical.serviceHealthTitle')} icon="🏥" onRefresh={loadAll}>
             <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
               <StatusBadge status={health.overall_status} />
-              <span style={{ fontSize: 12, color: '#64748b' }}>{t('admin.technical.checkedAt', { time: new Date(health.checked_at).toLocaleTimeString() })}</span>
+              <span style={{ fontSize: 12, color: '#64748b' }}>{t('admin.technical.checkedAt', { time: new Date(health.checked_at).toLocaleTimeString('fr-FR') })}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
               {health.services.map((svc) => (
@@ -333,7 +333,7 @@ export default function TechnicalDashboardPage() {
                 m.version,
                 m.name,
                 <StatusBadge key={m.version} status={m.status} />,
-                new Date(m.applied_at).toLocaleString()
+                new Date(m.applied_at).toLocaleString('fr-FR')
               ])}
             />
           </SectionCard>
@@ -347,9 +347,9 @@ export default function TechnicalDashboardPage() {
           {backups ? (
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 14, fontSize: 13, color: '#94a3b8' }}>
               <div>Statut <StatusBadge status={backups.backup_status} /></div>
-              <div>Dernière réussie <strong style={{ color: '#f1f5f9' }}>{backups.last_successful_backup ? new Date(backups.last_successful_backup).toLocaleString() : 'jamais'}</strong></div>
+              <div>Dernière réussie <strong style={{ color: '#f1f5f9' }}>{backups.last_successful_backup ? new Date(backups.last_successful_backup).toLocaleString('fr-FR') : 'jamais'}</strong></div>
               <div>Taille <strong style={{ color: '#f1f5f9' }}>{backups.backup_size_formatted || '—'}</strong></div>
-              <div>Prochaine prévue <strong style={{ color: '#f1f5f9' }}>{backups.next_scheduled_backup ? new Date(backups.next_scheduled_backup).toLocaleString() : '—'}</strong></div>
+              <div>Prochaine prévue <strong style={{ color: '#f1f5f9' }}>{backups.next_scheduled_backup ? new Date(backups.next_scheduled_backup).toLocaleString('fr-FR') : '—'}</strong></div>
               <div>Rétention <strong style={{ color: '#f1f5f9' }}>{backups.retention_policy}</strong></div>
             </div>
           ) : <p style={{ color: '#94a3b8' }}>Résumé indisponible.</p>}
@@ -511,7 +511,7 @@ export default function TechnicalDashboardPage() {
               e.event_type,
               e.ip_address || '—',
               <StatusBadge key={`s-${e.id}`} status={e.status} />,
-              new Date(e.created_at).toLocaleString(),
+              new Date(e.created_at).toLocaleString('fr-FR'),
               e.status === 'ACKNOWLEDGED' || e.status === 'RESOLVED' ? (
                 <span key={`a-${e.id}`} style={{ color: '#64748b', fontSize: 11 }}>—</span>
               ) : (
@@ -544,8 +544,8 @@ export default function TechnicalDashboardPage() {
               <span key={s.session_id} style={{ fontSize: 11, color: '#2dd4bf', background: '#134e4a', padding: '2px 6px', borderRadius: 4 }}>{s.admin_role}</span>,
               s.ip_address,
               <span key={`d-${s.session_id}`} style={{ fontSize: 10, color: '#64748b', wordBreak: 'break-all' }}>{s.device_info.substring(0, 30)}…</span>,
-              new Date(s.created_at).toLocaleDateString(),
-              new Date(s.expires_at).toLocaleDateString(),
+              new Date(s.created_at).toLocaleDateString('fr-FR'),
+              new Date(s.expires_at).toLocaleDateString('fr-FR'),
               <button
                 key={`r-${s.session_id}`}
                 onClick={() => handleRevokeSession(s.session_id, s.admin_email)}
@@ -568,7 +568,7 @@ export default function TechnicalDashboardPage() {
                   <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
                     {v.platform === 'WEB' ? '🌐' : v.platform === 'ANDROID' ? '📱' : '🔌'} {v.platform}
                   </h4>
-                  <span style={{ fontSize: 11, color: '#64748b' }}>{t('admin.technical.updatedAt', { date: new Date(v.updated_at).toLocaleDateString() })}</span>
+                  <span style={{ fontSize: 11, color: '#64748b' }}>{t('admin.technical.updatedAt', { date: new Date(v.updated_at).toLocaleDateString('fr-FR') })}</span>
                 </div>
                 <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div>{t('admin.technical.labelCurrent')} <strong style={{ color: '#2dd4bf' }}>{v.current_version}</strong></div>

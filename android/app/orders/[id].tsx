@@ -12,6 +12,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { buyerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
+import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrollView'
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 import { BuyerHandoverCard, MobilePaymentCard } from '../../src/components/BuyerHandover'
 import { formatMoney } from '../../src/lib/money'
@@ -315,12 +316,13 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   }
 
   return <View style={{ flex: 1, backgroundColor: colors.cream }}>
-    <ScrollView contentContainerStyle={styles.page}>
+    <KeyboardAwareScrollView contentContainerStyle={styles.page}>
       <Pressable onPress={() => router.push('/orders')} accessibilityRole="link"><Text style={styles.backLink}>← {t('web.account.myOrders' as TranslationKey)}</Text></Pressable>
 
       {/* web .live-bar */}
       <View style={styles.liveBar}>
-        <View style={styles.liveLabel}><View style={styles.liveDot} /><Text style={styles.liveText}>{t('web.orders.live' as TranslationKey)}</Text></View>
+        {/* A finished order no longer streams updates; do not claim it is live. */}
+        {!isTerminal(o.status) ? <View style={styles.liveLabel}><View style={styles.liveDot} /><Text style={styles.liveText}>{t('web.orders.live' as TranslationKey)}</Text></View> : null}
         <Text style={[styles.muted, { flex: 1 }]}>{t('web.orders.updated' as TranslationKey, { time: formatDateTime(new Date(order.dataUpdatedAt).toISOString(), lang) })}</Text>
         <Pressable accessibilityRole="button" disabled={order.isFetching} onPress={() => void order.refetch()} style={styles.refreshBtn}><Text style={styles.refreshText}>{order.isFetching ? '⟳' : t('web.orders.refresh' as TranslationKey)}</Text></Pressable>
       </View>
@@ -427,7 +429,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.orderNumber', { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</Text><Text style={styles.muted}>{formatDateTime(o.created_at, lang)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMethod')}</Text><Text style={styles.muted}>{t(paymentMethodKey(p.payment_method))}</Text></View>
           {p.provider ? <View style={styles.breakRow}><Text style={styles.muted}>Opérateur</Text><Text style={styles.muted}>{p.provider_label || p.provider}</Text></View> : null}
-          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.amountDue', { amount: '' }).replace(/[:\s]+$/, '')}</Text><Text style={[styles.muted, { fontWeight: '800' }]}>{formatMoney(p.cash_due, p.currency)}</Text></View>
+          <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.amountBeforeMarkup')}</Text><Text style={styles.muted}>{formatMoney(p.final_total - Math.max(p.payment_markup, 0), p.currency)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMarkup')}</Text><Text style={styles.muted}>{formatMoney(Math.max(p.payment_markup, 0), p.currency)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.totalDue')}</Text><Text style={[styles.muted, { fontWeight: '800' }]}>{formatMoney(p.final_total, p.currency)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentStatus')}</Text><Text style={styles.muted}>{t(paymentStatusKey(p))}</Text></View>
@@ -443,7 +445,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       </> : null}
 
       {o.status === 'COMPLETED' ? <OrderRatingCard orderId={id!} /> : null}
-    </ScrollView>
+    </KeyboardAwareScrollView>
 
     {showChat && (
       <View style={StyleSheet.absoluteFill}>
@@ -497,4 +499,4 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   webStep: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   webDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   webTick: { color: colors.gold, fontSize: 9, fontWeight: '700' },
-  webStepText: { flex: 1, color: colors.ink, fontSize: 15 },lineRow:{flexDirection:'row',gap:12,alignItems:'flex-start'},thumb:{width:56,height:56,borderRadius:10,backgroundColor:colors.surface2,alignItems:'center',justifyContent:'center',overflow:'hidden'},thumbImg:{width:56,height:56},thumbText:{color:colors.muted,fontWeight:'800'},deliveryBox:{marginTop:8,padding:12,borderRadius:10,backgroundColor:colors.surface2,gap:2},page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12},breakRow:{flexDirection:'row',justifyContent:'space-between',gap:8}})
+  webStepText: { flex: 1, color: colors.ink, fontSize: 15 },lineRow:{flexDirection:'row',gap:12,alignItems:'flex-start'},thumb:{width:56,height:56,borderRadius:10,backgroundColor:colors.surface2,alignItems:'center',justifyContent:'center',overflow:'hidden'},thumbImg:{width:56,height:56},thumbText:{color:colors.muted,fontWeight:'800'},deliveryBox:{marginTop:8,padding:12,borderRadius:10,backgroundColor:colors.surface2,gap:2},page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12},breakRow:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',columnGap:8}})

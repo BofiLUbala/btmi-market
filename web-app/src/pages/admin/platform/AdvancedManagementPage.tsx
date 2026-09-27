@@ -173,7 +173,7 @@ export default function AdvancedManagementPage() {
           {metrics.map((m) => (
             <article key={m.key}>
               <span>{m.label}</span>
-              <strong>{m.available ? m.value?.toLocaleString() : t('admin.advanced.dataNotAvailable')}</strong>
+              <strong>{m.available ? m.value?.toLocaleString('fr-FR') : t('admin.advanced.dataNotAvailable')}</strong>
               <Sparkline points={m.trend} />
               <small>{m.available ? t('admin.advanced.dailyPoints', { count: m.trend.length }) : t('admin.advanced.trackingUnavailable')}</small>
             </article>

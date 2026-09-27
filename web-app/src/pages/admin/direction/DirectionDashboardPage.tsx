@@ -636,7 +636,7 @@ export default function DirectionDashboardPage() {
                         {u.total_points}
                       </td>
                       <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', color: '#cbd5e1' }}>
-                        {new Date(u.created_at).toLocaleDateString()}
+                        {new Date(u.created_at).toLocaleDateString('fr-FR')}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -1004,7 +1004,7 @@ export default function DirectionDashboardPage() {
                   auditLogs.map((l) => (
                     <tr key={l.id} style={{ borderBottom: '1px solid #1e293b' }}>
                       <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>
-                        {new Date(l.created_at).toLocaleString()}
+                        {new Date(l.created_at).toLocaleString('fr-FR')}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ fontWeight: 700, color: '#ffffff' }}>{l.actor_admin_name || l.actor_admin_email || t('admin.direction.adminFallback')}</div>
@@ -1124,7 +1124,7 @@ export default function DirectionDashboardPage() {
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>Compte créé le</div>
-                <div style={{ fontSize: 13, color: '#f8fafc' }}>{new Date(inspectedUser.created_at).toLocaleString()}</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{new Date(inspectedUser.created_at).toLocaleString('fr-FR')}</div>
               </div>
             </div>
 

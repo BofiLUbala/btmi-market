@@ -8,16 +8,7 @@ export function RequireAdminAuth() {
   const location = useLocation()
   const t = useT()
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div className="spinner" style={{ width: 40, height: 40, margin: '0 auto 16px' }} />
-          <p style={{ color: 'var(--color-muted, #64748b)', fontSize: 14 }}>{t('admin.guards.authenticating')}</p>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <AdminLoading label={t('admin.guards.authenticating')} />
 
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" state={{ from: location }} replace />
@@ -30,9 +21,7 @@ export function RequireAdminRole({ allowedRoles }: { allowedRoles: AdminRole[] }
   const { role, hasRole, loading } = useAdminAuth()
   const t = useT()
 
-  if (loading) {
-    return null
-  }
+  if (loading) return <AdminLoading label={t('admin.guards.authenticating')} />
 
   if (!hasRole(allowedRoles)) {
     return (
@@ -66,14 +55,25 @@ export function RequireAdminRole({ allowedRoles }: { allowedRoles: AdminRole[] }
 
 export function AdminPublicOnly() {
   const { isAuthenticated, loading } = useAdminAuth()
+  const t = useT()
 
-  if (loading) {
-    return null
-  }
+  if (loading) return <AdminLoading label={t('admin.guards.authenticating')} />
 
   if (isAuthenticated) {
     return <Navigate to="/admin" replace />
   }
 
   return <Outlet />
+}
+
+/** Shown while the admin session is being checked, never a blank screen. */
+function AdminLoading({ label }: { label: string }) {
+  return (
+    <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div className="spinner" style={{ width: 40, height: 40, margin: '0 auto 16px' }} />
+        <p style={{ color: 'var(--color-muted, #64748b)', fontSize: 14 }}>{label}</p>
+      </div>
+    </div>
+  )
 }

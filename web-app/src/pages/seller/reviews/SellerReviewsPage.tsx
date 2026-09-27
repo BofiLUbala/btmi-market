@@ -4,11 +4,11 @@ import type { ShopReviewsResponse } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { useT } from '@/store/i18n'
+import { useI18n } from '@/store/i18n'
 import { ReviewIcon } from '@/components/ui/Icons'
 
 export default function SellerReviewsPage() {
-  const t = useT()
+  const { t, lang } = useI18n()
   const { activeBusiness, activeShop } = useAuth()
   const [reviewsData, setReviewsData] = useState<ShopReviewsResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -91,7 +91,7 @@ export default function SellerReviewsPage() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 24, alignItems: 'start' }}>
         <Card>
           <h2>{activeTab === 'shop' ? t('seller.reviews.shopSummary') : t('seller.reviews.productSummary')}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 16, marginBottom: 16 }}>
@@ -143,7 +143,7 @@ export default function SellerReviewsPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ color: 'var(--color-star)', fontWeight: 'bold' }}>{review.rating} ★</span>
-                      <span className="muted small">{new Date(review.created_at).toLocaleDateString()}</span>
+                      <span className="muted small">{new Date(review.created_at).toLocaleDateString(lang)}</span>
                     </div>
                   </div>
 

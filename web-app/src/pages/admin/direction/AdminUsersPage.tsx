@@ -235,8 +235,8 @@ export default function AdminUsersPage() {
                       <StatusBadge status={a.status} />
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.invitation_status || '—'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{new Date(a.created_at).toLocaleDateString()}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.last_login_at ? new Date(a.last_login_at).toLocaleString() : '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{new Date(a.created_at).toLocaleDateString('fr-FR')}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.last_login_at ? new Date(a.last_login_at).toLocaleString('fr-FR') : '—'}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                         {a.status === 'PENDING' && (

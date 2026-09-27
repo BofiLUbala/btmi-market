@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+
 import {
   adminAuthApi,
   adminTokenStore,
@@ -15,6 +16,8 @@ import {
   type AdminRole,
   type AdminUser,
 } from '@/api/admin'
+
+const SESSION_CHECK_TIMEOUT_MS = 15_000
 
 interface AdminAuthState {
   admin: AdminUser | null
@@ -48,12 +51,17 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       return null
     }
 
+    // An unreachable API used to leave the console blank forever: give up after
+    // a while and fall back to the login screen, keeping the stored session.
+    let timedOut = false
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => { timedOut = true; reject(new Error('ADMIN_SESSION_TIMEOUT')) }, SESSION_CHECK_TIMEOUT_MS))
     try {
-      const currentAdmin = await adminAuthApi.me()
+      const currentAdmin = await Promise.race([adminAuthApi.me(), timeout])
       setAdmin(currentAdmin)
       return currentAdmin
     } catch {
-      resetState()
+      if (timedOut) setAdmin(null)
+      else resetState()
       return null
     } finally {
       setLoading(false)

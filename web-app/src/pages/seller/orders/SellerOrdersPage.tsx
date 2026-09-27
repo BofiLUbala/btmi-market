@@ -71,6 +71,15 @@ function nextActions(order: Order, t: ReturnType<typeof useT>): SellerAction[] {
   return []
 }
 
+/** Translated label for an API code (`prefix` + code), falling back to the code. */
+function codeLabel(t: ReturnType<typeof useT>, prefix: string, code: string): string {
+  const key = `${prefix}${code}`
+  const value = t(key as TranslationKey)
+  return value === key ? code : value
+}
+
+const PACKAGE_QR_STATUSES: string[] = ['READY', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+
 function orderStatusLabel(status: string, t: ReturnType<typeof useT>): string {
   const key = `status.${status}`
   const value = t(key as TranslationKey)
@@ -176,6 +185,10 @@ export default function SellerOrdersPage() {
     return () => clearInterval(id)
   }, [])
 
+  function loadPackageQR(orderId: string) {
+    void orderApi.getPackageQR(orderId).then((qr) => setPackageQRs((prev) => ({ ...prev, [orderId]: qr }))).catch(() => undefined)
+  }
+
   async function runAction(order: Order, fn: () => Promise<unknown>) {
     setActingId(order.id)
     setActionError('')
@@ -185,6 +198,9 @@ export default function SellerOrdersPage() {
       if (expandedId === order.id) {
         const detail = await orderApi.get(order.id)
         setDetails((prev) => ({ ...prev, [order.id]: detail }))
+        // Marking the order ready issues the package label: show it right away
+        // so the seller can stick it on the parcel before the courier arrives.
+        if (PACKAGE_QR_STATUSES.includes(detail.order?.status ?? '')) loadPackageQR(order.id)
       }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('seller.orders.actionFailed'))
@@ -205,9 +221,7 @@ export default function SellerOrdersPage() {
         })
       ])
       setDetails(prev => ({ ...prev, [order.id]: detail }))
-      if (['READY', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(order.status)) {
-        void orderApi.getPackageQR(order.id).then((qr) => setPackageQRs((prev) => ({ ...prev, [order.id]: qr }))).catch(() => undefined)
-      }
+      if (PACKAGE_QR_STATUSES.includes(order.status)) loadPackageQR(order.id)
       setPayments(prev => ({ ...prev, [order.id]: payment }))
     }
     catch (err) {
@@ -302,16 +316,16 @@ export default function SellerOrdersPage() {
     const detail = details[order.id]
     return (
       <div className="small muted" style={{ marginTop: 8, textAlign: 'left' }}>
-        <div><strong>{t('orders.deliveryLabel')}:</strong> {order.delivery_method || '—'}</div>
+        <div><strong>{t('orders.deliveryLabel')}:</strong> {order.delivery_method ? codeLabel(t, 'tracking.method.', order.delivery_method) : '—'}</div>
         <div><strong>{t('seller.orders.baseTotal')}:</strong> {formatMoney(order.base_total ?? order.final_total, order.currency || DEFAULT_CURRENCY)}</div>
         {order.notes && <div><strong>{t('seller.orders.notesLabel')}:</strong> {order.notes}</div>}
         <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
         {detail?.order && <div className="seller-payment-box">
           <strong>Livraison</strong>
-          <div>Statut: <strong>{detail.order.delivery_status || '—'}</strong></div>
+          <div>Statut: <strong>{detail.order.delivery_status ? orderStatusLabel(detail.order.delivery_status, t) : '—'}</strong></div>
           <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
           <div>Adresse: {detail.order.delivery_address || '—'}</div>
-          {detail.order.delivery_notes && <div>Instructions: {detail.order.delivery_notes}</div>}
+          {detail.order.delivery_notes && <div>Point de repère / instructions : {detail.order.delivery_notes}</div>}
           <div>Frais de livraison TBK : {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)} <span className="small muted">(tarif TBK payé par l’acheteur, hors de votre revenu)</span></div>
         </div>}
         {detail?.order && <DeliveryPlanCard plan={detail.order} status={detail.order.status} deliveryStatus={detail.order.delivery_status} deliveryMethod={detail.order.delivery_method} />}
@@ -319,9 +333,11 @@ export default function SellerOrdersPage() {
         <div className="seller-payment-box">
           <strong>{t('seller.orders.cashPayment')}</strong>
           {payment ? <>
-            <div>{t('orders.amountDue')}: <strong>{formatMoney(payment.cash_due, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
-            <div>Mode: <strong>{payment.payment_method}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
-            <div>Majoration: {formatMoney(payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)} · Total: <strong>{formatMoney(payment.final_total, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
+            <div>Mode: <strong>{codeLabel(t, 'payment.method.', payment.payment_method)}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
+            {/* Base + markup = total, so the three figures add up on screen. */}
+            <div>{t('orders.amountBeforeMarkup')}: {formatMoney(payment.final_total - payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)}</div>
+            <div>{t('orders.paymentMarkup')}: {formatMoney(payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)}</div>
+            <div>{t('orders.amountDue')}: <strong>{formatMoney(payment.final_total, payment.currency || order.currency || DEFAULT_CURRENCY)}</strong></div>
             <div>{t('common.status')}: <strong>{t(paymentStatusKey(payment) as TranslationKey)}</strong></div>
             {isPaymentPaid(payment)
               ? <div>{confirmationActorKey(payment.confirmation_actor)
@@ -333,7 +349,7 @@ export default function SellerOrdersPage() {
         {packageQRs[order.id] && (
           <QRPanel
             qr={packageQRs[order.id]}
-            title="TBK Package QR"
+            title={t('seller.orders.packageQrTitle')}
             imagePath={`/orders/${order.id}/package-qr/label`}
             fields={[
               { label: 'Commande', value: order.order_number || order.id.slice(0, 8) },
@@ -500,16 +516,20 @@ function SellerOrderLineQR({
   const load = useCallback(() => orderApi.getOrderItemQR(orderId, line.id), [orderId, line.id])
   const price = formatMoney(line.final_unit_price || line.unit_price, currency)
   const name = line.product_name || line.product_id || ''
-  const variant = line.variant_name || line.variant_sku || ''
+  // Variant names are stored as "<product> — <variant>"; the product is already the link.
+  const rawVariant = line.variant_name || line.variant_sku || ''
+  const variant = name && rawVariant.startsWith(`${name} — `) ? rawVariant.slice(name.length + 3) : rawVariant
 
   return (
     <div style={{ marginBottom: 6 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ flex: '1 1 auto' }}>
           {line.product_id && <Link to={`/seller/products/${line.product_id}`} style={{ fontWeight: 700, marginRight: 6 }}>{name}</Link>}
-          {variant
-            ? t('seller.orders.lineWithVariant', { name, variant, quantity: line.quantity, price })
-            : t('seller.orders.line', { name, quantity: line.quantity, price })}
+          {line.product_id
+            ? [variant, t('seller.orders.quantityShort', { quantity: line.quantity }), price].filter(Boolean).join(' · ')
+            : variant
+              ? t('seller.orders.lineWithVariant', { name, variant, quantity: line.quantity, price })
+              : t('seller.orders.line', { name, quantity: line.quantity, price })}
         </span>
         <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
           {open ? t('itemQr.hide') : t('itemQr.action')}

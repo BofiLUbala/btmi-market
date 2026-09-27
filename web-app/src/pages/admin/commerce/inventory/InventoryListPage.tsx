@@ -204,7 +204,7 @@ export default function InventoryListPage() {
                   <td style={{ padding: '10px 12px', fontWeight: 700, color: inv.available > 0 ? 'var(--admin-success)' : 'var(--admin-danger)' }}>{inv.available}</td>
                   <td style={{ padding: '10px 12px' }}><AdminStatusBadge status={inv.stock_status} /></td>
                   <td style={{ padding: '10px 12px', color: 'var(--admin-text-faint)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                    {inv.updated_at ? new Date(inv.updated_at).toLocaleString() : '-'}
+                    {inv.updated_at ? new Date(inv.updated_at).toLocaleString('fr-FR') : '-'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <button className="admin-button admin-button-small" onClick={() => openAdjust(inv)}>Ajuster</button>

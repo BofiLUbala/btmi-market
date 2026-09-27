@@ -119,7 +119,7 @@ export default function EmployeeManagementPage() {
                     }}>{emp.status}</span>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11 }}>
-                    {emp.created_at ? new Date(emp.created_at).toLocaleDateString() : '-'}
+                    {emp.created_at ? new Date(emp.created_at).toLocaleDateString('fr-FR') : '-'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     {emp.status === 'ACTIVE' && (

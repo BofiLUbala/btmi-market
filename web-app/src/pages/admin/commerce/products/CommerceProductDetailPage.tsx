@@ -157,7 +157,7 @@ export default function CommerceProductDetailPage() {
             <Field label={t('admin.products.fieldSubcategory')} value={subcategory_name} />
             <Field label={t('common.status')} value={p.status} />
             <Field label={t('admin.products.fieldPublication')} value={p.publication_status} />
-            <Field label={t('admin.products.fieldCreated')} value={new Date(p.created_at).toLocaleString()} />
+            <Field label={t('admin.products.fieldCreated')} value={new Date(p.created_at).toLocaleString('fr-FR')} />
           </Section>
 
           <Section title={t('admin.products.sectionImages')}>

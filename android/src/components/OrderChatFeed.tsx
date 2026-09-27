@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   ActivityIndicator,
+  Keyboard,
   FlatList,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -37,6 +39,11 @@ const PARTY_LABEL: Record<ChatParty, string> = {
   ADMIN: 'Support TBK',
 }
 
+/** Party name inside a French sentence: "le support TBK", "livreur"… */
+function partyInSentence(party: ChatParty): string {
+  return party === 'ADMIN' ? 'le support TBK' : PARTY_LABEL[party].toLowerCase()
+}
+
 /**
  * Private order channels: one chip per contact, each a two-party thread the
  * server returns only to those two parties. Buyer and seller never share one.
@@ -60,6 +67,24 @@ export function OrderChatFeed({
   const [contact, setContact] = useState<ChatParty | ''>('')
 
   const flatListRef = useRef<FlatList>(null)
+  // Android is edge-to-edge (Expo 57): the window no longer resizes for the
+  // keyboard and KeyboardAvoidingView's maths are off by the header and status
+  // bar. Lift the composer by exactly the part of the feed the keyboard covers.
+  const containerRef = useRef<View>(null)
+  const [keyboardInset, setKeyboardInset] = useState(0)
+  useEffect(() => {
+    if (Platform.OS !== 'android') return
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      // measureInWindow is relative to the area below the status bar while the
+      // keyboard's screenY is in full-screen coordinates.
+      containerRef.current?.measureInWindow((_x, y, _w, h) => {
+        const bottomOnScreen = y + h + (StatusBar.currentHeight ?? 0)
+        setKeyboardInset(Math.max(0, bottomOnScreen - e.endCoordinates.screenY))
+      })
+    })
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardInset(0))
+    return () => { show.remove(); hide.remove() }
+  }, [])
 
   const loadConversation = useCallback(
     async (silent = false) => {
@@ -173,8 +198,9 @@ export function OrderChatFeed({
   }
 
   return (
+    <View ref={containerRef} style={[styles.container, { paddingBottom: keyboardInset }]}>
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
@@ -214,7 +240,7 @@ export function OrderChatFeed({
       </ScrollView>
       {selected ? (
         <Text style={styles.privacyNote}>
-          Conversation privée avec {PARTY_LABEL[selected.party].toLowerCase()}{selected.name ? ` (${selected.name})` : ''} : personne d’autre ne la voit.
+          Conversation privée avec {partyInSentence(selected.party)}{selected.name && selected.name.toLowerCase() !== PARTY_LABEL[selected.party].toLowerCase() ? ` (${selected.name})` : ''} : personne d’autre ne la voit.
         </Text>
       ) : null}
 
@@ -252,7 +278,7 @@ export function OrderChatFeed({
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder={selected ? `Message privé à ${PARTY_LABEL[selected.party].toLowerCase()}…` : t('communication.inputPlaceholder')}
+          placeholder={selected ? `Message privé ${selected.party === 'ADMIN' ? 'au support TBK' : `à ${partyInSentence(selected.party)}`}…` : t('communication.inputPlaceholder')}
           editable={!!selected?.available}
           placeholderTextColor={colors.mutedLight}
           value={body}
@@ -273,6 +299,7 @@ export function OrderChatFeed({
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+    </View>
   )
 }
 

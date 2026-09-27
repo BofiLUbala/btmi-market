@@ -17,6 +17,8 @@
    wrap inside the screen instead of pushing the button past the edge. */
 @media (max-width: 600px) {
   .btn { max-width: 100%; white-space: normal; text-align: center; }
+  /* Unsized inline icons would otherwise stretch once the label can wrap. */
+  .btn > svg:not([width]) { width: 1.15em; height: 1.15em; flex-shrink: 0; }
 }
 .btn:active {
   transform: scale(0.98);
@@ -632,7 +634,11 @@ textarea.input:focus {
   font-weight: 600;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+  /* Tabs are <button>s: drop the native button box, keep only the underline. */
+  background: transparent;
+  border: 0;
   border-bottom: 2px solid transparent;
+  cursor: pointer;
   white-space: nowrap;
 }
 .tab.active {

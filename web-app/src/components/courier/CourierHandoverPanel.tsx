@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, forwardRef } from 'react'
+import { useCallback, useEffect, useState, forwardRef, useRef } from 'react'
 import { courierApi } from '@/api/courier'
 import { ApiError, type ConfirmCashResponse, type HandoverState, type HandoverVerificationResult } from '@/api/types'
 import { useI18n } from '@/store/i18n'
@@ -54,6 +54,7 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [receipt, setReceipt] = useState<ConfirmCashResponse | null>(null)
+  const lastActionRef = useRef('')
   const [productCode, setProductCode] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [verdict, setVerdict] = useState<HandoverVerificationResult | null>(null)
@@ -79,12 +80,12 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
 
   // Notify parent when a new actionable step becomes available
   useEffect(() => {
-    if (state && onActionReady) {
-      const hasActiveAction = state.courier_can_verify_product || state.courier_can_confirm_cash
-      if (hasActiveAction) {
-        onActionReady()
-      }
-    }
+    if (!state || !onActionReady) return
+    // Scroll once when a new action opens up, not on every live refresh: the
+    // state object is replaced on each poll and kept yanking the page back here.
+    const actionKey = state.courier_can_confirm_cash ? 'cash' : state.courier_can_verify_product ? 'product' : ''
+    if (actionKey && actionKey !== lastActionRef.current) onActionReady()
+    lastActionRef.current = actionKey
   }, [state, onActionReady])
 
   /**
@@ -162,7 +163,7 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
       actionType: 'VERIFY_PRODUCT',
       primaryButtonText: t('courier.handover.verifyTitle'),
       canAct: state.courier_can_verify_product === true,
-      reason: state.courier_can_verify_product ? undefined : 'Produits non encore vérifiés'
+      reason: state.all_products_verified || state.courier_can_verify_product ? undefined : 'Produits non encore vérifiés'
     },
     {
       key: 'payment',
@@ -210,7 +211,7 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
         <Row label={t('courier.handover.buyer')} value={state.buyer_name || '—'} />
         <Row label={t(isCash ? 'courier.handover.amountToCollect' : state.payment_verified ? 'courier.handover.amountSettledMobile' : 'courier.handover.amountPaidMobile')} value={amount} />
         <Row label={t('courier.handover.mode')} value={paymentModeLabel(state)} />
-        <Row label={t('courier.handover.paymentStatus')} value={state.payment_verified ? t('courier.handover.paid') : state.payment_status} />
+        <Row label={t('courier.handover.paymentStatus')} value={state.payment_verified ? t('courier.handover.paid') : (t(`tracking.pay.${state.payment_status}` as TranslationKey) !== `tracking.pay.${state.payment_status}` ? t(`tracking.pay.${state.payment_status}` as TranslationKey) : state.payment_status)} />
       </div>
 
       {/* Operational step list with clear states */}
@@ -338,8 +339,8 @@ function StepItem({ step }: { step: StepInfo }) {
   const stateStyles: Record<StepState, { opacity: number; prefix: string }> = {
     COMPLETED: { opacity: 1, prefix: '✓' },
     CURRENT_ACTION: { opacity: 1, prefix: '●' },
-    WAITING_FOR_OTHER: { opacity: 0.6, prefix: '⟳' },
-    LOCKED: { opacity: 0.35, prefix: '🔒' }
+    WAITING_FOR_OTHER: { opacity: 0.8, prefix: '⟳' },
+    LOCKED: { opacity: 0.6, prefix: '🔒' }
   }
   const style = stateStyles[step.state]
 

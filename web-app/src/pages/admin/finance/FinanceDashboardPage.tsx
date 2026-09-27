@@ -851,9 +851,9 @@ if (tab === 'overview') {
                       {account.account_type === 'BUYER' ? 'BUYER POINTS' : `SELLER POINTS — ${account.business_name}`}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#60a5fa' }}>{t('admin.finance.ptsAmount', { value: account.current_points.toLocaleString() })}</td>
-                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{t('admin.finance.ptsAmount', { value: account.reserved_points.toLocaleString() })}</td>
-                  <td style={{ padding: '12px 14px', color: '#a78bfa' }}>{t('admin.finance.ptsAmount', { value: account.lifetime_points.toLocaleString() })}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#60a5fa' }}>{t('admin.finance.ptsAmount', { value: account.current_points.toLocaleString('fr-FR') })}</td>
+                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{t('admin.finance.ptsAmount', { value: account.reserved_points.toLocaleString('fr-FR') })}</td>
+                  <td style={{ padding: '12px 14px', color: '#a78bfa' }}>{t('admin.finance.ptsAmount', { value: account.lifetime_points.toLocaleString('fr-FR') })}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
@@ -1192,7 +1192,7 @@ if (tab === 'overview') {
                 <StatusBadge
                   ok={!!selectedPayment.confirmation_actor && selectedPayment.confirmation_actor !== 'LEGACY_DECLARATION'}
                   label={selectedPayment.confirmation_actor
-                    ? t('admin.finance.confirmedAtTime', { time: selectedPayment.paid_at ? new Date(selectedPayment.paid_at).toLocaleTimeString() : selectedPayment.confirmation_actor })
+                    ? t('admin.finance.confirmedAtTime', { time: selectedPayment.paid_at ? new Date(selectedPayment.paid_at).toLocaleTimeString('fr-FR') : selectedPayment.confirmation_actor })
                     : t('admin.finance.waiting')}
                 />
               </div>
@@ -1252,7 +1252,7 @@ if (tab === 'overview') {
                       </div>
                       {sale.status === 'COLLECTED' && (
                         <div style={{ gridColumn: '1 / -1', color: '#94a3b8', fontSize: 11 }}>
-                          Encaissée{sale.collected_at ? ` le ${new Date(sale.collected_at).toLocaleString()}` : ''}{sale.collector_name ? ` par ${sale.collector_name}` : ''}
+                          Encaissée{sale.collected_at ? ` le ${new Date(sale.collected_at).toLocaleString('fr-FR')}` : ''}{sale.collector_name ? ` par ${sale.collector_name}` : ''}
                         </div>
                       )}
                     </div>
@@ -1293,7 +1293,7 @@ if (tab === 'overview') {
                   {paymentDetail.order_history.map((h, i) => (
                     <div key={`${h.status}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#cbd5e1' }}>
                       <span>{h.status}{h.note ? ` — ${h.note}` : ''}</span>
-                      <span style={{ color: '#64748b', flexShrink: 0 }}>{new Date(h.timestamp).toLocaleString()}</span>
+                      <span style={{ color: '#64748b', flexShrink: 0 }}>{new Date(h.timestamp).toLocaleString('fr-FR')}</span>
                     </div>
                   ))}
                 </div>
@@ -1461,7 +1461,7 @@ if (tab === 'overview') {
                       <div key={m.id} style={{ backgroundColor: '#1e293b', borderRadius: 6, padding: 8, fontSize: 12 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: 11, marginBottom: 4 }}>
                           <span>{m.sender_name || m.sender_type}</span>
-                          <span>{new Date(m.created_at).toLocaleString()}</span>
+                          <span>{new Date(m.created_at).toLocaleString('fr-FR')}</span>
                         </div>
                         <div style={{ color: '#cbd5e1' }}>{m.message}</div>
                       </div>

@@ -5,6 +5,8 @@ import { courierApi } from '@/api/courier'
 import { ApiError, type HandoverState, type HandoverVerificationResult } from '@/api/types'
 import { useI18n } from '@/store/i18n'
 import { lineLabel } from '@/lib/lineLabel'
+import { formatMoney } from '@/lib/format'
+import { timelineNote } from '@/lib/timelineNote'
 import { getCourierWorkflow } from '@/lib/courierWorkflow'
 import { useOrderEvents } from '@/lib/orderEvents'
 import type { TranslationKey } from '@/locales/fr'
@@ -21,6 +23,8 @@ type Mission={order_id:string;order_number:string;status:string;delivery_status:
 
 export default function CourierMissionPage(){
   const {id=''}=useParams(), navigate=useNavigate(), {t,lang}=useI18n()
+  /** Translated API code, falling back to the raw code. */
+  const tr=(key:string, fallback:string)=>{const v=t(key as TranslationKey); return v===key?fallback:v}
   const [m,setM]=useState<Mission|null>(null), [error,setError]=useState('')
   const [handover,setHandover]=useState<HandoverState|null>(null)
   const [actionBusy,setActionBusy]=useState(''), [actionError,setActionError]=useState(''), [actionSuccess,setActionSuccess]=useState('')
@@ -264,7 +268,7 @@ export default function CourierMissionPage(){
                 <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
                   <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
                   <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
-                  <p className="courier-muted">{workflow.explanation} Montant à encaisser : <strong>{m.total_amount.toLocaleString(lang)} {m.currency}</strong></p>
+                  <p className="courier-muted">{workflow.explanation} Montant à encaisser : <strong>{formatMoney(m.total_amount, m.currency)}</strong></p>
                   {/* Cash is confirmed in the handover panel, which first asks whether the
                       exact amount was received: no one-tap money confirmation here. */}
                   <button className="courier-btn courier-btn-primary" onClick={scrollToHandover}>
@@ -320,18 +324,18 @@ export default function CourierMissionPage(){
             <Detail l={t('courier.dashboard.packages')} v={String(m.package_count)}/>
             <Detail l={t('courier.dashboard.client')} v={m.delivery_contact}/>
             <Detail l={t('courier.dashboard.phone')} v={m.delivery_phone}/>
-            <Detail l="Mode de paiement" v={m.payment_method}/>
-            <Detail l="Statut du paiement" v={m.payment_status}/>
-            <Detail l="Produits" v={`${(m.products_total ?? 0).toLocaleString(lang)} ${m.currency}`}/>
-            <Detail l="Frais de livraison TBK" v={`${(m.delivery_fee ?? 0).toLocaleString(lang)} ${m.currency}`}/>
-            {(m.payment_markup ?? 0) > 0 && <Detail l="Frais de paiement" v={`${(m.payment_markup ?? 0).toLocaleString(lang)} ${m.currency}`}/>}
-            <Detail l="Montant total à encaisser" v={`${m.total_amount.toLocaleString(lang)} ${m.currency}`}/>
+            <Detail l="Mode de paiement" v={tr(`payment.method.${m.payment_method}`, m.payment_method)}/>
+            <Detail l="Statut du paiement" v={tr(`tracking.pay.${m.payment_status}`, m.payment_status)}/>
+            <Detail l="Produits" v={formatMoney(m.products_total ?? 0, m.currency)}/>
+            <Detail l="Frais de livraison TBK" v={formatMoney(m.delivery_fee ?? 0, m.currency)}/>
+            {(m.payment_markup ?? 0) > 0 && <Detail l="Frais de paiement" v={formatMoney(m.payment_markup ?? 0, m.currency)}/>}
+            <Detail l="Montant total à encaisser" v={formatMoney(m.total_amount, m.currency)}/>
             {m.delivery_notes&&<Detail l={t('courier.dashboard.instructions')} v={m.delivery_notes}/>}
           </div>
           {m.lines&&m.lines.length>0&&<>
             <h2>Produits</h2>
             <div className="courier-details">
-              {m.lines.map(line=><Detail key={line.id} l={lineLabel(line.product_name,line.variant_name)} v={`${line.quantity} × ${line.final_unit_price.toLocaleString(lang)} ${m.currency}`}/>)}
+              {m.lines.map(line=><Detail key={line.id} l={lineLabel(line.product_name,line.variant_name)} v={`${line.quantity} × ${formatMoney(line.final_unit_price, m.currency)}`}/>)}
             </div>
           </>}
 
@@ -350,7 +354,7 @@ export default function CourierMissionPage(){
           {m.history&&m.history.length>0&&<>
             <h2>Historique enregistré</h2>
             <ol style={{paddingLeft:0, listStyle:'none'}}>
-              {m.history.map(event=><li key={event.id} style={{padding:'8px 0'}}><strong>{event.status}</strong>{event.notes&&<div>{event.notes}</div>}<div className="courier-muted">{new Date(event.created_at).toLocaleString(lang)}</div></li>)}
+              {m.history.map(event=><li key={event.id} style={{padding:'8px 0'}}><strong>{tr(`status.${event.status}`, event.status)}</strong>{event.notes&&<div>{timelineNote((k)=>t(k as TranslationKey), event.notes)}</div>}<div className="courier-muted">{new Date(event.created_at).toLocaleString(lang)}</div></li>)}
             </ol>
           </>}
         </section>

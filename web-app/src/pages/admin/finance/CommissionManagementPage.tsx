@@ -27,6 +27,8 @@ const BREAKDOWN_LABELS: Record<FinanceBreakdownGroup, string> = {
   business: 'Entreprise'
 }
 
+const GROUP_LABEL = { shop: 'boutique', product: 'produit', variant: 'variante', seller: 'vendeur', business: 'entreprise' } as const
+
 export default function CommissionManagementPage() {
 
   const [config, setConfig] = useState<AdminCommissionConfig | null>(null)
@@ -326,7 +328,7 @@ export default function CommissionManagementPage() {
         {/* Axe acheteur. Un acheteur peut avoir tout regle alors que la
             commission TBK ci-dessus reste due: les deux ne se confondent pas. */}
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiements Encaisses</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiements encaissés</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#facc15', marginTop: 4 }}>
             {aggregateMoney('payments_collected', summary?.payments_collected || 0)}
           </div>
@@ -338,7 +340,7 @@ export default function CommissionManagementPage() {
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Unites Vendues</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Unités vendues</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--admin-text)', marginTop: 4 }}>
             {summary?.units_sold ?? 0}
           </div>
@@ -364,7 +366,7 @@ export default function CommissionManagementPage() {
               color: breakdownGroup === g ? '#ffffff' : 'var(--admin-text-muted)',
             }}
           >
-            Répartition par {g}
+            Par {GROUP_LABEL[g]}
           </button>
         ))}
       </div>
@@ -407,7 +409,7 @@ export default function CommissionManagementPage() {
 
       {/* Filters */}
       <div style={{ backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
             { id: 'ALL', label: 'Toutes les ventes' },
             { id: 'DUE', label: '⏳ À reverser (DUE)' },
@@ -539,7 +541,7 @@ export default function CommissionManagementPage() {
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 800, color: 'var(--admin-text)' }}>#{c.order_number}</div>
                     <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
-                      {new Date(c.calculated_at).toLocaleString()}
+                      {new Date(c.calculated_at).toLocaleString('fr-FR')}
                     </div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
@@ -638,7 +640,7 @@ export default function CommissionManagementPage() {
 
       {/* Rate history: who changed the platform rate, when and why. */}
       {config?.history && config.history.length > 0 && (
-        <div style={{ marginTop: 20, backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14 }}>
+        <div style={{ marginTop: 20, backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14, overflowX: 'auto' }}>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Historique du taux de commission</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
@@ -652,7 +654,7 @@ export default function CommissionManagementPage() {
             <tbody>
               {config.history.slice(0, 10).map((h) => (
                 <tr key={h.id} style={{ borderTop: '1px solid var(--admin-border-soft)' }}>
-                  <td style={{ padding: '6px 8px' }}>{new Date(h.created_at).toLocaleString()}</td>
+                  <td style={{ padding: '6px 8px' }}>{new Date(h.created_at).toLocaleString('fr-FR')}</td>
                   <td style={{ padding: '6px 8px', fontWeight: 700 }}>{h.old_rate.toFixed(2)} % → {h.new_rate.toFixed(2)} %</td>
                   <td style={{ padding: '6px 8px' }}>{h.admin_name || '—'}</td>
                   <td style={{ padding: '6px 8px', color: 'var(--admin-text-muted)' }}>{h.reason || '—'}</td>

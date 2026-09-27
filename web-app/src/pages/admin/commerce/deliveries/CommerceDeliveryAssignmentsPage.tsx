@@ -362,7 +362,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ fontWeight: 800, color: 'var(--admin-text)' }}>#{o.order_number}</div>
                       <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
-                        {new Date(o.created_at).toLocaleString()}
+                        {new Date(o.created_at).toLocaleString('fr-FR')}
                       </div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-primary)', marginTop: 2 }}>
                         {formatMoney(o.amount_due ?? o.final_total ?? 0, o.currency)}
@@ -691,7 +691,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                                 <span style={{ color: ev.scan_result === 'SUCCESS' ? '#4ade80' : '#f87171' }}>{ev.scan_result}</span>
                               </div>
                               <div style={{ fontSize: 11, color: 'var(--admin-text-muted)', marginTop: 4 }}>
-                                Horodatage: {new Date(ev.created_at).toLocaleString()}
+                                Horodatage: {new Date(ev.created_at).toLocaleString('fr-FR')}
                               </div>
                             </div>
                           ))}

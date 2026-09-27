@@ -170,7 +170,7 @@ export default function CourierScanScreen() {
   // Typing the printed code is the fallback when the camera cannot be used, so it
   // must stay reachable when camera access is refused, not only once it is granted.
   const manualEntry = (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.manual}>
+    <KeyboardAvoidingView behavior="padding" style={styles.manual}>
       <Text style={styles.body}>{t(scanType === 'PRODUCT' ? 'courier.manualCode' : 'courier.scan.manualLabel')}</Text>
       <TextInput
         value={manualCode}

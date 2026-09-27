@@ -10,6 +10,8 @@ import { StatusBadge } from '@/components/ui/Badges'
 import { EmptyState, ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 
+const NARROW_QUERY = '(max-width: 899px)'
+
 export default function CommerceOrderCommunicationsPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -21,6 +23,14 @@ export default function CommerceOrderCommunicationsPage() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  // Phones get a list → conversation flow; the two columns do not fit side by side.
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY)
+    const onChange = () => setNarrow(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   const load = useCallback(
     async (silent = false) => {
@@ -37,7 +47,7 @@ export default function CommerceOrderCommunicationsPage() {
         setError('')
 
         // Auto-select first item if none selected
-        if (!selectedOrderId && (res?.items?.length ?? 0) > 0) {
+        if (!narrow && !selectedOrderId && (res?.items?.length ?? 0) > 0) {
           setSearchParams({ order_id: res.items[0].order_id }, { replace: true })
         }
       } catch (err) {
@@ -46,7 +56,7 @@ export default function CommerceOrderCommunicationsPage() {
         if (!silent) setLoading(false)
       }
     },
-    [search, statusFilter, selectedOrderId, setSearchParams]
+    [search, statusFilter, selectedOrderId, setSearchParams, narrow]
   )
 
   useEffect(() => {
@@ -72,7 +82,7 @@ export default function CommerceOrderCommunicationsPage() {
         </div>
 
         {/* Search & Filter */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
           <input
             type="search"
             placeholder="Rechercher commande, boutique, acheteur..."
@@ -86,6 +96,7 @@ export default function CommerceOrderCommunicationsPage() {
               color: '#f8fafc',
               fontSize: 13,
               width: 260,
+              maxWidth: '100%',
             }}
           />
           <select
@@ -101,13 +112,13 @@ export default function CommerceOrderCommunicationsPage() {
             }}
           >
             <option value="">Tous les statuts</option>
-            <option value="PENDING">PENDING</option>
-            <option value="ACCEPTED">ACCEPTED</option>
-            <option value="PREPARING">PREPARING</option>
-            <option value="READY">READY</option>
-            <option value="DELIVERED">DELIVERED</option>
-            <option value="COMPLETED">COMPLETED</option>
-            <option value="CANCELLED">CANCELLED</option>
+            <option value="PENDING">En attente</option>
+            <option value="ACCEPTED">Acceptée</option>
+            <option value="PREPARING">En préparation</option>
+            <option value="READY">Prête</option>
+            <option value="DELIVERED">Livrée</option>
+            <option value="COMPLETED">Terminée</option>
+            <option value="CANCELLED">Annulée</option>
           </select>
         </div>
       </div>
@@ -118,14 +129,14 @@ export default function CommerceOrderCommunicationsPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(320px, 380px) 1fr',
+          gridTemplateColumns: narrow ? 'minmax(0, 1fr)' : 'minmax(320px, 380px) 1fr',
           gap: 16,
           flex: 1,
           overflow: 'hidden',
         }}
       >
         {/* Left Column: Channels */}
-        <div
+        {(!narrow || !selectedOrderId) && <div
           style={{
             backgroundColor: '#0f172a',
             border: '1px solid #1e293b',
@@ -196,13 +207,18 @@ export default function CommerceOrderCommunicationsPage() {
               })
             )}
           </div>
-        </div>
+        </div>}
 
         {/* Right Column: Chat Feed */}
-        <div style={{ height: '100%', overflow: 'hidden' }}>
+        {(!narrow || selectedOrderId) && <div style={{ height: '100%', overflow: 'hidden', minWidth: 0 }}>
           {selectedOrderId ? (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: narrow ? 'space-between' : 'flex-end', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                {narrow && (
+                  <Button variant="outline" size="sm" onClick={() => setSearchParams({}, { replace: true })}>
+                    ← Conversations
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -240,7 +256,7 @@ export default function CommerceOrderCommunicationsPage() {
               />
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   )

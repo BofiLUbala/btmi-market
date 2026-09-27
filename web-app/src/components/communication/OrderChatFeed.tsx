@@ -31,6 +31,11 @@ const PARTY_LABEL: Record<ChatParty, string> = {
   ADMIN: 'Support TBK',
 }
 
+/** Party name inside a French sentence: "le support TBK", "livreur"… */
+function partyInSentence(party: ChatParty): string {
+  return party === 'ADMIN' ? 'le support TBK' : PARTY_LABEL[party].toLowerCase()
+}
+
 function PartyIcon({ party }: { party: ChatParty }) {
   if (party === 'ADMIN') return <ShieldCheckIcon className="inline-icon" />
   if (party === 'SELLER') return <StoreIcon className="inline-icon" />
@@ -194,13 +199,13 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
                 padding: '6px 12px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
                 background: active ? 'var(--color-primary)' : 'var(--color-surface-2)',
-                color: active ? '#fff' : 'var(--color-text)',
+                color: active ? 'var(--color-on-primary)' : 'var(--color-text)',
                 opacity: c.available ? 1 : 0.6,
               }}
             >
               <PartyIcon party={c.party} /> {PARTY_LABEL[c.party]}
               {c.unread > 0 && (
-                <span style={{ minWidth: 18, padding: '0 5px', borderRadius: 9, background: active ? '#fff' : 'var(--color-primary)', color: active ? 'var(--color-primary)' : '#fff', fontSize: 11 }}>
+                <span style={{ minWidth: 18, padding: '0 5px', borderRadius: 9, background: active ? 'var(--color-on-primary)' : 'var(--color-primary)', color: active ? 'var(--color-primary)' : 'var(--color-on-primary)', fontSize: 11 }}>
                   {c.unread}
                 </span>
               )}
@@ -210,8 +215,8 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
       </div>
       {selected && (
         <div className="small muted" style={{ padding: '6px 16px', borderBottom: '1px solid var(--color-border)' }}>
-          Conversation privée avec {PARTY_LABEL[selected.party].toLowerCase()}
-          {selected.name ? ` (${selected.name})` : ''} : personne d’autre ne la voit.
+          Conversation privée avec {partyInSentence(selected.party)}
+          {selected.name && selected.name.toLowerCase() !== PARTY_LABEL[selected.party].toLowerCase() ? ` (${selected.name})` : ''} : personne d’autre ne la voit.
         </div>
       )}
 
@@ -285,7 +290,7 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
                         border: '1.5px solid var(--color-warning, #f59e0b)',
                       }
                     : isMe
-                      ? { background: 'var(--color-primary)', color: '#fff', borderBottomRightRadius: 2 }
+                      ? { background: 'var(--color-primary)', color: 'var(--color-on-primary)', borderBottomRightRadius: 2 }
                       : {
                           background: 'var(--color-surface-2)',
                           color: 'var(--color-text)',
@@ -309,8 +314,10 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
           borderTop: '1px solid var(--color-border)',
           background: 'var(--color-surface-1)',
           display: 'flex',
+          flexWrap: 'wrap',
           gap: 8,
           alignItems: 'flex-end',
+          justifyContent: 'flex-end',
         }}
       >
         <textarea
@@ -319,9 +326,10 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
           onChange={(e) => setInputBody(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={!selected?.available}
-          placeholder={selected ? `Message privé à ${PARTY_LABEL[selected.party].toLowerCase()}…` : t('communication.inputPlaceholder')}
+          placeholder={selected ? `Message privé ${selected.party === 'ADMIN' ? 'au support TBK' : `à ${partyInSentence(selected.party)}`}…` : t('communication.inputPlaceholder')}
           style={{
-            flex: 1,
+            // Keeps a readable width; on narrow cards the send button wraps below.
+            flex: '1 1 200px',
             minWidth: 0,
             padding: '8px 12px',
             borderRadius: 8,

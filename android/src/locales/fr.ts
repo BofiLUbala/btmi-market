@@ -534,6 +534,7 @@ export const fr = {
   'orders.actorBuyer': 'Acheteur',
   'orders.actorSystem': 'Système',
   'orders.cashPayment': 'Paiement en espèces',
+  'orders.amountBeforeMarkup': 'Commande (produits + livraison)',
   'orders.amountDue': 'Montant dû : {amount}',
   'orders.you': 'Vous',
   'orders.paymentDeclared': '✓ Paiement déclaré',

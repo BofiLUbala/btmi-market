@@ -163,7 +163,7 @@ export default function CourierScanPage() {
         {!message && !cameraError && (
           <div style={{ height: 280, border: `3px solid ${error ? '#f87171' : 'white'}`, borderRadius: 20, boxShadow: '0 0 0 9999px rgba(0,0,0,.35)' }} />
         )}
-        <div role="status" style={{ marginTop: 20, padding: 16, borderRadius: 14, background: 'rgba(0,0,0,.75)', color: error || cameraError ? '#fecaca' : '#fff' }}>
+        <div role="status" style={{ marginTop: 20, padding: 16, borderRadius: 14, background: 'rgba(0,0,0,.75)', color: message ? '#bbf7d0' : error || cameraError ? '#fecaca' : '#fff' }}>
           {status}
         </div>
         {error && !message && (

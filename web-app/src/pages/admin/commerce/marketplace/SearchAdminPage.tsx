@@ -53,9 +53,9 @@ export default function SearchAdminPage() {
           <div className="admin-kpi-grid" style={{ marginBottom: 16 }}>
             {[
               { label: t('common.status'), value: analytics.available ? t('admin.searchAdmin.online') : t('admin.searchAdmin.offline'), color: analytics.available ? '#34d399' : '#ef4444' },
-              { label: t('admin.searchAdmin.totalQueries'), value: analytics.total_queries?.toLocaleString() ?? '0' },
-              { label: t('admin.searchAdmin.zeroResults'), value: analytics.zero_results?.toLocaleString() ?? '0', color: analytics.zero_results && analytics.zero_results > 0 ? '#fbbf24' : '#f8fafc' },
-              { label: t('admin.searchAdmin.failedSearches'), value: analytics.failed_searches?.toLocaleString() ?? '0', color: analytics.failed_searches && analytics.failed_searches > 0 ? '#ef4444' : '#f8fafc' },
+              { label: t('admin.searchAdmin.totalQueries'), value: analytics.total_queries?.toLocaleString('fr-FR') ?? '0' },
+              { label: t('admin.searchAdmin.zeroResults'), value: analytics.zero_results?.toLocaleString('fr-FR') ?? '0', color: analytics.zero_results && analytics.zero_results > 0 ? '#fbbf24' : '#f8fafc' },
+              { label: t('admin.searchAdmin.failedSearches'), value: analytics.failed_searches?.toLocaleString('fr-FR') ?? '0', color: analytics.failed_searches && analytics.failed_searches > 0 ? '#ef4444' : '#f8fafc' },
             ].map((stat) => (
               <div key={stat.label} style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: 16, textAlign: 'center' }}>
                 <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{stat.label}</div>
@@ -91,7 +91,7 @@ export default function SearchAdminPage() {
                 <tbody>
                   {queries.map((q, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
-                      <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(q.created_at).toLocaleString()}</td>
+                      <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(q.created_at).toLocaleString('fr-FR')}</td>
                       <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{q.query}</td>
                       <td style={{ padding: '10px 12px', color: q.results_count === 0 ? '#ef4444' : '#34d399', fontWeight: 700 }}>{q.results_count}</td>
                       <td style={{ padding: '10px 12px' }}>

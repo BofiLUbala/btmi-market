@@ -105,7 +105,7 @@ export default function StockHistoryPage() {
                 const delta = m.new_quantity - m.previous_quantity
                 return (
                   <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
-                    <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString()}</td>
+                    <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString('fr-FR')}</td>
                     <td style={{ padding: '10px 12px' }}>{typeColor(m.movement_type)}</td>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.shop_name || m.shop_id}</td>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.variant_name || m.product_name}</td>
