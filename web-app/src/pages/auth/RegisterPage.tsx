@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { authApi } from '@/api/auth'
+import { sellerAuthApi } from '@/api/seller'
 import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
@@ -18,8 +19,12 @@ const canonicalPhone = (value: string) => {
   return digits.length === 10 && digits.startsWith('0') ? `243${digits.slice(1)}` : digits
 }
 
-export default function RegisterPage() {
+export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 'BUYER' | 'SELLER' }) {
   const t = useT()
+  const isSeller = accountType === 'SELLER'
+  const loginPath = isSeller ? '/seller/login' : '/login'
+  const resendPath = isSeller ? '/seller/resend-activation' : '/resend-activation'
+  const [policyAccepted, setPolicyAccepted] = useState(false)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [form, setForm] = useState({
     email: '',
@@ -150,6 +155,10 @@ export default function RegisterPage() {
     if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
       return
     }
+    if (isSeller && !policyAccepted) {
+      setError(t('seller.policy.required'))
+      return
+    }
 
     setBusy(true)
     setPhase('creating')
@@ -157,7 +166,8 @@ export default function RegisterPage() {
     let sendingTimer: ReturnType<typeof setTimeout> | undefined
     try {
       sendingTimer = setTimeout(() => setPhase('sending'), 600)
-      await authApi.register({
+      const register = isSeller ? sellerAuthApi.registerSeller : authApi.register
+      await register({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         phone: form.phone.trim(),
@@ -207,14 +217,14 @@ export default function RegisterPage() {
         <div className="card auth-card">
           <div className="registration-result">
             <span className="result-icon" aria-hidden>✓</span>
-            <h1>{t('auth.register.created')}</h1>
+            <h1>{isSeller ? t('seller.auth.register.sellerCreated') : t('auth.register.created')}</h1>
             <p className="muted">{t('auth.register.checkEmail')}</p>
             <p>{t('auth.register.sentLinkToEmail', { email: form.email })}</p>
             <p className="small muted">{t('auth.register.linkValidity')}</p>
-            <Link to="/resend-activation">
+            <Link to={resendPath}>
               <Button variant="outline" block>{t('auth.register.resendActivation')}</Button>
             </Link>
-            <Link to="/login">
+            <Link to={loginPath}>
               <Button block>{t('auth.register.goToSignIn')}</Button>
             </Link>
           </div>
@@ -233,10 +243,10 @@ export default function RegisterPage() {
             <h1>{t('auth.register.created')}</h1>
             <p className="muted">{t('auth.register.emailFailed')}</p>
             {error && <ErrorBox error={error} />}
-            <Link to="/resend-activation">
+            <Link to={resendPath}>
               <Button block>{t('auth.register.trySendingAgain')}</Button>
             </Link>
-            <Link to="/login">
+            <Link to={loginPath}>
               <Button variant="outline" block>{t('auth.register.goToSignIn')}</Button>
             </Link>
           </div>
@@ -250,8 +260,9 @@ export default function RegisterPage() {
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit} style={{ maxWidth: 580 }}>
-        <h1>{t('auth.register.title')}</h1>
-        <p className="muted small">{t('auth.register.subtitle')}</p>
+        {isSeller && <span className="seller-eyebrow">TBK Seller</span>}
+        <h1>{isSeller ? t('seller.auth.register.title') : t('auth.register.title')}</h1>
+        <p className="muted small">{isSeller ? t('seller.auth.register.subtitle') : t('auth.register.subtitle')}</p>
 
         {/* Wizard progress stepper with visual progress bar */}
         <nav className="wizard-stepper-wrap" aria-label={t('auth.register.progressLabel') || 'Registration progress'}>
@@ -462,20 +473,45 @@ export default function RegisterPage() {
                   )}
                 </div>
 
+                {isSeller && (
+                  <label className="seller-policy-consent">
+                    <input
+                      type="checkbox"
+                      checked={policyAccepted}
+                      onChange={(e) => {
+                        setPolicyAccepted(e.target.checked)
+                        setError('')
+                      }}
+                    />
+                    <span>
+                      {t('seller.policy.consentPrefix')}{' '}
+                      <Link to="/seller/politique" target="_blank" rel="noopener noreferrer" className="section-link">
+                        {t('seller.policy.navLabel')}
+                      </Link>
+                    </span>
+                  </label>
+                )}
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.75rem', marginTop: '0.5rem' }}>
                   <Button type="button" variant="outline" size="lg" onClick={prevStep} disabled={busy}>
                     ← {t('auth.register.prevStep')}
                   </Button>
-                  <Button type="submit" size="lg" loading={busy} disabled={busy}>
-                    {t('auth.register.submit')}
+                  <Button type="submit" size="lg" loading={busy} disabled={busy || (isSeller && !policyAccepted)}>
+                    {isSeller ? t('seller.auth.register.submit') : t('auth.register.submit')}
                   </Button>
                 </div>
               </div>
             )}
 
             <p className="small muted" style={{ textAlign: 'center', marginTop: '1rem' }}>
-              {t('auth.register.alreadyRegistered')} <Link to="/login" className="section-link">{t('common.signIn')}</Link>
+              {t('auth.register.alreadyRegistered')} <Link to={loginPath} className="section-link">{t('common.signIn')}</Link>
             </p>
+            {isSeller && (
+              <p className="small muted" style={{ textAlign: 'center' }}>
+                {t('seller.auth.register.wantBuy')}
+                <Link to="/register" className="section-link"> {t('seller.auth.register.createBuyerAccount')}</Link>
+              </p>
+            )}
           </>
         )}
       </form>

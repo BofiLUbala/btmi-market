@@ -1,3 +1,4 @@
+import { useI18n } from '../store/i18n'
 import { useMemo, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -20,6 +21,7 @@ function useS() {
 /** web .checkout-shell-header: ← | Checkout | TBK */
 export function CheckoutHeader() {
   const { c, s } = useS()
+  const { t } = useI18n()
   const insets = useSafeAreaInsets()
   return (
     <View style={[s.shell, { paddingTop: insets.top }]}>
@@ -27,7 +29,7 @@ export function CheckoutHeader() {
         <Pressable style={s.shellBack} onPress={() => (router.canGoBack() ? router.back() : router.replace('/(buyer)'))} accessibilityRole="button" accessibilityLabel="Retour">
           <Text style={s.shellBackText}>←</Text>
         </Pressable>
-        <Text style={s.shellTitle}>Checkout</Text>
+        <Text style={s.shellTitle}>{t('checkout.shellTitle')}</Text>
         <Text style={[s.shellBrand, { color: c.ink }]}>TBK</Text>
       </View>
     </View>

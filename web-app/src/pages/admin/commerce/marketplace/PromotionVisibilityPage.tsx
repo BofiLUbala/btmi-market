@@ -72,7 +72,7 @@ export default function PromotionVisibilityPage() {
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{p.shop_name || t('admin.promotions.allShops')}</td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: '#1e293b', color: '#93c5fd' }}>
-                        {p.discount_type === 'PERCENTAGE' ? `${p.discount_value}% OFF` : `${formatMoney(p.discount_value)} OFF`}
+                        {p.discount_type === 'PERCENTAGE' ? t('seller.productForm.discountOffBadge', { value: `${p.discount_value}%` }) : t('seller.productForm.discountOffBadge', { value: formatMoney(p.discount_value) })}
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>

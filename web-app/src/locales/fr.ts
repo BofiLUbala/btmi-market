@@ -691,7 +691,7 @@ export const fr = {
   'reviews.notEligibleReason':
     'Vous ne pouvez noter une commande qu’une fois celle-ci terminée et le paiement vérifié.',
   'reviews.backToOrder': 'Retour à la commande',
-  'reviews.starsLabel': '{count} étoiles',
+  'reviews.starsLabel': '{count} étoile(s)',
   'orderRating.title': 'Évaluez votre commande',
   'orderRating.subtitle': 'Notez votre expérience de 1 à 5 étoiles et laissez un commentaire pour la boutique.',
   'orderRating.editableHint': 'Votre évaluation. Vous pouvez la modifier à tout moment.',
@@ -755,6 +755,7 @@ export const fr = {
   'reviews.ratingOutOf5': '{value} sur 5 étoiles',
 
   /* ── Progression de commande ────────────────────────────── */
+  'checkout.shellTitle': 'Finaliser la commande',
   'checkout.progress': 'Progression de la commande',
   'checkout.step.cart': 'Panier',
   'checkout.step.delivery': 'Livraison',
@@ -1209,6 +1210,7 @@ export const fr = {
     'Ce que TBK attend de chaque vendeur — et ce qu’il peut attendre de TBK : ouverture de compte, catalogue, commission, commandes, livraison, retours, avis et sanctions.',
   'seller.policy.version': 'Version {version} — mise à jour le {date}',
   'seller.policy.consentPrefix': 'J’ai lu et j’accepte la',
+  'seller.policy.required': 'Lisez la politique des vendeurs et cochez la case pour créer votre compte.',
   'seller.workspace': 'Espace de travail',
   'seller.publicBrandAria': 'TBK Seller — accueil',
   'seller.navigation': 'Navigation vendeur',
@@ -1614,6 +1616,11 @@ export const fr = {
     'Affichée aux acheteurs comme votre propre appréciation, distincte des avis vérifiés des acheteurs.',
   'seller.productForm.selfRatingSelected': '{count} sur 5 étoiles',
   'seller.productForm.promotionTitle': 'Promotion & offre spéciale',
+  'seller.productForm.promotionHint': 'Fixez un prix remisé ou un pourcentage de réduction. Les prix remisés s’appliquent automatiquement au paiement.',
+  'seller.productForm.promotionEnable': 'Activer une promotion / un prix soldé',
+  'seller.productForm.discountOffBadge': '-{value}',
+  'seller.productForm.discountPercentPlaceholder': 'ex. 20',
+  'seller.productForm.discountAmountPlaceholder': 'ex. 5',
   'seller.productForm.promotionDesc':
     'Définissez un prix réduit ou un pourcentage de remise. Les prix réduits s’appliquent automatiquement lors du paiement.',
   'seller.productForm.enablePromotion': 'Activer la promotion spéciale / le prix de vente',
@@ -1659,7 +1666,7 @@ export const fr = {
     'Renseignez les caractéristiques de variante manquantes avant de publier.',
   'seller.productForm.characteristicsDesc':
     'Sélectionnez les attributs qui s’appliquent à ce produit. Vous décidez si un attribut crée des variantes achetables (ex. Couleur, Taille, Parfum) ou sert d’information produit (ex. Matériau, Date de péremption).',
-  'seller.productForm.suggestedFor': '💡 Suggéré pour {name} (cliquez pour ajouter) :',
+  'seller.productForm.suggestedFor': 'Suggéré pour {name} (cliquez pour ajouter) :',
   'seller.productForm.thisCategory': 'cette catégorie',
   'seller.productForm.variantChip': 'Variante',
   'seller.productForm.infoChip': 'Info',

@@ -21,6 +21,16 @@ function titleCase(key: string): string {
  * Works for any attribute names (Color, Size, Storage, RAM, Flavor, Voltage…).
  * Key order follows first appearance across variants.
  */
+/**
+ * A key that several variants carry with one and the same value (e.g. the
+ * product-level "Model" copied onto every variant) is a shared characteristic,
+ * shown with the specifications — not a choice the buyer has to make.
+ */
+function isSharedCharacteristic(variants: { attributes?: Record<string, string> | null }[], key: string): boolean {
+  const carried = variants.map((v) => (v.attributes ?? {})[key]?.trim()).filter(Boolean)
+  return carried.length >= 2 && new Set(carried).size === 1
+}
+
 export function buildAttributeGroups(variants: PublicVariantDetail[]): AttributeGroup[] {
   const order: string[] = []
   const values = new Map<string, LinkedSet>()
@@ -40,7 +50,7 @@ export function buildAttributeGroups(variants: PublicVariantDetail[]): Attribute
   // dropping single-value dimensions would hide Color/Size entirely and make
   // the buyer fall back to opaque variant names.
   return order
-    .filter((key) => (values.get(key)?.toArray().length ?? 0) > 0)
+    .filter((key) => (values.get(key)?.toArray().length ?? 0) > 0 && !isSharedCharacteristic(variants, key))
     .map((key) => ({
       key,
       label: titleCase(key),

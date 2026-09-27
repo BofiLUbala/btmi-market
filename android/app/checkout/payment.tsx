@@ -278,7 +278,7 @@ export default function PaymentScreen() {
     ? ([
         ['Province', firstOrder.delivery_province], ['Ville', firstOrder.delivery_city], ['Commune', firstOrder.delivery_commune],
         ['Adresse', firstOrder.delivery_street || firstOrder.delivery_address], ['Numéro', firstOrder.delivery_building_number],
-        ['Instructions', firstOrder.delivery_landmark],
+        ['Point de repère', firstOrder.delivery_landmark],
       ] as Array<[string, string]>).filter(([, v]) => Boolean(v))
     : []
   let ctaLabel = 'Confirmer la commande'
@@ -305,7 +305,9 @@ export default function PaymentScreen() {
             <>
               <Text style={[styles.stepTitle, styles.stepGap]}>2. {timing === 'NOW' ? 'Paiement mobile immédiat' : 'Comment payer à la livraison ?'}</Text>
               {methodsFor(timing).map((m) => {
-                const markup = priced.length ? sum((q) => methodMarkupFor(q, m.code)) : 0
+                // Before a method is picked nothing is re-priced yet: fall back to the
+                // base quote's own figure instead of claiming the method is free.
+                const markup = priced.length ? sum((q) => methodMarkupFor(q, m.code)) : m.markup_amount ?? 0
                 return (
                   <Choice
                     key={m.code}
@@ -404,7 +406,7 @@ export default function PaymentScreen() {
             <ErrorState message={t('checkout.paymentFailed')} retry={() => pricedQuotes.forEach((q) => void q.refetch())} />
           ) : paymentMethod ? <Loading label={t('checkout.preparingPayment')} /> : null}
           <View>
-            <View style={styles.summaryLine}><Text style={styles.muted}>Timing</Text><Text style={styles.value}>{timing === 'NOW' ? 'Immédiat' : timing === 'DELIVERY' ? 'À la livraison' : '—'}</Text></View>
+            <View style={styles.summaryLine}><Text style={styles.muted}>Moment du paiement</Text><Text style={styles.value}>{timing === 'NOW' ? 'Immédiat' : timing === 'DELIVERY' ? 'À la livraison' : '—'}</Text></View>
             <View style={styles.summaryLine}><Text style={styles.muted}>Mode</Text><Text style={styles.value}>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ?? methodLabel(selectedMethod)) : '—'}</Text></View>
             <View style={styles.summaryLine}><Text style={styles.muted}>Opérateur</Text><Text style={styles.value}>{needsProvider ? (providers.find((item) => item.code === provider)?.label ?? '—') : 'Sans objet'}</Text></View>
           </View>

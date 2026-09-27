@@ -44,6 +44,7 @@ function Footer() {
 }
 
 export function Layout() {
+  const { t } = useI18n()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const focusedCheckout = pathname.startsWith('/checkout/')
@@ -62,7 +63,7 @@ export function Layout() {
       <div className="checkout-shell">
         <header className="checkout-shell-header">
           <button type="button" onClick={() => navigate(-1)} aria-label="Retour">←</button>
-          <strong>Checkout</strong>
+          <strong>{t('checkout.shellTitle')}</strong>
           <span aria-hidden>TBK</span>
         </header>
         <main className="checkout-shell-main"><div className="container"><PlatformBanner audience="BUYERS" /><Outlet /></div></main>

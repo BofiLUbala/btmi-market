@@ -458,6 +458,7 @@ export const fr = {
   'favorites.body': 'Touchez le cœur d’un produit pour le retrouver facilement ici.',
 
   /* ── Checkout ───────────────────────────────────────────── */
+  'checkout.shellTitle': 'Finaliser la commande',
   'checkout.delivery': 'Livraison',
   'checkout.payment': 'Paiement',
   'checkout.tbkDeliveryTitle': 'Livraison assurée par TBK',

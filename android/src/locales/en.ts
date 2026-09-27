@@ -449,6 +449,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'favorites.body': 'Tap the heart of a product to find it here easily.',
 
   /* ── Checkout ───────────────────────────────────────────── */
+  'checkout.shellTitle': 'Checkout',
   'checkout.delivery': 'Delivery',
   'checkout.payment': 'Payment',
   'checkout.tbkDeliveryTitle': 'TBK Managed Delivery',

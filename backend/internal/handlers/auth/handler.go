@@ -105,6 +105,21 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
+	// The delivery address is only required for buyer signup; seller signup
+	// shares RegisterRequest but sets its shop address later.
+	if strings.TrimSpace(req.Province) == "" || strings.TrimSpace(req.Street) == "" || strings.TrimSpace(req.BuildingNumber) == "" {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "ADDRESS_REQUIRED",
+				Message: "Province, street and building number are required",
+			},
+		})
+		return
+	}
+
 	user, err := h.authService.Register(&req)
 	if err != nil {
 		statusCode := http.StatusInternalServerError

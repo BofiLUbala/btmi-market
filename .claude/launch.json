@@ -4,20 +4,59 @@
     {
       "name": "web-app-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "web-app", "--", "--port", "5174"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "web-app",
+        "--",
+        "--port",
+        "5174"
+      ],
       "port": 5174
     },
     {
       "name": "android-expo-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "web", "--prefix", "android", "--", "--port", "19006"],
+      "runtimeArgs": [
+        "run",
+        "web",
+        "--prefix",
+        "android",
+        "--",
+        "--port",
+        "19006"
+      ],
       "port": 19006
     },
     {
       "name": "android-expo-emulator",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start", "--prefix", "android", "--", "--port", "8081"],
+      "runtimeArgs": [
+        "run",
+        "start",
+        "--prefix",
+        "android",
+        "--",
+        "--port",
+        "8081"
+      ],
       "port": 8081
+    },
+    {
+      "name": "web-app-dev-alt",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "web-app",
+        "--",
+        "--port",
+        "5175",
+        "--strictPort"
+      ],
+      "port": 5175
     }
   ]
 }

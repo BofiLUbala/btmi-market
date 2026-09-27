@@ -5,6 +5,7 @@ import { VARIANT_TYPE_NAMES, sameAttribute } from '@/lib/attributeOptions'
 import { DescriptionPreview } from '@/components/ui/DescriptionSections'
 import { formatMoney } from '@/lib/format'
 import { useI18n } from '@/store/i18n'
+import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, CategoryAttributeDefinition, ProductImageResponse, QRIdentity } from '@/api/types'
 import { QRPanel } from '@/components/qr/QRPanel'
@@ -961,7 +962,7 @@ export default function SellerProductDetailPage() {
                 onChange={(e) => handleEditCategoryChange(e.target.value)}
                 options={[
                   { value: '', label: t('seller.productDetail.noneOption') },
-                  ...categories.map((c) => ({ value: c.id, label: c.name })),
+                  ...categories.map((c) => ({ value: c.id, label: categoryLabel(t, c.slug, c.name) })),
                 ]}
               />
               {categories.find((c) => c.id === productEditForm.category_id)?.subcategories?.length ? (
@@ -973,7 +974,7 @@ export default function SellerProductDetailPage() {
                   onChange={(e) => setProductEditForm({ ...productEditForm, subcategory_id: e.target.value })}
                   options={[
                     { value: '', label: t('seller.productDetail.noneOption') },
-                    ...(categories.find((c) => c.id === productEditForm.category_id)?.subcategories || []).map((s) => ({ value: s.id, label: s.name })),
+                    ...(categories.find((c) => c.id === productEditForm.category_id)?.subcategories || []).map((s) => ({ value: s.id, label: subcategoryLabel(t, s.slug, s.name) })),
                   ]}
                 />
               ) : null}
@@ -1109,8 +1110,8 @@ export default function SellerProductDetailPage() {
                   </span>
                   <span className="badge badge-success" style={{ fontSize: '0.8rem', padding: '2px 6px' }}>
                     {promoForm.discount_type === 'PERCENTAGE' 
-                      ? `${promoForm.discount_value}% OFF` 
-                      : `${formatMoney(parseFloat(promoForm.discount_value), product.currency)} OFF`}
+                      ? t('seller.productForm.discountOffBadge', { value: `${promoForm.discount_value}%` }) 
+                      : t('seller.productForm.discountOffBadge', { value: formatMoney(parseFloat(promoForm.discount_value), product.currency) })}
                   </span>
                 </div>
               </div>
@@ -1127,8 +1128,8 @@ export default function SellerProductDetailPage() {
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                     <strong style={{ fontSize: '1.2rem', color: 'var(--color-primary)' }}>
                       {product.discount_type === 'PERCENTAGE' 
-                        ? `${product.discount_value}% OFF` 
-                        : `${formatMoney(product.discount_value || 0, product.currency)} OFF`}
+                        ? t('seller.productForm.discountOffBadge', { value: `${product.discount_value}%` }) 
+                        : t('seller.productForm.discountOffBadge', { value: formatMoney(product.discount_value || 0, product.currency) })}
                     </strong>
                     {product.unit_price && (
                       <span className="small muted">

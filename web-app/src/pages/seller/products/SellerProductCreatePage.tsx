@@ -3,6 +3,7 @@ import { formatMoney } from '@/lib/format'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
+import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { BulbIcon, WarningIcon } from '@/components/ui/Icons'
 import { DescriptionEditor } from '@/components/seller/DescriptionEditor'
 import { OptionPicker } from '@/components/seller/OptionPicker'
@@ -260,6 +261,7 @@ export default function SellerProductCreatePage() {
     () => subcategories.find((s) => s.id === subcategoryId),
     [subcategories, subcategoryId]
   )
+  const selectedCategoryLabel = selectedCategory ? categoryLabel(t, selectedCategory.slug, selectedCategory.name) : ''
 
   const dbVariantAttrDefs = useMemo(
     () => dbAttrDefs.filter((d) => d.variant_attribute),
@@ -768,7 +770,7 @@ export default function SellerProductCreatePage() {
       setSummary({
         productId: productId!,
         productName: createdProduct?.name ?? form.name.trim(),
-        categoryName: selectedCategory?.name ?? '',
+        categoryName: selectedCategoryLabel,
         variantCount: progress.resolvedVariants.length,
         totalStock: totalUnits,
         imageCount: imageFiles.length,
@@ -882,7 +884,7 @@ export default function SellerProductCreatePage() {
           <h2>{summary.published ? t('seller.productForm.published') : t('seller.productForm.draftSaved')}</h2>
           <p className="muted" style={{ marginTop: 4 }}>
             {summary.published
-              ? t('seller.productForm.publishedBody', { category: selectedCategory?.name ?? '', shop: shop.name })
+              ? t('seller.productForm.publishedBody', { category: selectedCategoryLabel, shop: shop.name })
               : t('seller.productForm.draftBody', { shop: shop.name })}
           </p>
 
@@ -1046,7 +1048,7 @@ export default function SellerProductCreatePage() {
               onChange={(e) => handleCategoryChange(e.target.value)}
               options={[
                 { value: '', label: t('seller.productForm.selectCategory') },
-                ...categories.map((c) => ({ value: c.id, label: c.name })),
+                ...categories.map((c) => ({ value: c.id, label: categoryLabel(t, c.slug, c.name) })),
               ]}
             />
             <Field
@@ -1069,7 +1071,7 @@ export default function SellerProductCreatePage() {
                       ? t('seller.productForm.selectSubcategory')
                       : t('seller.productForm.noSubcategory'),
                 },
-                ...subcategories.map((s) => ({ value: s.id, label: s.name })),
+                ...subcategories.map((s) => ({ value: s.id, label: subcategoryLabel(t, s.slug, s.name) })),
               ]}
             />
           </div>
@@ -1176,7 +1178,7 @@ export default function SellerProductCreatePage() {
             <Card className="reveal-section">
               <h3>{t('seller.productForm.promotionTitle')}</h3>
               <p className="muted small" style={{ margin: '4px 0 12px' }}>
-                Set a discount price or percentage off. Discounted prices apply automatically during checkout.
+                {t('seller.productForm.promotionHint')}
               </p>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -1188,7 +1190,7 @@ export default function SellerProductCreatePage() {
                   style={{ width: 18, height: 18, cursor: 'pointer' }}
                 />
                 <label htmlFor="discount_active" style={{ fontWeight: 600, cursor: 'pointer' }}>
-                  Enable Special Promotion / Sale Price
+                  {t('seller.productForm.promotionEnable')}
                 </label>
               </div>
 
@@ -1211,7 +1213,7 @@ export default function SellerProductCreatePage() {
                     type="number"
                     min="1"
                     step="any"
-                    placeholder={form.discount_type === 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 15000'}
+                    placeholder={form.discount_type === 'PERCENTAGE' ? t('seller.productForm.discountPercentPlaceholder') : t('seller.productForm.discountAmountPlaceholder')}
                     value={form.discount_value}
                     onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
                   />
@@ -1253,8 +1255,8 @@ export default function SellerProductCreatePage() {
                     </span>
                     <span className="badge badge-success" style={{ fontSize: '0.8rem', padding: '2px 6px' }}>
                       {form.discount_type === 'PERCENTAGE' 
-                        ? `${form.discount_value}% OFF` 
-                        : `${formatMoney(parseFloat(form.discount_value))} OFF`}
+                        ? t('seller.productForm.discountOffBadge', { value: `${form.discount_value}%` }) 
+                        : t('seller.productForm.discountOffBadge', { value: formatMoney(parseFloat(form.discount_value)) })}
                     </span>
                   </div>
                 </div>
@@ -1265,7 +1267,7 @@ export default function SellerProductCreatePage() {
             <Card className="reveal-section">
               <h3>{t('seller.productForm.photosTitle')}</h3>
               <p className="muted small" style={{ margin: '4px 0 12px' }}>
-                Add photos from different angles so Buyers can better understand your Product. The first photo is the primary one shown in the Marketplace.
+                {t('seller.productForm.photosDesc')}
               </p>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 {imagePreviews.map((url, idx) => (
@@ -1282,7 +1284,7 @@ export default function SellerProductCreatePage() {
                 ))}
                 {imageFiles.length < 10 && (
                   <label className="btn btn-outline btn-sm image-add-btn" style={{ cursor: 'pointer' }}>
-                    + Add Photo
+                    {t('seller.productForm.addPhoto')}
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
@@ -1480,7 +1482,7 @@ export default function SellerProductCreatePage() {
               {categorySuggestions.length > 0 && (
                 <div style={{ margin: '16px 0 20px', padding: 14, background: 'var(--color-surface-2)', borderRadius: 'var(--radius)' }}>
                   <div className="small bold" style={{ marginBottom: 8, color: 'var(--color-text)' }}>
-                    <BulbIcon className="inline-icon" /> {t('seller.productForm.suggestedFor', { name: selectedSubcategory?.name || selectedCategory?.name || t('seller.productForm.thisCategory') })}
+                    <BulbIcon className="inline-icon" /> {t('seller.productForm.suggestedFor', { name: selectedSubcategory ? subcategoryLabel(t, selectedSubcategory.slug, selectedSubcategory.name) : selectedCategory ? categoryLabel(t, selectedCategory.slug, selectedCategory.name) : t('seller.productForm.thisCategory') })}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {categorySuggestions.map((sug) => {
@@ -1526,7 +1528,8 @@ export default function SellerProductCreatePage() {
                       key={ch.id}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: 'minmax(140px, 220px) 1fr auto',
+                        // Shrinkable columns: fixed minimums pushed the value field off phone screens.
+                        gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) auto',
                         gap: 12,
                         alignItems: 'end',
                         padding: 12,
@@ -1667,12 +1670,12 @@ export default function SellerProductCreatePage() {
               >
                 <div className="small muted">
                   <strong>{form.name.trim() || t('seller.productForm.thisProduct')}</strong>
-                  {' · '}{selectedCategory?.name}{subcategoryId && subcategories.find((s) => s.id === subcategoryId) ? ` › ${subcategories.find((s) => s.id === subcategoryId)!.name}` : ''}
+                  {' · '}{selectedCategoryLabel}{selectedSubcategory ? ` › ${subcategoryLabel(t, selectedSubcategory.slug, selectedSubcategory.name)}` : ''}
                   {' · '}{shop.name}
-                  {' · '}{totalUnits} units
+                  {' · '}{totalUnits} {t('seller.productForm.unitsPlural')}
                   {imageFiles.length > 0 && ` · ${imageFiles.length} photo${imageFiles.length > 1 ? 's' : ''}`}
                 </div>
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                   <Button
                     type="submit"
                     variant="outline"

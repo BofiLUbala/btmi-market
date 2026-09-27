@@ -168,7 +168,7 @@ export default function DeliveryFeesPage() {
         {config && <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, marginTop: 0 }}>
           Actuel : <strong style={{ color: 'var(--admin-text)' }}>{formatMoney(config.default_fee, cur)}</strong> par commande
           {config.free_delivery_threshold != null && <> · gratuit dès <strong style={{ color: 'var(--admin-text)' }}>{formatMoney(config.free_delivery_threshold, cur)}</strong> de produits</>}
-          {' '}· modifié le {new Date(config.updated_at).toLocaleString()}{config.updated_by_name ? ` par ${config.updated_by_name}` : ''}
+          {' '}· modifié le {new Date(config.updated_at).toLocaleString('fr-FR')}{config.updated_by_name ? ` par ${config.updated_by_name}` : ''}
         </p>}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>Tarif par commande ({cur})
@@ -262,6 +262,7 @@ export default function DeliveryFeesPage() {
             ))}
           </div>
           {ledger.by_city.length > 0 && (
+            <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead><tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}><th style={{ padding: 8 }}>Ville de livraison</th><th style={{ padding: 8 }}>Commandes</th><th style={{ padding: 8 }}>Frais dus</th><th style={{ padding: 8 }}>Encaissés</th></tr></thead>
               <tbody>{ledger.by_city.map((r) => (
@@ -271,6 +272,7 @@ export default function DeliveryFeesPage() {
                 </tr>
               ))}</tbody>
             </table>
+            </div>
           )}
         </>}
       </section>
@@ -278,11 +280,12 @@ export default function DeliveryFeesPage() {
       {config?.history && config.history.length > 0 && (
         <section style={card}>
           <h3 style={{ marginTop: 0 }}>Historique des changements</h3>
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead><tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}><th style={{ padding: 6 }}>Date</th><th style={{ padding: 6 }}>Élément</th><th style={{ padding: 6 }}>Ancien → nouveau</th><th style={{ padding: 6 }}>Par</th><th style={{ padding: 6 }}>Motif</th></tr></thead>
             <tbody>{config.history.map((h) => (
               <tr key={h.id} style={{ borderTop: '1px solid var(--admin-border-soft)' }}>
-                <td style={{ padding: 6 }}>{new Date(h.created_at).toLocaleString()}</td>
+                <td style={{ padding: 6 }}>{new Date(h.created_at).toLocaleString('fr-FR')}</td>
                 <td style={{ padding: 6 }}>{scopeLabel(h)}</td>
                 <td style={{ padding: 6, fontWeight: 700 }}>{value(h.old_value)} → {value(h.new_value)}</td>
                 <td style={{ padding: 6 }}>{h.admin_name || '—'}</td>
@@ -290,6 +293,7 @@ export default function DeliveryFeesPage() {
               </tr>
             ))}</tbody>
           </table>
+          </div>
         </section>
       )}
     </div>

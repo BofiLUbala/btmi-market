@@ -76,7 +76,9 @@ function resolveKey(keys: Record<string, TranslationKey>, slug?: string | null, 
 }
 
 export function categoryLabel(t: Translate, slug: string | null | undefined, fallbackName: string | null | undefined): string {
-  const key = resolveKey(CATEGORY_KEYS, slug, fallbackName)
+  // Some taxonomy entries (e.g. "Shoes") exist both as a top-level category and
+  // as a subcategory; the subcategory translation covers them.
+  const key = resolveKey(CATEGORY_KEYS, slug, fallbackName) || resolveKey(SUBCATEGORY_KEYS, slug, fallbackName)
   return key ? t(key) : fallbackName ?? slug ?? ''
 }
 

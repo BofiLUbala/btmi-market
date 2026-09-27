@@ -6,6 +6,7 @@ import {
   upload,
 } from './client'
 import type {
+  RegisterRequest,
   RegisterResponse,
   SellerBusiness,
   BusinessLifecycleSummary,
@@ -67,22 +68,7 @@ async function safeList<T>(p: Promise<T[]>): Promise<T[]> {
 }
 
 export const sellerAuthApi = {
-  registerSeller: (body: {
-    first_name: string
-    last_name: string
-    middle_name?: string
-    phone: string
-    backup_phone?: string
-    email: string
-    password: string
-    password_confirmation: string
-    address?: string
-    city?: string
-    commune?: string
-    country?: string
-    latitude?: number | null
-    longitude?: number | null
-  }) => post<RegisterResponse>('/auth/register/seller', body),
+  registerSeller: (body: RegisterRequest) => post<RegisterResponse>('/auth/register/seller', body),
 
   listSellerBusinesses: () => safeList(get<SellerBusiness[]>('/businesses')),
 }

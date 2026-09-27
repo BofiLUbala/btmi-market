@@ -50,4 +50,16 @@ describe('marketplace variant selection', () => {
       { key: 'Size', label: 'Size', values: ['40', '41'] },
     ])
   })
+
+  it('does not ask the buyer to pick a characteristic every variant shares', () => {
+    const variants = [
+      variant('black', { Color: 'Noir', Model: 'Kivu Pro 2026' }),
+      variant('white', { Color: 'Blanc', Model: 'Kivu Pro 2026' }),
+    ]
+
+    expect(buildAttributeGroups(variants)).toEqual([
+      { key: 'Color', label: 'Color', values: ['Noir', 'Blanc'] },
+    ])
+    expect(resolveVariant(variants, { Color: 'Blanc' })?.id).toBe('white')
+  })
 })

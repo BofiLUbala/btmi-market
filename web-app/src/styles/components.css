@@ -13,6 +13,11 @@
   line-height: 1.2;
   white-space: nowrap;
 }
+/* On phones a long label ("+ Ajouter une caractéristique personnalisée") must
+   wrap inside the screen instead of pushing the button past the edge. */
+@media (max-width: 600px) {
+  .btn { max-width: 100%; white-space: normal; text-align: center; }
+}
 .btn:active {
   transform: scale(0.98);
 }

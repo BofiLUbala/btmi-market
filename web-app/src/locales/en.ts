@@ -753,6 +753,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'reviews.postReply': 'Post reply',
 
   /* ── Checkout progress ──────────────────────────────────── */
+  'checkout.shellTitle': 'Checkout',
   'checkout.progress': 'Checkout progress',
   'checkout.step.cart': 'Cart',
   'checkout.step.delivery': 'Delivery',
@@ -1200,6 +1201,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
     'What TBK expects from every seller — and what they can expect from TBK: account setup, catalog, commission, orders, delivery, returns, reviews and enforcement.',
   'seller.policy.version': 'Version {version} — last updated {date}',
   'seller.policy.consentPrefix': 'I have read and accept the',
+  'seller.policy.required': 'Read the seller policy and tick the box to create your account.',
   'seller.workspace': 'Workspace',
   'seller.publicBrandAria': 'TBK Seller — home',
   'seller.navigation': 'Seller Navigation',
@@ -1622,6 +1624,11 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
     'Shown to buyers as your own claim, separate from verified buyer reviews.',
   'seller.productForm.selfRatingSelected': '{count} out of 5 stars',
   'seller.productForm.promotionTitle': 'Promotion & special offer',
+  'seller.productForm.promotionHint': 'Set a discount price or percentage off. Discounted prices apply automatically during checkout.',
+  'seller.productForm.promotionEnable': 'Enable special promotion / sale price',
+  'seller.productForm.discountOffBadge': '{value} OFF',
+  'seller.productForm.discountPercentPlaceholder': 'e.g. 20',
+  'seller.productForm.discountAmountPlaceholder': 'e.g. 5',
   'seller.productForm.promotionDesc':
     'Set a discounted price or a discount percentage. Reduced prices apply automatically at checkout.',
   'seller.productForm.enablePromotion': 'Enable special promotion / sale price',
@@ -1670,7 +1677,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.characteristicsDesc':
     'Select the attributes that apply to this product. You decide whether an attribute creates purchasable variants (e.g. Color, Size, Scent) or serves as product information (e.g. Material, Expiry date).',
   'seller.productForm.suggestedFor':
-    '💡 Suggested for {name} (click to add):',
+    'Suggested for {name} (click to add):',
   'seller.productForm.thisCategory': 'this category',
   'seller.productForm.variantChip': 'Variant',
   'seller.productForm.infoChip': 'Info',

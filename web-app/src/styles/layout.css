@@ -361,6 +361,10 @@
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
+  /* Long menus (seller: 12+ links) must scroll on short phones, or the last
+     entries — profile, marketplace, sign out — sit below the screen. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .drawer-head {
   padding: var(--space-4);
