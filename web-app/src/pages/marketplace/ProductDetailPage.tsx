@@ -163,7 +163,13 @@ export default function ProductDetailPage() {
   // The buyer-level discount stacks on top of the promotion and is computed
   // server-side, so it is only trusted when the server actually sent a price.
   const buyerDiscountPercent = p.discount_percent ?? 0
-  const finalPrice = typeof p.final_price === 'number' && p.final_price > 0 ? p.final_price : sellerSalePrice
+  // The server's final_price is computed for the product's first variant, so
+  // it is wrong for any other variant with its own price. Apply the buyer's
+  // discount percent to the selected variant instead, with the same rounding
+  // as PointService.GetBuyerPriceWithBenefit.
+  const finalPrice = buyerDiscountPercent > 0
+    ? Math.max(0, sellerSalePrice - Math.round(sellerSalePrice * buyerDiscountPercent / 100))
+    : sellerSalePrice
   const hasBuyerDiscount = Boolean(user && buyerDiscountPercent > 0 && finalPrice < sellerSalePrice)
 
   const displayPrice = finalPrice
