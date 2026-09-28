@@ -204,7 +204,25 @@ export default function SellerProductCreateScreen() {
     })
   }, [characteristics, form.unit_price])
 
-  useEffect(() => { setCombosState(combos) }, [combos])
+  // Recomputing the combinations (a characteristic or the product price
+  // changed) must not wipe what the seller typed: keep each surviving
+  // combination's stock, and its price unless it still follows the product
+  // price.
+  const lastUnitPrice = useRef(form.unit_price)
+  useEffect(() => {
+    const previousDefault = lastUnitPrice.current
+    lastUnitPrice.current = form.unit_price
+    setCombosState((prev) => {
+      const byKey = new Map(prev.map((c) => [c.key, c]))
+      return combos.map((combo) => {
+        const old = byKey.get(combo.key)
+        if (!old) return combo
+        const followsProductPrice = !old.price.trim() || old.price === previousDefault
+        return { ...combo, stock: old.stock, price: followsProductPrice ? combo.price : old.price }
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [combos])
   const activeCombos = combosState.length > 0 ? combosState : combos
   const isVariantMode = activeCombos.length > 0
   const totalUnits = isVariantMode
@@ -726,6 +744,9 @@ export default function SellerProductCreateScreen() {
           {' '}{t('seller.productForm.validation.missingThem')}
         </Text>}
         {stepLabel ? <Text style={styles.muted}>{stepLabel}</Text> : null}
+        {/* Repeated next to the buttons: the top copy is off-screen when the
+            seller taps Publish at the bottom of a long form. */}
+        {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
         <Button variant="outline" title={t('seller.productForm.saveDraft')} loading={busy} disabled={busy} onPress={() => submit('DRAFT')} />
         <Button title={t('seller.productForm.publishProduct')} loading={busy} disabled={busy || missingAttributes.length > 0 || categoryAttributesQuery.isError || categoryAttributesQuery.isLoading} onPress={() => submit('PUBLISHED')} />
       </Card>}
