@@ -7,6 +7,7 @@ import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { BulbIcon, WarningIcon } from '@/components/ui/Icons'
 import { DescriptionEditor } from '@/components/seller/DescriptionEditor'
 import { OptionPicker } from '@/components/seller/OptionPicker'
+import { combineVariantValues, MAX_GENERATED_VARIANTS, newCombinations } from '@/lib/variantCombinations'
 import { attributeOptions, sameAttribute, VARIANT_TYPE_NAMES } from '@/lib/attributeOptions'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import { ApiError, type CategoryResponse, type SubcategoryResponse, type Shop, type CategoryAttributeDefinition } from '@/api/types'
@@ -147,6 +148,9 @@ export default function SellerProductCreatePage() {
 
   /* One card per purchasable variant — required variant attributes live here */
   const [variantDrafts, setVariantDrafts] = useState<VariantDraft[]>([emptyVariantDraft()])
+  // Values picked in the bulk creator, per variant attribute key.
+  const [bulkValues, setBulkValues] = useState<Record<string, string[]>>({})
+  const [bulkNotice, setBulkNotice] = useState('')
   /* Seller-defined variant attribute types, on top of whatever the category
      pre-configures. Lets a seller sell in "Couleur + Taille" style combos in
      any category, including ones with no admin-configured attributes. */
@@ -473,6 +477,25 @@ export default function SellerProductCreatePage() {
 
   function addVariantDraft() {
     setVariantDrafts((prev) => [...prev, emptyVariantDraft(form.unit_price)])
+  }
+
+  /** Creates one variant per combination of the values picked in the bulk
+   *  creator. Empty variants are replaced; existing combinations are kept. */
+  function generateVariantDrafts() {
+    const keys = variantAttrDefs.map((def) => def.key)
+    const combos = combineVariantValues(keys.map((key) => ({ key, values: bulkValues[key] ?? [] })))
+    if (combos.length === 0) return
+    if (combos.length > MAX_GENERATED_VARIANTS) {
+      setBulkNotice(t('seller.productForm.bulkTooMany', { max: MAX_GENERATED_VARIANTS }))
+      return
+    }
+    const filled = variantDrafts.filter((draft) => Object.values(draft.attributes).some((v) => String(v).trim()))
+    const fresh = newCombinations(combos, filled.map((draft) => draft.attributes), keys)
+    setVariantDrafts([
+      ...filled,
+      ...fresh.map((attributes) => ({ ...emptyVariantDraft(form.unit_price), attributes })),
+    ].slice(0, Math.max(filled.length, MAX_GENERATED_VARIANTS)))
+    setBulkNotice(fresh.length === 0 ? t('seller.productForm.bulkNoNew') : t('seller.productForm.bulkAdded', { n: fresh.length }))
   }
 
   function removeVariantDraft(clientId: string) {
@@ -1361,6 +1384,47 @@ export default function SellerProductCreatePage() {
                   <p className="small muted">{t('seller.productForm.noVariantAttrsHint')}</p>
                 ) : (
                 <>
+                {/* Bulk creator: pick several values per attribute (e.g. two
+                    sizes and three colours) and get every combination. */}
+                {(() => {
+                  const axes = variantAttrDefs
+                    .map((def) => ({ def, picker: def.input_type === 'BOOLEAN' || def.input_type === 'DATE' || def.input_type === 'NUMBER' ? null : attributeOptions(def, selectedCategory?.slug, bulkValues[def.key] ?? []) }))
+                    .filter((axis) => axis.picker && axis.picker.values.length > 0)
+                  if (axes.length === 0) return null
+                  const count = combineVariantValues(variantAttrDefs.map((def) => ({ key: def.key, values: bulkValues[def.key] ?? [] }))).length
+                  return (
+                    <section className="variant-draft-card" aria-labelledby="bulk-variants-title" style={{ marginBottom: 16 }}>
+                      <div className="variant-draft-header">
+                        <h4 id="bulk-variants-title">{t('seller.productForm.bulkTitle')}</h4>
+                      </div>
+                      <p className="small muted" style={{ margin: '0 0 12px' }}>{t('seller.productForm.bulkDesc')}</p>
+                      <div className="variant-draft-fields">
+                        {axes.map(({ def, picker }) => (
+                          <div key={def.key} className="variant-draft-picker">
+                            <OptionPicker
+                              id={`bulk-${def.key}`}
+                              label={attributeLabel(def)}
+                              options={picker!.values}
+                              swatch={picker!.swatch}
+                              multiple
+                              value={bulkValues[def.key] ?? []}
+                              onChange={(next) => {
+                                setBulkNotice('')
+                                setBulkValues((prev) => ({ ...prev, [def.key]: Array.isArray(next) ? next : [next] }))
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+                        <Button type="button" size="sm" disabled={count === 0} onClick={generateVariantDrafts}>
+                          {count === 0 ? t('seller.productForm.bulkNone') : t('seller.productForm.bulkGenerate', { n: count })}
+                        </Button>
+                        {bulkNotice && <span className="small muted" role="status">{bulkNotice}</span>}
+                      </div>
+                    </section>
+                  )
+                })()}
                 <div className="variant-draft-list">
                   {variantDrafts.map((draft, index) => {
                     const title = variantDisplayLabel(

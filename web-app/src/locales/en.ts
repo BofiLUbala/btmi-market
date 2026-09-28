@@ -1728,6 +1728,13 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.characteristicsTitleProduct': 'Product characteristics',
   'seller.productForm.characteristicsDescProduct':
     'Information shared by every variant (material, gender, etc.). Color and shoe size belong on each variant.',
+  'seller.productForm.bulkTitle': 'Create several variants at once',
+  'seller.productForm.bulkDesc': 'Tick several values (e.g. sizes 36 and 42, colours black, blue and green): one variant is created for each combination. You can then adjust each one’s price and stock.',
+  'seller.productForm.bulkGenerate': 'Create {n} variant(s)',
+  'seller.productForm.bulkNone': 'Pick at least one value',
+  'seller.productForm.bulkAdded': '{n} variant(s) added. Enter each one’s stock below.',
+  'seller.productForm.bulkNoNew': 'These combinations are already in the list.',
+  'seller.productForm.bulkTooMany': 'Too many combinations (maximum {max}). Pick fewer values.',
   'seller.productForm.variantsTitle': 'Variants',
   'seller.productForm.variantsDesc':
     'Each sellable variant needs its own values (Color, Shoe Size, and so on). Those values are stored on the variant.',

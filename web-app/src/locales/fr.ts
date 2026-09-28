@@ -1718,6 +1718,13 @@ export const fr = {
   'seller.productForm.characteristicsTitleProduct': 'Caractéristiques produit',
   'seller.productForm.characteristicsDescProduct':
     'Informations communes à toutes les variantes (matière, genre, etc.). La couleur et la pointure se renseignent sur chaque variante.',
+  'seller.productForm.bulkTitle': 'Créer plusieurs variantes d’un coup',
+  'seller.productForm.bulkDesc': 'Cochez plusieurs valeurs (ex. pointures 36 et 42, couleurs noir, bleu et vert) : une variante est créée pour chaque combinaison. Vous pourrez ensuite ajuster le prix et le stock de chacune.',
+  'seller.productForm.bulkGenerate': 'Créer {n} variante(s)',
+  'seller.productForm.bulkNone': 'Choisissez au moins une valeur',
+  'seller.productForm.bulkAdded': '{n} variante(s) ajoutée(s). Renseignez le stock de chacune ci-dessous.',
+  'seller.productForm.bulkNoNew': 'Ces combinaisons existent déjà dans la liste.',
+  'seller.productForm.bulkTooMany': 'Trop de combinaisons (maximum {max}). Réduisez le nombre de valeurs.',
   'seller.productForm.variantsTitle': 'Variantes',
   'seller.productForm.variantsDesc':
     'Chaque variante vendable doit avoir ses propres valeurs (Couleur, Pointure, etc.). Ce sont ces valeurs qui sont enregistrées sur la variante.',
