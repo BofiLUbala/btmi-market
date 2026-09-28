@@ -57,6 +57,35 @@
         "--strictPort"
       ],
       "port": 5175
+    },
+    {
+      "name": "web-app-visual",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "web-app",
+        "--",
+        "--port",
+        "5176",
+        "--strictPort"
+      ],
+      "port": 5176
+    },
+    {
+      "name": "android-metro-visual",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start",
+        "--prefix",
+        "android",
+        "--",
+        "--port",
+        "8083"
+      ],
+      "port": 8083
     }
   ]
 }

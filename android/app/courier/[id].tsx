@@ -154,7 +154,13 @@ function CourierHandover({ orderId }: { orderId: string }) {
 
   const askConfirmCash = () => Alert.alert(
     t('courier.confirmCash'),
-    t('courier.confirmCashQuestion', { amount }),
+    t('courier.confirmCashQuestion', { amount })
+      + '\n\n' + t('courier.confirmCashRecap', {
+        order: state.order_number,
+        buyer: state.buyer_name || '—',
+        amount,
+        mode,
+      }),
     [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('courier.confirmCashSubmit'), onPress: () => confirmCash.mutate() },
