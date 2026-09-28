@@ -772,3 +772,56 @@ func (r *MarketplaceRepository) RecordSearchEvent(searchID uuid.UUID, eventType,
 	n, _ := res.RowsAffected()
 	return n > 0, nil
 }
+
+// MaxSitemapURLs is the sitemap protocol's limit for one file. A catalog
+// larger than this needs a sitemap index (not implemented yet).
+const MaxSitemapURLs = 50000
+
+// SitemapEntry is one public page for sitemap.xml.
+type SitemapEntry struct {
+	Path    string
+	LastMod time.Time
+}
+
+// ListSitemapEntries lists the publicly visible categories, shops and
+// products with the same visibility rules as the search.
+func (r *MarketplaceRepository) ListSitemapEntries(limit int) ([]SitemapEntry, error) {
+	rows, err := r.db.Query(`
+		SELECT path, lastmod FROM (
+			SELECT 0 AS kind, '/categories/' || c.slug AS path, c.updated_at AS lastmod, c.sort_order::text AS ord
+			FROM categories c WHERE COALESCE(c.status, 'ACTIVE') = 'ACTIVE'
+			UNION ALL
+			SELECT 1, '/shops/' || s.id, s.updated_at, s.id::text
+			FROM shops s JOIN businesses b ON b.id = s.business_id
+			WHERE s.status = 'ACTIVE' AND b.status = 'ACTIVE'
+			UNION ALL
+			SELECT 2, '/products/' || p.id, p.updated_at, p.id::text
+			FROM products p
+			WHERE p.publication_status = 'PUBLISHED' AND p.status = 'ACTIVE'
+			  AND EXISTS (
+				SELECT 1 FROM product_variants v
+				JOIN inventory i ON i.variant_id = v.id
+				JOIN shops s ON s.id = i.shop_id AND s.status = 'ACTIVE' AND s.business_id = p.business_id
+				JOIN businesses b ON b.id = s.business_id AND b.status = 'ACTIVE'
+				WHERE v.product_id = p.id AND v.status = 'ACTIVE')
+		) x
+		ORDER BY kind, ord
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SitemapEntry
+	for rows.Next() {
+		var e SitemapEntry
+		var lastmod sql.NullTime
+		if err := rows.Scan(&e.Path, &lastmod); err != nil {
+			return nil, err
+		}
+		if lastmod.Valid {
+			e.LastMod = lastmod.Time
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

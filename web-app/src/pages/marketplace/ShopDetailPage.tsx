@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { absoluteUrl, metaDescription, shopJsonLd, usePageMeta } from '@/lib/pageMeta'
 import { Link, useParams } from 'react-router-dom'
 import { marketplaceApi } from '@/api/marketplace'
 import type { PublicProduct, PublicShopDetail, PublicReview } from '@/api/types'
@@ -46,6 +47,14 @@ export default function ShopDetailPage() {
   }, [id, tab])
 
   const initial = useMemo(() => (shop ? initials(shop.name) : '—'), [shop])
+  const canonical = absoluteUrl(`/shops/${id}`)
+  usePageMeta(shop ? {
+    title: shop.city ? `${shop.name} – ${shop.city}` : shop.name,
+    description: metaDescription(null, [shop.name, shop.business_name, shop.city, (shop.categories ?? []).map((c) => c.name).join(', ')].filter(Boolean).join(' · ')),
+    canonical,
+    type: 'profile',
+    jsonLd: shopJsonLd(shop, canonical),
+  } : null)
 
   if (loading) return <LoadingBlock label={t('shop.loading')} />
   if (error || !shop) return <ErrorBox error={error || t('shop.notFound')} onRetry={() => window.location.reload()} />

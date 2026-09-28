@@ -2292,6 +2292,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'search.customerRating': 'Customer rating',
   'search.andUp': '& up',
   'search.clearFilter': 'Clear',
+  'search.approximate': 'No exact match for “{query}”. Showing the closest products.',
   'search.results': '{total} result(s) for “{query}”',
   'search.resultsFoundFromImage': '{total} result(s) found from the image',
   'search.typePrompt': 'Type something to search',

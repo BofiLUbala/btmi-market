@@ -24,6 +24,7 @@ import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { loginWithReturnTo } from '@/lib/returnTo'
 import { useCart } from '@/store/cart'
 import { reportSearchAddToCart } from '@/lib/searchTracking'
+import { absoluteUrl, metaDescription, productJsonLd, usePageMeta } from '@/lib/pageMeta'
 import { useAuth } from '@/store/auth'
 import { useFavorites } from '@/store/favorites'
 import { DescriptionParagraphs, descriptionAccordionItems } from '@/components/ui/DescriptionSections'
@@ -123,6 +124,16 @@ export default function ProductDetailPage() {
     if (!multiVariant) return variants[0]
     return resolveVariant(variants, selection)
   }, [variants, groups, multiVariant, selection])
+
+  const canonical = absoluteUrl(`/products/${id}`)
+  usePageMeta(product ? {
+    title: product.shop_name ? `${product.name} – ${product.shop_name}` : product.name,
+    description: metaDescription(product.description, product.name),
+    canonical,
+    image: product.images?.[0]?.url ? absoluteUrl(product.images[0].url) : undefined,
+    type: 'product',
+    jsonLd: productJsonLd(product, canonical, reviewSummary),
+  } : null)
 
   if (loading) return <LoadingBlock label={t('product.loading')} />
   if (!product)

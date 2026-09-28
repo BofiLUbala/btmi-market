@@ -610,6 +610,11 @@ func main() {
 			courierProtected.POST("/missions/:id/confirm-cash", qrHandler.CourierConfirmCash)
 		}
 
+		// Public SEO files; nginx serves them at /robots.txt and /sitemap.xml.
+		seoHandler := marketplace.NewSEOHandler(marketplaceRepo, cfg.FrontendURL)
+		api.GET("/seo/robots.txt", seoHandler.Robots)
+		api.GET("/seo/sitemap.xml", seoHandler.Sitemap)
+
 		marketplaceGroup := api.Group("/marketplace")
 		marketplaceGroup.Use(middleware.OptionalAuthMiddleware(authService))
 		{

@@ -3,14 +3,15 @@ import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
-import { get } from '../../src/api/client'
 import { marketplaceApi } from '../../src/api'
+import { categoryLabel, subcategoryLabel } from '../../src/lib/categoryLabels'
+import { normalizeSearch, searchSession } from '../../src/lib/search'
 import { ProductCard } from '../../src/components/ProductCard'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors, fonts } from '../../src/theme'
 import type { TranslationKey } from '../../src/locales/fr'
-import type { Category, PublicProduct, Shop } from '../../src/types'
+import type { Category, PublicProduct, SearchEvent, Shop } from '../../src/types'
 
 /** Same sorts and rating facets as web-app/src/pages/marketplace/SearchPage.tsx. */
 const SORTS: Array<{ value: string; key: TranslationKey }> = [
@@ -44,45 +45,71 @@ export default function SearchScreen() {
 		return () => clearTimeout(timer)
 	}, [draft])
 
+	// Same contract as the web autocomplete: one debounced request to
+	// /search/suggest (react-query cancels the outdated one through `signal`),
+	// merged with the cached taxonomy so translated labels match while typing.
 	const suggestions = useQuery({
 		queryKey: ['marketplace', 'search-suggestions', suggestionQuery],
-		queryFn: async () => {
-			const [products, shops, categories] = await Promise.all([
-				marketplaceApi.search(suggestionQuery), marketplaceApi.shops(suggestionQuery), marketplaceApi.categories(),
+		queryFn: async ({ signal }) => {
+			const [server, categories] = await Promise.all([
+				marketplaceApi.suggest(suggestionQuery, signal),
+				marketplaceApi.categories().catch(() => [] as Category[]),
 			])
-			const needle = suggestionQuery.toLocaleLowerCase()
+			const needle = normalizeSearch(suggestionQuery)
 			const taxonomy: Array<{ category: Category; subcategory?: Category }> = []
-			for (const category of categories) {
-				if (category.name.toLocaleLowerCase().includes(needle)) taxonomy.push({ category })
-				for (const subcategory of category.subcategories ?? []) if (subcategory.name.toLocaleLowerCase().includes(needle)) taxonomy.push({ category, subcategory })
+			const seen = new Set<string>()
+			const add = (category: Category, subcategory?: Category) => {
+				const key = subcategory ? `sub-${subcategory.id}` : `cat-${category.id}`
+				if (seen.has(key)) return
+				seen.add(key)
+				taxonomy.push({ category, subcategory })
 			}
+			const byId = new Map(categories.map((category) => [category.id, category]))
+			for (const match of server?.categories ?? []) { const category = byId.get(match.id); if (category) add(category) }
+			for (const match of server?.subcategories ?? []) {
+				const category = match.category_id ? byId.get(match.category_id) : undefined
+				const subcategory = category?.subcategories?.find((sub) => sub.id === match.id)
+				if (category && subcategory) add(category, subcategory)
+			}
+			for (const category of categories) {
+				if (normalizeSearch(category.name).includes(needle) || normalizeSearch(categoryLabel(t, category.slug, category.name)).includes(needle)) add(category)
+				for (const subcategory of category.subcategories ?? []) {
+					if (normalizeSearch(subcategory.name).includes(needle) || normalizeSearch(subcategoryLabel(t, subcategory.slug, subcategory.name)).includes(needle)) add(category, subcategory)
+				}
+			}
+			const products = server?.products ?? []
+			const shops = server?.shops ?? []
 			return {
-				products: products.filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index).slice(0, 3),
+				products: products.filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index).slice(0, 4),
 				shops: shops.filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index).slice(0, 2),
-				taxonomy: taxonomy.slice(0, 3),
+				taxonomy: taxonomy.slice(0, 4),
 			}
 		},
 		enabled: suggestionQuery.length >= 2,
 		staleTime: 60_000,
 	})
 
-	const chooseProduct = (product: PublicProduct) => { setSuggestionQuery(''); router.push(`/products/${product.id}`) }
-	const chooseShop = (shop: Shop) => { setSuggestionQuery(''); router.push(`/shops/${shop.id}`) }
-	const chooseCategory = (category: Category) => { setSuggestionQuery(''); router.push(`/categories/${category.slug}`) }
+	const track = (event: Omit<SearchEvent, 'event_type' | 'session'>) => { void marketplaceApi.searchEvent({ ...event, event_type: 'CLICK', session: searchSession() }) }
+	const chooseProduct = (product: PublicProduct, position: number) => { track({ query: suggestionQuery, result_type: 'PRODUCT', result_id: product.id, position }); setSuggestionQuery(''); router.push(`/products/${product.id}`) }
+	const chooseShop = (shop: Shop, position: number) => { track({ query: suggestionQuery, result_type: 'SHOP', result_id: shop.id, position }); setSuggestionQuery(''); router.push(`/shops/${shop.id}`) }
+	const chooseCategory = (category: Category, subcategory: Category | undefined, position: number) => {
+		track({ query: suggestionQuery, result_type: subcategory ? 'SUBCATEGORY' : 'CATEGORY', result_id: (subcategory ?? category).id, position })
+		setSuggestionQuery('')
+		router.push(`/categories/${category.slug}`)
+	}
 
   const results = useQuery({
     queryKey: ['marketplace', 'search-page', q, sort, minRating],
-    queryFn: async () => {
-      const params = new URLSearchParams({ q, sort, page: '1', limit: '20' })
-      if (minRating) params.set('min_rating', String(minRating))
-      const data = await get<{ products?: PublicProduct[]; total?: number } | PublicProduct[]>(`/marketplace/search?${params}`)
-      const products = Array.isArray(data) ? data : data?.products ?? []
-      return { products, total: Array.isArray(data) ? data.length : data?.total ?? products.length }
-    },
+    queryFn: ({ signal }) => marketplaceApi.searchPage({ q, sort, page: 1, limit: 20, min_rating: minRating, session: searchSession() }, signal),
     enabled: q.length > 0,
   })
   const searched = q.length > 0 && results.isFetched
   const products = results.data?.products ?? []
+  const searchId = results.data?.search_id
+  const openResult = (product: PublicProduct, position: number) => {
+    if (searchId) void marketplaceApi.searchEvent({ search_id: searchId, event_type: 'CLICK', result_type: 'PRODUCT', result_id: product.id, position, session: searchSession() })
+    router.push(`/products/${product.id}`)
+  }
 
   return (
     <FlatList
@@ -112,9 +139,9 @@ export default function SearchScreen() {
 		  {suggestionQuery.length >= 2 && (suggestions.isFetching || suggestions.data) ? (
 			<View style={styles.suggestions} accessibilityRole="menu">
 			  {suggestions.isFetching ? <Text style={styles.suggestionStatus}>{t('search.searching' as TranslationKey)}</Text> : null}
-			  {(suggestions.data?.products ?? []).map((product) => <SuggestionRow key={`product-${product.id}`} icon="cube-outline" label={product.name} detail={product.shop_name} onPress={() => chooseProduct(product)} colors={colors} />)}
-			  {(suggestions.data?.shops ?? []).map((shop) => <SuggestionRow key={`shop-${shop.id}`} icon="storefront-outline" label={shop.name} detail={shop.city} onPress={() => chooseShop(shop)} colors={colors} />)}
-			  {(suggestions.data?.taxonomy ?? []).map(({ category, subcategory }) => <SuggestionRow key={`${subcategory ? 'sub' : 'cat'}-${subcategory?.id ?? category.id}`} icon="grid-outline" label={subcategory?.name ?? category.name} detail={subcategory ? category.name : t('search.kind.category' as TranslationKey)} onPress={() => chooseCategory(category)} colors={colors} />)}
+			  {(suggestions.data?.products ?? []).map((product, i) => <SuggestionRow key={`product-${product.id}`} icon="cube-outline" label={product.name} detail={product.shop_name} onPress={() => chooseProduct(product, i)} colors={colors} />)}
+			  {(suggestions.data?.shops ?? []).map((shop, i) => <SuggestionRow key={`shop-${shop.id}`} icon="storefront-outline" label={shop.name} detail={shop.city} onPress={() => chooseShop(shop, i)} colors={colors} />)}
+			  {(suggestions.data?.taxonomy ?? []).map(({ category, subcategory }, i) => <SuggestionRow key={`${subcategory ? 'sub' : 'cat'}-${subcategory?.id ?? category.id}`} icon="grid-outline" label={subcategory ? subcategoryLabel(t, subcategory.slug, subcategory.name) : categoryLabel(t, category.slug, category.name)} detail={subcategory ? categoryLabel(t, category.slug, category.name) : t('search.kind.category' as TranslationKey)} onPress={() => chooseCategory(category, subcategory, i)} colors={colors} />)}
 			</View>
 		  ) : null}
           <View style={styles.facets}>
@@ -133,13 +160,14 @@ export default function SearchScreen() {
           </View>
           <View style={styles.rowBetween}>
             <Text style={[styles.small, styles.flex]}>
-              {searched ? t('search.results' as TranslationKey, { total: results.data?.total ?? 0, query: q }) : t('search.typePrompt' as TranslationKey)}
+              {searched ? t('search.results' as TranslationKey, { total: results.data?.pagination?.total ?? products.length, query: q }) : t('search.typePrompt' as TranslationKey)}
             </Text>
             <Pressable style={styles.select} onPress={() => setSortOpen(true)} accessibilityRole="button">
               <Text style={styles.selectText}>{t(SORTS.find((s) => s.value === sort)!.key)}</Text>
               <Ionicons name="chevron-down" size={16} color={colors.ink} />
             </Pressable>
           </View>
+          {searched && products.length > 0 && results.data?.match_mode === 'approximate' ? <Text style={styles.small}>{t('search.approximate' as TranslationKey, { query: q })}</Text> : null}
           {searched && products.length === 0 ? <Text style={styles.empty}>{t('search.noResultsQuery' as TranslationKey, { query: q })}</Text> : null}
           <Modal visible={sortOpen} transparent animationType="fade" onRequestClose={() => setSortOpen(false)}>
             <Pressable style={styles.backdrop} onPress={() => setSortOpen(false)}>
@@ -155,7 +183,7 @@ export default function SearchScreen() {
           </Modal>
         </View>
       }
-      renderItem={({ item }) => <ProductCard product={item} onPress={() => router.push(`/products/${item.id}`)} />}
+      renderItem={({ item, index }) => <ProductCard product={item} onPress={() => openResult(item, index)} />}
     />
   )
 }

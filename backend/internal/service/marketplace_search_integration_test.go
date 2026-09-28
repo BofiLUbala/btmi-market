@@ -15,6 +15,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"sync"
@@ -23,11 +25,13 @@ import (
 
 	"github.com/btmi-ai-market/backend/internal/config"
 	"github.com/btmi-ai-market/backend/internal/database"
+	marketplacehandler "github.com/btmi-ai-market/backend/internal/handlers/marketplace"
 	"github.com/btmi-ai-market/backend/internal/models"
 	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	searchutil "github.com/btmi-ai-market/backend/internal/search"
 	"github.com/btmi-ai-market/backend/internal/service"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
@@ -807,5 +811,38 @@ func TestAdminSearchAnalyticsAndSynonyms(t *testing.T) {
 	rule := service.SearchRankingRule()
 	if rule.MaxBonus >= rule.TierGap {
 		t.Errorf("ranking rule inconsistent")
+	}
+}
+
+func TestSEOSitemapAndRobots(t *testing.T) {
+	f := searchEnv(t)
+	gin.SetMode(gin.TestMode)
+	h := marketplacehandler.NewSEOHandler(f.repo, "https://tbk.example/")
+	r := gin.New()
+	r.GET("/sitemap.xml", h.Sitemap)
+	r.GET("/robots.txt", h.Robots)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/sitemap.xml", nil))
+	body := w.Body.String()
+	if w.Code != http.StatusOK || !strings.HasPrefix(body, "<?xml") {
+		t.Fatalf("sitemap: %d %s", w.Code, body[:min(len(body), 200)])
+	}
+	for _, want := range []string{"https://tbk.example/products/" + f.ids["a15"].String(), "https://tbk.example/shops/" + f.ids["mama"].String(), "https://tbk.example/categories/electronics"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sitemap misses %s", want)
+		}
+	}
+	for _, hidden := range []string{f.ids["draft"].String(), f.ids["ghostp"].String(), f.ids["closed"].String(), f.ids["noinv"].String(), f.ids["mamaClosed"].String(), f.ids["ghost"].String()} {
+		if strings.Contains(body, hidden) {
+			t.Errorf("sitemap lists a non-public page %s", hidden)
+		}
+	}
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/robots.txt", nil))
+	robots := w.Body.String()
+	if !strings.Contains(robots, "Sitemap: https://tbk.example/sitemap.xml") || !strings.Contains(robots, "Disallow: /admin") || strings.Contains(robots, "Disallow: /products") {
+		t.Errorf("robots.txt: %s", robots)
 	}
 }

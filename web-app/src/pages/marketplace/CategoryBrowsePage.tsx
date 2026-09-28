@@ -9,6 +9,7 @@ import { asArray } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { CategoryIcon } from '@/components/ui/CategoryIcon'
 import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
+import { absoluteUrl, usePageMeta } from '@/lib/pageMeta'
 import { useI18n } from '@/store/i18n'
 
 export default function CategoryBrowsePage() {
@@ -55,6 +56,8 @@ export default function CategoryBrowsePage() {
       mounted = false
     }
   }, [slug, page, sub, t])
+
+  usePageMeta(slug ? { title: categoryName, description: categoryName, canonical: absoluteUrl(`/categories/${slug}`) } : null)
 
   function loadMore() {
     setPage((p) => p + 1)

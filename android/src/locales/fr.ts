@@ -2302,6 +2302,7 @@ export const fr = {
   'search.customerRating': 'Note des clients',
   'search.andUp': 'et plus',
   'search.clearFilter': 'Effacer',
+  'search.approximate': 'Aucun résultat exact pour « {query} ». Voici les produits les plus proches.',
   'search.results': '{total} résultat(s) pour « {query} »',
   'search.resultsFoundFromImage': '{total} résultat(s) trouvé(s) à partir de l’image',
   'search.typePrompt': 'Tapez quelque chose pour rechercher',

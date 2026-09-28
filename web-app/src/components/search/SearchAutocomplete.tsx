@@ -64,8 +64,12 @@ export function SearchAutocomplete({
   const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraError, setCameraError] = useState(false)
+  // Suggestions open only for what the user is typing: not for a query put in
+  // the box by the page (initialQuery), and not after the search was submitted.
+  const typedRef = useRef(false)
 
   useEffect(() => {
+    typedRef.current = false
     setQuery(initialQuery)
   }, [initialQuery])
 
@@ -98,9 +102,11 @@ useEffect(() => {
        setOpen(false)
        return
      }
+     if (!typedRef.current) return
 
      const controller = new AbortController()
      const timer = window.setTimeout(async () => {
+       if (!typedRef.current) return
        setStatus('loading')
        setOpen(true)
        try {
@@ -196,6 +202,7 @@ useEffect(() => {
   }
 
   function setValue(value: string) {
+    typedRef.current = true
     setQuery(value)
     onQueryChange?.(value)
   }
@@ -203,6 +210,7 @@ useEffect(() => {
   function submit(event: FormEvent) {
     event.preventDefault()
     const trimmed = query.trim()
+    typedRef.current = false
     setOpen(false)
     navigate(trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : '/search')
   }
