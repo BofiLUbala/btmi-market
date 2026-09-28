@@ -237,6 +237,15 @@
 .search-suggestion-copy small {
   color: var(--color-text-muted);
 }
+/* Typed words inside a suggestion; underline keeps contrast in both themes. */
+.search-highlight {
+  background: transparent;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
 .search-message,
 .search-view-all {
   display: block;

@@ -23,6 +23,7 @@ import { resolvePromotion } from '@/lib/promotion'
 import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { loginWithReturnTo } from '@/lib/returnTo'
 import { useCart } from '@/store/cart'
+import { reportSearchAddToCart } from '@/lib/searchTracking'
 import { useAuth } from '@/store/auth'
 import { useFavorites } from '@/store/favorites'
 import { DescriptionParagraphs, descriptionAccordionItems } from '@/components/ui/DescriptionSections'
@@ -184,6 +185,7 @@ export default function ProductDetailPage() {
 
   function addToCart() {
     if (!v || outOfStock) return
+    reportSearchAddToCart(p.id)
     cart.add({
       productId: p.id,
       variantId: v.id,

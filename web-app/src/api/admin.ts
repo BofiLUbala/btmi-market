@@ -295,19 +295,54 @@ export interface AdminMarketplaceVisibility {
   moderation_status: string
 }
 
+export interface AdminSearchQueryStat {
+  query: string
+  searches: number
+  avg_results: number
+  zero_results: number
+  clicks: number
+  /** null until clicks are collected. */
+  ctr: number | null
+}
+
 export interface AdminSearchAnalytics {
   available: boolean
   message: string
   total_queries?: number
   zero_results?: number
   failed_searches?: number
+  period_days?: number
+  searches?: number
+  zero_result_searches?: number
+  approximate_searches?: number
+  /** null means "data unavailable" (not collected yet), never 0. */
+  click_through_rate?: number | null
+  add_to_cart_rate?: number | null
+  top_queries?: AdminSearchQueryStat[]
+  zero_result_queries?: AdminSearchQueryStat[]
+  reformulations?: { from_query: string; to_query: string; count: number }[]
+  low_click_products?: { product_id: string; name: string; impressions: number; clicks: number; ctr: number }[]
+  clicks_collected?: boolean
+  add_to_cart_collected?: boolean
+  reformulations_collected?: boolean
 }
 
 export interface AdminSearchQueryLog {
   query: string
+  normalized_query?: string
   results_count: number
   search_type: string
+  match_mode?: string
+  clicks?: number
   created_at: string
+}
+
+export interface AdminSearchSynonym {
+  term: string
+  canonical_term: string
+  language_code: string
+  active: boolean
+  updated_at: string
 }
 
 export interface AdminMarketplaceRanking {
@@ -1019,6 +1054,11 @@ export const adminCommerceApi = {
       `/admin/commerce/search/queries?${q.toString()}`
     )
   },
+  listSearchSynonyms: async () => adminApi<AdminSearchSynonym[]>('/admin/commerce/search/synonyms'),
+  upsertSearchSynonym: async (body: { term: string; canonical_term: string; language_code?: string; active?: boolean }) =>
+    adminApi<AdminSearchSynonym>('/admin/commerce/search/synonyms', { method: 'PUT', body: JSON.stringify(body) }),
+  deleteSearchSynonym: async (term: string) =>
+    adminApi<{ message: string }>(`/admin/commerce/search/synonyms/${encodeURIComponent(term)}`, { method: 'DELETE' }),
   getMarketplaceRanking: async () => {
     return adminApi<AdminMarketplaceRanking>('/admin/commerce/marketplace/ranking')
   },

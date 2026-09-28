@@ -10,7 +10,15 @@ import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { CameraIcon, ImageIcon } from '@/components/ui/Icons'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
-import { normalizeSearch } from '@/lib/searchNormalization'
+import { highlightParts, normalizeSearch } from '@/lib/searchNormalization'
+import { reportSearchClick, type SearchResultType } from '@/lib/searchTracking'
+
+const SUGGESTION_TRACKING: Record<Suggestion['kind'], SearchResultType> = {
+  product: 'PRODUCT',
+  shop: 'SHOP',
+  category: 'CATEGORY',
+  subcategory: 'SUBCATEGORY',
+}
 
 type Suggestion =
   | { kind: 'product'; id: string; label: string; detail: string; href: string; product: PublicProduct }
@@ -96,37 +104,55 @@ useEffect(() => {
        setStatus('loading')
        setOpen(true)
        try {
-         const [productsRes, shopsRes, categories] = await Promise.all([
-           marketplaceApi.search({ q: trimmed, sort: 'relevance', page: 1, limit: 4 }, controller.signal),
-           marketplaceApi.shops({ q: trimmed, page: 1, limit: 3 }, controller.signal),
-           loadTaxonomy()
+         // One request ranked by the same engine as the search page, plus the
+         // cached taxonomy so French labels ("Téléphones") match while typing.
+         const [server, categories] = await Promise.all([
+           marketplaceApi.suggest(trimmed, controller.signal),
+           loadTaxonomy().catch(() => [] as CategoryResponse[])
          ])
          if (controller.signal.aborted) return
          const needle = normalizeSearch(trimmed)
          const categoryItems: Suggestion[] = []
          const subcategoryItems: Suggestion[] = []
-         for (const category of categories ?? []) {
+         const seen = new Set<string>()
+         const pushCategory = (category: CategoryResponse) => {
+           if (seen.has(`category-${category.id}`)) return
+           seen.add(`category-${category.id}`)
+           categoryItems.push({ kind: 'category', id: category.id, label: categoryLabel(t, category.slug, category.name), detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
+         }
+         const pushSubcategory = (category: CategoryResponse, subcategory: SubcategoryResponse) => {
+           if (seen.has(`subcategory-${subcategory.id}`)) return
+           seen.add(`subcategory-${subcategory.id}`)
            const catLabel = categoryLabel(t, category.slug, category.name)
-           if (normalizeSearch(category.name).includes(needle) || normalizeSearch(catLabel).includes(needle)) {
-             categoryItems.push({ kind: 'category', id: category.id, label: catLabel, detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
-           }
+           subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subcategoryLabel(t, subcategory.slug, subcategory.name), detail: t('search.kind.inCategory', { category: catLabel }), href: `/categories/${category.slug}`, category, subcategory })
+         }
+         const byId = new Map((categories ?? []).map((category) => [category.id, category]))
+         // Server matches first: they include synonyms ("télé" -> TVs).
+         for (const match of server?.categories ?? []) {
+           const category = byId.get(match.id)
+           if (category) pushCategory(category)
+         }
+         for (const match of server?.subcategories ?? []) {
+           const category = match.category_id ? byId.get(match.category_id) : undefined
+           const subcategory = category?.subcategories?.find((sub) => sub.id === match.id)
+           if (category && subcategory) pushSubcategory(category, subcategory)
+         }
+         for (const category of categories ?? []) {
+           if (normalizeSearch(category.name).includes(needle) || normalizeSearch(categoryLabel(t, category.slug, category.name)).includes(needle)) pushCategory(category)
            for (const subcategory of category.subcategories ?? []) {
-             const subLabel = subcategoryLabel(t, subcategory.slug, subcategory.name)
-             if (normalizeSearch(subcategory.name).includes(needle) || normalizeSearch(subLabel).includes(needle)) {
-               subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subLabel, detail: t('search.kind.inCategory', { category: catLabel }), href: `/categories/${category.slug}`, category, subcategory })
-             }
+             if (normalizeSearch(subcategory.name).includes(needle) || normalizeSearch(subcategoryLabel(t, subcategory.slug, subcategory.name)).includes(needle)) pushSubcategory(category, subcategory)
            }
          }
-         const productList = productsRes?.products ?? []
-         const shopList = shopsRes?.shops ?? []
+         const productList = server?.products ?? []
+         const shopList = server?.shops ?? []
          const uniqueProducts = productList.filter((product, index, all) => all.findIndex((candidate) => candidate.id === product.id) === index)
          const uniqueShops = shopList.filter((shop, index, all) => all.findIndex((candidate) => candidate.id === shop.id) === index)
          const next: Suggestion[] = [
-           ...uniqueProducts.slice(0, 3).map((product): Suggestion => ({ kind: 'product', id: product.id, label: product.name, detail: `${product.shop_name} · ${formatMoney(product.variants?.[0]?.unit_price ?? product.base_price)}`, href: `/products/${product.id}`, product })),
+           ...uniqueProducts.slice(0, 4).map((product): Suggestion => ({ kind: 'product', id: product.id, label: product.name, detail: `${product.shop_name} · ${formatMoney(product.variants?.[0]?.unit_price ?? product.seller_sale_price ?? product.base_price)}`, href: `/products/${product.id}`, product })),
            ...uniqueShops.slice(0, 2).map((shop): Suggestion => ({ kind: 'shop', id: shop.id, label: shop.name, detail: shop.city || shop.business_name, href: `/shops/${shop.id}`, shop })),
            ...categoryItems.slice(0, 2),
-           ...subcategoryItems.slice(0, 1)
-         ].slice(0, 8)
+           ...subcategoryItems.slice(0, 2)
+         ].slice(0, 10)
          setSuggestions(next)
          setActiveIndex(-1)
          setStatus('ready')
@@ -165,6 +191,10 @@ useEffect(() => {
     })).filter((group) => group.items.length)
   }, [suggestions, t])
 
+  function trackSuggestion(item: Suggestion, position: number) {
+    reportSearchClick({ query: query.trim(), resultType: SUGGESTION_TRACKING[item.kind], resultId: item.id, position })
+  }
+
   function setValue(value: string) {
     setQuery(value)
     onQueryChange?.(value)
@@ -191,6 +221,7 @@ useEffect(() => {
     } else if (event.key === 'Enter' && activeIndex >= 0) {
       event.preventDefault()
       setOpen(false)
+      trackSuggestion(suggestions[activeIndex], activeIndex)
       navigate(suggestions[activeIndex].href)
     }
   }
@@ -296,7 +327,7 @@ useEffect(() => {
               <div className="search-suggestion-heading">{group.label}</div>
               {group.items.map((item) => {
                 const index = suggestions.indexOf(item)
-                return <SuggestionLink key={`${item.kind}-${item.id}`} item={item} index={index} listId={listId} active={activeIndex === index} onHover={() => setActiveIndex(index)} onSelect={() => setOpen(false)} />
+                return <SuggestionLink key={`${item.kind}-${item.id}`} item={item} query={query} index={index} listId={listId} active={activeIndex === index} onHover={() => setActiveIndex(index)} onSelect={() => { trackSuggestion(item, index); setOpen(false) }} />
               })}
             </section>
           ))}
@@ -307,13 +338,18 @@ useEffect(() => {
   )
 }
 
-function SuggestionLink({ item, index, listId, active, onHover, onSelect }: { item: Suggestion; index: number; listId: string; active: boolean; onHover: () => void; onSelect: () => void }) {
+function SuggestionLink({ item, query, index, listId, active, onHover, onSelect }: { item: Suggestion; query: string; index: number; listId: string; active: boolean; onHover: () => void; onSelect: () => void }) {
   const category = item.kind === 'category' || item.kind === 'subcategory' ? item.category : undefined
   return (
     <Link id={`${listId}-${index}`} role="option" aria-selected={active} className={`search-suggestion ${active ? 'active' : ''}`} to={item.href} onMouseEnter={onHover} onClick={onSelect}>
       {category ? <span className="search-suggestion-thumb search-suggestion-icon" style={{ background: getCategoryVisual(category.slug).background, color: getCategoryVisual(category.slug).accent }}><CategoryIcon slug={category.slug} /></span> : <span className={`search-suggestion-thumb search-suggestion-initials search-suggestion-initials--${item.kind}`}>{initials(item.label)}</span>}
-      <span className="search-suggestion-copy"><strong>{item.label}</strong><small>{item.detail}</small></span>
+      <span className="search-suggestion-copy"><strong><Highlighted text={item.label} query={query} /></strong><small>{item.detail}</small></span>
       <span aria-hidden>›</span>
     </Link>
   )
+}
+
+/** Marks the typed words inside a suggestion, ignoring accents and case. */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  return <>{highlightParts(text, query).map((part, i) => (part.match ? <mark key={i} className="search-highlight">{part.text}</mark> : <span key={i}>{part.text}</span>))}</>
 }

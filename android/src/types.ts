@@ -54,6 +54,22 @@ export interface RegisterInput {
 
 export interface Category { id: string; name: string; slug: string; sort_order?: number; subcategories?: Category[] }
 
+/* ---------- Marketplace search (mirrors backend models.SearchSuggestions) ---------- */
+export interface TaxonomySuggestion { id: string; name: string; slug: string; category_id?: string; category_name?: string; category_slug?: string }
+export interface SearchSuggestions { query: string; products: PublicProduct[]; shops: Shop[]; categories: TaxonomySuggestion[]; subcategories: TaxonomySuggestion[] }
+export interface SearchPageResult {
+  products: PublicProduct[]
+  pagination: { page: number; limit: number; total: number; has_more: boolean }
+  search_id?: string
+  match_mode?: 'exact' | 'approximate'
+}
+export interface SearchEvent {
+  search_id?: string; query?: string
+  event_type: 'CLICK' | 'ADD_TO_CART'
+  result_type: 'PRODUCT' | 'SHOP' | 'CATEGORY' | 'SUBCATEGORY'
+  result_id: string; position?: number; session?: string
+}
+
 /** Mirrors backend models.CategoryAttributeDefinition and web-app CategoryAttributeDefinition. */
 export interface CategoryAttributeDefinition {
   id: string

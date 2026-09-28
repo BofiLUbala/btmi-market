@@ -9,6 +9,8 @@ import type {
   PublicProductDetail,
   PublicShopDetail,
   ProductReviewsResponse,
+  SearchEvent,
+  SearchSuggestions,
   ReviewReply,
   RankedShop,
   ShopReviewsResponse,
@@ -29,6 +31,10 @@ export interface MarketplaceQuery {
   /** "4 stars and above" — products with no reviews are excluded. */
   min_rating?: number
   sort?: string
+  /** Random per-tab id for anonymous reformulation analytics. */
+  session?: string
+  /** Prefer offers in this city without filtering the others out. */
+  near_city?: string
   availability?: string
   rating?: number
 }
@@ -62,6 +68,12 @@ export const marketplaceApi = {
     get<SimilarProductsResponse>(`/marketplace/products/${id}/similar`),
 
   search: (q: MarketplaceQuery, signal?: AbortSignal) => get<MarketplaceSearchResult>('/marketplace/search', q, { signal }),
+
+  /** Autocomplete: products, shops, categories and subcategories in one request. */
+  suggest: (q: string, signal?: AbortSignal) =>
+    get<SearchSuggestions>('/marketplace/search/suggest', { q, limit: 4 }, { signal }),
+
+  searchEvent: (event: SearchEvent) => post<{ recorded: boolean }>('/marketplace/search/events', event),
 
   searchByImage: (file: File) => {
     const form = new FormData()

@@ -131,6 +131,9 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
   // ten seconds a JSON call gets; aborting it surfaced as a generic network
   // failure with no request ever reaching the API.
   const timeout = setTimeout(() => controller.abort(), init.body instanceof FormData ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
+  // A caller's signal (e.g. react-query cancelling an outdated autocomplete
+  // request) aborts the request too.
+  init.signal?.addEventListener('abort', () => controller.abort(), { once: true })
   try {
     response = await fetch(`${API_URL}${path}`, { cache: 'no-store', ...init, headers, signal: controller.signal })
   } catch (cause) {
@@ -230,7 +233,7 @@ export async function uploadFile<T>(
   return unwrap<T>(result.status, result.body)
 }
 
-export const get = <T>(path: string) => request<T>(path)
+export const get = <T>(path: string, init?: RequestInit) => request<T>(path, init)
 export const post = <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
 export const postForm = <T>(path: string, body: FormData) => request<T>(path, { method: 'POST', body })
 export const patch = <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) })

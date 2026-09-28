@@ -10,6 +10,7 @@ import { SearchAutocomplete } from '@/components/search/SearchAutocomplete'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 import { CameraIcon } from '@/components/ui/Icons'
+import { reportSearchClick, searchSession } from '@/lib/searchTracking'
 
 const SORTS: { value: string; key: TranslationKey }[] = [
   { value: 'relevance', key: 'search.sort.relevance' },
@@ -36,18 +37,24 @@ export default function SearchPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [visualFileName, setVisualFileName] = useState('')
+  const [searchId, setSearchId] = useState<string | undefined>()
+  const [approximate, setApproximate] = useState(false)
 
   function runSearch(nextPage = 1, query = q, sortBy = sort, rating = minRating) {
     setLoading(true)
     setError('')
     marketplaceApi
-      .search({ q: query, sort: sortBy, page: nextPage, limit: 20, min_rating: rating })
+      .search({ q: query, sort: sortBy, page: nextPage, limit: 20, min_rating: rating, session: searchSession() })
       .then(
         (res) => {
           const list = asArray(res.products)
           setProducts((prev) => (nextPage === 1 ? list : [...prev, ...list]))
           setHasMore(res.pagination.has_more)
           setTotal(res.pagination.total)
+          if (nextPage === 1) {
+            setSearchId(res.search_id)
+            setApproximate(res.match_mode === 'approximate' && list.length > 0)
+          }
           setSearched(true)
           setLoading(false)
         },
@@ -137,6 +144,10 @@ export default function SearchPage() {
 
       {error && <ErrorBox error={error} />}
 
+      {approximate && !visualSearch && (
+        <p className="small muted" role="status" style={{ marginBottom: 12 }}>{t('search.approximate', { query: q })}</p>
+      )}
+
       {searched && products.length === 0 && !loading ? (
         <p className="muted" style={{ padding: '32px 0' }}>
           {visualSearch ? t('search.noResultsImage') : t('search.noResultsQuery', { query: q })}
@@ -144,8 +155,12 @@ export default function SearchPage() {
       ) : (
         <>
           <div className="product-grid">
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
+            {products.map((p, index) => (
+              // display: contents keeps the grid layout; the capture handler
+              // only reports which result was opened.
+              <div key={p.id} style={{ display: 'contents' }} onClickCapture={() => searchId && reportSearchClick({ searchId, resultType: 'PRODUCT', resultId: p.id, position: index })}>
+                <ProductCard product={p} />
+              </div>
             ))}
           </div>
           {hasMore && (

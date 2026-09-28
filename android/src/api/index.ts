@@ -9,7 +9,7 @@ import type {
   DeliveryOptionsResponse, DeliveryPointsPreview, DeliverySelectResponse, Employee, EmployeeInvitationResponse,
   EmployeeShopAssignment, InventoryItem, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines,
   PointRedemptionPreview, Product, ProductDetail, ProductImageResponse, ProductReviewsResponse, ProductVariant,
-  PublicationStatus, PublicProduct, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
+  PublicationStatus, PublicProduct, SearchEvent, SearchPageResult, SearchSuggestions, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
   SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
@@ -63,6 +63,18 @@ export const marketplaceApi = {
   categories: async () => list<Category>(await get<unknown>('/marketplace/categories')),
   shops: async (query = '') => list<Shop>(await get<unknown>(`/marketplace/shops?page=1&limit=5${query ? `&q=${encodeURIComponent(query)}` : ''}`)),
   search: async (query: string) => list<PublicProduct>(await get<unknown>(`/marketplace/search?q=${encodeURIComponent(query)}`)),
+  /** Full search page; same endpoint and parameters as the web SearchPage. */
+  searchPage: (params: { q: string; sort: string; page?: number; limit?: number; min_rating?: number; session?: string }, signal?: AbortSignal) => {
+    const qs = new URLSearchParams({ q: params.q, sort: params.sort, page: String(params.page ?? 1), limit: String(params.limit ?? 20) })
+    if (params.min_rating) qs.set('min_rating', String(params.min_rating))
+    if (params.session) qs.set('session', params.session)
+    return get<SearchPageResult>(`/marketplace/search?${qs}`, { signal })
+  },
+  /** Autocomplete: products, shops, categories and subcategories in one request. */
+  suggest: (query: string, signal?: AbortSignal) =>
+    get<SearchSuggestions>(`/marketplace/search/suggest?q=${encodeURIComponent(query)}&limit=4`, { signal }),
+  /** Fire-and-forget analytics; never blocks navigation. */
+  searchEvent: (event: SearchEvent) => post<{ recorded: boolean }>('/marketplace/search/events', event).catch(() => undefined),
   searchByImage: async (asset: { uri: string; fileName?: string | null; mimeType?: string | null }) => {
     const form = new FormData()
     form.append('image', { uri: asset.uri, name: asset.fileName || `recherche-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' } as unknown as Blob)

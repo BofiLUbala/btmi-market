@@ -183,6 +183,8 @@ export interface PublicVariant {
 }
 
 export interface PublicProduct {
+  /** Only on search results. */
+  search_rank?: SearchRank
   id: string
   shop_id: string
   shop_name: string
@@ -334,6 +336,46 @@ export interface RankedShop {
 export interface MarketplaceSearchResult {
   products: PublicProduct[]
   pagination: Pagination
+  /** Id of the logged search, used to report clicks. Absent when browsing. */
+  search_id?: string
+  /** "approximate" when nothing matched exactly and typo tolerance was used. */
+  match_mode?: 'exact' | 'approximate'
+  normalized_query?: string
+}
+
+/** Why a search hit is where it is: score = relevance + bonus. */
+export interface SearchRank {
+  tier: string
+  relevance: number
+  bonus: number
+  score: number
+}
+
+export interface TaxonomySuggestion {
+  id: string
+  name: string
+  slug: string
+  category_id?: string
+  category_name?: string
+  category_slug?: string
+}
+
+export interface SearchSuggestions {
+  query: string
+  products: PublicProduct[]
+  shops: PublicShop[]
+  categories: TaxonomySuggestion[]
+  subcategories: TaxonomySuggestion[]
+}
+
+export interface SearchEvent {
+  search_id?: string
+  query?: string
+  event_type: 'CLICK' | 'ADD_TO_CART'
+  result_type: 'PRODUCT' | 'SHOP' | 'CATEGORY' | 'SUBCATEGORY'
+  result_id: string
+  position?: number
+  session?: string
 }
 
 export interface PaginatedShops {
