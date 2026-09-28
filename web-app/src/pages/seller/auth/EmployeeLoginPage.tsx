@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
+import { CapsLockHint, RememberMe, forgotPasswordLink, useCapsLock, useRememberedEmail } from '@/components/auth/AuthFormParts'
 
 export default function EmployeeLoginPage() {
   const t = useT()
@@ -13,7 +14,8 @@ export default function EmployeeLoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/employee/dashboard'
-  const [email, setEmail] = useState('')
+  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('employee')
+  const caps = useCapsLock()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -24,6 +26,7 @@ export default function EmployeeLoginPage() {
     setBusy(true)
     try {
       const result = await login(email.trim(), password)
+      persist(email)
       if (result.accountType === 'COURIER' || result.user?.capabilities?.courier) {
         navigate('/courier/dashboard', { replace: true })
       } else if (result.accountType === 'EMPLOYEE') {
@@ -62,25 +65,38 @@ export default function EmployeeLoginPage() {
           name="email"
           type="email"
           required
-          autoComplete="email"
+          autoComplete="username"
+          inputMode="email"
+          autoFocus={!prefilled}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t('auth.emailPlaceholder')}
         />
-        <Field
-          label={t('auth.password')}
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-        />
+        <div className="auth-password-row">
+          <Field
+            label={t('auth.password')}
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            autoFocus={prefilled}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyUp={caps.onKeyUp}
+            onKeyDown={caps.onKeyDown}
+            placeholder="••••••••"
+            showPasswordToggle
+          />
+          <CapsLockHint on={caps.capsLock} />
+          <Link {...forgotPasswordLink('employee', email)} className="section-link auth-forgot-link" data-testid="employee-forgot-password-link">
+            {t('auth.login.forgotPassword')}
+          </Link>
+        </div>
+        <RememberMe checked={remember} onChange={setRemember} />
         <Button type="submit" block size="lg" loading={busy}>
           {t('auth.login.submit')}
         </Button>
-        <p className="small muted">
+        <p className="small muted" style={{ textAlign: 'center', margin: 0 }}>
           {t('seller.auth.employeeLogin.seller')} <Link to="/seller/login" className="section-link">{t('auth.signInAsSeller')}</Link>
         </p>
       </form>

@@ -35,6 +35,14 @@ export type DescriptionTone =
   | 'sport'
   | 'automotive'
   | 'services'
+  | 'books'
+  | 'jewelry'
+  | 'health'
+  | 'pets'
+  | 'stationery'
+  | 'garden'
+  | 'music'
+  | 'hardware'
   | 'default'
 
 export interface DescriptionSection {
@@ -60,6 +68,14 @@ const SLUG_TO_TONE: Record<string, DescriptionTone> = {
   sport: 'sport', sports: 'sport', fitness: 'sport',
   automotive: 'automotive', auto: 'automotive', car: 'automotive', vehicle: 'automotive',
   services: 'services', service: 'services',
+  books: 'books', livres: 'books',
+  jewelry: 'jewelry', jewellery: 'jewelry', bijoux: 'jewelry', watches: 'jewelry',
+  health: 'health', sante: 'health', pharmacy: 'health',
+  pets: 'pets', animaux: 'pets',
+  stationery: 'stationery', office: 'stationery', papeterie: 'stationery',
+  garden: 'garden', jardin: 'garden',
+  music: 'music', musique: 'music', instruments: 'music',
+  hardware: 'hardware', diy: 'hardware', tools: 'hardware', bricolage: 'hardware',
 }
 
 export function descriptionTone(slug?: string | null): DescriptionTone {
@@ -182,6 +198,94 @@ const TEMPLATES: Record<DescriptionTone, Omit<DescriptionTemplate, 'tone'>> = {
       s('included', 'Ce qui est inclus', 'What’s included', 'Ex. : Déplacement, installation, test complet.', 'e.g. Travel, installation, full test.'),
       s('process', 'Déroulement', 'How it works', 'Ex. : Prise de rendez-vous sous 24 h, intervention d’1 h.', 'e.g. Booking within 24 h, 1-hour visit.'),
       s('area', 'Zone d’intervention', 'Service area', 'Ex. : Kinshasa – Gombe, Limete, Ngaliema.', 'e.g. Kinshasa – Gombe, Limete, Ngaliema.'),
+    ],
+  },
+  books: {
+    introPlaceholder: {
+      fr: 'Ex. : Roman policier haletant, premier tome d’une trilogie.',
+      en: 'e.g. Gripping crime novel, first volume of a trilogy.',
+    },
+    sections: [
+      s('summary', 'Résumé', 'Summary', 'Ex. : Une enquête au cœur de Kinshasa…', 'e.g. An investigation in the heart of Kinshasa…'),
+      s('details', 'Auteur & édition', 'Author & edition', 'Ex. : Auteur, éditeur, année, 320 pages, broché.', 'e.g. Author, publisher, year, 320 pages, paperback.'),
+      s('condition', 'État', 'Condition', 'Ex. : Neuf. / Occasion, très bon état.', 'e.g. New. / Used, very good condition.'),
+    ],
+  },
+  jewelry: {
+    introPlaceholder: {
+      fr: 'Ex. : Collier fin en argent 925 avec pendentif en zircon.',
+      en: 'e.g. Delicate 925 silver necklace with a zircon pendant.',
+    },
+    sections: [
+      s('materials', 'Matière & finition', 'Material & finish', 'Ex. : Argent 925, plaqué or 18 carats.', 'e.g. 925 silver, 18k gold plated.'),
+      s('dimensions', 'Dimensions', 'Dimensions', 'Ex. : Chaîne 45 cm, pendentif 1 cm.', 'e.g. 45 cm chain, 1 cm pendant.'),
+      s('care', 'Entretien', 'Care', 'Ex. : Éviter l’eau et le parfum, ranger dans l’écrin.', 'e.g. Avoid water and perfume, store in the box.'),
+    ],
+  },
+  health: {
+    introPlaceholder: {
+      fr: 'Ex. : Tensiomètre de bras automatique, lecture rapide et fiable.',
+      en: 'e.g. Automatic upper-arm blood pressure monitor, fast and reliable.',
+    },
+    sections: [
+      s('usage', 'Utilisation', 'How to use', 'Ex. : 1 comprimé par jour au cours d’un repas.', 'e.g. 1 tablet a day with a meal.'),
+      s('composition', 'Composition', 'Composition', 'Ex. : Vitamine C 500 mg, zinc 10 mg.', 'e.g. Vitamin C 500 mg, zinc 10 mg.'),
+      s('warnings', 'Précautions', 'Warnings', 'Ex. : Ne pas dépasser la dose. Tenir hors de portée des enfants.', 'e.g. Do not exceed the dose. Keep out of reach of children.'),
+    ],
+  },
+  pets: {
+    introPlaceholder: {
+      fr: 'Ex. : Croquettes pour chien adulte au poulet, sac de 10 kg.',
+      en: 'e.g. Chicken kibble for adult dogs, 10 kg bag.',
+    },
+    sections: [
+      s('animal', 'Animal & âge', 'Pet & age', 'Ex. : Chiens adultes de taille moyenne.', 'e.g. Adult medium-size dogs.'),
+      s('composition', 'Composition', 'Composition', 'Ex. : Poulet 30 %, riz, légumes.', 'e.g. 30% chicken, rice, vegetables.'),
+      s('usage', 'Conseils d’utilisation', 'How to use', 'Ex. : 200 g par jour en deux repas.', 'e.g. 200 g a day over two meals.'),
+    ],
+  },
+  stationery: {
+    introPlaceholder: {
+      fr: 'Ex. : Lot de 10 cahiers grand format, 96 pages à grands carreaux.',
+      en: 'e.g. Pack of 10 large notebooks, 96 ruled pages.',
+    },
+    sections: [
+      s('contents', 'Contenu du lot', 'Pack contents', 'Ex. : 10 cahiers, couvertures assorties.', 'e.g. 10 notebooks, assorted covers.'),
+      s('specs', 'Format & caractéristiques', 'Format & specs', 'Ex. : A4, papier 90 g/m².', 'e.g. A4, 90 gsm paper.'),
+      s('usage', 'Usage', 'Use', 'Ex. : Idéal pour l’école et le bureau.', 'e.g. Ideal for school and office.'),
+    ],
+  },
+  garden: {
+    introPlaceholder: {
+      fr: 'Ex. : Tuyau d’arrosage extensible 30 m avec pistolet 7 jets.',
+      en: 'e.g. 30 m expandable garden hose with 7-pattern nozzle.',
+    },
+    sections: [
+      s('specs', 'Caractéristiques', 'Specs', 'Ex. : 30 m, raccords en laiton.', 'e.g. 30 m, brass fittings.'),
+      s('usage', 'Utilisation & entretien', 'Use & care', 'Ex. : Vider après usage, ranger à l’ombre.', 'e.g. Drain after use, store in the shade.'),
+      s('conditions', 'Exposition & climat', 'Light & climate', 'Ex. : Plein soleil, arrosage deux fois par semaine.', 'e.g. Full sun, water twice a week.'),
+    ],
+  },
+  music: {
+    introPlaceholder: {
+      fr: 'Ex. : Guitare acoustique folk, table en épicéa, son chaleureux.',
+      en: 'e.g. Folk acoustic guitar with a spruce top and warm tone.',
+    },
+    sections: [
+      s('specs', 'Caractéristiques', 'Specs', 'Ex. : 6 cordes, manche en acajou, 41 pouces.', 'e.g. 6 strings, mahogany neck, 41 inches.'),
+      s('box', 'Contenu', 'What’s included', 'Ex. : Housse, jeu de cordes, médiators.', 'e.g. Gig bag, spare strings, picks.'),
+      s('level', 'Niveau', 'Skill level', 'Ex. : Idéal pour débutants.', 'e.g. Great for beginners.'),
+    ],
+  },
+  hardware: {
+    introPlaceholder: {
+      fr: 'Ex. : Perceuse-visseuse sans fil 18 V avec deux batteries.',
+      en: 'e.g. 18 V cordless drill driver with two batteries.',
+    },
+    sections: [
+      s('specs', 'Caractéristiques techniques', 'Technical specs', 'Ex. : 18 V, 2 vitesses, couple 45 Nm.', 'e.g. 18 V, 2 speeds, 45 Nm torque.'),
+      s('box', 'Contenu de la boîte', 'What’s in the box', 'Ex. : 2 batteries, chargeur, coffret.', 'e.g. 2 batteries, charger, case.'),
+      s('safety', 'Sécurité & garantie', 'Safety & warranty', 'Ex. : Porter des lunettes de protection. Garantie 1 an.', 'e.g. Wear safety glasses. 1-year warranty.'),
     ],
   },
   default: {

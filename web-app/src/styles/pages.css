@@ -12,8 +12,10 @@
   .cat-grid { grid-template-columns: repeat(4, 1fr); }
 }
 .cat-card {
-  display: block;
-  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
   overflow: hidden;
   border-color: rgba(15, 23, 42, 0.08);
 }
@@ -30,11 +32,26 @@
   transition: transform 180ms ease;
 }
 .cat-card-copy {
-  min-height: 78px;
-  padding: var(--space-3) var(--space-4) var(--space-4);
+  min-width: 0;
 }
-.cat-card:hover .cat-image {
-  transform: scale(1.025);
+.cat-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  transition: transform 180ms ease;
+}
+.cat-card-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.cat-card:hover .cat-card-icon {
+  transform: scale(1.06);
 }
 .cat-sub {
   overflow: hidden;
@@ -52,13 +69,20 @@
   border: 1px solid;
   margin-bottom: var(--space-4);
 }
-.cat-detail-image {
-  width: clamp(96px, 18vw, 180px);
-  aspect-ratio: 4 / 3;
-  border-radius: var(--radius);
-  display: block;
-  object-fit: cover;
+.cat-detail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+.cat-detail-icon svg {
+  width: 34px;
+  height: 34px;
 }
 .cat-detail-header h1 {
   font-size: var(--text-2xl);
@@ -70,9 +94,8 @@
 }
 @media (max-width: 480px) {
   .cat-grid { gap: var(--space-3); }
-  .cat-card-copy { min-height: 70px; padding: var(--space-3); }
+  .cat-card { padding: var(--space-3); }
   .cat-detail-header { align-items: flex-start; }
-  .cat-detail-image { width: 96px; }
 }
 
 /* ===== Auth ===== */
@@ -139,10 +162,9 @@
   border: 1px solid var(--color-border);
   transition: border-color .15s ease, transform .15s ease;
 }
-.category-tile-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.category-tile-media svg {
+  width: 28px;
+  height: 28px;
 }
 .category-tile:hover .category-tile-media {
   border-color: var(--color-primary);
@@ -2121,4 +2143,98 @@
   .payment-method-markup { width: 100%; text-align: left; }
   .address-summary > div { flex-direction: column; gap: 2px; }
   .address-summary dd { text-align: left; }
+}
+
+/* ---- Sign-in forms: remember me, caps lock, inline resend ---- */
+.auth-remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  user-select: none;
+}
+.auth-remember input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+.auth-remember small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+.auth-capslock {
+  margin: -6px 0 0;
+  font-size: 0.8rem;
+  color: #b45309;
+  font-weight: 600;
+}
+.auth-resend {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.auth-resend p {
+  margin: 0;
+}
+.success-text {
+  color: #047857;
+}
+.danger-text {
+  color: #b91c1c;
+}
+.auth-password-row {
+  display: grid;
+  gap: 6px;
+  margin-bottom: var(--space-4);
+}
+.auth-password-row .field {
+  margin-bottom: 0;
+}
+.auth-remember {
+  margin-bottom: var(--space-4);
+}
+.auth-card {
+  padding: var(--space-6);
+}
+@media (max-width: 480px) {
+  .auth-wrap { padding: var(--space-4); }
+  .auth-card { padding: var(--space-4); }
+}
+.auth-forgot-link {
+  justify-self: end;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.auth-sent-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 4px;
+  font-size: 26px;
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+.auth-alt-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 0.9rem;
+}
+.registration-result .auth-resend {
+  margin-top: var(--space-4);
+}
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }

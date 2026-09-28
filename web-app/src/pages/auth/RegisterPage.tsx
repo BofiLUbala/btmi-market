@@ -6,6 +6,7 @@ import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
+import { ResendEmailButton } from '@/components/auth/AuthFormParts'
 import { useT } from '@/store/i18n'
 import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
 import { PinIcon } from '@/components/ui/Icons'
@@ -23,7 +24,6 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
   const t = useT()
   const isSeller = accountType === 'SELLER'
   const loginPath = isSeller ? '/seller/login' : '/login'
-  const resendPath = isSeller ? '/seller/resend-activation' : '/resend-activation'
   const [policyAccepted, setPolicyAccepted] = useState(false)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [form, setForm] = useState({
@@ -221,12 +221,13 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
             <p className="muted">{t('auth.register.checkEmail')}</p>
             <p>{t('auth.register.sentLinkToEmail', { email: form.email })}</p>
             <p className="small muted">{t('auth.register.linkValidity')}</p>
-            <Link to={resendPath}>
-              <Button variant="outline" block>{t('auth.register.resendActivation')}</Button>
-            </Link>
             <Link to={loginPath}>
               <Button block>{t('auth.register.goToSignIn')}</Button>
             </Link>
+            <ResendEmailButton
+              label={t('auth.resend.activationLabel')}
+              onResend={() => authApi.resendActivation(form.email.trim())}
+            />
           </div>
         </div>
       </div>
@@ -243,9 +244,11 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
             <h1>{t('auth.register.created')}</h1>
             <p className="muted">{t('auth.register.emailFailed')}</p>
             {error && <ErrorBox error={error} />}
-            <Link to={resendPath}>
-              <Button block>{t('auth.register.trySendingAgain')}</Button>
-            </Link>
+            <ResendEmailButton
+              label={t('auth.register.trySendingAgain')}
+              initialCooldown={false}
+              onResend={() => authApi.resendActivation(form.email.trim())}
+            />
             <Link to={loginPath}>
               <Button variant="outline" block>{t('auth.register.goToSignIn')}</Button>
             </Link>

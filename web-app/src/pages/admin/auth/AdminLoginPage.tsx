@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
 import { defaultRouteForRole } from '@/components/admin/adminNav'
+import { EyeIcon, EyeOffIcon } from '@/components/ui/Icons'
+import { useCapsLock, useRememberedEmail } from '@/components/auth/AuthFormParts'
 
 export default function AdminLoginPage() {
   const { login } = useAdminAuth()
@@ -10,7 +12,10 @@ export default function AdminLoginPage() {
   const location = useLocation()
   const t = useT()
 
-  const [email, setEmail] = useState('')
+  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('admin')
+  const caps = useCapsLock()
+  const [showPassword, setShowPassword] = useState(false)
+  const [showForgotHelp, setShowForgotHelp] = useState(false)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -21,7 +26,8 @@ export default function AdminLoginPage() {
     setIsSubmitting(true)
 
     try {
-      const admin = await login(email, password)
+      const admin = await login(email.trim(), password)
+      persist(email)
       // Redirect based on role or original destination
       const from = (location.state as { from?: { pathname?: string } })?.from?.pathname
       if (from && from !== '/admin/login') {
@@ -81,6 +87,9 @@ export default function AdminLoginPage() {
             <input
               id="admin-email"
               type="email"
+              autoComplete="username"
+              inputMode="email"
+              autoFocus={!prefilled}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -98,29 +107,76 @@ export default function AdminLoginPage() {
             />
           </div>
 
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 14 }}>
             <label htmlFor="admin-password" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
               {t('admin.login.passwordLabel')}
             </label>
-            <input
-              id="admin-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="••••••••••••"
-              style={{
-                width: '100%',
-                padding: '11px 14px',
-                borderRadius: 8,
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                color: '#ffffff',
-                fontSize: 14,
-                boxSizing: 'border-box'
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="admin-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                autoFocus={prefilled}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyUp={caps.onKeyUp}
+                onKeyDown={caps.onKeyDown}
+                required
+                placeholder="••••••••••••"
+                style={{
+                  width: '100%',
+                  padding: '11px 44px 11px 14px',
+                  borderRadius: 8,
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#ffffff',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={t(showPassword ? 'auth.hidePasswordFor' : 'auth.showPasswordFor', { field: t('admin.login.passwordLabel') })}
+                aria-pressed={showPassword}
+                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 0, color: '#94a3b8', cursor: 'pointer', padding: 6, display: 'flex' }}
+              >
+                {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+            </div>
+            {caps.capsLock && (
+              <p role="status" style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 600, color: '#fbbf24' }}>⇪ {t('auth.login.capsLockOn')}</p>
+            )}
+            <div style={{ textAlign: 'right', marginTop: 8 }}>
+              <button
+                type="button"
+                id="admin-forgot-password"
+                onClick={() => setShowForgotHelp((v) => !v)}
+                aria-expanded={showForgotHelp}
+                style={{ background: 'none', border: 0, padding: 0, color: '#93c5fd', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+              >
+                {t('auth.login.forgotPassword')}
+              </button>
+            </div>
+            {showForgotHelp && (
+              <p style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.5, color: '#cbd5e1', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8, padding: '8px 12px' }}>
+                {t('admin.login.forgotHelp')}
+              </p>
+            )}
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 22, cursor: 'pointer', fontSize: 13, color: '#e2e8f0' }}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              style={{ width: 16, height: 16, marginTop: 2, accentColor: '#2563eb', cursor: 'pointer' }}
+            />
+            <span>
+              {t('auth.login.rememberMe')}
+              <small style={{ display: 'block', color: '#64748b', fontSize: 11.5, marginTop: 2 }}>{t('auth.login.rememberMeHint')}</small>
+            </span>
+          </label>
 
           <button
             id="admin-submit-btn"

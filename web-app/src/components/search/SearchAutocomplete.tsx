@@ -5,10 +5,12 @@ import { marketplaceApi } from '@/api/marketplace'
 import type { CategoryResponse, PublicProduct, PublicShop, SubcategoryResponse } from '@/api/types'
 import { formatMoney, initials } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { CategoryIcon } from '@/components/ui/CategoryIcon'
 import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { CameraIcon, ImageIcon } from '@/components/ui/Icons'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { normalizeSearch } from '@/lib/searchNormalization'
 
 type Suggestion =
   | { kind: 'product'; id: string; label: string; detail: string; href: string; product: PublicProduct }
@@ -100,17 +102,17 @@ useEffect(() => {
            loadTaxonomy()
          ])
          if (controller.signal.aborted) return
-         const needle = trimmed.toLocaleLowerCase()
+         const needle = normalizeSearch(trimmed)
          const categoryItems: Suggestion[] = []
          const subcategoryItems: Suggestion[] = []
          for (const category of categories ?? []) {
            const catLabel = categoryLabel(t, category.slug, category.name)
-           if (category.name.toLocaleLowerCase().includes(needle) || catLabel.toLocaleLowerCase().includes(needle)) {
+           if (normalizeSearch(category.name).includes(needle) || normalizeSearch(catLabel).includes(needle)) {
              categoryItems.push({ kind: 'category', id: category.id, label: catLabel, detail: t('search.kind.category'), href: `/categories/${category.slug}`, category })
            }
            for (const subcategory of category.subcategories ?? []) {
              const subLabel = subcategoryLabel(t, subcategory.slug, subcategory.name)
-             if (subcategory.name.toLocaleLowerCase().includes(needle) || subLabel.toLocaleLowerCase().includes(needle)) {
+             if (normalizeSearch(subcategory.name).includes(needle) || normalizeSearch(subLabel).includes(needle)) {
                subcategoryItems.push({ kind: 'subcategory', id: subcategory.id, label: subLabel, detail: t('search.kind.inCategory', { category: catLabel }), href: `/categories/${category.slug}`, category, subcategory })
              }
            }
@@ -309,7 +311,7 @@ function SuggestionLink({ item, index, listId, active, onHover, onSelect }: { it
   const category = item.kind === 'category' || item.kind === 'subcategory' ? item.category : undefined
   return (
     <Link id={`${listId}-${index}`} role="option" aria-selected={active} className={`search-suggestion ${active ? 'active' : ''}`} to={item.href} onMouseEnter={onHover} onClick={onSelect}>
-      {category ? <img className="search-suggestion-thumb" src={getCategoryVisual(category.slug).image} alt="" /> : <span className={`search-suggestion-thumb search-suggestion-initials search-suggestion-initials--${item.kind}`}>{initials(item.label)}</span>}
+      {category ? <span className="search-suggestion-thumb search-suggestion-icon" style={{ background: getCategoryVisual(category.slug).background, color: getCategoryVisual(category.slug).accent }}><CategoryIcon slug={category.slug} /></span> : <span className={`search-suggestion-thumb search-suggestion-initials search-suggestion-initials--${item.kind}`}>{initials(item.label)}</span>}
       <span className="search-suggestion-copy"><strong>{item.label}</strong><small>{item.detail}</small></span>
       <span aria-hidden>›</span>
     </Link>

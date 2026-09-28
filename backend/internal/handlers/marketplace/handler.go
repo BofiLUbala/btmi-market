@@ -1,6 +1,8 @@
 package marketplace
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -56,10 +58,16 @@ func (h *Handler) ListShops(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
-	shops, total, err := h.marketplaceService.ListShops(query, city, page, limit)
+	shops, total, err := h.marketplaceService.ListShops(c.Request.Context(), query, city, c.Query("near_city"), page, limit)
 	if err != nil {
-		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		h.searchError(c, err)
 		return
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
 	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
@@ -67,12 +75,24 @@ func (h *Handler) ListShops(c *gin.Context) {
 		Data: map[string]interface{}{
 			"shops": shops,
 			"pagination": models.PaginationInfo{
-				Page:  page,
-				Limit: limit,
-				Total: total,
+				Page:    page,
+				Limit:   limit,
+				Total:   total,
+				HasMore: page*limit < total,
 			},
 		},
 	})
+}
+
+// searchError maps validation errors to 400 and hides database details.
+func (h *Handler) searchError(c *gin.Context, err error) {
+	var verr *service.SearchValidationError
+	if errors.As(err, &verr) {
+		h.errResponse(c, http.StatusBadRequest, verr.Code, verr.Message)
+		return
+	}
+	log.Printf("marketplace search failed: %v", err)
+	h.errResponse(c, http.StatusInternalServerError, "SEARCH_UNAVAILABLE", "Search is temporarily unavailable.")
 }
 
 // GET /api/v1/marketplace/shops/:shop_id
@@ -182,11 +202,15 @@ func (h *Handler) GetProductPrice(c *gin.Context) {
 // GET /api/v1/marketplace/search
 func (h *Handler) SearchProducts(c *gin.Context) {
 	params := &models.MarketplaceSearchParams{
-		Query:      c.Query("q"),
-		ShopID:     c.Query("shop_id"),
-		BusinessID: c.Query("business_id"),
-		City:       c.Query("city"),
-		Sort:       c.Query("sort"),
+		Query:           c.Query("q"),
+		ShopID:          c.Query("shop_id"),
+		BusinessID:      c.Query("business_id"),
+		City:            c.Query("city"),
+		CategorySlug:    c.Query("category"),
+		SubcategorySlug: c.Query("subcategory"),
+		Sort:            c.Query("sort"),
+		NearCity:        c.Query("near_city"),
+		Session:         c.Query("session"),
 	}
 	params.Page, _ = strconv.Atoi(c.DefaultQuery("page", "1"))
 	params.Limit, _ = strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -203,9 +227,9 @@ func (h *Handler) SearchProducts(c *gin.Context) {
 		}
 	}
 
-	results, err := h.marketplaceService.SearchProducts(params)
+	results, err := h.marketplaceService.SearchProducts(c.Request.Context(), params)
 	if err != nil {
-		h.errResponse(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+		h.searchError(c, err)
 		return
 	}
 
@@ -213,6 +237,33 @@ func (h *Handler) SearchProducts(c *gin.Context) {
 		Message: "Search results retrieved successfully",
 		Data:    results,
 	})
+}
+
+// GET /api/v1/marketplace/search/suggest?q=&limit=
+func (h *Handler) SearchSuggest(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+	suggestions, err := h.marketplaceService.Suggest(c.Request.Context(), c.Query("q"), limit)
+	if err != nil {
+		h.searchError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Search suggestions", Data: suggestions})
+}
+
+// POST /api/v1/marketplace/search/events
+func (h *Handler) RecordSearchEvent(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4<<10)
+	var req models.SearchEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_EVENT", "Invalid search event.")
+		return
+	}
+	recorded, err := h.marketplaceService.RecordSearchEvent(&req)
+	if err != nil {
+		h.searchError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Search event received", Data: map[string]bool{"recorded": recorded}})
 }
 
 // POST /api/v1/marketplace/search/image

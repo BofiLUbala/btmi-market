@@ -5,6 +5,7 @@ import (
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
+	searchutil "github.com/btmi-ai-market/backend/internal/search"
 	"github.com/google/uuid"
 )
 
@@ -13,6 +14,7 @@ type MarketplaceService struct {
 	productImageRepo *repository.ProductImageRepository
 	visualSearchURL  string
 	pointService     *PointService
+	synonyms         *searchutil.SynonymCache
 }
 
 func NewMarketplaceService(
@@ -22,6 +24,7 @@ func NewMarketplaceService(
 	return &MarketplaceService{
 		marketplaceRepo: marketplaceRepo,
 		pointService:    pointService,
+		synonyms:        searchutil.NewSynonymCache(marketplaceRepo.LoadSearchSynonyms, synonymCacheTTL),
 	}
 }
 
@@ -59,16 +62,6 @@ func (s *MarketplaceService) attachImages(products []*models.PublicProductRespon
 			})
 		}
 	}
-}
-
-func (s *MarketplaceService) ListShops(query, city string, page, limit int) ([]*models.PublicShopResponse, int, error) {
-	if page <= 0 {
-		page = 1
-	}
-	if limit <= 0 || limit > 50 {
-		limit = 20
-	}
-	return s.marketplaceRepo.ListPublicShops(query, city, page, limit)
 }
 
 func (s *MarketplaceService) GetShop(shopID uuid.UUID) (*models.PublicShopResponse, error) {
@@ -120,25 +113,6 @@ func (s *MarketplaceService) ListProductsByCategory(categoryID, subcategoryID uu
 
 func (s *MarketplaceService) ListMarketplaceCategories() ([]*models.CategoryResponse, error) {
 	return s.marketplaceRepo.ListCategoriesWithSubs()
-}
-
-func (s *MarketplaceService) SearchProducts(params *models.MarketplaceSearchParams) (*models.MarketplaceSearchResult, error) {
-	if params.Page <= 0 {
-		params.Page = 1
-	}
-	if params.Limit <= 0 || params.Limit > 50 {
-		params.Limit = 20
-	}
-	res, err := s.marketplaceRepo.SearchProducts(params)
-	count := 0
-	if res != nil {
-		count = res.Pagination.Total
-	}
-	s.marketplaceRepo.LogSearch(params.Query, count, "TEXT", err)
-	if err == nil && res != nil {
-		s.attachImages(res.Products)
-	}
-	return res, err
 }
 
 func (s *MarketplaceService) GetProductPrice(productID uuid.UUID, buyerProfileID *uuid.UUID) (*models.BuyerPriceResponse, error) {

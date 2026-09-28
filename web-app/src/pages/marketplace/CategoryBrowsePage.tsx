@@ -7,6 +7,8 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { asArray } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { CategoryIcon } from '@/components/ui/CategoryIcon'
+import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { useI18n } from '@/store/i18n'
 
 export default function CategoryBrowsePage() {
@@ -21,7 +23,7 @@ export default function CategoryBrowsePage() {
   const [loading, setLoading] = useState(true)
 
   const visual = getCategoryVisual(slug)
-  const categoryName = slug.replace(/-/g, ' ')
+  const categoryName = categoryLabel(t, slug, slug.replace(/-/g, ' '))
 
   useEffect(() => {
     setSub('')
@@ -71,7 +73,7 @@ export default function CategoryBrowsePage() {
               background: visual.background,
             }}
           >
-            <img className="cat-detail-image" src={visual.image} alt={t('categoryBrowse.imageAlt', { name: categoryName })} />
+            <span className="cat-detail-icon" style={{ color: visual.accent }}><CategoryIcon slug={slug} /></span>
             <div>
               <h1 style={{ marginBottom: 4, color: visual.accent }}>
                 {categoryName}
@@ -99,7 +101,7 @@ export default function CategoryBrowsePage() {
               className={`category-chip ${sub === s.slug ? 'selected' : ''}`}
               onClick={() => setSub(s.slug)}
             >
-              {s.name}
+              {subcategoryLabel(t, s.slug, s.name)}
             </button>
           ))}
         </div>

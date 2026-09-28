@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api'
 import { ApiError } from '../api/client'
 import { Button, Card, Field, SectionTitle } from './ui'
+import { ResendEmailButton } from './AuthFormParts'
 import { SellerPolicyContent } from './SellerPolicyContent'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
@@ -158,8 +159,6 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
     },
   })
 
-  const resend = useMutation({ mutationFn: () => authApi.resendActivation(email.trim().toLowerCase()) })
-
   useEffect(() => {
     if (!register.isSuccess) return
     const connectAfterActivation = async () => {
@@ -189,16 +188,11 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
           <Text style={styles.success}>{t('auth.register.checkEmail')}</Text>
           <Text style={styles.muted}>{t('auth.register.sentLinkToEmail', { email: email.trim().toLowerCase() })}</Text>
           <Text style={styles.muted}>{t('auth.register.linkValidity')}</Text>
-          {resend.isSuccess ? <Text style={styles.success}>{t('auth.register.resendSent')}</Text> : null}
-          {resend.isError ? <Text style={styles.error}>{t('auth.register.resendFailed')}</Text> : null}
-          <Button
-            title={t('auth.register.resendActivation')}
-            variant="outline"
-            loading={resend.isPending}
-            disabled={resend.isSuccess}
-            onPress={() => resend.mutate()}
-          />
           <Button title={t('auth.register.goToSignIn')} onPress={() => router.replace('/auth/login')} />
+          <ResendEmailButton
+            label={t('auth.register.resendActivation')}
+            onResend={() => authApi.resendActivation(email.trim().toLowerCase())}
+          />
         </Card>
       </ScrollView>
     )

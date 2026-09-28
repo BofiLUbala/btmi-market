@@ -944,7 +944,7 @@ export const adminCommerceApi = {
     return adminApi<AdminCategoryItem[]>('/admin/commerce/categories')
   },
   createCategory: async (name: string, slug: string, sort_order: number) => {
-    return adminApi<unknown>('/admin/commerce/categories', {
+    return adminApi<{ id: string }>('/admin/commerce/categories', {
       method: 'POST',
       body: JSON.stringify({ name, slug, sort_order })
     })
@@ -1185,7 +1185,58 @@ export const adminCommerceApi = {
     return adminApi<{ shops: AdminShopListItem[]; total: number; limit: number; offset: number }>(`/admin/commerce/shops?${q}`)
   },
   setShopStatus: async (id: string, status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED', reason: string) =>
-    adminApi<{ id: string; status: string }>(`/admin/commerce/shops/${id}/status`, { method: 'POST', body: JSON.stringify({ status, reason }) })
+    adminApi<{ id: string; status: string }>(`/admin/commerce/shops/${id}/status`, { method: 'POST', body: JSON.stringify({ status, reason }) }),
+  getShopAnalytics: async (shopId: string) =>
+    adminApi<ShopAnalytics>(`/admin/commerce/shops/${shopId}/analytics`),
+  getShopProductsWithStock: async (shopId: string) =>
+    adminApi<{ products: ShopProductWithStock[] }>(`/admin/commerce/shops/${shopId}/products-stock`),
+  getShopSalesTimeseries: async (shopId: string, params?: { interval?: 'day' | 'week' | 'month' | 'year'; from?: string; to?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.interval) q.set('interval', params.interval)
+    if (params?.from) q.set('from', params.from)
+    if (params?.to) q.set('to', params.to)
+    return adminApi<{ timeseries: SalesTimeseriesPoint[] }>(`/admin/commerce/shops/${shopId}/sales?${q.toString()}`)
+  }
+}
+
+export interface ShopAnalytics {
+  shop_id: string
+  shop_name: string
+  business_name: string
+  total_products: number
+  active_products: number
+  total_stock: number
+  available_stock: number
+  reserved_stock: number
+  total_sales_value: number
+  total_sales_count: number
+  avg_order_value: number
+  stock_turnover_rate: number
+  health_score: number
+}
+
+export interface ShopProductWithStock {
+  product_id: string
+  product_name: string
+  sku: string
+  unit_price: number
+  total_stock: number
+  available_stock: number
+  reserved_stock: number
+  stock_status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+  sales_this_month: number
+  sales_this_week: number
+  sales_today: number
+  last_movement_at: string
+}
+
+export interface SalesTimeseriesPoint {
+  period: string
+  sales_count: number
+  sales_value: number
+  units_sold: number
+  avg_order_value: number
+  orders_count: number
 }
 
 /** A real business entity as Commerce supervises it. */
@@ -2240,4 +2291,54 @@ export const adminAdvancedApi = {
     URL.revokeObjectURL(url)
   },
   analytics: (dashboard:string, days:number) => adminApi<{metrics:AnalyticsMetric[];days:number}>(`/admin/analytics/${dashboard}?days=${days}`),
+}
+
+// ==========================================================================
+// MONITORING API - Real-time auth failures & active sessions
+// ==========================================================================
+
+export interface AuthFailure {
+  id: number
+  email: string
+  role: 'admin' | 'seller' | 'courier' | 'buyer'
+  error_code: string
+  ip_address: string
+  user_agent: string
+  created_at: string
+}
+
+export interface ActiveSession {
+  id: number
+  user_id: number
+  email: string
+  role: 'admin' | 'seller' | 'courier' | 'buyer'
+  ip_address: string
+  user_agent: string
+  login_at: string
+  last_activity_at: string
+  activity_type: string
+  activity_count: number
+  online_duration_seconds: number
+}
+
+export const adminMonitoringApi = {
+  getAuthFailures: (params?: { limit?: number; role?: string }) =>
+    adminApi<AuthFailure[]>(`/admin/monitoring/auth-failures?${new URLSearchParams({
+      limit: String(params?.limit ?? 50),
+      ...(params?.role && { role: params.role })
+    }).toString()}`),
+
+  getActiveSessions: (params?: { role?: string }) =>
+    adminApi<ActiveSession[]>(`/admin/monitoring/sessions?${new URLSearchParams({
+      ...(params?.role && { role: params.role })
+    }).toString()}`),
+
+  kickSession: (userId: number) =>
+    adminApi(`/admin/monitoring/sessions/${userId}/kick`, { method: 'POST' }),
+
+  cleanupExpiredSessions: () =>
+    adminApi(`/admin/monitoring/cleanup/sessions`, { method: 'POST' }),
+
+  cleanupOldFailures: () =>
+    adminApi(`/admin/monitoring/cleanup/failures`, { method: 'POST' })
 }

@@ -58,6 +58,7 @@ export default function CommerceShopsPage() {
         </div>
         <div className="admin-page-actions">
           {businessId && <button className="admin-button" onClick={() => { params.delete('business_id'); setParams(params) }}>Toutes les entreprises</button>}
+          <Link className="admin-button" to="/admin/commerce/shops/analytics">Analytics</Link>
           <Link className="admin-button" to="/admin/commerce/performance/shops">Performance</Link>
           <button className="admin-button" onClick={() => void fetchData()} disabled={loading}>Actualiser</button>
         </div>

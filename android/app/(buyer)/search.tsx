@@ -4,12 +4,13 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { get } from '../../src/api/client'
+import { marketplaceApi } from '../../src/api'
 import { ProductCard } from '../../src/components/ProductCard'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors, fonts } from '../../src/theme'
 import type { TranslationKey } from '../../src/locales/fr'
-import type { PublicProduct } from '../../src/types'
+import type { Category, PublicProduct, Shop } from '../../src/types'
 
 /** Same sorts and rating facets as web-app/src/pages/marketplace/SearchPage.tsx. */
 const SORTS: Array<{ value: string; key: TranslationKey }> = [
@@ -25,6 +26,7 @@ export default function SearchScreen() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
   const [draft, setDraft] = useState('')
+	const [suggestionQuery, setSuggestionQuery] = useState('')
   const [q, setQ] = useState('')
   const [sort, setSort] = useState('relevance')
   const [minRating, setMinRating] = useState<number | undefined>()
@@ -34,6 +36,39 @@ export default function SearchScreen() {
   useEffect(() => {
     if (params.q) { setDraft(params.q); setQ(params.q) }
   }, [params.q])
+
+	useEffect(() => {
+		const trimmed = draft.trim()
+		if (trimmed.length < 2) { setSuggestionQuery(''); return }
+		const timer = setTimeout(() => setSuggestionQuery(trimmed), 300)
+		return () => clearTimeout(timer)
+	}, [draft])
+
+	const suggestions = useQuery({
+		queryKey: ['marketplace', 'search-suggestions', suggestionQuery],
+		queryFn: async () => {
+			const [products, shops, categories] = await Promise.all([
+				marketplaceApi.search(suggestionQuery), marketplaceApi.shops(suggestionQuery), marketplaceApi.categories(),
+			])
+			const needle = suggestionQuery.toLocaleLowerCase()
+			const taxonomy: Array<{ category: Category; subcategory?: Category }> = []
+			for (const category of categories) {
+				if (category.name.toLocaleLowerCase().includes(needle)) taxonomy.push({ category })
+				for (const subcategory of category.subcategories ?? []) if (subcategory.name.toLocaleLowerCase().includes(needle)) taxonomy.push({ category, subcategory })
+			}
+			return {
+				products: products.filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index).slice(0, 3),
+				shops: shops.filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index).slice(0, 2),
+				taxonomy: taxonomy.slice(0, 3),
+			}
+		},
+		enabled: suggestionQuery.length >= 2,
+		staleTime: 60_000,
+	})
+
+	const chooseProduct = (product: PublicProduct) => { setSuggestionQuery(''); router.push(`/products/${product.id}`) }
+	const chooseShop = (shop: Shop) => { setSuggestionQuery(''); router.push(`/shops/${shop.id}`) }
+	const chooseCategory = (category: Category) => { setSuggestionQuery(''); router.push(`/categories/${category.slug}`) }
 
   const results = useQuery({
     queryKey: ['marketplace', 'search-page', q, sort, minRating],
@@ -74,6 +109,14 @@ export default function SearchScreen() {
               <Text style={styles.submitText}>{t('nav.search' as TranslationKey)}</Text>
             </Pressable>
           </View>
+		  {suggestionQuery.length >= 2 && (suggestions.isFetching || suggestions.data) ? (
+			<View style={styles.suggestions} accessibilityRole="menu">
+			  {suggestions.isFetching ? <Text style={styles.suggestionStatus}>{t('search.searching' as TranslationKey)}</Text> : null}
+			  {(suggestions.data?.products ?? []).map((product) => <SuggestionRow key={`product-${product.id}`} icon="cube-outline" label={product.name} detail={product.shop_name} onPress={() => chooseProduct(product)} colors={colors} />)}
+			  {(suggestions.data?.shops ?? []).map((shop) => <SuggestionRow key={`shop-${shop.id}`} icon="storefront-outline" label={shop.name} detail={shop.city} onPress={() => chooseShop(shop)} colors={colors} />)}
+			  {(suggestions.data?.taxonomy ?? []).map(({ category, subcategory }) => <SuggestionRow key={`${subcategory ? 'sub' : 'cat'}-${subcategory?.id ?? category.id}`} icon="grid-outline" label={subcategory?.name ?? category.name} detail={subcategory ? category.name : t('search.kind.category' as TranslationKey)} onPress={() => chooseCategory(category)} colors={colors} />)}
+			</View>
+		  ) : null}
           <View style={styles.facets}>
             <Text style={styles.small}>{t('search.customerRating' as TranslationKey)}</Text>
             {RATING_FILTERS.map((r) => (
@@ -117,6 +160,19 @@ export default function SearchScreen() {
   )
 }
 
+function SuggestionRow({ icon, label, detail, onPress, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; detail?: string; onPress: () => void; colors: Colors }) {
+	return <Pressable accessibilityRole="menuitem" onPress={onPress} style={suggestionStyles.row}>
+		<Ionicons name={icon} size={18} color={colors.muted} />
+		<View style={suggestionStyles.copy}><Text numberOfLines={1} style={[suggestionStyles.label, { color: colors.ink }]}>{label}</Text><Text numberOfLines={1} style={[suggestionStyles.detail, { color: colors.muted }]}>{detail}</Text></View>
+		<Ionicons name="chevron-forward" size={16} color={colors.faint} />
+	</Pressable>
+}
+
+const suggestionStyles = StyleSheet.create({
+	row: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 7 },
+	copy: { flex: 1 }, label: { fontSize: 14, fontWeight: '600' }, detail: { fontSize: 12, marginTop: 2 },
+})
+
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     page: { paddingBottom: 28, backgroundColor: c.cream, flexGrow: 1 },
@@ -124,6 +180,8 @@ const makeStyles = (c: Colors) =>
     title: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 30, letterSpacing: -0.4 },
     form: { flexDirection: 'row', gap: 8 },
     input: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.white, paddingHorizontal: 14, color: c.ink, fontSize: 16 },
+		suggestions: { borderWidth: 1, borderColor: c.border, borderRadius: 12, backgroundColor: c.white, overflow: 'hidden' },
+		suggestionStatus: { color: c.muted, fontSize: 13, paddingHorizontal: 12, paddingVertical: 10 },
     submit: { height: 46, paddingHorizontal: 16, borderRadius: 999, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' },
     submitText: { color: c.onGreen, fontWeight: '600', fontSize: 14 },
     facets: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },

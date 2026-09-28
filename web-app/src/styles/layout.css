@@ -202,6 +202,14 @@
   border-radius: 9px;
   object-fit: cover;
 }
+.search-suggestion-icon {
+  display: grid;
+  place-items: center;
+}
+.search-suggestion-icon svg {
+  width: 20px;
+  height: 20px;
+}
 .search-suggestion-initials {
   display: grid;
   place-items: center;

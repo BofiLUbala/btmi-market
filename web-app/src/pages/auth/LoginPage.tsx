@@ -7,6 +7,7 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
 import { safeInternalPath } from '@/lib/returnTo'
+import { CapsLockHint, RememberMe, forgotPasswordLink, useCapsLock, useRememberedEmail } from '@/components/auth/AuthFormParts'
 
 export default function LoginPage() {
   const t = useT()
@@ -19,7 +20,8 @@ export default function LoginPage() {
     params.get('returnTo') ?? (location.state as { from?: string } | null)?.from,
     '/'
   )
-  const [email, setEmail] = useState('')
+  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('buyer')
+  const caps = useCapsLock()
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [errorCode, setErrorCode] = useState('')
@@ -32,6 +34,7 @@ export default function LoginPage() {
     setBusy(true)
     try {
       const session = await login(email.trim(), password, 'buyer')
+      persist(email)
       if (session.accountType === 'COURIER' || session.user?.capabilities?.courier) {
         if (returnTo && returnTo.startsWith('/courier')) {
           navigate(returnTo, { replace: true })
@@ -87,7 +90,7 @@ export default function LoginPage() {
           <Link className="btn btn-outline" to="/admin/login">Administration</Link>
         </div>
         {error && <ErrorBox error={error} />}
-          {errorCode === 'ACCOUNT_NOT_ACTIVATED' && (
+        {errorCode === 'ACCOUNT_NOT_ACTIVATED' && (
           <div className="small" style={{ marginTop: -4, marginBottom: 12 }}>
             <p>{t('auth.reinitialize.didNotReceive')} <Link to="/resend-activation" className="section-link">{t('auth.reinitialize.resend')}</Link></p>
             <p>{t('auth.reinitialize.stillBlocked')} <Link to="/reinitialize-registration" className="section-link">{t('auth.reinitialize.title')}</Link></p>
@@ -98,33 +101,39 @@ export default function LoginPage() {
           name="email"
           type="email"
           required
-          autoComplete="email"
+          autoComplete="username"
+          inputMode="email"
+          autoFocus={!prefilled}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t('auth.emailPlaceholder')}
         />
-        <Field
-          label={t('auth.password')}
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          showPasswordToggle
-        />
+        <div className="auth-password-row">
+          <Field
+            label={t('auth.password')}
+            name="password"
+            type="password"
+            required
+            autoComplete="current-password"
+            autoFocus={prefilled}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyUp={caps.onKeyUp}
+            onKeyDown={caps.onKeyDown}
+            placeholder="••••••••"
+            showPasswordToggle
+          />
+          <CapsLockHint on={caps.capsLock} />
+          <Link {...forgotPasswordLink(undefined, email)} className="section-link auth-forgot-link" data-testid="forgot-password-link">
+            {t('auth.login.forgotPassword')}
+          </Link>
+        </div>
+        <RememberMe checked={remember} onChange={setRemember} />
         <Button type="submit" block size="lg" loading={busy}>
           {t('auth.login.submit')}
         </Button>
-        <p className="small muted">
+        <p className="small muted" style={{ textAlign: 'center', margin: 0 }}>
           {t('auth.login.noAccount')} <Link to="/register" className="section-link">{t('auth.login.createOne')}</Link>
-          <br />
-          {t('auth.login.notActivated')} <Link to="/resend-activation" className="section-link">{t('auth.login.resendEmail')}</Link>
-          <br />
-          {t('auth.reinitialize.stillBlocked')} <Link to="/reinitialize-registration" className="section-link">{t('auth.reinitialize.title')}</Link>
-          <br />
-          {t('auth.login.forgotPassword')} <Link to="/forgot-password" className="section-link">{t('auth.login.resetIt')}</Link>
         </p>
       </form>
     </div>

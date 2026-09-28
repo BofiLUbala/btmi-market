@@ -19,6 +19,7 @@ import CommerceDashboardPage from '@/pages/admin/commerce/CommerceDashboardPage'
 import CommerceSellersPage from '@/pages/admin/commerce/sellers/CommerceSellersPage'
 import CommerceBusinessesPage from '@/pages/admin/commerce/businesses/CommerceBusinessesPage'
 import CommerceShopsPage from '@/pages/admin/commerce/shops/CommerceShopsPage'
+import CommerceShopsAnalyticsPage from '@/pages/admin/commerce/shops/CommerceShopsAnalyticsPage'
 import CommerceDeliveriesPage from '@/pages/admin/commerce/deliveries/CommerceDeliveriesPage'
 import CommerceCouriersPage from '@/pages/admin/commerce/couriers/CommerceCouriersPage'
 import CommerceDeliveryAssignmentsPage from '@/pages/admin/commerce/deliveries/CommerceDeliveryAssignmentsPage'
@@ -277,6 +278,7 @@ export default function App() {
                     <Route path="/admin/commerce/sellers" element={<CommerceSellersPage />} />
                     <Route path="/admin/commerce/businesses" element={<CommerceBusinessesPage />} />
                     <Route path="/admin/commerce/shops" element={<CommerceShopsPage />} />
+                    <Route path="/admin/commerce/shops/analytics" element={<CommerceShopsAnalyticsPage />} />
                     <Route path="/admin/commerce/products" element={<CommerceProductsPage />} />
                     <Route path="/admin/commerce/products/:id" element={<CommerceProductDetailPage />} />
                     <Route path="/admin/commerce/categories" element={<CommerceCategoriesPage />} />

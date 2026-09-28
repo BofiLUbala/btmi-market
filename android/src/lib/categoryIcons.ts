@@ -35,6 +35,17 @@ const bySlug: Record<string, IoniconName> = {
   car: 'car-outline',
   services: 'construct-outline',
   service: 'construct-outline',
+  books: 'book-outline',
+  jewelry: 'diamond-outline',
+  watches: 'watch-outline',
+  health: 'medkit-outline',
+  pets: 'paw-outline',
+  stationery: 'pencil-outline',
+  office: 'pencil-outline',
+  garden: 'leaf-outline',
+  music: 'musical-notes-outline',
+  hardware: 'hammer-outline',
+  tools: 'hammer-outline',
 }
 
 export function categoryIcon(slug?: string, name?: string): IoniconName {

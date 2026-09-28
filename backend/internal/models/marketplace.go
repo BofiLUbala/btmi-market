@@ -40,6 +40,17 @@ type PublicProductResponse struct {
 	TotalReviews  int       `json:"total_reviews"`
 	SelfRating    *int      `json:"self_rating,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
+	// SearchRank explains the position of a search hit; only set by search.
+	SearchRank *SearchRank `json:"search_rank,omitempty"`
+}
+
+// SearchRank is the explainable breakdown of a search score:
+// Score = Relevance + Bonus. See backend/internal/search/scoring.go.
+type SearchRank struct {
+	Tier      string  `json:"tier"`
+	Relevance float64 `json:"relevance"`
+	Bonus     float64 `json:"bonus"`
+	Score     float64 `json:"score"`
 }
 
 type PublicVariantResponse struct {
@@ -77,11 +88,52 @@ type MarketplaceSearchParams struct {
 	Sort      string  `form:"sort"` // "relevance", "price_asc", "price_desc", "seller_level"
 	Page      int     `form:"page"`
 	Limit     int     `form:"limit"`
+	// NearCity adds a small ranking bonus to offers in that city without
+	// filtering the others out (City filters).
+	NearCity string `form:"near_city"`
+	// Session is a random id the client keeps per browser tab / app session so
+	// analytics can spot reformulated queries. It identifies no one.
+	Session string `form:"session"`
 }
 
 type MarketplaceSearchResult struct {
 	Products   []*PublicProductResponse `json:"products"`
 	Pagination PaginationInfo           `json:"pagination"`
+	// SearchID identifies the logged search so clients can report clicks.
+	SearchID *uuid.UUID `json:"search_id,omitempty"`
+	// MatchMode is "exact" or "approximate" (typo-tolerant fallback pass).
+	MatchMode       string `json:"match_mode,omitempty"`
+	NormalizedQuery string `json:"normalized_query,omitempty"`
+}
+
+// SearchSuggestions is the autocomplete payload: one request, four groups,
+// ranked by the same engine as the full search page.
+type SearchSuggestions struct {
+	Query         string                   `json:"query"`
+	Products      []*PublicProductResponse `json:"products"`
+	Shops         []*PublicShopResponse    `json:"shops"`
+	Categories    []*TaxonomySuggestion    `json:"categories"`
+	Subcategories []*TaxonomySuggestion    `json:"subcategories"`
+}
+
+type TaxonomySuggestion struct {
+	ID           uuid.UUID  `json:"id"`
+	Name         string     `json:"name"`
+	Slug         string     `json:"slug"`
+	CategoryID   *uuid.UUID `json:"category_id,omitempty"`
+	CategoryName string     `json:"category_name,omitempty"`
+	CategorySlug string     `json:"category_slug,omitempty"`
+}
+
+// SearchEventRequest reports a click or add-to-cart coming from a search.
+type SearchEventRequest struct {
+	SearchID   string `json:"search_id"`
+	Query      string `json:"query"` // used when the click came from autocomplete (no search_id)
+	EventType  string `json:"event_type" binding:"required"`
+	ResultType string `json:"result_type" binding:"required"`
+	ResultID   string `json:"result_id" binding:"required"`
+	Position   *int   `json:"position"`
+	Session    string `json:"session"`
 }
 
 type PublicShopResponse struct {
@@ -98,6 +150,9 @@ type PublicShopResponse struct {
 	SellerTrust  string    `json:"seller_trust"`
 	ProductCount int       `json:"product_count"`
 	CreatedAt    time.Time `json:"created_at"`
+	// MatchingProducts counts in-stock products matching the search query.
+	MatchingProducts int         `json:"matching_products,omitempty"`
+	SearchRank       *SearchRank `json:"search_rank,omitempty"`
 }
 
 type RankedShopResponse struct {

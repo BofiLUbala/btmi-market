@@ -613,7 +613,10 @@ func main() {
 		marketplaceGroup := api.Group("/marketplace")
 		marketplaceGroup.Use(middleware.OptionalAuthMiddleware(authService))
 		{
-			marketplaceGroup.GET("/shops", marketplaceHandler.ListShops)
+			// 3 searches/s sustained with a burst of 30 per client IP: generous
+			// for a person typing (autocomplete is debounced), tight for a bot.
+			searchLimit := middleware.RateLimitPerClient(3, 30)
+			marketplaceGroup.GET("/shops", searchLimit, marketplaceHandler.ListShops)
 			marketplaceGroup.GET("/shops/:shop_id", marketplaceHandler.GetShop)
 			marketplaceGroup.GET("/shops/:shop_id/detail", marketplaceHandler.GetShopDetail)
 			marketplaceGroup.GET("/shops/:shop_id/products", marketplaceHandler.ListShopProducts)
@@ -622,7 +625,9 @@ func main() {
 			marketplaceGroup.GET("/products/:product_id/detail", marketplaceHandler.GetProductDetail)
 			marketplaceGroup.GET("/products/:product_id/price", marketplaceHandler.GetProductPrice)
 			marketplaceGroup.GET("/products/:product_id/similar", marketplaceHandler.GetSimilarProducts)
-			marketplaceGroup.GET("/search", marketplaceHandler.SearchProducts)
+			marketplaceGroup.GET("/search", searchLimit, marketplaceHandler.SearchProducts)
+			marketplaceGroup.GET("/search/suggest", searchLimit, marketplaceHandler.SearchSuggest)
+			marketplaceGroup.POST("/search/events", searchLimit, marketplaceHandler.RecordSearchEvent)
 			marketplaceGroup.POST("/search/image", middleware.RequireFeature(adminPlatformRepo, "Visual search is temporarily disabled", "VISUAL_SEARCH_ENABLED"), marketplaceHandler.SearchProductsByImage)
 			marketplaceGroup.GET("/categories", marketplaceHandler.ListCategories)
 			marketplaceGroup.GET("/categories/:category_slug/subcategories", marketplaceHandler.ListSubcategories)
@@ -780,6 +785,9 @@ func main() {
 
 					commerceGroup.GET("/search/analytics", adminCommerceHandler.GetSearchAnalytics)
 					commerceGroup.GET("/search/queries", adminCommerceHandler.ListSearchQueries)
+					commerceGroup.GET("/search/synonyms", adminCommerceHandler.ListSearchSynonyms)
+					commerceGroup.PUT("/search/synonyms", adminCommerceHandler.UpsertSearchSynonym)
+					commerceGroup.DELETE("/search/synonyms/:term", adminCommerceHandler.DeleteSearchSynonym)
 
 					commerceGroup.GET("/marketplace/ranking", adminCommerceHandler.GetMarketplaceRanking)
 					commerceGroup.GET("/products/:id/card-quality", adminCommerceHandler.GetProductCardQuality)

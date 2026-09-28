@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/ui/ProductCard'
 import { SectionHead } from '@/components/ui/ShopCard'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { CategoryIcon } from '@/components/ui/CategoryIcon'
 import { categoryLabel } from '@/lib/categoryLabels'
 import { asArray } from '@/lib/format'
 import { useI18n } from '@/store/i18n'
@@ -51,8 +52,8 @@ export default function HomePage() {
               const visual = getCategoryVisual(c.slug)
               return (
                 <Link key={c.id} to={`/categories/${c.slug}`} className="category-tile">
-                  <span className="category-tile-media" style={{ background: visual.background }}>
-                    <img src={visual.image} alt="" aria-hidden="true" loading="lazy" />
+                  <span className="category-tile-media" style={{ background: visual.background, color: visual.accent }}>
+                    <CategoryIcon slug={c.slug} />
                   </span>
                   <span className="category-tile-name">{categoryLabel(t, c.slug, c.name)}</span>
                 </Link>

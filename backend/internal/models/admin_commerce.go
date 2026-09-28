@@ -296,13 +296,90 @@ type AdminSearchAnalytics struct {
 	TotalQueries   int    `json:"total_queries,omitempty"`
 	ZeroResults    int    `json:"zero_results,omitempty"`
 	FailedSearches int    `json:"failed_searches,omitempty"`
+
+	// Detailed statistics over PeriodDays. A nil rate means the data is not
+	// collected yet (no event of that kind was ever recorded), which the UI
+	// shows as "data unavailable" rather than 0%.
+	PeriodDays          int                          `json:"period_days"`
+	Searches            int                          `json:"searches"`
+	ZeroResultSearches  int                          `json:"zero_result_searches"`
+	ApproximateSearches int                          `json:"approximate_searches"`
+	ClickThroughRate    *float64                     `json:"click_through_rate"`
+	AddToCartRate       *float64                     `json:"add_to_cart_rate"`
+	TopQueries          []AdminSearchQueryStat       `json:"top_queries"`
+	ZeroResultQueries   []AdminSearchQueryStat       `json:"zero_result_queries"`
+	Reformulations      []AdminSearchReformulation   `json:"reformulations"`
+	LowClickProducts    []AdminSearchProductExposure `json:"low_click_products"`
+	// Which statistics have data behind them.
+	ClicksCollected         bool `json:"clicks_collected"`
+	AddToCartCollected      bool `json:"add_to_cart_collected"`
+	ReformulationsCollected bool `json:"reformulations_collected"`
+}
+
+type AdminSearchQueryStat struct {
+	Query       string   `json:"query"`
+	Searches    int      `json:"searches"`
+	AvgResults  float64  `json:"avg_results"`
+	ZeroResults int      `json:"zero_results"`
+	Clicks      int      `json:"clicks"`
+	CTR         *float64 `json:"ctr"`
+}
+
+// AdminSearchReformulation is a query quickly followed, in the same anonymous
+// client session, by a different query: a sign the first one did not help.
+type AdminSearchReformulation struct {
+	FromQuery string `json:"from_query"`
+	ToQuery   string `json:"to_query"`
+	Count     int    `json:"count"`
+}
+
+type AdminSearchProductExposure struct {
+	ProductID   string  `json:"product_id"`
+	Name        string  `json:"name"`
+	Impressions int     `json:"impressions"`
+	Clicks      int     `json:"clicks"`
+	CTR         float64 `json:"ctr"`
 }
 
 type AdminSearchQueryLog struct {
-	Query        string    `json:"query"`
-	ResultsCount int       `json:"results_count"`
-	SearchType   string    `json:"search_type"`
-	CreatedAt    time.Time `json:"created_at"`
+	Query           string    `json:"query"`
+	NormalizedQuery string    `json:"normalized_query"`
+	ResultsCount    int       `json:"results_count"`
+	SearchType      string    `json:"search_type"`
+	MatchMode       string    `json:"match_mode,omitempty"`
+	Clicks          int       `json:"clicks"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+type AdminSearchSynonym struct {
+	Term          string    `json:"term"`
+	CanonicalTerm string    `json:"canonical_term"`
+	LanguageCode  string    `json:"language_code"`
+	Active        bool      `json:"active"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type UpsertSearchSynonymRequest struct {
+	Term          string `json:"term" binding:"required"`
+	CanonicalTerm string `json:"canonical_term" binding:"required"`
+	LanguageCode  string `json:"language_code"`
+	Active        *bool  `json:"active"`
+}
+
+// AdminSearchRankingRule documents the product search formula, generated from
+// the constants the engine uses (backend/internal/search/scoring.go).
+type AdminSearchRankingRule struct {
+	Formula  string             `json:"formula"`
+	Tiers    []AdminRankingItem `json:"tiers"`
+	Bonuses  []AdminRankingItem `json:"bonuses"`
+	MaxBonus float64            `json:"max_bonus"`
+	TierGap  float64            `json:"tier_gap"`
+	Notes    []string           `json:"notes"`
+}
+
+type AdminRankingItem struct {
+	Key   string  `json:"key"`
+	Value float64 `json:"value"`
 }
 
 type AdminMarketplaceRanking struct {
@@ -310,6 +387,8 @@ type AdminMarketplaceRanking struct {
 	Message         string             `json:"message"`
 	RankingFactors  []string           `json:"ranking_factors,omitempty"`
 	CategoryWeights map[string]float64 `json:"category_weights,omitempty"`
+	// SearchRanking is the (separate) formula of the text search.
+	SearchRanking *AdminSearchRankingRule `json:"search_ranking,omitempty"`
 }
 
 type AdminProductCardQuality struct {

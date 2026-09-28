@@ -11,6 +11,8 @@ import {
 import { useT } from '@/store/i18n'
 import { useAdminAuth } from '@/store/adminAuth'
 import { BoxIcon } from '@/components/ui/Icons'
+import AuthFailuresTab from './AuthFailuresTab'
+import ActiveSessionsTab from './ActiveSessionsTab'
 
 type DirectionFeature =
   | 'overview'
@@ -21,6 +23,8 @@ type DirectionFeature =
   | 'catalog'
   | 'disputes'
   | 'audit'
+  | 'auth-failures'
+  | 'sessions'
 
 const VALID_FEATURES: DirectionFeature[] = [
   'overview',
@@ -30,7 +34,9 @@ const VALID_FEATURES: DirectionFeature[] = [
   'merchants',
   'catalog',
   'disputes',
-  'audit'
+  'audit',
+  'auth-failures',
+  'sessions'
 ]
 
 export default function DirectionDashboardPage() {
@@ -1333,6 +1339,20 @@ export default function DirectionDashboardPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* AUTH FAILURES TAB */}
+      {activeTab === 'auth-failures' && (
+        <div style={{ backgroundColor: '#1e293b', borderRadius: 12, padding: 20, border: '1px solid #334155' }}>
+          <AuthFailuresTab />
+        </div>
+      )}
+
+      {/* ACTIVE SESSIONS TAB */}
+      {activeTab === 'sessions' && (
+        <div style={{ backgroundColor: '#1e293b', borderRadius: 12, padding: 20, border: '1px solid #334155' }}>
+          <ActiveSessionsTab />
         </div>
       )}
 

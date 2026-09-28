@@ -418,17 +418,13 @@ func (s *AdminCommerceService) GetShopPageControl(shopID uuid.UUID) (*models.Adm
 }
 
 // 10. Search Admin
-func (s *AdminCommerceService) GetSearchAnalytics() (*models.AdminSearchAnalytics, error) {
-	return s.commerceRepo.GetSearchAnalytics()
-}
-
-func (s *AdminCommerceService) ListSearchQueries(limit, offset int) ([]*models.AdminSearchQueryLog, int, error) {
-	return s.commerceRepo.ListSearchQueries(limit, offset)
-}
-
 // 11. Marketplace Ranking Inspection
 func (s *AdminCommerceService) GetMarketplaceRanking() (*models.AdminMarketplaceRanking, error) {
-	return s.commerceRepo.GetMarketplaceRanking()
+	ranking, err := s.commerceRepo.GetMarketplaceRanking()
+	if err == nil && ranking != nil {
+		ranking.SearchRanking = SearchRankingRule()
+	}
+	return ranking, err
 }
 
 // 12. Product Card Quality Control

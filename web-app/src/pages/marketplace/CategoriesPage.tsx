@@ -5,6 +5,7 @@ import type { CategoryResponse } from '@/api/types'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { asArray } from '@/lib/format'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
+import { CategoryIcon } from '@/components/ui/CategoryIcon'
 import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { useI18n } from '@/store/i18n'
 
@@ -37,7 +38,7 @@ export default function CategoriesPage() {
         {t('categories.subtitle')}
       </p>
       <div className="cat-grid">
-        {categories.map((c, index) => {
+        {categories.map((c) => {
           const visual = getCategoryVisual(c.slug)
           return (
             <Link
@@ -48,10 +49,7 @@ export default function CategoriesPage() {
                 background: visual.background,
               }}
             >
-              <div className="cat-image-wrap">
-                <img className="cat-image" src={visual.image} alt={t('categories.imageAlt', { name: categoryLabel(t, c.slug, c.name) })}
-                  loading={index < 4 ? 'eager' : 'lazy'} decoding="async" />
-              </div>
+              <span className="cat-card-icon" style={{ color: visual.accent }}><CategoryIcon slug={c.slug} /></span>
               <div className="cat-card-copy">
                 <div className="bold" style={{ color: visual.accent }}>{categoryLabel(t, c.slug, c.name)}</div>
                 {c.subcategories && c.subcategories.length > 0 && (
@@ -59,7 +57,7 @@ export default function CategoriesPage() {
                     {c.subcategories.slice(0, 3).map((s) => subcategoryLabel(t, s.slug, s.name)).join(' · ')}
                   </div>
                 )}
-                </div>
+              </div>
             </Link>
           )
         })}
