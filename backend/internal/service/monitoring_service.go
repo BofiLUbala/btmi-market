@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type AuthFailure struct {
@@ -18,7 +20,7 @@ type AuthFailure struct {
 
 type ActiveSession struct {
 	ID             int64     `json:"id"`
-	UserID         int64     `json:"user_id"`
+	UserID         uuid.UUID `json:"user_id"`
 	Email          string    `json:"email"`
 	Role           string    `json:"role"`
 	IPAddress      string    `json:"ip_address"`
@@ -100,7 +102,7 @@ func (m *MonitoringService) GetAuthFailuresByRole(ctx context.Context, role stri
 }
 
 // CreateActiveSession creates a new active session record
-func (m *MonitoringService) CreateActiveSession(ctx context.Context, userID int64, email, role, ipAddress, userAgent, sessionToken string) error {
+func (m *MonitoringService) CreateActiveSession(ctx context.Context, userID uuid.UUID, email, role, ipAddress, userAgent, sessionToken string) error {
 	query := `
 		INSERT INTO active_sessions (user_id, user_email, role, ip_address, user_agent, session_token, login_at, last_activity_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())

@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react'
-import { adminDirectionApi } from '@/api/admin'
-import { useT } from '@/store/i18n'
 
 interface AuthFailure {
   id: number
@@ -22,7 +20,6 @@ const ERROR_LABELS: Record<string, string> = {
 }
 
 export default function AuthFailuresTab() {
-  const t = useT()
   const [failures, setFailures] = useState<AuthFailure[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

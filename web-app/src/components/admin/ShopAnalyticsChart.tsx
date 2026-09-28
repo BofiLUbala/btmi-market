@@ -9,7 +9,6 @@ export function SalesLineChart({ data }: ShopAnalyticsChartProps) {
   if (!data || data.length === 0) return <div style={{ textAlign: 'center', padding: 24, color: 'var(--admin-text-muted)' }}>Pas de données</div>
 
   const maxOrders = Math.max(...data.map(d => d.orders_count || 0))
-  const maxUnits = Math.max(...data.map(d => d.units_sold || 0))
 
   return (
     <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 8, padding: 16 }}>

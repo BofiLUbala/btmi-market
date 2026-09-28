@@ -1,7 +1,7 @@
 -- Real-time active user sessions tracking
 CREATE TABLE active_sessions (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL,
+  user_id UUID NOT NULL, -- users.id is a UUID
   user_email VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL, -- 'admin', 'seller', 'courier', 'buyer'
   ip_address VARCHAR(45),

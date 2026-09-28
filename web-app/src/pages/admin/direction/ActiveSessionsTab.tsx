@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
-import { adminDirectionApi } from '@/api/admin'
-import { useT } from '@/store/i18n'
 
 interface ActiveSession {
   id: number
-  user_id: number
+  user_id: string
   email: string
   role: string
   ip_address: string
@@ -24,7 +22,6 @@ const formatDuration = (seconds: number): string => {
 }
 
 export default function ActiveSessionsTab() {
-  const t = useT()
   const [sessions, setSessions] = useState<ActiveSession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -56,12 +53,12 @@ export default function ActiveSessionsTab() {
     }
   }, [roleFilter, autoRefresh])
 
-  const handleKickSession = async (sessionId: number, email: string) => {
+  const handleKickSession = async (_sessionId: number, email: string) => {
     if (!confirm(`Kick user ${email} from all sessions?`)) return
 
     try {
       // TODO: Call admin API to kick session
-      // await adminDirectionApi.kickSession(sessionId)
+      // await adminDirectionApi.kickSession(_sessionId)
       alert('Session kicked')
     } catch (err) {
       alert('Failed to kick session: ' + (err instanceof Error ? err.message : 'Unknown error'))

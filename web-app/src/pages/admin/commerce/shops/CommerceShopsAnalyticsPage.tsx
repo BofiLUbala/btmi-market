@@ -1,7 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
 import { adminCommerceApi, type AdminShopListItem, type ShopAnalytics, type ShopProductWithStock, type SalesTimeseriesPoint } from '@/api/admin'
-import { useT } from '@/store/i18n'
-import { adminLabel } from '@/lib/adminLabels'
 import { SalesLineChart, SalesValueChart, AverageOrderValueChart } from '@/components/admin/ShopAnalyticsChart'
 
 const LIMIT = 50
@@ -83,7 +81,6 @@ function generateMockSalesTimeseries(interval: 'day' | 'week' | 'month' | 'year'
 }
 
 export default function CommerceShopsAnalyticsPage() {
-  const t = useT()
   const [shops, setShops] = useState<ShopWithAnalytics[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -171,7 +168,7 @@ export default function CommerceShopsAnalyticsPage() {
   return (
     <div style={{ display: 'flex', gap: 20, height: '100vh', overflow: 'hidden' }}>
       <div style={{ flex: '0 0 400px', borderRight: '1px solid var(--admin-border)', overflow: 'auto', backgroundColor: 'var(--admin-surface)' }}>
-        <div style={{ padding: 20, borderBottom: '1px solid var(--admin-border-soft)', sticky: true, top: 0, backgroundColor: 'var(--admin-surface)' }}>
+        <div style={{ padding: 20, borderBottom: '1px solid var(--admin-border-soft)', position: 'sticky', top: 0, backgroundColor: 'var(--admin-surface)' }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 12px', color: 'var(--admin-text)' }}>Boutiques & Produits</h2>
           <input
             aria-label="Rechercher une boutique"

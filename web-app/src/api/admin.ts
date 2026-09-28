@@ -2349,7 +2349,7 @@ export interface AuthFailure {
 
 export interface ActiveSession {
   id: number
-  user_id: number
+  user_id: string
   email: string
   role: 'admin' | 'seller' | 'courier' | 'buyer'
   ip_address: string
