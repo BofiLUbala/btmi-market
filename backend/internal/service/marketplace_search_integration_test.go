@@ -846,3 +846,51 @@ func TestSEOSitemapAndRobots(t *testing.T) {
 		t.Errorf("robots.txt: %s", robots)
 	}
 }
+
+// Every product must be searchable: existing ones (migration backfill), new
+// ones (triggers) and any whose document was lost or went stale outside the
+// triggers (reconciliation).
+func TestSearchCoversAllProductsPresentAndFuture(t *testing.T) {
+	f := searchEnv(t)
+	// A product created now, after the migration, through a normal insert.
+	if err := f.product("later", "mama", "Sandale Plage Tropicale", "SANDAL1", "", "shoes", "PUBLISHED", "ACTIVE",
+		variantSpec{sku: "SANDAL1-40", attrs: `{"Color":"Jaune","Shoe Size":"40"}`, price: 12, stock: map[string]int{"mama": 3}}); err != nil {
+		t.Fatal(err)
+	}
+	f.requireFirst(t, f.q(t, "sandale tropicale"), "later")
+	f.requireFound(t, f.q(t, "jaune"), "later")
+
+	// Written around the triggers: document deleted, another one stale.
+	if err := f.exec(`DELETE FROM product_search_documents WHERE product_id = $1`, f.ids["later"]); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.exec(`ALTER TABLE products DISABLE TRIGGER trg_search_doc_products`); err != nil {
+		t.Fatal(err)
+	}
+	renameErr := f.exec(`UPDATE products SET name = 'Mixeur Turbo Silencieux', updated_at = NOW() + INTERVAL '1 second' WHERE id = $1`, f.ids["mixer"])
+	if err := f.exec(`ALTER TABLE products ENABLE TRIGGER trg_search_doc_products`); err != nil {
+		t.Fatal(err)
+	}
+	if renameErr != nil {
+		t.Fatal(renameErr)
+	}
+	f.requireAbsent(t, f.q(t, "sandale tropicale"), "later")
+	f.requireAbsent(t, f.q(t, "turbo silencieux"), "mixer")
+
+	n, err := f.repo.ReconcileProductSearchDocuments(context.Background(), 1)
+	if err != nil || n < 2 {
+		t.Fatalf("reconcile rebuilt %d documents: %v", n, err)
+	}
+	f.requireFirst(t, f.q(t, "sandale tropicale"), "later")
+	f.requireFirst(t, f.q(t, "turbo silencieux"), "mixer")
+
+	var missing int
+	if err := f.db.QueryRow(`SELECT COUNT(*) FROM products p LEFT JOIN product_search_documents d ON d.product_id = p.id WHERE d.product_id IS NULL`).Scan(&missing); err != nil || missing != 0 {
+		t.Fatalf("%d products without a search document (%v)", missing, err)
+	}
+	// Nothing left to do: a second pass is a no-op.
+	if again, _ := f.repo.ReconcileProductSearchDocuments(context.Background(), 500); again != 0 {
+		t.Errorf("second reconciliation rebuilt %d documents", again)
+	}
+	_ = f.exec(`UPDATE products SET name = 'Mixeur Moulinex' WHERE id = $1`, f.ids["mixer"])
+}

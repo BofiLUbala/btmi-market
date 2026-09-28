@@ -84,6 +84,9 @@ func main() {
 	confirmRepo := repository.NewPurchaseConfirmationRepository(db)
 	trustRepo := repository.NewSellerTrustRepository(db)
 	marketplaceRepo := repository.NewMarketplaceRepository(db, productRepo)
+	// Every product - existing, new or edited - must stay searchable. Triggers
+	// keep search documents current; this repairs any written around them.
+	go keepSearchDocumentsInSync(marketplaceRepo)
 	categoryRepo := repository.NewCategoryRepository(db)
 	pointConfigRepo := repository.NewPointConfigRepository(db)
 	buyerPaymentRepo := repository.NewBuyerPaymentRepository(db)
@@ -1054,4 +1057,23 @@ func getMigrationsDir() string {
 	}
 
 	return "./migrations"
+}
+
+// keepSearchDocumentsInSync rebuilds missing or stale product search
+// documents at startup and then every hour. It never blocks the API.
+func keepSearchDocumentsInSync(repo *repository.MarketplaceRepository) {
+	run := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		n, err := repo.ReconcileProductSearchDocuments(ctx, 500)
+		if err != nil {
+			log.Printf("WARN: search document reconciliation failed after %d rebuilds: %v", n, err)
+		} else if n > 0 {
+			log.Printf("Search documents reconciled: %d product(s) re-indexed", n)
+		}
+	}
+	run()
+	for range time.Tick(time.Hour) {
+		run()
+	}
 }

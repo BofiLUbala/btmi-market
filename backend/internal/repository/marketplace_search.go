@@ -825,3 +825,45 @@ func (r *MarketplaceRepository) ListSitemapEntries(limit int) ([]SitemapEntry, e
 	}
 	return out, rows.Err()
 }
+
+// ReconcileProductSearchDocuments is the safety net behind the triggers of
+// migration 104: it (re)builds the search document of every product whose
+// document is missing or older than the product, one of its variants, its
+// category or its subcategory. Triggers keep documents current on every normal
+// write; this repairs anything written around them (manual SQL, a restore, a
+// future migration run with triggers disabled). Returns how many were rebuilt.
+func (r *MarketplaceRepository) ReconcileProductSearchDocuments(ctx context.Context, batch int) (int, error) {
+	if batch <= 0 {
+		batch = 500
+	}
+	total := 0
+	// Bounded: a product dated in the future stays "stale" after a rebuild, and
+	// must not keep this loop spinning.
+	for round := 0; round < 200; round++ {
+		var n int
+		err := r.db.DB.QueryRowContext(ctx, `
+			WITH stale AS (
+				SELECT p.id
+				FROM products p
+				LEFT JOIN product_search_documents d ON d.product_id = p.id
+				LEFT JOIN categories c ON c.id = p.category_id
+				LEFT JOIN subcategories sc ON sc.id = p.subcategory_id
+				WHERE d.product_id IS NULL
+				   OR d.updated_at < p.updated_at
+				   OR d.updated_at < c.updated_at
+				   OR d.updated_at < sc.updated_at
+				   OR EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.updated_at > d.updated_at)
+				ORDER BY p.id
+				LIMIT $1
+			)
+			SELECT COUNT(*) FROM (SELECT btmi_refresh_product_search_document(id) FROM stale) x`, batch).Scan(&n)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		if n < batch || ctx.Err() != nil {
+			return total, ctx.Err()
+		}
+	}
+	return total, nil
+}
