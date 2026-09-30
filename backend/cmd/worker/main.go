@@ -114,6 +114,7 @@ func main() {
 
 	go runPeriodicConsistency(rankingService, cfg)
 	go runPeriodicSimilarityConsistency(similarityService, similarityRepo, cfg)
+	go runDeliveryLocationRetention(service.NewCourierLocationService(repository.NewDeliveryLocationRepository(db)))
 
 	go func() {
 		if err := svr.Run(mux); err != nil {
@@ -239,6 +240,30 @@ func runPeriodicConsistency(svc *service.CategoryRankingService, cfg *config.Con
 		log.Printf("Failed to add cron job: %v", err)
 	}
 	c.Start()
+}
+
+// runDeliveryLocationRetention keeps courier GPS short-lived: history older
+// than 30 days is deleted, and any live position whose order left IN_TRANSIT is
+// swept (the orders trigger already does it; this is the safety net). It is a
+// privacy rule, so it runs whether or not the ranking worker is enabled.
+func runDeliveryLocationRetention(svc *service.CourierLocationService) {
+	sweep := func() {
+		res, err := svc.RunRetention()
+		if err != nil {
+			log.Printf("Delivery location retention failed: %v", err)
+			return
+		}
+		if res.PointsDeleted > 0 || res.LiveLocationsDeleted > 0 {
+			log.Printf("Delivery location retention: %d history points, %d stale live positions deleted",
+				res.PointsDeleted, res.LiveLocationsDeleted)
+		}
+	}
+	sweep()
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		sweep()
+	}
 }
 
 func runPeriodicSimilarityConsistency(svc *service.SimilarityService, repo *repository.SimilarityRepository, cfg *config.Config) {

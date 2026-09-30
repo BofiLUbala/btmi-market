@@ -200,14 +200,14 @@ func (r *BuyerProfileRepository) SaveDeliveryAddress(profileID uuid.UUID, addr *
 		SET province=$1, city=$2, commune=$3,
 		    province_id=$4, city_id=$5, commune_id=$6,
 		    street=$7, building_number=$8, landmark=$9,
-		    address=$10, updated_at=NOW()
+		    address=$10, latitude=$12, longitude=$13, updated_at=NOW()
 		WHERE id = $11
 	`
 	_, err := r.db.Exec(query,
 		addr.Province, addr.City, addr.Commune,
 		addr.ProvinceID, addr.CityID, addr.CommuneID,
 		addr.Street, addr.BuildingNumber, addr.Landmark,
-		addr.Address, profileID,
+		addr.Address, profileID, addr.Latitude, addr.Longitude,
 	)
 	return err
 }

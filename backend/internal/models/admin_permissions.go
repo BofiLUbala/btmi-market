@@ -25,6 +25,11 @@ const (
 
 // rolePermissions lists the permissions each role holds unconditionally.
 // SUPER_ADMIN is not listed here: HasPermission grants it everything.
+// CommerceAdminRoles may use the /admin/commerce routes: order operations,
+// the admin order-event stream and the courier's live position. Finance,
+// Technical and Direction admins are not in it.
+var CommerceAdminRoles = []AdminRole{AdminRoleSuperAdmin, AdminRoleCommerceAdmin}
+
 var rolePermissions = map[AdminRole][]Permission{
 	AdminRoleDirectionAdmin: {
 		PermissionFeatureFlagRead,

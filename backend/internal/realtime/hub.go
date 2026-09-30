@@ -23,7 +23,9 @@ const channel = "tbk_order_events"
 
 // Event is what a stream receives. Kind "order" names one order; kinds
 // "stock" and "cash" say that one business's stock or cash changed; kind
-// "resync" asks the client to refetch everything after a listener gap.
+// "location" says the courier carrying one order sent a new position (never
+// the position itself); kind "resync" asks the client to refetch everything
+// after a listener gap.
 type Event struct {
 	Kind           string `json:"kind"`
 	BusinessID     string `json:"business_id,omitempty"`
@@ -132,6 +134,16 @@ func (h *Hub) dispatch(orderIDText string) {
 		h.dispatchBusiness(Event{Kind: kind, BusinessID: businessID.String()}, businessID)
 		return
 	}
+	// A courier position goes to the order's buyer and Commerce Admin only:
+	// never the seller's members or employees, never the courier's own stream.
+	if kind, id, ok := strings.Cut(orderIDText, ":"); ok && kind == "location" {
+		orderID, err := uuid.Parse(id)
+		if err != nil {
+			return
+		}
+		h.dispatchLocation(orderID, h.buyerUserID(orderID))
+		return
+	}
 	orderID, err := uuid.Parse(orderIDText)
 	if err != nil {
 		return
@@ -163,6 +175,33 @@ func (h *Hub) dispatch(orderIDText string) {
 			continue
 		}
 		send(s, ev)
+	}
+}
+
+func (h *Hub) buyerUserID(orderID uuid.UUID) uuid.NullUUID {
+	var buyer uuid.NullUUID
+	if h.db == nil {
+		return buyer
+	}
+	if err := h.db.QueryRow(`
+		SELECT bp.user_id FROM orders o
+		JOIN buyer_profiles bp ON bp.id = o.buyer_profile_id
+		WHERE o.id = $1`, orderID).Scan(&buyer); err != nil {
+		return uuid.NullUUID{}
+	}
+	return buyer
+}
+
+// dispatchLocation carries only the order id: receivers refetch the position
+// through the endpoint that checks they may see it.
+func (h *Hub) dispatchLocation(orderID uuid.UUID, buyer uuid.NullUUID) {
+	ev := Event{Kind: "location", OrderID: orderID.String()}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for s := range h.subs {
+		if s.Admin || (buyer.Valid && s.UserID == buyer.UUID) {
+			send(s, ev)
+		}
 	}
 }
 

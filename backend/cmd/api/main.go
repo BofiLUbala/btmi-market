@@ -32,6 +32,7 @@ import (
 	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
 	sellerhandlers "github.com/btmi-ai-market/backend/internal/handlers/seller"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
+	trackinghandlers "github.com/btmi-ai-market/backend/internal/handlers/tracking"
 	"github.com/btmi-ai-market/backend/internal/middleware"
 	"github.com/btmi-ai-market/backend/internal/realtime"
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -272,6 +273,9 @@ func main() {
 	adminPhase5Handler := adminhandlers.NewAdminPhase5Handler(adminPhase5Service)
 	configHandler := configapi.NewHandler(adminPlatformRepo)
 	courierHandler := courierhandlers.NewHandler(courierService)
+	// Live courier GPS: written by the courier in transit, read by the buyer and Commerce Admin only.
+	courierLocationService := service.NewCourierLocationService(repository.NewDeliveryLocationRepository(db))
+	courierLocationHandler := trackinghandlers.NewLocationHandler(courierLocationService, buyerProfileService)
 
 	router := gin.Default()
 
@@ -572,6 +576,7 @@ func main() {
 			buyerGroup.POST("/orders/:order_id/handover/acknowledge", qrHandler.AcknowledgeHandoverLines)
 			buyerGroup.POST("/orders/:order_id/confirm-receipt", qrHandler.ConfirmReceipt)
 			buyerGroup.GET("/orders/:order_id/tracking", orderHandler.GetOrderTracking)
+			buyerGroup.GET("/orders/:order_id/courier-location", courierLocationHandler.BuyerCourierLocation)
 			buyerGroup.GET("/orders/:order_id/review-eligibility", reviewHandler.GetReviewEligibility)
 			buyerGroup.POST("/orders/:order_id/review", middleware.RequireFeature(adminPlatformRepo, "Reviews are temporarily disabled", "REVIEWS_ENABLED"), reviewHandler.CreateReview)
 			buyerGroup.POST("/orders/:order_id/service-review", middleware.RequireFeature(adminPlatformRepo, "Shop reviews are temporarily disabled", "REVIEWS_ENABLED", "SHOP_REVIEWS_ENABLED"), reviewHandler.CreateServiceReview)
@@ -613,6 +618,7 @@ func main() {
 			courierProtected.POST("/missions/:id/start", courierHandler.StartDelivery)
 			courierProtected.POST("/missions/:id/arrive", courierHandler.ArriveAtDestination)
 			courierProtected.POST("/missions/:id/fail", courierHandler.FailDelivery)
+			courierProtected.POST("/missions/:id/location", courierLocationHandler.ReportLocation)
 			courierProtected.GET("/history", courierHandler.GetHistory)
 			courierProtected.GET("/earnings", courierHandler.GetEarnings)
 			courierProtected.GET("/delivered-products", courierHandler.GetDeliveredProducts)
@@ -773,10 +779,7 @@ func main() {
 				}
 
 				commerceGroup := protectedAdmin.Group("/commerce")
-				commerceGroup.Use(middleware.RequireAdminRoles(
-					models.AdminRoleSuperAdmin,
-					models.AdminRoleCommerceAdmin,
-				))
+				commerceGroup.Use(middleware.RequireAdminRoles(models.CommerceAdminRoles...))
 				{
 					commerceGroup.GET("/events/stream", orderEvents.AdminStream)
 					commerceGroup.POST("/orders/:id/confirm-return", orderHandler.AdminConfirmReturnToSeller)
@@ -827,6 +830,7 @@ func main() {
 					commerceGroup.GET("/orders/:id", adminCommerceHandler.GetOrder)
 					commerceGroup.POST("/orders/:id/assign-courier", adminCommerceHandler.AssignCourier)
 					commerceGroup.GET("/orders/:id/delivery-handover", qrHandler.AdminDelivery)
+					commerceGroup.GET("/orders/:id/courier-location", courierLocationHandler.AdminCourierLocation)
 					commerceGroup.GET("/orders/:id/conversation", commHandler.GetAdminOrderConversation)
 					commerceGroup.POST("/orders/:id/intervene", commHandler.AdminIntervene)
 					commerceGroup.GET("/order-communications", commHandler.ListAdminOrderCommunications)

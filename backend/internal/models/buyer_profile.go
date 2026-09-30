@@ -133,6 +133,10 @@ type SavedDeliveryAddress struct {
 	BuildingNumber string    `json:"building_number"`
 	Landmark       string    `json:"landmark"`
 	Address        string    `json:"address"`
+	// Optional point the buyer shared for this address; nil clears an old one,
+	// since a new address makes the previous point meaningless.
+	Latitude  *float64 `json:"latitude,omitempty"`
+	Longitude *float64 `json:"longitude,omitempty"`
 }
 
 type LevelBenefitInfo struct {

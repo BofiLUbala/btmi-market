@@ -46,3 +46,37 @@ func TestStockAndCashEventsReachOnlyTheBusinessMembers(t *testing.T) {
 		}
 	}
 }
+
+// A courier position reaches the order's buyer and the Commerce Admin streams
+// only: never the seller's members or employees, another buyer, or the courier.
+// The event names the order and carries no coordinates.
+func TestLocationEventsReachOnlyTheBuyerAndCommerceAdmin(t *testing.T) {
+	h := NewHub(nil, "")
+	business, orderID := uuid.New(), uuid.New()
+	buyer := &Subscriber{UserID: uuid.New(), BusinessIDs: map[uuid.UUID]bool{}, C: make(chan Event, 4)}
+	otherBuyer := &Subscriber{UserID: uuid.New(), BusinessIDs: map[uuid.UUID]bool{}, C: make(chan Event, 4)}
+	seller := &Subscriber{UserID: uuid.New(), BusinessIDs: map[uuid.UUID]bool{business: true}, C: make(chan Event, 4)}
+	courier := &Subscriber{UserID: uuid.New(), BusinessIDs: map[uuid.UUID]bool{}, C: make(chan Event, 4)}
+	admin := &Subscriber{Admin: true, C: make(chan Event, 4)}
+	for _, s := range []*Subscriber{buyer, otherBuyer, seller, courier, admin} {
+		h.Subscribe(s)
+	}
+
+	h.dispatchLocation(orderID, uuid.NullUUID{UUID: buyer.UserID, Valid: true})
+	h.dispatch("location:not-a-uuid")
+
+	for name, s := range map[string]*Subscriber{"buyer": buyer, "commerce admin": admin} {
+		got := received(s)
+		if len(got) != 1 || got[0].Kind != "location" || got[0].OrderID != orderID.String() {
+			t.Fatalf("%s got %+v, want one location event for the order", name, got)
+		}
+		if got[0].Status != "" || got[0].DeliveryStatus != "" || got[0].BusinessID != "" {
+			t.Fatalf("%s: location event carries more than the order id: %+v", name, got[0])
+		}
+	}
+	for name, s := range map[string]*Subscriber{"other buyer": otherBuyer, "seller": seller, "courier": courier} {
+		if evs := received(s); len(evs) != 0 {
+			t.Errorf("%s received %+v", name, evs)
+		}
+	}
+}

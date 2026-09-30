@@ -493,6 +493,9 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 		// The courier steps, each dated when it happened.
 		CourierMilestones: order.CourierMilestones,
 		CourierAssignedAt: order.CourierAssignedAt,
+		LiveTrackingActive: order.DeliveryStatus == models.DeliveryStatusInTransit,
+		DeliveryLatitude:   order.DeliveryLatitude,
+		DeliveryLongitude:  order.DeliveryLongitude,
 		DeliveryPlanFields: models.DeliveryPlanFields{
 			ExpectedDeliveryDate: order.ExpectedDeliveryDate,
 			ExpectedDeliverySlot: order.ExpectedDeliverySlot,
@@ -1382,11 +1385,10 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 	delivery.DeliveryLandmark = strings.TrimSpace(req.Landmark)
 	delivery.DeliveryAddress = strings.Join([]string{delivery.DeliveryStreet, delivery.DeliveryBuildingNumber, delivery.DeliveryCommune, delivery.DeliveryCity, delivery.DeliveryProvince}, ", ")
 	delivery.DeliveryNotes = strings.TrimSpace(req.Notes)
-	if req.Latitude != nil {
-		delivery.DeliveryLatitude = req.Latitude
-	}
-	if req.Longitude != nil {
-		delivery.DeliveryLongitude = req.Longitude
+	// The map point is optional: the text address is always enough. A point
+	// is kept only as a valid pair, for a delivered (not picked-up) order.
+	if method != models.DeliveryMethodPickup {
+		delivery.DeliveryLatitude, delivery.DeliveryLongitude = models.ValidDestination(req.Latitude, req.Longitude)
 	}
 
 	if err := txOrderRepo.UpdateDelivery(orderID, &delivery); err != nil {
@@ -1409,6 +1411,8 @@ func (s *OrderService) SelectDelivery(buyerProfileID, orderID uuid.UUID, req *mo
 			BuildingNumber: delivery.DeliveryBuildingNumber,
 			Landmark:       delivery.DeliveryLandmark,
 			Address:        delivery.DeliveryAddress,
+			Latitude:       delivery.DeliveryLatitude,
+			Longitude:      delivery.DeliveryLongitude,
 		}
 		txBuyerRepo := repository.NewBuyerProfileRepository(&database.DB{Tx: tx})
 		if err := txBuyerRepo.SaveDeliveryAddress(buyerProfileID, profileAddress); err != nil {

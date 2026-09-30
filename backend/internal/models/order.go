@@ -402,6 +402,13 @@ type TrackingResponse struct {
 
 	CourierMilestones
 	CourierAssignedAt *time.Time `json:"courier_assigned_at,omitempty"`
+
+	// Live courier map: shown while the parcel is IN_TRANSIT. The courier's
+	// coordinates are never here; they come from the dedicated, authorised
+	// courier-location endpoint. The destination is the buyer's own address.
+	LiveTrackingActive bool     `json:"live_tracking_active"`
+	DeliveryLatitude   *float64 `json:"delivery_latitude"`
+	DeliveryLongitude  *float64 `json:"delivery_longitude"`
 }
 
 // Tracking summary embedded in list/get responses.
