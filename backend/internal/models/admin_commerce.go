@@ -426,6 +426,9 @@ type AdminPromotionVisibility struct {
 	EndDate       *time.Time `json:"end_date"`
 	Status        string     `json:"status"`
 	IsActive      bool       `json:"is_active"`
+	// VISIBLE, or the first marketplace gate the product fails:
+	// NOT_PUBLISHED, PRODUCT_INACTIVE, BUSINESS_INACTIVE, NO_ACTIVE_SHOP, NO_INVENTORY.
+	MarketplaceVisibility string `json:"marketplace_visibility"`
 }
 
 type AdminSellerPerformance struct {

@@ -392,6 +392,8 @@ export interface AdminPromotionVisibility {
   end_date?: string
   status: string
   is_active: boolean
+  /** VISIBLE, or the first marketplace gate the product fails. */
+  marketplace_visibility: 'VISIBLE' | 'NOT_PUBLISHED' | 'PRODUCT_INACTIVE' | 'BUSINESS_INACTIVE' | 'NO_ACTIVE_SHOP' | 'NO_INVENTORY'
 }
 
 export interface AdminSellerPerformance {

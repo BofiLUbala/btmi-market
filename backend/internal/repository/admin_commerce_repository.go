@@ -1560,9 +1560,26 @@ func (r *AdminCommerceRepository) ListPromotionVisibility(limit, offset int) ([]
 			p.unit_price,
 			p.discount_active, p.discount_type, p.discount_value,
 			p.discount_start, p.discount_end,
-			p.status
+			p.status,
+			-- Same gates as MarketplaceRepository.ListPublicProducts, in the
+			-- order a seller has to fix them, so the admin sees why a
+			-- discounted product is (not) shown to buyers.
+			CASE
+				WHEN p.publication_status <> 'PUBLISHED' THEN 'NOT_PUBLISHED'
+				WHEN p.status <> 'ACTIVE' THEN 'PRODUCT_INACTIVE'
+				WHEN b.status <> 'ACTIVE' THEN 'BUSINESS_INACTIVE'
+				WHEN s.id IS NULL THEN 'NO_ACTIVE_SHOP'
+				WHEN NOT EXISTS (
+					SELECT 1 FROM product_variants v2
+					JOIN inventory i2 ON i2.variant_id = v2.id
+					JOIN shops s2 ON s2.id = i2.shop_id AND s2.status = 'ACTIVE'
+					WHERE v2.product_id = p.id AND v2.status = 'ACTIVE' AND s2.business_id = p.business_id
+				) THEN 'NO_INVENTORY'
+				ELSE 'VISIBLE'
+			END
 		FROM products p
-		JOIN LATERAL (
+		JOIN businesses b ON b.id = p.business_id
+		LEFT JOIN LATERAL (
 			SELECT s.id, s.name
 			FROM shops s
 			LEFT JOIN inventory i ON i.shop_id = s.id AND i.product_id = p.id
@@ -1594,17 +1611,26 @@ func (r *AdminCommerceRepository) ListPromotionVisibility(limit, offset int) ([]
 	for rows.Next() {
 		promo := &models.AdminPromotionVisibility{}
 		var discountStart, discountEnd *time.Time
+		var shopID *uuid.UUID
+		var shopName *string
 		err := rows.Scan(
 			&promo.ProductID, &promo.ProductName,
-			&promo.ShopID, &promo.ShopName,
+			&shopID, &shopName,
 			&promo.RegularPrice,
 			&promo.IsActive, &promo.DiscountType, &promo.DiscountValue,
 			&discountStart, &discountEnd,
 			&promo.Status,
+			&promo.MarketplaceVisibility,
 		)
 		if err != nil {
 			log.Printf("admin commerce: skipped unreadable row: %v", err)
 			continue
+		}
+		if shopID != nil {
+			promo.ShopID = *shopID
+		}
+		if shopName != nil {
+			promo.ShopName = *shopName
 		}
 		promo.StartDate = discountStart
 		promo.EndDate = discountEnd

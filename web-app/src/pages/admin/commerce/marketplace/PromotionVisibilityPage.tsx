@@ -29,7 +29,7 @@ export default function PromotionVisibilityPage() {
 
   const totalPages = Math.ceil(total / limit)
 
-  const statusColor = (active: boolean) => active
+  const visibilityColor = (visible: boolean) => visible
     ? { bg: '#064e3b', fg: '#a7f3d0' }
     : { bg: '#7f1d1d', fg: '#fca5a5' }
 
@@ -66,7 +66,15 @@ export default function PromotionVisibilityPage() {
             </thead>
             <tbody>
               {promotions.map((p) => {
-                const vc = statusColor(p.is_active)
+                // Buyers see the discount only when the product itself is on
+                // the marketplace and the promotion is running.
+                const vis = p.marketplace_visibility ?? 'VISIBLE'
+                const visible = vis === 'VISIBLE' && p.is_active
+                const vc = visibilityColor(visible)
+                const visLabel = vis !== 'VISIBLE'
+                  ? t(`admin.promotions.vis${vis}`)
+                  : p.is_active ? t('admin.promotions.visVISIBLE') : t('admin.promotions.inactive')
+                const visHint = vis !== 'VISIBLE' ? t(`admin.promotions.visHint${vis}`) : undefined
                 return (
                   <tr key={p.product_id} style={{ borderBottom: '1px solid #1e293b' }}>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontWeight: 600 }}>{p.product_name}</td>
@@ -90,9 +98,12 @@ export default function PromotionVisibilityPage() {
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: vc.bg, color: vc.fg }}>
-                        {p.is_active ? t('admin.promotions.active') : t('admin.promotions.inactive')}
+                      <span title={visHint} style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: vc.bg, color: vc.fg, whiteSpace: 'nowrap', cursor: visHint ? 'help' : undefined }}>
+                        {visLabel}
                       </span>
+                      {visHint && (
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, maxWidth: 220 }}>{visHint}</div>
+                      )}
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
                       {p.start_date ? new Date(p.start_date).toLocaleDateString('fr-FR') : t('admin.promotions.immediate')}
