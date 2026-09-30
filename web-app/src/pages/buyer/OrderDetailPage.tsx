@@ -771,22 +771,16 @@ function OrderInner() {
       </div>
 
       {showChat && (
+        // Full screen on a phone, a centred panel on wider screens.
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: 16,
-          }}
+          className="chat-overlay"
+          role="dialog"
+          aria-modal="true"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowChat(false)
           }}
         >
-          <div style={{ width: '100%', maxWidth: 640, maxHeight: '85vh', height: 600 }}>
+          <div className="chat-overlay-panel">
             <OrderChatFeed
               orderId={orderId}
               role="BUYER"

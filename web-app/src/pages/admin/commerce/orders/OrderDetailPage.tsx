@@ -354,8 +354,8 @@ export default function OrderDetailPage() {
       </div>
 
       <div style={{ marginTop: 20 }}>
-        <Section title="💬 Supervision Dialogue (Buyer ↔ Seller ↔ Admin)">
-          <div style={{ height: 500 }}>
+        <Section title="💬 Messages avec le support TBK (acheteur, boutique, livreur)">
+          <div style={{ height: 'min(560px, 80dvh)' }}>
             <OrderChatFeed orderId={id!} role="ADMIN" showHeader={false} />
           </div>
         </Section>

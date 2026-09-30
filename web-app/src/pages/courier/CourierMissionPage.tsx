@@ -308,7 +308,7 @@ export default function CourierMissionPage(){
         <CourierPlanPanel key={`plan-${m.order_id}`} mission={m as unknown as CourierMission} onChanged={load}/>
 
         {/* Private channels with the buyer, the seller and TBK */}
-        <section className="courier-card" style={{marginTop:16}}>
+        <section style={{marginTop:16, height:'min(560px, 80dvh)'}}>
           <OrderChatFeed orderId={m.order_id} role="COURIER" />
         </section>
 

@@ -108,6 +108,9 @@ export interface ConversationListItem {
   business_name: string
   last_message: string
   last_sender_type: SenderType
+  /** Who wrote the last message of the caller's own channels, and to whom. */
+  last_sender_party?: ChatParty
+  last_recipient_party?: ChatParty
   last_message_at: string
   unread_count: number
   created_at: string
@@ -135,15 +138,24 @@ export interface UnreadCounts {
 
 // ----------------- Buyer & Seller APIs -----------------
 
+/**
+ * Fetching never marks anything read (mark_read=false): only the thread
+ * actually on screen is, through markChannelRead.
+ */
 export async function fetchOrderConversation(orderId: string, as?: ChatParty): Promise<OrderConversationDetail> {
-  return get<OrderConversationDetail>(`/orders/${orderId}/conversation`, as ? { as } : undefined)
+  return get<OrderConversationDetail>(`/orders/${orderId}/conversation`, as ? { as, mark_read: 'false' } : { mark_read: 'false' })
+}
+
+/** The thread with `contact` is open on screen: its messages are read. */
+export async function markChannelRead(orderId: string, contact: ChatParty, as?: ChatParty): Promise<void> {
+  await post(`/orders/${orderId}/messages/read`, { contact, as })
 }
 
 export async function sendOrderMessage(orderId: string, body: string, recipient: ChatParty, as?: ChatParty): Promise<OrderMessage> {
   return post<OrderMessage>(`/orders/${orderId}/messages`, { body, recipient, as })
 }
 
-export async function fetchBuyerConversations(params?: { limit?: number; offset?: number }): Promise<{
+export async function fetchBuyerConversations(params?: { limit?: number; offset?: number; with_messages?: boolean }): Promise<{
   items: ConversationListItem[]
   total: number
   limit: number
@@ -164,6 +176,8 @@ export async function fetchBuyerUnreadCounts(): Promise<UnreadCounts> {
 export async function fetchSellerConversations(params?: {
   shop_id?: string
   business_id?: string
+  /** Only orders with at least one message in the seller's channels. */
+  with_messages?: boolean
   limit?: number
   offset?: number
 }): Promise<{
@@ -245,6 +259,7 @@ export async function fetchAdminOrderCommunications(params?: {
   search?: string
   status?: string
   shop_id?: string
+  with_messages?: boolean
   limit?: number
   offset?: number
 }): Promise<{
@@ -254,6 +269,7 @@ export async function fetchAdminOrderCommunications(params?: {
   offset: number
 }> {
   const qs = new URLSearchParams()
+  if (params?.with_messages) qs.set('with_messages', 'true')
   if (params?.search) qs.set('search', params.search)
   if (params?.status) qs.set('status', params.status)
   if (params?.shop_id) qs.set('shop_id', params.shop_id)
@@ -269,7 +285,11 @@ export async function fetchAdminOrderCommunications(params?: {
 }
 
 export async function fetchAdminOrderConversation(orderId: string): Promise<OrderConversationDetail> {
-  return adminApi<OrderConversationDetail>(`/admin/commerce/orders/${orderId}/conversation`)
+  return adminApi<OrderConversationDetail>(`/admin/commerce/orders/${orderId}/conversation?mark_read=false`)
+}
+
+export async function adminMarkChannelRead(orderId: string, contact: ChatParty): Promise<void> {
+  await adminApi(`/admin/commerce/orders/${orderId}/conversation/read`, { method: 'POST', body: JSON.stringify({ contact }) })
 }
 
 export async function adminInterveneOrder(orderId: string, body: string, recipientParty: Exclude<ChatParty, 'ADMIN'>): Promise<OrderMessage> {
