@@ -118,6 +118,8 @@ export function OrderChatFeed({
   }, [contacts, contact])
   const me = data?.my_party ?? role
   const selected = contacts.find((c) => c.party === contact)
+  // The courier channel stays writable before assignment: the courier reads it once assigned.
+  const canWrite = !!selected && (selected.available || selected.party === 'COURIER')
   const thread = useMemo(
     () => messages.filter((m) =>
       contact !== '' &&
@@ -129,7 +131,7 @@ export function OrderChatFeed({
 
   const handleSend = async () => {
     const text = body.trim()
-    if (!text || sending || !contact || !selected?.available) return
+    if (!text || sending || !contact || !canWrite) return
 
     setSending(true)
     setError('')
@@ -260,7 +262,7 @@ export function OrderChatFeed({
           <Ionicons name="chatbubbles-outline" size={44} color={colors.mutedLight} />
           <Text style={styles.emptyTitle}>{t('communication.emptyChatTitle')}</Text>
           <Text style={styles.emptyDesc}>
-            {selected && !selected.available ? 'Aucun livreur n’est encore assigné à cette commande.' : t('communication.emptyChatDesc')}
+            {selected && !selected.available ? 'Aucun livreur n’est encore assigné : votre message lui sera transmis dès son affectation.' : t('communication.emptyChatDesc')}
           </Text>
         </View>
       ) : (
@@ -279,7 +281,7 @@ export function OrderChatFeed({
         <TextInput
           style={styles.input}
           placeholder={selected ? `Message privé ${selected.party === 'ADMIN' ? 'au support TBK' : `à ${partyInSentence(selected.party)}`}…` : t('communication.inputPlaceholder')}
-          editable={!!selected?.available}
+          editable={canWrite}
           placeholderTextColor={colors.mutedLight}
           value={body}
           onChangeText={setBody}
@@ -287,9 +289,9 @@ export function OrderChatFeed({
           maxLength={2000}
         />
         <TouchableOpacity
-          style={[styles.sendButton, (!body.trim() || sending || !selected?.available) && styles.sendButtonDisabled]}
+          style={[styles.sendButton, (!body.trim() || sending || !canWrite) && styles.sendButtonDisabled]}
           onPress={handleSend}
-          disabled={!body.trim() || sending || !selected?.available}
+          disabled={!body.trim() || sending || !canWrite}
         >
           {sending ? (
             <ActivityIndicator size="small" color="#FFFFFF" />

@@ -58,6 +58,9 @@ export interface RegisterRequest {
   country?: string
   latitude?: number | null
   longitude?: number | null
+  province_id?: string
+  city_id?: string
+  commune_id?: string
 }
 
 /* ---------- Buyer profile ---------- */
@@ -1340,12 +1343,16 @@ export interface StockMovement {
   created_at: string
 }
 
+/** A goods-in note: stock that arrived at one shop, one line per variant. */
 export interface StockReceipt {
   id: string
+  business_id: string
   shop_id: string
-  supplier: string
-  notes?: string
+  received_by?: string | null
+  reference_number: string
+  notes: string
   status: string
+  received_at: string
   created_at: string
   updated_at: string
 }
@@ -1356,15 +1363,24 @@ export interface StockReceiptLine {
   variant_id: string
   quantity: number
   unit_cost: number
+  notes: string
+  created_at: string
+}
+
+export interface StockReceiptWithLines {
+  receipt: StockReceipt
+  lines: StockReceiptLine[]
 }
 
 export interface CreateStockReceiptRequest {
-  supplier: string
+  shop_id: string
+  reference_number?: string
   notes?: string
   lines: Array<{
     variant_id: string
     quantity: number
     unit_cost: number
+    notes?: string
   }>
 }
 
@@ -1498,14 +1514,21 @@ export interface CashSession {
   created_at: string
 }
 
+/** One cash takings line recorded in a session (a shop sale or an order paid in cash). */
 export interface CashPayment {
   id: string
-  session_id: string
-  order_id: string
+  business_id: string
+  shop_id: string
+  employee_id?: string | null
+  customer_id?: string | null
+  cash_session_id?: string | null
+  reference_type: string
+  reference_id: string
   amount: number
-  payment_method: string
-  received_by?: string
+  currency: string
+  status: string
   created_at: string
+  updated_at: string
 }
 
 export interface CashSummaryShop {
@@ -1770,6 +1793,32 @@ export interface CourierHistory {
   delivery_address: string
   final_status: string
   delivered_at?: string
+}
+
+/** What a courier collected and delivered on one day (Kinshasa time). */
+export interface CourierEarnings {
+  date: string
+  cash_collected: Array<{ currency: string; amount: number }>
+  cash_orders: number
+  orders_delivered: number
+  items_delivered: number
+}
+
+/** One product line of an order the courier delivered. */
+export interface CourierDeliveredProduct {
+  order_id: string
+  order_number: string
+  shop_name: string
+  delivered_at: string
+  product_name: string
+  variant_name: string
+  image_url: string
+  quantity: number
+  unit_price: number
+  line_total: number
+  currency: string
+  payment_method: string
+  cash_collected: boolean
 }
 
 /** QR scan response for pickup/delivery scans */

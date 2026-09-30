@@ -15,7 +15,7 @@ export function useDeliveryTariff(): DeliveryTariff | null {
   const [tariff, setTariff] = useState<DeliveryTariff | null>(null)
   const [version, setVersion] = useState(0)
   // Finance edits are pushed live; a slow poll covers signed-out visitors.
-  useOrderEvents((event) => { if (event.kind !== 'order') setVersion((v) => v + 1) })
+  useOrderEvents((event) => { if (event.kind === 'tariff' || event.kind === 'resync') setVersion((v) => v + 1) })
   useEffect(() => {
     const timer = window.setInterval(() => setVersion((v) => v + 1), 60_000)
     return () => window.clearInterval(timer)

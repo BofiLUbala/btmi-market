@@ -182,6 +182,9 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
         street: form.street.trim(),
         building_number: form.building_number.trim(),
         landmark: form.landmark.trim() || undefined,
+        province_id: form.province_id || undefined,
+        city_id: form.city_id || undefined,
+        commune_id: form.commune_id || undefined,
         address: [form.building_number, form.street, form.commune, form.city, form.province].filter(Boolean).join(', '),
         latitude: form.latitude,
         longitude: form.longitude

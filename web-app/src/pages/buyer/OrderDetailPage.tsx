@@ -537,7 +537,8 @@ function OrderInner() {
 
   const o = data.order
   const productsTotal = o.final_total + o.points_discount_amount
-  const total = o.final_total + o.delivery_fee_final
+  const paymentMarkup = Math.max(payment?.payment_markup ?? 0, 0)
+  const total = o.final_total + o.delivery_fee_final + paymentMarkup
   const needsDelivery = !o.delivery_method
   // How the payment was settled, once it has been. Naming the actor is the point:
   // the buyer's record should say the courier took the cash, not that "it is paid".
@@ -605,6 +606,12 @@ function OrderInner() {
               )}
             </span>
           </div>
+          {paymentMarkup > 0 && (
+            <div className="total-row">
+              <span>{t('orders.paymentMarkup')}</span>
+              <span>{formatMoney(paymentMarkup)}</span>
+            </div>
+          )}
           <div className="total-row total">
             <span>{t('orders.totalDue')}</span>
             <span>{formatMoney(total)}</span>

@@ -1,3 +1,5 @@
+import { formatMoney } from './money'
+import type { CourierEarnings } from '../types'
 import type { QueryClient } from '@tanstack/react-query'
 import type { TranslationKey, useI18n } from '../store/i18n'
 
@@ -25,3 +27,22 @@ export function productVerificationBody(code: string): { token?: string; product
   const value = code.trim()
   return value.toLowerCase().startsWith('tbk.') ? { token: value } : { product_number: value }
 }
+
+/** Today's date where the deliveries happen (YYYY-MM-DD). */
+export function kinshasaToday(): string {
+  // Kinshasa is UTC+1 all year (no daylight saving).
+  return new Date(Date.now() + 3600_000).toISOString().slice(0, 10)
+}
+
+export function shiftDay(day: string, by: number): string {
+  const d = new Date(`${day}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + by)
+  return d.toISOString().slice(0, 10)
+}
+
+/** "82,00 $ · 10 000 FC": one amount per currency, or 0 in the default one. */
+export function cashLabel(earnings?: CourierEarnings | null): string {
+  const cash = earnings?.cash_collected ?? []
+  return cash.length ? cash.map((c) => formatMoney(c.amount, c.currency)).join(' · ') : formatMoney(0)
+}
+

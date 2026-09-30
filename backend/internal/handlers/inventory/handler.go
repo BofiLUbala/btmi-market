@@ -378,8 +378,22 @@ func (h *Handler) GetStockMovements(c *gin.Context) {
 	})
 }
 
+// GetStockEvents returns recent stock events for ?business_id=, which the caller must belong to.
 func (h *Handler) GetStockEvents(c *gin.Context) {
-	events := h.inventoryService.GetStockEvents()
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	businessID, err := uuid.Parse(c.Query("business_id"))
+	if err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "business_id is required")
+		return
+	}
+	events, err := h.inventoryService.GetStockEvents(userID, businessID)
+	if err != nil {
+		h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "Not a member of this business")
+		return
+	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Stock events retrieved successfully",

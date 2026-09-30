@@ -364,6 +364,17 @@ export interface CourierProfile {
   status: string; availability: CourierAvailability; first_name?: string; last_name?: string
   transport_type?: string; service_zone?: string; completed_today?: number; total_deliveries?: number
 }
+/** GET /courier/earnings: what the courier collected and delivered on one Kinshasa day. */
+export interface CourierEarnings {
+  date: string; cash_collected: Array<{ currency: string; amount: number }>
+  cash_orders: number; orders_delivered: number; items_delivered: number
+}
+/** GET /courier/delivered-products row: one product line of a delivered order. */
+export interface CourierDeliveredProduct {
+  order_id: string; order_number: string; shop_name: string; delivered_at: string
+  product_name: string; variant_name: string; image_url: string; quantity: number
+  unit_price: number; line_total: number; currency: string; payment_method: string; cash_collected: boolean
+}
 /** GET /courier/history row, exactly as the backend returns it. */
 export interface CourierHistoryItem {
   order_id: string; order_number: string; shop_name: string; delivery_address: string
@@ -516,8 +527,10 @@ export interface StockMovement {
   movement_type: string; quantity: number; previous_quantity: number; new_quantity: number
   notes?: string; created_at: string
 }
-export interface StockReceipt { id: string; shop_id: string; supplier: string; notes?: string; status: string; created_at: string; updated_at: string }
-export interface CreateStockReceiptRequest { supplier: string; notes?: string; lines: Array<{ variant_id: string; quantity: number; unit_cost: number }> }
+export interface StockReceipt { id: string; business_id: string; shop_id: string; reference_number: string; notes: string; status: string; received_at: string; created_at: string; updated_at: string }
+export interface StockReceiptLine { id: string; receipt_id: string; variant_id: string; quantity: number; unit_cost: number; notes: string; created_at: string }
+export interface StockReceiptWithLines { receipt: StockReceipt; lines: StockReceiptLine[] }
+export interface CreateStockReceiptRequest { shop_id: string; reference_number?: string; notes?: string; lines: Array<{ variant_id: string; quantity: number; unit_cost: number; notes?: string }> }
 export interface AddStockRequest { variant_id: string; quantity: number; notes?: string }
 export interface RecordSaleRequest { variant_id: string; quantity: number; customer_id?: string; employee_id?: string; notes?: string }
 

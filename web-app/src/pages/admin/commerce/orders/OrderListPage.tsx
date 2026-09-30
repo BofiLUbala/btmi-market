@@ -14,7 +14,9 @@ export default function OrderListPage() {
   const [orders, setOrders] = useState<AdminOrderItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(params.get('status') || '')
+  // ?period=today comes from the Direction dashboard's orders-today counter.
+  const [period, setPeriod] = useState(params.get('period') || '')
   const [deliveryMethod, setDeliveryMethod] = useState('')
   const [shopId, setShopId] = useState(params.get('shop_id') || '')
   const [search, setSearch] = useState(params.get('search') || '')
@@ -30,6 +32,7 @@ export default function OrderListPage() {
         shop_id: shopId || undefined,
         business_id: businessId || undefined,
         search: search || undefined,
+        period: period === 'today' ? 'today' : undefined,
         limit,
         offset: page,
       })
@@ -40,7 +43,7 @@ export default function OrderListPage() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, deliveryMethod, shopId, businessId, search, page, limit])
+  }, [statusFilter, deliveryMethod, shopId, businessId, search, period, page, limit])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
   useOrderEvents(() => void fetchOrders(true), { audience: 'admin' })
@@ -63,6 +66,11 @@ export default function OrderListPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        {period === 'today' && (
+          <button type="button" className="admin-button" onClick={() => { setPeriod(''); setPage(0) }} title={t('admin.orders.clearTodayFilter')}>
+            {t('admin.orders.todayFilter')} ✕
+          </button>
+        )}
         <input aria-label={t('admin.orders.searchPlaceholder')} placeholder={t('admin.orders.searchPlaceholder')} value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           style={{ flex: '1 1 200px', padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13 }} />
         <select aria-label={t('admin.orders.filterAllStatus')} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}

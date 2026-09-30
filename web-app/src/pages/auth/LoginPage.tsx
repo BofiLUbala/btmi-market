@@ -20,9 +20,8 @@ export default function LoginPage() {
     params.get('returnTo') ?? (location.state as { from?: string } | null)?.from,
     '/'
   )
-  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('buyer')
+  const { email, setEmail, password, setPassword, remember, setRemember, prefilled, persist } = useRememberedEmail('buyer')
   const caps = useCapsLock()
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [errorCode, setErrorCode] = useState('')
   const [busy, setBusy] = useState(false)
@@ -34,7 +33,7 @@ export default function LoginPage() {
     setBusy(true)
     try {
       const session = await login(email.trim(), password, 'buyer')
-      persist(email)
+      persist(email, password)
       if (session.accountType === 'COURIER' || session.user?.capabilities?.courier) {
         if (returnTo && returnTo.startsWith('/courier')) {
           navigate(returnTo, { replace: true })

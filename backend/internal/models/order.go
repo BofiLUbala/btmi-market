@@ -121,7 +121,7 @@ type CreateOrderRequest struct {
 	CustomerPhone string           `json:"customer_phone"`
 	CustomerEmail string           `json:"customer_email"`
 	Notes         string           `json:"notes"`
-	Lines         []OrderLineInput `json:"lines" binding:"required,min=1"`
+	Lines         []OrderLineInput `json:"lines" binding:"required,min=1,dive"`
 }
 
 type OrderLineInput struct {
@@ -132,7 +132,7 @@ type OrderLineInput struct {
 
 type BuyerCreateOrderRequest struct {
 	ShopID         string           `json:"shop_id" binding:"required"`
-	Items          []OrderLineInput `json:"items" binding:"required,min=1"`
+	Items          []OrderLineInput `json:"items" binding:"required,min=1,dive"`
 	UsePoints      bool             `json:"use_points"`
 	IdempotencyKey *string          `json:"idempotency_key"`
 }

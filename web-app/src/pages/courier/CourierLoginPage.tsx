@@ -13,9 +13,8 @@ export default function CourierLoginPage() {
   const { login, logout } = useAuth()
   const navigate = useNavigate()
   const t = useT()
-  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('courier')
+  const { email, setEmail, password, setPassword, remember, setRemember, prefilled, persist } = useRememberedEmail('courier')
   const caps = useCapsLock()
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -28,7 +27,7 @@ export default function CourierLoginPage() {
       // Courier is a profile/capability on the shared user account, not a legacy
       // account_type. The protected profile endpoint is the authoritative check.
       await api('/courier/profile')
-      persist(email)
+      persist(email, password)
       navigate('/courier/dashboard', { replace: true })
     } catch (err) {
       const code = err instanceof ApiError ? err.code : ''

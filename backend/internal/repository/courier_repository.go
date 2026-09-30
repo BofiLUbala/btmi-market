@@ -395,6 +395,96 @@ func (r *CourierRepository) GetHistory(courierUserID uuid.UUID, limit, offset in
 	return history, rows.Err()
 }
 
+// courierDeliveredOrders selects the orders a courier handed over, with the
+// moment of the handover (delivered_at is not written on every path, so the
+// cash confirmation and the buyer's receipt stand in for it) and its payment.
+const courierDeliveredOrders = `
+	SELECT o.id, o.order_number, o.shop_id, COALESCE(o.currency, 'USD') AS currency,
+	       COALESCE(o.delivered_at, bp.cash_received_at, o.received_at, o.completed_at, o.updated_at) AS delivered_at,
+	       COALESCE(bp.payment_method, '') AS payment_method,
+	       bp.cash_received_by = o.assigned_courier_id AS cash_by_me
+	FROM orders o
+	LEFT JOIN buyer_payments bp ON bp.order_id = o.id
+	WHERE o.assigned_courier_id = $1
+	  AND (o.delivery_status IN ('DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED')
+	       OR o.status IN ('DELIVERED', 'RECEIVED', 'COMPLETED'))`
+
+// kinshasaDay compares a timestamp with a calendar day in Kinshasa.
+const kinshasaDay = `(%s AT TIME ZONE 'Africa/Kinshasa')::date = $2::date`
+
+// GetEarnings sums what a courier handled on one Kinshasa day: the cash they
+// confirmed at the door (per currency) and the orders and items they delivered.
+func (r *CourierRepository) GetEarnings(courierUserID uuid.UUID, day string) (*models.CourierEarningsResponse, error) {
+	res := &models.CourierEarningsResponse{Date: day, CashCollected: []models.CourierAmount{}}
+
+	rows, err := r.db.Query(`
+		SELECT COALESCE(bp.currency, 'USD'), COALESCE(SUM(bp.final_total), 0), COUNT(*)
+		FROM buyer_payments bp
+		WHERE bp.cash_received_by = $1
+		  AND `+fmt.Sprintf(kinshasaDay, "bp.cash_received_at")+`
+		GROUP BY 1 ORDER BY 1`, courierUserID, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var a models.CourierAmount
+		var n int
+		if err := rows.Scan(&a.Currency, &a.Amount, &n); err != nil {
+			return nil, err
+		}
+		res.CashCollected = append(res.CashCollected, a)
+		res.CashOrders += n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	err = r.db.QueryRow(`
+		WITH d AS (`+courierDeliveredOrders+`)
+		SELECT COUNT(*), COALESCE(SUM((SELECT COALESCE(SUM(ol.quantity), 0) FROM order_lines ol WHERE ol.order_id = d.id)), 0)
+		FROM d WHERE `+fmt.Sprintf(kinshasaDay, "d.delivered_at"), courierUserID, day).Scan(&res.OrdersDelivered, &res.ItemsDelivered)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// GetDeliveredProducts lists the product lines of every order the courier
+// delivered, newest first; day ("YYYY-MM-DD", Kinshasa) narrows it to one day.
+func (r *CourierRepository) GetDeliveredProducts(courierUserID uuid.UUID, day string, limit, offset int) ([]*models.CourierDeliveredProduct, error) {
+	// An empty day lists everything.
+	dayFilter := `($2 = '' OR (d.delivered_at AT TIME ZONE 'Africa/Kinshasa')::date = NULLIF($2, '')::date)`
+	rows, err := r.db.Query(`
+		WITH d AS (`+courierDeliveredOrders+`)
+		SELECT d.id, d.order_number, s.name, d.delivered_at,
+		       ol.product_name, ol.variant_name, ol.image_url, ol.quantity,
+		       COALESCE(NULLIF(ol.final_unit_price, 0), ol.unit_price),
+		       COALESCE(NULLIF(ol.final_unit_price, 0), ol.unit_price) * ol.quantity,
+		       d.currency, d.payment_method, COALESCE(d.cash_by_me, FALSE)
+		FROM d
+		JOIN shops s ON s.id = d.shop_id
+		JOIN order_lines ol ON ol.order_id = d.id
+		WHERE `+dayFilter+`
+		ORDER BY d.delivered_at DESC, d.order_number, ol.product_name
+		LIMIT $3 OFFSET $4`, courierUserID, day, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*models.CourierDeliveredProduct{}
+	for rows.Next() {
+		var p models.CourierDeliveredProduct
+		if err := rows.Scan(&p.OrderID, &p.OrderNumber, &p.ShopName, &p.DeliveredAt,
+			&p.ProductName, &p.VariantName, &p.ImageURL, &p.Quantity,
+			&p.UnitPrice, &p.LineTotal, &p.Currency, &p.PaymentMethod, &p.CashCollected); err != nil {
+			return nil, err
+		}
+		items = append(items, &p)
+	}
+	return items, rows.Err()
+}
+
 // InvitationCreate creates a new courier invitation
 func (r *CourierRepository) InvitationCreate(inv *models.CourierInvitation) error {
 	_, err := r.db.Exec(`

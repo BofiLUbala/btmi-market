@@ -50,7 +50,9 @@ export const SECTIONS: NavSection[] = [
       { to: '/admin/direction/merchants', labelKey: 'admin.layout.itemMerchantsOverview' },
       { to: '/admin/direction/catalog', labelKey: 'admin.layout.itemCatalogOverview' },
       { to: '/admin/direction/disputes', labelKey: 'admin.layout.itemDisputesOverview' },
-      { to: '/admin/direction/audit', labelKey: 'admin.layout.itemAuditLedger' }
+      { to: '/admin/direction/audit', labelKey: 'admin.layout.itemAuditLedger' },
+      { to: '/admin/direction/sessions', labelKey: 'admin.layout.itemActiveSessions' },
+      { to: '/admin/direction/auth-failures', labelKey: 'admin.layout.itemAuthFailures' }
     ]
   },
   {

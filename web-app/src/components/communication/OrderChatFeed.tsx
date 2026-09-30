@@ -103,6 +103,8 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
     [detail?.messages, contact, me]
   )
   const selected = contacts.find((c) => c.party === contact)
+  // The courier channel stays writable before assignment: the courier reads it once assigned.
+  const canWrite = !!selected && (selected.available || selected.party === 'COURIER')
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -243,7 +245,7 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
             <div style={{ fontWeight: 600 }}>{t('communication.emptyChatTitle')}</div>
             <div className="small">
               {selected && !selected.available
-                ? 'Aucun livreur n’est encore assigné à cette commande.'
+                ? 'Aucun livreur n’est encore assigné : votre message lui sera transmis dès son affectation.'
                 : t('communication.emptyChatDesc')}
             </div>
           </div>
@@ -325,7 +327,7 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
           value={inputBody}
           onChange={(e) => setInputBody(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={!selected?.available}
+          disabled={!canWrite}
           placeholder={selected ? `Message privé ${selected.party === 'ADMIN' ? 'au support TBK' : `à ${partyInSentence(selected.party)}`}…` : t('communication.inputPlaceholder')}
           style={{
             // Keeps a readable width; on narrow cards the send button wraps below.
@@ -344,7 +346,7 @@ export function OrderChatFeed({ orderId, role, onClose, showHeader = true }: Ord
         <Button
           type="submit"
           loading={sending}
-          disabled={!inputBody.trim() || !selected?.available}
+          disabled={!inputBody.trim() || !canWrite}
           variant={role === 'ADMIN' ? 'accent' : 'primary'}
           style={{ height: 42, paddingLeft: 16, paddingRight: 16 }}
         >

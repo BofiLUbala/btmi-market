@@ -7,6 +7,8 @@ import type {
   CourierProfile,
   CourierMission,
   CourierHistory,
+  CourierEarnings,
+  CourierDeliveredProduct,
   QRScanResponse
 } from './types'
 
@@ -35,6 +37,14 @@ export const courierApi = {
   /** Get the courier's delivery history. */
   getHistory: (limit?: number) =>
     get<CourierHistory[]>(`/courier/history${limit ? `?limit=${limit}` : ''}`),
+
+  /** Cash collected and deliveries on one day (YYYY-MM-DD, Kinshasa); today when omitted. */
+  getEarnings: (date?: string) =>
+    get<CourierEarnings>(`/courier/earnings${date ? `?date=${date}` : ''}`),
+
+  /** Every product the courier delivered, newest first; date narrows it to one day. */
+  getDeliveredProducts: (date?: string) =>
+    get<CourierDeliveredProduct[]>(`/courier/delivered-products?limit=200${date ? `&date=${date}` : ''}`),
 
   /** Where the handover stands, and what the courier is allowed to do next. */
   handover: (orderId: string) => get<HandoverState>(`/courier/missions/${orderId}/handover`),

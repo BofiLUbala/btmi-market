@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -299,6 +297,7 @@ func (r *HomeRepository) GetHomeFeed() (map[string][]*models.PublicProductRespon
 		var section string
 		var discountStart, discountEnd time.Time
 		var imageID, imageURL, imageFileName, imageCreatedAt interface{}
+		var availableQuantity float64
 
 		if err := rows.Scan(
 			&p.ID, &p.ShopID, &p.ShopName, &p.BusinessID, &p.BusinessName,
@@ -308,7 +307,7 @@ func (r *HomeRepository) GetHomeFeed() (map[string][]*models.PublicProductRespon
 			&p.SellerLevel, &p.SellerTrust,
 			&p.AverageRating, &p.TotalReviews, &p.SelfRating,
 			&p.DiscountActive, &p.DiscountType, &p.DiscountValue, &discountStart, &discountEnd,
-			&p.CreatedAt, &p.AvailableQuantity, &p.Availability,
+			&p.CreatedAt, &availableQuantity, &p.Availability,
 			&imageID, &imageURL, &imageFileName, &imageCreatedAt,
 			&section,
 		); err != nil {

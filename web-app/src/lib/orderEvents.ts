@@ -9,7 +9,9 @@ import { adminApi, adminTokenStore } from '../api/admin'
  * slow polling as a fallback for when the stream is down.
  */
 export interface OrderEvent {
-  kind: 'order' | 'resync' | 'tariff'
+  /** stock/cash: that business's stock or cash changed (sent to its members only). */
+  kind: 'order' | 'resync' | 'tariff' | 'stock' | 'cash'
+  business_id?: string
   order_id?: string
   order_number?: string
   status?: string
@@ -97,22 +99,31 @@ function subscribe(audience: Audience, listener: Listener): () => void {
   }
 }
 
+const DEFAULT_KINDS: OrderEvent['kind'][] = ['order', 'resync', 'tariff']
+
 /**
  * Calls onChange as soon as an order this viewer can see changes. With orderId
- * it fires only for that order (and for a resync after a reconnection).
+ * it fires only for that order (and for a resync after a reconnection). Stock
+ * and cash events are delivered only to pages that ask for them in `kinds`.
  */
-export function useOrderEvents(onChange: (event: OrderEvent) => void, options: { orderId?: string; audience?: Audience } = {}) {
+export function useOrderEvents(
+  onChange: (event: OrderEvent) => void,
+  options: { orderId?: string; audience?: Audience; kinds?: OrderEvent['kind'][] } = {},
+) {
   const callback = useRef(onChange)
   callback.current = onChange
   const { orderId, audience = 'user' } = options
+  const kinds = (options.kinds ?? DEFAULT_KINDS).join(',')
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
+    const wanted = new Set(kinds.split(','))
     const unsubscribe = subscribe(audience, (event) => {
+      if (!wanted.has(event.kind)) return
       if (orderId && event.kind === 'order' && event.order_id !== orderId) return
       // One transaction can touch several rows; reload once for the burst.
       clearTimeout(timer)
       timer = setTimeout(() => callback.current(event), 150)
     })
     return () => { clearTimeout(timer); unsubscribe() }
-  }, [orderId, audience])
+  }, [orderId, audience, kinds])
 }

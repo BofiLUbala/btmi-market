@@ -637,6 +637,49 @@ a.admin-button { text-decoration: none; }
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
+/* Direction overview: every number opens the list it counts. */
+.direction-drill {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.direction-drill-card {
+  display: block;
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.direction-drill.direction-drill-card:hover {
+  border-color: #334155;
+  background-color: #111c33;
+}
+
+.direction-drill-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -8px;
+  padding: 4px 8px;
+}
+
+.direction-drill.direction-drill-row:hover {
+  background-color: #1e293b;
+}
+
+.direction-drill.direction-drill-row:hover > span:first-child {
+  color: #e2e8f0 !important;
+}
+
+.direction-drill:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .admin-card-grid {
   display: grid;
   gap: 16px;

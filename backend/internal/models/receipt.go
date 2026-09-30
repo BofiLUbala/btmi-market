@@ -41,7 +41,7 @@ type CreateReceiptRequest struct {
 	ShopID          string             `json:"shop_id" binding:"required"`
 	ReferenceNumber string             `json:"reference_number"`
 	Notes           string             `json:"notes"`
-	Lines           []ReceiptLineInput `json:"lines" binding:"required,min=1"`
+	Lines           []ReceiptLineInput `json:"lines" binding:"required,min=1,dive"`
 }
 
 type ReceiptLineInput struct {

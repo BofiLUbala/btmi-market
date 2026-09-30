@@ -19,7 +19,7 @@ export default function CommerceShopsPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(params.get('status') || '')
   const [page, setPage] = useState(0)
   const [target, setTarget] = useState<EntityStatusTarget | null>(null)
   const [notice, setNotice] = useState<string | null>(null)

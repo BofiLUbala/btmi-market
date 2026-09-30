@@ -5,7 +5,7 @@ import { Card, CardGrid } from '@/components/ui/Card'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
-import type { CashSession, CashSummary } from '@/api/types'
+import type { CashPayment, CashSession, CashSummary } from '@/api/types'
 import { useT } from '@/store/i18n'
 import { useOrderEvents } from '@/lib/orderEvents'
 import type { TranslationKey } from '@/locales/fr'
@@ -19,6 +19,12 @@ function timeAgo(date: Date, t: ReturnType<typeof useT>): string {
   if (seconds < 60) return t('time.secondsAgo', { count: seconds })
   const minutes = Math.floor(seconds / 60)
   return t('time.minutesAgo', { count: minutes })
+}
+
+const RECONCILIATION_KEYS: Record<string, TranslationKey> = {
+  MATCHED: 'seller.cash.result.MATCHED',
+  SHORTAGE: 'seller.cash.result.SHORTAGE',
+  OVERAGE: 'seller.cash.result.OVERAGE',
 }
 
 const CASH_SESSION_STATUS_KEYS: Record<string, TranslationKey> = {
@@ -41,6 +47,9 @@ export default function SellerCashPage() {
   const [closingAmounts, setClosingAmounts] = useState<Record<string, string>>({})
   const [actionError, setActionError] = useState('')
   const [acting, setActing] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [openPayments, setOpenPayments] = useState<string | null>(null)
+  const [payments, setPayments] = useState<Record<string, CashPayment[]>>({})
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadCashData = useCallback(async (silent = false) => {
@@ -99,9 +108,11 @@ export default function SellerCashPage() {
 
   // A cash session's totals move with every cash order this business takes, so the same
   // order-change stream the orders page listens to keeps this page's numbers current too.
+  // "cash" events are pushed for every session and takings change of this business,
+  // from any device.
   useOrderEvents(() => {
     void loadCashData(true)
-  })
+  }, { kinds: ['order', 'resync', 'cash'] })
 
   async function openSession() {
     if (!activeShop) return
@@ -143,6 +154,41 @@ export default function SellerCashPage() {
     }
   }
 
+  async function reconcile(session: CashSession) {
+    setActing(true)
+    setActionError('')
+    setNotice('')
+    try {
+      const done = await cashApi.reconcileSession(session.id)
+      const key = done.reconciliation_result ? RECONCILIATION_KEYS[done.reconciliation_result] : undefined
+      setNotice(t('seller.cash.reconciled', { result: key ? t(key) : (done.reconciliation_result ?? '') }))
+      await loadCashData(true)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('seller.cash.reconcileFailed'))
+    } finally {
+      setActing(false)
+    }
+  }
+
+  async function togglePayments(session: CashSession) {
+    if (openPayments === session.id) { setOpenPayments(null); return }
+    setOpenPayments(session.id)
+    try {
+      const list = await cashApi.getSessionPayments(session.id)
+      setPayments((prev) => ({ ...prev, [session.id]: Array.isArray(list) ? list : [] }))
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('seller.cash.paymentsFailed'))
+    }
+  }
+
+  // Keep an open takings list current with the rest of the page.
+  useEffect(() => {
+    if (!openPayments || !lastUpdated) return
+    cashApi.getSessionPayments(openPayments)
+      .then((list) => setPayments((prev) => ({ ...prev, [openPayments]: Array.isArray(list) ? list : [] })))
+      .catch(() => undefined)
+  }, [openPayments, lastUpdated])
+
   if (!activeBusiness) {
     return (
       <div className="empty-state" style={{ padding: '64px 0', textAlign: 'center' }}>
@@ -178,6 +224,7 @@ export default function SellerCashPage() {
       ) : (
         <>
           {actionError && <ErrorBox error={actionError} />}
+          {notice && <p role="status" className="success" style={{ fontWeight: 600 }}>{notice}</p>}
           <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <Button variant={activeTab === 'summary' ? 'primary' : 'outline'} onClick={() => setActiveTab('summary')}>
               {t('seller.cash.summaryTab')}
@@ -253,7 +300,7 @@ export default function SellerCashPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sessions.map((session) => (
+                      {sessions.map((session) => [
                         <tr key={session.id}>
                           <td>{session.shop_name || shopName(session.shop_id)}</td>
                           <td>{[session.employee_first_name, session.employee_last_name].filter(Boolean).join(' ') || '—'}</td>
@@ -262,9 +309,25 @@ export default function SellerCashPage() {
                           <td>{session.expected_amount.toLocaleString()}</td>
                           <td>{session.declared_closing_amount?.toLocaleString() || '—'}</td>
                           <td className={!session.difference ? 'success' : 'danger'}>{session.difference?.toLocaleString() ?? '—'}</td>
-                          <td><span className={`badge badge-${session.status === 'RECONCILED' ? 'success' : session.status === 'CLOSED' ? 'warning' : 'primary'}`}>{t(CASH_SESSION_STATUS_KEYS[session.status] ?? 'seller.cash.status.OPEN')}</span></td>
+                          <td>
+                            <span className={`badge badge-${session.status === 'RECONCILED' ? 'success' : session.status === 'CLOSED' ? 'warning' : 'primary'}`}>{t(CASH_SESSION_STATUS_KEYS[session.status] ?? 'seller.cash.status.OPEN')}</span>
+                            {session.reconciliation_result && RECONCILIATION_KEYS[session.reconciliation_result] && (
+                              <div className={`small ${session.reconciliation_result === 'MATCHED' ? 'success' : 'danger'}`} style={{ marginTop: 4 }}>
+                                {t(RECONCILIATION_KEYS[session.reconciliation_result])}
+                              </div>
+                            )}
+                          </td>
                           <td className="small">{formatDateTime(session.opened_at)}</td>
                           <td>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            <Button size="sm" variant="outline" onClick={() => void togglePayments(session)} aria-expanded={openPayments === session.id}>
+                              {openPayments === session.id ? t('seller.cash.hidePayments') : t('seller.cash.showPayments')}
+                            </Button>
+                            {session.status === 'CLOSED' && (
+                              <Button size="sm" onClick={() => void reconcile(session)} disabled={acting}>
+                                {t('seller.cash.reconcile')}
+                              </Button>
+                            )}
                             {session.status === 'OPEN' && (
                               <div style={{ display: 'flex', gap: 4 }}>
                                 <input
@@ -281,9 +344,44 @@ export default function SellerCashPage() {
                                 </Button>
                               </div>
                             )}
+                            </div>
                           </td>
-                        </tr>
-                      ))}
+                        </tr>,
+                        openPayments === session.id && (
+                          <tr key={`${session.id}-payments`}>
+                            <td colSpan={10}>
+                              {!payments[session.id] ? (
+                                <span className="muted small">{t('common.loading')}</span>
+                              ) : payments[session.id].length === 0 ? (
+                                <span className="muted small">{t('seller.cash.noPayments')}</span>
+                              ) : (
+                                <table className="data-table" style={{ margin: 0 }}>
+                                  <thead>
+                                    <tr>
+                                      <th>{t('common.date')}</th>
+                                      <th>{t('seller.cash.paymentSource')}</th>
+                                      <th>{t('seller.cash.paymentReference')}</th>
+                                      <th className="num">{t('seller.cash.paymentAmount')}</th>
+                                      <th>{t('common.status')}</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {payments[session.id].map((p) => (
+                                      <tr key={p.id}>
+                                        <td className="small">{formatDateTime(p.created_at)}</td>
+                                        <td>{p.reference_type === 'ORDER' ? t('seller.cash.sourceOrder') : p.reference_type === 'SALE' ? t('seller.cash.sourceSale') : p.reference_type}</td>
+                                        <td className="small muted">{p.reference_id.slice(0, 8).toUpperCase()}</td>
+                                        <td className="num">{formatMoney(p.amount, p.currency)}</td>
+                                        <td><span className="badge badge-primary">{p.status}</span></td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </td>
+                          </tr>
+                        ),
+                      ])}
                     </tbody>
                   </table>
                 </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import * as SecureStore from 'expo-secure-store'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Button } from './ui'
@@ -8,39 +9,67 @@ import { useColors } from '../store/theme'
 import type { Colors } from '../theme'
 
 /**
- * "Se souvenir de moi": keeps only the e-mail of the last sign-in, per space,
- * so the next login is pre-filled. The password is never stored by the app —
- * the OS autofill / password manager offers it (autoComplete="current-password").
+ * "Se souvenir de moi": keeps the e-mail of the last sign-in, per space, and —
+ * for the main login — its password, so the next sign-in needs no typing.
+ * The e-mail goes to AsyncStorage; the password only to the OS keystore
+ * (expo-secure-store, encrypted), never to plain storage. Unticking the box,
+ * or a failed sign-in with the saved password, forgets both.
  */
 export type LoginSpace = 'buyer' | 'admin'
 const key = (space: LoginSpace) => `btmi.rememberedEmail.${space}`
+const passwordKey = (space: LoginSpace) => `btmi.rememberedPassword.${space}`
+// The admin space keeps the e-mail only: its password is too sensitive to sit on a phone.
+const keepsPassword = (space: LoginSpace) => space === 'buyer' && Platform.OS !== 'web'
 
 export function useRememberedEmail(space: LoginSpace) {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [prefilled, setPrefilled] = useState(false)
+  const [passwordPrefilled, setPasswordPrefilled] = useState(false)
   useEffect(() => {
     let alive = true
-    AsyncStorage.getItem(key(space)).then((saved) => {
+    Promise.all([
+      AsyncStorage.getItem(key(space)).catch(() => null),
+      keepsPassword(space) ? SecureStore.getItemAsync(passwordKey(space)).catch(() => null) : Promise.resolve(null),
+    ]).then(([saved, savedPassword]) => {
       if (!alive || !saved) return
       // Never overwrite something the user already started typing.
       setEmail((current) => current || saved)
+      if (savedPassword) {
+        setPassword((current) => current || savedPassword)
+        setPasswordPrefilled(true)
+      }
       setRemember(true)
       setPrefilled(true)
-    }).catch(() => {})
+    })
     return () => { alive = false }
   }, [space])
   return {
     email,
     setEmail,
+    password,
+    setPassword,
     remember,
     setRemember,
     /** True once the form was pre-filled: focus the password instead. */
     prefilled,
-    persist: (value: string) => {
+    /** True when the saved password was filled in too: the user can just tap "Se connecter". */
+    passwordPrefilled,
+    persist: async (value: string, pwd?: string) => {
       const clean = value.trim().toLowerCase()
-      const op = remember && clean ? AsyncStorage.setItem(key(space), clean) : AsyncStorage.removeItem(key(space))
-      return op.catch(() => {})
+      const keep = remember && !!clean
+      await (keep ? AsyncStorage.setItem(key(space), clean) : AsyncStorage.removeItem(key(space))).catch(() => {})
+      if (keepsPassword(space)) {
+        await (keep && pwd
+          ? SecureStore.setItemAsync(passwordKey(space), pwd)
+          : SecureStore.deleteItemAsync(passwordKey(space))).catch(() => {})
+      }
+    },
+    /** The saved password was refused (changed elsewhere): stop offering it. */
+    forgetPassword: async () => {
+      setPasswordPrefilled(false)
+      if (keepsPassword(space)) await SecureStore.deleteItemAsync(passwordKey(space)).catch(() => {})
     },
   }
 }

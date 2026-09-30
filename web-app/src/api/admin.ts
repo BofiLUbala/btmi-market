@@ -25,11 +25,16 @@ export interface DirectionOverviewStats {
   total_buyers: number
   total_sellers: number
   total_employees: number
+  total_couriers: number
   total_businesses: number
   total_shops: number
   active_shops: number
+  inactive_shops: number
+  suspended_shops: number
   total_products: number
   published_products: number
+  draft_products: number
+  archived_products: number
   out_of_stock_products: number
   total_orders: number
   orders_today: number
@@ -1079,13 +1084,14 @@ export const adminCommerceApi = {
       body: JSON.stringify({ shop_id, variant_id, new_quantity, reason })
     })
   },
-  listOrders: async (params?: { status?: string; delivery_method?: string; shop_id?: string; business_id?: string; search?: string; limit?: number; offset?: number }) => {
+  listOrders: async (params?: { status?: string; delivery_method?: string; shop_id?: string; business_id?: string; search?: string; period?: 'today'; limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
     if (params?.status) q.set('status', params.status)
     if (params?.delivery_method) q.set('delivery_method', params.delivery_method)
     if (params?.shop_id) q.set('shop_id', params.shop_id)
     if (params?.business_id) q.set('business_id', params.business_id)
     if (params?.search) q.set('search', params.search)
+    if (params?.period) q.set('period', params.period)
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
     return adminApi<{ orders: AdminOrderItem[]; total: number; limit: number; offset: number }>(
@@ -2334,51 +2340,59 @@ export const adminAdvancedApi = {
 }
 
 // ==========================================================================
-// MONITORING API - Real-time auth failures & active sessions
+// MONITORING API - refused sign-ins and signed-in accounts (Direction console)
 // ==========================================================================
+
+export type MonitoringRole = 'admin' | 'buyer' | 'seller' | 'employee' | 'courier' | 'unknown'
 
 export interface AuthFailure {
   id: number
   email: string
-  role: 'admin' | 'seller' | 'courier' | 'buyer'
+  role: MonitoringRole
   error_code: string
   ip_address: string
   user_agent: string
   created_at: string
 }
 
+/** One signed-in account: its newest live refresh token. */
 export interface ActiveSession {
-  id: number
   user_id: string
   email: string
-  role: 'admin' | 'seller' | 'courier' | 'buyer'
+  name: string
+  role: MonitoringRole
   ip_address: string
   user_agent: string
-  login_at: string
-  last_activity_at: string
-  activity_type: string
-  activity_count: number
-  online_duration_seconds: number
+  last_active_at: string
+  expires_at: string
+  devices: number
+}
+
+export interface MonitoringSummary {
+  summary: {
+    failures_last_hour: number
+    failures_last_24h: number
+    failures_by_role_24h: Record<string, number>
+    active_accounts: number
+    online_now: number
+    active_by_role: Record<string, number>
+  }
+  online_window_minutes: number
+  retention_days: number
+}
+
+function monitoringQuery(params: { role?: string; limit?: number }) {
+  const q = new URLSearchParams()
+  if (params.role) q.set('role', params.role)
+  if (params.limit) q.set('limit', String(params.limit))
+  const s = q.toString()
+  return s ? `?${s}` : ''
 }
 
 export const adminMonitoringApi = {
-  getAuthFailures: (params?: { limit?: number; role?: string }) =>
-    adminApi<AuthFailure[]>(`/admin/monitoring/auth-failures?${new URLSearchParams({
-      limit: String(params?.limit ?? 50),
-      ...(params?.role && { role: params.role })
-    }).toString()}`),
-
-  getActiveSessions: (params?: { role?: string }) =>
-    adminApi<ActiveSession[]>(`/admin/monitoring/sessions?${new URLSearchParams({
-      ...(params?.role && { role: params.role })
-    }).toString()}`),
-
-  kickSession: (userId: number) =>
-    adminApi(`/admin/monitoring/sessions/${userId}/kick`, { method: 'POST' }),
-
-  cleanupExpiredSessions: () =>
-    adminApi(`/admin/monitoring/cleanup/sessions`, { method: 'POST' }),
-
-  cleanupOldFailures: () =>
-    adminApi(`/admin/monitoring/cleanup/failures`, { method: 'POST' })
+  summary: () => adminApi<MonitoringSummary>('/admin/direction/monitoring/summary'),
+  authFailures: (params: { role?: string; limit?: number } = {}) =>
+    adminApi<AuthFailure[]>(`/admin/direction/monitoring/auth-failures${monitoringQuery(params)}`),
+  sessions: (params: { role?: string; limit?: number } = {}) =>
+    adminApi<ActiveSession[]>(`/admin/direction/monitoring/sessions${monitoringQuery(params)}`),
 }

@@ -148,11 +148,16 @@ type DirectionOverviewStats struct {
 	TotalBuyers        int     `json:"total_buyers"`
 	TotalSellers       int     `json:"total_sellers"`
 	TotalEmployees     int     `json:"total_employees"`
+	TotalCouriers      int     `json:"total_couriers"`
 	TotalBusinesses    int     `json:"total_businesses"`
 	TotalShops         int     `json:"total_shops"`
 	ActiveShops        int     `json:"active_shops"`
+	InactiveShops      int     `json:"inactive_shops"`
+	SuspendedShops     int     `json:"suspended_shops"`
 	TotalProducts      int     `json:"total_products"`
 	PublishedProducts  int     `json:"published_products"`
+	DraftProducts      int     `json:"draft_products"`
+	ArchivedProducts   int     `json:"archived_products"`
 	OutOfStockProducts int     `json:"out_of_stock_products"`
 	TotalOrders        int     `json:"total_orders"`
 	OrdersToday        int     `json:"orders_today"`

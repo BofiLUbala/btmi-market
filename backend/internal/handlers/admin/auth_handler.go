@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -12,7 +13,11 @@ import (
 type AuthHandler struct {
 	adminAuthService *service.AdminAuthService
 	auditService     *service.AuditService
+	loginFailures    *service.MonitoringService
 }
+
+// SetLoginFailureRecorder wires sign-in monitoring in; without it failures are not recorded.
+func (h *AuthHandler) SetLoginFailureRecorder(m *service.MonitoringService) { h.loginFailures = m }
 
 func NewAuthHandler(adminAuthService *service.AdminAuthService, auditService *service.AuditService) *AuthHandler {
 	return &AuthHandler{
@@ -41,6 +46,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	resp, err := h.adminAuthService.Login(req.Email, req.Password, ipAddress, userAgent)
 	if err != nil {
+		if h.loginFailures != nil {
+			code := strings.ToUpper(strings.TrimSpace(err.Error()))
+			if code == "" || strings.ContainsAny(code, " :") {
+				code = "INVALID_CREDENTIALS"
+			}
+			go h.loginFailures.RecordLoginFailure("admin", req.Email, code, ipAddress, userAgent)
+		}
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 			Error: struct {
 				Code    string `json:"code"`

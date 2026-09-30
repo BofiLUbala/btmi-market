@@ -207,6 +207,39 @@ type CourierDashboardResponse struct {
 	CurrentMission  *CourierMissionResponse `json:"current_mission"`
 }
 
+// CourierAmount is a sum of money in one currency.
+type CourierAmount struct {
+	Currency string  `json:"currency"`
+	Amount   float64 `json:"amount"`
+}
+
+// CourierEarningsResponse is what a courier handled on one day (Kinshasa time):
+// the cash they took from buyers at the door and the deliveries they completed.
+type CourierEarningsResponse struct {
+	Date            string          `json:"date"`
+	CashCollected   []CourierAmount `json:"cash_collected"`
+	CashOrders      int             `json:"cash_orders"`
+	OrdersDelivered int             `json:"orders_delivered"`
+	ItemsDelivered  int             `json:"items_delivered"`
+}
+
+// CourierDeliveredProduct is one product line of an order the courier delivered.
+type CourierDeliveredProduct struct {
+	OrderID       uuid.UUID `json:"order_id"`
+	OrderNumber   string    `json:"order_number"`
+	ShopName      string    `json:"shop_name"`
+	DeliveredAt   time.Time `json:"delivered_at"`
+	ProductName   string    `json:"product_name"`
+	VariantName   string    `json:"variant_name"`
+	ImageURL      string    `json:"image_url"`
+	Quantity      int       `json:"quantity"`
+	UnitPrice     float64   `json:"unit_price"`
+	LineTotal     float64   `json:"line_total"`
+	Currency      string    `json:"currency"`
+	PaymentMethod string    `json:"payment_method"`
+	CashCollected bool      `json:"cash_collected"`
+}
+
 // CourierHistoryResponse is a single item in courier delivery history
 type CourierHistoryResponse struct {
 	OrderID         uuid.UUID  `json:"order_id"`

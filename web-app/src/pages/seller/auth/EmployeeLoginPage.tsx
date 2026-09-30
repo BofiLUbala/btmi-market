@@ -14,9 +14,8 @@ export default function EmployeeLoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/employee/dashboard'
-  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('employee')
+  const { email, setEmail, password, setPassword, remember, setRemember, prefilled, persist } = useRememberedEmail('employee')
   const caps = useCapsLock()
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -26,7 +25,7 @@ export default function EmployeeLoginPage() {
     setBusy(true)
     try {
       const result = await login(email.trim(), password)
-      persist(email)
+      persist(email, password)
       if (result.accountType === 'COURIER' || result.user?.capabilities?.courier) {
         navigate('/courier/dashboard', { replace: true })
       } else if (result.accountType === 'EMPLOYEE') {

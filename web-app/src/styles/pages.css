@@ -507,7 +507,7 @@
 .checkout-shell-header strong { text-align: center; font-size: 1.05rem; }
 .checkout-shell-header span { color: var(--color-primary); font-size: .72rem; font-weight: 900; text-align: right; }
 .checkout-shell-main { padding: clamp(16px, 3vw, 34px) 0 max(24px, env(safe-area-inset-bottom)); }
-.checkout-progress { display: grid; grid-template-columns: repeat(4, 1fr); max-width: 680px; margin: 0 auto 4px; width: 100%; }
+.checkout-progress { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 680px; margin: 0 auto 4px; width: 100%; }
 .checkout-progress > div { position: relative; display: grid; justify-items: center; gap: 6px; color: var(--color-text-muted); font-size: .78rem; }
 .checkout-progress > div:not(:last-child)::after { content: ''; position: absolute; top: 15px; left: calc(50% + 20px); right: calc(-50% + 20px); height: 2px; background: var(--color-border); }
 .checkout-progress span { z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; border: 2px solid var(--color-border); border-radius: 50%; background: var(--color-bg); font-weight: 850; }

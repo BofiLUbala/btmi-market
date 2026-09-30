@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney } from '@/lib/format'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
@@ -38,6 +38,31 @@ const VALID_FEATURES: DirectionFeature[] = [
   'auth-failures',
   'sessions'
 ]
+
+type DrillProps = { to: string; className: string; style?: CSSProperties; onClick?: () => void; children: ReactNode }
+
+/** An overview block that opens the list it counts — or stays plain text when
+ *  the admin's role cannot open that dashboard, instead of leading to Access Denied. */
+function Drill({ to, className, style, onClick, children }: DrillProps) {
+  const t = useT()
+  const { canAccessDashboard } = useAdminAuth()
+  const dashboard = to.split('/')[2] as 'direction' | 'commerce' | 'finance' | 'technical'
+  if (!canAccessDashboard(dashboard)) return <div className={className} style={style}>{children}</div>
+  return (
+    <Link to={to} onClick={onClick} className={`direction-drill ${className}`} style={style} title={t('admin.direction.openDetail')}>
+      {children}
+    </Link>
+  )
+}
+
+function DrillRow({ to, label, value, color, onClick }: { to: string; label: string; value: number; color?: string; onClick?: () => void }) {
+  return (
+    <Drill to={to} onClick={onClick} className="direction-drill-row">
+      <span style={{ color: '#94a3b8' }}>{label}</span>
+      <span style={{ fontWeight: 700, color }}>{value}</span>
+    </Drill>
+  )
+}
 
 export default function DirectionDashboardPage() {
   const t = useT()
@@ -224,6 +249,15 @@ export default function DirectionDashboardPage() {
     }
   }
 
+  // The overview and the users tab are the same mounted page, so a drill-down
+  // link must set the filter itself: the URL alone would be overwritten by the
+  // filter -> URL sync above with the stale (empty) filter.
+  const openUsers = (accountType: string) => {
+    setUserSearch('')
+    setUserStatusFilter('')
+    setAccountTypeFilter(accountType)
+  }
+
   const formatCurrency = (val: number) => {
     return formatMoney(val, 'USD')
   }
@@ -244,6 +278,10 @@ export default function DirectionDashboardPage() {
         return t('admin.layout.itemDisputesOverview')
       case 'audit':
         return t('admin.layout.itemAuditLedger')
+      case 'auth-failures':
+        return t('admin.layout.itemAuthFailures')
+      case 'sessions':
+        return t('admin.layout.itemActiveSessions')
       default:
         return t('admin.layout.itemOverview')
     }
@@ -269,6 +307,10 @@ export default function DirectionDashboardPage() {
                       ? 'Visibilité stratégique des litiges et alertes d’escalade'
                       : activeTab === 'audit'
                         ? t('admin.direction.auditSubtitle', { count: totalLogs })
+                        : activeTab === 'auth-failures'
+                          ? t('admin.monitoring.failuresSubtitle')
+                          : activeTab === 'sessions'
+                            ? t('admin.monitoring.sessionsSubtitle')
                         : activeTab === 'kpis'
                           ? 'Indicateurs de performance stratégique, croissance et tendances'
                           : t('admin.direction.pageSubtitle')}
@@ -311,103 +353,79 @@ export default function DirectionDashboardPage() {
             </div>
           ) : stats ? (
             <div>
-              {/* Top Banner with Health */}
+              {/* Top Banner with Health — each card opens the screen behind its number */}
               <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
-                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+                <Drill to="/admin/technical" className="direction-drill-card">
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.platformHealth')}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#10b981' }} />
-                    <span style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>{stats.platform_health}</span>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: stats.platform_health === 'HEALTHY' ? '#10b981' : '#ef4444' }} />
+                    <span style={{ fontSize: 20, fontWeight: 800, color: stats.platform_health === 'HEALTHY' ? '#10b981' : '#ef4444' }}>{stats.platform_health}</span>
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.platformHealthDetail')}</div>
-                </div>
+                </Drill>
 
-                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+                <Drill to="/admin/finance/payments" className="direction-drill-card">
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.confirmedCashVolume')}</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: '#f59e0b' }}>{formatCurrency(stats.confirmed_cash)}</div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.doubleConfirmedTransactions')}</div>
-                </div>
+                </Drill>
 
-                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+                <Drill to="/admin/commerce/orders?period=today" className="direction-drill-card">
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.ordersToday')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>{stats.orders_today}</div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.lifetimeOrders', { count: stats.total_orders })}</div>
-                </div>
+                </Drill>
 
-                <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '18px 20px' }}>
+                <Drill to="/admin/finance/cases" className="direction-drill-card">
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.openDisputes')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: stats.open_disputes > 0 ? '#ef4444' : '#10b981' }}>
                     {stats.open_disputes}
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.requiringMediation')}</div>
-                </div>
+                </Drill>
               </div>
 
-              {/* Multi-Domain Metric Cards */}
+              {/* Multi-Domain Metric Cards — rows add up to the card total and open the filtered list */}
               <div className="admin-kpi-grid">
                 {/* Users & Accounts */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
+                  <Drill to="/admin/direction/users" onClick={() => openUsers('')} className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>👥 {t('admin.direction.accountsBreakdown')}</h3>
                     <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.totalCount', { count: stats.total_users })}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.buyers')}</span>
-                      <span style={{ fontWeight: 700 }}>{stats.total_buyers}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.sellersOwners')}</span>
-                      <span style={{ fontWeight: 700 }}>{stats.total_sellers}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.shopEmployees')}</span>
-                      <span style={{ fontWeight: 700 }}>{stats.total_employees}</span>
-                    </div>
+                  </Drill>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
+                    <DrillRow to="/admin/direction/users?account_type=BUYER" onClick={() => openUsers('BUYER')} label={t('admin.direction.buyers')} value={stats.total_buyers} />
+                    <DrillRow to="/admin/direction/users?account_type=SELLER" onClick={() => openUsers('SELLER')} label={t('admin.direction.sellersOwners')} value={stats.total_sellers} />
+                    <DrillRow to="/admin/direction/users?account_type=EMPLOYEE" onClick={() => openUsers('EMPLOYEE')} label={t('admin.direction.shopEmployees')} value={stats.total_employees} />
+                    <DrillRow to="/admin/commerce/couriers" label={t('admin.direction.couriers')} value={stats.total_couriers} />
                   </div>
                 </div>
 
                 {/* Businesses & Shops */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
+                  <Drill to="/admin/commerce/businesses" className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>🏪 {t('admin.direction.merchantsAndOutlets')}</h3>
                     <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.businessesCount', { count: stats.total_businesses })}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.totalRegisteredShops')}</span>
-                      <span style={{ fontWeight: 700 }}>{stats.total_shops}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.currentlyActiveShops')}</span>
-                      <span style={{ fontWeight: 700, color: '#10b981' }}>{stats.active_shops}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.inactiveSuspendedShops')}</span>
-                      <span style={{ fontWeight: 700, color: '#ef4444' }}>{stats.total_shops - stats.active_shops}</span>
-                    </div>
+                  </Drill>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
+                    <DrillRow to="/admin/commerce/shops" label={t('admin.direction.totalRegisteredShops')} value={stats.total_shops} />
+                    <DrillRow to="/admin/commerce/shops?status=ACTIVE" label={t('admin.direction.currentlyActiveShops')} value={stats.active_shops} color="#10b981" />
+                    <DrillRow to="/admin/commerce/shops?status=INACTIVE" label={t('admin.direction.inactiveShops')} value={stats.inactive_shops} color={stats.inactive_shops > 0 ? '#f59e0b' : undefined} />
+                    <DrillRow to="/admin/commerce/shops?status=SUSPENDED" label={t('admin.direction.suspendedShops')} value={stats.suspended_shops} color={stats.suspended_shops > 0 ? '#ef4444' : undefined} />
                   </div>
                 </div>
 
                 {/* Catalog & Inventory */}
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
+                  <Drill to="/admin/commerce/products" className="admin-card-head" style={{ borderBottom: '1px solid #1e293b', paddingBottom: 10, marginBottom: 14 }}>
                     <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}><BoxIcon style={{ width: 16, height: 16, marginRight: 8, verticalAlign: 'middle' }} />{t('admin.direction.catalogAndStock')}</h3>
                     <span style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc' }}>{t('admin.direction.productsCount', { count: stats.total_products })}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.livePublishedProducts')}</span>
-                      <span style={{ fontWeight: 700, color: '#3b82f6' }}>{stats.published_products}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.draftArchived')}</span>
-                      <span style={{ fontWeight: 700 }}>{stats.total_products - stats.published_products}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#94a3b8' }}>{t('admin.direction.outOfStockAnomalies')}</span>
-                      <span style={{ fontWeight: 700, color: stats.out_of_stock_products > 0 ? '#f59e0b' : '#10b981' }}>{stats.out_of_stock_products}</span>
-                    </div>
+                  </Drill>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
+                    <DrillRow to="/admin/commerce/products?publication_status=PUBLISHED" label={t('admin.direction.livePublishedProducts')} value={stats.published_products} color="#3b82f6" />
+                    <DrillRow to="/admin/commerce/products?publication_status=DRAFT" label={t('admin.direction.draftProducts')} value={stats.draft_products} />
+                    <DrillRow to="/admin/commerce/products?publication_status=ARCHIVED" label={t('admin.direction.archivedProducts')} value={stats.archived_products} />
+                    <DrillRow to="/admin/commerce/products?publication_status=PUBLISHED&stock_status=OUT_OF_STOCK" label={t('admin.direction.outOfStockAnomalies')} value={stats.out_of_stock_products} color={stats.out_of_stock_products > 0 ? '#f59e0b' : '#10b981'} />
                   </div>
                 </div>
               </div>

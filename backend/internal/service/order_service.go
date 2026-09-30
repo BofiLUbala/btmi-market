@@ -286,9 +286,16 @@ func canActorSetStatus(actorType string, status models.OrderStatus) bool {
 // rows is written in several legacy spellings (TBK_STANDARD, TBK_DELIVERY, TBK and empty
 // values on older orders), so the courier facts are the source of truth: a TBK method, an
 // assigned courier, or an in-progress courier handover state all mark the flow.
-func isCourierPickupReady(deliveryMethod, deliveryStatus string, hasAssignedCourier bool) bool {
+func isTBKDeliveryMethod(deliveryMethod string) bool {
 	switch deliveryMethod {
 	case models.DeliveryMethodTBK, models.DeliveryMethodTBKDelivery, models.DeliveryMethodTBKLegacy:
+		return true
+	}
+	return false
+}
+
+func isCourierPickupReady(deliveryMethod, deliveryStatus string, hasAssignedCourier bool) bool {
+	if isTBKDeliveryMethod(deliveryMethod) {
 		return true
 	}
 	if hasAssignedCourier {
@@ -332,6 +339,11 @@ func applyTransitionTx(tx *sql.Tx, orderID, userID uuid.UUID, newStatus models.O
 	if actorType == "SELLER" && (newStatus == models.OrderStatusOutForDelivery || newStatus == models.OrderStatusDelivered) &&
 		isCourierPickupReady(deliveryMethod, deliveryStatus, hasAssignedCourier) {
 		return errors.New("COURIER_STEP_ONLY")
+	}
+	// Ready means ready for a courier to collect: on a TBK delivery, commerce must have
+	// dispatched one first, or the parcel sits with nobody coming for it.
+	if actorType == "SELLER" && newStatus == models.OrderStatusReady && isTBKDeliveryMethod(deliveryMethod) && !hasAssignedCourier {
+		return errors.New("COURIER_NOT_ASSIGNED")
 	}
 	if newStatus == models.OrderStatusAccepted {
 		if err := requireCheckoutCompleteTx(tx, orderID, deliveryMethod); err != nil {

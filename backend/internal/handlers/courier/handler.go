@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -527,6 +529,65 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		Message: "History retrieved",
 		Data:    history,
 	})
+}
+
+// courierDay reads ?date=YYYY-MM-DD; ok is false (and a 400 sent) when malformed.
+func (h *Handler) courierDay(c *gin.Context) (string, bool) {
+	day := strings.TrimSpace(c.Query("date"))
+	if day == "" {
+		return "", true
+	}
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_DATE", "La date doit être au format AAAA-MM-JJ.")
+		return "", false
+	}
+	return day, true
+}
+
+// GET /api/v1/courier/earnings?date=YYYY-MM-DD - cash collected and deliveries on one day
+func (h *Handler) GetEarnings(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	day, ok := h.courierDay(c)
+	if !ok {
+		return
+	}
+	earnings, err := h.courierService.GetEarnings(userID, day)
+	if err != nil {
+		if err == service.ErrCourierNotFound {
+			h.errResponse(c, http.StatusNotFound, "COURIER_NOT_FOUND", err.Error())
+			return
+		}
+		h.errResponse(c, http.StatusInternalServerError, "EARNINGS_FAILED", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Earnings retrieved", Data: earnings})
+}
+
+// GET /api/v1/courier/delivered-products?date=YYYY-MM-DD - every product the courier delivered
+func (h *Handler) GetDeliveredProducts(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	day, ok := h.courierDay(c)
+	if !ok {
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	items, err := h.courierService.GetDeliveredProducts(userID, day, limit, offset)
+	if err != nil {
+		if err == service.ErrCourierNotFound {
+			h.errResponse(c, http.StatusNotFound, "COURIER_NOT_FOUND", err.Error())
+			return
+		}
+		h.errResponse(c, http.StatusInternalServerError, "DELIVERED_PRODUCTS_FAILED", err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Delivered products retrieved", Data: items})
 }
 
 // ---- Commerce Admin Courier Management ----

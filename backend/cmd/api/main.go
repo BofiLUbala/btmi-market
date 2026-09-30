@@ -257,6 +257,14 @@ func main() {
 	adminAuthHandler := adminhandlers.NewAuthHandler(adminAuthService, auditService)
 	adminManagementHandler := adminhandlers.NewAdminManagementHandler(adminManagementService)
 	adminDirectionHandler := adminhandlers.NewDirectionHandler(adminDirectionService, auditService)
+
+	// Sign-in monitoring for the Direction console: refused sign-ins are recorded by
+	// both login handlers, active sessions are read from the live refresh tokens.
+	monitoringService := service.NewMonitoringService(db.DB, cfg.AccessTokenTTL)
+	authHandler.SetLoginFailureRecorder(monitoringService)
+	adminAuthHandler.SetLoginFailureRecorder(monitoringService)
+	monitoringHandler := adminhandlers.NewMonitoringHandler(monitoringService)
+	go monitoringService.RunRetention(context.Background())
 	adminCommerceHandler := adminhandlers.NewCommerceHandler(adminCommerceService)
 	adminFinanceHandler := adminhandlers.NewAdminFinanceHandler(adminFinanceService)
 	adminTechnicalHandler := adminhandlers.NewAdminTechnicalHandler(adminTechnicalService)
@@ -551,7 +559,9 @@ func main() {
 			buyerGroup.GET("/orders/:order_id/payment", orderHandler.GetBuyerPayment)
 			buyerGroup.POST("/orders/:order_id/payment/initiate", orderHandler.InitiateBuyerPayment)
 			buyerGroup.POST("/orders/:order_id/cancel", orderHandler.CancelBuyerOrder)
-			buyerGroup.POST("/orders/:order_id/received", orderHandler.ConfirmBuyerReceived)
+			// Kept for older app builds; it runs the same guarded confirmation as
+			// confirm-receipt, so it can never skip the handover checks.
+			buyerGroup.POST("/orders/:order_id/received", qrHandler.ConfirmReceipt)
 			buyerGroup.GET("/orders/:order_id/delivery-qr", qrHandler.BuyerPackage)
 			buyerGroup.GET("/orders/:order_id/delivery-qr/image", qrHandler.BuyerPackageImage)
 			// Per-order-item QR identity for the buyer's own order.
@@ -604,6 +614,8 @@ func main() {
 			courierProtected.POST("/missions/:id/arrive", courierHandler.ArriveAtDestination)
 			courierProtected.POST("/missions/:id/fail", courierHandler.FailDelivery)
 			courierProtected.GET("/history", courierHandler.GetHistory)
+			courierProtected.GET("/earnings", courierHandler.GetEarnings)
+			courierProtected.GET("/delivered-products", courierHandler.GetDeliveredProducts)
 			courierProtected.POST("/scans/pickup", qrHandler.ScanPickup)
 			courierProtected.POST("/scans/delivery", qrHandler.ScanDelivery)
 			// Physical handover at the buyer's door: read the state, verify the product
@@ -755,6 +767,9 @@ func main() {
 						middleware.RequireAdminRoles(models.AdminRoleSuperAdmin),
 						adminDirectionHandler.DeleteUser)
 					directionGroup.GET("/audit-log", adminDirectionHandler.ListAuditLogs)
+					directionGroup.GET("/monitoring/summary", monitoringHandler.Summary)
+					directionGroup.GET("/monitoring/auth-failures", monitoringHandler.AuthFailures)
+					directionGroup.GET("/monitoring/sessions", monitoringHandler.Sessions)
 				}
 
 				commerceGroup := protectedAdmin.Group("/commerce")

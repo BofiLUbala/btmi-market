@@ -6,6 +6,18 @@ import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
 
+// An activation token is single-use: a remounted effect must reuse the first request
+// instead of spending the token twice and reporting the second, failed attempt.
+const activations = new Map<string, Promise<LoginResponseWithUser>>()
+function activateOnce(url: string) {
+  let pending = activations.get(url)
+  if (!pending) {
+    pending = get<LoginResponseWithUser>(url)
+    activations.set(url, pending)
+  }
+  return pending
+}
+
 export default function ActivatePage() {
   const t = useT()
   const [params] = useSearchParams()
@@ -21,7 +33,7 @@ export default function ActivatePage() {
 
   useEffect(() => {
     let mounted = true
-    get<LoginResponseWithUser>(url).then(
+    activateOnce(url).then(
       (session) => {
         if (!mounted) return
         tokenStore.set(session.access_token, session.refresh_token)

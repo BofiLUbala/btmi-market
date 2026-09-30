@@ -35,6 +35,7 @@ import type {
   InventoryItem,
   StockMovement,
   StockReceipt,
+  StockReceiptWithLines,
   CreateStockReceiptRequest,
   AddStockRequest,
   RecordSaleRequest,
@@ -167,9 +168,11 @@ export const inventoryApi = {
   // Stops selling one Product at one Shop (removes that Shop's stock rows only).
   removeProduct: (shopId: string, productId: string) =>
     del<{ variants_removed: number }>(`/shops/${shopId}/products/${productId}`),
-  receiveStock: (businessId: string, body: CreateStockReceiptRequest) => post<StockReceipt>(`/businesses/${businessId}/receipts`, body),
-  listReceipts: (businessId: string, params?: { page?: number; limit?: number }) => safeList(get<StockReceipt[]>(`/businesses/${businessId}/receipts`, params)),
-  getReceipt: (id: string) => get<StockReceipt>(`/receipts/${id}`),
+  /** Records a goods-in note at body.shop_id; every line adds to that shop's stock. */
+  receiveStock: (businessId: string, body: CreateStockReceiptRequest) =>
+    post<StockReceiptWithLines>(`/businesses/${businessId}/receipts`, body),
+  listReceipts: (businessId: string) => safeList(get<StockReceipt[]>(`/businesses/${businessId}/receipts`)),
+  getReceipt: (id: string) => get<StockReceiptWithLines>(`/receipts/${id}`),
 }
 
 export const orderApi = {
@@ -213,12 +216,23 @@ export const customerApi = {
     safeList(get<SellerOrder[]>(`/customers/${customerId}/orders`, params)),
 }
 
+/**
+ * The cash list endpoints answer `{sessions|payments: [...], pagination}`, not a bare
+ * array. A failure still throws, so a page can tell "none yet" from "could not load".
+ */
+async function pagedList<T>(p: Promise<unknown>, key: 'sessions' | 'payments'): Promise<T[]> {
+  const res = await p
+  if (Array.isArray(res)) return res as T[]
+  const list = (res as Record<string, unknown> | null)?.[key]
+  return Array.isArray(list) ? (list as T[]) : []
+}
+
 export const cashApi = {
   listBusinessSessions: (businessId: string, params?: { page?: number; limit?: number }) =>
-    safeList(get<CashSession[]>(`/businesses/${businessId}/cash-sessions`, params)),
+    pagedList<CashSession>(get(`/businesses/${businessId}/cash-sessions`, params), 'sessions'),
   getBusinessCashSummary: (businessId: string) => get<CashSummary>(`/businesses/${businessId}/cash-summary`),
   listShopSessions: (shopId: string, params?: { page?: number; limit?: number }) =>
-    safeList(get<CashSession[]>(`/shops/${shopId}/cash-sessions`, params)),
+    pagedList<CashSession>(get(`/shops/${shopId}/cash-sessions`, params), 'sessions'),
   getOpenSession: (shopId: string) => get<CashSession>(`/shops/${shopId}/cash-sessions/open`),
   openSession: (shopId: string, openingAmount: number, currency?: string) =>
     post<CashSession>(`/shops/${shopId}/cash-sessions/open`, { opening_amount: openingAmount, ...(currency ? { currency } : {}) }),
@@ -226,7 +240,7 @@ export const cashApi = {
   reconcileSession: (sessionId: string) => post<CashSession>(`/cash-sessions/${sessionId}/reconcile`, {}),
   getSession: (sessionId: string) => get<CashSession>(`/cash-sessions/${sessionId}`),
   getSessionPayments: (sessionId: string) => safeList(get<CashPayment[]>(`/cash-sessions/${sessionId}/payments`)),
-  listShopPayments: (shopId: string, params?: { page?: number; limit?: number }) => safeList(get<CashPayment[]>(`/shops/${shopId}/cash-payments`, params)),
+  listShopPayments: (shopId: string, params?: { page?: number; limit?: number }) => pagedList<CashPayment>(get(`/shops/${shopId}/cash-payments`, params), 'payments'),
   getPayment: (paymentId: string) => get<CashPayment>(`/cash-payments/${paymentId}`),
 }
 

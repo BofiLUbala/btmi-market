@@ -13,8 +13,9 @@ import { formatMoney } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 
 // No courier can be (re)assigned once the order is closed or its parcel is going back.
-const CLOSED_DELIVERY = ['CANCELLED', 'RETURNING_TO_SELLER', 'RETURNED_TO_SELLER', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED', 'DELIVERED', 'COMPLETED']
-const CLOSED_ORDER = ['CANCELLED', 'REJECTED', 'DELIVERED', 'RECEIVED', 'COMPLETED']
+// Once the parcel has left the shop the courier can no longer be changed (the backend refuses it too).
+const CLOSED_DELIVERY = ['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'COURIER_EN_ROUTE_TO_BUYER', 'COURIER_ARRIVED', 'CANCELLED', 'RETURNING_TO_SELLER', 'RETURNED_TO_SELLER', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED', 'DELIVERED', 'COMPLETED']
+const CLOSED_ORDER = ['OUT_FOR_DELIVERY', 'HANDED_TO_PARTNER', 'CANCELLED', 'REJECTED', 'DELIVERED', 'RECEIVED', 'COMPLETED']
 const canAssign = (o: AdminOrderItem) =>
   !CLOSED_ORDER.includes(o.status) && !CLOSED_DELIVERY.includes(o.delivery_status || '')
 

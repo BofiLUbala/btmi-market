@@ -369,10 +369,9 @@ func (s *CommunicationService) SendMessage(
 	if !models.CanMessage(senderParty, recipientParty) {
 		return nil, errors.New("CHANNEL_NOT_ALLOWED")
 	}
+	// The courier channel is open before assignment: messages are addressed to
+	// the COURIER party, so whoever is assigned later reads them.
 	courierID := s.resolveCourierUserID(order)
-	if recipientParty == models.PartyCourier && courierID == uuid.Nil {
-		return nil, errors.New("COURIER_NOT_ASSIGNED")
-	}
 
 	if strings.TrimSpace(senderName) == "" {
 		senderName = s.displayName(senderUserID)
@@ -397,7 +396,9 @@ func (s *CommunicationService) SendMessage(
 		id := conv.BuyerID
 		msg.RecipientUserID = &id
 	case models.PartyCourier:
-		msg.RecipientUserID = &courierID
+		if courierID != uuid.Nil {
+			msg.RecipientUserID = &courierID
+		}
 	}
 	switch senderParty {
 	case models.PartyBuyer:

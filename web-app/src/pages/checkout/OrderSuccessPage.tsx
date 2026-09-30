@@ -182,7 +182,7 @@ function SuccessInner() {
 
       {error && <ErrorBox error={error} />}
 
-      <div className="checkout-layout" style={{ gridTemplateColumns: '1fr 380px', gap: 24 }}>
+      <div className="checkout-layout">
         <div className="checkout-content stack">
           {/* STEP 4 MAIN STATUS CARD */}
           <section className="checkout-card" style={{ padding: '28px 24px' }}>

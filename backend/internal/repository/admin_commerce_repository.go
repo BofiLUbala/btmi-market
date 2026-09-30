@@ -194,6 +194,18 @@ func (r *AdminCommerceRepository) ListProducts(search, businessID, categoryID, s
 		args = append(args, publicationStatus)
 		argIdx++
 	}
+	// Same total and threshold that label each row below, so the filter never
+	// disagrees with the badge it returns.
+	available := "COALESCE((SELECT SUM(si.quantity - si.reserved_quantity) FROM inventory si WHERE si.product_id = p.id), 0)"
+	threshold := r.lowStockThreshold()
+	switch stockStatus {
+	case "OUT_OF_STOCK":
+		conditions = append(conditions, available+" <= 0")
+	case "LOW_STOCK":
+		conditions = append(conditions, fmt.Sprintf("%s > 0 AND %s <= %d", available, available, threshold))
+	case "IN_STOCK":
+		conditions = append(conditions, fmt.Sprintf("%s > %d", available, threshold))
+	}
 
 	whereClause := strings.Join(conditions, " AND ")
 
@@ -283,7 +295,6 @@ func (r *AdminCommerceRepository) ListProducts(search, businessID, categoryID, s
 			item.PrimaryImage = &primaryURL.String
 		}
 
-		threshold := r.lowStockThreshold()
 		if item.TotalAvailable <= 0 {
 			item.StockStatus = "OUT_OF_STOCK"
 		} else if item.TotalAvailable <= threshold {
@@ -597,10 +608,15 @@ func (r *AdminCommerceRepository) ListStockAnomalies() ([]*models.StockAnomaly, 
 }
 
 // 7. Orders Listing
-func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, businessID, search string, limit, offset int) ([]*models.AdminOrderItem, int, error) {
+func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, businessID, search, period string, limit, offset int) ([]*models.AdminOrderItem, int, error) {
 	conditions := []string{"1=1"}
 	args := []interface{}{}
 	argIdx := 1
+
+	// "today" matches the Direction dashboard's orders-today counter.
+	if period == "today" {
+		conditions = append(conditions, "o.created_at >= CURRENT_DATE")
+	}
 
 	if status != "" {
 		conditions = append(conditions, fmt.Sprintf("o.status = $%d", argIdx))

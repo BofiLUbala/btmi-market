@@ -14,9 +14,8 @@ export default function SellerLoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/seller/dashboard'
-  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('seller')
+  const { email, setEmail, password, setPassword, remember, setRemember, prefilled, persist } = useRememberedEmail('seller')
   const caps = useCapsLock()
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [notActivated, setNotActivated] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -28,7 +27,7 @@ export default function SellerLoginPage() {
     setBusy(true)
     try {
       const result = await login(email.trim(), password, 'seller')
-      persist(email)
+      persist(email, password)
       if (result.accountType === 'COURIER' || result.user?.capabilities?.courier) {
         navigate('/courier/dashboard', { replace: true })
       } else if (result.accountType === 'SELLER') {

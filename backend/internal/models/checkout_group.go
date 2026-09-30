@@ -40,12 +40,12 @@ type CartLineInput struct {
 }
 
 type CartPreviewRequest struct {
-	Items     []CartLineInput `json:"items" binding:"required,min=1"`
+	Items     []CartLineInput `json:"items" binding:"required,min=1,dive"`
 	UsePoints bool            `json:"use_points"`
 }
 
 type CheckoutCreateRequest struct {
-	Items          []CartLineInput `json:"items" binding:"required,min=1"`
+	Items          []CartLineInput `json:"items" binding:"required,min=1,dive"`
 	UsePoints      bool            `json:"use_points"`
 	IdempotencyKey *string         `json:"idempotency_key"`
 }

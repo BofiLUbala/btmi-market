@@ -67,10 +67,13 @@ type RegisterRequest struct {
 	BuildingNumber       string   `json:"building_number"`
 	Landmark             string   `json:"landmark"`
 	City                 string   `json:"city"`
-	Commune              string   `json:"commune"`
-	Country              string   `json:"country"`
-	Latitude             *float64 `json:"latitude"`
-	Longitude            *float64 `json:"longitude"`
+	Commune              string     `json:"commune"`
+	Country              string     `json:"country"`
+	Latitude             *float64   `json:"latitude"`
+	Longitude            *float64   `json:"longitude"`
+	ProvinceID           *uuid.UUID `json:"province_id"`
+	CityID               *uuid.UUID `json:"city_id"`
+	CommuneID            *uuid.UUID `json:"commune_id"`
 }
 
 type RegisterResponse struct {

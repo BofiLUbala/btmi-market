@@ -1,163 +1,155 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { adminDirectionApi, adminMonitoringApi, type ActiveSession } from '@/api/admin'
+import { useT } from '@/store/i18n'
+import { LiveToolbar, RoleBadge, SummaryCards, cell, deviceLabel, headRow, tableBox, useLiveReload, useMonitoringSummary } from './monitoringShared'
 
-interface ActiveSession {
-  id: number
-  user_id: string
-  email: string
-  role: string
-  ip_address: string
-  user_agent: string
-  login_at: string
-  last_activity_at: string
-  activity_type: string
-  activity_count: number
-  online_duration_seconds: number
+const ROLES = ['buyer', 'seller', 'employee', 'courier']
+
+function ago(date: string, t: ReturnType<typeof useT>): string {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 60_000))
+  if (minutes < 1) return t('time.justNow')
+  if (minutes < 60) return t('time.minutesAgo', { count: minutes })
+  const hours = Math.floor(minutes / 60)
+  if (hours < 48) return t('admin.monitoring.hoursAgo', { count: hours })
+  return t('admin.monitoring.daysAgo', { count: Math.floor(hours / 24) })
 }
 
-const formatDuration = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  if (hours > 0) return `${hours}h ${minutes}m`
-  return `${minutes}m`
-}
-
+/**
+ * Accounts signed in right now (a live refresh token), refreshed live. Signing
+ * one out revokes every session of that account through the audited
+ * force-logout, so it needs a written reason.
+ */
 export default function ActiveSessionsTab() {
+  const t = useT()
   const [sessions, setSessions] = useState<ActiveSession[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [roleFilter, setRoleFilter] = useState('')
-  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [role, setRole] = useState('')
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+  const [kicking, setKicking] = useState<string | null>(null)
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const { summary, reload: reloadSummary } = useMonitoringSummary()
+  const onlineMs = (summary?.online_window_minutes ?? 30) * 60_000
 
-  useEffect(() => {
-    const fetchSessions = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        // TODO: Replace with actual API call when endpoint is added
-        // const data = await adminDirectionApi.getActiveSessions({ role: roleFilter })
-        // setSessions(data)
-        setSessions([]) // Placeholder
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load active sessions')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchSessions()
-
-    // Auto-refresh every 5 seconds for live updates
-    const interval = autoRefresh ? setInterval(fetchSessions, 5000) : undefined
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [roleFilter, autoRefresh])
-
-  const handleKickSession = async (_sessionId: number, email: string) => {
-    if (!confirm(`Kick user ${email} from all sessions?`)) return
-
+  async function load(silent: boolean) {
+    if (silent) setRefreshing(true); else setLoading(true)
     try {
-      // TODO: Call admin API to kick session
-      // await adminDirectionApi.kickSession(_sessionId)
-      alert('Session kicked')
+      const [rows] = await Promise.all([adminMonitoringApi.sessions({ role }), reloadSummary()])
+      setSessions(Array.isArray(rows) ? rows : [])
+      setError(null)
+      setUpdatedAt(new Date())
     } catch (err) {
-      alert('Failed to kick session: ' + (err instanceof Error ? err.message : 'Unknown error'))
+      setError(err instanceof Error ? err.message : t('admin.monitoring.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+  useLiveReload(load, [role])
+
+  async function signOut(s: ActiveSession) {
+    if (reason.trim().length < 5) {
+      setError(t('admin.direction.reasonRequired'))
+      return
+    }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await adminDirectionApi.forceLogoutUser(s.user_id, reason.trim())
+      setNotice(t('admin.monitoring.signedOut', { email: s.email }))
+      setKicking(null)
+      setReason('')
+      await load(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('admin.direction.actionFailed'))
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
-    <div className='space-y-4'>
-      {/* Header */}
-      <div className='flex items-center justify-between'>
-        <div>
-          <h2 className='text-lg font-semibold'>🟢 Active Sessions</h2>
-          <p className='text-sm text-gray-600'>
-            {sessions.length} user{sessions.length !== 1 ? 's' : ''} online now
-          </p>
-        </div>
-        <div className='flex items-center gap-2'>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className='px-3 py-2 border rounded-lg bg-white'
-          >
-            <option value=''>All roles</option>
-            <option value='admin'>Admin</option>
-            <option value='seller'>Seller</option>
-            <option value='courier'>Courier</option>
-            <option value='buyer'>Buyer</option>
-          </select>
-          <label className='flex items-center gap-2'>
-            <input
-              type='checkbox'
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-            />
-            <span className='text-sm'>Live</span>
-          </label>
-        </div>
-      </div>
-
-      {/* Loading & Error States */}
-      {loading && <div className='text-center py-8 text-gray-500'>Loading...</div>}
-      {error && <div className='bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded'>{error}</div>}
-
-      {/* Sessions Table */}
-      {!loading && !error && sessions.length === 0 && (
-        <div className='text-center py-8 text-gray-500'>No active sessions</div>
+    <div>
+      <SummaryCards summary={summary} />
+      <LiveToolbar role={role} onRole={setRole} roles={ROLES} updatedAt={updatedAt} onRefresh={() => void load(true)} refreshing={refreshing} />
+      <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>
+        {t('admin.monitoring.sessionsHint', { minutes: summary?.online_window_minutes ?? 30 })}
+      </p>
+      {error && (
+        <div role="alert" style={{ backgroundColor: '#450a0a', border: '1px solid #7f1d1d', color: '#fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>{error}</div>
       )}
-
-      {!loading && !error && sessions.length > 0 && (
-        <div className='overflow-x-auto border rounded-lg'>
-          <table className='w-full text-sm'>
-            <thead className='bg-gray-50 border-b'>
-              <tr>
-                <th className='px-4 py-2 text-left font-semibold'>Email</th>
-                <th className='px-4 py-2 text-left font-semibold'>Role</th>
-                <th className='px-4 py-2 text-left font-semibold'>Online Time</th>
-                <th className='px-4 py-2 text-left font-semibold'>Last Activity</th>
-                <th className='px-4 py-2 text-left font-semibold'>Activity Type</th>
-                <th className='px-4 py-2 text-left font-semibold'>Count</th>
-                <th className='px-4 py-2 text-left font-semibold'>IP Address</th>
-                <th className='px-4 py-2 text-left font-semibold'>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((session) => (
-                <tr key={session.id} className='border-b hover:bg-gray-50'>
-                  <td className='px-4 py-2 font-mono text-xs'>{session.email}</td>
-                  <td className='px-4 py-2'>
-                    <span className='inline-block px-2 py-1 bg-green-100 text-green-800 text-xs rounded'>
-                      {session.role}
+      {notice && (
+        <div role="status" style={{ backgroundColor: '#052e16', border: '1px solid #14532d', color: '#bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>{notice}</div>
+      )}
+      <div style={tableBox}>
+        <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+          <thead>
+            <tr style={headRow}>
+              <th style={cell}>{t('admin.monitoring.thAccount')}</th>
+              <th style={cell}>{t('admin.monitoring.thRole')}</th>
+              <th style={cell}>{t('admin.monitoring.thStatus')}</th>
+              <th style={cell}>{t('admin.monitoring.thLastActive')}</th>
+              <th style={cell}>{t('admin.monitoring.thDevice')}</th>
+              <th style={cell}>{t('admin.monitoring.thIp')}</th>
+              <th style={{ ...cell, textAlign: 'right' }}>{t('admin.direction.thInspection')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</td></tr>
+            ) : sessions.length === 0 ? (
+              <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('admin.monitoring.noSessions')}</td></tr>
+            ) : sessions.map((s) => {
+              const online = Date.now() - new Date(s.last_active_at).getTime() < onlineMs
+              return (
+                <tr key={s.user_id} style={{ borderBottom: '1px solid #1e293b', verticalAlign: 'top' }}>
+                  <td style={cell}>
+                    <div style={{ fontWeight: 700, color: '#fff' }}>{s.name || s.email}</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace' }}>{s.email}</div>
+                  </td>
+                  <td style={cell}><RoleBadge role={s.role} /></td>
+                  <td style={cell}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: online ? '#86efac' : '#94a3b8' }}>
+                      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: online ? '#22c55e' : '#475569' }} />
+                      {online ? t('admin.monitoring.online') : t('admin.monitoring.idle')}
                     </span>
+                    {s.devices > 1 && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{t('admin.monitoring.devices', { count: s.devices })}</div>}
                   </td>
-                  <td className='px-4 py-2 font-semibold'>
-                    {formatDuration(session.online_duration_seconds)}
-                  </td>
-                  <td className='px-4 py-2 text-xs'>
-                    {new Date(session.last_activity_at).toLocaleTimeString()}
-                  </td>
-                  <td className='px-4 py-2 text-xs'>
-                    {session.activity_type || 'idle'}
-                  </td>
-                  <td className='px-4 py-2 text-center font-semibold'>
-                    {session.activity_count}
-                  </td>
-                  <td className='px-4 py-2 font-mono text-xs'>{session.ip_address}</td>
-                  <td className='px-4 py-2'>
-                    <button
-                      onClick={() => handleKickSession(session.id, session.email)}
-                      className='text-red-600 hover:text-red-800 font-semibold text-xs'
-                    >
-                      Kick
-                    </button>
+                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(s.last_active_at).toLocaleString('fr-FR')}>{ago(s.last_active_at, t)}</td>
+                  <td style={{ ...cell, fontSize: 12, color: '#94a3b8' }} title={s.user_agent}>{deviceLabel(s.user_agent)}</td>
+                  <td style={{ ...cell, fontFamily: 'monospace', fontSize: 12, color: '#cbd5e1' }}>{s.ip_address || '—'}</td>
+                  <td style={{ ...cell, textAlign: 'right' }}>
+                    {kicking === s.user_id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                        <input
+                          autoFocus
+                          aria-label={t('admin.monitoring.reasonLabel')}
+                          placeholder={t('admin.monitoring.reasonLabel')}
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          style={{ width: 220, backgroundColor: '#0f172a', color: '#e2e8f0', border: '1px solid #334155', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}
+                        />
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="admin-button" onClick={() => { setKicking(null); setReason('') }} disabled={submitting}>{t('common.cancel')}</button>
+                          <button className="admin-button" onClick={() => void signOut(s)} disabled={submitting} style={{ backgroundColor: '#b91c1c', borderColor: '#b91c1c', color: '#fff' }}>
+                            {submitting ? '…' : t('admin.monitoring.confirmSignOut')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="admin-button" onClick={() => { setKicking(s.user_id); setReason(''); setNotice(null) }}>
+                        {t('admin.monitoring.signOut')}
+                      </button>
+                    )}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

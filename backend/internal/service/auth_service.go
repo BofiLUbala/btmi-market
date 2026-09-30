@@ -289,6 +289,9 @@ func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accou
 			Country:        country,
 			Latitude:       req.Latitude,
 			Longitude:      req.Longitude,
+			ProvinceID:     req.ProvinceID,
+			CityID:         req.CityID,
+			CommuneID:      req.CommuneID,
 			Status:         models.BuyerProfileStatusActive,
 		}
 		if err := s.buyerProfileRepo.Create(profile); err != nil {

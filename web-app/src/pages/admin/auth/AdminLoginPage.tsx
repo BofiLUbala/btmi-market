@@ -12,11 +12,10 @@ export default function AdminLoginPage() {
   const location = useLocation()
   const t = useT()
 
-  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('admin')
+  const { email, setEmail, password, setPassword, remember, setRemember, prefilled, persist } = useRememberedEmail('admin')
   const caps = useCapsLock()
   const [showPassword, setShowPassword] = useState(false)
   const [showForgotHelp, setShowForgotHelp] = useState(false)
-  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -27,7 +26,7 @@ export default function AdminLoginPage() {
 
     try {
       const admin = await login(email.trim(), password)
-      persist(email)
+      persist(email, password)
       // Redirect based on role or original destination
       const from = (location.state as { from?: { pathname?: string } })?.from?.pathname
       if (from && from !== '/admin/login') {

@@ -1,116 +1,95 @@
 package admin
 
 import (
-	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
+	"github.com/gin-gonic/gin"
 )
 
+// MonitoringHandler serves the Direction console's sign-in monitoring: refused
+// sign-ins and the accounts currently signed in. Signing an account out goes
+// through the existing, audited force-logout endpoint.
 type MonitoringHandler struct {
 	monitoringService *service.MonitoringService
 }
 
 func NewMonitoringHandler(monitoringService *service.MonitoringService) *MonitoringHandler {
-	return &MonitoringHandler{
-		monitoringService: monitoringService,
-	}
+	return &MonitoringHandler{monitoringService: monitoringService}
 }
 
-// GetAuthFailures returns recent auth failures for admin dashboard
-// GET /api/admin/monitoring/auth-failures?limit=50&role=buyer
-func (h *MonitoringHandler) GetAuthFailures(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+var monitoringRoles = map[string]bool{"": true, "admin": true, "buyer": true, "seller": true, "employee": true, "courier": true, "unknown": true}
 
-	limitStr := r.URL.Query().Get("limit")
-	if limitStr == "" {
-		limitStr = "50"
+func monitoringQuery(c *gin.Context, defaultLimit int) (string, int, bool) {
+	role := strings.ToLower(strings.TrimSpace(c.Query("role")))
+	if !monitoringRoles[role] {
+		monitoringError(c, http.StatusBadRequest, "INVALID_ROLE", "Unknown role filter")
+		return "", 0, false
 	}
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit > 500 {
-		limit = 50
-	}
-
-	role := r.URL.Query().Get("role")
-
-	var failures interface{}
-	if role != "" {
-		failures, err = h.monitoringService.GetAuthFailuresByRole(ctx, role, limit)
-	} else {
-		failures, err = h.monitoringService.GetRecentAuthFailures(ctx, limit)
-	}
-
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", strconv.Itoa(defaultLimit)))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		limit = defaultLimit
+	}
+	return role, limit, true
+}
+
+func monitoringError(c *gin.Context, status int, code, message string) {
+	c.JSON(status, models.ErrorResponse{Error: struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}{Code: code, Message: message}})
+}
+
+// GET /admin/direction/monitoring/summary
+func (h *MonitoringHandler) Summary(c *gin.Context) {
+	summary, err := h.monitoringService.Summary(c.Request.Context())
+	if err != nil {
+		log.Printf("[monitoring] summary: %v", err)
+		monitoringError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not load monitoring summary")
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(failures)
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "OK", Data: gin.H{
+		"summary":               summary,
+		"online_window_minutes": int(h.monitoringService.OnlineWindow().Minutes()),
+		"retention_days":        service.AuthFailureRetentionDays,
+	}})
 }
 
-// GetActiveSessions returns current active user sessions
-// GET /api/admin/monitoring/sessions?role=buyer
-func (h *MonitoringHandler) GetActiveSessions(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	role := r.URL.Query().Get("role")
-
-	var sessions interface{}
-	var err error
-	if role != "" {
-		sessions, err = h.monitoringService.GetActiveSessionsByRole(ctx, role)
-	} else {
-		sessions, err = h.monitoringService.GetActiveSessions(ctx)
-	}
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+// GET /admin/direction/monitoring/auth-failures?role=&limit=
+func (h *MonitoringHandler) AuthFailures(c *gin.Context) {
+	role, limit, ok := monitoringQuery(c, 100)
+	if !ok {
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(sessions)
-}
-
-// KickSession removes a user's session (admin action)
-// POST /api/admin/monitoring/sessions/:user_id/kick
-func (h *MonitoringHandler) KickSession(w http.ResponseWriter, r *http.Request) {
-	// TODO: Extract user_id from URL params and implement session removal
-	// Requires middleware to extract path param
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "kicked"})
-}
-
-// CleanupExpiredSessions runs cleanup (typically via cron job)
-// POST /api/admin/monitoring/cleanup/sessions
-func (h *MonitoringHandler) CleanupExpiredSessions(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// 30 minute timeout
-	err := h.monitoringService.CleanupExpiredSessions(ctx, 30)
+	failures, err := h.monitoringService.ListAuthFailures(c.Request.Context(), role, limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("[monitoring] auth failures: %v", err)
+		monitoringError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not load sign-in failures")
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "cleaned"})
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "OK", Data: failures})
 }
 
-// CleanupOldFailures runs cleanup for old auth failures
-// POST /api/admin/monitoring/cleanup/failures
-func (h *MonitoringHandler) CleanupOldFailures(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// 30 day retention
-	err := h.monitoringService.CleanupOldFailures(ctx, 30)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+// GET /admin/direction/monitoring/sessions?role=&limit=
+func (h *MonitoringHandler) Sessions(c *gin.Context) {
+	role, limit, ok := monitoringQuery(c, 300)
+	if !ok {
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "cleaned"})
+	if role == "admin" || role == "unknown" {
+		// Admin sessions live in the technical console; unknown accounts cannot sign in.
+		c.JSON(http.StatusOK, models.SuccessResponse{Message: "OK", Data: []service.ActiveSession{}})
+		return
+	}
+	sessions, err := h.monitoringService.ListActiveSessions(c.Request.Context(), role, limit)
+	if err != nil {
+		log.Printf("[monitoring] sessions: %v", err)
+		monitoringError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not load active sessions")
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "OK", Data: sessions})
 }

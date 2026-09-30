@@ -4,9 +4,13 @@ import { inventoryApi } from '@/api/seller'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { BoxIcon } from '@/components/ui/Icons'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
+import { useOrderEvents } from '@/lib/orderEvents'
+import { StockReceiptsPanel } from './StockReceiptsPanel'
+
+const POLL_INTERVAL = 30_000
 
 interface InventoryRow {
   inventory: {
@@ -46,8 +50,8 @@ interface MovementRow {
 
 export default function SellerStockPage() {
   const t = useT()
-  const { activeShop } = useAuth()
-  const [tab, setTab] = useState<'inventory' | 'movements'>('inventory')
+  const { activeShop, activeBusiness } = useAuth()
+  const [tab, setTab] = useState<'inventory' | 'movements' | 'receipts'>('inventory')
   const [rows, setRows] = useState<InventoryRow[]>([])
   const [movements, setMovements] = useState<MovementRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,16 +60,12 @@ export default function SellerStockPage() {
   const [restock, setRestock] = useState<Record<string, string>>({})
   const [actingId, setActingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (activeShop) {
-      load()
+  const load = useCallback(async (silent = false) => {
+    if (!activeShop || tab === 'receipts') return
+    if (!silent) {
+      setLoading(true)
+      setError('')
     }
-  }, [activeShop, tab])
-
-  async function load() {
-    if (!activeShop) return
-    setLoading(true)
-    setError('')
     try {
       if (tab === 'inventory') {
         const data = await inventoryApi.getShopInventory(activeShop)
@@ -74,14 +74,38 @@ export default function SellerStockPage() {
         const data = await inventoryApi.getStockMovements(activeShop, { limit: 50 })
         setMovements(Array.isArray(data) ? data : [])
       }
+      setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('seller.stockPage.loadFailed'))
-      setRows([])
-      setMovements([])
+      // A failed background refresh keeps the rows already on screen.
+      if (!silent) {
+        setError(err instanceof Error ? err.message : t('seller.stockPage.loadFailed'))
+        setRows([])
+        setMovements([])
+      }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [activeShop, tab, t])
+
+  useEffect(() => {
+    if (activeShop) void load()
+    else setLoading(false)
+  }, [activeShop, load])
+
+  // The server pushes a "stock" event for every change to this business's stock (restock,
+  // goods-in, sale, order reservation or cancellation, from any device); orders too.
+  // The slow poll below only covers a dropped stream.
+  useOrderEvents(() => { void load(true) }, { kinds: ['order', 'resync', 'stock'] })
+  useEffect(() => {
+    if (!activeShop) return
+    const tick = () => { if (document.visibilityState === 'visible') void load(true) }
+    const timer = window.setInterval(tick, POLL_INTERVAL)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [activeShop, load])
 
   async function addStock(row: InventoryRow) {
     if (!activeShop) return
@@ -134,9 +158,16 @@ export default function SellerStockPage() {
         <Button variant={tab === 'movements' ? 'primary' : 'outline'} onClick={() => setTab('movements')}>
           {t('seller.stockPage.tabMovements')}
         </Button>
+        {activeBusiness && (
+          <Button variant={tab === 'receipts' ? 'primary' : 'outline'} onClick={() => setTab('receipts')}>
+            {t('seller.receipts.tab')}
+          </Button>
+        )}
       </div>
 
-      {loading ? (
+      {tab === 'receipts' && activeBusiness ? (
+        <StockReceiptsPanel businessId={activeBusiness.id} shopId={activeShop} />
+      ) : loading ? (
         <LoadingBlock label={t('seller.stockPage.loading')} />
       ) : error ? (
         <ErrorBox error={error} />

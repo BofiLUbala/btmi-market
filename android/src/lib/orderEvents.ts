@@ -13,7 +13,9 @@ import { adminApi } from '../api/admin'
  * data they could not already read. The existing polling stays as a fallback.
  */
 export interface OrderEvent {
-  kind: 'order' | 'resync' | 'tariff'
+  /** stock/cash: that business's stock or cash changed (sent to its members only). */
+  kind: 'order' | 'resync' | 'tariff' | 'stock' | 'cash'
+  business_id?: string
   order_id?: string
   status?: string
   delivery_status?: string

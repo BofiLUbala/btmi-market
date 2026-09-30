@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { router } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { courierApi } from '../../src/api'
@@ -9,7 +10,7 @@ import { MissionActions } from '../../src/components/CourierMissionActions'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
-import { courierStatusLabel } from '../../src/lib/courier'
+import { cashLabel, courierStatusLabel } from '../../src/lib/courier'
 import type { CourierAvailability, CourierMission } from '../../src/types'
 
 const FINISHED = ['RECEIVED', 'DELIVERED', 'FAILED', 'CANCELLED', 'COURIER_REJECTED', 'RETURNED_TO_SELLER']
@@ -44,9 +45,11 @@ export default function CourierMissionsScreen() {
   return (
     <ScrollView
       contentContainerStyle={styles.page}
-      refreshControl={<RefreshControl refreshing={missions.isRefetching} onRefresh={() => { void missions.refetch(); void queryClient.invalidateQueries({ queryKey: ['courier', 'profile'] }) }} />}
+      refreshControl={<RefreshControl refreshing={missions.isRefetching} onRefresh={() => { void missions.refetch(); void queryClient.invalidateQueries({ queryKey: ['courier', 'profile'] }); void queryClient.invalidateQueries({ queryKey: ['courier', 'earnings'] }) }} />}
     >
       <AvailabilityCard />
+      <EarningsCard />
+      <Button variant="outline" title={t('courier.delivered.title')} onPress={() => router.push('/courier/delivered')} />
       <Button variant="outline" title={t('courier.history')} onPress={() => router.push('/courier/history')} />
       <SectionTitle title={t('courier.activeMissions', { count: active.length })} />
       {active.length === 0 ? <Card><Text style={styles.muted}>{t('courier.noMission')}</Text></Card> : null}
@@ -54,6 +57,30 @@ export default function CourierMissionsScreen() {
       {finished.length > 0 ? <SectionTitle title={t('courier.finishedMissions')} /> : null}
       {finished.map((m) => <MissionCard key={m.order_id} mission={m} />)}
     </ScrollView>
+  )
+}
+
+/** Cash taken at the door today and deliveries done; opens "Produits livrés". */
+function EarningsCard() {
+  const { t } = useI18n()
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
+  const earnings = useQuery({ queryKey: ['courier', 'earnings', 'today'], queryFn: () => courierApi.earnings(), refetchInterval: 30_000 })
+  if (earnings.isError) return null
+  const e = earnings.data
+  return (
+    <Pressable accessibilityRole="button" onPress={() => router.push('/courier/delivered')}>
+      <Card>
+        <View style={styles.rowBetween}>
+          <Text style={styles.muted}>{t('courier.delivered.cashToday')}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </View>
+        <Text style={styles.cash}>{earnings.isLoading ? '…' : cashLabel(e)}</Text>
+        <Text style={styles.muted}>
+          {e?.orders_delivered ?? 0} {t('courier.delivered.orders').toLowerCase()} · {e?.items_delivered ?? 0} {t('courier.delivered.items').toLowerCase()}
+        </Text>
+      </Card>
+    </Pressable>
   )
 }
 
@@ -143,6 +170,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   title: { color: c.ink, fontWeight: '900', fontSize: 17 },
   status: { color: c.green, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
   muted: { color: c.muted },
+  cash: { color: c.ink, fontWeight: '900', fontSize: 28, marginVertical: 4 },
   error: { color: c.danger, fontWeight: '700' },
   toggleRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   toggle: { flex: 1 },

@@ -14,8 +14,8 @@ export default function CommerceProductsPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(params.get('search') || '')
-  const [publicationStatus, setPublicationStatus] = useState('')
-  const [stockStatus, setStockStatus] = useState('')
+  const [publicationStatus, setPublicationStatus] = useState(params.get('publication_status') || '')
+  const [stockStatus, setStockStatus] = useState(params.get('stock_status') || '')
   const [page, setPage] = useState(0)
   const [limit] = useState(20)
 

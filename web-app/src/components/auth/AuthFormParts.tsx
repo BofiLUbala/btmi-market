@@ -99,18 +99,59 @@ export function ResendEmailButton({
  * E-mail of the last sign-in in this space (when "remember me" was ticked) and
  * the checkbox state; call `persist(email)` after a successful sign-in.
  */
+/**
+ * Password manager bridge (Credential Management API, Chrome/Edge/Android).
+ * The password never touches localStorage: the browser keeps it encrypted in
+ * its own password manager, we only ask it to save and, next time, refill it.
+ */
+type PasswordCredentialCtor = new (data: { id: string; password: string; name?: string }) => Credential
+function passwordCredentialCtor(): PasswordCredentialCtor | null {
+  const ctor = (window as unknown as { PasswordCredential?: PasswordCredentialCtor }).PasswordCredential
+  return ctor && navigator.credentials ? ctor : null
+}
+
 export function useRememberedEmail(space: LoginSpace) {
   const [initial] = useState(() => getRememberedEmail(space))
   const [email, setEmail] = useState(initial)
+  const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(initial !== '')
+  const [passwordPrefilled, setPasswordPrefilled] = useState(false)
+
+  // Remembered account: ask the browser for the saved password so the user
+  // only has to press "Se connecter".
+  useEffect(() => {
+    if (!initial || !passwordCredentialCtor()) return
+    let alive = true
+    navigator.credentials
+      .get({ password: true, mediation: 'optional' } as CredentialRequestOptions)
+      .then((cred) => {
+        const c = cred as (Credential & { id: string; password?: string }) | null
+        if (!alive || !c?.password) return
+        setEmail((current) => current || c.id)
+        setPassword((current) => current || c.password || '')
+        setPasswordPrefilled(true)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [initial])
+
   return {
     email,
     setEmail,
+    password,
+    setPassword,
     remember,
     setRemember,
     /** True when the form opened pre-filled: focus the password instead. */
     prefilled: initial !== '',
-    persist: (value: string) => rememberLogin(space, value, remember),
+    passwordPrefilled,
+    persist: (value: string, pwd?: string) => {
+      rememberLogin(space, value, remember)
+      const Ctor = passwordCredentialCtor()
+      if (remember && pwd && Ctor) {
+        navigator.credentials.store(new Ctor({ id: value.trim().toLowerCase(), password: pwd })).catch(() => {})
+      }
+    },
   }
 }
 

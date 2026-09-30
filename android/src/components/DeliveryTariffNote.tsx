@@ -20,7 +20,7 @@ export function DeliveryTariffNote() {
   const [tariff, setTariff] = useState<DeliveryTariff | null>(null)
   const [version, setVersion] = useState(0)
   // Finance edits are pushed live.
-  useOrderEvents((event) => { if (event.kind !== 'order') setVersion((v) => v + 1) })
+  useOrderEvents((event) => { if (event.kind === 'tariff' || event.kind === 'resync') setVersion((v) => v + 1) })
   useEffect(() => {
     let cancelled = false
     get<DeliveryTariff>('/config/delivery-fees').then((t) => { if (!cancelled) setTariff(t) }).catch(() => undefined)

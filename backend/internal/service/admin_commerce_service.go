@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -298,8 +299,8 @@ func (s *AdminCommerceService) AdjustStock(adminID uuid.UUID, adminRole models.A
 }
 
 // 5. Orders & Stuck Orders
-func (s *AdminCommerceService) ListOrders(status, deliveryMethod, shopID, businessID, search string, limit, offset int) ([]*models.AdminOrderItem, int, error) {
-	return s.commerceRepo.ListOrders(status, deliveryMethod, shopID, businessID, search, limit, offset)
+func (s *AdminCommerceService) ListOrders(status, deliveryMethod, shopID, businessID, search, period string, limit, offset int) ([]*models.AdminOrderItem, int, error) {
+	return s.commerceRepo.ListOrders(status, deliveryMethod, shopID, businessID, search, period, limit, offset)
 }
 
 func (s *AdminCommerceService) GetOrderDetail(id uuid.UUID) (*models.AdminOrderDetail, error) {
@@ -332,7 +333,7 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 		return errors.New("COURIER_NOT_AVAILABLE")
 	}
 
-	if err := orderRepo.AssignCourier(orderID, courier.UserID, notes); err != nil {
+	if err := s.assignCourierTx(orderID, courier.UserID, notes); err != nil {
 		return err
 	}
 
@@ -371,6 +372,55 @@ func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models
 	}
 
 	return nil
+}
+
+// assignCourierTx dispatches a courier only while the dispatch step is still open: a TBK
+// delivery whose checkout is complete, not closed, and whose parcel has not yet left the
+// seller. Reassigning after pickup would reset the handover chain mid-route.
+func (s *AdminCommerceService) assignCourierTx(orderID, courierUserID uuid.UUID, notes string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var status models.OrderStatus
+	var method, deliveryStatus, previous sql.NullString
+	if err := tx.QueryRow(`SELECT status, delivery_method, delivery_status, assigned_courier_id::text FROM orders WHERE id = $1 FOR UPDATE`, orderID).
+		Scan(&status, &method, &deliveryStatus, &previous); err != nil {
+		return mapOrderNotFoundErr(err)
+	}
+	switch status {
+	case models.OrderStatusPending, models.OrderStatusAccepted, models.OrderStatusPreparing, models.OrderStatusReady:
+	default:
+		return errors.New("ORDER_NOT_ASSIGNABLE")
+	}
+	if !isTBKDeliveryMethod(method.String) {
+		return errors.New("NOT_TBK_DELIVERY")
+	}
+	switch deliveryStatus.String {
+	case "", models.DeliveryStatusPendingTBK, models.DeliveryStatusCourierAssigned, "COURIER_REJECTED", "COURIER_ACCEPTED", models.DeliveryStatusReadyForPickup:
+	default:
+		return errors.New("DELIVERY_ALREADY_STARTED")
+	}
+	if err := requireCheckoutCompleteTx(tx, orderID, method.String); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE orders
+		SET assigned_courier_id = $2, delivery_status = 'COURIER_ASSIGNED', courier_assigned_at = NOW(), courier_notes = $3, updated_at = NOW()
+		WHERE id = $1`, orderID, courierUserID, notes); err != nil {
+		return err
+	}
+	if previous.Valid && previous.String != courierUserID.String() {
+		if prevID, perr := uuid.Parse(previous.String); perr == nil {
+			if err := releaseCourierIfIdleTx(tx, prevID); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
 }
 
 // 6. Employees

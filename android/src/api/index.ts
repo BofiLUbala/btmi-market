@@ -10,13 +10,13 @@ import type {
   EmployeeShopAssignment, InventoryItem, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines,
   PointRedemptionPreview, Product, ProductDetail, ProductImageResponse, ProductReviewsResponse, ProductVariant,
   PublicationStatus, PublicProduct, SearchEvent, SearchPageResult, SearchSuggestions, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
-  SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt,
+  SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt, StockReceiptWithLines,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
   TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
   CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
-  HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem } from '../types'
+  HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct } from '../types'
 
 /** Query string from defined params only, in the web client's style. */
 const qs = (params?: object) => {
@@ -232,7 +232,7 @@ export const sellerApi = {
   addStock: (shopId: string, body: AddStockRequest) => post<InventoryItem>(`/shops/${shopId}/stock`, body),
   recordSale: (shopId: string, body: RecordSaleRequest) => post(`/shops/${shopId}/sales`, body),
   stockMovements: async (shopId: string, params?: { limit?: number }) => list<StockMovement>(await get<unknown>(`/shops/${shopId}/movements${params?.limit ? `?limit=${params.limit}` : ''}`)),
-  createStockReceipt: (businessId: string, body: CreateStockReceiptRequest) => post<StockReceipt>(`/businesses/${businessId}/receipts`, body),
+  createStockReceipt: (businessId: string, body: CreateStockReceiptRequest) => post<StockReceiptWithLines>(`/businesses/${businessId}/receipts`, body),
   stockReceipts: async (businessId: string) => list<StockReceipt>(await get<unknown>(`/businesses/${businessId}/receipts`)),
 
   /* Orders (business/shop listing + seller lifecycle actions) */
@@ -326,6 +326,11 @@ export const courierApi = {
   /** AVAILABLE / UNAVAILABLE; the backend refuses it for a non-active courier. */
   updateAvailability: (availability: CourierAvailability) => patch('/courier/availability', { availability }),
   history: async (limit = 50) => list<CourierHistoryItem>(await get<unknown>(`/courier/history?limit=${limit}`)),
+  /** Cash collected and deliveries on one day (YYYY-MM-DD, Kinshasa); today when omitted. */
+  earnings: (date?: string) => get<CourierEarnings>(`/courier/earnings${date ? `?date=${date}` : ''}`),
+  /** Every product delivered, newest first; date narrows it to one day. */
+  deliveredProducts: async (date?: string) =>
+    list<CourierDeliveredProduct>(await get<unknown>(`/courier/delivered-products?limit=200${date ? `&date=${date}` : ''}`)),
 
   /* missions — the same endpoints the web courier dashboard uses */
   missions: async () => list<CourierMission>(await get<unknown>('/courier/missions')),

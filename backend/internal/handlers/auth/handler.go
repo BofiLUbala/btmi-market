@@ -29,7 +29,16 @@ type Handler struct {
 	reinitializeHits map[string][]time.Time
 	resendMu         sync.Mutex
 	resendHits       map[string][]time.Time
+	loginFailures    LoginFailureRecorder
 }
+
+// LoginFailureRecorder keeps a record of refused sign-ins for the admin console.
+type LoginFailureRecorder interface {
+	RecordLoginFailure(portal, email, errorCode, ipAddress, userAgent string)
+}
+
+// SetLoginFailureRecorder wires sign-in monitoring in; without it failures are not recorded.
+func (h *Handler) SetLoginFailureRecorder(r LoginFailureRecorder) { h.loginFailures = r }
 
 func (h *Handler) authError(c *gin.Context, status int, code, message string) {
 	var response models.ErrorResponse
@@ -506,6 +515,9 @@ func (h *Handler) Login(c *gin.Context) {
 		case "ACCOUNT_NOT_ACTIVATED":
 			statusCode = http.StatusForbidden
 			errorCode = "ACCOUNT_NOT_ACTIVATED"
+		}
+		if h.loginFailures != nil {
+			go h.loginFailures.RecordLoginFailure("user", req.Email, errorCode, ipAddress, userAgent)
 		}
 
 		c.JSON(statusCode, models.ErrorResponse{

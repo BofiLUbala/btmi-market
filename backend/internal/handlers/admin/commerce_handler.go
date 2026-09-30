@@ -570,7 +570,7 @@ func (h *CommerceHandler) ListOrders(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	orders, total, err := h.commerceService.ListOrders(status, deliveryMethod, shopID, businessID, search, limit, offset)
+	orders, total, err := h.commerceService.ListOrders(status, deliveryMethod, shopID, businessID, search, c.Query("period"), limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error: struct {
@@ -687,6 +687,10 @@ func (h *CommerceHandler) AssignCourier(c *gin.Context) {
 			status = http.StatusConflict
 			code = "COURIER_NOT_AVAILABLE"
 			message = "Ce livreur n'est pas actif (suspendu ou désactivé) et ne peut pas recevoir de livraison."
+		} else if msg, ok := assignStepErrors[err.Error()]; ok {
+			status = http.StatusConflict
+			code = err.Error()
+			message = msg
 		}
 		c.JSON(status, models.ErrorResponse{
 			Error: struct {
@@ -1295,3 +1299,13 @@ func (h *CommerceHandler) setEntityStatus(kind string) gin.HandlerFunc {
 
 func (h *CommerceHandler) SetBusinessStatus(c *gin.Context) { h.setEntityStatus("BUSINESS")(c) }
 func (h *CommerceHandler) SetShopStatus(c *gin.Context)     { h.setEntityStatus("SHOP")(c) }
+
+// assignStepErrors are dispatch attempts refused because the order is not at the dispatch step.
+var assignStepErrors = map[string]string{
+	"ORDER_NOT_ASSIGNABLE":     "Cette commande est clôturée (annulée, refusée ou livrée) : aucun livreur ne peut y être affecté.",
+	"NOT_TBK_DELIVERY":         "Cette commande n'est pas livrée par TBK.",
+	"DELIVERY_ALREADY_STARTED": "Le colis a déjà été pris en charge : le livreur ne peut plus être changé.",
+	"DELIVERY_METHOD_REQUIRED": "L'acheteur n'a pas encore confirmé l'adresse de livraison.",
+	"PAYMENT_METHOD_REQUIRED":  "L'acheteur n'a pas encore choisi son mode de paiement.",
+	"PAYMENT_NOT_SETTLED":      "Le paiement anticipé de cette commande n'est pas encore reçu.",
+}

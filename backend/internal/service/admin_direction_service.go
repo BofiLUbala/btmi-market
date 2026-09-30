@@ -48,7 +48,8 @@ func (s *AdminDirectionService) GetOverviewStats(ctx context.Context) (*models.D
 			COUNT(*),
 			COUNT(*) FILTER (WHERE account_type = 'BUYER'),
 			COUNT(*) FILTER (WHERE account_type = 'SELLER'),
-			COUNT(*) FILTER (WHERE account_type = 'EMPLOYEE')
+			COUNT(*) FILTER (WHERE account_type = 'EMPLOYEE'),
+			COUNT(*) FILTER (WHERE account_type = 'COURIER')
 		FROM users
 	`
 	_ = s.db.QueryRowContext(ctx, userQuery).Scan(
@@ -56,35 +57,39 @@ func (s *AdminDirectionService) GetOverviewStats(ctx context.Context) (*models.D
 		&stats.TotalBuyers,
 		&stats.TotalSellers,
 		&stats.TotalEmployees,
+		&stats.TotalCouriers,
 	)
 
-	// 2. Businesses & Shops
+	// 2. Businesses & Shops — one bucket per shop status so the rows always
+	// add up to the total the card shows.
 	_ = s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM businesses`).Scan(&stats.TotalBusinesses)
 	_ = s.db.QueryRowContext(ctx, `
-		SELECT 
+		SELECT
 			COUNT(*),
-			COUNT(*) FILTER (WHERE status = 'ACTIVE')
+			COUNT(*) FILTER (WHERE status = 'ACTIVE'),
+			COUNT(*) FILTER (WHERE status = 'INACTIVE'),
+			COUNT(*) FILTER (WHERE status = 'SUSPENDED')
 		FROM shops
-	`).Scan(&stats.TotalShops, &stats.ActiveShops)
+	`).Scan(&stats.TotalShops, &stats.ActiveShops, &stats.InactiveShops, &stats.SuspendedShops)
 
 	// 3. Products
 	_ = s.db.QueryRowContext(ctx, `
-		SELECT 
+		SELECT
 			COUNT(*),
-			COUNT(*) FILTER (WHERE publication_status = 'PUBLISHED')
+			COUNT(*) FILTER (WHERE publication_status = 'PUBLISHED'),
+			COUNT(*) FILTER (WHERE publication_status = 'DRAFT'),
+			COUNT(*) FILTER (WHERE publication_status = 'ARCHIVED')
 		FROM products
-	`).Scan(&stats.TotalProducts, &stats.PublishedProducts)
+	`).Scan(&stats.TotalProducts, &stats.PublishedProducts, &stats.DraftProducts, &stats.ArchivedProducts)
 
-	// Out of stock products: products where all variants have sum(available) <= 0
+	// Out-of-stock anomalies: published products with nothing left to sell.
+	// Same rule as the admin product list's PUBLISHED + OUT_OF_STOCK filters,
+	// which the dashboard links to, so both show the same number.
 	_ = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM (
-			SELECT p.id
-			FROM products p
-			LEFT JOIN inventory inv ON p.id = inv.product_id
-			GROUP BY p.id
-			HAVING COALESCE(SUM(inv.quantity - inv.reserved_quantity), 0) <= 0
-		) out_of_stock
+		FROM products p
+		WHERE p.publication_status = 'PUBLISHED'
+		  AND COALESCE((SELECT SUM(inv.quantity - inv.reserved_quantity) FROM inventory inv WHERE inv.product_id = p.id), 0) <= 0
 	`).Scan(&stats.OutOfStockProducts)
 
 	// 4. Orders

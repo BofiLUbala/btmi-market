@@ -127,7 +127,7 @@ type SellerTrustInfo struct {
 
 type PointRedemptionPreviewRequest struct {
 	ShopID    string           `json:"shop_id" binding:"required"`
-	Items     []OrderLineInput `json:"items" binding:"required,min=1"`
+	Items     []OrderLineInput `json:"items" binding:"required,min=1,dive"`
 	UsePoints bool             `json:"use_points"`
 }
 

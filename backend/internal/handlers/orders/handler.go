@@ -65,16 +65,11 @@ func (h *Handler) sellerActionError(c *gin.Context, userID, orderID uuid.UUID, a
 		statusCode = http.StatusBadRequest
 		errorCode = "INVALID_STATUS_TRANSITION"
 		message = "This order is no longer pending - it has already been handled. Refresh to see its current status."
-	case "DELIVERY_METHOD_REQUIRED", "PAYMENT_METHOD_REQUIRED", "PAYMENT_NOT_SETTLED", "COURIER_STEP_ONLY":
+	case "DELIVERY_METHOD_REQUIRED", "PAYMENT_METHOD_REQUIRED", "PAYMENT_NOT_SETTLED", "COURIER_STEP_ONLY", "COURIER_NOT_ASSIGNED":
 		// A step before this one is still open; the seller waits for it rather than skipping it.
 		statusCode = http.StatusConflict
 		errorCode = err.Error()
-		message = map[string]string{
-			"DELIVERY_METHOD_REQUIRED": "The buyer has not confirmed the delivery address yet.",
-			"PAYMENT_METHOD_REQUIRED":  "The buyer has not chosen how to pay yet.",
-			"PAYMENT_NOT_SETTLED":      "This order is paid in advance and the payment has not been received yet.",
-			"COURIER_STEP_ONLY":        "Only the TBK courier can record this delivery step.",
-		}[err.Error()]
+		message = sellerStepMessages[err.Error()]
 	}
 
 	// Current status is read separately: the action failed, so the service
@@ -335,66 +330,24 @@ func (h *Handler) SellerTransitionOrder(c *gin.Context) {
 		case "SELLER_CANNOT_CONFIRM_RECEIVED":
 			statusCode = http.StatusBadRequest
 			errorCode = "SELLER_CANNOT_CONFIRM_RECEIVED"
-		case "DELIVERY_METHOD_REQUIRED", "PAYMENT_METHOD_REQUIRED", "PAYMENT_NOT_SETTLED", "COURIER_STEP_ONLY", "ACTOR_NOT_ALLOWED":
+		case "DELIVERY_METHOD_REQUIRED", "PAYMENT_METHOD_REQUIRED", "PAYMENT_NOT_SETTLED", "COURIER_STEP_ONLY", "COURIER_NOT_ASSIGNED", "ACTOR_NOT_ALLOWED":
 			statusCode = http.StatusConflict
 			errorCode = err.Error()
+		}
+		message := err.Error()
+		if friendly, ok := sellerStepMessages[errorCode]; ok {
+			message = friendly
 		}
 		if strings.HasPrefix(err.Error(), "INVALID_TRANSITION:") {
 			statusCode = http.StatusBadRequest
 			errorCode = "INVALID_TRANSITION"
 		}
-		h.errResponse(c, statusCode, errorCode, err.Error())
+		h.errResponse(c, statusCode, errorCode, message)
 		return
 	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Order status updated",
-		Data:    toOrderResponse(updated),
-	})
-}
-
-// POST /api/v1/buyer/orders/:order_id/received
-func (h *Handler) ConfirmBuyerReceived(c *gin.Context) {
-	buyerProfileID, ok := h.extractBuyerProfileID(c)
-	if !ok {
-		return
-	}
-	orderID, ok := h.parseUUIDParam(c, "order_id")
-	if !ok {
-		return
-	}
-	userID, _ := c.Get("user_id")
-
-	// Verify buyer owns this order.
-	order, err := h.orderService.GetOrderRaw(orderID)
-	if err != nil {
-		h.errResponse(c, http.StatusNotFound, "ORDER_NOT_FOUND", "Order not found")
-		return
-	}
-	if order.BuyerProfileID == nil || *order.BuyerProfileID != buyerProfileID {
-		h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "Not your order")
-		return
-	}
-
-	// Receipt and payment are independent. Completion only happens when both exist.
-	updated, err := h.orderService.TransitionOrder(order.ID, userID.(uuid.UUID), models.OrderStatusReceived, "Buyer confirmed received", "BUYER")
-	if err != nil {
-		statusCode := http.StatusBadRequest
-		errorCode := "INVALID_TRANSITION"
-		if strings.HasPrefix(err.Error(), "INVALID_TRANSITION:") {
-			statusCode = http.StatusBadRequest
-			errorCode = "INVALID_TRANSITION"
-		}
-		h.errResponse(c, statusCode, errorCode, err.Error())
-		return
-	}
-
-	if completed, completeErr := h.orderService.CompleteIfReceivedAndPaid(order.ID); completeErr == nil {
-		updated = completed
-	}
-
-	c.JSON(http.StatusOK, models.SuccessResponse{
-		Message: "Order received confirmed",
 		Data:    toOrderResponse(updated),
 	})
 }
@@ -1299,4 +1252,14 @@ func (h *Handler) AdminConfirmReturnToSeller(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": gin.H{"order_id": orderID, "delivery_status": "RETURNED_TO_SELLER"}})
+}
+
+// sellerStepMessages explain why a seller action waits on an earlier step.
+var sellerStepMessages = map[string]string{
+	"DELIVERY_METHOD_REQUIRED": "The buyer has not confirmed the delivery address yet.",
+	"PAYMENT_METHOD_REQUIRED":  "The buyer has not chosen how to pay yet.",
+	"PAYMENT_NOT_SETTLED":      "This order is paid in advance and the payment has not been received yet.",
+	"COURIER_STEP_ONLY":        "Only the TBK courier can record this delivery step.",
+	"COURIER_NOT_ASSIGNED":     "TBK has not assigned a courier to this order yet. Mark it ready once a courier is assigned.",
+	"ACTOR_NOT_ALLOWED":        "This step is not yours to record.",
 }

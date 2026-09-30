@@ -796,18 +796,33 @@ func (s *InventoryService) GetStockMovements(userID, shopID uuid.UUID) ([]*model
 	return responses, nil
 }
 
-func (s *InventoryService) GetStockEvents() []models.StockEvent {
+// maxStockEvents bounds the in-memory event log so a busy process never grows it without limit.
+const maxStockEvents = 1000
+
+// GetStockEvents returns the recent stock events of one business the caller belongs to.
+// Events of other businesses are never returned.
+func (s *InventoryService) GetStockEvents(userID, businessID uuid.UUID) ([]models.StockEvent, error) {
+	if err := s.requireMembership(userID, businessID); err != nil {
+		return nil, err
+	}
 	s.eventsMutex.RLock()
 	defer s.eventsMutex.RUnlock()
 
-	events := make([]models.StockEvent, len(s.stockEvents))
-	copy(events, s.stockEvents)
-	return events
+	events := make([]models.StockEvent, 0)
+	for _, e := range s.stockEvents {
+		if e.BusinessID == businessID {
+			events = append(events, e)
+		}
+	}
+	return events, nil
 }
 
 func (s *InventoryService) emitEvent(event models.StockEvent) {
 	s.eventsMutex.Lock()
 	s.stockEvents = append(s.stockEvents, event)
+	if over := len(s.stockEvents) - maxStockEvents; over > 0 {
+		s.stockEvents = append(s.stockEvents[:0:0], s.stockEvents[over:]...)
+	}
 	s.eventsMutex.Unlock()
 }
 

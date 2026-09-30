@@ -20,13 +20,12 @@ export default function LoginScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
-  const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('buyer')
-  const [password, setPassword] = useState('')
+  const { email, setEmail, password, setPassword, remember, setRemember, prefilled, passwordPrefilled, persist, forgetPassword } = useRememberedEmail('buyer')
   const [error, setError] = useState('')
   const [notActivated, setNotActivated] = useState(false)
   const passwordRef = useRef<TextInput>(null)
   // A remembered e-mail is filled in: go straight to the password.
-  useEffect(() => { if (prefilled) passwordRef.current?.focus() }, [prefilled])
+  useEffect(() => { if (prefilled && !passwordPrefilled) passwordRef.current?.focus() }, [prefilled, passwordPrefilled])
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -35,7 +34,7 @@ export default function LoginScreen() {
     setError(''); setNotActivated(false); setBusy(true)
     try {
       await login(email.trim().toLowerCase(), password)
-      await persist(email)
+      await persist(email, password)
       if (await sellerIntent.isFor(email)) {
         await authApi.becomeSeller(); await refresh(); await sellerIntent.clear()
         router.replace('/seller/onboarding')
@@ -53,7 +52,7 @@ export default function LoginScreen() {
       router.replace('/(buyer)')
     } catch (cause) {
       if (cause instanceof ApiError) {
-        if (cause.code === 'INVALID_CREDENTIALS') setError(t('auth.invalidCredentials'))
+        if (cause.code === 'INVALID_CREDENTIALS') { setError(t('auth.invalidCredentials')); if (passwordPrefilled) { setPassword(''); void forgetPassword() } }
         else if (cause.code === 'ACCOUNT_NOT_ACTIVATED') { setNotActivated(true); setError(t('auth.accountNotActivated')) }
         else if (cause.code === 'NETWORK_ERROR') setError(t('errors.network'))
         else setError(t('auth.loginFailedGeneric'))

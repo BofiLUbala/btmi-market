@@ -8,31 +8,32 @@ import { isTerminalDeliveryStatus, isTerminalOrderStatus } from '@/lib/orderStat
 import './courier.css'
 import { CourierHandoverPanel } from '@/components/courier/CourierHandoverPanel'
 import { CourierPlanPanel } from '@/components/courier/CourierPlanPanel'
+import { CourierDeliveredPanel, cashLabel } from '@/components/courier/CourierDeliveredPanel'
 import { useOrderEvents } from '@/lib/orderEvents'
 
-import type { CourierMission, CourierProfile } from '@/api/types'
+import type { CourierEarnings, CourierMission, CourierProfile } from '@/api/types'
 import { formatMoney } from '@/lib/format'
 
 // Delivery statuses in which the courier is at the buyer's door.
 const HANDOVER_STATUSES=['COURIER_ARRIVED','DELIVERY_SCAN_SUCCESS','AWAITING_BUYER_CONFIRMATION']
 
 type Availability='AVAILABLE'|'BUSY'|'UNAVAILABLE'
-type View='dashboard'|'assigned'|'active'|'scanner'|'history'|'availability'|'notifications'|'profile'|'detail'
+type View='dashboard'|'assigned'|'active'|'scanner'|'delivered'|'history'|'availability'|'notifications'|'profile'|'detail'
 type Profile=CourierProfile
 type Mission=CourierMission
 type History={order_id:string;order_number:string;shop_name:string;delivery_address:string;final_status:string;delivered_at?:string}
 type Notice={id:string;title:string;body:string;type:string;is_read:boolean;created_at:string;reference_id?:string}
 
-const iconPaths={dashboard:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></>,assigned:<><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>,active:<><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-5"/></>,scanner:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h4v4h-7v-3"/></>,history:<><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></>,availability:<><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></>,notifications:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,profile:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,logout:<><path d="M10 17l5-5-5-5M15 12H3M21 3v18h-7"/></>,arrow:<><path d="M5 12h14M15 8l4 4-4 4"/></>,empty:<><path d="M4 7h16v12H4zM4 7l3-4h10l3 4M9 12h6"/></>}
+const iconPaths={dashboard:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></>,assigned:<><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>,active:<><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-5"/></>,scanner:<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h4v4h-7v-3"/></>,delivered:<><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></>,cash:<><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></>,history:<><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></>,availability:<><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></>,notifications:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,profile:<><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,logout:<><path d="M10 17l5-5-5-5M15 12H3M21 3v18h-7"/></>,arrow:<><path d="M5 12h14M15 8l4 4-4 4"/></>,empty:<><path d="M4 7h16v12H4zM4 7l3-4h10l3 4M9 12h6"/></>}
 type IconName=keyof typeof iconPaths
 function Icon({name}:{name:IconName}){return <svg className="courier-icon" viewBox="0 0 24 24" aria-hidden="true">{iconPaths[name]}</svg>}
 
 const TRANSPORT_LABEL:Record<string,string>={MOTORCYCLE:'Moto',BICYCLE:'Vélo',CAR:'Voiture',VAN:'Camionnette',FOOT:'À pied',TRUCK:'Camion'}
 const COURIER_STATUS_LABEL:Record<string,string>={ACTIVE:'Actif',PENDING:'En attente',SUSPENDED:'Suspendu',DISABLED:'Désactivé'}
-const nav:Array<{id:View;label:string;icon:IconName}>=[{id:'dashboard',label:'Tableau de bord',icon:'dashboard'},{id:'assigned',label:'Missions assignées',icon:'assigned'},{id:'active',label:'Mission active',icon:'active'},{id:'scanner',label:'Scanner QR',icon:'scanner'},{id:'history',label:'Historique',icon:'history'},{id:'availability',label:'Disponibilité',icon:'availability'},{id:'notifications',label:'Notifications',icon:'notifications'},{id:'profile',label:'Profil',icon:'profile'}]
+const nav:Array<{id:View;label:string;icon:IconName}>=[{id:'dashboard',label:'Tableau de bord',icon:'dashboard'},{id:'assigned',label:'Missions assignées',icon:'assigned'},{id:'active',label:'Mission active',icon:'active'},{id:'scanner',label:'Scanner QR',icon:'scanner'},{id:'delivered',label:'Produits livrés',icon:'delivered'},{id:'history',label:'Historique',icon:'history'},{id:'availability',label:'Disponibilité',icon:'availability'},{id:'notifications',label:'Notifications',icon:'notifications'},{id:'profile',label:'Profil',icon:'profile'}]
 
 export default function CourierDashboardPage(){
-  const {logout}=useAuth(),navigate=useNavigate();const[view,setView]=useState<View>('dashboard'),[selected,setSelected]=useState<Mission|null>(null),[profile,setProfile]=useState<Profile|null>(null),[missions,setMissions]=useState<Mission[]>([]),[history,setHistory]=useState<History[]>([]),[notices,setNotices]=useState<Notice[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[missionError,setMissionError]=useState(''),[historyError,setHistoryError]=useState(''),[noticeError,setNoticeError]=useState(''),[success,setSuccess]=useState('')
+  const {logout}=useAuth(),navigate=useNavigate();const[view,setView]=useState<View>('dashboard'),[selected,setSelected]=useState<Mission|null>(null),[profile,setProfile]=useState<Profile|null>(null),[missions,setMissions]=useState<Mission[]>([]),[history,setHistory]=useState<History[]>([]),[notices,setNotices]=useState<Notice[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[missionError,setMissionError]=useState(''),[historyError,setHistoryError]=useState(''),[noticeError,setNoticeError]=useState(''),[success,setSuccess]=useState(''),[earnings,setEarnings]=useState<CourierEarnings|null>(null)
   const seenNotificationIds=useRef<Set<string>>(new Set()),[toast,setToast]=useState<{message:string;type:'info'|'success'} | null>(null)
   const {t}=useI18n()
   const showToast=(message:string,type:'info'|'success'='info')=>{setToast({message,type});setTimeout(()=>setToast(null),5000)}
@@ -51,6 +52,7 @@ export default function CourierDashboardPage(){
           courierApi.getHistory(30).catch(()=>{setHistoryError('Impossible de charger l\'historique.');return null})
         ]);
         setMissions(Array.isArray(m)?m:[]);setHistory(Array.isArray(h)?h:[])
+        courierApi.getEarnings().then(setEarnings).catch(()=>{})
       }
       setNoticeError('');
       const n=await api<{items?:Notice[];notifications?:Notice[]}>('/notifications?limit=50&offset=0').catch(():{items?:Notice[];notifications?:Notice[]}=>{setNoticeError('Impossible de charger les notifications.');return{items:[]}});
@@ -99,7 +101,7 @@ export default function CourierDashboardPage(){
   <nav className="courier-mobile-nav" aria-label="Navigation mobile">{nav.filter(n=>['dashboard','assigned','scanner','history','profile'].includes(n.id)).map(item=><button key={item.id} className={view===item.id?'is-selected':''} onClick={()=>choose(item.id)}><Icon name={item.icon}/><span>{item.id==='dashboard'?'Accueil':item.id==='assigned'?'Missions':item.label}</span>{item.id==='assigned'&&assigned.length>0&&<b>{assigned.length}</b>}</button>)}</nav>
  </div></main>
 
- function renderView(){switch(view){case'dashboard':return <Overview/>;case'assigned':return <MissionSection items={assigned} empty="Aucune mission assignée." assignedMode/>;case'active':return current?ActiveMission({mission:current}):<Empty title="Aucune mission active." body="Acceptez une mission assignée pour commencer."/>;case'scanner':return <Scanner/>;case'history':return <HistoryPanel/>;case'availability':return <AvailabilityPanel/>;case'notifications':return <NotificationsPanel/>;case'profile':return <ProfilePanel/>;case'detail':return selected?ActiveMission({mission:selected}):<Empty title="Mission introuvable." body="Revenez à la liste des missions."/>}}
+ function renderView(){switch(view){case'dashboard':return <Overview/>;case'assigned':return <MissionSection items={assigned} empty="Aucune mission assignée." assignedMode/>;case'active':return current?ActiveMission({mission:current}):<Empty title="Aucune mission active." body="Acceptez une mission assignée pour commencer."/>;case'scanner':return <Scanner/>;case'delivered':return <CourierDeliveredPanel/>;case'history':return <HistoryPanel/>;case'availability':return <AvailabilityPanel/>;case'notifications':return <NotificationsPanel/>;case'profile':return <ProfilePanel/>;case'detail':return selected?ActiveMission({mission:selected}):<Empty title="Mission introuvable." body="Revenez à la liste des missions."/>}}
  // ActiveMission is called as a plain function, not mounted as <ActiveMission/>: it is
  // redefined on every render of this page, and the page re-renders on its 15s poll. As a
   // component it would get a new type each time and remount the handover panel below it,
@@ -127,6 +129,9 @@ export default function CourierDashboardPage(){
               <Stat icon="assigned" value={assigned.length} label="Missions assignées" />
               <Stat icon="active" value={active.length} label="Missions actives" />
               <Stat icon="history" value={history.length} label="Livraisons terminées" />
+              <button type="button" className="courier-stat-link" onClick={() => choose('delivered')}>
+                <Stat icon="cash" value={cashLabel(earnings)} label={`Encaissé aujourd’hui · ${earnings?.orders_delivered ?? 0} livraison${(earnings?.orders_delivered ?? 0) === 1 ? '' : 's'}`} />
+              </button>
             </section>
             <section className="courier-glass courier-section">
               <Heading title="Mission actuelle" eyebrow="Priorité" />
@@ -183,7 +188,7 @@ export default function CourierDashboardPage(){
 }
 
 function Heading({title,eyebrow}:{title:string;eyebrow:string}){return <div className="courier-heading"><div><p className="courier-eyebrow">{eyebrow}</p><h2>{title}</h2></div></div>}
-function Stat({icon,value,label}:{icon:IconName;value:number;label:string}){return <article className="courier-glass courier-stat"><span><Icon name={icon}/></span><div><strong>{value}</strong><small>{label}</small></div></article>}
+function Stat({icon,value,label}:{icon:IconName;value:number|string;label:string}){return <article className="courier-glass courier-stat"><span><Icon name={icon}/></span><div><strong>{value}</strong><small>{label}</small></div></article>}
 function Fact({label,value}:{label:string;value?:string}){return <div className="courier-fact"><small>{label}</small><strong>{value||'—'}</strong></div>}
 function Empty({title,body}:{title:string;body:string}){return <div className="courier-empty"><Icon name="empty"/><strong>{title}</strong><p>{body}</p></div>}
 function SectionError({message,retry}:{message:string;retry:()=>void|Promise<void>}){return <div className="courier-section-error" role="alert"><span>{message}</span><button onClick={()=>void retry()}>Réessayer</button></div>}

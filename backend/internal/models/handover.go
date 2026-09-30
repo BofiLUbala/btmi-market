@@ -130,7 +130,7 @@ type HandoverLineAcknowledgement struct {
 }
 
 type AcknowledgeHandoverRequest struct {
-	Lines []HandoverLineAcknowledgement `json:"lines" binding:"required,min=1"`
+	Lines []HandoverLineAcknowledgement `json:"lines" binding:"required,min=1,dive"`
 }
 
 // ConfirmCashRequest carries the courier's explicit statement that the cash was handed

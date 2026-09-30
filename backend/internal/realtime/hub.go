@@ -11,6 +11,7 @@ package realtime
 import (
 	"database/sql"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,10 +21,12 @@ import (
 
 const channel = "tbk_order_events"
 
-// Event is what a stream receives. Kind "order" names one order; kind
+// Event is what a stream receives. Kind "order" names one order; kinds
+// "stock" and "cash" say that one business's stock or cash changed; kind
 // "resync" asks the client to refetch everything after a listener gap.
 type Event struct {
 	Kind           string `json:"kind"`
+	BusinessID     string `json:"business_id,omitempty"`
 	OrderID        string `json:"order_id,omitempty"`
 	OrderNumber    string `json:"order_number,omitempty"`
 	Status         string `json:"status,omitempty"`
@@ -120,6 +123,15 @@ func (h *Hub) dispatch(orderIDText string) {
 		h.broadcast(Event{Kind: "tariff"})
 		return
 	}
+	// Stock and cash changes go to the members of that business only.
+	if kind, id, ok := strings.Cut(orderIDText, ":"); ok && (kind == "stock" || kind == "cash") {
+		businessID, err := uuid.Parse(id)
+		if err != nil {
+			return
+		}
+		h.dispatchBusiness(Event{Kind: kind, BusinessID: businessID.String()}, businessID)
+		return
+	}
 	orderID, err := uuid.Parse(orderIDText)
 	if err != nil {
 		return
@@ -151,6 +163,16 @@ func (h *Hub) dispatch(orderIDText string) {
 			continue
 		}
 		send(s, ev)
+	}
+}
+
+func (h *Hub) dispatchBusiness(ev Event, businessID uuid.UUID) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for s := range h.subs {
+		if !s.Admin && s.BusinessIDs[businessID] {
+			send(s, ev)
+		}
 	}
 }
 

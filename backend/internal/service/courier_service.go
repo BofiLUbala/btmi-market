@@ -850,6 +850,34 @@ func (s *CourierService) GetHistory(userID uuid.UUID, limit, offset int) ([]*mod
 	return s.courierRepo.GetHistory(userID, limit, offset)
 }
 
+// GetEarnings returns what the courier collected and delivered on day
+// ("YYYY-MM-DD"; empty means today in Kinshasa).
+func (s *CourierService) GetEarnings(userID uuid.UUID, day string) (*models.CourierEarningsResponse, error) {
+	courier, err := s.courierRepo.GetByUserID(userID)
+	if err != nil || courier == nil {
+		return nil, ErrCourierNotFound
+	}
+	if day == "" {
+		day = deliveryDay(time.Now()).Format("2006-01-02")
+	}
+	return s.courierRepo.GetEarnings(userID, day)
+}
+
+// GetDeliveredProducts lists the products the courier delivered, optionally on one day.
+func (s *CourierService) GetDeliveredProducts(userID uuid.UUID, day string, limit, offset int) ([]*models.CourierDeliveredProduct, error) {
+	courier, err := s.courierRepo.GetByUserID(userID)
+	if err != nil || courier == nil {
+		return nil, ErrCourierNotFound
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	return s.courierRepo.GetDeliveredProducts(userID, day, limit, offset)
+}
+
 // ListAllCouriers returns all couriers for Commerce Admin
 func (s *CourierService) ListAllCouriers(limit, offset int) ([]*models.CourierResponse, int, error) {
 	couriers, err := s.courierRepo.ListAll(limit, offset)
