@@ -11,6 +11,8 @@ import { radius, spacing, type Colors } from '../theme'
 import { invalidateCourierMission } from '../lib/courier'
 import type { CourierMission } from '../types'
 import { CourierPlanPanel } from './CourierPlanPanel'
+import { CourierTrackingBanner } from './CourierTrackingBanner'
+import { startCourierTracking, stopCourierTracking } from '../lib/courierTracking'
 
 /** In-flight stages where a delivery can still fail: after pickup, before the delivery scan. */
 const FAILABLE_STATUSES = ['PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED']
@@ -39,7 +41,12 @@ export function MissionActions({ mission: m, compact = false }: { mission: Couri
           : action === 'start' ? courierApi.startDelivery(m.order_id)
             : action === 'fail' ? courierApi.failDelivery(m.order_id, failReason.trim(), failNotes.trim())
               : courierApi.arrive(m.order_id),
-    onSuccess: () => {
+    onSuccess: (_data, action) => {
+      // GPS follows the server's answer, never the other way round: sharing
+      // starts only once IN_TRANSIT is confirmed and stops when it ends. A
+      // refused permission never undoes or blocks the delivery step.
+      if (action === 'start') void startCourierTracking(m.order_id)
+      if (action === 'arrive' || action === 'fail') void stopCourierTracking()
       setError(''); setRejecting(false); setReason(''); setFailing(false); setFailReason(''); setFailNotes('')
       invalidateCourierMission(queryClient, m.order_id)
       void queryClient.invalidateQueries({ queryKey: ['courier', 'history'] })
@@ -67,6 +74,7 @@ export function MissionActions({ mission: m, compact = false }: { mission: Couri
         <Button variant="outline" title={t('courier.scanPickup')} onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'PICKUP', order_id: m.order_id } })} />
       </> : null}
       <CourierPlanPanel mission={m} />
+      {['IN_TRANSIT', 'COURIER_ARRIVED'].includes(status) ? <CourierTrackingBanner orderId={m.order_id} /> : null}
       {status === 'PICKED_UP' ? <Button title={t('courier.startDelivery')} loading={act.isPending} disabled={!m.expected_delivery_date} onPress={() => act.mutate('start')} /> : null}
       {status === 'IN_TRANSIT' ? (
         <Button

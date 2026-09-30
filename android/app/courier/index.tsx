@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router } from 'expo-router'
@@ -11,6 +11,7 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import { cashLabel, courierStatusLabel } from '../../src/lib/courier'
+import { resumeCourierTrackingIfNeeded } from '../../src/lib/courierTracking'
 import type { CourierAvailability, CourierMission } from '../../src/types'
 
 const FINISHED = ['RECEIVED', 'DELIVERED', 'FAILED', 'CANCELLED', 'COURIER_REJECTED', 'RETURNED_TO_SELLER']
@@ -31,6 +32,9 @@ export default function CourierMissionsScreen() {
     queryFn: courierApi.missions,
     refetchInterval: 15_000,
   })
+  // After a restart or a force-close: an IN_TRANSIT mission is tracked again,
+  // and tracking of any other state is stopped.
+  useEffect(() => { void resumeCourierTrackingIfNeeded(missions.data) }, [missions.data])
 
   if (missions.isLoading) return <Loading label={t('common.loading')} />
   if (missions.isError) {

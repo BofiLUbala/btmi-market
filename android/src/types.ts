@@ -262,7 +262,21 @@ export interface SellerOrder extends BuyerOrder {
 }
 export interface OrderLine { id: string; product_id: string; variant_id: string; quantity: number; unit_price?: number; final_unit_price: number; product_name: string; variant_name?: string; variant_sku?: string; variant_attributes?: Record<string, string>; image_url?: string }
 export interface OrderStatusHistory { id: string; order_id: string; status: string; changed_by?: string | null; actor_type?: string; notes: string; created_at: string }
-export interface TrackingResponse extends DeliveryPlan { order_id: string; order_number: string; current_status: string; delivery_status?: string | null; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[] }
+export interface TrackingResponse extends DeliveryPlan { order_id: string; order_number: string; current_status: string; delivery_status?: string | null; delivery_method: string; payment_status: string; latest_update: string; latest_update_at?: string | null; history: OrderStatusHistory[]
+  /** True while IN_TRANSIT: the live courier map may be opened. */
+  live_tracking_active?: boolean; delivery_latitude?: number | null; delivery_longitude?: number | null }
+
+/** LIVE < 30 s, RECENT up to 2 min, STALE beyond, UNAVAILABLE without a point. */
+export type LocationFreshness = 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE'
+/** Courier's latest position (buyer who owns the order only). Never names the courier. */
+export interface CourierLocation {
+  order_id: string; delivery_status: string; live_tracking_active: boolean; available: boolean
+  freshness: LocationFreshness; is_stale: boolean; age_seconds: number | null
+  location: { latitude: number; longitude: number; accuracy: number | null; heading: number | null; speed: number | null; captured_at: string; received_at: string } | null
+  delivery_latitude: number | null; delivery_longitude: number | null; delivery_address?: string
+}
+/** One GPS point sent by the courier's phone. */
+export interface CourierLocationPoint { latitude: number; longitude: number; accuracy: number | null; heading: number | null; speed: number | null; captured_at: string }
 export interface BuyerPayment {
   id: string; order_id: string; shop_id: string; shop_name?: string
   payment_method: string; currency: string
@@ -439,6 +453,9 @@ export interface SelectDeliveryRequest {
   province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
   province_id?: string; city_id?: string; commune_id?: string
   save_address?: boolean
+  /** Optional exact delivery point; the written address alone is always valid. */
+  latitude?: number
+  longitude?: number
 }
 
 export interface DeliveryPointsPreview {

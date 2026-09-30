@@ -13,8 +13,12 @@ import { adminApi } from '../api/admin'
  * data they could not already read. The existing polling stays as a fallback.
  */
 export interface OrderEvent {
-  /** stock/cash: that business's stock or cash changed (sent to its members only). */
-  kind: 'order' | 'resync' | 'tariff' | 'stock' | 'cash'
+  /**
+   * stock/cash: that business's stock or cash changed (sent to its members only).
+   * location: the courier carrying order_id sent a new position (sent to its
+   * buyer only); no coordinates, refetch them from courier-location.
+   */
+  kind: 'order' | 'resync' | 'tariff' | 'stock' | 'cash' | 'location'
   business_id?: string
   order_id?: string
   status?: string
@@ -66,7 +70,7 @@ async function run(audience: Audience, abort: AbortController) {
           while ((end = buffer.indexOf('\n\n')) >= 0) {
             const block = buffer.slice(0, end)
             buffer = buffer.slice(end + 2)
-            if (!block.includes('event: order')) continue
+            if (!block.includes('event: order') && !block.includes('event: location')) continue
             const data = block.split('\n').find((line) => line.startsWith('data: '))
             if (!data) continue
             try { emit(audience, JSON.parse(data.slice(6)) as OrderEvent) } catch { /* malformed frame */ }
@@ -118,6 +122,8 @@ export function useOrderEvents(onChange: Listener, options: { orderId?: string; 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     const unsubscribe = subscribeOrderEvents(audience, (event) => {
+      // Position pings (every ~10 s) only reach the live map, never a full reload.
+      if (event.kind === 'location') return
       if (orderId && event.kind === 'order' && event.order_id !== orderId) return
       clearTimeout(timer)
       timer = setTimeout(() => callback.current(event), 150)
@@ -134,7 +140,8 @@ export function useLiveOrderQueries(queryClient: QueryClient, enabled: boolean) 
   useEffect(() => {
     if (!enabled) return
     let timer: ReturnType<typeof setTimeout> | undefined
-    const unsubscribe = subscribeOrderEvents('user', () => {
+    const unsubscribe = subscribeOrderEvents('user', (event) => {
+      if (event.kind === 'location') return
       clearTimeout(timer)
       timer = setTimeout(() => void queryClient.invalidateQueries({ refetchType: 'active' }), 150)
     })

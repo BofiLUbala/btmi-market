@@ -339,6 +339,11 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
 
       <DeliveryPlanCard plan={o} status={o.status} deliveryStatus={o.delivery_status} deliveryMethod={deliveryMethod} />
 
+      {/* Live courier map: only while the parcel is on its way. Viewing it asks the buyer for no permission. */}
+      {o.delivery_status === 'IN_TRANSIT' ? (
+        <Button title={`🛵 ${t('liveMap.follow')}`} onPress={() => router.push({ pathname: '/orders/live', params: { id: id! } })} />
+      ) : null}
+
       {/* web "Articles" card: purchased lines, then products subtotal, points, delivery and total due */}
       <Card>
         <Text style={styles.cardH2}>{t('web.orders.items' as TranslationKey)}</Text>

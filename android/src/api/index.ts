@@ -14,7 +14,7 @@ import type {
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
-  TrackingResponse, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
+  TrackingResponse, CourierLocation, CourierLocationPoint, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
   CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
   HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct } from '../types'
 
@@ -121,6 +121,7 @@ export const buyerApi = {
   orders: () => get<BuyerOrder[]>('/buyer/orders'),
   order: (id: string) => get<OrderDetail>(`/buyer/orders/${id}`),
   tracking: (id: string) => get<TrackingResponse>(`/buyer/orders/${id}/tracking`),
+  courierLocation: (id: string) => get<CourierLocation>(`/buyer/orders/${id}/courier-location`),
   confirmReceived: (id: string) => post(`/buyer/orders/${id}/confirm-receipt`),
   /** Where the handover stands, and what the buyer may do next. */
   handover: (id: string) => get<HandoverState>(`/buyer/orders/${id}/handover`),
@@ -346,6 +347,9 @@ export const courierApi = {
     post<{ outcome: 'RESCHEDULED' | 'RETURNING_TO_SELLER'; delivery_attempts: number }>(`/courier/missions/${orderId}/buyer-not-found`, body),
   startDelivery: (orderId: string) => post(`/courier/missions/${orderId}/start`, {}),
   arrive: (orderId: string) => post(`/courier/missions/${orderId}/arrive`, {}),
+  /** Live GPS while IN_TRANSIT; 409 TRACKING_NOT_ACTIVE once the mission left it. */
+  reportLocation: (orderId: string, point: CourierLocationPoint) =>
+    post<{ accepted: boolean; reason?: string }>(`/courier/missions/${orderId}/location`, point),
 
   /* handover at the door */
   handover: (orderId: string) => get<HandoverState>(`/courier/missions/${orderId}/handover`),

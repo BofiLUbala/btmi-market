@@ -15,6 +15,12 @@ import { formatMoney } from '../../src/lib/money'
 import { CheckoutProgress } from '../../src/components/CheckoutProgress'
 import { AddressSummary, CardHead, CheckoutCard, CheckoutHeading, Divider, Eyebrow, H2, OptionCard, SmallText, ToggleSwitch, UnderlineLink, checkoutPage } from '../../src/components/CheckoutUI'
 import type { TranslationKey } from '../../src/locales/fr'
+import { DeliveryPointPicker, type DeliveryPoint } from '../../src/components/DeliveryPointPicker'
+
+/** The point saved with the profile address, if the buyer ever shared one. */
+function savedPointOf(profile: any): DeliveryPoint | null {
+  return profile?.latitude != null && profile?.longitude != null ? { latitude: profile.latitude, longitude: profile.longitude } : null
+}
 
 const money = (value: number, currency?: string) => formatMoney(value, currency)
 
@@ -61,6 +67,9 @@ export default function DeliveryScreen() {
   // First checkout: store the address as primary by default. Returning buyer
   // editing their address: opt-in, so a temporary address stays temporary.
   const [savePrimary, setSavePrimary] = useState(() => !savedAddress)
+  // Optional exact point: the saved address keeps its own; another address
+  // starts without one (the old point would be wrong).
+  const [point, setPoint] = useState<DeliveryPoint | null>(() => (savedAddress ? savedPointOf(profileQuery.data) : null))
 
   useEffect(() => {
     if (!profileQuery.data && !user) return
@@ -130,6 +139,7 @@ export default function DeliveryScreen() {
         street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
         notes: contact.notes.trim(),
         save_address: saveAddress,
+        ...(point ? { latitude: point.latitude, longitude: point.longitude } : {}),
       })
       const first = await buyerApi.selectDelivery(orderId!, body(mode === 'saved' ? false : savePrimary))
       // The other orders of the group get the same address, applied by the same endpoint.
@@ -210,8 +220,9 @@ export default function DeliveryScreen() {
             <>
               <SmallText>{w('delivery.savedAddress')}</SmallText>
               <AddressSummary value={savedAddress} />
+              <DeliveryPointPicker value={point} onChange={setPoint} />
               <Button title={w('delivery.useSavedAddress')} onPress={submit} loading={selectMutation.isPending} />
-              <UnderlineLink title={w('delivery.useAnotherAddress')} onPress={() => { setError(''); setMode('custom') }} />
+              <UnderlineLink title={w('delivery.useAnotherAddress')} onPress={() => { setError(''); setPoint(null); setMode('custom') }} />
             </>
           ) : null}
 
@@ -219,6 +230,7 @@ export default function DeliveryScreen() {
             <>
               <StructuredAddressFields value={address} onChange={setAddress} />
               {isStructuredAddressComplete(address) ? <AddressSummary value={address} /> : <SmallText>{w('delivery.addressIncomplete')}</SmallText>}
+              <DeliveryPointPicker value={point} onChange={setPoint} />
               <TouchableOpacity style={styles.checkbox} onPress={() => setSavePrimary(!savePrimary)} accessibilityRole="checkbox" accessibilityState={{ checked: savePrimary }}>
                 <View style={[styles.checkboxTick, savePrimary && styles.checkboxTickOn]}>
                   {savePrimary ? <Ionicons name="checkmark" size={14} color={colors.onGreen} /> : null}
@@ -229,7 +241,7 @@ export default function DeliveryScreen() {
                 </View>
               </TouchableOpacity>
               <SmallText>{w('delivery.otherAddressNote')}</SmallText>
-              {savedAddress ? <UnderlineLink title={w('delivery.backToSavedAddress')} onPress={() => { setError(''); setMode('saved') }} /> : null}
+              {savedAddress ? <UnderlineLink title={w('delivery.backToSavedAddress')} onPress={() => { setError(''); setPoint(savedPointOf(profileQuery.data)); setMode('saved') }} /> : null}
               <Button title={w('delivery.continueToReview')} loading={selectMutation.isPending} disabled={formInvalid} onPress={submit} />
             </>
           ) : null}

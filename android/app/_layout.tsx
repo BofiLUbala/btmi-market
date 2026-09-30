@@ -1,5 +1,7 @@
 // Must run before any screen builds its styles (see src/typography.ts).
 import '../src/typography'
+// Registers the courier GPS task at startup, before Android delivers locations to it.
+import '../src/lib/courierTracking'
 import { useEffect } from 'react'
 import { useFonts } from 'expo-font'
 import { fontAssets } from '../src/typography'
@@ -72,6 +74,7 @@ function RootNavigator() {
         <Stack.Screen name="checkout/success" options={{ header: checkoutHeader }} />
         <Stack.Screen name="orders/index" options={{ header: storeHeader, title: t('profile.myOrders') }} />
         <Stack.Screen name="orders/[id]" options={{ header: storeHeader, title: t('orders.detailTitle') }} />
+        <Stack.Screen name="orders/live" options={{ title: t('liveMap.follow') }} />
         <Stack.Screen name="notifications" options={{ header: storeHeader, title: t('notifications.title') }} />
         <Stack.Screen name="points/index" options={{ header: storeHeader, title: t('points.link') }} />
         <Stack.Screen name="points/history" options={{ header: storeHeader, title: t('points.history') }} />

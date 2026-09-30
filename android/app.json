@@ -3,7 +3,7 @@
     "name": "TBK",
     "slug": "tbk",
     "scheme": "tbk",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -54,7 +54,18 @@
       ],
       "expo-image",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "TBK utilise votre position pour partager le trajet du livreur avec l'acheteur pendant une livraison, ou pour indiquer votre point de livraison si vous le demandez.",
+          "locationAlwaysAndWhenInUsePermission": "Pendant une livraison en cours, TBK partage la position du livreur avec l'acheteur, même écran éteint. Le partage s'arrête à l'arrivée.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-task-manager"
     ],
     "extra": {
       "router": {},

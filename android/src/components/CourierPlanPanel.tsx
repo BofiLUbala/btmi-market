@@ -8,6 +8,7 @@ import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { radius, spacing, type Colors } from '../theme'
 import { invalidateCourierMission } from '../lib/courier'
+import { stopCourierTracking } from '../lib/courierTracking'
 import { DELIVERY_SLOTS, deliveryDays, expectedDeliveryText, formatDeliveryDay } from '../lib/deliveryPlan'
 import type { CourierMission } from '../types'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -44,7 +45,8 @@ export function CourierPlanPanel({ mission: m }: { mission: CourierMission }) {
   const lastAttempt = (m.delivery_attempts || 0) + 1 >= 2
   const report = useMutation({
     mutationFn: () => courierApi.buyerNotFound(m.order_id, lastAttempt ? { reason: t(reason) } : { reason: t(reason), next_date: nextDate, next_slot: nextSlot }),
-    onSuccess: () => { setReporting(false); done() },
+    // The parcel goes back to PICKED_UP or to the seller: tracking ends either way.
+    onSuccess: () => { void stopCourierTracking(); setReporting(false); done() },
     onError: (e) => setError(e instanceof ApiError && e.message ? e.message : t('courierPlan.notFoundFailed')),
   })
 
