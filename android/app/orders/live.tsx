@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { Suspense, lazy, useMemo } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
 import { Button, ErrorState, Loading } from '../../src/components/ui'
-import { LiveCourierMap } from '../../src/components/LiveCourierMap'
+// MapLibre is a native module: loaded only when this screen opens, so the
+// rest of the app never evaluates it (and Expo Go, which lacks it, still runs).
+const LiveCourierMap = lazy(() => import('../../src/components/LiveCourierMap').then((m) => ({ default: m.LiveCourierMap })))
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
@@ -24,7 +26,9 @@ export default function LiveCourierScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <LiveCourierMap orderId={id!} />
+      <Suspense fallback={<Loading label={t('common.loading')} />}>
+        <LiveCourierMap orderId={id!} />
+      </Suspense>
       <Button variant="outline" title={t('liveMap.backToOrder')} onPress={() => router.back()} />
     </ScrollView>
   )
