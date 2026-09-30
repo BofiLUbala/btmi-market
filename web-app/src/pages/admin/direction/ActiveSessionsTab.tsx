@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { adminDirectionApi, adminMonitoringApi, type ActiveSession } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { LivePresencePanel } from './LivePresencePanel'
 import { LiveToolbar, RoleBadge, SummaryCards, cell, deviceLabel, headRow, tableBox, useLiveReload, useMonitoringSummary } from './monitoringShared'
 
 const ROLES = ['buyer', 'seller', 'employee', 'courier']
@@ -72,6 +73,8 @@ export default function ActiveSessionsTab() {
 
   return (
     <div>
+      <LivePresencePanel />
+      <h2 style={{ fontSize: 18, margin: '0 0 12px', color: '#fff' }}>{t('admin.presence.sessionsTitle')}</h2>
       <SummaryCards summary={summary} />
       <LiveToolbar role={role} onRole={setRole} roles={ROLES} updatedAt={updatedAt} onRefresh={() => void load(true)} refreshing={refreshing} />
       <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>
