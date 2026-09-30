@@ -151,6 +151,12 @@ type Notification struct {
 	CreatedAt     time.Time              `json:"created_at" db:"created_at"`
 }
 
+// MarkChannelReadRequest: the caller has the thread with contact open.
+type MarkChannelReadRequest struct {
+	Contact string `json:"contact" binding:"required"`
+	As      string `json:"as"`
+}
+
 type SendMessageRequest struct {
 	Body string `json:"body" binding:"required"`
 	// Recipient is the party this private message goes to.
@@ -211,7 +217,11 @@ type ConversationListItemResponse struct {
 	BusinessName   string     `json:"business_name"`
 	LastMessage    string     `json:"last_message"`
 	LastSenderType SenderType `json:"last_sender_type"`
-	LastMessageAt  time.Time  `json:"last_message_at"`
+	// Who wrote the last message of the caller's channels and to whom, so a
+	// list can say "Livreur : …" or "Vous → Support TBK : …".
+	LastSenderParty    Party     `json:"last_sender_party,omitempty"`
+	LastRecipientParty Party     `json:"last_recipient_party,omitempty"`
+	LastMessageAt      time.Time `json:"last_message_at"`
 	UnreadCount    int        `json:"unread_count"`
 	CreatedAt      time.Time  `json:"created_at"`
 }

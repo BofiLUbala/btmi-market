@@ -228,7 +228,12 @@ func (s *CommunicationService) contactsFor(conv *models.OrderConversation, order
 // GetOrderConversationDetail returns the caller's private channels on an order.
 // Admins act as the ADMIN party; everyone else as their side of the order
 // (requestedParty picks one when they hold several).
-func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, callerUserID uuid.UUID, requestedParty string, isCommerceAdmin bool) (*models.OrderConversationDetailResponse, error) {
+//
+// markRead keeps the legacy behaviour (every message to the caller's side is
+// marked read on each fetch) for installed apps that rely on it. Current
+// clients pass false and call MarkChannelRead for the thread actually shown,
+// so a background refresh or another tab never clears unread messages.
+func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, callerUserID uuid.UUID, requestedParty string, isCommerceAdmin bool, markRead bool) (*models.OrderConversationDetailResponse, error) {
 	conv, err := s.EnsureOrderConversation(orderID)
 	if err != nil {
 		return nil, err
@@ -245,9 +250,13 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 		if err != nil {
 			return nil, err
 		}
-		s.markConversationRead(conv.ID, callerUserID)
 	}
-	_ = s.orderConvRepo.MarkReadForParty(conv.ID, party)
+	if markRead {
+		if !isCommerceAdmin {
+			s.markConversationRead(conv.ID, callerUserID)
+		}
+		_ = s.orderConvRepo.MarkReadForParty(conv.ID, party)
+	}
 
 	messages, err := s.orderConvRepo.GetMessagesForParty(conv.ID, party)
 	if err != nil {
@@ -291,6 +300,34 @@ func (s *CommunicationService) GetOrderConversationDetail(orderID uuid.UUID, cal
 		Contacts:       s.contactsFor(conv, order, party, shopName, buyerName),
 		Messages:       messages,
 	}, nil
+}
+
+// MarkChannelRead marks read the messages contact sent to the caller's side on
+// this order: only the thread the caller has open on screen.
+func (s *CommunicationService) MarkChannelRead(orderID, callerUserID uuid.UUID, requestedParty, contact string, isCommerceAdmin bool) error {
+	contactParty, ok := models.ParseParty(contact)
+	if !ok {
+		return errors.New("INVALID_RECIPIENT")
+	}
+	conv, err := s.EnsureOrderConversation(orderID)
+	if err != nil {
+		return err
+	}
+	party := models.PartyAdmin
+	if !isCommerceAdmin {
+		order, err := s.orderRepo.GetByID(orderID)
+		if err != nil {
+			return err
+		}
+		if party, _, err = s.resolveParty(conv, order, callerUserID, requestedParty); err != nil {
+			return err
+		}
+		s.markConversationRead(conv.ID, callerUserID)
+	}
+	if !models.CanMessage(party, contactParty) {
+		return errors.New("CHANNEL_NOT_ALLOWED")
+	}
+	return s.orderConvRepo.MarkChannelReadForParty(conv.ID, party, contactParty)
 }
 
 func scopeForParty(p models.Party) models.RecipientScope {
@@ -516,12 +553,12 @@ func (s *CommunicationService) AdminIntervene(
 }
 
 // ListBuyerConversations returns all conversations for the buyer.
-func (s *CommunicationService) ListBuyerConversations(buyerUserID uuid.UUID, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
-	return s.orderConvRepo.ListBuyerConversations(buyerUserID, limit, offset)
+func (s *CommunicationService) ListBuyerConversations(buyerUserID uuid.UUID, withMessages bool, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
+	return s.orderConvRepo.ListBuyerConversations(buyerUserID, withMessages, limit, offset)
 }
 
 // ListSellerConversations returns conversations for the seller.
-func (s *CommunicationService) ListSellerConversations(sellerUserID uuid.UUID, shopID *uuid.UUID, businessID *uuid.UUID, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
+func (s *CommunicationService) ListSellerConversations(sellerUserID uuid.UUID, shopID *uuid.UUID, businessID *uuid.UUID, withMessages bool, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
 	if (shopID == nil || *shopID == uuid.Nil) && (businessID == nil || *businessID == uuid.Nil) {
 		// Find businesses for user
 		businesses, err := s.businessRepo.GetByUserID(sellerUserID)
@@ -531,12 +568,12 @@ func (s *CommunicationService) ListSellerConversations(sellerUserID uuid.UUID, s
 		bid := businesses[0].ID
 		businessID = &bid
 	}
-	return s.orderConvRepo.ListSellerConversations(shopID, businessID, limit, offset)
+	return s.orderConvRepo.ListSellerConversations(shopID, businessID, withMessages, limit, offset)
 }
 
 // ListAdminConversations returns conversations for Commerce Admin supervision.
-func (s *CommunicationService) ListAdminConversations(search string, status string, shopID *uuid.UUID, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
-	return s.orderConvRepo.ListAdminConversations(search, status, shopID, limit, offset)
+func (s *CommunicationService) ListAdminConversations(search string, status string, shopID *uuid.UUID, withMessages bool, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
+	return s.orderConvRepo.ListAdminConversations(search, status, shopID, withMessages, limit, offset)
 }
 
 // GetBuyerUnreadCounts returns total unread messages and notifications for a buyer.

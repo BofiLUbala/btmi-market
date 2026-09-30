@@ -460,6 +460,7 @@ func main() {
 			ordersGroup.GET("/:order_id/items/:item_id/qr/image", qrHandler.OrderItemQRImage)
 			ordersGroup.GET("/:order_id/conversation", commHandler.GetOrderConversation)
 			ordersGroup.POST("/:order_id/messages", commHandler.SendMessage)
+			ordersGroup.POST("/:order_id/messages/read", commHandler.MarkChannelRead)
 		}
 
 		sellerGroup := api.Group("/seller")
@@ -832,6 +833,7 @@ func main() {
 					commerceGroup.GET("/orders/:id/delivery-handover", qrHandler.AdminDelivery)
 					commerceGroup.GET("/orders/:id/courier-location", courierLocationHandler.AdminCourierLocation)
 					commerceGroup.GET("/orders/:id/conversation", commHandler.GetAdminOrderConversation)
+					commerceGroup.POST("/orders/:id/conversation/read", commHandler.AdminMarkChannelRead)
 					commerceGroup.POST("/orders/:id/intervene", commHandler.AdminIntervene)
 					commerceGroup.GET("/order-communications", commHandler.ListAdminOrderCommunications)
 

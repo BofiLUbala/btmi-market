@@ -84,7 +84,7 @@ func (h *Handler) GetOrderConversation(c *gin.Context) {
 		return
 	}
 
-	detail, err := h.commService.GetOrderConversationDetail(orderID, userID, c.Query("as"), false)
+	detail, err := h.commService.GetOrderConversationDetail(orderID, userID, c.Query("as"), false, c.Query("mark_read") != "false")
 	if err != nil {
 		if err.Error() == "FORBIDDEN" {
 			h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "You are not authorized to view this conversation")
@@ -95,6 +95,62 @@ func (h *Handler) GetOrderConversation(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, detail)
+}
+
+// MarkChannelRead handles POST /api/v1/orders/:order_id/messages/read
+// {contact, as}: the caller has this thread open, its messages are read.
+func (h *Handler) MarkChannelRead(c *gin.Context) {
+	userID, ok := h.extractUserID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "order_id")
+	if !ok {
+		return
+	}
+	var req models.MarkChannelReadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "contact is required")
+		return
+	}
+	if err := h.commService.MarkChannelRead(orderID, userID, req.As, req.Contact, false); err != nil {
+		h.channelReadError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"read": true})
+}
+
+// AdminMarkChannelRead handles POST /api/v1/admin/commerce/orders/:id/conversation/read {contact}.
+func (h *Handler) AdminMarkChannelRead(c *gin.Context) {
+	adminID, _, _, ok := h.extractAdmin(c)
+	if !ok {
+		return
+	}
+	orderID, ok := h.parseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req models.MarkChannelReadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "contact is required")
+		return
+	}
+	if err := h.commService.MarkChannelRead(orderID, adminID, "", req.Contact, true); err != nil {
+		h.channelReadError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"read": true})
+}
+
+func (h *Handler) channelReadError(c *gin.Context, err error) {
+	if writeChannelError(h, c, err) {
+		return
+	}
+	if err.Error() == "FORBIDDEN" {
+		h.errResponse(c, http.StatusForbidden, "FORBIDDEN", "You are not authorized to view this conversation")
+		return
+	}
+	h.errResponse(c, http.StatusInternalServerError, "CONVERSATION_ERROR", err.Error())
 }
 
 // SendMessage handles POST /api/v1/orders/:order_id/messages
@@ -160,7 +216,7 @@ func (h *Handler) ListBuyerConversations(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	items, total, err := h.commService.ListBuyerConversations(userID, limit, offset)
+	items, total, err := h.commService.ListBuyerConversations(userID, c.Query("with_messages") == "true", limit, offset)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "LIST_CONVERSATIONS_FAILED", err.Error())
 		return
@@ -218,7 +274,7 @@ func (h *Handler) ListSellerConversations(c *gin.Context) {
 		}
 	}
 
-	items, total, err := h.commService.ListSellerConversations(userID, shopIDPtr, businessIDPtr, limit, offset)
+	items, total, err := h.commService.ListSellerConversations(userID, shopIDPtr, businessIDPtr, c.Query("with_messages") == "true", limit, offset)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "LIST_CONVERSATIONS_FAILED", err.Error())
 		return
@@ -285,7 +341,7 @@ func (h *Handler) ListAdminOrderCommunications(c *gin.Context) {
 		}
 	}
 
-	items, total, err := h.commService.ListAdminConversations(search, status, shopIDPtr, limit, offset)
+	items, total, err := h.commService.ListAdminConversations(search, status, shopIDPtr, c.Query("with_messages") == "true", limit, offset)
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "ADMIN_CONVERSATIONS_FAILED", err.Error())
 		return
@@ -315,7 +371,7 @@ func (h *Handler) GetAdminOrderConversation(c *gin.Context) {
 		return
 	}
 
-	detail, err := h.commService.GetOrderConversationDetail(orderID, adminID, "", true)
+	detail, err := h.commService.GetOrderConversationDetail(orderID, adminID, "", true, c.Query("mark_read") != "false")
 	if err != nil {
 		h.errResponse(c, http.StatusInternalServerError, "CONVERSATION_ERROR", err.Error())
 		return

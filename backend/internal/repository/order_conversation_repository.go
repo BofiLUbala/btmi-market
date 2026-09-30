@@ -241,6 +241,26 @@ func (r *OrderConversationRepository) MarkReadForParty(conversationID uuid.UUID,
 	return err
 }
 
+// MarkChannelReadForParty marks read only the messages contact sent to party:
+// opening the TBK tab must not clear the courier's unread messages.
+func (r *OrderConversationRepository) MarkChannelReadForParty(conversationID uuid.UUID, party, contact models.Party) error {
+	_, err := r.db.Exec(`
+		UPDATE order_messages
+		SET recipient_read_at = NOW(),
+		    read_by_buyer_at = CASE WHEN $2 = 'BUYER' THEN COALESCE(read_by_buyer_at, NOW()) ELSE read_by_buyer_at END,
+		    read_by_seller_at = CASE WHEN $2 = 'SELLER' THEN COALESCE(read_by_seller_at, NOW()) ELSE read_by_seller_at END
+		WHERE conversation_id = $1 AND recipient_party = $2 AND sender_party = $3 AND recipient_read_at IS NULL`,
+		conversationID, string(party), string(contact))
+	return err
+}
+
+// hasPartyMessages keeps conversations holding at least one message of
+// party's own channels (an order opened but never written about is not one).
+// party is a fixed constant, never user input.
+func hasPartyMessages(party models.Party) string {
+	return fmt.Sprintf("EXISTS (SELECT 1 FROM order_messages hm WHERE hm.conversation_id = c.id AND '%s' IN (hm.sender_party, hm.recipient_party))", string(party))
+}
+
 // UnreadByContact counts, per sender party, unread messages addressed to party.
 func (r *OrderConversationRepository) UnreadByContact(conversationID uuid.UUID, party models.Party) (map[models.Party]int, error) {
 	rows, err := r.db.Query(`
@@ -264,12 +284,16 @@ func (r *OrderConversationRepository) UnreadByContact(conversationID uuid.UUID, 
 }
 
 // ListBuyerConversations lists conversations for a buyer with last message and unread count.
-func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
+func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, withMessages bool, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
 	if limit <= 0 {
 		limit = 20
 	}
+	filter := ""
+	if withMessages {
+		filter = " AND " + hasPartyMessages(models.PartyBuyer)
+	}
 
-	countQuery := `SELECT COUNT(*) FROM order_conversations WHERE buyer_id = $1`
+	countQuery := `SELECT COUNT(*) FROM order_conversations c WHERE c.buyer_id = $1` + filter
 	var total int
 	if err := r.db.QueryRow(countQuery, buyerID).Scan(&total); err != nil {
 		return nil, 0, err
@@ -289,6 +313,8 @@ func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, 
 			COALESCE(b.name, '') AS business_name,
 			COALESCE(last_m.body, '') AS last_message,
 			COALESCE(last_m.sender_type, '') AS last_sender_type,
+			COALESCE(last_m.sender_party, '') AS last_sender_party,
+			COALESCE(last_m.recipient_party, '') AS last_recipient_party,
 			COALESCE(last_m.created_at, c.created_at) AS last_message_at,
 			(
 				SELECT COUNT(*) FROM order_messages m
@@ -303,13 +329,13 @@ func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, 
 		LEFT JOIN shops s ON s.id = c.shop_id
 		LEFT JOIN businesses b ON b.id = c.business_id
 		LEFT JOIN LATERAL (
-			SELECT body, sender_type, created_at
+			SELECT body, sender_type, sender_party, recipient_party, created_at
 			FROM order_messages
 			WHERE conversation_id = c.id AND 'BUYER' IN (sender_party, recipient_party)
 			ORDER BY created_at DESC
 			LIMIT 1
 		) last_m ON true
-		WHERE c.buyer_id = $1
+		WHERE c.buyer_id = $1` + filter + `
 		ORDER BY last_message_at DESC
 		LIMIT $2 OFFSET $3
 	`
@@ -337,6 +363,8 @@ func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, 
 			&item.BusinessName,
 			&item.LastMessage,
 			&lastSenderType,
+			&item.LastSenderParty,
+			&item.LastRecipientParty,
 			&item.LastMessageAt,
 			&item.UnreadCount,
 			&item.CreatedAt,
@@ -352,7 +380,7 @@ func (r *OrderConversationRepository) ListBuyerConversations(buyerID uuid.UUID, 
 }
 
 // ListSellerConversations lists conversations for a shop or business.
-func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID, businessID *uuid.UUID, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
+func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID, businessID *uuid.UUID, withMessages bool, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -369,6 +397,9 @@ func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID,
 		whereClauses = append(whereClauses, fmt.Sprintf("c.business_id = $%d", argIdx))
 		args = append(args, *businessID)
 		argIdx++
+	}
+	if withMessages {
+		whereClauses = append(whereClauses, hasPartyMessages(models.PartySeller))
 	}
 
 	whereSQL := ""
@@ -396,6 +427,8 @@ func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID,
 			COALESCE(b.name, '') AS business_name,
 			COALESCE(last_m.body, '') AS last_message,
 			COALESCE(last_m.sender_type, '') AS last_sender_type,
+			COALESCE(last_m.sender_party, '') AS last_sender_party,
+			COALESCE(last_m.recipient_party, '') AS last_recipient_party,
 			COALESCE(last_m.created_at, c.created_at) AS last_message_at,
 			(
 				SELECT COUNT(*) FROM order_messages m
@@ -410,7 +443,7 @@ func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID,
 		LEFT JOIN shops s ON s.id = c.shop_id
 		LEFT JOIN businesses b ON b.id = c.business_id
 		LEFT JOIN LATERAL (
-			SELECT body, sender_type, created_at
+			SELECT body, sender_type, sender_party, recipient_party, created_at
 			FROM order_messages
 			WHERE conversation_id = c.id AND 'SELLER' IN (sender_party, recipient_party)
 			ORDER BY created_at DESC
@@ -445,6 +478,8 @@ func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID,
 			&item.BusinessName,
 			&item.LastMessage,
 			&lastSenderType,
+			&item.LastSenderParty,
+			&item.LastRecipientParty,
 			&item.LastMessageAt,
 			&item.UnreadCount,
 			&item.CreatedAt,
@@ -460,12 +495,15 @@ func (r *OrderConversationRepository) ListSellerConversations(shopID *uuid.UUID,
 }
 
 // ListAdminConversations lists all order conversations for Commerce & Operations supervision.
-func (r *OrderConversationRepository) ListAdminConversations(search string, status string, shopID *uuid.UUID, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
+func (r *OrderConversationRepository) ListAdminConversations(search string, status string, shopID *uuid.UUID, withMessages bool, limit, offset int) ([]models.ConversationListItemResponse, int, error) {
 	if limit <= 0 {
 		limit = 20
 	}
 
 	whereClauses := []string{"1=1"}
+	if withMessages {
+		whereClauses = append(whereClauses, hasPartyMessages(models.PartyAdmin))
+	}
 	args := []interface{}{}
 	argIdx := 1
 
@@ -516,6 +554,8 @@ func (r *OrderConversationRepository) ListAdminConversations(search string, stat
 			COALESCE(b.name, '') AS business_name,
 			COALESCE(last_m.body, '') AS last_message,
 			COALESCE(last_m.sender_type, '') AS last_sender_type,
+			COALESCE(last_m.sender_party, '') AS last_sender_party,
+			COALESCE(last_m.recipient_party, '') AS last_recipient_party,
 			COALESCE(last_m.created_at, c.created_at) AS last_message_at,
 			(
 				SELECT COUNT(*) FROM order_messages m
@@ -530,7 +570,7 @@ func (r *OrderConversationRepository) ListAdminConversations(search string, stat
 		LEFT JOIN shops s ON s.id = c.shop_id
 		LEFT JOIN businesses b ON b.id = c.business_id
 		LEFT JOIN LATERAL (
-			SELECT body, sender_type, created_at
+			SELECT body, sender_type, sender_party, recipient_party, created_at
 			FROM order_messages
 			WHERE conversation_id = c.id AND 'ADMIN' IN (sender_party, recipient_party)
 			ORDER BY created_at DESC
@@ -565,6 +605,8 @@ func (r *OrderConversationRepository) ListAdminConversations(search string, stat
 			&item.BusinessName,
 			&item.LastMessage,
 			&lastSenderType,
+			&item.LastSenderParty,
+			&item.LastRecipientParty,
 			&item.LastMessageAt,
 			&item.UnreadCount,
 			&item.CreatedAt,
