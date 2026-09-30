@@ -30,6 +30,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/marketplace"
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
 	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
+	presencehandlers "github.com/btmi-ai-market/backend/internal/handlers/presence"
 	sellerhandlers "github.com/btmi-ai-market/backend/internal/handlers/seller"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
 	trackinghandlers "github.com/btmi-ai-market/backend/internal/handlers/tracking"
@@ -266,6 +267,7 @@ func main() {
 	adminAuthHandler.SetLoginFailureRecorder(monitoringService)
 	monitoringHandler := adminhandlers.NewMonitoringHandler(monitoringService)
 	go monitoringService.RunRetention(context.Background())
+	presenceHandler := presencehandlers.NewHandler(service.NewPresenceService(redisClient.GetRedis(), db.DB))
 	adminCommerceHandler := adminhandlers.NewCommerceHandler(adminCommerceService)
 	adminFinanceHandler := adminhandlers.NewAdminFinanceHandler(adminFinanceService)
 	adminTechnicalHandler := adminhandlers.NewAdminTechnicalHandler(adminTechnicalService)
@@ -777,6 +779,7 @@ func main() {
 					directionGroup.GET("/monitoring/summary", monitoringHandler.Summary)
 					directionGroup.GET("/monitoring/auth-failures", monitoringHandler.AuthFailures)
 					directionGroup.GET("/monitoring/sessions", monitoringHandler.Sessions)
+					directionGroup.GET("/monitoring/presence", presenceHandler.List)
 				}
 
 				commerceGroup := protectedAdmin.Group("/commerce")
@@ -990,6 +993,14 @@ func main() {
 				approvalsGroup.POST("/:id/approve", adminPhase5Handler.Approve)
 				approvalsGroup.POST("/:id/reject", adminPhase5Handler.Reject)
 			}
+		}
+
+		// Live presence: every open site or app tab, signed in or not.
+		presenceGroup := api.Group("/presence")
+		presenceGroup.Use(middleware.OptionalAuthMiddleware(authService))
+		{
+			presenceGroup.POST("/heartbeat", presenceHandler.Heartbeat)
+			presenceGroup.POST("/leave", presenceHandler.Leave)
 		}
 
 		configGroup := api.Group("/config")

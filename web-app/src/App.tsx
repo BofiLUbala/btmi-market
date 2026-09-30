@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
+import { PresenceBeacon } from '@/lib/presence'
 import { AuthProvider } from '@/store/auth'
 import { AdminAuthProvider } from '@/store/adminAuth'
 import { FavoritesProvider } from '@/store/favorites'
@@ -146,6 +147,7 @@ export default function App() {
         <FavoritesProvider>
           <CartProvider>
             <AdminAuthProvider>
+            <PresenceBeacon />
             <Routes>
               <Route element={<Layout />}>
                 <Route path="/" element={<HomePage />} />

@@ -2400,3 +2400,38 @@ export const adminMonitoringApi = {
   sessions: (params: { role?: string; limit?: number } = {}) =>
     adminApi<ActiveSession[]>(`/admin/direction/monitoring/sessions${monitoringQuery(params)}`),
 }
+
+/** One device on the site or in the app right now. */
+export interface PresenceVisitor {
+  visitor_id: string
+  status: 'SIGNED_IN' | 'KNOWN_SIGNED_OUT' | 'ANONYMOUS'
+  user_id?: string
+  email?: string
+  name?: string
+  role?: MonitoringRole
+  path: string
+  platform: 'web' | 'android' | 'ios'
+  /** The tab is open but not the one being looked at. */
+  background: boolean
+  ip_address: string
+  user_agent: string
+  first_seen_at: string
+  last_seen_at: string
+}
+
+export interface PresenceSnapshot {
+  visitors: PresenceVisitor[]
+  summary: {
+    total: number
+    signed_in: number
+    known_signed_out: number
+    anonymous: number
+    by_platform: Record<string, number>
+    by_page: Record<string, number>
+  }
+  heartbeat_seconds: number
+}
+
+export const adminPresenceApi = {
+  live: () => adminApi<PresenceSnapshot>('/admin/direction/monitoring/presence'),
+}
