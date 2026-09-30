@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { useOrderEvents } from '@/lib/orderEvents'
 import { Link, useParams } from 'react-router-dom'
 import { buyerApi } from '@/api/buyer'
@@ -15,6 +15,10 @@ import { RequireAuth } from '@/components/auth/Guards'
 import { DeliveryPlanCard } from '@/components/checkout/DeliveryPlanCard'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
+import { shouldShowLiveMap } from '@/lib/liveLocation'
+
+// MapLibre is only downloaded when a parcel is actually on its way.
+const LiveCourierMap = lazy(() => import('@/components/tracking/LiveCourierMap'))
 
 const POLL_INTERVAL = 4_000 // 4 seconds for live tracking auto-sync (3-5s range)
 
@@ -189,6 +193,15 @@ function TrackInner() {
       <div className="small muted">
         {t('tracking.summary', { number: data.order_number, method: labelOr(t, `tracking.method.${data.delivery_method}`, data.delivery_method), status: labelOr(t, `tracking.pay.${data.payment_status}`, data.payment_status) })}
       </div>
+
+      {/* Live courier position: only while IN_TRANSIT, gone as soon as it ends. */}
+      {tbk && shouldShowLiveMap(data) && (
+        <div style={{ marginTop: 12 }}>
+          <Suspense fallback={<LoadingBlock label={t('common.loading')} />}>
+            <LiveCourierMap orderId={orderId} audience="user" />
+          </Suspense>
+        </div>
+      )}
 
       {data.latest_update && (
         <div className="card" style={{ marginTop: 12, background: 'var(--color-accent-soft)', border: 'none' }}>

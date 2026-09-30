@@ -3588,6 +3588,27 @@ export const fr = {
   'seller.descEditor.tone.automotive': 'Automobile',
   'seller.descEditor.tone.services': 'Services',
   'seller.descEditor.tone.default': 'Général',
+  /* ── Live courier map ─────────────────────────────────── */
+  'liveMap.live': 'En direct',
+  'liveMap.lastSeen': 'Dernière position reçue il y a {count} s',
+  'liveMap.unavailable': 'Position temporairement indisponible',
+  'liveMap.enRoute': 'En route',
+  'liveMap.courier': 'Livreur',
+  'liveMap.destination': 'Adresse de livraison',
+  'liveMap.accuracy': 'Précision : ± {meters} m',
+  'liveMap.noDestinationPoint': 'Point exact de livraison non partagé : le livreur suit l’adresse.',
+  'liveMap.noMap': 'Carte indisponible sur cet appareil.',
+  'deliveryPoint.title': 'Point exact de livraison (facultatif)',
+  'deliveryPoint.hint': 'Aide le livreur à vous trouver et affiche votre adresse sur la carte de suivi. L’adresse écrite suffit.',
+  'deliveryPoint.useMyLocation': 'Utiliser ma position',
+  'deliveryPoint.locating': 'Localisation…',
+  'deliveryPoint.added': 'Point de livraison ajouté',
+  'deliveryPoint.addedWithAccuracy': 'Point de livraison ajouté (± {meters} m)',
+  'deliveryPoint.remove': 'Retirer',
+  'deliveryPoint.denied': 'Localisation refusée. Vous pouvez continuer avec l’adresse écrite.',
+  'deliveryPoint.failed': 'Position introuvable pour le moment. Vous pouvez continuer avec l’adresse écrite.',
+  'deliveryPoint.imprecise': 'Position trop imprécise (± {meters} m). Réessayez près d’une fenêtre ou continuez avec l’adresse écrite.',
+  'deliveryPoint.unsupported': 'Ce navigateur ne permet pas la localisation. L’adresse écrite suffit.',
 } as const
 
 export type TranslationKey = keyof typeof fr

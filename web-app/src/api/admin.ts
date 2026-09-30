@@ -1,4 +1,4 @@
-import type { DeliveryPlan } from './types'
+import type { CourierLocation, DeliveryPlan } from './types'
 import { API_BASE } from './client'
 
 export type AdminRole =
@@ -1108,6 +1108,10 @@ export const adminCommerceApi = {
    */
   getDeliveryHandover: async (id: string) => {
     return adminApi<AdminDeliveryHandover>(`/admin/commerce/orders/${id}/delivery-handover`)
+  },
+  /** Courier's live position while the order is IN_TRANSIT (Commerce Admin, read-only). */
+  getCourierLocation: async (id: string) => {
+    return adminApi<CourierLocation>(`/admin/commerce/orders/${id}/courier-location`)
   },
   /** Closes the return of a cancelled order's parcel on the seller's behalf. */
   confirmReturn: async (id: string) => {

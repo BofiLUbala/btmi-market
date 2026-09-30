@@ -11,6 +11,7 @@ import { useAuth } from '@/store/auth'
 import { useT } from '@/store/i18n'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
+import { DeliveryPointPicker, type DeliveryPoint } from '@/components/checkout/DeliveryPointPicker'
 import { useOrderEvents } from '@/lib/orderEvents'
 import { StructuredAddressFields, StructuredAddressSummary, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
@@ -32,6 +33,12 @@ function savedAddressOf(profile?: BuyerProfile | null): StructuredAddressValue |
     landmark: profile.landmark ?? ''
   }
   return isStructuredAddressComplete(value) ? value : null
+}
+
+/** The point saved with the profile address, if the buyer ever shared one. */
+function savedPointOf(profile?: BuyerProfile | null): DeliveryPoint | null {
+  if (profile?.latitude == null || profile?.longitude == null) return null
+  return { latitude: profile.latitude, longitude: profile.longitude }
 }
 
 function DeliveryInner() {
@@ -72,6 +79,10 @@ function DeliveryInner() {
   // First checkout: store the address as primary by default. Returning buyer
   // editing their address: opt-in, so a temporary address stays temporary.
   const [savePrimary, setSavePrimary] = useState(() => !savedAddressOf(buyerProfile))
+  // Optional exact point for the courier's map: the saved address keeps its
+  // own point; another address starts without one (the old point would lie).
+  const [point, setPoint] = useState<DeliveryPoint | null>(() => (savedAddressOf(buyerProfile) ? savedPointOf(buyerProfile) : null))
+  const pointFields = point ? { latitude: point.latitude, longitude: point.longitude } : {}
 
   const [previewFee, setPreviewFee] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -174,7 +185,8 @@ function DeliveryInner() {
         // In saved mode the address already is the profile address; when the
         // buyer enters a different one, it only replaces the primary address
         // on explicit opt-in.
-        save_address: mode === 'saved' ? false : savePrimary
+        save_address: mode === 'saved' ? false : savePrimary,
+        ...pointFields
       })
       // The remaining orders of a multi-shop checkout get the same address. They
       // are applied after the first so its response is the one summarised.
@@ -189,7 +201,8 @@ function DeliveryInner() {
           province: address.province, city: address.city, commune: address.commune,
           street: address.street.trim(), building_number: address.building_number.trim(), landmark: address.landmark.trim(),
           notes: contact.notes.trim(),
-          save_address: false
+          save_address: false,
+          ...pointFields
         })
       }
 
@@ -212,6 +225,7 @@ function DeliveryInner() {
       const base = savedAddressOf(buyerProfile)
       return base ? { ...base } : current
     })
+    setPoint(null)
     setMode('custom')
   }
 
@@ -313,6 +327,7 @@ function DeliveryInner() {
               <>
                 <p className="small muted">{t('delivery.savedAddress')}</p>
                 {savedAddress && <StructuredAddressSummary value={savedAddress} />}
+                <DeliveryPointPicker value={point} onChange={setPoint} />
                 <Button size="lg" block loading={submitting} onClick={continueToPayment}>
                   {t('delivery.useSavedAddress')}
                 </Button>
@@ -336,6 +351,7 @@ function DeliveryInner() {
                 ) : (
                   <StructuredAddressSummary value={address} />
                 )}
+                <DeliveryPointPicker value={point} onChange={setPoint} />
                 <label className="checkout-checkbox">
                   <input
                     type="checkbox"
@@ -356,6 +372,7 @@ function DeliveryInner() {
                     className="delivery-custom-link"
                     onClick={() => {
                       setError('')
+                      setPoint(savedPointOf(buyerProfile))
                       setMode('saved')
                     }}
                   >

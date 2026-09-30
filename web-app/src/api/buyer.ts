@@ -26,7 +26,7 @@ import type {
   ReviewEligibilityResponse,
   ReviewResponse,
   SelectDeliveryRequest,
-  TrackingResponse, ProductVerification,
+  TrackingResponse, ProductVerification, CourierLocation,
   UpdateBuyerProfileRequest
 } from './types'
 
@@ -136,6 +136,9 @@ export const buyerApi = {
     post<BuyerOrder>(`/buyer/orders/${orderId}/confirm-receipt`, {}),
 
   tracking: (orderId: string) => get<TrackingResponse>(`/buyer/orders/${orderId}/tracking`),
+
+  /** Latest courier position of the buyer's own order, while it is in transit. */
+  courierLocation: (orderId: string) => get<CourierLocation>(`/buyer/orders/${orderId}/courier-location`),
 
   /**
    * ORDER_ITEM QR of one line of the buyer's own order. Buyer-specific route: it

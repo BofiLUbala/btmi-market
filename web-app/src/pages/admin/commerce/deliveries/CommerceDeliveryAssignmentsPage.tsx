@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { Suspense, lazy, useState, useEffect, useCallback } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -11,6 +11,11 @@ import {
 import { useT } from '@/store/i18n'
 import { formatMoney } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
+import { shouldShowLiveMap } from '@/lib/liveLocation'
+
+// Read-only courier position for an order in transit (Commerce Admin only:
+// this page and its API live under /admin/commerce, closed to Finance).
+const LiveCourierMap = lazy(() => import('@/components/tracking/LiveCourierMap'))
 
 // No courier can be (re)assigned once the order is closed or its parcel is going back.
 // Once the parcel has left the shop the courier can no longer be changed (the backend refuses it too).
@@ -676,6 +681,16 @@ export default function CommerceDeliveryAssignmentsPage() {
                       <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>Aucun livreur assigné à cette commande pour le moment.</div>
                     )}
                   </div>
+
+                  {/* LIVE COURIER POSITION (IN_TRANSIT only) */}
+                  {shouldShowLiveMap({ delivery_status: fullOrderDetail?.order?.delivery_status ?? detailOrder.delivery_status }) && (
+                    <div style={{ color: 'var(--color-text, #111)' }}>
+                      <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 8px', color: '#34d399' }}>📡 POSITION DU LIVREUR</h4>
+                      <Suspense fallback={<div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>Chargement de la carte…</div>}>
+                        <LiveCourierMap orderId={detailOrder.id} audience="admin" destinationAddress={detailOrder.delivery_address || undefined} />
+                      </Suspense>
+                    </div>
+                  )}
 
                   {/* BUYER / DESTINATION DETAILS */}
                   <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>

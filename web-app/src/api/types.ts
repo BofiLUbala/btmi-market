@@ -713,6 +713,9 @@ export interface SelectDeliveryRequest {
   notes?: string
   /** Persists this address as the buyer's primary profile address when true. */
   save_address?: boolean
+  /** Optional exact delivery point; the text address alone is always valid. */
+  latitude?: number
+  longitude?: number
 }
 
 export interface DeliverySummary {
@@ -913,6 +916,42 @@ export interface TrackingResponse extends DeliveryPlan {
   latest_update: string
   latest_update_at?: string | null
   history: OrderStatusHistory[]
+  /** True while the parcel is IN_TRANSIT: the live courier map may be shown. */
+  live_tracking_active?: boolean
+  /** The buyer's own delivery point, when one was shared at checkout. */
+  delivery_latitude?: number | null
+  delivery_longitude?: number | null
+}
+
+/** LIVE < 30 s, RECENT up to 2 min, STALE beyond, UNAVAILABLE when no point. */
+export type LocationFreshness = 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE'
+
+/**
+ * The courier's latest position, read from the authorised courier-location
+ * endpoint (buyer who owns the order, or Commerce Admin). It never names the
+ * courier, and exists only while the order is IN_TRANSIT.
+ */
+export interface CourierLocation {
+  order_id: string
+  delivery_status: string
+  live_tracking_active: boolean
+  available: boolean
+  freshness: LocationFreshness
+  is_stale: boolean
+  /** Server-measured age of the point when the response was built. */
+  age_seconds: number | null
+  location: {
+    latitude: number
+    longitude: number
+    accuracy: number | null
+    heading: number | null
+    speed: number | null
+    captured_at: string
+    received_at: string
+  } | null
+  delivery_latitude: number | null
+  delivery_longitude: number | null
+  delivery_address?: string
 }
 
 /* ---------- Purchase confirmation ---------- */

@@ -9,8 +9,13 @@ import { adminApi, adminTokenStore } from '../api/admin'
  * slow polling as a fallback for when the stream is down.
  */
 export interface OrderEvent {
-  /** stock/cash: that business's stock or cash changed (sent to its members only). */
-  kind: 'order' | 'resync' | 'tariff' | 'stock' | 'cash'
+  /**
+   * stock/cash: that business's stock or cash changed (sent to its members only).
+   * location: the courier carrying order_id sent a new position (sent to that
+   * order's buyer and to Commerce Admin only). It never carries coordinates:
+   * refetch them through the courier-location endpoint.
+   */
+  kind: 'order' | 'resync' | 'tariff' | 'stock' | 'cash' | 'location'
   business_id?: string
   order_id?: string
   order_number?: string
@@ -99,7 +104,16 @@ function subscribe(audience: Audience, listener: Listener): () => void {
   }
 }
 
+// Location pings arrive every ~10 s during a delivery: only pages that show
+// the live map ask for them, so they never trigger a full page reload.
 const DEFAULT_KINDS: OrderEvent['kind'][] = ['order', 'resync', 'tariff']
+
+/** Whether an event is one a page asked for, for the order it shows (if any). */
+export function eventMatches(event: OrderEvent, kinds: readonly OrderEvent['kind'][] = DEFAULT_KINDS, orderId?: string): boolean {
+  if (!kinds.includes(event.kind)) return false
+  if (orderId && (event.kind === 'order' || event.kind === 'location') && event.order_id !== orderId) return false
+  return true
+}
 
 /**
  * Calls onChange as soon as an order this viewer can see changes. With orderId
@@ -116,10 +130,9 @@ export function useOrderEvents(
   const kinds = (options.kinds ?? DEFAULT_KINDS).join(',')
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const wanted = new Set(kinds.split(','))
+    const wanted = kinds.split(',') as OrderEvent['kind'][]
     const unsubscribe = subscribe(audience, (event) => {
-      if (!wanted.has(event.kind)) return
-      if (orderId && event.kind === 'order' && event.order_id !== orderId) return
+      if (!eventMatches(event, wanted, orderId)) return
       // One transaction can touch several rows; reload once for the burst.
       clearTimeout(timer)
       timer = setTimeout(() => callback.current(event), 150)
