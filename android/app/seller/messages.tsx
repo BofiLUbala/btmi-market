@@ -16,6 +16,9 @@ import {
   type ConversationListItem,
 } from '../../src/api/communication'
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
+import { lastMessageAuthor } from '../../src/lib/chat'
+import { subscribeOrderEvents } from '../../src/lib/orderEvents'
+import type { TranslationKey } from '../../src/store/i18n'
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
@@ -38,6 +41,8 @@ export default function SellerMessagesScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  // Orders with messages first; "all orders" lets the seller start one.
+  const [onlyWithMessages, setOnlyWithMessages] = useState(true)
 
   const loadConversations = useCallback(
     async (silent = false) => {
@@ -46,7 +51,8 @@ export default function SellerMessagesScreen() {
         const res = await fetchSellerConversations({
           shop_id: activeShop || undefined,
           business_id: activeBusiness?.id || undefined,
-          limit: 50,
+          with_messages: onlyWithMessages,
+          limit: 100,
           offset: 0,
         })
         setConversations(res.items || [])
@@ -58,14 +64,18 @@ export default function SellerMessagesScreen() {
         setRefreshing(false)
       }
     },
-    [activeShop, activeBusiness?.id, t]
+    [activeShop, activeBusiness?.id, onlyWithMessages, t]
   )
 
   useEffect(() => {
     void loadConversations()
-    const timer = setInterval(() => void loadConversations(true), 10_000)
+    const timer = setInterval(() => void loadConversations(true), 20_000)
     return () => clearInterval(timer)
   }, [loadConversations])
+  // A new message (order event) refreshes previews and unread badges at once.
+  useEffect(() => subscribeOrderEvents('user', (event) => {
+    if (event.kind === 'order' || event.kind === 'resync') void loadConversations(true)
+  }), [loadConversations])
 
   const onRefresh = () => {
     setRefreshing(true)
@@ -110,6 +120,14 @@ export default function SellerMessagesScreen() {
     )
   }
 
+  const party = (p?: string) => (p ? t(`chat.party.${p}` as TranslationKey) : '')
+  const previewText = (item: ConversationListItem) => {
+    const author = lastMessageAuthor(item, 'SELLER')
+    if (author.kind === 'none') return t('inbox.noMessages')
+    const who = author.kind === 'me' ? t('inbox.youTo', { party: party(author.to) }) : party(author.from)
+    return `${who} : ${item.last_message}`
+  }
+
   const renderItem = ({ item }: { item: ConversationListItem }) => {
     const isUnread = item.unread_count > 0
     return (
@@ -118,18 +136,17 @@ export default function SellerMessagesScreen() {
         onPress={() => setSelectedOrderId(item.order_id)}
         activeOpacity={0.7}
       >
+        {/* Sellers talk to TBK and the courier, never to the buyer: the row is the order. */}
         <View style={styles.cardHeader}>
           <View style={styles.buyerRow}>
-            <Ionicons name="person-circle-outline" size={22} color={colors.green} />
-            <Text style={styles.buyerName} numberOfLines={1}>
-              {item.buyer_name || t('communication.buyer')}
-            </Text>
+            <Ionicons name="receipt-outline" size={20} color={colors.green} />
+            <Text style={styles.buyerName} numberOfLines={1}>#{item.order_number}</Text>
           </View>
-          <Text style={styles.orderNumber}>#{item.order_number}</Text>
+          <Text style={styles.orderNumber} numberOfLines={1}>{item.shop_name}</Text>
         </View>
 
         <Text style={[styles.lastMessage, isUnread && styles.lastMessageUnread]} numberOfLines={2}>
-          {item.last_message || t('communication.noMessagesYet')}
+          {previewText(item)}
         </Text>
 
         <View style={styles.cardFooter}>
@@ -162,6 +179,22 @@ export default function SellerMessagesScreen() {
         ) : null}
       </View>
 
+      <View style={styles.filterRow}>
+        {([true, false] as const).map((only) => (
+          <TouchableOpacity
+            key={String(only)}
+            onPress={() => setOnlyWithMessages(only)}
+            style={[styles.filterChip, onlyWithMessages === only && styles.filterChipOn]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: onlyWithMessages === only }}
+          >
+            <Text style={[styles.filterText, onlyWithMessages === only && styles.filterTextOn]}>
+              {only ? t('inbox.withMessages') : t('inbox.allOrders')}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
@@ -177,7 +210,7 @@ export default function SellerMessagesScreen() {
         <View style={styles.centerBox}>
           <Ionicons name="chatbubbles-outline" size={48} color={colors.mutedLight} />
           <Text style={styles.emptyTitle}>{t('communication.noConversations')}</Text>
-          <Text style={styles.emptyDesc}>{t('communication.sellerSubtitle')}</Text>
+          <Text style={styles.emptyDesc}>{onlyWithMessages ? t('inbox.emptyWithMessages') : t('communication.sellerSubtitle')}</Text>
         </View>
       ) : (
         <FlatList
@@ -194,6 +227,11 @@ export default function SellerMessagesScreen() {
 
 const makeStyles = (colors: Colors) =>
   StyleSheet.create({
+    filterRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.sm },
+    filterChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+    filterChipOn: { backgroundColor: colors.green, borderColor: colors.green },
+    filterText: { fontSize: 13, fontWeight: '700', color: colors.ink },
+    filterTextOn: { color: colors.onGreen },
     container: {
       flex: 1,
       backgroundColor: colors.cream,

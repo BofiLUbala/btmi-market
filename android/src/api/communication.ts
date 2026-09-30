@@ -94,6 +94,9 @@ export interface ConversationListItem {
   business_name: string
   last_message: string
   last_sender_type: SenderType
+  /** Who wrote the last message of the caller's own channels, and to whom. */
+  last_sender_party?: ChatParty
+  last_recipient_party?: ChatParty
   last_message_at: string
   unread_count: number
   created_at: string
@@ -119,8 +122,14 @@ export interface UnreadCounts {
 
 // ----------------- Buyer & Seller APIs -----------------
 
+/** Fetching never marks anything read: only the thread on screen is, through markChannelRead. */
 export async function fetchOrderConversation(orderId: string, as?: ChatParty): Promise<OrderConversationDetail> {
-  return get<OrderConversationDetail>(`/orders/${orderId}/conversation${as ? `?as=${as}` : ''}`)
+  return get<OrderConversationDetail>(`/orders/${orderId}/conversation?mark_read=false${as ? `&as=${as}` : ''}`)
+}
+
+/** The thread with `contact` is open on screen: its messages are read. */
+export async function markChannelRead(orderId: string, contact: ChatParty, as?: ChatParty): Promise<void> {
+  await post(`/orders/${orderId}/messages/read`, { contact, as })
 }
 
 export async function sendOrderMessage(orderId: string, body: string, recipient: ChatParty, as?: ChatParty): Promise<OrderMessage> {
@@ -152,6 +161,8 @@ export async function fetchBuyerUnreadCounts(): Promise<UnreadCounts> {
 export async function fetchSellerConversations(params?: {
   shop_id?: string
   business_id?: string
+  /** Only orders with at least one message in the seller's channels. */
+  with_messages?: boolean
   limit?: number
   offset?: number
 }): Promise<{
@@ -161,6 +172,7 @@ export async function fetchSellerConversations(params?: {
   offset: number
 }> {
   const qs = new URLSearchParams()
+  if (params?.with_messages) qs.set('with_messages', 'true')
   if (params?.shop_id) qs.set('shop_id', params.shop_id)
   if (params?.business_id) qs.set('business_id', params.business_id)
   if (params?.limit) qs.set('limit', String(params.limit))
