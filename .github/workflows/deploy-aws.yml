@@ -26,6 +26,8 @@ jobs:
           aws-region: eu-west-1
 
       - name: Deploy to EC2 via SSM
+        env:
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
         run: |
           REMOTE_SCRIPT=$(cat <<'SCRIPT'
           set -e
@@ -53,6 +55,10 @@ jobs:
           exit 1
           SCRIPT
           )
+
+          # docker compose prefers the shell environment over backend/.env, so the
+          # web build gets the TomTom key without it living on the server.
+          REMOTE_SCRIPT=$(printf 'export TOMTOM_API_KEY=%q\n%s' "$TOMTOM_API_KEY" "$REMOTE_SCRIPT")
 
           # Build valid JSON instead of embedding shell code in a quoted AWS CLI
           # shorthand value. This preserves every quote and semicolon verbatim.

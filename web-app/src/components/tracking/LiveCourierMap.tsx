@@ -4,9 +4,8 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { useT } from '@/store/i18n'
 import { useCourierLocation } from '@/lib/useCourierLocation'
 import { accuracyRing, currentAgeSeconds, destinationPoint, freshnessFor, freshnessText } from '@/lib/liveLocation'
+import { MAP_STYLE, transformMapRequest } from '@/lib/mapStyle'
 
-/** Free vector tiles, no key: OpenFreeMap (OpenStreetMap data). */
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 const KINSHASA: [number, number] = [15.3136, -4.3217]
 const ACCURACY_SOURCE = 'courier-accuracy'
 
@@ -48,6 +47,7 @@ export default function LiveCourierMap({ orderId, audience = 'user', destination
       m = new maplibregl.Map({
         container: container.current,
         style: MAP_STYLE,
+        transformRequest: transformMapRequest,
         center: KINSHASA,
         zoom: 12,
         attributionControl: { compact: true },

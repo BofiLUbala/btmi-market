@@ -6,11 +6,10 @@ import { buyerApi } from '../api'
 import { subscribeOrderEvents } from '../lib/orderEvents'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
+import { MAP_STYLE } from '../lib/mapStyle'
 import { radius, spacing, type Colors } from '../theme'
 import type { CourierLocation } from '../types'
 
-/** Free vector tiles, no key: OpenFreeMap (OpenStreetMap data). */
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 const KINSHASA: [number, number] = [15.3136, -4.3217]
 /** Fallback when the event stream is down. */
 const POLL_MS = 10_000
