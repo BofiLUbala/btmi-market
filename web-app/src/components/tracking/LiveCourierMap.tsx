@@ -7,7 +7,7 @@ import type { DeliveryRoute } from '@/api/types'
 import { useCourierLocation } from '@/lib/useCourierLocation'
 import {
   ROUTE_SOURCE_KEYS, accuracyRing, currentAgeSeconds, destinationPoint, formatClock, formatDistance, formatDuration,
-  freshnessFor, freshnessText,
+  freshnessFor, freshnessText, isHeadingToShop,
 } from '@/lib/liveLocation'
 import { MAP_STYLE, transformMapRequest } from '@/lib/mapStyle'
 
@@ -225,7 +225,7 @@ export default function LiveCourierMap({ orderId, audience = 'user', destination
   return (
     <div className="card" data-testid="live-courier-map" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 14px', flexWrap: 'wrap' }}>
-        <strong>🛵 {live ? tk('liveMap.enRoute') : tk('route.title')}</strong>
+        <strong>🛵 {live ? tk(isHeadingToShop(data?.delivery_status) ? 'liveMap.toShop' : 'liveMap.enRoute') : tk('route.title')}</strong>
         {live && (
           <span className="small" data-testid="live-map-freshness" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColour, display: 'inline-block' }} />

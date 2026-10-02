@@ -864,6 +864,7 @@ func main() {
 					directionGroup.GET("/monitoring/summary", monitoringHandler.Summary)
 					directionGroup.GET("/monitoring/auth-failures", monitoringHandler.AuthFailures)
 					directionGroup.GET("/monitoring/sessions", monitoringHandler.Sessions)
+					directionGroup.GET("/monitoring/signed-out", monitoringHandler.SignedOut)
 					directionGroup.GET("/monitoring/presence", presenceHandler.List)
 				}
 

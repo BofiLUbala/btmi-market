@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ErrTrackingNotActive: the order is not this courier's mission in transit, so
+// ErrTrackingNotActive: the order is not this courier's active mission, so
 // no position is taken. The phone stops sharing when it sees it.
 var ErrTrackingNotActive = errors.New("TRACKING_NOT_ACTIVE")
 
@@ -98,7 +98,7 @@ func (s *CourierLocationService) GetForBuyer(buyerProfileID, orderID uuid.UUID) 
 		return nil, ErrLocationForbidden
 	}
 	resp := row.ToCourierLocationResponse(s.now())
-	// The buyer sees the route only while the parcel is on its way.
+	// The buyer sees the route only while live tracking is active.
 	if !resp.LiveTrackingActive {
 		return resp, nil
 	}

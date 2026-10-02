@@ -184,6 +184,12 @@ func (s *DeliveryRouteService) MaybeReroute(orderID uuid.UUID, p maps.LngLat, ac
 	if proj.AwayM <= offRouteThreshold(accuracy) || s.now().Sub(rt.ComputedAt) < RerouteCooldown {
 		return
 	}
+	// Before pickup the courier is tracked on the way to the shop, off the
+	// planned shop-to-buyer route by design: only a courier carrying the parcel
+	// is rerouted.
+	if rc, err := s.store.GetRouteContext(orderID); err != nil || rc == nil || rc.DeliveryStatus != models.DeliveryStatusInTransit {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	route, err := s.provider.Route(ctx, p, maps.LngLat{rt.Destination.Longitude, rt.Destination.Latitude}, rt.TravelMode)

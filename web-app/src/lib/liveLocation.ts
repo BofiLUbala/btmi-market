@@ -12,10 +12,21 @@ export const LOCATION_POLL_MS = 10_000
 export const LIVE_WITHIN_S = 30
 export const RECENT_WITHIN_S = 120
 
-/** The map is shown only while the parcel is on its way (IN_TRANSIT). */
+/**
+ * Delivery statuses during which the courier shares their position: from the
+ * moment they accept the mission (on the way to the shop) until they arrive.
+ * Same list as the server (models.LiveTrackingStatuses).
+ */
+export const LIVE_TRACKING_STATUSES = ['COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT']
+
+/** Before pickup the courier is heading to the shop, not yet to the buyer. */
+export const isHeadingToShop = (status?: string | null) => status === 'COURIER_ACCEPTED' || status === 'READY_FOR_PICKUP'
+
+/** The map is shown from the courier's acceptance until arrival. */
 export function shouldShowLiveMap(t: { delivery_status?: string | null; live_tracking_active?: boolean } | null | undefined): boolean {
   if (!t) return false
-  return t.delivery_status === 'IN_TRANSIT' || t.live_tracking_active === true
+  if (typeof t.live_tracking_active === 'boolean') return t.live_tracking_active
+  return LIVE_TRACKING_STATUSES.includes(t.delivery_status || '')
 }
 
 /**

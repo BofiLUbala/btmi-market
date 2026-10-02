@@ -2383,6 +2383,18 @@ export interface ActiveSession {
   devices: number
 }
 
+export interface SignedOutAccount {
+  user_id: string
+  email: string
+  name: string
+  role: MonitoringRole
+  signed_out_at: string
+  reason: string
+  /** First sign-in after the sign-out, by the account's owner; null while not back. */
+  reconnected_at: string | null
+  account_status: string
+}
+
 export interface MonitoringSummary {
   summary: {
     failures_last_hour: number
@@ -2410,6 +2422,9 @@ export const adminMonitoringApi = {
     adminApi<AuthFailure[]>(`/admin/direction/monitoring/auth-failures${monitoringQuery(params)}`),
   sessions: (params: { role?: string; limit?: number } = {}) =>
     adminApi<ActiveSession[]>(`/admin/direction/monitoring/sessions${monitoringQuery(params)}`),
+  /** Accounts the Direction signed out in the last 24 h, and whether they signed in again. */
+  signedOut: (params: { role?: string; limit?: number } = {}) =>
+    adminApi<SignedOutAccount[]>(`/admin/direction/monitoring/signed-out${monitoringQuery(params)}`),
 }
 
 /** One device on the site or in the app right now. */

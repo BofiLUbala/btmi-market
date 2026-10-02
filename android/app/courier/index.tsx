@@ -32,7 +32,7 @@ export default function CourierMissionsScreen() {
     queryFn: courierApi.missions,
     refetchInterval: 15_000,
   })
-  // After a restart or a force-close: an IN_TRANSIT mission is tracked again,
+  // After a restart or a force-close: an accepted mission is tracked again,
   // and tracking of any other state is stopped.
   useEffect(() => { void resumeCourierTrackingIfNeeded(missions.data) }, [missions.data])
 

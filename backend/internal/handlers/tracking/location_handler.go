@@ -1,6 +1,7 @@
 // Package tracking serves the courier's live position during a delivery.
 //
-// Write: the assigned courier, only while the order is IN_TRANSIT.
+// Write: the assigned courier, from mission acceptance until arrival
+// (models.LiveTrackingStatuses).
 // Read:  the buyer who owns the order, and Commerce Admin (read-only).
 // Sellers, their employees and Finance have no route here.
 package tracking

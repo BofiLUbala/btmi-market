@@ -186,9 +186,10 @@ func TestCourierLiveLocationRealDB(t *testing.T) {
 	f := setup(t)
 	now := time.Now()
 
-	// Not in transit yet: nothing is taken.
+	// Assigned but not accepted yet: nothing is taken.
+	f.setStatus(t, "COURIER_ASSIGNED")
 	if code, body := f.post(t, f.courier, pt(-4.31, 15.30, now)); code != http.StatusConflict || !strings.Contains(body, "TRACKING_NOT_ACTIVE") {
-		t.Fatalf("PICKED_UP: got %d %s, want 409 TRACKING_NOT_ACTIVE", code, body)
+		t.Fatalf("COURIER_ASSIGNED: got %d %s, want 409 TRACKING_NOT_ACTIVE", code, body)
 	}
 
 	f.setStatus(t, "IN_TRANSIT")
@@ -304,9 +305,9 @@ func TestCourierLiveLocationRealDB(t *testing.T) {
 		}
 	}
 
-	// Leaving IN_TRANSIT by any path clears the live position, and it is
-	// neither served nor accepted afterwards.
-	for i, next := range []string{"COURIER_ARRIVED", "FAILED", "PICKED_UP", "RETURNING_TO_SELLER", "CANCELLED"} {
+	// Leaving the tracked statuses by any path clears the live position, and
+	// it is neither served nor accepted afterwards.
+	for i, next := range []string{"COURIER_ARRIVED", "FAILED", "COURIER_ASSIGNED", "RETURNING_TO_SELLER", "CANCELLED"} {
 		f.setStatus(t, "IN_TRANSIT")
 		f.ageLatest(t) // the first round is still in the transit tested above
 		if code, body := f.post(t, f.courier, pt(-4.33, 15.32, now.Add(time.Duration(i+2)*time.Second))); code != http.StatusOK || !strings.Contains(body, `"accepted":true`) {
@@ -327,6 +328,18 @@ func TestCourierLiveLocationRealDB(t *testing.T) {
 			t.Fatalf("%s: buyer still sees a position: %d %s", next, code, body)
 		}
 	}
+	// The buyer follows the courier from acceptance, on the way to the shop.
+	for i, before := range []string{"COURIER_ACCEPTED", "READY_FOR_PICKUP", "PICKED_UP"} {
+		f.setStatus(t, before)
+		if code, body := f.post(t, f.courier, pt(-4.35, 15.34, time.Now().Add(time.Duration(i)*time.Second))); code != http.StatusOK || !strings.Contains(body, `"accepted":true`) {
+			t.Fatalf("%s: got %d %s, want accepted", before, code, body)
+		}
+		code, body := f.do(t, http.MethodGet, orderPath, map[string]string{"X-User": f.buyer.String()}, nil)
+		if code != http.StatusOK || !strings.Contains(body, `"live_tracking_active":true`) || strings.Contains(body, `"location":null`) {
+			t.Fatalf("%s: buyer does not see the courier: %d %s", before, code, body)
+		}
+		f.ageLatest(t)
+	}
 	// History outlives the live row (it is the thin audit trail).
 	if f.pointCount(t) < 7 {
 		t.Fatalf("history points = %d, want at least 7", f.pointCount(t))
@@ -343,7 +356,8 @@ func TestDeliveryLocationRetentionRealDB(t *testing.T) {
 		       ($1, $2, -4.3, 15.3, NOW(), NOW())`, f.order, f.courier); err != nil {
 		t.Fatal(err)
 	}
-	// A live row the trigger never saw (order not in transit): the sweep removes it.
+	// A live row the trigger never saw (order not tracked): the sweep removes it.
+	f.setStatus(t, "COURIER_ASSIGNED")
 	if _, err := f.db.Exec(`INSERT INTO delivery_live_locations (order_id, courier_user_id, latitude, longitude, captured_at)
 		VALUES ($1, $2, -4.3, 15.3, NOW())`, f.order, f.courier); err != nil {
 		t.Fatal(err)
@@ -360,6 +374,6 @@ func TestDeliveryLocationRetentionRealDB(t *testing.T) {
 		t.Fatalf("points left %d, want the fresh one only", f.pointCount(t))
 	}
 	if f.liveCount(t) != 0 {
-		t.Fatal("live position of an order not in transit survived the sweep")
+		t.Fatal("live position of an untracked order survived the sweep")
 	}
 }

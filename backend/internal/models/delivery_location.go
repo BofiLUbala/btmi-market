@@ -9,7 +9,22 @@ import (
 )
 
 // Live courier location. GPS is auxiliary to the delivery: it exists only while
-// orders.delivery_status is IN_TRANSIT and never gates a delivery step.
+// orders.delivery_status is one of LiveTrackingStatuses and never gates a
+// delivery step.
+
+// LiveTrackingStatuses: from the moment the courier accepts the mission (on
+// the way to the shop) until they arrive at the buyer. The SQL guards in
+// DeliveryLocationRepository and the orders_stop_live_location trigger
+// (migration 113) list the same statuses.
+var LiveTrackingStatuses = map[string]bool{
+	DeliveryStatusCourierAccepted: true,
+	DeliveryStatusReadyForPickup:  true,
+	DeliveryStatusPickedUp:        true,
+	DeliveryStatusInTransit:       true,
+}
+
+// LiveTrackingStatusesSQL is LiveTrackingStatuses as an SQL list.
+const LiveTrackingStatusesSQL = `('COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT')`
 
 const (
 	// A point less accurate than this says nothing useful about the street.
@@ -192,14 +207,14 @@ func LocationFreshness(age time.Duration) string {
 	}
 }
 
-// ToCourierLocationResponse exposes a position only while the order is in
-// transit. Age is measured from when the point was taken, bounded by when the
+// ToCourierLocationResponse exposes a position only while live tracking is
+// active. Age is measured from when the point was taken, bounded by when the
 // server received it, so a phone clock running ahead cannot make it look live.
 func (row *LiveLocationRow) ToCourierLocationResponse(now time.Time) *CourierLocationResponse {
 	resp := &CourierLocationResponse{
 		OrderID:            row.OrderID,
 		DeliveryStatus:     row.DeliveryStatus,
-		LiveTrackingActive: row.DeliveryStatus == DeliveryStatusInTransit,
+		LiveTrackingActive: LiveTrackingStatuses[row.DeliveryStatus],
 		Freshness:          LocationFreshnessUnavailable,
 		IsStale:            true,
 		DeliveryLatitude:   row.DeliveryLatitude,

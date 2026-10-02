@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Camera, GeoJSONSource, Layer, Map, Marker } from '@maplibre/maplibre-react-native'
 import { buyerApi, courierApi } from '../api'
 import { subscribeOrderEvents } from '../lib/orderEvents'
+import { isHeadingToShop } from '../lib/liveTracking'
 import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { radius, spacing, type Colors } from '../theme'
@@ -39,7 +40,7 @@ const lineFeature = (coords: [number, number][]) => ({ type: 'Feature' as const,
  * The delivery map: the planned road route (blue) with arrows for the
  * direction, the path really driven (green), the start, the destination and
  * the courier's latest real point, with the distances and the arrival time.
- * 'user': the buyer's own order, while IN_TRANSIT; viewing it asks for no
+ * 'user': the buyer's own order, from acceptance to arrival; viewing it asks for no
  * permission. 'courier': the assigned courier, with the next instruction.
  */
 export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0 }: { orderId: string; audience?: 'user' | 'courier'; refreshKey?: number }) {
@@ -101,7 +102,7 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0 }: {
   return (
     <View style={styles.card} testID="live-courier-map">
       <View style={styles.header}>
-        <Text style={styles.title}>🛵 {live ? t('liveMap.enRoute') : tk('route.title')}</Text>
+        <Text style={styles.title}>🛵 {live ? tk(isHeadingToShop(data?.delivery_status) ? 'liveMap.toShop' : 'liveMap.enRoute') : tk('route.title')}</Text>
         {live ? (
           <View style={styles.status}>
             <View style={[styles.dot, { backgroundColor: dot }]} />

@@ -93,3 +93,20 @@ func (h *MonitoringHandler) Sessions(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, models.SuccessResponse{Message: "OK", Data: sessions})
 }
+
+// GET /admin/direction/monitoring/signed-out?role=&hours=&limit=
+// Accounts the Direction signed out recently, and whether they came back.
+func (h *MonitoringHandler) SignedOut(c *gin.Context) {
+	role, limit, ok := monitoringQuery(c, 100)
+	if !ok {
+		return
+	}
+	hours, _ := strconv.Atoi(c.DefaultQuery("hours", "24"))
+	accounts, err := h.monitoringService.ListSignedOutAccounts(c.Request.Context(), role, hours, limit)
+	if err != nil {
+		log.Printf("[monitoring] signed-out accounts: %v", err)
+		monitoringError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not load signed-out accounts")
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "OK", Data: accounts})
+}

@@ -11,10 +11,11 @@ import type { CourierLocationPoint, CourierMission } from '../types'
 /**
  * Live courier GPS during a delivery.
  *
- * Tracking follows the mission, never the other way round: it starts only
- * after the server accepted PICKED_UP -> IN_TRANSIT, stops when the courier
- * arrives (or the server answers TRACKING_NOT_ACTIVE), and a refused
- * permission never blocks a delivery step.
+ * Tracking follows the mission, never the other way round: it starts once
+ * the server confirmed the courier accepted the mission (the buyer follows
+ * them to the shop, then to their door), stops when the courier arrives (or
+ * the server answers TRACKING_NOT_ACTIVE), and a refused permission never
+ * blocks a delivery step.
  *
  * A foreground service ("Livraison TBK en cours") keeps it running with the
  * screen off; it needs only the while-in-use permission when started from the
@@ -27,6 +28,23 @@ export const COURIER_LOCATION_TASK = 'tbk-courier-location'
 const ORDER_KEY = 'tbk.courierTracking.orderId'
 const PENDING_KEY = 'tbk.courierTracking.pending'
 const BACKGROUND_ASKED_KEY = 'tbk.courierTracking.backgroundAsked'
+
+/**
+ * The tracked statuses (lib/liveTracking), most advanced first: one phone
+ * shares one mission at a time, the one closest to the buyer's door.
+ */
+const TRACKING_PRIORITY = ['IN_TRANSIT', 'PICKED_UP', 'READY_FOR_PICKUP', 'COURIER_ACCEPTED']
+
+/** The mission this phone should be sharing its position for, if any. */
+export function missionToTrack(missions: CourierMission[] | undefined): CourierMission | null {
+  let best: CourierMission | null = null
+  let rank = TRACKING_PRIORITY.length
+  for (const m of missions ?? []) {
+    const r = TRACKING_PRIORITY.indexOf(m.delivery_status)
+    if (r >= 0 && r < rank) { best = m; rank = r }
+  }
+  return best
+}
 
 /** active: sharing; pending: a point waits for the network; denied: no permission; ended: stopped after the delivery. */
 export type TrackingState = 'idle' | 'active' | 'pending' | 'denied' | 'ended'
@@ -72,7 +90,7 @@ async function upload(orderId: string, point: CourierLocationPoint): Promise<voi
     setState('active', orderId)
   } catch (e) {
     if (e instanceof ApiError && e.code === 'TRACKING_NOT_ACTIVE') {
-      // The mission left IN_TRANSIT (arrived, failed, cancelled...): stop.
+      // The mission left the tracked statuses (arrived, failed, cancelled...): stop.
       await stopCourierTracking()
       return
     }
@@ -116,8 +134,8 @@ if (Platform.OS !== 'web') NetInfo.addEventListener((net) => { if (net.isConnect
 export type StartResult = 'active' | 'denied' | 'unavailable'
 
 /**
- * Called once the server confirmed IN_TRANSIT. Never throws: the delivery has
- * already started whatever happens here.
+ * Called once the server confirmed the courier accepted, picked up or started
+ * the mission. Never throws: the delivery step is done whatever happens here.
  */
 /** Location updates were (re)started by this app process, foreground service included. */
 let startedThisProcess = false
@@ -185,14 +203,21 @@ export async function stopCourierTracking(): Promise<void> {
   setState(orderId ? 'ended' : 'idle', null)
 }
 
+/** A newly accepted mission is shared unless this phone already shares another one. */
+export async function startCourierTrackingIfIdle(orderId: string): Promise<StartResult | null> {
+  const tracked = await AsyncStorage.getItem(ORDER_KEY).catch(() => null)
+  if (tracked && tracked !== orderId) return null
+  return startCourierTracking(orderId)
+}
+
 /**
- * On app start / dashboard load: an IN_TRANSIT mission must be tracked, and
- * nothing else may be. Does not prompt for permission: a courier who refused
+ * On app start / dashboard load: the most advanced accepted mission must be
+ * tracked, and nothing else may be. Does not prompt for permission: a courier who refused
  * sees the "Autorisez la localisation" notice instead.
  */
 export async function resumeCourierTrackingIfNeeded(missions: CourierMission[] | undefined): Promise<void> {
   if (!missions) return
-  const inTransit = missions.find((m) => m.delivery_status === 'IN_TRANSIT')
+  const inTransit = missionToTrack(missions)
   const running = await Location.hasStartedLocationUpdatesAsync(COURIER_LOCATION_TASK).catch(() => false)
   const tracked = await AsyncStorage.getItem(ORDER_KEY)
   if (!inTransit) {

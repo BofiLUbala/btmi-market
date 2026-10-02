@@ -15,6 +15,8 @@ const ACTIVE_SHOP_KEY = 'btmi.activeShop'
 
 interface AuthState {
   user: User | null
+  /** Set when the server closed a live session; the root layout routes to sign-in. */
+  sessionEnded?: boolean
   ready: boolean
   sellerBusinesses: Business[]
   activeBusiness: Business | null
@@ -118,7 +120,13 @@ export const useAuth = create<AuthState>((set) => ({
   },
 }))
 
-onSessionInvalidated(() => useAuth.setState({ user: null, ready: true, sellerBusinesses: [], activeBusiness: null, activeShop: null }))
+// The server closed the session (signed out by TBK, password changed, account
+// suspended): stop sharing a courier's position and send the person to sign in.
+onSessionInvalidated(() => {
+  const wasSignedIn = Boolean(useAuth.getState().user)
+  void stopCourierTracking().catch(() => undefined)
+  useAuth.setState({ user: null, ready: true, sellerBusinesses: [], activeBusiness: null, activeShop: null, sessionEnded: wasSignedIn })
+})
 
 /* Restores the persisted active shop once at module load (business is
  * resolved inside `loadSellerBusinesses` since it needs the fetched list to

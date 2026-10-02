@@ -194,7 +194,7 @@ function TrackInner() {
         {t('tracking.summary', { number: data.order_number, method: labelOr(t, `tracking.method.${data.delivery_method}`, data.delivery_method), status: labelOr(t, `tracking.pay.${data.payment_status}`, data.payment_status) })}
       </div>
 
-      {/* Live courier position: only while IN_TRANSIT, gone as soon as it ends. */}
+      {/* Live courier position: from the courier's acceptance until arrival, gone as soon as it ends. */}
       {tbk && shouldShowLiveMap(data) && (
         <div style={{ marginTop: 12 }}>
           <Suspense fallback={<LoadingBlock label={t('common.loading')} />}>

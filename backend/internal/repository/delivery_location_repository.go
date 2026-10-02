@@ -21,8 +21,9 @@ func NewDeliveryLocationRepository(db *database.DB) *DeliveryLocationRepository 
 }
 
 // RecordCourierLocation stores a point in one statement whose every write is
-// guarded by the order itself: it is the courier's assigned mission AND it is
-// IN_TRANSIT, read under FOR SHARE so no status change can slip in between.
+// guarded by the order itself: it is the courier's assigned mission AND its
+// delivery status is one of models.LiveTrackingStatuses (from acceptance to
+// arrival), read under FOR SHARE so no status change can slip in between.
 //
 // active is false when that guard does not hold (tracking is not active for
 // this courier on this order). accepted is false when the guard holds but the
@@ -33,7 +34,7 @@ func (r *DeliveryLocationRepository) RecordCourierLocation(orderID, courierUserI
 	err = r.db.QueryRow(`
 		WITH mission AS (
 			SELECT id FROM orders
-			WHERE id = $1 AND assigned_courier_id = $2 AND delivery_status = 'IN_TRANSIT'
+			WHERE id = $1 AND assigned_courier_id = $2 AND delivery_status IN `+models.LiveTrackingStatusesSQL+`
 			FOR SHARE
 		),
 		latest AS (
@@ -68,7 +69,7 @@ func (r *DeliveryLocationRepository) RecordCourierLocation(orderID, courierUserI
 }
 
 // GetLiveLocation reads the order's delivery state, destination and latest
-// point. The point is joined only while the order is IN_TRANSIT, so a row
+// point. The point is joined only while live tracking is active, so a row
 // left behind by any path can never be served.
 func (r *DeliveryLocationRepository) GetLiveLocation(orderID uuid.UUID) (*models.LiveLocationRow, error) {
 	var (
@@ -83,7 +84,7 @@ func (r *DeliveryLocationRepository) GetLiveLocation(orderID uuid.UUID) (*models
 		SELECT o.id, o.delivery_status, o.buyer_profile_id, o.delivery_latitude, o.delivery_longitude, o.delivery_address,
 		       l.latitude, l.longitude, l.accuracy_m, l.heading_deg, l.speed_mps, l.captured_at, l.received_at
 		FROM orders o
-		LEFT JOIN delivery_live_locations l ON l.order_id = o.id AND o.delivery_status = 'IN_TRANSIT'
+		LEFT JOIN delivery_live_locations l ON l.order_id = o.id AND o.delivery_status IN `+models.LiveTrackingStatusesSQL+`
 		WHERE o.id = $1`, orderID).
 		Scan(&row.OrderID, &status, &buyerProfileID, &destLat, &destLng, &address,
 			&lat, &lng, &acc, &heading, &spd, &capturedAt, &receivedAt)
@@ -120,12 +121,12 @@ func (r *DeliveryLocationRepository) DeleteLocationPointsBefore(cutoff time.Time
 }
 
 // DeleteInactiveLiveLocations is the safety sweep behind the orders trigger:
-// no live position may outlive its order's IN_TRANSIT status.
+// no live position may outlive its order's live-tracking statuses.
 func (r *DeliveryLocationRepository) DeleteInactiveLiveLocations() (int64, error) {
 	res, err := r.db.Exec(`
 		DELETE FROM delivery_live_locations l
 		USING orders o
-		WHERE o.id = l.order_id AND o.delivery_status IS DISTINCT FROM 'IN_TRANSIT'`)
+		WHERE o.id = l.order_id AND (o.delivery_status IS NULL OR o.delivery_status NOT IN ` + models.LiveTrackingStatusesSQL + `)`)
 	if err != nil {
 		return 0, err
 	}

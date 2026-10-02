@@ -7,12 +7,16 @@ import { eventMatches, type OrderEvent } from './orderEvents'
 const t = (key: string, vars?: Record<string, string | number>) => (vars ? `${key}:${JSON.stringify(vars)}` : key)
 
 describe('live map visibility', () => {
-  it('shows the map only while the parcel is IN_TRANSIT', () => {
-    expect(shouldShowLiveMap({ delivery_status: 'IN_TRANSIT' })).toBe(true)
-    expect(shouldShowLiveMap({ delivery_status: 'PICKED_UP', live_tracking_active: true })).toBe(true)
-    for (const status of ['PICKED_UP', 'COURIER_ARRIVED', 'FAILED', 'CANCELLED', 'RETURNING_TO_SELLER', 'DELIVERED', '']) {
-      expect(shouldShowLiveMap({ delivery_status: status, live_tracking_active: false })).toBe(false)
+  it('shows the map from the courier accepting the mission until arrival', () => {
+    for (const status of ['COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT']) {
+      expect(shouldShowLiveMap({ delivery_status: status })).toBe(true)
     }
+    expect(shouldShowLiveMap({ delivery_status: 'PICKED_UP', live_tracking_active: true })).toBe(true)
+    for (const status of ['COURIER_ASSIGNED', 'COURIER_ARRIVED', 'FAILED', 'CANCELLED', 'RETURNING_TO_SELLER', 'DELIVERED', '']) {
+      expect(shouldShowLiveMap({ delivery_status: status })).toBe(false)
+    }
+    // The server's answer wins over the status the page last saw.
+    expect(shouldShowLiveMap({ delivery_status: 'IN_TRANSIT', live_tracking_active: false })).toBe(false)
     expect(shouldShowLiveMap(null)).toBe(false)
   })
 })

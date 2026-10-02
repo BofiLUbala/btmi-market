@@ -166,6 +166,66 @@ func (m *MonitoringService) ListActiveSessions(ctx context.Context, role string,
 	return sessions, rows.Err()
 }
 
+// SignedOutAccount is an account the Direction signed out everywhere: when,
+// why, and whether its owner signed in again since (nobody can sign someone
+// else in; the account stays free to sign in).
+type SignedOutAccount struct {
+	UserID        uuid.UUID  `json:"user_id"`
+	Email         string     `json:"email"`
+	Name          string     `json:"name"`
+	Role          string     `json:"role"`
+	SignedOutAt   time.Time  `json:"signed_out_at"`
+	Reason        string     `json:"reason"`
+	ReconnectedAt *time.Time `json:"reconnected_at"`
+	AccountStatus string     `json:"account_status"`
+}
+
+// ListSignedOutAccounts returns the Direction force-logouts of the last
+// `hours`, newest first, one row per account (its latest sign-out).
+func (m *MonitoringService) ListSignedOutAccounts(ctx context.Context, role string, hours, limit int) ([]SignedOutAccount, error) {
+	if hours <= 0 || hours > 24*30 {
+		hours = 24
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := m.db.QueryContext(ctx, `
+		SELECT u.id, u.email, TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),
+		       LOWER(u.account_type::text), a.created_at, COALESCE(a.reason, ''),
+		       (SELECT MAX(rt.created_at) FROM refresh_tokens rt
+		         WHERE rt.user_id = u.id AND rt.created_at > a.created_at),
+		       COALESCE(u.status::text, '')
+		FROM (
+			SELECT DISTINCT ON (target_id) target_id, created_at, reason
+			FROM admin_audit_log
+			WHERE action = 'USER_FORCE_LOGOUT' AND target_type = 'USER'
+			  AND created_at > NOW() - make_interval(hours => $2)
+			ORDER BY target_id, created_at DESC
+		) a
+		JOIN users u ON u.id::text = a.target_id
+		WHERE ($1 = '' OR LOWER(u.account_type::text) = $1)
+		ORDER BY a.created_at DESC
+		LIMIT $3`, role, hours, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []SignedOutAccount{}
+	for rows.Next() {
+		var a SignedOutAccount
+		var back sql.NullTime
+		if err := rows.Scan(&a.UserID, &a.Email, &a.Name, &a.Role, &a.SignedOutAt, &a.Reason, &back, &a.AccountStatus); err != nil {
+			return nil, err
+		}
+		if back.Valid {
+			t := back.Time
+			a.ReconnectedAt = &t
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 // Summary gives the counters shown above both tables.
 func (m *MonitoringService) Summary(ctx context.Context) (*MonitoringSummary, error) {
 	out := &MonitoringSummary{FailuresByRole24h: map[string]int{}, ActiveByRole: map[string]int{}}

@@ -676,6 +676,9 @@ func (s *AuthService) Logout(refreshTokenStr string) error {
 	return s.refreshTokenRepo.Revoke(refreshToken.ID)
 }
 
+// ErrSessionRevoked: the token predates a sign-out of the account everywhere.
+var ErrSessionRevoked = errors.New("SESSION_REVOKED")
+
 func (s *AuthService) ValidateAccessToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -693,9 +696,21 @@ func (s *AuthService) ValidateAccessToken(tokenStr string) (*jwt.Token, error) {
 		if !ok {
 			return nil, errors.New("invalid token claims")
 		}
-		_, err := uuid.Parse(userIDStr)
+		userID, err := uuid.Parse(userIDStr)
 		if err != nil {
 			return nil, errors.New("invalid user ID in token")
+		}
+		// A sign-out everywhere (Direction, password reset, suspension) also
+		// ends the access tokens already handed out, not only future refreshes.
+		if s.refreshTokenRepo != nil {
+			revokedAt, err := s.refreshTokenRepo.SessionsRevokedAt(userID)
+			if err != nil {
+				return nil, err
+			}
+			iat, _ := claims["iat"].(float64)
+			if !revokedAt.IsZero() && int64(iat) <= revokedAt.Unix() {
+				return nil, ErrSessionRevoked
+			}
 		}
 	}
 

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -45,13 +46,17 @@ func AuthMiddleware(authService *service.AuthService) gin.HandlerFunc {
 		tokenString := parts[1]
 		token, err := authService.ValidateAccessToken(tokenString)
 		if err != nil {
+			code, message := "UNAUTHORIZED", "Invalid or expired access token"
+			if errors.Is(err, service.ErrSessionRevoked) {
+				code, message = "SESSION_REVOKED", "This session was closed. Please sign in again."
+			}
 			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
 				Error: struct {
 					Code    string `json:"code"`
 					Message string `json:"message"`
 				}{
-					Code:    "UNAUTHORIZED",
-					Message: "Invalid or expired access token",
+					Code:    code,
+					Message: message,
 				},
 			})
 			c.Abort()

@@ -5,8 +5,8 @@ import '../src/lib/courierTracking'
 import { useEffect } from 'react'
 import { useFonts } from 'expo-font'
 import { fontAssets } from '../src/typography'
-import { AppState } from 'react-native'
-import { Stack } from 'expo-router'
+import { Alert, AppState } from 'react-native'
+import { Stack, router } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import NetInfo from '@react-native-community/netinfo'
 import { focusManager, onlineManager } from '@tanstack/react-query'
@@ -19,7 +19,7 @@ import { useNotificationRouting } from '../src/lib/notificationRouting'
 import { configurePush, syncPush } from '../src/lib/push'
 import { syncFavoritesToAccount } from '../src/store/favorites'
 import { ThemeProvider, useTheme } from '../src/store/theme'
-import { I18nProvider, useI18n } from '../src/store/i18n'
+import { I18nProvider, useI18n, type TranslationKey } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
 import { fonts } from '../src/theme'
 import { StoreHeader } from '../src/components/StoreHeader'
@@ -49,6 +49,14 @@ function RootNavigator() {
   useNotificationRouting()
   const userId = useAuth((state) => state.user?.id)
   useEffect(() => { void configurePush() }, [])
+  // Signed out from elsewhere (TBK, a password change): say so and go to sign-in.
+  const sessionEnded = useAuth((state) => Boolean(state.sessionEnded))
+  useEffect(() => {
+    if (!sessionEnded) return
+    useAuth.setState({ sessionEnded: false })
+    Alert.alert(t('auth.sessionEndedTitle' as TranslationKey), t('auth.sessionEndedBody' as TranslationKey))
+    router.replace('/auth/login')
+  }, [sessionEnded, t])
   // Each session start re-attaches this phone when push was on for this account.
   useEffect(() => {
     if (!userId) return

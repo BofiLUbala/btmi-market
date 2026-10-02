@@ -2,7 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -64,10 +66,58 @@ func (r *RefreshTokenRepository) Revoke(id uuid.UUID) error {
 	return err
 }
 
+// RevokeAllForUser signs the account out everywhere: its refresh tokens die,
+// and every access token issued up to now is refused (see SessionsRevokedAt).
 func (r *RefreshTokenRepository) RevokeAllForUser(userID uuid.UUID) error {
-	query := `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`
-	_, err := r.db.Exec(query, userID)
-	return err
+	var revokedAt time.Time
+	err := r.db.QueryRow(`
+		WITH tokens AS (
+			UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL
+		)
+		UPDATE users SET sessions_revoked_at = NOW() WHERE id = $1
+		RETURNING sessions_revoked_at`, userID).Scan(&revokedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	revocations.Store(userID, revocationEntry{at: revokedAt, fetched: time.Now()})
+	return nil
+}
+
+// revocationTTL bounds how stale a cached "sessions revoked at" may be when
+// another API instance revoked the account; this instance updates its own
+// cache at once.
+const revocationTTL = 30 * time.Second
+
+type revocationEntry struct {
+	at      time.Time // zero: never revoked
+	fetched time.Time
+}
+
+// revocations is shared by every repository instance of this process.
+var revocations sync.Map // uuid.UUID -> revocationEntry
+
+// SessionsRevokedAt is the instant the account was last signed out
+// everywhere (zero when never). Cached briefly: it is read on every request.
+func (r *RefreshTokenRepository) SessionsRevokedAt(userID uuid.UUID) (time.Time, error) {
+	if v, ok := revocations.Load(userID); ok {
+		if e := v.(revocationEntry); time.Since(e.fetched) < revocationTTL {
+			return e.at, nil
+		}
+	}
+	var at sql.NullTime
+	err := r.db.QueryRow(`SELECT sessions_revoked_at FROM users WHERE id = $1`, userID).Scan(&at)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return time.Time{}, err
+	}
+	e := revocationEntry{fetched: time.Now()}
+	if at.Valid {
+		e.at = at.Time
+	}
+	revocations.Store(userID, e)
+	return e.at, nil
 }
 
 func (r *RefreshTokenRepository) DeleteExpired() error {

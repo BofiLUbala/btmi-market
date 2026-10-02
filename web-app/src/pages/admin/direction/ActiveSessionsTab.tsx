@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { adminDirectionApi, adminMonitoringApi, type ActiveSession } from '@/api/admin'
+import { adminDirectionApi, adminMonitoringApi, type ActiveSession, type SignedOutAccount } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { LivePresencePanel } from './LivePresencePanel'
 import { LiveToolbar, RoleBadge, SummaryCards, cell, deviceLabel, headRow, tableBox, useLiveReload, useMonitoringSummary } from './monitoringShared'
@@ -23,6 +23,7 @@ function ago(date: string, t: ReturnType<typeof useT>): string {
 export default function ActiveSessionsTab() {
   const t = useT()
   const [sessions, setSessions] = useState<ActiveSession[]>([])
+  const [signedOut, setSignedOut] = useState<SignedOutAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,8 +39,9 @@ export default function ActiveSessionsTab() {
   async function load(silent: boolean) {
     if (silent) setRefreshing(true); else setLoading(true)
     try {
-      const [rows] = await Promise.all([adminMonitoringApi.sessions({ role }), reloadSummary()])
+      const [rows, gone] = await Promise.all([adminMonitoringApi.sessions({ role }), adminMonitoringApi.signedOut({ role }), reloadSummary()])
       setSessions(Array.isArray(rows) ? rows : [])
+      setSignedOut(Array.isArray(gone) ? gone : [])
       setError(null)
       setUpdatedAt(new Date())
     } catch (err) {
@@ -146,6 +148,48 @@ export default function ActiveSessionsTab() {
                         {t('admin.monitoring.signOut')}
                       </button>
                     )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Who was signed out, why, and whether they came back on their own. */}
+      <h3 style={{ fontSize: 15, margin: '24px 0 6px', color: '#fff' }}>{t('admin.monitoring.signedOutTitle')}</h3>
+      <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>{t('admin.monitoring.signedOutHint')}</p>
+      <div style={tableBox} data-testid="signed-out-accounts">
+        <table style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+          <thead>
+            <tr style={headRow}>
+              <th style={cell}>{t('admin.monitoring.thAccount')}</th>
+              <th style={cell}>{t('admin.monitoring.thRole')}</th>
+              <th style={cell}>{t('admin.monitoring.thSignedOutAt')}</th>
+              <th style={cell}>{t('admin.monitoring.thReason')}</th>
+              <th style={cell}>{t('admin.monitoring.thReconnection')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {signedOut.length === 0 ? (
+              <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#64748b' }}>{t('admin.monitoring.noSignedOut')}</td></tr>
+            ) : signedOut.map((a) => {
+              const suspended = a.account_status !== '' && a.account_status.toUpperCase() !== 'ACTIVE'
+              return (
+                <tr key={a.user_id} style={{ borderBottom: '1px solid #1e293b', verticalAlign: 'top' }}>
+                  <td style={cell}>
+                    <div style={{ fontWeight: 700, color: '#fff' }}>{a.name || a.email}</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace' }}>{a.email}</div>
+                  </td>
+                  <td style={cell}><RoleBadge role={a.role} /></td>
+                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(a.signed_out_at).toLocaleString('fr-FR')}>{ago(a.signed_out_at, t)}</td>
+                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1' }}>{a.reason || '—'}</td>
+                  <td style={{ ...cell, fontSize: 12 }}>
+                    {suspended
+                      ? <span style={{ color: '#fca5a5' }}>{t('admin.monitoring.accountSuspended')}</span>
+                      : a.reconnected_at
+                        ? <span style={{ color: '#86efac' }}>● {t('admin.monitoring.reconnected', { time: ago(a.reconnected_at, t) })}</span>
+                        : <span style={{ color: '#94a3b8' }}>○ {t('admin.monitoring.notReconnected')}</span>}
                   </td>
                 </tr>
               )

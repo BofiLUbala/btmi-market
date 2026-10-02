@@ -257,6 +257,7 @@ const (
 
 	DeliveryStatusPendingTBK      = "PENDING_TBK_ASSIGNMENT"
 	DeliveryStatusCourierAssigned = "COURIER_ASSIGNED"
+	DeliveryStatusCourierAccepted = "COURIER_ACCEPTED"
 	DeliveryStatusReadyForPickup  = "READY_FOR_PICKUP"
 	DeliveryStatusPickedUp        = "PICKED_UP"
 	DeliveryStatusInTransit       = "IN_TRANSIT"

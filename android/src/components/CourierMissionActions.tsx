@@ -12,7 +12,7 @@ import { invalidateCourierMission } from '../lib/courier'
 import type { CourierMission } from '../types'
 import { CourierPlanPanel } from './CourierPlanPanel'
 import { CourierTrackingBanner } from './CourierTrackingBanner'
-import { startCourierTracking, stopCourierTracking } from '../lib/courierTracking'
+import { startCourierTracking, startCourierTrackingIfIdle, stopCourierTracking } from '../lib/courierTracking'
 
 /** In-flight stages where a delivery can still fail: after pickup, before the delivery scan. */
 const FAILABLE_STATUSES = ['PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED']
@@ -43,9 +43,11 @@ export function MissionActions({ mission: m, compact = false }: { mission: Couri
               : courierApi.arrive(m.order_id),
     onSuccess: (_data, action) => {
       // GPS follows the server's answer, never the other way round: sharing
-      // starts only once IN_TRANSIT is confirmed and stops when it ends. A
-      // refused permission never undoes or blocks the delivery step.
-      if (action === 'start') void startCourierTracking(m.order_id)
+      // starts once the acceptance is confirmed (the buyer follows the courier
+      // to the shop) and stops on arrival. A refused permission never undoes
+      // or blocks the delivery step.
+      if (action === 'accept') void startCourierTrackingIfIdle(m.order_id)
+      if (action === 'pickup' || action === 'start') void startCourierTracking(m.order_id)
       if (action === 'arrive' || action === 'fail') void stopCourierTracking()
       setError(''); setRejecting(false); setReason(''); setFailing(false); setFailReason(''); setFailNotes('')
       invalidateCourierMission(queryClient, m.order_id)

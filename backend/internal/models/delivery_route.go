@@ -105,7 +105,7 @@ type DeliveryRouteView struct {
 // from assignment until the courier arrives.
 var RoutePlanningStatuses = map[string]bool{
 	DeliveryStatusCourierAssigned: true,
-	"COURIER_ACCEPTED":            true,
+	DeliveryStatusCourierAccepted: true,
 	DeliveryStatusReadyForPickup:  true,
 	DeliveryStatusPickedUp:        true,
 	DeliveryStatusInTransit:       true,
