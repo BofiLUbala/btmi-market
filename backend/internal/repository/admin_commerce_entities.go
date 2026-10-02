@@ -51,7 +51,7 @@ func (r *AdminCommerceRepository) ListBusinesses(search, status string, limit, o
 		SELECT b.id, b.name, b.business_type::text, b.category, b.email, b.phone, b.city, b.country,
 			b.default_currency, COALESCE(b.status::text, 'ACTIVE'), b.created_at,
 			o.id, COALESCE(o.name, ''), COALESCE(o.email, ''),
-			(SELECT COUNT(*) FROM shops s WHERE s.business_id = b.id),
+			(SELECT COUNT(*) FROM shops s WHERE s.business_id = b.id AND s.status <> 'DELETED'),
 			(SELECT COUNT(*) FROM shops s WHERE s.business_id = b.id AND s.status = 'ACTIVE'),
 			(SELECT COUNT(*) FROM products p WHERE p.business_id = b.id),
 			(SELECT COUNT(*) FROM products p WHERE p.business_id = b.id AND p.publication_status = 'PUBLISHED'),
@@ -90,7 +90,8 @@ func (r *AdminCommerceRepository) ListShops(search, status, businessID string, l
 		// Cap, never fall back to the default: asking for more must not return less.
 		limit = 100
 	}
-	conds := []string{"1=1"}
+	// Permanently deleted shops are order-history tombstones, never listed.
+	conds := []string{"s.status <> 'DELETED'"}
 	args := []interface{}{}
 	if search != "" {
 		args = append(args, "%"+search+"%")
@@ -163,7 +164,7 @@ func (r *AdminCommerceRepository) SetShopStatus(id uuid.UUID, status string) (st
 	var old string
 	err := r.db.QueryRow(`
 		UPDATE shops s SET status = $2::shop_status, updated_at = $3
-		FROM (SELECT id, COALESCE(status::text, 'ACTIVE') AS old FROM shops WHERE id = $1 FOR UPDATE) prev
+		FROM (SELECT id, COALESCE(status::text, 'ACTIVE') AS old FROM shops WHERE id = $1 AND status <> 'DELETED' FOR UPDATE) prev
 		WHERE s.id = prev.id RETURNING prev.old`, id, status, time.Now()).Scan(&old)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("SHOP_NOT_FOUND")

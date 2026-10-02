@@ -11,8 +11,21 @@ import (
 )
 
 type NotificationRepository struct {
-	db *database.DB
+	db       *database.DB
+	observer NotificationObserver
 }
+
+// NotificationObserver sees every notification written through Create.
+// BeforeCreate classifies it (category, priority, link) and may drop it, for
+// instance a marketing message to someone who never opted in; AfterCreate
+// hands it on to push delivery.
+type NotificationObserver interface {
+	BeforeCreate(notif *models.Notification) bool
+	AfterCreate(notif *models.Notification)
+}
+
+// SetObserver installs the observer. Without one, notifications are only stored.
+func (r *NotificationRepository) SetObserver(o NotificationObserver) { r.observer = o }
 
 func NewNotificationRepository(db *database.DB) *NotificationRepository {
 	return &NotificationRepository{db: db}
@@ -20,8 +33,12 @@ func NewNotificationRepository(db *database.DB) *NotificationRepository {
 
 var ErrNotificationNotFound = fmt.Errorf("notification not found")
 
-// Create persists a new in-app notification.
+// Create persists a new in-app notification. A notification the observer
+// drops is not an error: it simply is not meant for that recipient.
 func (r *NotificationRepository) Create(notif *models.Notification) error {
+	if r.observer != nil && !r.observer.BeforeCreate(notif) {
+		return nil
+	}
 	if notif.ID == uuid.Nil {
 		notif.ID = uuid.New()
 	}
@@ -57,6 +74,9 @@ func (r *NotificationRepository) Create(notif *models.Notification) error {
 		return fmt.Errorf("failed to insert notification: %w", err)
 	}
 
+	if r.observer != nil {
+		r.observer.AfterCreate(notif)
+	}
 	return nil
 }
 

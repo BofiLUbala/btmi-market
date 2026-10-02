@@ -19,7 +19,48 @@ const (
 	ShopStatusActive    ShopStatus = "ACTIVE"
 	ShopStatusInactive  ShopStatus = "INACTIVE"
 	ShopStatusSuspended ShopStatus = "SUSPENDED"
+	// ShopStatusDeleted marks a permanently deleted shop kept only as an
+	// order-history tombstone (see migration 109). It never comes back.
+	ShopStatusDeleted ShopStatus = "DELETED"
 )
+
+// ShopPurgeRequest selects the shops to delete permanently. Confirmation must
+// be the literal word SUPPRIMER typed by the user.
+type ShopPurgeRequest struct {
+	ShopIDs      []uuid.UUID `json:"shop_ids"`
+	Confirmation string      `json:"confirmation"`
+	Reason       string      `json:"reason"`
+}
+
+// ShopPurgeShop describes one shop of a purge preview.
+type ShopPurgeShop struct {
+	ID             uuid.UUID `json:"id"`
+	Name           string    `json:"name"`
+	BusinessName   string    `json:"business_name"`
+	Status         string    `json:"status"`
+	ProductCount   int       `json:"product_count"`
+	OpenOrderCount int       `json:"open_order_count"`
+	KeepsHistory   bool      `json:"keeps_history"`
+}
+
+// ShopPurgePreview is what the confirmation dialog shows before deleting.
+type ShopPurgePreview struct {
+	Shops        []ShopPurgeShop `json:"shops"`
+	ShopCount    int             `json:"shop_count"`
+	ProductCount int             `json:"product_count"`
+	ImageCount   int             `json:"image_count"`
+	// Shops still holding orders in progress; the purge is refused while any remain.
+	BlockedShops []string `json:"blocked_shops"`
+}
+
+// ShopPurgeResult reports what a committed purge removed.
+type ShopPurgeResult struct {
+	DeletedShops    int `json:"deleted_shops"`
+	DeletedProducts int `json:"deleted_products"`
+	DeletedImages   int `json:"deleted_images"`
+	// Shops whose row stays as a DELETED tombstone for order history.
+	HistoryKeptShops int `json:"history_kept_shops"`
+}
 
 type Shop struct {
 	ID                      uuid.UUID  `json:"id" db:"id"`

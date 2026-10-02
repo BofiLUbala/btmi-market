@@ -661,7 +661,7 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 	buyerUserID, _ := s.resolveBuyerUserID(order)
 	sellerUserIDs, _ := s.getBusinessUserIDs(order.BusinessID)
 	courierUserID := s.resolveCourierUserID(order)
-	adminUserIDs, _ := s.getAdminUserIDs("SUPER_ADMIN", "COMMERCE_ADMIN")
+	var adminUserIDs []uuid.UUID
 
 	shopName := "la boutique"
 	if shop, err := s.shopRepo.GetByID(order.ShopID); err == nil && shop != nil {
@@ -691,6 +691,10 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 	var adminTitle, adminBody string
 	var courierTitle, courierBody string
 	var notifyBuyer, notifySeller, notifyAdmin, notifyCourier bool
+	// buyerPriority overrides the catalogue priority for the buyer only;
+	// adminRoles picks which admins are told (Commerce by default).
+	var buyerPriority string
+	adminRoles := []string{"SUPER_ADMIN", "COMMERCE_ADMIN"}
 
 	switch eventType {
 	case models.NotificationTypeNewOrder:
@@ -724,9 +728,13 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		if order.DeliveryMethod == models.DeliveryMethodPickup {
 			buyerTitle = fmt.Sprintf("Commande prête pour retrait: %s", orderNum)
 			buyerBody = "Votre commande est prête pour le retrait en boutique !"
+			// The buyer has to come: worth a high-priority alert.
+			buyerPriority = "HIGH"
 		} else {
 			buyerTitle = fmt.Sprintf("Commande prête: %s", orderNum)
 			buyerBody = "Votre commande est prête et attend la prise en charge pour la livraison."
+			// Nothing for the buyer to do yet: in-app only.
+			buyerPriority = "LOW"
 			notifyAdmin = true
 			adminTitle = fmt.Sprintf("Commande prête pour expédition: %s", orderNum)
 			adminBody = fmt.Sprintf("La commande %s est prête à être expédiée (%s).", orderNum, shopName)
@@ -754,16 +762,36 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		}
 		courierBody = fmt.Sprintf("Commande %s — Boutique: %s — Zone de livraison: %s.", orderNum, shopName, deliveryArea)
 
-	case models.NotificationTypeCourierPickedUp, models.NotificationTypeDeliveryInTransit:
-		notifyBuyer = true
+	case models.NotificationTypeCourierPickedUp:
+		// The seller hands the parcel over; the buyer hears about it once the
+		// courier actually leaves (DELIVERY_IN_TRANSIT), not twice.
 		notifySeller = true
 		notifyAdmin = true
-		buyerTitle = fmt.Sprintf("Commande en cours de livraison: %s", orderNum)
-		buyerBody = "Le livreur a récupéré votre commande et est en route."
 		sellerTitle = fmt.Sprintf("Commande récupérée: %s", orderNum)
 		sellerBody = fmt.Sprintf("Le livreur a pris en charge la commande %s pour livraison.", orderNum)
+		adminTitle = fmt.Sprintf("Colis récupéré: %s", orderNum)
+		adminBody = fmt.Sprintf("Le livreur a récupéré la commande %s chez %s.", orderNum, shopName)
+
+	case models.NotificationTypeDeliveryInTransit:
+		notifyBuyer = true
+		notifyAdmin = true
+		buyerTitle = fmt.Sprintf("Commande en cours de livraison: %s", orderNum)
+		buyerBody = "Le livreur a récupéré votre commande et est en route. Suivez-le en direct."
 		adminTitle = fmt.Sprintf("Livraison en cours: %s", orderNum)
 		adminBody = fmt.Sprintf("La commande %s est en cours d'acheminement.", orderNum)
+
+	case models.NotificationTypeCourierMissionAccepted:
+		notifyAdmin = true
+		adminTitle = fmt.Sprintf("Mission acceptée: %s", orderNum)
+		adminBody = fmt.Sprintf("Le livreur a accepté la livraison de la commande %s.", orderNum)
+
+	case models.NotificationTypeCourierMissionRejected:
+		notifyAdmin = true
+		adminTitle = fmt.Sprintf("Mission refusée: %s", orderNum)
+		adminBody = fmt.Sprintf("Le livreur a refusé la commande %s. Assignez un autre livreur.", orderNum)
+		if reason, ok := extraMetadata["reason"].(string); ok && strings.TrimSpace(reason) != "" {
+			adminBody = fmt.Sprintf("Le livreur a refusé la commande %s (%s). Assignez un autre livreur.", orderNum, truncateText(strings.TrimSpace(reason), 120))
+		}
 
 	case models.NotificationTypeCourierNearDestination:
 		notifyBuyer = true
@@ -853,6 +881,23 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		sellerTitle = fmt.Sprintf("Paiement reçu: %s", orderNum)
 		sellerBody = fmt.Sprintf("Le paiement de %s pour la commande %s est confirmé.", models.FormatMoneyFR(order.FinalTotal, order.Currency), orderNum)
 
+	case models.NotificationTypePaymentFailed:
+		notifyBuyer = true
+		buyerTitle = fmt.Sprintf("Paiement échoué: %s", orderNum)
+		buyerBody = "Votre paiement n'a pas abouti. Aucun montant n'a été validé : vous pouvez réessayer depuis la commande."
+
+	case models.NotificationTypeRefundIssued:
+		notifyBuyer = true
+		notifySeller = true
+		notifyAdmin = true
+		adminRoles = []string{"SUPER_ADMIN", "FINANCE_SUPPORT_ADMIN"}
+		buyerTitle = fmt.Sprintf("Remboursement enregistré: %s", orderNum)
+		buyerBody = fmt.Sprintf("Le remboursement de %s pour la commande %s a été enregistré.", models.FormatMoneyFR(order.FinalTotal, order.Currency), orderNum)
+		sellerTitle = fmt.Sprintf("Commande remboursée: %s", orderNum)
+		sellerBody = fmt.Sprintf("La vente %s a été remboursée : elle ne compte plus dans votre chiffre d'affaires.", orderNum)
+		adminTitle = fmt.Sprintf("Remboursement: %s", orderNum)
+		adminBody = fmt.Sprintf("La commande %s (%s) a été remboursée.", orderNum, shopName)
+
 	case models.NotificationTypeCashConfirmationRequired:
 		if courierUserID != uuid.Nil {
 			notifyCourier = true
@@ -872,6 +917,10 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 	dedupWindow := 10 * time.Second
 
 	if notifyBuyer && buyerUserID != uuid.Nil {
+		buyerMeta := withAudience(meta, repository.NotificationAudienceBuyer)
+		if buyerPriority != "" {
+			buyerMeta["priority"] = buyerPriority
+		}
 		_, _ = s.notifRepo.CreateIfUnique(&models.Notification{
 			UserID:        buyerUserID,
 			Type:          eventType,
@@ -879,7 +928,7 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 			Body:          buyerBody,
 			ReferenceType: "ORDER",
 			ReferenceID:   order.ID,
-			Metadata:      withAudience(meta, repository.NotificationAudienceBuyer),
+			Metadata:      buyerMeta,
 		}, dedupWindow)
 	}
 
@@ -909,6 +958,9 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		}, dedupWindow)
 	}
 
+	if notifyAdmin {
+		adminUserIDs, _ = s.getAdminUserIDs(adminRoles...)
+	}
 	if notifyAdmin && len(adminUserIDs) > 0 {
 		for _, aid := range adminUserIDs {
 			_, _ = s.notifRepo.CreateIfUnique(&models.Notification{

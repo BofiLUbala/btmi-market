@@ -173,6 +173,11 @@ type CourierLocationResponse struct {
 	DeliveryLatitude   *float64         `json:"delivery_latitude"`
 	DeliveryLongitude  *float64         `json:"delivery_longitude"`
 	DeliveryAddress    string           `json:"delivery_address,omitempty"`
+	// BuyerSharedPoint: the destination above is the buyer's own checkout
+	// point (otherwise it was placed when the route was planned).
+	BuyerSharedPoint bool `json:"buyer_shared_point"`
+	// Route is the planned road route and the courier's progress, when planned.
+	Route *DeliveryRouteView `json:"route,omitempty"`
 }
 
 // LocationFreshness classifies how old a point is.
@@ -200,6 +205,7 @@ func (row *LiveLocationRow) ToCourierLocationResponse(now time.Time) *CourierLoc
 		DeliveryLatitude:   row.DeliveryLatitude,
 		DeliveryLongitude:  row.DeliveryLongitude,
 		DeliveryAddress:    row.DeliveryAddress,
+		BuyerSharedPoint:   row.DeliveryLatitude != nil && row.DeliveryLongitude != nil,
 	}
 	if !resp.LiveTrackingActive || !row.HasPoint {
 		return resp

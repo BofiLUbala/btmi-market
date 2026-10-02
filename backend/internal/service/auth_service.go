@@ -20,7 +20,9 @@ import (
 	"github.com/btmi-ai-market/backend/internal/config"
 	"github.com/btmi-ai-market/backend/internal/email"
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/repository"
+	"github.com/btmi-ai-market/backend/internal/whatsapp"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -44,7 +46,10 @@ type AuthService struct {
 	courierRepo       *repository.CourierRepository
 	employeeRepo      *repository.EmployeeRepository
 	emailService      *email.Service
+	otpRepo           *repository.WhatsAppOTPRepository
+	whatsapp          *whatsapp.Client
 	config            *config.Config
+	security          *notify.Security
 }
 
 func NewAuthService(
@@ -81,7 +86,9 @@ func (s *AuthService) SetEmployeeRepo(repo *repository.EmployeeRepository) {
 	s.employeeRepo = repo
 }
 
-func (s *AuthService) Register(req *models.RegisterRequest) (*models.User, error) {
+// Register creates a buyer account. With the WhatsApp channel the returned
+// challenge identifies the code sent; with e-mail it is nil.
+func (s *AuthService) Register(req *models.RegisterRequest) (*models.User, *models.WhatsAppChallenge, error) {
 	return s.registerWithAccountType(req, models.AccountTypeBuyer)
 }
 
@@ -194,7 +201,7 @@ func (s *AuthService) UploadAvatar(userID uuid.UUID, header *multipart.FileHeade
 	return url, nil
 }
 
-func (s *AuthService) RegisterSeller(req *models.RegisterRequest) (*models.User, error) {
+func (s *AuthService) RegisterSeller(req *models.RegisterRequest) (*models.User, *models.WhatsAppChallenge, error) {
 	return s.registerWithAccountType(req, models.AccountTypeSeller)
 }
 
@@ -210,7 +217,7 @@ func (s *AuthService) BecomeSeller(userID uuid.UUID) (*models.User, error) {
 		return nil, errors.New("ACCOUNT_SUSPENDED")
 	}
 
-	if user.Status != models.UserStatusActive || !user.EmailVerified {
+	if user.Status != models.UserStatusActive || !user.IsVerified() {
 		return nil, errors.New("ACCOUNT_NOT_ACTIVATED")
 	}
 	if user.AccountType != models.AccountTypeSeller {
@@ -221,34 +228,42 @@ func (s *AuthService) BecomeSeller(userID uuid.UUID) (*models.User, error) {
 	return s.GetUserByID(userID)
 }
 
-func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accountType models.AccountType) (*models.User, error) {
+func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accountType models.AccountType) (*models.User, *models.WhatsAppChallenge, error) {
+	channel, err := normalizeChannel(req.VerificationChannel)
+	if err != nil {
+		return nil, nil, err
+	}
+	if channel == VerificationChannelWhatsApp && !s.whatsappReady() {
+		return nil, nil, errors.New("WHATSAPP_UNAVAILABLE")
+	}
+
 	if req.Password != req.PasswordConfirmation {
-		return nil, errors.New("PASSWORD_CONFIRMATION_MISMATCH")
+		return nil, nil, errors.New("PASSWORD_CONFIRMATION_MISMATCH")
 	}
 
 	if !IsStrongPassword(req.Password) {
-		return nil, errors.New("PASSWORD_TOO_WEAK")
+		return nil, nil, errors.New("PASSWORD_TOO_WEAK")
 	}
 
 	exists, err := s.userRepo.EmailExists(req.Email)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if exists {
-		return nil, errors.New("EMAIL_ALREADY_EXISTS")
+		return nil, nil, errors.New("EMAIL_ALREADY_EXISTS")
 	}
 
 	exists, err = s.userRepo.PhoneExists(req.Phone)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if exists {
-		return nil, errors.New("PHONE_ALREADY_EXISTS")
+		return nil, nil, errors.New("PHONE_ALREADY_EXISTS")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
+		return nil, nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	user := &models.User{
@@ -264,7 +279,7 @@ func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accou
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		return nil, nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	if s.buyerProfileRepo != nil {
@@ -299,11 +314,16 @@ func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accou
 		}
 	}
 
-	if err := s.sendActivationEmail(user); err != nil {
-		return nil, fmt.Errorf("failed to send activation email: %w", err)
+	if channel == VerificationChannelWhatsApp {
+		challenge, err := s.sendWhatsAppCode(user, otpPurposeSignup)
+		return user, challenge, err
 	}
 
-	return user, nil
+	if err := s.sendActivationEmail(user); err != nil {
+		return nil, nil, fmt.Errorf("failed to send activation email: %w", err)
+	}
+
+	return user, nil, nil
 }
 
 // IsStrongPassword is the single registration/invitation policy used by the API.
@@ -379,7 +399,7 @@ func (s *AuthService) ResendActivation(emailAddr string) error {
 		return nil
 	}
 
-	if user.Status == models.UserStatusActive && user.EmailVerified {
+	if user.Status == models.UserStatusActive && user.IsVerified() {
 		return nil
 	}
 
@@ -555,6 +575,7 @@ func (s *AuthService) ConfirmPasswordReset(token, newPassword, newPasswordConfir
 	if err := s.refreshTokenRepo.RevokeAllForUser(resetToken.UserID); err != nil {
 		return fmt.Errorf("failed to revoke refresh tokens: %w", err)
 	}
+	go s.security.PasswordChanged(resetToken.UserID)
 
 	return nil
 }
@@ -591,7 +612,7 @@ func (s *AuthService) Login(email, password, userAgent, ipAddress string) (*mode
 		return nil, errors.New("INVALID_CREDENTIALS")
 	}
 
-	if user.Status != models.UserStatusActive || !user.EmailVerified {
+	if user.Status != models.UserStatusActive || !user.IsVerified() {
 		return nil, errors.New("ACCOUNT_NOT_ACTIVATED")
 	}
 
@@ -717,8 +738,13 @@ func (s *AuthService) sendActivationEmail(user *models.User) error {
 	return s.emailService.SendActivationEmail(user.Email, activationURL)
 }
 
+// SetSecurityAlerts enables new-device and password-change alerts.
+func (s *AuthService) SetSecurityAlerts(sec *notify.Security) { s.security = sec }
+
 func (s *AuthService) generateTokenPair(user *models.User, userAgent, ipAddress string) (*models.LoginResponse, error) {
 	s.populateCapabilities(user)
+	// Compared with the sessions stored so far, so this runs before the new one is.
+	s.security.CheckNewLogin(user.ID, userAgent)
 
 	accessToken, err := s.generateAccessToken(user)
 	if err != nil {
@@ -753,6 +779,7 @@ func (s *AuthService) generateTokenPair(user *models.User, userAgent, ipAddress 
 		Email:         user.Email,
 		Status:        user.Status,
 		EmailVerified: user.EmailVerified,
+		PhoneVerified: user.PhoneVerified,
 		AccountType:   user.AccountType,
 		Capabilities:  user.Capabilities,
 		AvatarURL:     user.AvatarURL,

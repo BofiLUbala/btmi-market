@@ -106,6 +106,50 @@ const (
 	NotificationTypePaymentConfirmed         NotificationType = "PAYMENT_CONFIRMED"
 	NotificationTypeCashConfirmationRequired NotificationType = "CASH_CONFIRMATION_REQUIRED"
 	NotificationTypeNewReview                NotificationType = "NEW_REVIEW"
+	NotificationTypePaymentFailed            NotificationType = "PAYMENT_FAILED"
+	NotificationTypeRefundIssued             NotificationType = "REFUND_ISSUED"
+	NotificationTypePointsAdjusted           NotificationType = "POINTS_ADJUSTED"
+	NotificationTypeReviewReply              NotificationType = "REVIEW_REPLY"
+
+	// Reminders raised by the notification sweeper when nobody acted.
+	NotificationTypeOrderActionReminder  NotificationType = "ORDER_ACTION_REMINDER"
+	NotificationTypeOrderStalled         NotificationType = "ORDER_STALLED"
+	NotificationTypeBuyerReceiptReminder NotificationType = "BUYER_RECEIPT_REMINDER"
+
+	// Courier missions. Kept apart from ORDER_ACCEPTED/ORDER_REJECTED, which
+	// tell the buyer what the shop decided.
+	NotificationTypeCourierMissionAccepted NotificationType = "COURIER_MISSION_ACCEPTED"
+	NotificationTypeCourierMissionRejected NotificationType = "COURIER_MISSION_REJECTED"
+	NotificationTypeCourierSuspended       NotificationType = "COURIER_SUSPENDED"
+	NotificationTypeCourierReactivated     NotificationType = "COURIER_REACTIVATED"
+	NotificationTypeCourierJoined          NotificationType = "COURIER_JOINED"
+
+	// Shop, catalogue and team (seller space).
+	NotificationTypeShopSuspended        NotificationType = "SHOP_SUSPENDED"
+	NotificationTypeShopReactivated      NotificationType = "SHOP_REACTIVATED"
+	NotificationTypeBusinessSuspended    NotificationType = "BUSINESS_SUSPENDED"
+	NotificationTypeBusinessReactivated  NotificationType = "BUSINESS_REACTIVATED"
+	NotificationTypeProductUnpublished   NotificationType = "PRODUCT_UNPUBLISHED"
+	NotificationTypeProductArchived      NotificationType = "PRODUCT_ARCHIVED"
+	NotificationTypeStockOut             NotificationType = "STOCK_OUT"
+	NotificationTypeEmployeeJoined       NotificationType = "EMPLOYEE_JOINED"
+
+	// Admin operations.
+	NotificationTypeCaseAssigned     NotificationType = "CASE_ASSIGNED"
+	NotificationTypeAdminRoleChanged NotificationType = "ADMIN_ROLE_CHANGED"
+
+	// Account security.
+	NotificationTypeNewLogin        NotificationType = "NEW_LOGIN"
+	NotificationTypePasswordChanged NotificationType = "PASSWORD_CHANGED"
+
+	// Followed products and marketing (explicit consent only).
+	NotificationTypePriceDrop         NotificationType = "PRICE_DROP"
+	NotificationTypeBackInStock       NotificationType = "BACK_IN_STOCK"
+	NotificationTypeWatchlistDigest   NotificationType = "WATCHLIST_DIGEST"
+	NotificationTypeMarketingCampaign NotificationType = "MARKETING_CAMPAIGN"
+
+	// Sent from the preferences screen to check a device receives push.
+	NotificationTypePushTest NotificationType = "PUSH_TEST"
 )
 
 type OrderConversation struct {

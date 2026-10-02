@@ -22,7 +22,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {
@@ -65,7 +66,15 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-task-manager"
+      "expo-task-manager",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#091223",
+          "defaultChannel": "orders"
+        }
+      ]
     ],
     "extra": {
       "router": {},

@@ -13,6 +13,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/email"
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
 )
@@ -48,7 +49,11 @@ type CourierService struct {
 	emailService *email.Service
 	qrSvc        *QRService
 	orderSvc     *OrderService
+	notifier     *notify.Notifier
 }
+
+// SetNotifier lets the service tell couriers and admins about account changes.
+func (s *CourierService) SetNotifier(n *notify.Notifier) { s.notifier = n }
 
 // SetQRService gives the courier service the handover timeline to write arrivals to.
 func (s *CourierService) SetQRService(qrSvc *QRService) { s.qrSvc = qrSvc }
@@ -342,6 +347,12 @@ func (s *CourierService) AcceptInvitation(token, password, passwordConfirm strin
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	s.notifier.ToAdmins([]string{"COMMERCE_ADMIN"}, notify.Message{
+		Type:    models.NotificationTypeCourierJoined,
+		Title:   "Nouveau livreur actif",
+		Body:    fmt.Sprintf("%s a activé son compte livreur.", strings.TrimSpace(inv.FirstName+" "+inv.LastName)),
+		RefType: notify.RefCourier, RefID: user.ID,
+	})
 
 	// Audit event
 	if s.auditRepo != nil {
@@ -590,7 +601,7 @@ func (s *CourierService) AcceptMission(userID, orderID uuid.UUID) error {
 
 	// Notify commerce admin
 	if s.commSvc != nil {
-		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeOrderAccepted, map[string]interface{}{
+		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierMissionAccepted, map[string]interface{}{
 			"courier_user_id": userID.String(),
 			"action":          "MISSION_ACCEPTED",
 		})
@@ -645,7 +656,7 @@ func (s *CourierService) RejectMission(userID, orderID uuid.UUID, reason string)
 
 	// Notify commerce admin
 	if s.commSvc != nil {
-		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeOrderRejected, map[string]interface{}{
+		_ = s.commSvc.TriggerOrderEventNotification(orderID, models.NotificationTypeCourierMissionRejected, map[string]interface{}{
 			"courier_user_id": userID.String(),
 			"action":          "MISSION_REJECTED",
 			"reason":          reason,
@@ -1074,6 +1085,14 @@ func (s *CourierService) SuspendCourier(adminID uuid.UUID, courierID uuid.UUID, 
 	if err := s.courierRepo.Suspend(courierID, reason); err != nil {
 		return err
 	}
+	body := "Votre compte livreur est suspendu : vous ne recevez plus de missions."
+	if r := strings.TrimSpace(reason); r != "" {
+		body = fmt.Sprintf("Votre compte livreur est suspendu (%s) : vous ne recevez plus de missions.", r)
+	}
+	s.notifier.ToUser(courier.UserID, "COURIER", notify.Message{
+		Type: models.NotificationTypeCourierSuspended, Title: "Compte livreur suspendu", Body: body,
+		RefType: notify.RefCourier, RefID: courierID,
+	})
 
 	// Audit event
 	if s.auditRepo != nil {
@@ -1102,6 +1121,11 @@ func (s *CourierService) ReactivateCourier(adminID uuid.UUID, courierID uuid.UUI
 	if err := s.courierRepo.Reactivate(courierID); err != nil {
 		return err
 	}
+	s.notifier.ToUser(courier.UserID, "COURIER", notify.Message{
+		Type: models.NotificationTypeCourierReactivated, Title: "Compte livreur réactivé",
+		Body:    "Votre compte livreur est de nouveau actif. Vous pouvez recevoir des missions.",
+		RefType: notify.RefCourier, RefID: courierID,
+	})
 
 	// Audit event
 	if s.auditRepo != nil {

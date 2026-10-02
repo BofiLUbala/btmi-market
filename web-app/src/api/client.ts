@@ -233,8 +233,15 @@ export function patch<T>(path: string, body?: unknown) {
   })
 }
 
-export function del<T>(path: string) {
-  return api<T>(path, { method: 'DELETE' })
+export function put<T>(path: string, body?: unknown) {
+  return api<T>(path, {
+    method: 'PUT',
+    body: body === undefined ? undefined : JSON.stringify(body)
+  })
+}
+
+export function del<T>(path: string, body?: unknown) {
+  return api<T>(path, { method: 'DELETE', body: body === undefined ? undefined : JSON.stringify(body) })
 }
 
 export async function authenticatedBlob(path: string): Promise<Blob> {

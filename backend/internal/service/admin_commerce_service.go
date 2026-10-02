@@ -11,6 +11,7 @@ import (
 
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
 )
@@ -23,6 +24,70 @@ type AdminCommerceService struct {
 	movementRepo  *repository.StockMovementRepository
 	auditRepo     *repository.AuditRepository
 	commSvc       *CommunicationService
+	notifier      *notify.Notifier
+}
+
+// SetNotifier tells sellers about moderation decisions on their shops and products.
+func (s *AdminCommerceService) SetNotifier(n *notify.Notifier) { s.notifier = n }
+
+func withReason(body, reason string) string {
+	if r := strings.TrimSpace(reason); r != "" {
+		return body + " Motif : " + r
+	}
+	return body
+}
+
+// notifyProductModeration tells the business whose product an admin took off sale.
+func (s *AdminCommerceService) notifyProductModeration(prod *models.AdminProductDetail, t models.NotificationType, reason string) {
+	title := "Produit retiré de la vente : " + prod.Product.Name
+	body := "Un administrateur TBK a dépublié ce produit : il n'est plus visible des acheteurs."
+	if t == models.NotificationTypeProductArchived {
+		title = "Produit archivé : " + prod.Product.Name
+		body = "Un administrateur TBK a archivé ce produit : il n'est plus visible des acheteurs."
+	}
+	s.notifier.ToBusiness(prod.Product.BusinessID, false, notify.Message{
+		Type: t, Title: title, Body: withReason(body, reason),
+		RefType: notify.RefProduct, RefID: prod.Product.ID,
+		Meta: map[string]interface{}{"product_id": prod.Product.ID.String(), "reason": reason},
+	})
+}
+
+// notifyEntityStatus tells a business's managers that TBK suspended or
+// reactivated it (or one of its shops).
+func (s *AdminCommerceService) notifyEntityStatus(kind string, id uuid.UUID, old, status, reason string) {
+	if s.notifier == nil || old == status {
+		return
+	}
+	var businessID uuid.UUID
+	var name string
+	if kind == "SHOP" {
+		if err := s.db.QueryRow(`SELECT business_id, name FROM shops WHERE id = $1`, id).Scan(&businessID, &name); err != nil {
+			return
+		}
+	} else {
+		businessID = id
+		_ = s.db.QueryRow(`SELECT name FROM businesses WHERE id = $1`, id).Scan(&name)
+	}
+	var m notify.Message
+	switch {
+	case kind == "SHOP" && status == "SUSPENDED":
+		m = notify.Message{Type: models.NotificationTypeShopSuspended, Title: "Boutique suspendue : " + name,
+			Body: withReason("TBK a suspendu cette boutique : elle n'apparaît plus sur la marketplace.", reason), RefType: notify.RefShop}
+	case kind == "SHOP" && status == "ACTIVE":
+		m = notify.Message{Type: models.NotificationTypeShopReactivated, Title: "Boutique réactivée : " + name,
+			Body: "Votre boutique est de nouveau visible sur la marketplace.", RefType: notify.RefShop}
+	case kind == "BUSINESS" && (status == "SUSPENDED" || status == "DEACTIVATED"):
+		m = notify.Message{Type: models.NotificationTypeBusinessSuspended, Title: "Entreprise suspendue : " + name,
+			Body: withReason("TBK a suspendu votre entreprise : ses boutiques n'apparaissent plus sur la marketplace.", reason), RefType: notify.RefBusiness}
+	case kind == "BUSINESS" && status == "ACTIVE":
+		m = notify.Message{Type: models.NotificationTypeBusinessReactivated, Title: "Entreprise réactivée : " + name,
+			Body: "Votre entreprise et ses boutiques sont de nouveau actives.", RefType: notify.RefBusiness}
+	default:
+		return
+	}
+	m.RefID = id
+	m.Meta = map[string]interface{}{"reason": reason, "status": status}
+	s.notifier.ToBusiness(businessID, true, m)
 }
 
 func NewAdminCommerceService(
@@ -82,6 +147,7 @@ func (s *AdminCommerceService) UnpublishProduct(adminID uuid.UUID, adminRole mod
 	if err := s.commerceRepo.UpdateProductPublication(productID, models.PublicationStatusDraft); err != nil {
 		return fmt.Errorf("failed to unpublish product: %w", err)
 	}
+	s.notifyProductModeration(prod, models.NotificationTypeProductUnpublished, reason)
 
 	oldRaw := json.RawMessage(fmt.Sprintf(`{"publication_status": "%s"}`, oldPub))
 	newRaw := json.RawMessage(fmt.Sprintf(`{"publication_status": "%s"}`, models.PublicationStatusDraft))
@@ -111,6 +177,9 @@ func (s *AdminCommerceService) ArchiveProduct(adminID uuid.UUID, adminRole model
 	oldPub := prod.Product.PublicationStatus
 	if err := s.commerceRepo.UpdateProductPublication(productID, models.PublicationStatusArchived); err != nil {
 		return fmt.Errorf("failed to archive product: %w", err)
+	}
+	if oldPub != models.PublicationStatusArchived {
+		s.notifyProductModeration(prod, models.NotificationTypeProductArchived, reason)
 	}
 
 	oldRaw := json.RawMessage(fmt.Sprintf(`{"publication_status": "%s"}`, oldPub))
@@ -550,6 +619,7 @@ func (s *AdminCommerceService) SetEntityStatus(adminID uuid.UUID, adminRole mode
 	if err != nil {
 		return err
 	}
+	s.notifyEntityStatus(kind, id, old, status, reason)
 	oldRaw := json.RawMessage(fmt.Sprintf(`{"status": %q}`, old))
 	newRaw := json.RawMessage(fmt.Sprintf(`{"status": %q}`, status))
 	_ = s.auditRepo.Record(&models.AdminAuditLog{

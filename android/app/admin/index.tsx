@@ -143,6 +143,9 @@ export default function MobileDirectionScreen() {
           </View>
         </View>
 
+        <TouchableOpacity style={styles.signOutBtn} onPress={() => router.push({ pathname: '/notification-settings', params: { space: 'admin' } })}>
+          <Text style={styles.signOutText}>Notifications</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout}>
           <Text style={styles.signOutText}>{t('admin.direction.signOut')}</Text>
         </TouchableOpacity>

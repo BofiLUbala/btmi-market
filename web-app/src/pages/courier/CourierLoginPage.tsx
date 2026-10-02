@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { safeInternalPath } from '@/lib/returnTo'
 import { api } from '@/api/client'
 import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +13,9 @@ import { CapsLockHint, RememberMe, forgotPasswordLink, useCapsLock, useRemembere
 export default function CourierLoginPage() {
   const { login, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Where a courier was going (a mission link, a notification) before signing in.
+  const from = safeInternalPath((location.state as { from?: string } | null)?.from, '')
   const t = useT()
   const { email, setEmail, password, setPassword, remember, setRemember, prefilled, persist } = useRememberedEmail('courier')
   const caps = useCapsLock()
@@ -28,7 +32,7 @@ export default function CourierLoginPage() {
       // account_type. The protected profile endpoint is the authoritative check.
       await api('/courier/profile')
       persist(email, password)
-      navigate('/courier/dashboard', { replace: true })
+      navigate(from.startsWith('/courier') || from.startsWith('/notif/') ? from : '/courier/dashboard', { replace: true })
     } catch (err) {
       const code = err instanceof ApiError ? err.code : ''
       if (code === 'ACCOUNT_NOT_ACTIVATED') {

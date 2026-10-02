@@ -15,6 +15,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/email"
 	adminhandlers "github.com/btmi-ai-market/backend/internal/handlers/admin"
 	"github.com/btmi-ai-market/backend/internal/handlers/auth"
+	"github.com/btmi-ai-market/backend/internal/whatsapp"
 	"github.com/btmi-ai-market/backend/internal/handlers/businesses"
 	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
 	"github.com/btmi-ai-market/backend/internal/handlers/cash"
@@ -27,7 +28,9 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/growth"
 	"github.com/btmi-ai-market/backend/internal/handlers/inventory"
 	"github.com/btmi-ai-market/backend/internal/handlers/locations"
+	"github.com/btmi-ai-market/backend/internal/maps"
 	"github.com/btmi-ai-market/backend/internal/handlers/marketplace"
+	notificationhandlers "github.com/btmi-ai-market/backend/internal/handlers/notifications"
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
 	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
 	presencehandlers "github.com/btmi-ai-market/backend/internal/handlers/presence"
@@ -37,6 +40,8 @@ import (
 	"github.com/btmi-ai-market/backend/internal/middleware"
 	"github.com/btmi-ai-market/backend/internal/realtime"
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
+	"github.com/btmi-ai-market/backend/internal/push"
 	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -106,6 +111,26 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	orderConvRepo := repository.NewOrderConversationRepository(db)
 	notifRepo := repository.NewNotificationRepository(db)
+	// Every notification written anywhere is classified (category, priority,
+	// link) and pushed to the recipient's devices when their settings allow.
+	pushDispatcher, pushErr := push.New(db, push.Config{
+		Enabled:         cfg.PushEnabled,
+		WebEnabled:      cfg.PushWebEnabled,
+		ExpoEnabled:     cfg.PushExpoEnabled,
+		VAPIDPrivateKey: cfg.VAPIDPrivateKey,
+		VAPIDSubject:    cfg.VAPIDSubject,
+		ExpoURL:         cfg.ExpoPushURL,
+		ExpoAccessToken: cfg.ExpoAccessToken,
+		ExtraHosts:      strings.Split(cfg.PushExtraHosts, ","),
+	})
+	if pushErr != nil {
+		log.Printf("push: %v", pushErr)
+	}
+	notifPrefs := notify.NewPrefs(db)
+	notifRepo.SetObserver(notify.NewObserver(db, notifPrefs, pushDispatcher))
+	notifier := notify.NewNotifier(db, notifRepo)
+	go pushDispatcher.Run(context.Background())
+	go notify.NewSweeper(db, notifier, notifPrefs).Run(context.Background(), 2*time.Minute)
 	courierRepo := repository.NewCourierRepository(db)
 
 	redisClient := redislib.NewClient(cfg)
@@ -132,6 +157,8 @@ func main() {
 	authService.SetMembershipRepo(membershipRepo)
 	authService.SetCourierRepo(courierRepo)
 	authService.SetEmployeeRepo(employeeRepo)
+	authService.SetSecurityAlerts(notify.NewSecurity(db, notifier, pushDispatcher.Store()))
+	authService.SetWhatsApp(repository.NewWhatsAppOTPRepository(db), whatsapp.NewClient(cfg))
 	businessService := service.NewBusinessService(userRepo, businessRepo, membershipRepo, db)
 	shopService := service.NewShopService(shopRepo, membershipRepo, db, asynqClient)
 	employeeService := service.NewEmployeeService(
@@ -181,6 +208,10 @@ func main() {
 	commissionRepo := repository.NewCommissionRepository(db.DB)
 	commissionService := service.NewCommissionService(commissionRepo, orderRepo, buyerPaymentRepo, businessRepo)
 	paymentService.SetCommissionService(commissionService)
+	paymentService.SetCommunicationService(commService)
+	purchaseConfirmationService.SetCommunicationService(commService)
+	reviewService.SetNotifications(commService, notifier)
+	employeeService.SetNotifier(notifier)
 	orderService.SetCommissionService(commissionService)
 	purchaseConfirmationService.SetCommissionService(commissionService)
 
@@ -195,6 +226,7 @@ func main() {
 	courierService.SetQRService(qrService)
 	courierService.SetEmailService(emailService)
 	courierService.SetOrderService(orderService)
+	courierService.SetNotifier(notifier)
 
 	adminCommissionHandler := adminhandlers.NewAdminCommissionHandler(commissionService)
 	sellerFinanceHandler := sellerhandlers.NewSellerFinanceHandler(commissionService)
@@ -212,6 +244,8 @@ func main() {
 	authHandler := auth.NewHandler(authService, employeeService, adminPlatformRepo)
 	businessHandler := businesses.NewHandler(businessService)
 	shopHandler := shops.NewHandler(shopService)
+	shopPurgeService := service.NewShopPurgeService(db, auditRepo, redisClient.GetRedis(), cfg.UploadDir)
+	shopHandler.SetPurgeService(shopPurgeService)
 	employeeHandler := employees.NewHandler(employeeService)
 	inventoryHandler := inventory.NewHandler(inventoryService, productImageService)
 	orderHandler := orders.NewHandler(orderService, pointRedemptionService, buyerProfileService, paymentService)
@@ -246,8 +280,11 @@ func main() {
 	adminCommerceRepo := repository.NewAdminCommerceRepository(db)
 	adminCommerceService := service.NewAdminCommerceService(db, adminCommerceRepo, productRepo, inventoryRepo, stockMovementRepo, auditRepo)
 	adminCommerceService.SetCommunicationService(commService)
+	adminCommerceService.SetNotifier(notifier)
+	adminManagementService.SetNotifier(notifier)
 	adminFinanceRepo := repository.NewAdminFinanceRepository(db)
 	adminFinanceService := service.NewAdminFinanceService(adminFinanceRepo, auditService, paymentConfigRepo)
+	adminFinanceService.SetNotifier(notifier)
 	adminTechnicalRepo := repository.NewAdminTechnicalRepository(db.DB, migrationsDir)
 	adminTechnicalService := service.NewAdminTechnicalService(adminTechnicalRepo, db.DB, redisClient.GetRedis(), auditService, asynqInspector)
 	adminAuthService.SetSecurityRecorder(adminTechnicalService, db.DB)
@@ -269,6 +306,8 @@ func main() {
 	go monitoringService.RunRetention(context.Background())
 	presenceHandler := presencehandlers.NewHandler(service.NewPresenceService(redisClient.GetRedis(), db.DB))
 	adminCommerceHandler := adminhandlers.NewCommerceHandler(adminCommerceService)
+	notificationHandler := notificationhandlers.NewHandler(db, pushDispatcher, notifPrefs, notifier, auditService)
+	adminCommerceHandler.SetPurgeService(shopPurgeService)
 	adminFinanceHandler := adminhandlers.NewAdminFinanceHandler(adminFinanceService)
 	adminTechnicalHandler := adminhandlers.NewAdminTechnicalHandler(adminTechnicalService)
 	adminPlatformHandler := adminhandlers.NewAdminPlatformHandler(adminPlatformService)
@@ -277,7 +316,9 @@ func main() {
 	courierHandler := courierhandlers.NewHandler(courierService)
 	// Live courier GPS: written by the courier in transit, read by the buyer and Commerce Admin only.
 	courierLocationService := service.NewCourierLocationService(repository.NewDeliveryLocationRepository(db))
-	courierLocationHandler := trackinghandlers.NewLocationHandler(courierLocationService, buyerProfileService)
+	deliveryRouteService := service.NewDeliveryRouteService(repository.NewDeliveryRouteRepository(db), maps.NewClient(cfg.TomTomAPIKey))
+	courierLocationService.SetRouteService(deliveryRouteService)
+	courierLocationHandler := trackinghandlers.NewLocationHandler(courierLocationService, deliveryRouteService, buyerProfileService)
 
 	router := gin.Default()
 
@@ -345,6 +386,10 @@ func main() {
 			authGroup.POST("/reinitialize-registration", authHandler.ReinitializeRegistration)
 			authGroup.POST("/reinitialize-registration/complete", authHandler.CompleteRegistrationReinitialization)
 			authGroup.POST("/login", authHandler.Login)
+			authGroup.GET("/whatsapp/status", authHandler.WhatsAppStatus)
+			authGroup.POST("/whatsapp/login", authHandler.LoginWhatsApp)
+			authGroup.POST("/whatsapp/verify", authHandler.VerifyWhatsApp)
+			authGroup.POST("/whatsapp/resend", authHandler.ResendWhatsApp)
 			authGroup.POST("/refresh", authHandler.Refresh)
 			authGroup.POST("/logout", authHandler.Logout)
 			authGroup.POST("/forgot-password", authHandler.ForgotPassword)
@@ -421,6 +466,8 @@ func main() {
 			shopsGroup.GET("/:shop_id", shopHandler.Get)
 			shopsGroup.PATCH("/:shop_id", shopHandler.Update)
 			shopsGroup.DELETE("/:shop_id", shopHandler.DeleteShop)
+			shopsGroup.GET("/:shop_id/purge-preview", shopHandler.PurgePreview)
+			shopsGroup.DELETE("/:shop_id/permanent", shopHandler.PurgeShop)
 
 			shopsGroup.POST("/:shop_id/stock", inventoryHandler.AddStock)
 			shopsGroup.POST("/:shop_id/sales", inventoryHandler.RecordSale)
@@ -478,9 +525,34 @@ func main() {
 			sellerGroup.GET("/finances/sales/:order_id", sellerFinanceHandler.GetSaleDetail)
 		}
 
+		// Push: the public key to subscribe with, and sign-out unregistration
+		// (proved by the secret endpoint/token itself, no session needed).
+		api.GET("/push/config", notificationHandler.Config)
+		api.POST("/push/unregister", notificationHandler.Unregister)
+		pushGroup := api.Group("/push")
+		pushGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			pushGroup.GET("/subscriptions", notificationHandler.ListDevices)
+			pushGroup.POST("/subscriptions", notificationHandler.Subscribe)
+			pushGroup.DELETE("/subscriptions/:id", notificationHandler.RemoveDevice)
+			pushGroup.POST("/test", notificationHandler.Test)
+		}
+		// Followed products (server-side favourites) for price-drop and
+		// back-in-stock alerts.
+		watchesGroup := api.Group("/watches")
+		watchesGroup.Use(middleware.AuthMiddleware(authService))
+		{
+			watchesGroup.GET("", notificationHandler.ListWatches)
+			watchesGroup.POST("/sync", notificationHandler.SyncWatches)
+			watchesGroup.PUT("/:productId", notificationHandler.Watch)
+			watchesGroup.DELETE("/:productId", notificationHandler.Unwatch)
+		}
+
 		notificationsGroup := api.Group("/notifications")
 		notificationsGroup.Use(middleware.AuthMiddleware(authService))
 		{
+			notificationsGroup.GET("/preferences", notificationHandler.Preferences)
+			notificationsGroup.PUT("/preferences/:category", notificationHandler.UpdatePreference)
 			notificationsGroup.GET("", commHandler.GetUserNotifications)
 			notificationsGroup.POST("/:id/read", commHandler.MarkNotificationRead)
 			notificationsGroup.POST("/read-all", commHandler.MarkAllNotificationsRead)
@@ -622,6 +694,9 @@ func main() {
 			courierProtected.POST("/missions/:id/arrive", courierHandler.ArriveAtDestination)
 			courierProtected.POST("/missions/:id/fail", courierHandler.FailDelivery)
 			courierProtected.POST("/missions/:id/location", courierLocationHandler.ReportLocation)
+			courierProtected.GET("/missions/:id/live", courierLocationHandler.CourierLive)
+			courierProtected.PUT("/missions/:id/route", courierLocationHandler.CourierSetRoute)
+			courierProtected.GET("/geocode", courierLocationHandler.Geocode)
 			courierProtected.GET("/history", courierHandler.GetHistory)
 			courierProtected.GET("/earnings", courierHandler.GetEarnings)
 			courierProtected.GET("/delivered-products", courierHandler.GetDeliveredProducts)
@@ -740,6 +815,16 @@ func main() {
 					adminNotifsGroup.GET("/unread-count", commHandler.GetAdminUnreadCount)
 					adminNotifsGroup.POST("/:id/read", commHandler.MarkAdminNotificationRead)
 					adminNotifsGroup.POST("/read-all", commHandler.MarkAllAdminNotificationsRead)
+					adminNotifsGroup.GET("/preferences", notificationHandler.Preferences)
+					adminNotifsGroup.PUT("/preferences/:category", notificationHandler.UpdatePreference)
+				}
+				adminPushGroup := protectedAdmin.Group("/push")
+				{
+					adminPushGroup.GET("/subscriptions", notificationHandler.ListDevices)
+					adminPushGroup.POST("/subscriptions", notificationHandler.Subscribe)
+					adminPushGroup.DELETE("/subscriptions/:id", notificationHandler.RemoveDevice)
+					adminPushGroup.POST("/test", notificationHandler.Test)
+					adminPushGroup.GET("/stats", middleware.RequireAdminRoles(models.AdminRoleTechnicalAdmin, models.AdminRoleSuperAdmin), notificationHandler.Stats)
 				}
 
 				adminUsersGroup := protectedAdmin.Group("/admin-users")
@@ -788,11 +873,14 @@ func main() {
 					commerceGroup.GET("/events/stream", orderEvents.AdminStream)
 					commerceGroup.POST("/orders/:id/confirm-return", orderHandler.AdminConfirmReturnToSeller)
 					commerceGroup.GET("/overview", adminCommerceHandler.Overview)
+					commerceGroup.POST("/notifications/campaigns", notificationHandler.Campaign)
 					commerceGroup.GET("/users", adminCommerceHandler.ListOperationalUsers)
 					commerceGroup.GET("/businesses", adminCommerceHandler.ListBusinesses)
 					commerceGroup.POST("/businesses/:id/status", adminCommerceHandler.SetBusinessStatus)
 					commerceGroup.GET("/shops", adminCommerceHandler.ListShops)
 					commerceGroup.POST("/shops/:id/status", adminCommerceHandler.SetShopStatus)
+					commerceGroup.POST("/shops/purge/preview", adminCommerceHandler.PreviewShopPurge)
+					commerceGroup.POST("/shops/purge", adminCommerceHandler.PurgeShops)
 					commerceGroup.GET("/products", adminCommerceHandler.ListProducts)
 					commerceGroup.GET("/products/:id", adminCommerceHandler.GetProduct)
 					commerceGroup.POST("/products/:id/unpublish", adminCommerceHandler.UnpublishProduct)
@@ -835,6 +923,8 @@ func main() {
 					commerceGroup.POST("/orders/:id/assign-courier", adminCommerceHandler.AssignCourier)
 					commerceGroup.GET("/orders/:id/delivery-handover", qrHandler.AdminDelivery)
 					commerceGroup.GET("/orders/:id/courier-location", courierLocationHandler.AdminCourierLocation)
+					commerceGroup.PUT("/orders/:id/route", courierLocationHandler.AdminSetRoute)
+					commerceGroup.GET("/geocode", courierLocationHandler.Geocode)
 					commerceGroup.GET("/orders/:id/conversation", commHandler.GetAdminOrderConversation)
 					commerceGroup.POST("/orders/:id/conversation/read", commHandler.AdminMarkChannelRead)
 					commerceGroup.POST("/orders/:id/intervene", commHandler.AdminIntervene)

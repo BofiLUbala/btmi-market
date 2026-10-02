@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { takePendingNotificationLink } from '../../src/lib/notificationRouting'
 import {
   View,
   Text,
@@ -40,7 +41,8 @@ export default function AdminLoginScreen() {
     try {
       await login(email.trim(), password)
       await persist(email)
-      router.replace('/admin')
+      const fromNotification = takePendingNotificationLink('ADMIN', useAdminAuth.getState().admin?.id)
+      router.replace((fromNotification ?? '/admin') as never)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('admin.login.invalidCredentials')
       setError(msg)

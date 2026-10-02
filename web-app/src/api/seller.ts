@@ -6,6 +6,8 @@ import {
   upload,
 } from './client'
 import type {
+  ShopPurgePreview,
+  ShopPurgeResult,
   RegisterRequest,
   RegisterResponse,
   SellerBusiness,
@@ -90,6 +92,9 @@ export const shopApi = {
   update: (id: string, body: UpdateShopRequest) => patch<Shop>(`/shops/${id}`, body),
   // Archives the Shop when it holds commercial history; deletes it when empty.
   delete: (id: string) => del<{ action: 'archived' | 'deleted' }>(`/shops/${id}`),
+  // Permanent deletion of an archived Shop: what would be removed, then the purge itself.
+  purgePreview: (id: string) => get<ShopPurgePreview>(`/shops/${id}/purge-preview`),
+  purge: (id: string, confirmation: string) => del<ShopPurgeResult>(`/shops/${id}/permanent`, { confirmation }),
 }
 
 export const employeeApi = {

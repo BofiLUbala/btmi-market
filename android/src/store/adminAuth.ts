@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { mobileAdminAuthApi, type AdminRole, type AdminUser } from '../api/admin'
 import { adminTokenStore } from '../api/adminTokenStore'
+import { releasePush, syncPush } from '../lib/push'
 
 interface AdminAuthState {
   admin: AdminUser | null
@@ -26,6 +27,7 @@ export const useAdminAuth = create<AdminAuthState>((set, get) => ({
       }
       const admin = await mobileAdminAuthApi.me()
       set({ admin, role: admin.role, ready: true })
+      void syncPush('admin')
     } catch {
       await adminTokenStore.clear()
       set({ admin: null, role: null, ready: true })
@@ -38,6 +40,7 @@ export const useAdminAuth = create<AdminAuthState>((set, get) => ({
     return session.admin
   },
   logout: async () => {
+    await releasePush('admin').catch(() => undefined)
     try {
       await mobileAdminAuthApi.logout()
     } catch {

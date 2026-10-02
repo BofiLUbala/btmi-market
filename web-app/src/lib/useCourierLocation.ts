@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { buyerApi } from '@/api/buyer'
 import { adminCommerceApi } from '@/api/admin'
+import { courierApi } from '@/api/courier'
 import type { CourierLocation } from '@/api/types'
 import { useOrderEvents } from './orderEvents'
 import { LOCATION_POLL_MS } from './liveLocation'
@@ -11,7 +12,7 @@ import { LOCATION_POLL_MS } from './liveLocation'
  * While the page is visible it also polls every 10 s, in case the stream is
  * down; hidden tabs neither poll nor render.
  */
-export function useCourierLocation(orderId: string, audience: 'user' | 'admin', enabled: boolean) {
+export function useCourierLocation(orderId: string, audience: 'user' | 'admin' | 'courier', enabled: boolean) {
   const [data, setData] = useState<CourierLocation | null>(null)
   const [fetchedAt, setFetchedAt] = useState(0)
   const [failed, setFailed] = useState(false)
@@ -23,7 +24,9 @@ export function useCourierLocation(orderId: string, audience: 'user' | 'admin', 
     try {
       const next = audience === 'admin'
         ? await adminCommerceApi.getCourierLocation(orderId)
-        : await buyerApi.courierLocation(orderId)
+        : audience === 'courier'
+          ? await courierApi.live(orderId)
+          : await buyerApi.courierLocation(orderId)
       // A slower, older response must not overwrite a newer one.
       if (mine !== seq.current) return
       setData(next)
@@ -36,7 +39,8 @@ export function useCourierLocation(orderId: string, audience: 'user' | 'admin', 
 
   useEffect(() => { void refetch() }, [refetch])
 
-  useOrderEvents(() => void refetch(), { orderId, audience, kinds: ['location', 'order', 'resync'] })
+  // The courier's own stream carries no location events: the poll covers them.
+  useOrderEvents(() => void refetch(), { orderId, audience: audience === 'admin' ? 'admin' : 'user', kinds: ['location', 'order', 'resync'] })
 
   useEffect(() => {
     if (!enabled) return

@@ -296,6 +296,7 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 		if s.onSettled != nil {
 			s.onSettled(payment.OrderID)
 		}
+		s.notifyOrder(payment.OrderID, models.NotificationTypePaymentConfirmed)
 		return nil
 	case models.ProviderPaymentFailed:
 		reason := strings.TrimSpace(event.Reason)
@@ -312,6 +313,7 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 			Provider: provider, Currency: payment.Currency, Reference: event.Reference,
 			Detail: models.JSONMap{"reason": reason, "webhook_event_id": event.EventID},
 		})
+		s.notifyOrder(payment.OrderID, models.NotificationTypePaymentFailed)
 		return nil
 	default:
 		return reject("UNSUPPORTED_WEBHOOK_STATUS")

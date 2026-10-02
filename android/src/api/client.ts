@@ -87,7 +87,7 @@ export class ApiError extends Error {
   /** `detail` carries the raw underlying failure (an OkHttp message, an
    *  unreadable file path, an abort) for a transport error, whose `message` is
    *  a generic localized line. Diagnostics only -- never shown on its own. */
-  constructor(public status: number, public code: string, message: string, public detail?: string) { super(message) }
+  constructor(public status: number, public code: string, message: string, public detail?: string, public data?: Record<string, unknown>) { super(message) }
 }
 
 let refreshPromise: Promise<boolean> | null = null
@@ -146,9 +146,9 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
     if (await refreshPromise) return request<T>(path, init, false)
   }
   if (!response.ok) {
-    let code = 'REQUEST_FAILED'; let message = await localized('errors.generic')
-    try { const body = await response.json(); code = body?.error?.code || code; message = body?.error?.message || message } catch {}
-    throw new ApiError(response.status, code, await friendlyMessage(code, message))
+    let code = 'REQUEST_FAILED'; let message = await localized('errors.generic'); let data: Record<string, unknown> | undefined
+    try { const body = await response.json(); code = body?.error?.code || code; message = body?.error?.message || message; data = body?.data && typeof body.data === 'object' ? body.data : undefined } catch {}
+    throw new ApiError(response.status, code, await friendlyMessage(code, message), undefined, data)
   }
   const body = await response.json()
   return (body.data ?? body) as T
@@ -237,4 +237,5 @@ export const get = <T>(path: string, init?: RequestInit) => request<T>(path, ini
 export const post = <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
 export const postForm = <T>(path: string, body: FormData) => request<T>(path, { method: 'POST', body })
 export const patch = <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body ?? {}) })
-export const del = <T>(path: string) => request<T>(path, { method: 'DELETE' })
+export const put = <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) })
+export const del = <T>(path: string, body?: unknown) => request<T>(path, body === undefined ? { method: 'DELETE' } : { method: 'DELETE', body: JSON.stringify(body) })

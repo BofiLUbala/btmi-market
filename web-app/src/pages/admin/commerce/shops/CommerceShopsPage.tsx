@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminShopListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
 import { EntityStatusDialog, type EntityStatusTarget } from './EntityStatusDialog'
+import { ShopPurgeDialog } from './ShopPurgeDialog'
 
 const LIMIT = 20
 
@@ -23,6 +24,9 @@ export default function CommerceShopsPage() {
   const [page, setPage] = useState(0)
   const [target, setTarget] = useState<EntityStatusTarget | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  // Selection for bulk permanent deletion; survives paging, cleared after a purge.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [purgeIds, setPurgeIds] = useState<string[] | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(() => { setSearch(searchInput.trim()); setPage(0) }, 350)
@@ -46,6 +50,21 @@ export default function CommerceShopsPage() {
   useEffect(() => { void fetchData() }, [fetchData])
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT))
+  const allOnPage = items.length > 0 && items.every((s) => selected.has(s.id))
+  const toggle = (id: string) => setSelected((cur) => {
+    const next = new Set(cur)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+  const togglePage = () => setSelected((cur) => {
+    const next = new Set(cur)
+    for (const s of items) {
+      if (allOnPage) next.delete(s.id)
+      else next.add(s.id)
+    }
+    return next
+  })
   const scopedTo = businessId ? items[0]?.business_name : ''
 
   return (
@@ -79,6 +98,16 @@ export default function CommerceShopsPage() {
         </select>
       </div>
 
+      {selected.size > 0 && (
+        <div role="toolbar" aria-label="Sélection" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--admin-border)', background: 'var(--admin-surface)' }}>
+          <span style={{ fontSize: 13 }}>{selected.size} boutique(s) sélectionnée(s)</span>
+          <button className="admin-button admin-button-small" onClick={() => setSelected(new Set())}>Tout désélectionner</button>
+          <button className="admin-button admin-button-small admin-button-danger" style={{ marginLeft: 'auto' }} onClick={() => setPurgeIds(Array.from(selected))}>
+            Supprimer définitivement ({selected.size})
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>Chargement…</div>
       ) : items.length === 0 ? (
@@ -90,6 +119,9 @@ export default function CommerceShopsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text-muted)', textAlign: 'left' }}>
+                <th style={{ padding: '12px 0 12px 14px', width: 28 }}>
+                  <input type="checkbox" aria-label="Sélectionner toutes les boutiques de la page" checked={allOnPage} onChange={togglePage} />
+                </th>
                 <th style={{ padding: '12px 14px' }}>Boutique</th>
                 <th style={{ padding: '12px 14px' }}>Entreprise</th>
                 <th style={{ padding: '12px 14px', textAlign: 'center' }}>Produits</th>
@@ -102,7 +134,10 @@ export default function CommerceShopsPage() {
             </thead>
             <tbody>
               {items.map((s) => (
-                <tr key={s.id} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
+                <tr key={s.id} style={{ borderBottom: '1px solid var(--admin-border-soft)', backgroundColor: selected.has(s.id) ? 'var(--admin-surface-2)' : undefined }}>
+                  <td style={{ padding: '12px 0 12px 14px' }}>
+                    <input type="checkbox" aria-label={`Sélectionner ${s.name}`} checked={selected.has(s.id)} onChange={() => toggle(s.id)} />
+                  </td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{s.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{adminLabel(s.type)} · {s.city || '—'} · {s.phone || '—'}</div>
@@ -141,6 +176,11 @@ export default function CommerceShopsPage() {
           <span style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>Page {page + 1} / {totalPages}</span>
           <button className="admin-button" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Suivant</button>
         </div>
+      )}
+
+      {purgeIds && (
+        <ShopPurgeDialog shopIds={purgeIds} onClose={() => setPurgeIds(null)}
+          onDone={(m) => { setPurgeIds(null); setSelected(new Set()); setNotice(m); setError(null); void fetchData() }} />
       )}
 
       {target && (

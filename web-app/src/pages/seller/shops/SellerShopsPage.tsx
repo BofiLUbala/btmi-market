@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/store/auth'
 import { useI18n } from '@/store/i18n'
 import { inventoryApi, productApi, shopApi } from '@/api/seller'
-import type { Product, Shop, UpdateShopRequest } from '@/api/types'
+import type { Product, Shop, ShopPurgePreview, UpdateShopRequest } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
@@ -22,6 +22,13 @@ interface ShopStats {
 interface PendingDelete {
   shop: Shop
   stats: ShopStats
+}
+
+const PURGE_WORD = 'SUPPRIMER'
+
+interface PendingPurge {
+  shop: Shop
+  preview: ShopPurgePreview | null
 }
 
 export default function SellerShopsPage() {
@@ -54,6 +61,11 @@ export default function SellerShopsPage() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteOutcome, setDeleteOutcome] = useState('')
+
+  // Permanent deletion of an archived shop
+  const [pendingPurge, setPendingPurge] = useState<PendingPurge | null>(null)
+  const [purgeTyped, setPurgeTyped] = useState('')
+  const [purgeBusy, setPurgeBusy] = useState(false)
 
   useEffect(() => {
     if (activeBusiness) loadShops()
@@ -164,6 +176,36 @@ export default function SellerShopsPage() {
     }
   }
 
+  async function openPurge(shop: Shop) {
+    setActionError('')
+    setDeleteOutcome('')
+    setPurgeTyped('')
+    setPendingPurge({ shop, preview: null })
+    try {
+      const preview = await shopApi.purgePreview(shop.id)
+      setPendingPurge((cur) => (cur?.shop.id === shop.id ? { shop, preview } : cur))
+    } catch (err) {
+      setPendingPurge(null)
+      setActionError(err instanceof Error ? err.message : t('seller.shopPage.purgeFailed'))
+    }
+  }
+
+  async function confirmPurge() {
+    if (!pendingPurge || purgeBusy || purgeTyped.trim() !== PURGE_WORD) return
+    setPurgeBusy(true)
+    setActionError('')
+    try {
+      const res = await shopApi.purge(pendingPurge.shop.id, purgeTyped.trim())
+      setDeleteOutcome(t('seller.shopPage.purgeDone', { shop: pendingPurge.shop.name, products: res.deleted_products, images: res.deleted_images }))
+      setPendingPurge(null)
+      await loadShops()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('seller.shopPage.purgeFailed'))
+    } finally {
+      setPurgeBusy(false)
+    }
+  }
+
   async function restoreShop(shop: Shop) {
     setActionError('')
     try {
@@ -201,7 +243,9 @@ export default function SellerShopsPage() {
         <div className="card success-box" role="status">
           {deleteOutcome === 'archived'
             ? t('seller.shopPage.archivedOutcome')
-            : t('seller.shopPage.deletedOutcome')}
+            : deleteOutcome === 'deleted'
+              ? t('seller.shopPage.deletedOutcome')
+              : deleteOutcome}
         </div>
       )}
 
@@ -316,6 +360,51 @@ export default function SellerShopsPage() {
         </Card>
       )}
 
+      {/* Permanent deletion confirmation (archived shops only) */}
+      {pendingPurge && (
+        <Card style={{ marginBottom: 24, borderColor: 'var(--color-danger)' }}>
+          <h3>{t('seller.shopPage.purgeTitle', { shop: pendingPurge.shop.name })}</h3>
+          {!pendingPurge.preview ? (
+            <p className="small muted">{t('seller.shopPage.purgeLoading')}</p>
+          ) : (
+            <>
+              <p className="small">
+                {t('seller.shopPage.purgeSummary', { products: pendingPurge.preview.product_count, images: pendingPurge.preview.image_count })}
+              </p>
+              <p className="small muted" style={{ margin: '4px 0' }}>{t('seller.shopPage.purgeSharedNote')}</p>
+              {pendingPurge.preview.shops.some((s) => s.keeps_history) && (
+                <p className="small muted" style={{ margin: '4px 0' }}>{t('seller.shopPage.purgeHistoryNote')}</p>
+              )}
+              <p className="small" style={{ color: 'var(--color-danger)', fontWeight: 700 }}>{t('seller.shopPage.purgeIrreversible')}</p>
+              {pendingPurge.preview.blocked_shops.length > 0 ? (
+                <p className="small" role="alert" style={{ color: 'var(--color-danger)' }}>
+                  {t('seller.shopPage.purgeBlocked', { count: pendingPurge.preview.shops[0]?.open_order_count ?? 0 })}
+                </p>
+              ) : (
+                <Field
+                  label={t('seller.shopPage.purgeTypeLabel', { word: PURGE_WORD })}
+                  name="purge_confirmation"
+                  autoComplete="off"
+                  placeholder={PURGE_WORD}
+                  value={purgeTyped}
+                  onChange={(e) => setPurgeTyped(e.target.value)}
+                />
+              )}
+            </>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <Button
+              variant="danger"
+              onClick={confirmPurge}
+              disabled={purgeBusy || !pendingPurge.preview || pendingPurge.preview.blocked_shops.length > 0 || purgeTyped.trim() !== PURGE_WORD}
+            >
+              {purgeBusy ? t('seller.shopPage.purgeWorking') : t('seller.shopPage.purgeSubmit')}
+            </Button>
+            <Button variant="ghost" onClick={() => setPendingPurge(null)} disabled={purgeBusy}>{t('common.cancel')}</Button>
+          </div>
+        </Card>
+      )}
+
       {loading ? (
         <LoadingBlock label={t('seller.shopPage.loading')} />
       ) : shops.length === 0 ? (
@@ -410,13 +499,26 @@ export default function SellerShopsPage() {
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => restoreShop(shop)}
-                    >
-                      {t('seller.shopPage.restoreShop')}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => restoreShop(shop)}
+                      >
+                        {t('seller.shopPage.restoreShop')}
+                      </button>
+                      {/* Suspended shops are an admin decision: only archived ones can be erased. */}
+                      {shop.status === 'INACTIVE' && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--color-danger)' }}
+                          onClick={() => void openPurge(shop)}
+                        >
+                          {t('seller.shopPage.purgeAction')}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </Card>

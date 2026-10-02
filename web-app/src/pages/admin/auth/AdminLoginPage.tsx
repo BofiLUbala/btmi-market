@@ -28,8 +28,10 @@ export default function AdminLoginPage() {
       const admin = await login(email.trim(), password)
       persist(email, password)
       // Redirect based on role or original destination
-      const from = (location.state as { from?: { pathname?: string } })?.from?.pathname
-      if (from && from !== '/admin/login') {
+      // Keep the query string too: a notification link carries its target in it.
+      const fromLoc = (location.state as { from?: { pathname?: string; search?: string } })?.from
+      const from = fromLoc?.pathname ? fromLoc.pathname + (fromLoc.search ?? '') : undefined
+      if (from && fromLoc?.pathname !== '/admin/login') {
         navigate(from, { replace: true })
       } else {
         navigate(defaultRouteForRole(admin.role), { replace: true })

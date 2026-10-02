@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { useOrderEvents } from '../../lib/orderEvents'
 import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../../lib/deliveryPlan'
 import { DeliveryPlanCard } from '../../components/checkout/DeliveryPlanCard'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BuyerHandoverPanel } from '@/components/checkout/BuyerHandoverPanel'
 import { timelineNote } from '@/lib/timelineNote'
 import { OrderRatingCard } from '@/components/checkout/OrderRatingCard'
@@ -31,6 +31,9 @@ import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 import { ChatIcon } from '@/components/ui/Icons'
+import { shouldShowLiveMap } from '@/lib/liveLocation'
+
+const LiveCourierMap = lazy(() => import('@/components/tracking/LiveCourierMap'))
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
@@ -414,7 +417,9 @@ function OrderInner() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [statusFlash, setStatusFlash] = useState(false)
-  const [showChat, setShowChat] = useState(false)
+  // A message notification opens the order with its chat (?chat=1).
+  const [searchParams] = useSearchParams()
+  const [showChat, setShowChat] = useState(() => searchParams.get('chat') === '1')
   const [productNumber, setProductNumber] = useState('')
   const [productVerification, setProductVerification] = useState<ProductVerification | null>(null)
   const [verificationError, setVerificationError] = useState('')
@@ -574,6 +579,15 @@ function OrderInner() {
       <div style={{ marginTop: 12 }}>
         <DeliveryPlanCard plan={o} status={o.status} deliveryStatus={o.delivery_status} deliveryMethod={o.delivery_method} />
       </div>
+
+      {/* The courier's live position, right where the buyer already is, while the parcel is on its way. */}
+      {(o.delivery_method || '').startsWith('TBK') && shouldShowLiveMap(o) && (
+        <div style={{ marginTop: 12 }}>
+          <Suspense fallback={<LoadingBlock label={t('common.loading')} />}>
+            <LiveCourierMap orderId={o.id} audience="user" destinationAddress={o.delivery_address || undefined} />
+          </Suspense>
+        </div>
+      )}
 
       <div className="order-summary-grid" style={{ marginTop: 16 }}>
         <div className="card stack" id="purchased-products">

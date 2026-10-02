@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '@/api/client'
 import { courierApi } from '@/api/courier'
@@ -16,6 +16,11 @@ import { CourierPlanPanel } from '@/components/courier/CourierPlanPanel'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
 import type { CourierMission, DeliveryPlan } from '@/api/types'
 
+const LiveCourierMap = lazy(() => import('@/components/tracking/LiveCourierMap'))
+const RoutePlanner = lazy(() => import('@/components/tracking/RoutePlanner'))
+/** Delivery states in which the courier can plan or change the route. */
+const ROUTE_PLANNING = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT']
+
 type MissionLine={id:string;product_name:string;variant_name:string;quantity:number;final_unit_price:number}
 type MissionHistory={id:string;status:string;notes?:string;created_at:string}
 type DeliveryHistory={id:string;previous_status:string;new_status:string;actor_role:string;created_at:string}
@@ -30,6 +35,7 @@ export default function CourierMissionPage(){
   const [actionBusy,setActionBusy]=useState(''), [actionError,setActionError]=useState(''), [actionSuccess,setActionSuccess]=useState('')
   const [productCode,setProductCode]=useState(''), [verifying,setVerifying]=useState(false), [verdict,setVerdict]=useState<HandoverVerificationResult|null>(null), [verifyError,setVerifyError]=useState('')
   const handoverRef = useRef<HTMLElement>(null)
+  const [routeRefresh,setRouteRefresh]=useState(0)
 
   const load=async()=>{
     try {
@@ -306,6 +312,17 @@ export default function CourierMissionPage(){
         {/* The day and slot promised to the buyer (required before leaving), and
             "buyer not found" once on the way - same panel as the dashboard. */}
         <CourierPlanPanel key={`plan-${m.order_id}`} mission={m as unknown as CourierMission} onChanged={load}/>
+
+        {/* Route: the courier confirms a start and the buyer's place on the map,
+            then follows the trace, its direction and the distances. */}
+        <section style={{marginTop:16, display:'grid', gap:12}}>
+          <Suspense fallback={null}>
+            <LiveCourierMap orderId={m.order_id} audience="courier" destinationAddress={m.delivery_address} refreshKey={routeRefresh} />
+            {ROUTE_PLANNING.includes(m.delivery_status) && (
+              <RoutePlanner orderId={m.order_id} as="courier" deliveryAddress={m.delivery_address} pickupAddress={m.shop_address} onSaved={() => setRouteRefresh((n) => n + 1)} />
+            )}
+          </Suspense>
+        </section>
 
         {/* Private channels with the buyer, the seller and TBK */}
         <section style={{marginTop:16, height:'min(560px, 80dvh)'}}>

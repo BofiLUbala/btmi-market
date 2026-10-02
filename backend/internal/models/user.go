@@ -34,12 +34,17 @@ type User struct {
 	PasswordHash  string            `json:"-" db:"password_hash"`
 	Status        UserStatus        `json:"status" db:"status"`
 	EmailVerified bool              `json:"email_verified" db:"email_verified"`
+	PhoneVerified bool              `json:"phone_verified" db:"phone_verified"`
 	AccountType   AccountType       `json:"account_type" db:"account_type"`
 	Capabilities  *UserCapabilities `json:"capabilities,omitempty" db:"-"`
 	AvatarURL     *string           `json:"avatar_url" db:"avatar_url"`
 	CreatedAt     time.Time         `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time         `json:"updated_at" db:"updated_at"`
 }
+
+// IsVerified reports whether the account holder proved control of either
+// contact channel: the e-mailed activation link or a WhatsApp code.
+func (u *User) IsVerified() bool { return u.EmailVerified || u.PhoneVerified }
 
 // UserCapabilities is the additive account model exposed to clients. The
 // legacy AccountType remains for backwards compatibility, but must not be
@@ -74,6 +79,9 @@ type RegisterRequest struct {
 	ProvinceID           *uuid.UUID `json:"province_id"`
 	CityID               *uuid.UUID `json:"city_id"`
 	CommuneID            *uuid.UUID `json:"commune_id"`
+	// VerificationChannel picks where the account confirmation goes:
+	// "email" (default, activation link) or "whatsapp" (6-digit code).
+	VerificationChannel string `json:"verification_channel"`
 }
 
 type RegisterResponse struct {
@@ -86,6 +94,30 @@ type RegisterResponse struct {
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+// WhatsAppLoginRequest starts a sign-in confirmed by a WhatsApp code.
+type WhatsAppLoginRequest struct {
+	Phone    string `json:"phone" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// WhatsAppVerifyRequest completes a sign-up or sign-in with the code received.
+type WhatsAppVerifyRequest struct {
+	ChallengeID string `json:"challenge_id" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+}
+
+type WhatsAppResendRequest struct {
+	ChallengeID string `json:"challenge_id" binding:"required"`
+}
+
+// WhatsAppChallenge tells the client a code was sent and where.
+type WhatsAppChallenge struct {
+	ChallengeID string `json:"challenge_id"`
+	Channel     string `json:"channel"`
+	PhoneMasked string `json:"phone_masked"`
+	ExpiresIn   int    `json:"expires_in"`
 }
 
 type LoginResponse struct {

@@ -1,4 +1,4 @@
-import type { CourierLocation, DeliveryPlan } from './types'
+import type { CourierLocation, DeliveryPlan, GeocodeCandidate, RoutePointInput, ShopPurgePreview, ShopPurgeResult } from './types'
 import { API_BASE } from './client'
 
 export type AdminRole =
@@ -1112,6 +1112,11 @@ export const adminCommerceApi = {
     return adminApi<AdminDeliveryHandover>(`/admin/commerce/orders/${id}/delivery-handover`)
   },
   /** Courier's live position while the order is IN_TRANSIT (Commerce Admin, read-only). */
+  /** Candidate places for an address; nothing is chosen for the caller. */
+  geocode: (q: string) => adminApi<{ candidates: GeocodeCandidate[] }>(`/admin/commerce/geocode?q=${encodeURIComponent(q)}`).then((r) => r.candidates ?? []),
+  /** Verify or correct a delivery's road route between two confirmed points. */
+  setRoute: (id: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true }) =>
+    adminApi<CourierLocation>(`/admin/commerce/orders/${id}/route`, { method: 'PUT', body: JSON.stringify(body) }),
   getCourierLocation: async (id: string) => {
     return adminApi<CourierLocation>(`/admin/commerce/orders/${id}/courier-location`)
   },
@@ -1238,6 +1243,10 @@ export const adminCommerceApi = {
   },
   setShopStatus: async (id: string, status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED', reason: string) =>
     adminApi<{ id: string; status: string }>(`/admin/commerce/shops/${id}/status`, { method: 'POST', body: JSON.stringify({ status, reason }) }),
+  previewShopPurge: async (shopIds: string[]) =>
+    adminApi<ShopPurgePreview>('/admin/commerce/shops/purge/preview', { method: 'POST', body: JSON.stringify({ shop_ids: shopIds }) }),
+  purgeShops: async (shopIds: string[], confirmation: string, reason: string) =>
+    adminApi<ShopPurgeResult>('/admin/commerce/shops/purge', { method: 'POST', body: JSON.stringify({ shop_ids: shopIds, confirmation, reason }) }),
   getShopAnalytics: async (shopId: string) =>
     adminApi<ShopAnalytics>(`/admin/commerce/shops/${shopId}/analytics`),
   getShopProductsWithStock: async (shopId: string) =>

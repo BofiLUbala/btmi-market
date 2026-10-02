@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { safeAppPath } from '../../src/lib/push'
 import {
   ActivityIndicator,
   FlatList,
@@ -125,7 +126,11 @@ export default function SellerNotificationsScreen() {
       }
     }
 
-    if (item.type === 'NEW_MESSAGE' && item.metadata?.order_id) {
+    // The server resolves the screen each notification opens.
+    const appLink = safeAppPath(typeof item.metadata?.app_link === 'string' ? item.metadata.app_link : undefined)
+    if (appLink) {
+      router.push(appLink as any)
+    } else if (item.type === 'NEW_MESSAGE' && item.metadata?.order_id) {
       router.push({ pathname: '/seller/messages', params: { order_id: String(item.metadata.order_id) } })
     } else if (item.reference_type === 'ORDER' && item.reference_id) {
       router.push({ pathname: '/seller/orders', params: { orderId: item.reference_id } })
@@ -184,8 +189,24 @@ export default function SellerNotificationsScreen() {
           {unreadCount > 0 && (
             <View style={styles.counterBadge}>
               <Text style={styles.counterText}>{unreadCount}</Text>
-            </View>
+              <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('notifSettings.title')}
+            onPress={() => router.push({ pathname: '/notification-settings', params: { space: 'seller' } })}
+            hitSlop={10}
+          >
+            <Ionicons name="settings-outline" size={20} color={colors.muted} />
+          </TouchableOpacity>
+        </View>
           )}
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('notifSettings.title')}
+            onPress={() => router.push({ pathname: '/notification-settings', params: { space: 'seller' } })}
+            hitSlop={10}
+          >
+            <Ionicons name="settings-outline" size={20} color={colors.muted} />
+          </TouchableOpacity>
         </View>
         {unreadCount > 0 && (
           <TouchableOpacity onPress={() => void handleMarkAll()} disabled={markingAll} style={styles.markAllBtn}>

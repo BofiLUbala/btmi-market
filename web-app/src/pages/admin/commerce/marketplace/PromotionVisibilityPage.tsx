@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import CampaignComposer from '@/components/admin/CampaignComposer'
 import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney } from '@/lib/format'
 import { adminCommerceApi, type AdminPromotionVisibility } from '@/api/admin'
@@ -39,6 +40,8 @@ export default function PromotionVisibilityPage() {
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.promotions.title')}</h2>
         <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>{t('admin.promotions.subtitle')}</p>
       </div>
+
+      <CampaignComposer />
 
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</div>

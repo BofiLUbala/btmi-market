@@ -16,7 +16,7 @@ const list = (d, ...keys) => { for (const k of keys) if (Array.isArray(d?.[k])) 
 const must = (label, r) => { if (!r || r.status >= 300) throw new Error(`${label}: ${errText(r)}`); console.error(`OK  ${label}`); return r }
 
 function psql(sql) {
-  const r = spawnSync('docker', ['exec', PG, 'psql', '-U', 'btmi_user', '-d', 'btmi_market', '-t', '-A', '-c', sql], { encoding: 'utf8' })
+  const r = spawnSync('docker', ['exec', PG, 'psql', '-U', 'btmi_user', '-d', process.env.E2E_PG_DB || 'btmi_market', '-t', '-A', '-c', sql], { encoding: 'utf8' })
   if (r.status !== 0) throw new Error(`psql: ${r.stderr}`)
   return (r.stdout || '').trim()
 }

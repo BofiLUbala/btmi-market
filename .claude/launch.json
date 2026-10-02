@@ -86,6 +86,24 @@
         "8083"
       ],
       "port": 8083
+    },
+    {
+      "name": "web-app-push-e2e",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "web-app",
+        "--",
+        "--port",
+        "5177",
+        "--strictPort"
+      ],
+      "port": 5177,
+      "env": {
+        "VITE_API_BASE": "http://127.0.0.1:8098/api/v1"
+      }
     }
   ]
 }

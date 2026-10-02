@@ -8,10 +8,13 @@ import { ErrorBox } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
 import { safeInternalPath } from '@/lib/returnTo'
 import { CapsLockHint, RememberMe, forgotPasswordLink, useCapsLock, useRememberedEmail } from '@/components/auth/AuthFormParts'
+import { ChannelSwitch, WhatsAppCodeForm, challengeFromError, useWhatsAppEnabled, whatsappErrorMessage } from '@/components/auth/WhatsAppAuth'
+import { authApi } from '@/api/auth'
+import type { VerificationChannel, WhatsAppChallenge } from '@/api/types'
 
 export default function LoginPage() {
   const t = useT()
-  const { login } = useAuth()
+  const { login, verifyWhatsApp } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [params] = useSearchParams()
@@ -25,6 +28,40 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [errorCode, setErrorCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const whatsappEnabled = useWhatsAppEnabled()
+  const [channel, setChannel] = useState<VerificationChannel>('email')
+  const [phone, setPhone] = useState('')
+  const [challenge, setChallenge] = useState<WhatsAppChallenge | null>(null)
+  const [challengeError, setChallengeError] = useState('')
+  const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
+
+  function goAfterLogin(session: { accountType: string; user?: { capabilities?: { courier?: boolean } } }) {
+    if (session.accountType === 'COURIER' || session.user?.capabilities?.courier) {
+      if (returnTo && (returnTo.startsWith('/courier') || returnTo.startsWith('/notif/'))) {
+        navigate(returnTo, { replace: true })
+      } else {
+        navigate('/courier/dashboard', { replace: true })
+      }
+    } else if (session.accountType === 'SELLER') {
+      if (returnTo && returnTo !== '/' && !returnTo.startsWith('/account') && !returnTo.startsWith('/orders') && !returnTo.startsWith('/points')) {
+        navigate(returnTo, { replace: true })
+      } else {
+        navigate('/seller/dashboard', { replace: true })
+      }
+    } else if (session.accountType === 'EMPLOYEE') {
+      if (returnTo && returnTo !== '/' && !returnTo.startsWith('/account') && !returnTo.startsWith('/orders') && !returnTo.startsWith('/points')) {
+        navigate(returnTo, { replace: true })
+      } else {
+        navigate('/employee/dashboard', { replace: true })
+      }
+    } else {
+      if (returnTo && !returnTo.startsWith('/seller') && !returnTo.startsWith('/employee') && !returnTo.startsWith('/courier')) {
+        navigate(returnTo, { replace: true })
+      } else {
+        navigate('/', { replace: true })
+      }
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -32,38 +69,28 @@ export default function LoginPage() {
     setErrorCode('')
     setBusy(true)
     try {
+      if (useWhatsApp) {
+        try {
+          setChallenge(await authApi.whatsappLogin(phone.trim(), password))
+          setChallengeError('')
+        } catch (err) {
+          const pending = challengeFromError(err)
+          if (!pending) throw err
+          setChallenge(pending)
+          setChallengeError(whatsappErrorMessage(err, t))
+        }
+        return
+      }
       const session = await login(email.trim(), password, 'buyer')
       persist(email, password)
-      if (session.accountType === 'COURIER' || session.user?.capabilities?.courier) {
-        if (returnTo && returnTo.startsWith('/courier')) {
-          navigate(returnTo, { replace: true })
-        } else {
-          navigate('/courier/dashboard', { replace: true })
-        }
-      } else if (session.accountType === 'SELLER') {
-        if (returnTo && returnTo !== '/' && !returnTo.startsWith('/account') && !returnTo.startsWith('/orders') && !returnTo.startsWith('/points')) {
-          navigate(returnTo, { replace: true })
-        } else {
-          navigate('/seller/dashboard', { replace: true })
-        }
-      } else if (session.accountType === 'EMPLOYEE') {
-        if (returnTo && returnTo !== '/' && !returnTo.startsWith('/account') && !returnTo.startsWith('/orders') && !returnTo.startsWith('/points')) {
-          navigate(returnTo, { replace: true })
-        } else {
-          navigate('/employee/dashboard', { replace: true })
-        }
-      } else {
-        if (returnTo && !returnTo.startsWith('/seller') && !returnTo.startsWith('/employee') && !returnTo.startsWith('/courier')) {
-          navigate(returnTo, { replace: true })
-        } else {
-          navigate('/', { replace: true })
-        }
-      }
+      goAfterLogin(session)
     } catch (err) {
       if (err instanceof ApiError) {
         setErrorCode(err.code ?? '')
         if (err.code === 'ACCOUNT_NOT_ACTIVATED') {
           setError(t('auth.login.notActivatedMessage'))
+        } else if (useWhatsApp) {
+          setError(whatsappErrorMessage(err, t))
         } else if (err.code === 'INVALID_CREDENTIALS') {
           setError(t('auth.login.invalidCredentials'))
         } else {
@@ -77,6 +104,22 @@ export default function LoginPage() {
     }
   }
 
+  if (challenge) {
+    return (
+      <div className="auth-wrap">
+        <div className="card auth-card">
+          <h1>{t('auth.login.title')}</h1>
+          <WhatsAppCodeForm
+            challenge={challenge}
+            initialError={challengeError}
+            onVerify={async (id, code) => goAfterLogin(await verifyWhatsApp(id, code, 'buyer'))}
+            onBack={() => setChallenge(null)}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="auth-wrap">
       <form className="card auth-card" onSubmit={onSubmit}>
@@ -88,6 +131,7 @@ export default function LoginPage() {
           <Link className="btn btn-outline" to="/livreur/login">Livreur</Link>
           <Link className="btn btn-outline" to="/admin/login">Administration</Link>
         </div>
+        {whatsappEnabled && <ChannelSwitch value={channel} onChange={(c) => { setChannel(c); setError('') }} label={t('auth.whatsapp.loginWith')} />}
         {error && <ErrorBox error={error} />}
         {errorCode === 'ACCOUNT_NOT_ACTIVATED' && (
           <div className="small" style={{ marginTop: -4, marginBottom: 12 }}>
@@ -95,18 +139,33 @@ export default function LoginPage() {
             <p>{t('auth.reinitialize.stillBlocked')} <Link to="/reinitialize-registration" className="section-link">{t('auth.reinitialize.title')}</Link></p>
           </div>
         )}
-        <Field
-          label={t('common.email')}
-          name="email"
-          type="email"
-          required
-          autoComplete="username"
-          inputMode="email"
-          autoFocus={!prefilled}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={t('auth.emailPlaceholder')}
-        />
+        {useWhatsApp ? (
+          <Field
+            label={t('auth.whatsapp.phoneLabel')}
+            name="phone"
+            type="tel"
+            required
+            autoComplete="tel"
+            inputMode="tel"
+            autoFocus
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder={t('auth.whatsapp.phonePlaceholder')}
+          />
+        ) : (
+          <Field
+            label={t('common.email')}
+            name="email"
+            type="email"
+            required
+            autoComplete="username"
+            inputMode="email"
+            autoFocus={!prefilled}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t('auth.emailPlaceholder')}
+          />
+        )}
         <div className="auth-password-row">
           <Field
             label={t('auth.password')}
@@ -123,13 +182,13 @@ export default function LoginPage() {
             showPasswordToggle
           />
           <CapsLockHint on={caps.capsLock} />
-          <Link {...forgotPasswordLink(undefined, email)} className="section-link auth-forgot-link" data-testid="forgot-password-link">
+          <Link {...forgotPasswordLink(undefined, useWhatsApp ? phone : email)} className="section-link auth-forgot-link" data-testid="forgot-password-link">
             {t('auth.login.forgotPassword')}
           </Link>
         </div>
-        <RememberMe checked={remember} onChange={setRemember} />
+        {!useWhatsApp && <RememberMe checked={remember} onChange={setRemember} />}
         <Button type="submit" block size="lg" loading={busy}>
-          {t('auth.login.submit')}
+          {useWhatsApp ? t('auth.whatsapp.sendCode') : t('auth.login.submit')}
         </Button>
         <p className="small muted" style={{ textAlign: 'center', margin: 0 }}>
           {t('auth.login.noAccount')} <Link to="/register" className="section-link">{t('auth.login.createOne')}</Link>

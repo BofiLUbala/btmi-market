@@ -148,7 +148,7 @@ export function RequireCourier({ children }: { children?: ReactNode }) {
   const location = useLocation()
   if (loading) return <LoadingBlock label={t('feedback.checkingSession')} />
   if (!user) {
-    return <Navigate to="/courier/login" state={{ from: location.pathname }} replace />
+    return <Navigate to="/livreur/login" state={{ from: location.pathname + location.search }} replace />
   }
   if (!(user.capabilities?.courier || accountType === 'COURIER')) {
     if (accountType === 'SELLER') {

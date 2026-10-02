@@ -21,7 +21,11 @@ type PurchaseConfirmationService struct {
 	trustRepo    *repository.SellerTrustRepository
 	commService  *CommissionService
 	asynqClient  *asynq.Client
+	orderEvents  *CommunicationService
 }
+
+// SetCommunicationService enables refund notifications.
+func (s *PurchaseConfirmationService) SetCommunicationService(cs *CommunicationService) { s.orderEvents = cs }
 
 func NewPurchaseConfirmationService(
 	confirmRepo *repository.PurchaseConfirmationRepository,
@@ -223,6 +227,9 @@ func (s *PurchaseConfirmationService) RefundTransaction(buyerProfileID, orderID 
 	// Recalculate trust
 	_, _ = s.trustRepo.RecalculateTrust(vt.BusinessID)
 
+	if s.orderEvents != nil {
+		go func() { _ = s.orderEvents.TriggerOrderEventNotification(orderID, models.NotificationTypeRefundIssued, nil) }()
+	}
 	return nil
 }
 

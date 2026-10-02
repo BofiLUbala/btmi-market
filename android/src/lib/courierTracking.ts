@@ -119,6 +119,9 @@ export type StartResult = 'active' | 'denied' | 'unavailable'
  * Called once the server confirmed IN_TRANSIT. Never throws: the delivery has
  * already started whatever happens here.
  */
+/** Location updates were (re)started by this app process, foreground service included. */
+let startedThisProcess = false
+
 export async function startCourierTracking(orderId: string): Promise<StartResult> {
   try {
     await AsyncStorage.setItem(ORDER_KEY, orderId)
@@ -142,6 +145,7 @@ export async function startCourierTracking(orderId: string): Promise<StartResult
         notificationColor: '#091223',
       },
     })
+    startedThisProcess = true
     setState('active', orderId)
     // Send a first point right away rather than after the first interval.
     void Location.getLastKnownPositionAsync({ maxAge: 60_000, requiredAccuracy: 150 })
@@ -170,6 +174,7 @@ async function askBackgroundOnce() {
 }
 
 export async function stopCourierTracking(): Promise<void> {
+  startedThisProcess = false
   const orderId = await AsyncStorage.getItem(ORDER_KEY)
   await AsyncStorage.multiRemove([ORDER_KEY, PENDING_KEY]).catch(() => undefined)
   try {
@@ -195,9 +200,15 @@ export async function resumeCourierTrackingIfNeeded(missions: CourierMission[] |
     return
   }
   if (running && tracked === inTransit.order_id) {
-    const pending = await readPending()
-    setState(pending ? 'pending' : 'active', inTransit.order_id)
-    return
+    if (startedThisProcess) {
+      const pending = await readPending()
+      setState(pending ? 'pending' : 'active', inTransit.order_id)
+      return
+    }
+    // "Started" survives the app process being killed, but the foreground
+    // service does not: restart it once per launch so tracking keeps working
+    // with the screen off.
+    await flushPending().catch(() => undefined)
   }
   const fg = await Location.getForegroundPermissionsAsync().catch(() => null)
   if (!fg?.granted) {

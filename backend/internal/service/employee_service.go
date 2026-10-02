@@ -3,12 +3,14 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/config"
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/email"
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -25,7 +27,11 @@ type EmployeeService struct {
 	emailService        *email.Service
 	config              *config.Config
 	db                  *database.DB
+	notifier            *notify.Notifier
 }
+
+// SetNotifier tells business owners when an invited employee joins.
+func (s *EmployeeService) SetNotifier(n *notify.Notifier) { s.notifier = n }
 
 func NewEmployeeService(
 	employeeRepo *repository.EmployeeRepository,
@@ -403,6 +409,12 @@ func (s *EmployeeService) AcceptEmployeeInvitation(req *models.AcceptEmployeeInv
 		return nil, fmt.Errorf("failed to update invitation status: %w", err)
 	}
 
+	s.notifier.ToBusiness(employee.BusinessID, true, notify.Message{
+		Type:    models.NotificationTypeEmployeeJoined,
+		Title:   "Nouvel employé dans votre équipe",
+		Body:    strings.TrimSpace(employee.FirstName+" "+employee.LastName) + " a accepté votre invitation et peut se connecter.",
+		RefType: notify.RefEmployee, RefID: employee.ID,
+	})
 	return user, nil
 }
 

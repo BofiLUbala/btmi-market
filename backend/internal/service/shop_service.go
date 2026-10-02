@@ -73,7 +73,7 @@ func (s *ShopService) CreateShop(userID, businessID uuid.UUID, req *models.Creat
 
 func (s *ShopService) GetShopByID(userID, shopID uuid.UUID) (*models.Shop, error) {
 	shop, err := s.shopRepo.GetByID(shopID)
-	if err != nil {
+	if err != nil || shop.Status == models.ShopStatusDeleted {
 		return nil, errors.New("SHOP_NOT_FOUND")
 	}
 
@@ -96,7 +96,7 @@ func (s *ShopService) ListShopsByBusiness(userID, businessID uuid.UUID) ([]*mode
 
 func (s *ShopService) UpdateShop(userID, shopID uuid.UUID, req *models.UpdateShopRequest) (*models.Shop, error) {
 	shop, err := s.shopRepo.GetByID(shopID)
-	if err != nil {
+	if err != nil || shop.Status == models.ShopStatusDeleted {
 		return nil, errors.New("SHOP_NOT_FOUND")
 	}
 
@@ -140,6 +140,10 @@ func (s *ShopService) UpdateShop(userID, shopID uuid.UUID, req *models.UpdateSho
 		shop.Phone = *req.Phone
 	}
 	if req.Status != nil {
+		// DELETED is reached only through the permanent purge.
+		if models.ShopStatus(*req.Status) == models.ShopStatusDeleted {
+			return nil, errors.New("INVALID_STATUS")
+		}
 		shop.Status = models.ShopStatus(*req.Status)
 	}
 	if req.SupportsShopDelivery != nil {
@@ -183,7 +187,7 @@ func (s *ShopService) UpdateShop(userID, shopID uuid.UUID, req *models.UpdateSho
 // filter status = 'ACTIVE'). Truly empty Shops are hard-deleted.
 func (s *ShopService) DeleteShop(userID, shopID uuid.UUID) (string, *models.Shop, error) {
 	shop, err := s.shopRepo.GetByID(shopID)
-	if err != nil {
+	if err != nil || shop.Status == models.ShopStatusDeleted {
 		return "", nil, errors.New("SHOP_NOT_FOUND")
 	}
 

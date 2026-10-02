@@ -1,4 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
+import PushSessionSync from '@/components/notifications/PushSessionSync'
+import NotificationOpenPage from '@/pages/notifications/NotificationOpenPage'
+import NotificationSettingsPage from '@/pages/notifications/NotificationSettingsPage'
 import { PresenceBeacon } from '@/lib/presence'
 import { AuthProvider } from '@/store/auth'
 import { AdminAuthProvider } from '@/store/adminAuth'
@@ -148,7 +151,10 @@ export default function App() {
           <CartProvider>
             <AdminAuthProvider>
             <PresenceBeacon />
+            <PushSessionSync />
             <Routes>
+              {/* Every push notification click lands here first. */}
+              <Route path="/notif/:id" element={<NotificationOpenPage />} />
               <Route element={<Layout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
@@ -179,6 +185,7 @@ export default function App() {
                   <Route path="/points/history" element={<PointsHistoryPage />} />
                   <Route path="/reviews" element={<MyReviewsPage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/notifications/settings" element={<NotificationSettingsPage space="buyer" />} />
                 </Route>
 
                 <Route element={<PublicOnly />}>
@@ -229,6 +236,7 @@ export default function App() {
                   <Route path="/seller/orders" element={<SellerOrdersPage />} />
                   <Route path="/seller/messages" element={<SellerMessagesPage />} />
                   <Route path="/seller/notifications" element={<SellerNotificationsPage />} />
+                  <Route path="/seller/notifications/settings" element={<NotificationSettingsPage space="seller" />} />
                   <Route path="/seller/customers" element={<SellerCustomersPage />} />
                   <Route path="/seller/cash" element={<SellerCashPage />} />
                   <Route path="/seller/growth" element={<SellerGrowthPage />} />
@@ -254,6 +262,7 @@ export default function App() {
                 <Route path="/courier/dashboard" element={<CourierDashboardPage />} />
                 <Route path="/courier/scan" element={<CourierScanPage />} />
                 <Route path="/courier/missions/:id" element={<CourierMissionPage />} />
+                <Route path="/courier/notifications/settings" element={<NotificationSettingsPage space="courier" />} />
               </Route>
 
               {/* Admin Control Center Routes */}
@@ -265,6 +274,7 @@ export default function App() {
               <Route element={<RequireAdminAuth />}>
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminHomeRedirect />} />
+                  <Route path="/admin/notifications/settings" element={<NotificationSettingsPage space="admin" />} />
                   <Route element={<RequireAdminRole allowedRoles={['DIRECTION_ADMIN', 'SUPER_ADMIN']} />}>
                     <Route path="/admin/direction" element={<DirectionDashboardPage />} />
                     {/* Features are routes, not local tab state, so the sidebar

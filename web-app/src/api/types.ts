@@ -36,8 +36,21 @@ export interface LoginResponse {
   expires_in: number
 }
 
+export type VerificationChannel = 'email' | 'whatsapp'
+
+export interface WhatsAppChallenge {
+  challenge_id: string
+  channel: 'whatsapp'
+  phone_masked: string
+  expires_in: number
+}
+
 export interface RegisterResponse {
   user_id: string
+  channel?: VerificationChannel
+  challenge_id?: string
+  phone_masked?: string
+  expires_in?: number
 }
 
 export interface RegisterRequest {
@@ -61,6 +74,8 @@ export interface RegisterRequest {
   province_id?: string
   city_id?: string
   commune_id?: string
+  /** Where the account confirmation goes; defaults to e-mail. */
+  verification_channel?: VerificationChannel
 }
 
 /* ---------- Buyer profile ---------- */
@@ -952,6 +967,62 @@ export interface CourierLocation {
   delivery_latitude: number | null
   delivery_longitude: number | null
   delivery_address?: string
+  /** True when delivery_latitude/longitude is the buyer's own checkout point. */
+  buyer_shared_point?: boolean
+  /** Planned road route and the courier's progress, once a route was set. */
+  route?: DeliveryRoute | null
+}
+
+/** Where a route point came from; every point is confirmed on the map first. */
+export type RoutePointSource = 'GPS' | 'COORDINATES' | 'ADDRESS' | 'MAP' | 'REROUTE' | 'BUYER_GPS'
+
+export interface RoutePoint {
+  latitude: number
+  longitude: number
+  source: RoutePointSource
+  label: string
+}
+
+/** [longitude, latitude], GeoJSON order. */
+export type LngLatPair = [number, number]
+
+export interface DeliveryRoute {
+  start: RoutePoint
+  destination: RoutePoint
+  travel_mode: string
+  geometry: LngLatPair[]
+  arrows: { longitude: number; latitude: number; bearing: number }[]
+  trail: LngLatPair[]
+  route_length_m: number
+  planned_length_m: number
+  total_m: number
+  travelled_m: number
+  remaining_m: number
+  remaining_s: number
+  eta: string | null
+  off_route: boolean
+  off_route_m: number
+  reroute_count: number
+  computed_at: string
+  next_instruction?: { message: string; maneuver: string; in_m: number } | null
+  instructions?: { message: string; maneuver: string; offset_m: number }[]
+}
+
+/** One geocoding answer; only `confident` ones are offered to pick. */
+export interface GeocodeCandidate {
+  label: string
+  latitude: number
+  longitude: number
+  score: number
+  kind: string
+  confident: boolean
+}
+
+export interface RoutePointInput {
+  latitude: number
+  longitude: number
+  source: Exclude<RoutePointSource, 'REROUTE'>
+  label: string
 }
 
 /* ---------- Purchase confirmation ---------- */
@@ -1993,4 +2064,34 @@ export interface OrderItemQRResolution {
 
 export interface OrderItemQRResolveRequest {
   token: string
+}
+
+/** One shop of a permanent-deletion preview. */
+export interface ShopPurgeShop {
+  id: string
+  name: string
+  business_name: string
+  status: string
+  product_count: number
+  open_order_count: number
+  /** The shop has order/payment history: a tombstone stays so past orders remain readable. */
+  keeps_history: boolean
+}
+
+/** What a permanent shop deletion would remove. */
+export interface ShopPurgePreview {
+  shops: ShopPurgeShop[]
+  shop_count: number
+  /** Products stocked only in these shops; they are deleted with them. */
+  product_count: number
+  image_count: number
+  /** Shops with orders still in progress; the deletion is refused while any remain. */
+  blocked_shops: string[]
+}
+
+export interface ShopPurgeResult {
+  deleted_shops: number
+  deleted_products: number
+  deleted_images: number
+  history_kept_shops: number
 }

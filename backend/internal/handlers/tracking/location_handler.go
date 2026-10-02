@@ -9,6 +9,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/btmi-ai-market/backend/internal/maps"
+
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
 	"github.com/gin-gonic/gin"
@@ -21,11 +23,12 @@ type buyerProfileLookup interface {
 
 type LocationHandler struct {
 	locations     *service.CourierLocationService
+	routes        *service.DeliveryRouteService
 	buyerProfiles buyerProfileLookup
 }
 
-func NewLocationHandler(locations *service.CourierLocationService, buyerProfiles buyerProfileLookup) *LocationHandler {
-	return &LocationHandler{locations: locations, buyerProfiles: buyerProfiles}
+func NewLocationHandler(locations *service.CourierLocationService, routes *service.DeliveryRouteService, buyerProfiles buyerProfileLookup) *LocationHandler {
+	return &LocationHandler{locations: locations, routes: routes, buyerProfiles: buyerProfiles}
 }
 
 func errResponse(c *gin.Context, status int, code, message string) {
@@ -125,5 +128,87 @@ func (h *LocationHandler) respond(c *gin.Context, resp *models.CourierLocationRe
 		// A position is live data: never cache it.
 		c.Header("Cache-Control", "no-store")
 		c.JSON(http.StatusOK, models.SuccessResponse{Message: "Courier location", Data: resp})
+	}
+}
+
+// GET /api/v1/courier/missions/:id/live
+// The assigned courier's own position, route, progress and instructions.
+func (h *LocationHandler) CourierLive(c *gin.Context) {
+	uid, ok := userID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := orderParam(c, "id")
+	if !ok {
+		return
+	}
+	resp, err := h.locations.GetForCourier(uid, orderID)
+	h.respond(c, resp, err)
+}
+
+// GET /api/v1/courier/geocode?q=  and  /api/v1/admin/commerce/geocode?q=
+// Candidate places for an address. Nothing is chosen for the caller.
+func (h *LocationHandler) Geocode(c *gin.Context) {
+	candidates, err := h.routes.Geocode(c.Query("q"))
+	var invalid *service.ErrInvalidRoutePoint
+	switch {
+	case errors.As(err, &invalid):
+		errResponse(c, http.StatusBadRequest, "INVALID_QUERY", invalid.Error())
+	case errors.Is(err, maps.ErrNotConfigured):
+		errResponse(c, http.StatusServiceUnavailable, "MAPS_NOT_CONFIGURED", "La recherche d'adresse n'est pas configurée : placez le point sur la carte ou saisissez ses coordonnées")
+	case err != nil:
+		errResponse(c, http.StatusBadGateway, "GEOCODING_FAILED", "Recherche d'adresse indisponible : placez le point sur la carte ou saisissez ses coordonnées")
+	default:
+		c.JSON(http.StatusOK, models.SuccessResponse{Message: "Candidates", Data: gin.H{"candidates": candidates}})
+	}
+}
+
+// PUT /api/v1/courier/missions/:id/route
+func (h *LocationHandler) CourierSetRoute(c *gin.Context) { h.setRoute(c, "COURIER") }
+
+// PUT /api/v1/admin/commerce/orders/:id/route
+func (h *LocationHandler) AdminSetRoute(c *gin.Context) { h.setRoute(c, "COMMERCE_ADMIN") }
+
+func (h *LocationHandler) setRoute(c *gin.Context, role string) {
+	uid, ok := userID(c)
+	if !ok {
+		return
+	}
+	orderID, ok := orderParam(c, "id")
+	if !ok {
+		return
+	}
+	var req models.SetRouteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errResponse(c, http.StatusBadRequest, "INVALID_ROUTE", "Itinéraire invalide : "+err.Error())
+		return
+	}
+	_, err := h.routes.SetRoute(uid, role, orderID, &req)
+	var invalid *service.ErrInvalidRoutePoint
+	switch {
+	case errors.As(err, &invalid):
+		errResponse(c, http.StatusUnprocessableEntity, "INVALID_ROUTE_POINT", invalid.Error())
+	case errors.Is(err, service.ErrRouteNotConfirmed):
+		errResponse(c, http.StatusUnprocessableEntity, "ROUTE_NOT_CONFIRMED", "Confirmez le départ et la destination sur la carte avant de calculer l'itinéraire")
+	case errors.Is(err, service.ErrRouteNotPlannable):
+		errResponse(c, http.StatusConflict, "ROUTE_NOT_PLANNABLE", "L'itinéraire se prépare entre l'affectation du livreur et son arrivée")
+	case errors.Is(err, service.ErrLocationOrderNotFound):
+		errResponse(c, http.StatusNotFound, "ORDER_NOT_FOUND", "Order not found")
+	case errors.Is(err, service.ErrLocationForbidden):
+		errResponse(c, http.StatusForbidden, "FORBIDDEN", "Not your mission")
+	case errors.Is(err, maps.ErrNoRoute):
+		errResponse(c, http.StatusUnprocessableEntity, "NO_ROUTE", "Aucune route praticable entre ces deux points : déplacez un point sur une rue")
+	case errors.Is(err, maps.ErrNotConfigured):
+		errResponse(c, http.StatusServiceUnavailable, "MAPS_NOT_CONFIGURED", "Le calcul d'itinéraire n'est pas configuré sur le serveur")
+	case err != nil:
+		errResponse(c, http.StatusBadGateway, "ROUTING_FAILED", "Calcul d'itinéraire indisponible, réessayez")
+	default:
+		var resp *models.CourierLocationResponse
+		if role == "COURIER" {
+			resp, err = h.locations.GetForCourier(uid, orderID)
+		} else {
+			resp, err = h.locations.GetForAdmin(orderID)
+		}
+		h.respond(c, resp, err)
 	}
 }

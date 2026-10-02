@@ -7,6 +7,7 @@ import (
 
 	"github.com/btmi-ai-market/backend/internal/jobs"
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -17,6 +18,14 @@ type ReviewService struct {
 	trustRepo   *repository.SellerTrustRepository
 	rankingSvc  *CategoryRankingService
 	asynqClient *asynq.Client
+	orderEvents *CommunicationService
+	notifier    *notify.Notifier
+}
+
+// SetNotifications tells sellers about new reviews and buyers about replies.
+func (s *ReviewService) SetNotifications(cs *CommunicationService, n *notify.Notifier) {
+	s.orderEvents = cs
+	s.notifier = n
 }
 
 func NewReviewService(
@@ -182,6 +191,9 @@ func (s *ReviewService) CreateReview(buyerProfileID, orderID uuid.UUID, req *mod
 
 	// Enqueue background processing.
 	s.enqueueReviewProcessing(order.ShopID, order.BusinessID, "review_created")
+	if s.orderEvents != nil {
+		go func() { _ = s.orderEvents.TriggerOrderEventNotification(orderID, models.NotificationTypeNewReview, nil) }()
+	}
 
 	return s.toReviewResponse(review), nil
 }
@@ -220,6 +232,9 @@ func (s *ReviewService) CreateServiceReview(buyerProfileID, orderID uuid.UUID, r
 		return nil, err
 	}
 	s.enqueueReviewProcessing(order.ShopID, order.BusinessID, "service_review_created")
+	if s.orderEvents != nil {
+		go func() { _ = s.orderEvents.TriggerOrderEventNotification(orderID, models.NotificationTypeNewReview, nil) }()
+	}
 	return s.toReviewResponse(review), nil
 }
 
@@ -437,7 +452,11 @@ func (s *ReviewService) Reply(reviewID, userID uuid.UUID, body string) (*models.
 	if len(body) > 1000 {
 		return nil, fmt.Errorf("REPLY_TOO_LONG")
 	}
-	return s.reviewRepo.CreateReply(reviewID, userID, body)
+	reply, err := s.reviewRepo.CreateReply(reviewID, userID, body)
+	if err == nil && s.notifier != nil {
+		go s.notifier.ReviewReply(reviewID, userID)
+	}
+	return reply, err
 }
 
 // ProcessReviewAggregate handles the background job to recalculate shop aggregates.

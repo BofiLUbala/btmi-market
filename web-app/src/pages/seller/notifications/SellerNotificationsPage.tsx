@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { notificationLink } from '@/lib/notificationLinks'
 import {
   fetchNotifications,
   markNotificationRead,
@@ -110,7 +111,10 @@ export default function SellerNotificationsPage() {
       }
     }
 
-    if (item.type === 'NEW_MESSAGE' && item.metadata?.order_id) {
+    const link = notificationLink(item)
+    if (link) {
+      navigate(link)
+    } else if (item.type === 'NEW_MESSAGE' && item.metadata?.order_id) {
       navigate(`/seller/messages?order_id=${item.metadata.order_id}`)
     } else if (item.reference_type === 'ORDER' && item.reference_id) {
       navigate(`/seller/orders?order_id=${item.reference_id}`)
@@ -134,6 +138,7 @@ export default function SellerNotificationsPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span><BellIcon className="inline-icon" /> {t('seller.notifications')}</span>
+            <Link to="/seller/notifications/settings" className="small" style={{ fontWeight: 500 }}>{t('notifSettings.link')}</Link>
             {unreadCount > 0 && (
               <span
                 style={{

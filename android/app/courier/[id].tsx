@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Suspense, lazy, useMemo, useState } from 'react'
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,6 +17,11 @@ import { MissionActions } from '../../src/components/CourierMissionActions'
 import { lineLabel } from '../../src/lib/lineLabel'
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 
+// MapLibre is native: loaded only on this screen (Expo Go lacks it).
+const LiveCourierMap = lazy(() => import('../../src/components/LiveCourierMap').then((m) => ({ default: m.LiveCourierMap })).catch(() => ({ default: (() => null) as never })))
+const CourierRoutePlanner = lazy(() => import('../../src/components/CourierRoutePlanner').then((m) => ({ default: m.CourierRoutePlanner })).catch(() => ({ default: (() => null) as never })))
+/** Delivery states in which the courier can plan or change the route. */
+const ROUTE_PLANNING = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT']
 const HANDOVER_STATUSES = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
 const PROVIDER_LABELS: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 'Airtel Money', ORANGE_MONEY: 'Orange Money' }
 const VERDICT_KEYS: Record<string, TranslationKey> = {
@@ -35,6 +40,7 @@ export default function CourierMissionScreen() {
   const { t } = useI18n()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [showChat, setShowChat] = useState(false)
+  const [routeRefresh, setRouteRefresh] = useState(0)
 
   const mission = useQuery({
     queryKey: ['courier', 'mission', id],
@@ -72,14 +78,14 @@ export default function CourierMissionScreen() {
         {m.delivery_notes ? <Text style={styles.muted}>{t('checkout.instructions')} : {m.delivery_notes}</Text> : null}
         {m.total_amount != null ? (
           <View style={{ gap: 2 }}>
-            <Text style={styles.muted}>Produits : {formatMoney(m.products_total ?? 0, m.currency)}</Text>
-            <Text style={styles.muted}>Frais de livraison TBK : {formatMoney(m.delivery_fee ?? 0, m.currency)}</Text>
-            {(m.payment_markup ?? 0) > 0 ? <Text style={styles.muted}>Frais de paiement : {formatMoney(m.payment_markup ?? 0, m.currency)}</Text> : null}
-            <Text style={styles.status}>Montant total à encaisser : {formatMoney(m.total_amount, m.currency)}</Text>
+            <Text style={styles.muted}>{t('courier.amount.products' as TranslationKey, { amount: formatMoney(m.products_total ?? 0, m.currency) })}</Text>
+            <Text style={styles.muted}>{t('courier.amount.delivery' as TranslationKey, { amount: formatMoney(m.delivery_fee ?? 0, m.currency) })}</Text>
+            {(m.payment_markup ?? 0) > 0 ? <Text style={styles.muted}>{t('courier.amount.markup' as TranslationKey, { amount: formatMoney(m.payment_markup ?? 0, m.currency) })}</Text> : null}
+            <Text style={styles.status}>{t('courier.amount.total' as TranslationKey, { amount: formatMoney(m.total_amount, m.currency) })}</Text>
           </View>
         ) : null}
         <MissionActions mission={m} compact />
-        <Button variant="outline" title="Messages (acheteur, vendeur, TBK)" onPress={() => setShowChat(true)} />
+        <Button variant="outline" title={t('courier.messagesAll' as TranslationKey)} onPress={() => setShowChat(true)} />
         {/* Identifying one ordered item. A read: it resolves what this courier may
             see about that line and moves no handover step, so it stays available
             at every stage of the mission, not only at the door. */}
@@ -89,6 +95,15 @@ export default function CourierMissionScreen() {
           onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'ITEM', order_id: m.order_id } })}
         />
       </Card>
+      {/* Route: the trace, its direction, the distances and the next turn; the
+          planner sets or changes its two ends until the courier arrives. */}
+      <Suspense fallback={<Loading label={t('common.loading')} />}>
+        <LiveCourierMap orderId={m.order_id} audience="courier" refreshKey={routeRefresh} />
+        {ROUTE_PLANNING.includes(m.delivery_status) ? (
+          <CourierRoutePlanner orderId={m.order_id} deliveryAddress={m.delivery_address} pickupAddress={m.shop_address}
+            onSaved={() => setRouteRefresh((n) => n + 1)} />
+        ) : null}
+      </Suspense>
       {atDoor ? <CourierHandover orderId={m.order_id} /> : null}
     </ScrollView>
   )

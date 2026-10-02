@@ -16,6 +16,9 @@ import { shouldShowLiveMap } from '@/lib/liveLocation'
 // Read-only courier position for an order in transit (Commerce Admin only:
 // this page and its API live under /admin/commerce, closed to Finance).
 const LiveCourierMap = lazy(() => import('@/components/tracking/LiveCourierMap'))
+const RoutePlanner = lazy(() => import('@/components/tracking/RoutePlanner'))
+/** Delivery states in which a route can be planned or corrected. */
+const ROUTE_PLANNING = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT']
 
 // No courier can be (re)assigned once the order is closed or its parcel is going back.
 // Once the parcel has left the shop the courier can no longer be changed (the backend refuses it too).
@@ -50,6 +53,7 @@ const AVAILABILITY_ORDER: Record<string, number> = { AVAILABLE: 0, BUSY: 1, UNAV
 type DeliveryStatusFilter = 'ALL' | 'READY_FOR_PICKUP' | 'COURIER_ASSIGNED' | 'PICKED_UP' | 'IN_TRANSIT' | 'RECEIVED'
 
 export default function CommerceDeliveryAssignmentsPage() {
+  const [routeRefresh, setRouteRefresh] = useState(0)
   const t = useT()
   const [searchParams] = useSearchParams()
   const initialCourierId = searchParams.get('courier_id') || ''
@@ -682,15 +686,21 @@ export default function CommerceDeliveryAssignmentsPage() {
                     )}
                   </div>
 
-                  {/* LIVE COURIER POSITION (IN_TRANSIT only) */}
-                  {shouldShowLiveMap({ delivery_status: fullOrderDetail?.order?.delivery_status ?? detailOrder.delivery_status }) && (
-                    <div style={{ color: 'var(--color-text, #111)' }}>
+                  {/* COURIER POSITION, ROUTE AND PROGRESS: the map shows itself once the
+                      courier is on the way or a route was planned. */}
+                  <div style={{ color: 'var(--color-text, #111)' }}>
+                    {shouldShowLiveMap({ delivery_status: fullOrderDetail?.order?.delivery_status ?? detailOrder.delivery_status }) && (
                       <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 8px', color: '#34d399' }}>📡 POSITION DU LIVREUR</h4>
-                      <Suspense fallback={<div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>Chargement de la carte…</div>}>
-                        <LiveCourierMap orderId={detailOrder.id} audience="admin" destinationAddress={detailOrder.delivery_address || undefined} />
-                      </Suspense>
-                    </div>
-                  )}
+                    )}
+                    <Suspense fallback={<div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>Chargement de la carte…</div>}>
+                      <LiveCourierMap orderId={detailOrder.id} audience="admin" destinationAddress={detailOrder.delivery_address || undefined} refreshKey={routeRefresh} />
+                      {ROUTE_PLANNING.includes(fullOrderDetail?.order?.delivery_status ?? detailOrder.delivery_status ?? '') && (
+                        <div style={{ marginTop: 12 }}>
+                          <RoutePlanner key={detailOrder.id} orderId={detailOrder.id} as="admin" deliveryAddress={detailOrder.delivery_address || undefined} onSaved={() => setRouteRefresh((n) => n + 1)} />
+                        </div>
+                      )}
+                    </Suspense>
+                  </div>
 
                   {/* BUYER / DESTINATION DETAILS */}
                   <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>

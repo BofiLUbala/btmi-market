@@ -7,10 +7,13 @@ import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { useT } from '@/store/i18n'
 import { CapsLockHint, RememberMe, forgotPasswordLink, useCapsLock, useRememberedEmail } from '@/components/auth/AuthFormParts'
+import { ChannelSwitch, WhatsAppCodeForm, challengeFromError, useWhatsAppEnabled, whatsappErrorMessage } from '@/components/auth/WhatsAppAuth'
+import { authApi } from '@/api/auth'
+import type { AccountType, User, VerificationChannel, WhatsAppChallenge } from '@/api/types'
 
 export default function SellerLoginPage() {
   const t = useT()
-  const { login, logout } = useAuth()
+  const { login, logout, verifyWhatsApp } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/seller/dashboard'
@@ -19,6 +22,26 @@ export default function SellerLoginPage() {
   const [error, setError] = useState('')
   const [notActivated, setNotActivated] = useState(false)
   const [busy, setBusy] = useState(false)
+  const whatsappEnabled = useWhatsAppEnabled()
+  const [channel, setChannel] = useState<VerificationChannel>('email')
+  const [phone, setPhone] = useState('')
+  const [challenge, setChallenge] = useState<WhatsAppChallenge | null>(null)
+  const [challengeError, setChallengeError] = useState('')
+  const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
+
+  async function goAfterLogin(result: { accountType: AccountType; user: User }) {
+    if (result.accountType === 'COURIER' || result.user?.capabilities?.courier) {
+      navigate('/courier/dashboard', { replace: true })
+    } else if (result.accountType === 'SELLER') {
+      navigate(from, { replace: true })
+    } else if (result.accountType === 'EMPLOYEE') {
+      navigate('/employee/dashboard', { replace: true })
+    } else {
+      await logout()
+      setChallenge(null)
+      setError(t('seller.auth.login.notSeller'))
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -26,23 +49,28 @@ export default function SellerLoginPage() {
     setNotActivated(false)
     setBusy(true)
     try {
+      if (useWhatsApp) {
+        try {
+          setChallenge(await authApi.whatsappLogin(phone.trim(), password))
+          setChallengeError('')
+        } catch (err) {
+          const pending = challengeFromError(err)
+          if (!pending) throw err
+          setChallenge(pending)
+          setChallengeError(whatsappErrorMessage(err, t))
+        }
+        return
+      }
       const result = await login(email.trim(), password, 'seller')
       persist(email, password)
-      if (result.accountType === 'COURIER' || result.user?.capabilities?.courier) {
-        navigate('/courier/dashboard', { replace: true })
-      } else if (result.accountType === 'SELLER') {
-        navigate(from, { replace: true })
-      } else if (result.accountType === 'EMPLOYEE') {
-        navigate('/employee/dashboard', { replace: true })
-      } else {
-        await logout()
-        setError(t('seller.auth.login.notSeller'))
-      }
+      await goAfterLogin(result)
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 'ACCOUNT_NOT_ACTIVATED') {
           setNotActivated(true)
           setError(t('auth.login.notActivatedMessage'))
+        } else if (useWhatsApp) {
+          setError(whatsappErrorMessage(err, t))
         } else if (err.code === 'INVALID_CREDENTIALS') {
           setError(t('auth.login.invalidCredentials'))
         } else {
@@ -56,30 +84,63 @@ export default function SellerLoginPage() {
     }
   }
 
+  if (challenge) {
+    return (
+      <div className="seller-login-wrap">
+        <div className="card seller-login-card">
+          <span className="seller-eyebrow">TBK Seller</span>
+          <h1>{t('seller.auth.login.title')}</h1>
+          <WhatsAppCodeForm
+            challenge={challenge}
+            initialError={challengeError}
+            onVerify={async (id, code) => goAfterLogin(await verifyWhatsApp(id, code, 'seller'))}
+            onBack={() => setChallenge(null)}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="seller-login-wrap">
       <form className="card seller-login-card" onSubmit={onSubmit}>
         <span className="seller-eyebrow">TBK Seller</span>
         <h1>{t('seller.auth.login.title')}</h1>
         <p className="muted">{t('seller.auth.login.subtitle')}</p>
+        {whatsappEnabled && <ChannelSwitch value={channel} onChange={(c) => { setChannel(c); setError('') }} label={t('auth.whatsapp.loginWith')} />}
         {error && <ErrorBox error={error} />}
         {notActivated && (
           <p className="small" style={{ marginTop: -4, marginBottom: 12 }}>
             {t('auth.reinitialize.didNotReceive')} <Link to="/seller/resend-activation" className="section-link">{t('auth.reinitialize.resend')}</Link>
           </p>
         )}
-        <Field
-          label={t('common.email')}
-          name="email"
-          type="email"
-          required
-          autoComplete="username"
-          inputMode="email"
-          autoFocus={!prefilled}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={t('auth.emailPlaceholder')}
-        />
+        {useWhatsApp ? (
+          <Field
+            label={t('auth.whatsapp.phoneLabel')}
+            name="phone"
+            type="tel"
+            required
+            autoComplete="tel"
+            inputMode="tel"
+            autoFocus
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder={t('auth.whatsapp.phonePlaceholder')}
+          />
+        ) : (
+          <Field
+            label={t('common.email')}
+            name="email"
+            type="email"
+            required
+            autoComplete="username"
+            inputMode="email"
+            autoFocus={!prefilled}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t('auth.emailPlaceholder')}
+          />
+        )}
         <div className="auth-password-row">
           <Field
             label={t('auth.password')}
@@ -96,13 +157,13 @@ export default function SellerLoginPage() {
             showPasswordToggle
           />
           <CapsLockHint on={caps.capsLock} />
-          <Link {...forgotPasswordLink('seller', email)} className="section-link auth-forgot-link" data-testid="seller-forgot-password-link">
+          <Link {...forgotPasswordLink('seller', useWhatsApp ? phone : email)} className="section-link auth-forgot-link" data-testid="seller-forgot-password-link">
             {t('auth.login.forgotPassword')}
           </Link>
         </div>
-        <RememberMe checked={remember} onChange={setRemember} />
+        {!useWhatsApp && <RememberMe checked={remember} onChange={setRemember} />}
         <Button type="submit" block size="lg" loading={busy}>
-          {t('auth.login.submit')}
+          {useWhatsApp ? t('auth.whatsapp.sendCode') : t('auth.login.submit')}
         </Button>
         <div className="auth-alt-links small muted">
           <span>{t('seller.auth.login.noAccount')} <Link to="/seller/register" className="section-link">{t('auth.login.createOne')}</Link></span>

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/repository"
 )
 
@@ -18,7 +19,12 @@ type AdminFinanceService struct {
 	repo              *repository.AdminFinanceRepository
 	auditService      *AuditService
 	paymentConfigRepo *repository.PaymentConfigRepository
+	notifier          *notify.Notifier
 }
+
+// SetNotifier tells admins about cases assigned to them and buyers about
+// manual point adjustments.
+func (s *AdminFinanceService) SetNotifier(n *notify.Notifier) { s.notifier = n }
 
 func NewAdminFinanceService(repo *repository.AdminFinanceRepository, auditService *AuditService, paymentConfigRepo ...*repository.PaymentConfigRepository) *AdminFinanceService {
 	var configRepo *repository.PaymentConfigRepository
@@ -143,6 +149,19 @@ func (s *AdminFinanceService) AdjustBuyerPoints(adminID uuid.UUID, role models.A
 	oldBalance, newBalance, err := s.repo.AdjustBuyerPoints(buyerID, req.Type, req.Amount, req.Reason)
 	if err != nil {
 		return 0, 0, err
+	}
+	if newBalance != oldBalance {
+		verb := "crédité"
+		diff := newBalance - oldBalance
+		if diff < 0 {
+			verb, diff = "débité", -diff
+		}
+		s.notifier.ToUser(buyerID, "BUYER", notify.Message{
+			Type:    models.NotificationTypePointsAdjusted,
+			Title:   fmt.Sprintf("Votre solde de points a été %s", verb),
+			Body:    fmt.Sprintf("TBK a %s %d points sur votre compte. Nouveau solde : %d points.", verb, diff, newBalance),
+			RefType: notify.RefPoints, RefID: buyerID,
+		})
 	}
 
 	// Audit Log
@@ -309,6 +328,17 @@ func (s *AdminFinanceService) AssignCase(adminID uuid.UUID, role models.AdminRol
 	}
 	if err := s.repo.AssignCase(caseID, targetAdminID); err != nil {
 		return err
+	}
+	if targetAdminID != adminID {
+		title := "Dossier assigné"
+		if item, err := s.repo.GetCaseByID(caseID); err == nil && item != nil {
+			title = fmt.Sprintf("Dossier %s assigné : %s", item.CaseNumber, item.Title)
+		}
+		s.notifier.ToAdmin(targetAdminID, notify.Message{
+			Type: models.NotificationTypeCaseAssigned, Title: title,
+			Body:    "Un dossier vous a été assigné. Il attend votre traitement.",
+			RefType: notify.RefCase, RefID: caseID,
+		})
 	}
 
 	_ = s.auditService.Record(

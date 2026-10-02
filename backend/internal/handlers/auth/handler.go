@@ -29,6 +29,8 @@ type Handler struct {
 	reinitializeHits map[string][]time.Time
 	resendMu         sync.Mutex
 	resendHits       map[string][]time.Time
+	whatsappMu       sync.Mutex
+	whatsappHits     map[string][]time.Time
 	loginFailures    LoginFailureRecorder
 }
 
@@ -54,6 +56,7 @@ func NewHandler(authService *service.AuthService, employeeService *service.Emplo
 		flags:            flags,
 		reinitializeHits: make(map[string][]time.Time),
 		resendHits:       make(map[string][]time.Time),
+		whatsappHits:     make(map[string][]time.Time),
 	}
 }
 
@@ -129,7 +132,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.Register(&req)
+	user, challenge, err := h.authService.Register(&req)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"
@@ -147,6 +150,21 @@ func (h *Handler) Register(c *gin.Context) {
 		case "PASSWORD_TOO_WEAK":
 			statusCode = http.StatusBadRequest
 			errorCode = "PASSWORD_TOO_WEAK"
+		case "INVALID_VERIFICATION_CHANNEL":
+			statusCode = http.StatusBadRequest
+			errorCode = "INVALID_VERIFICATION_CHANNEL"
+		case "WHATSAPP_UNAVAILABLE":
+			statusCode = http.StatusServiceUnavailable
+			errorCode = "WHATSAPP_UNAVAILABLE"
+		case "WHATSAPP_DELIVERY_FAILED":
+			// The account exists; the code screen can still offer a resend.
+			if challenge != nil {
+				c.JSON(http.StatusBadGateway, gin.H{
+					"error": gin.H{"code": "WHATSAPP_DELIVERY_FAILED", "message": "The WhatsApp code could not be delivered. Try resending it."},
+					"data":  registeredWithChallenge(user.ID.String(), challenge),
+				})
+				return
+			}
 		}
 
 		c.JSON(statusCode, models.ErrorResponse{
@@ -161,10 +179,19 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
+	if challenge != nil {
+		c.JSON(http.StatusCreated, models.SuccessResponse{
+			Message: "Account created. Enter the code sent to your WhatsApp.",
+			Data:    registeredWithChallenge(user.ID.String(), challenge),
+		})
+		return
+	}
+
 	c.JSON(http.StatusCreated, models.SuccessResponse{
 		Message: "Account created. Please activate your account.",
 		Data: map[string]interface{}{
 			"user_id": user.ID.String(),
+			"channel": "email",
 		},
 	})
 }
@@ -197,7 +224,7 @@ func (h *Handler) RegisterSeller(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.RegisterSeller(&req)
+	user, challenge, err := h.authService.RegisterSeller(&req)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"
@@ -215,6 +242,21 @@ func (h *Handler) RegisterSeller(c *gin.Context) {
 		case "PASSWORD_TOO_WEAK":
 			statusCode = http.StatusBadRequest
 			errorCode = "PASSWORD_TOO_WEAK"
+		case "INVALID_VERIFICATION_CHANNEL":
+			statusCode = http.StatusBadRequest
+			errorCode = "INVALID_VERIFICATION_CHANNEL"
+		case "WHATSAPP_UNAVAILABLE":
+			statusCode = http.StatusServiceUnavailable
+			errorCode = "WHATSAPP_UNAVAILABLE"
+		case "WHATSAPP_DELIVERY_FAILED":
+			// The account exists; the code screen can still offer a resend.
+			if challenge != nil {
+				c.JSON(http.StatusBadGateway, gin.H{
+					"error": gin.H{"code": "WHATSAPP_DELIVERY_FAILED", "message": "The WhatsApp code could not be delivered. Try resending it."},
+					"data":  registeredWithChallenge(user.ID.String(), challenge),
+				})
+				return
+			}
 		}
 
 		c.JSON(statusCode, models.ErrorResponse{
@@ -229,10 +271,19 @@ func (h *Handler) RegisterSeller(c *gin.Context) {
 		return
 	}
 
+	if challenge != nil {
+		c.JSON(http.StatusCreated, models.SuccessResponse{
+			Message: "Account created. Enter the code sent to your WhatsApp.",
+			Data:    registeredWithChallenge(user.ID.String(), challenge),
+		})
+		return
+	}
+
 	c.JSON(http.StatusCreated, models.SuccessResponse{
 		Message: "Seller account created. Please activate your account.",
 		Data: map[string]interface{}{
 			"user_id": user.ID.String(),
+			"channel": "email",
 		},
 	})
 }
@@ -649,7 +700,7 @@ func (h *Handler) Me(c *gin.Context) {
 		return
 	}
 
-	if user.Status != models.UserStatusActive || !user.EmailVerified {
+	if user.Status != models.UserStatusActive || !user.IsVerified() {
 		code := "ACCOUNT_NOT_ACTIVATED"
 		if user.Status == models.UserStatusSuspended || user.Status == models.UserStatusDeactivated {
 			code = "ACCOUNT_SUSPENDED"

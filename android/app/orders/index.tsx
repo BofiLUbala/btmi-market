@@ -112,7 +112,8 @@ export default function OrdersScreen() {
 
     {items.length === 0 ? <View style={styles.card}><Text style={[styles.muted, { textAlign: 'center' }]}>{t('orders.emptyTitle')}</Text></View> : items.map(({ detail, payment }) => {
       const order = detail.order
-      const total = (order.final_total || 0) + (order.delivery_fee_final || 0)
+      // Same total as the order page: products + delivery + the payment method's markup.
+      const total = (order.final_total || 0) + (order.delivery_fee_final || 0) + Math.max(payment?.payment_markup ?? 0, 0)
       const actor = confirmationActorKey(payment?.confirmation_actor)
       return <View key={order.id} style={styles.card}>
         <View style={styles.rowBetween}>
@@ -142,6 +143,9 @@ export default function OrdersScreen() {
           <View style={styles.footerCell}><Text style={styles.small}>{t('orders.deliveryLabel')}</Text><Text style={styles.bold}>{order.delivery_method ? order.delivery_method.replace(/_/g, ' ') : t('orders.notSelected')}</Text></View>
           <View style={styles.footerCell}><Text style={styles.small}>{t('common.total')}</Text><Text style={styles.bold}>{formatMoney(total)}</Text></View>
         </View>
+        {(order.delivery_method || '').startsWith('TBK') && order.delivery_status === 'IN_TRANSIT' ? (
+          <Button title={`🛵 ${t('liveMap.follow')}`} variant="outline" onPress={() => router.push({ pathname: '/orders/live', params: { id: order.id } })} />
+        ) : null}
         <Button title={t('orders.viewOrder')} onPress={() => router.push(`/orders/${order.id}`)} />
       </View>
     })}

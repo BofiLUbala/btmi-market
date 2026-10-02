@@ -32,6 +32,31 @@ type Config struct {
 	// provider is wired up: the webhook then refuses every call rather than
 	// trusting an unsigned one.
 	PaymentWebhookSecret string
+	// TomTom key for address search and road routes. Empty: points are placed
+	// by hand or by coordinates only, and no route is computed.
+	TomTomAPIKey string
+	// OpenWA gateway (github.com/rmyndharis/OpenWA) used to send WhatsApp
+	// one-time codes. Empty URL/key/session: WhatsApp sign-up and sign-in are
+	// refused outside development, where the code is only logged.
+	OpenWAURL                  string
+	OpenWAAPIKey               string
+	OpenWASessionID            string
+	WhatsAppDefaultCountryCode string
+	// Push notifications. Web push needs a VAPID key pair: when
+	// VAPID_PRIVATE_KEY is empty one is generated once and kept in the
+	// database. Mobile push goes through Expo's push service, which needs the
+	// app's FCM credentials uploaded to EAS; EXPO_ACCESS_TOKEN is only
+	// required when "enhanced push security" is on in the Expo project.
+	PushEnabled     bool
+	PushWebEnabled  bool
+	PushExpoEnabled bool
+	VAPIDPrivateKey string
+	VAPIDSubject    string
+	ExpoPushURL     string
+	ExpoAccessToken string
+	// Extra browser push hosts allowed as subscription endpoints (comma
+	// separated), for a self-hosted push service or local tests.
+	PushExtraHosts       string
 	AppCommitSHA         string
 	BuildTime            string
 }
@@ -61,6 +86,19 @@ func Load() *Config {
 		UploadDir:            getEnv("UPLOAD_DIR", "./uploads"),
 		VisualSearchURL:      getEnv("VISUAL_SEARCH_URL", "http://visual-search:8090"),
 		PaymentWebhookSecret: getEnv("PAYMENT_WEBHOOK_SECRET", ""),
+		TomTomAPIKey:         getEnv("TOMTOM_API_KEY", ""),
+		OpenWAURL:            getEnv("OPENWA_URL", ""),
+		OpenWAAPIKey:         getEnv("OPENWA_API_KEY", ""),
+		OpenWASessionID:      getEnv("OPENWA_SESSION_ID", ""),
+		WhatsAppDefaultCountryCode: getEnv("WHATSAPP_DEFAULT_COUNTRY_CODE", "243"),
+		PushEnabled:          getEnvBool("PUSH_ENABLED", true),
+		PushWebEnabled:       getEnvBool("PUSH_WEB_ENABLED", true),
+		PushExpoEnabled:      getEnvBool("PUSH_EXPO_ENABLED", true),
+		VAPIDPrivateKey:      getEnv("VAPID_PRIVATE_KEY", ""),
+		VAPIDSubject:         getEnv("VAPID_SUBJECT", "mailto:support@tbkmarket.com"),
+		ExpoPushURL:          getEnv("EXPO_PUSH_URL", ""),
+		ExpoAccessToken:      getEnv("EXPO_ACCESS_TOKEN", ""),
+		PushExtraHosts:       getEnv("PUSH_EXTRA_HOSTS", ""),
 		AppCommitSHA:         getEnv("APP_COMMIT_SHA", "unknown"),
 		BuildTime:            getEnv("BUILD_TIME", "unknown"),
 	}

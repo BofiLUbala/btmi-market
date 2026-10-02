@@ -30,6 +30,8 @@ interface AuthState {
   activeShop: string | null
   setActiveShop: (shopId: string | null) => void
   login: (email: string, password: string, mode?: ActiveMode) => Promise<{ accountType: AccountType; user: User }>
+  /** Completes a WhatsApp sign-up or sign-in with the code received; same result as `login`. */
+  verifyWhatsApp: (challengeId: string, code: string, mode?: ActiveMode) => Promise<{ accountType: AccountType; user: User }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
   setActiveBusiness: (business: SellerBusiness | null) => void
@@ -204,13 +206,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadSession()
   }, [loadSession])
 
-  const login = useCallback(
-    async (email: string, password: string, mode?: ActiveMode) => {
+  const establish = useCallback(
+    async (getTokens: () => Promise<LoginResponseWithUser>, mode?: ActiveMode) => {
       // Reset current state prior to setting fresh credentials
       resetState()
       storeMode(null)
 
-      const res = await authApi.login(email, password) as LoginResponseWithUser
+      const res = await getTokens()
       tokenStore.set(res.access_token, res.refresh_token)
 
       // Resolve buyer/seller capabilities via loadSession rather than
@@ -222,6 +224,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { accountType: session.accountType, user: session.user }
     },
     [loadSession, resetState]
+  )
+
+  const login = useCallback(
+    (email: string, password: string, mode?: ActiveMode) =>
+      establish(() => authApi.login(email, password) as Promise<LoginResponseWithUser>, mode),
+    [establish]
+  )
+
+  const verifyWhatsApp = useCallback(
+    (challengeId: string, code: string, mode?: ActiveMode) =>
+      establish(() => authApi.whatsappVerify(challengeId, code) as Promise<LoginResponseWithUser>, mode),
+    [establish]
   )
 
   const logout = useCallback(async () => {
@@ -277,6 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeShop,
       setActiveShop: setActiveShopImpl,
       login,
+      verifyWhatsApp,
       logout,
       refreshUser,
       setActiveBusiness: setActiveBusinessImpl,
@@ -294,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeBusiness,
       activeShop,
       login,
+      verifyWhatsApp,
       logout,
       refreshUser,
       setActiveBusinessImpl,

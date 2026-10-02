@@ -734,7 +734,7 @@ func (r *AdminFinanceRepository) ListSellerGrowth(page, limit int, search string
 		-- Each figure is aggregated on its own before joining: joining shops,
 		-- orders, reviews and cases side by side multiplies every order by the
 		-- number of shops x reviews x cases and inflates the GMV.
-		LEFT JOIN LATERAL (SELECT COUNT(*) AS shop_count FROM shops s WHERE s.business_id = b.id) sh ON true
+		LEFT JOIN LATERAL (SELECT COUNT(*) AS shop_count FROM shops s WHERE s.business_id = b.id AND s.status <> 'DELETED') sh ON true
 		LEFT JOIN LATERAL (
 			SELECT COUNT(*) AS total_orders,
 			       COUNT(*) FILTER (WHERE o.status = 'COMPLETED') AS completed_orders,

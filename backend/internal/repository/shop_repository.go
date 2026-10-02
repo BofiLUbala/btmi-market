@@ -69,7 +69,7 @@ func (r *ShopRepository) GetByID(id uuid.UUID) (*models.Shop, error) {
 func (r *ShopRepository) GetByBusinessID(businessID uuid.UUID) ([]*models.Shop, error) {
 	query := `
 		SELECT id, business_id, name, type, city, address, phone, status, supports_shop_delivery, shop_delivery_fee, supports_partner_delivery, partner_delivery_fee, partner_delivery_provider, delivery_city, delivery_address, province, commune, street, building_number, landmark, created_at, updated_at
-		FROM shops WHERE business_id = $1
+		FROM shops WHERE business_id = $1 AND status <> 'DELETED'
 		ORDER BY created_at DESC
 	`
 

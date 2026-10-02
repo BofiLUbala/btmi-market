@@ -41,6 +41,18 @@ type PaymentService struct {
 	// onSettled lets the handover close itself when a provider settles a payment
 	// while the courier is already at the door with verified goods.
 	onSettled func(orderID uuid.UUID)
+	// orderEvents tells the buyer and the seller when an operator settles or
+	// refuses a payment.
+	orderEvents *CommunicationService
+}
+
+// SetCommunicationService enables payment notifications.
+func (s *PaymentService) SetCommunicationService(cs *CommunicationService) { s.orderEvents = cs }
+
+func (s *PaymentService) notifyOrder(orderID uuid.UUID, t models.NotificationType) {
+	if s.orderEvents != nil {
+		go func() { _ = s.orderEvents.TriggerOrderEventNotification(orderID, t, nil) }()
+	}
 }
 
 // SetProviderDependencies wires the operator catalog, the payment audit trail and

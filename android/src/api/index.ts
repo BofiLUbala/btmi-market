@@ -1,4 +1,4 @@
-import { del, get, patch, post, postForm, uploadFile } from './client'
+import { del, get, patch, post, postForm, put, uploadFile } from './client'
 import type { UploadFile } from '../lib/imageUpload'
 import type {
   AcceptEmployeeInvitationRequest, AddStockRequest, ArchiveBusinessResponse, AssignEmployeeRequest,
@@ -14,9 +14,9 @@ import type {
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
-  TrackingResponse, CourierLocation, CourierLocationPoint, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
+  TrackingResponse, CourierLocation, CourierLocationPoint, GeocodeCandidate, RoutePointInput, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
   CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
-  HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct } from '../types'
+  HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct, ShopPurgePreview, ShopPurgeResult } from '../types'
 
 /** Query string from defined params only, in the web client's style. */
 const qs = (params?: object) => {
@@ -41,14 +41,32 @@ const normalizeCustomer = (value: unknown): Customer => {
   return { ...base, total_orders: (object?.total_orders as number) ?? base.total_orders, total_purchased: (object?.total_purchased as number) ?? base.total_purchased }
 }
 
+export type VerificationChannel = 'email' | 'whatsapp'
+
+export interface WhatsAppChallenge {
+  challenge_id: string
+  channel: 'whatsapp'
+  phone_masked: string
+  expires_in: number
+}
+
+/** With e-mail only `user_id`; with WhatsApp also the challenge to enter. */
+export type RegisterResult = { user_id: string; channel?: VerificationChannel } & Partial<WhatsAppChallenge>
+
 export const authApi = {
   login: (email: string, password: string) => post<LoginResponse>('/auth/login', { email, password }),
   // The account is created inactive: the API only returns the new id and mails
   // an activation link, so there is no session to store here.
-  register: (body: RegisterInput) => post<{ user_id: string }>('/auth/register', body),
+  register: (body: RegisterInput) => post<RegisterResult>('/auth/register', body),
   // Seller accounts go through the same activation flow as buyers, just a
   // different endpoint so the backend tags the user SELLER from creation.
-  registerSeller: (body: RegisterInput) => post<{ user_id: string }>('/auth/register/seller', body),
+  registerSeller: (body: RegisterInput) => post<RegisterResult>('/auth/register/seller', body),
+  // WhatsApp channel: the code goes through the OpenWA gateway to the account
+  // phone. Offered only when the server reports it enabled.
+  whatsappStatus: () => get<{ enabled: boolean }>('/auth/whatsapp/status'),
+  whatsappLogin: (phone: string, password: string) => post<WhatsAppChallenge>('/auth/whatsapp/login', { phone, password }),
+  whatsappVerify: (challenge_id: string, code: string) => post<LoginResponse>('/auth/whatsapp/verify', { challenge_id, code }),
+  whatsappResend: (challenge_id: string) => post<WhatsAppChallenge>('/auth/whatsapp/resend', { challenge_id }),
   resendActivation: (email: string) => post('/auth/resend-activation', { email }),
   reinitializeRegistration: (email: string) => post('/auth/reinitialize-registration', { email }),
   forgotPassword: (identifier: string) => post('/auth/forgot-password', { identifier }),
@@ -175,6 +193,9 @@ export const sellerApi = {
   shop: (id: string) => get<Shop>(`/shops/${id}`),
   updateShop: (id: string, body: UpdateShopRequest) => patch<Shop>(`/shops/${id}`, body),
   deleteShop: (id: string) => del<{ action: 'archived' | 'deleted' }>(`/shops/${id}`),
+  // Permanent deletion of an archived shop: counts first, then the purge.
+  shopPurgePreview: (id: string) => get<ShopPurgePreview>(`/shops/${id}/purge-preview`),
+  purgeShop: (id: string, confirmation: string) => del<ShopPurgeResult>(`/shops/${id}/permanent`, { confirmation }),
 
   /* Employees */
   employees: async (businessId: string) => list<Employee>(await get<unknown>(`/businesses/${businessId}/employees`)),
@@ -350,6 +371,13 @@ export const courierApi = {
   /** Live GPS while IN_TRANSIT; 409 TRACKING_NOT_ACTIVE once the mission left it. */
   reportLocation: (orderId: string, point: CourierLocationPoint) =>
     post<{ accepted: boolean; reason?: string }>(`/courier/missions/${orderId}/location`, point),
+  /** The courier's own position, route, progress and next instruction. */
+  live: (orderId: string) => get<CourierLocation>(`/courier/missions/${orderId}/live`),
+  /** Candidate places for an address; nothing is chosen for the courier. */
+  geocode: async (q: string) => (await get<{ candidates: GeocodeCandidate[] }>(`/courier/geocode?q=${encodeURIComponent(q)}`)).candidates ?? [],
+  /** Road route between two points the courier confirmed on the map. */
+  setRoute: (orderId: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true }) =>
+    put<CourierLocation>(`/courier/missions/${orderId}/route`, body),
 
   /* handover at the door */
   handover: (orderId: string) => get<HandoverState>(`/courier/missions/${orderId}/handover`),

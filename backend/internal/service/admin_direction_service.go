@@ -69,7 +69,7 @@ func (s *AdminDirectionService) GetOverviewStats(ctx context.Context) (*models.D
 			COUNT(*) FILTER (WHERE status = 'ACTIVE'),
 			COUNT(*) FILTER (WHERE status = 'INACTIVE'),
 			COUNT(*) FILTER (WHERE status = 'SUSPENDED')
-		FROM shops
+		FROM shops WHERE status <> 'DELETED'
 	`).Scan(&stats.TotalShops, &stats.ActiveShops, &stats.InactiveShops, &stats.SuspendedShops)
 
 	// 3. Products

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { notificationLink } from '@/lib/notificationLinks'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   fetchNotifications,
   markNotificationRead,
@@ -111,7 +112,10 @@ function NotificationsInner() {
       }
     }
 
-    if (item.reference_type === 'ORDER' && item.reference_id) {
+    const link = notificationLink(item)
+    if (link) {
+      navigate(link)
+    } else if (item.reference_type === 'ORDER' && item.reference_id) {
       navigate(`/orders/${item.reference_id}`)
     }
   }
@@ -149,7 +153,7 @@ function NotificationsInner() {
             )}
           </h1>
           <p className="small muted" style={{ margin: '4px 0 0' }}>
-            {t('notifications.subtitle')}
+            {t('notifications.subtitle')} · <Link to="/notifications/settings">{t('notifSettings.title')}</Link>
           </p>
         </div>
 

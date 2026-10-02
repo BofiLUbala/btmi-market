@@ -2238,3 +2238,67 @@
   font: inherit;
   cursor: pointer;
 }
+
+/* ── WhatsApp sign-in / sign-up ── */
+.auth-channel {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.auth-channel-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-alt, var(--color-surface));
+}
+.auth-channel-switch button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.auth-channel-switch button.is-selected {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.auth-channel-switch button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.whatsapp-code-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.whatsapp-code-head p {
+  margin: 2px 0 0;
+}
+.whatsapp-code-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #25d366;
+  color: #fff;
+  font-size: 1.2rem;
+}
+.whatsapp-code-input {
+  font-size: 1.4rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+.whatsapp-code-back {
+  justify-self: center;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}

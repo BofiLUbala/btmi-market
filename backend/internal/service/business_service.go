@@ -195,7 +195,7 @@ func (s *BusinessService) CreateBusiness(userID uuid.UUID, req *models.CreateBus
 		return nil, errors.New("USER_NOT_FOUND")
 	}
 
-	if user.Status != models.UserStatusActive || !user.EmailVerified {
+	if user.Status != models.UserStatusActive || !user.IsVerified() {
 		return nil, errors.New("ACCOUNT_NOT_ACTIVATED")
 	}
 

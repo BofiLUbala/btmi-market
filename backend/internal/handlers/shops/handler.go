@@ -1,6 +1,7 @@
 package shops
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/btmi-ai-market/backend/internal/models"
@@ -10,8 +11,14 @@ import (
 )
 
 type Handler struct {
-	shopService *service.ShopService
+	shopService  *service.ShopService
+	purgeService *service.ShopPurgeService
 }
+
+var (
+	errForbidden    = errors.New("FORBIDDEN")
+	errShopNotFound = errors.New("SHOP_NOT_FOUND")
+)
 
 func NewHandler(shopService *service.ShopService) *Handler {
 	return &Handler{shopService: shopService}

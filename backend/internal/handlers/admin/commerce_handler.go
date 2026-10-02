@@ -13,6 +13,7 @@ import (
 
 type CommerceHandler struct {
 	commerceService *service.AdminCommerceService
+	purgeService    *service.ShopPurgeService
 }
 
 func NewCommerceHandler(commerceService *service.AdminCommerceService) *CommerceHandler {

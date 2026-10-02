@@ -49,6 +49,8 @@ export interface RegisterInput {
   country?: string
   latitude?: number | null
   longitude?: number | null
+  /** Where the account confirmation goes: activation e-mail (default) or WhatsApp code. */
+  verification_channel?: 'email' | 'whatsapp'
 }
 
 
@@ -274,7 +276,27 @@ export interface CourierLocation {
   freshness: LocationFreshness; is_stale: boolean; age_seconds: number | null
   location: { latitude: number; longitude: number; accuracy: number | null; heading: number | null; speed: number | null; captured_at: string; received_at: string } | null
   delivery_latitude: number | null; delivery_longitude: number | null; delivery_address?: string
+  /** True when delivery_latitude/longitude is the buyer's own checkout point. */
+  buyer_shared_point?: boolean
+  /** Planned road route and the courier's progress, once a route was set. */
+  route?: DeliveryRoute | null
 }
+/** Where a route point came from; every point is confirmed on the map first. */
+export type RoutePointSource = 'GPS' | 'COORDINATES' | 'ADDRESS' | 'MAP' | 'REROUTE' | 'BUYER_GPS'
+export interface RoutePoint { latitude: number; longitude: number; source: RoutePointSource; label: string }
+export interface RoutePointInput { latitude: number; longitude: number; source: Exclude<RoutePointSource, 'REROUTE'>; label: string }
+/** [longitude, latitude], GeoJSON order. */
+export type LngLatPair = [number, number]
+export interface DeliveryRoute {
+  start: RoutePoint; destination: RoutePoint; travel_mode: string
+  geometry: LngLatPair[]; arrows: { longitude: number; latitude: number; bearing: number }[]; trail: LngLatPair[]
+  route_length_m: number; planned_length_m: number; total_m: number; travelled_m: number; remaining_m: number; remaining_s: number
+  eta: string | null; off_route: boolean; off_route_m: number; reroute_count: number; computed_at: string
+  next_instruction?: { message: string; maneuver: string; in_m: number } | null
+  instructions?: { message: string; maneuver: string; offset_m: number }[]
+}
+/** One geocoding answer; only `confident` ones are offered to pick. */
+export interface GeocodeCandidate { label: string; latitude: number; longitude: number; score: number; kind: string; confident: boolean }
 /** One GPS point sent by the courier's phone. */
 export interface CourierLocationPoint { latitude: number; longitude: number; accuracy: number | null; heading: number | null; speed: number | null; captured_at: string }
 export interface BuyerPayment {
@@ -807,4 +829,22 @@ export interface SaleFinanceDetail {
   sale: SellerSaleCommissionItem; buyer_name: string; payment_method: string; provider?: string; payment_reference?: string; payment_status: string
   order_status: string; delivery_method: string; delivery_status: string; payment_markup: number; delivery_fee: number
   products_subtotal: number; final_total: number; ordered_at: string; verified_at?: string; lines: SaleFinanceLine[]
+}
+
+/** What a permanent shop deletion would remove. */
+export interface ShopPurgePreview {
+  shops: { id: string; name: string; business_name: string; status: string; product_count: number; open_order_count: number; keeps_history: boolean }[]
+  shop_count: number
+  /** Products stocked only in this shop; they are deleted with it. */
+  product_count: number
+  image_count: number
+  /** Shops with orders still in progress; the deletion is refused while any remain. */
+  blocked_shops: string[]
+}
+
+export interface ShopPurgeResult {
+  deleted_shops: number
+  deleted_products: number
+  deleted_images: number
+  history_kept_shops: number
 }

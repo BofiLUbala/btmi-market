@@ -2,7 +2,10 @@ package service
 
 import (
 	"errors"
+	"log"
 	"time"
+
+	"github.com/btmi-ai-market/backend/internal/maps"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
@@ -33,8 +36,23 @@ type deliveryLocationStore interface {
 // CourierLocationService: the courier writes, the buyer who owns the order and
 // Commerce Admin read. Sellers and Finance have no path to it.
 type CourierLocationService struct {
-	store deliveryLocationStore
-	now   func() time.Time
+	store  deliveryLocationStore
+	routes *DeliveryRouteService
+	now    func() time.Time
+}
+
+// SetRouteService adds the planned route and progress to every read, and
+// reroutes a courier who leaves it.
+func (s *CourierLocationService) SetRouteService(routes *DeliveryRouteService) { s.routes = routes }
+
+// attachRoute never fails a position read: the map still shows the courier.
+func (s *CourierLocationService) attachRoute(resp *models.CourierLocationResponse, withInstructions bool) *models.CourierLocationResponse {
+	if s.routes != nil {
+		if err := s.routes.AttachRoute(resp, withInstructions); err != nil {
+			log.Printf("delivery route: attach %s failed: %v", resp.OrderID, err)
+		}
+	}
+	return resp
 }
 
 func NewCourierLocationService(store deliveryLocationStore) *CourierLocationService {
@@ -61,6 +79,9 @@ func (s *CourierLocationService) ReportLocation(courierUserID, orderID uuid.UUID
 	if !accepted {
 		return &models.ReportLocationResult{Accepted: false, Reason: "IGNORED_NOT_NEWER"}, nil
 	}
+	if s.routes != nil {
+		go s.routes.MaybeReroute(orderID, maps.LngLat{point.Longitude, point.Latitude}, point.AccuracyM)
+	}
 	return &models.ReportLocationResult{Accepted: true}, nil
 }
 
@@ -76,7 +97,12 @@ func (s *CourierLocationService) GetForBuyer(buyerProfileID, orderID uuid.UUID) 
 	if row.BuyerProfileID == nil || *row.BuyerProfileID != buyerProfileID {
 		return nil, ErrLocationForbidden
 	}
-	return row.ToCourierLocationResponse(s.now()), nil
+	resp := row.ToCourierLocationResponse(s.now())
+	// The buyer sees the route only while the parcel is on its way.
+	if !resp.LiveTrackingActive {
+		return resp, nil
+	}
+	return s.attachRoute(resp, false), nil
 }
 
 // GetForAdmin serves the position to Commerce Admin (the route enforces the role).
@@ -88,7 +114,33 @@ func (s *CourierLocationService) GetForAdmin(orderID uuid.UUID) (*models.Courier
 	if row == nil {
 		return nil, ErrLocationOrderNotFound
 	}
-	return row.ToCourierLocationResponse(s.now()), nil
+	return s.attachRoute(row.ToCourierLocationResponse(s.now()), true), nil
+}
+
+// GetForCourier serves the assigned courier their own position, route and
+// navigation instructions.
+func (s *CourierLocationService) GetForCourier(courierUserID, orderID uuid.UUID) (*models.CourierLocationResponse, error) {
+	if s.routes == nil {
+		return nil, ErrLocationOrderNotFound
+	}
+	rc, err := s.routes.RouteContext(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if rc == nil {
+		return nil, ErrLocationOrderNotFound
+	}
+	if rc.AssignedCourierID == nil || *rc.AssignedCourierID != courierUserID {
+		return nil, ErrLocationForbidden
+	}
+	row, err := s.store.GetLiveLocation(orderID)
+	if err != nil {
+		return nil, err
+	}
+	if row == nil {
+		return nil, ErrLocationOrderNotFound
+	}
+	return s.attachRoute(row.ToCourierLocationResponse(s.now()), true), nil
 }
 
 // RetentionResult reports one retention sweep.

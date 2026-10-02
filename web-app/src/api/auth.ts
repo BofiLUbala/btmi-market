@@ -1,5 +1,5 @@
 import { get, post, upload } from './client'
-import type { LoginResponse, RegisterRequest, RegisterResponse, User } from './types'
+import type { LoginResponse, RegisterRequest, RegisterResponse, User, WhatsAppChallenge } from './types'
 
 export const authApi = {
   register: (body: RegisterRequest) => post<RegisterResponse>('/auth/register', body),
@@ -14,6 +14,19 @@ export const authApi = {
 
   login: (email: string, password: string) =>
     post<LoginResponse>('/auth/login', { email, password }),
+
+  /** Whether the WhatsApp channel is offered (an OpenWA gateway is configured). */
+  whatsappStatus: () => get<{ enabled: boolean }>('/auth/whatsapp/status'),
+
+  /** Checks phone + password and sends a sign-in code on WhatsApp. */
+  whatsappLogin: (phone: string, password: string) =>
+    post<WhatsAppChallenge>('/auth/whatsapp/login', { phone, password }),
+
+  whatsappVerify: (challenge_id: string, code: string) =>
+    post<LoginResponse>('/auth/whatsapp/verify', { challenge_id, code }),
+
+  whatsappResend: (challenge_id: string) =>
+    post<WhatsAppChallenge>('/auth/whatsapp/resend', { challenge_id }),
 
   forgotPassword: (identifier: string) =>
     post<null>('/auth/forgot-password', { identifier }),

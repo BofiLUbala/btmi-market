@@ -6,6 +6,8 @@ import {
   useState,
   type ReactNode
 } from 'react'
+import { useAuth } from '@/store/auth'
+import { watchesApi } from '@/lib/push'
 
 export interface FavoritesItem {
   productId: string
@@ -52,24 +54,46 @@ function load(): FavoritesItem[] {
 export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<FavoritesItem[]>(load)
 
+  const { user } = useAuth()
+  const signedIn = Boolean(user)
+
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(items))
   }, [items])
 
+  // Favourites are also followed on the server once signed in, so a price
+  // drop or a restock can be announced (when the buyer opted in to alerts).
+  useEffect(() => {
+    if (!user?.id) return
+    const ids = load().map((i) => i.productId)
+    if (ids.length) void watchesApi.sync(ids).catch(() => undefined)
+  }, [user?.id])
+
   const value = useMemo<FavoritesState>(() => {
     const has = (productId: string) => items.some((i) => i.productId === productId)
+    const follow = (productId: string, on: boolean) => {
+      if (!signedIn) return
+      void (on ? watchesApi.watch(productId) : watchesApi.unwatch(productId)).catch(() => undefined)
+    }
     const toggle = (item: FavoritesItem) => {
+      const adding = !has(item.productId)
       setItems((prev) =>
         prev.some((i) => i.productId === item.productId)
           ? prev.filter((i) => i.productId !== item.productId)
           : [...prev, item]
       )
+      follow(item.productId, adding)
     }
-    const remove = (productId: string) =>
+    const remove = (productId: string) => {
       setItems((prev) => prev.filter((i) => i.productId !== productId))
-    const clear = () => setItems([])
+      follow(productId, false)
+    }
+    const clear = () => {
+      items.forEach((i) => follow(i.productId, false))
+      setItems([])
+    }
     return { items, has, toggle, remove, clear }
-  }, [items])
+  }, [items, signedIn])
 
   return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>
 }

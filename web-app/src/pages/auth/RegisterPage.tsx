@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { authApi } from '@/api/auth'
 import { sellerAuthApi } from '@/api/seller'
 import { ApiError } from '@/api/types'
@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { ResendEmailButton } from '@/components/auth/AuthFormParts'
+import { ChannelSwitch, WhatsAppCodeForm, challengeFromError, useWhatsAppEnabled, whatsappErrorMessage } from '@/components/auth/WhatsAppAuth'
+import { useAuth } from '@/store/auth'
+import type { VerificationChannel, WhatsAppChallenge } from '@/api/types'
 import { useT } from '@/store/i18n'
 import { StructuredAddressFields } from '@/components/address/StructuredAddressFields'
 import { PinIcon } from '@/components/ui/Icons'
 
-type RegPhase = 'form' | 'creating' | 'sending' | 'success' | 'email-failed'
+type RegPhase = 'form' | 'creating' | 'sending' | 'success' | 'email-failed' | 'whatsapp-code'
 
 const MIN_LOADING_MS = 1500
 
@@ -25,6 +28,13 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
   const isSeller = accountType === 'SELLER'
   const loginPath = isSeller ? '/seller/login' : '/login'
   const [policyAccepted, setPolicyAccepted] = useState(false)
+  const navigate = useNavigate()
+  const { verifyWhatsApp } = useAuth()
+  const whatsappEnabled = useWhatsAppEnabled()
+  const [channel, setChannel] = useState<VerificationChannel>('email')
+  const [challenge, setChallenge] = useState<WhatsAppChallenge | null>(null)
+  const [challengeError, setChallengeError] = useState('')
+  const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [form, setForm] = useState({
     email: '',
@@ -167,7 +177,7 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
     try {
       sendingTimer = setTimeout(() => setPhase('sending'), 600)
       const register = isSeller ? sellerAuthApi.registerSeller : authApi.register
-      await register({
+      const created = await register({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         phone: form.phone.trim(),
@@ -187,7 +197,8 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
         commune_id: form.commune_id || undefined,
         address: [form.building_number, form.street, form.commune, form.city, form.province].filter(Boolean).join(', '),
         latitude: form.latitude,
-        longitude: form.longitude
+        longitude: form.longitude,
+        verification_channel: useWhatsApp ? 'whatsapp' : 'email'
       })
       clearTimeout(sendingTimer)
       sendingTimer = undefined
@@ -197,8 +208,26 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
         setPhase('sending')
         await new Promise((r) => setTimeout(r, MIN_LOADING_MS - elapsed))
       }
+      if (created?.challenge_id) {
+        setChallenge(created as WhatsAppChallenge)
+        setChallengeError('')
+        setPhase('whatsapp-code')
+        return
+      }
       setPhase('success')
     } catch (err) {
+      const pending = challengeFromError(err)
+      if (pending) {
+        setChallenge(pending)
+        setChallengeError(whatsappErrorMessage(err, t))
+        setPhase('whatsapp-code')
+        return
+      }
+      if (useWhatsApp) {
+        setPhase('form')
+        setError(whatsappErrorMessage(err, t))
+        return
+      }
       const msg = err instanceof ApiError ? err.message : t('auth.register.failed')
       if (msg.toLowerCase().includes('email') || msg.toLowerCase().includes('activation')) {
         setPhase('email-failed')
@@ -230,6 +259,27 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
             <ResendEmailButton
               label={t('auth.resend.activationLabel')}
               onResend={() => authApi.resendActivation(form.email.trim())}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── WhatsApp code screen ──
+  if (phase === 'whatsapp-code' && challenge) {
+    return (
+      <div className="auth-wrap">
+        <div className="card auth-card">
+          <div className="registration-result" style={{ textAlign: 'left' }}>
+            <h1>{t('auth.whatsapp.created')}</h1>
+            <WhatsAppCodeForm
+              challenge={challenge}
+              initialError={challengeError}
+              onVerify={async (id, code) => {
+                await verifyWhatsApp(id, code, isSeller ? 'seller' : 'buyer')
+                navigate(isSeller ? '/seller/dashboard' : '/', { replace: true })
+              }}
             />
           </div>
         </div>
@@ -310,7 +360,7 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
         {isLoading && (
           <div className="registration-steps" aria-busy="true" aria-live="polite">
             <Step label={t('auth.register.creating')} done={phase === 'sending'} active={phase === 'creating'} />
-            <Step label={t('auth.register.sendingEmail')} done={false} active={phase === 'sending'} />
+            <Step label={useWhatsApp ? t('auth.register.sendingWhatsApp') : t('auth.register.sendingEmail')} done={false} active={phase === 'sending'} />
           </div>
         )}
 
@@ -328,6 +378,14 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
                   value={form.email}
                   onChange={(e) => set('email', e.target.value)}
                 />
+                {whatsappEnabled && (
+                  <div>
+                    <ChannelSwitch value={channel} onChange={setChannel} label={t('auth.whatsapp.confirmWith')} />
+                    <p className="small muted" style={{ marginTop: -6 }}>
+                      {useWhatsApp ? t('auth.whatsapp.confirmHintWhatsApp') : t('auth.whatsapp.confirmHintEmail')}
+                    </p>
+                  </div>
+                )}
                 <Field
                   label={t('auth.password')}
                   name="password"
@@ -460,6 +518,9 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
                 <div className="profile-contact-block" style={{ padding: '0.85rem', background: 'var(--surface-alt)', borderRadius: '8px' }}>
                   <div className="eyebrow">{t('auth.register.accountDetails')}</div>
                   <div className="info-row"><span className="k">{t('common.email')}</span><span className="v">{form.email}</span></div>
+                  {whatsappEnabled && (
+                    <div className="info-row"><span className="k">{t('auth.whatsapp.confirmWith')}</span><span className="v">{useWhatsApp ? `WhatsApp (${form.phone})` : t('common.email')}</span></div>
+                  )}
                 </div>
 
                 <div className="profile-contact-block" style={{ padding: '0.85rem', background: 'var(--surface-alt)', borderRadius: '8px' }}>

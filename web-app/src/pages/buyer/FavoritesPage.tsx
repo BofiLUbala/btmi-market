@@ -34,7 +34,8 @@ export default function FavoritesPage() {
         </Button>
       </div>
       <p className="pay-note" style={{ marginTop: -8, marginBottom: 12 }}>
-        {t('favorites.localNote')}
+        {t('favorites.localNote')}{' '}
+        <Link to="/notifications/settings">{t('notifSettings.cat.WATCHLIST.desc')}</Link>
       </p>
       <div className="card stack">
         {items.map((i) => (

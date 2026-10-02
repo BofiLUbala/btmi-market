@@ -669,7 +669,7 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 
 	query := fmt.Sprintf(`
 		SELECT 
-			o.id, o.order_number, o.business_id, COALESCE(b.name, ''),
+			o.id, COALESCE(o.order_number, ''), o.business_id, COALESCE(b.name, ''),
 			o.shop_id, COALESCE(s.name, ''),
 			o.buyer_profile_id, 
 			COALESCE(bp.first_name || ' ' || bp.last_name, 'Guest / Counter'),
@@ -754,7 +754,7 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 
 	orderQuery := `
 		SELECT 
-			o.id, o.order_number, o.business_id, COALESCE(b.name, ''),
+			o.id, COALESCE(o.order_number, ''), o.business_id, COALESCE(b.name, ''),
 			o.shop_id, COALESCE(s.name, ''),
 			o.buyer_profile_id, 
 			COALESCE(bp.first_name || ' ' || bp.last_name, 'Guest / Counter'),

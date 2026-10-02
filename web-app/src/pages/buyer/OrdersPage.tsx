@@ -188,7 +188,8 @@ function OrdersInner() {
     <div className="stack buyer-order-list">
       {filteredItems.map(({ detail, payment }) => {
         const order = detail.order
-        const total = order.final_total + order.delivery_fee_final
+        // Same total as the order page: products + delivery + the payment method's markup.
+        const total = order.final_total + order.delivery_fee_final + Math.max(payment?.payment_markup ?? 0, 0)
         return <article key={order.id} className="card buyer-order-card">
           <div className="row-between buyer-order-head"><div><div className="eyebrow">{t('orders.eyebrow')}</div><h2>{order.order_number || order.id.slice(0, 8).toUpperCase()}</h2><div className="small muted">{formatDateTime(order.created_at)}</div></div><StatusBadge status={order.status} /></div>
           <div className="buyer-order-shop"><span className="muted small">{t('orders.shop')}</span><strong>{detail.shop_name || t('orders.shopUnavailable')}</strong>{detail.business_name ? <span className="small muted"> · {detail.business_name}</span> : null}{detail.seller_name ? <span className="small muted"> · {detail.seller_name}</span> : null}</div>
@@ -211,6 +212,9 @@ function OrdersInner() {
             <div className="small"><span className="muted">{t('orders.payment')}</span><br /><strong>{payment ? t(paymentStatusKey(payment) as TranslationKey) : t('orders.notPrepared')}</strong>{confirmationActorKey(payment?.confirmation_actor) ? ` · ${t(confirmationActorKey(payment?.confirmation_actor) as TranslationKey)}` : ''}</div>
             <div className="small"><span className="muted">{t('orders.deliveryLabel')}</span><br /><strong>{order.delivery_method ? order.delivery_method.replace(/_/g, ' ') : t('orders.notSelected')}</strong></div>
             <div><span className="muted small">{t('common.total')}</span><br /><strong>{formatMoney(total)}</strong></div>
+            {(order.delivery_method || '').startsWith('TBK') && order.delivery_status === 'IN_TRANSIT' && (
+              <Link to={`/orders/${order.id}/tracking`} className="btn btn-outline" data-testid="follow-courier">🛵 {t('liveMap.follow')}</Link>
+            )}
             <Link to={`/orders/${order.id}`} className="btn btn-primary">{t('orders.viewOrder')}</Link>
           </div>
         </article>

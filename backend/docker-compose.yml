@@ -35,6 +35,21 @@ services:
       - MIGRATIONS_DIR=/migrations
       - VISUAL_SEARCH_URL=http://visual-search:8090
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:-}
+      - TOMTOM_API_KEY=${TOMTOM_API_KEY:-}
+      # WhatsApp one-time codes through OpenWA (service `openwa` below).
+      - OPENWA_URL=${OPENWA_URL:-}
+      - OPENWA_API_KEY=${OPENWA_API_KEY:-}
+      - OPENWA_SESSION_ID=${OPENWA_SESSION_ID:-}
+      - WHATSAPP_DEFAULT_COUNTRY_CODE=${WHATSAPP_DEFAULT_COUNTRY_CODE:-243}
+      # Push notifications; see .env.example.
+      - PUSH_ENABLED=${PUSH_ENABLED:-true}
+      - PUSH_WEB_ENABLED=${PUSH_WEB_ENABLED:-true}
+      - PUSH_EXPO_ENABLED=${PUSH_EXPO_ENABLED:-true}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:support@tbkmarket.com}
+      - EXPO_PUSH_URL=${EXPO_PUSH_URL:-}
+      - EXPO_ACCESS_TOKEN=${EXPO_ACCESS_TOKEN:-}
+      - PUSH_EXTRA_HOSTS=${PUSH_EXTRA_HOSTS:-}
       - SUPER_ADMIN_NAME=${SUPER_ADMIN_NAME:-}
       - SUPER_ADMIN_EMAIL=${SUPER_ADMIN_EMAIL:-}
       - SUPER_ADMIN_PASSWORD=${SUPER_ADMIN_PASSWORD:-}
@@ -150,9 +165,35 @@ services:
       - api
     restart: unless-stopped
 
+  # OpenWA WhatsApp gateway (github.com/rmyndharis/OpenWA), only started with
+  # `docker compose --profile whatsapp up -d`. Setup once:
+  #   1. docker exec openwa-api cat /app/data/.api-key   -> OPENWA_API_KEY
+  #   2. open http://localhost:2785, create a session, scan its QR with the
+  #      WhatsApp account that will send the codes      -> OPENWA_SESSION_ID
+  #   3. set OPENWA_URL=http://openwa:2785 in .env and restart `api`.
+  openwa:
+    image: ghcr.io/rmyndharis/openwa:latest
+    container_name: openwa-api
+    profiles: ["whatsapp"]
+    shm_size: 1gb
+    ports:
+      - "127.0.0.1:2785:2785"
+    environment:
+      - NODE_ENV=production
+      - PORT=2785
+      - TZ=UTC
+      # Baileys speaks the WhatsApp protocol directly, without the Chromium
+      # that the default whatsapp-web.js engine launches: lighter and reliable
+      # on a small host.
+      - ENGINE_TYPE=baileys
+    volumes:
+      - openwa_data:/app/data
+    restart: unless-stopped
+
 volumes:
   backups_data:
   exports_data:
+  openwa_data:
   postgres_data:
     driver: local
   uploads_data:

@@ -1,9 +1,11 @@
 import { create } from 'zustand'
+import { releasePush } from '../lib/push'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { authApi, sellerApi } from '../api'
 import { tokenStore } from '../api/tokenStore'
 import { onSessionInvalidated } from '../api/client'
 import { clearLastRoute } from '../lib/lastRoute'
+import { stopCourierTracking } from '../lib/courierTracking'
 import { canSell, canOnboardSeller, type Business, type User } from '../types'
 
 /* Same storage mechanism as language/theme (AsyncStorage), mirroring the web's
@@ -20,6 +22,8 @@ interface AuthState {
   bootstrap: () => Promise<void>
   refresh: () => Promise<void>
   login: (email: string, password: string) => Promise<User>
+  /** Completes a WhatsApp sign-up or sign-in with the code received. */
+  verifyWhatsApp: (challengeId: string, code: string) => Promise<User>
   logout: () => Promise<void>
   setActiveBusiness: (business: Business | null) => void
   setActiveShop: (shopId: string | null) => void
@@ -51,6 +55,8 @@ export const useAuth = create<AuthState>((set) => ({
       const accessToken = await tokenStore.getAccess()
       const refreshToken = await tokenStore.getRefresh()
       if (!accessToken && !refreshToken) {
+        // Signed out (perhaps the session expired): no alerts for the last account.
+        void releasePush('user')
         set({ user: null })
         return
       }
@@ -78,10 +84,23 @@ export const useAuth = create<AuthState>((set) => ({
     set({ user, ready: true, ...seller })
     return user
   },
+  verifyWhatsApp: async (challengeId, code) => {
+    const session = await authApi.whatsappVerify(challengeId, code)
+    await tokenStore.set(session.access_token, session.refresh_token)
+    const user = session.user ?? await authApi.me()
+    const seller = await loadSellerBusinesses(user)
+    set({ user, ready: true, ...seller })
+    return user
+  },
   logout: async () => {
+    // This phone stops receiving this account's notifications.
+    await releasePush('user').catch(() => undefined)
     const refreshToken = await tokenStore.getRefresh()
     try { if (refreshToken) await authApi.logout(refreshToken) } catch {}
     await tokenStore.clear()
+    // A courier signing out mid-delivery stops sharing their position: the
+    // background task must never post points with the next account's session.
+    await stopCourierTracking().catch(() => undefined)
     // The next person signing in on this phone must not reopen this one's screen.
     await Promise.all([AsyncStorage.removeItem(ACTIVE_BUSINESS_KEY), AsyncStorage.removeItem(ACTIVE_SHOP_KEY), clearLastRoute()])
     set({ user: null, ready: true, sellerBusinesses: [], activeBusiness: null, activeShop: null })

@@ -110,6 +110,7 @@ func setup(t *testing.T) *fixture {
 
 	h := tracking.NewLocationHandler(
 		service.NewCourierLocationService(repository.NewDeliveryLocationRepository(db)),
+		nil,
 		profiles{f.buyer: buyerProfile, f.otherBuyer: otherProfile},
 	)
 	gin.SetMode(gin.TestMode)

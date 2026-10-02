@@ -55,6 +55,7 @@ export default function CourierMissionsScreen() {
       <EarningsCard />
       <Button variant="outline" title={t('courier.delivered.title')} onPress={() => router.push('/courier/delivered')} />
       <Button variant="outline" title={t('courier.history')} onPress={() => router.push('/courier/history')} />
+      <Button variant="outline" title={t('notifSettings.title')} onPress={() => router.push({ pathname: '/notification-settings', params: { space: 'courier' } })} />
       <SectionTitle title={t('courier.activeMissions', { count: active.length })} />
       {active.length === 0 ? <Card><Text style={styles.muted}>{t('courier.noMission')}</Text></Card> : null}
       {active.map((m) => <MissionCard key={m.order_id} mission={m} />)}

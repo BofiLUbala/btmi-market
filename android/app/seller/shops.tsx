@@ -68,7 +68,10 @@ export default function SellerShopsScreen() {
   const [editing, setEditing] = useState<Shop | null>(null)
   const [editForm, setEditForm] = useState<UpdateShopRequest>({})
   const [pendingDelete, setPendingDelete] = useState<Shop | null>(null)
-  const [deleteOutcome, setDeleteOutcome] = useState<'archived' | 'deleted' | ''>('')
+  const [deleteOutcome, setDeleteOutcome] = useState('')
+  // Permanent deletion of an archived shop (typed confirmation).
+  const [pendingPurge, setPendingPurge] = useState<Shop | null>(null)
+  const [purgeTyped, setPurgeTyped] = useState('')
   const [error, setError] = useState('')
 
   const invalidate = () => {
@@ -104,6 +107,24 @@ export default function SellerShopsScreen() {
     onError: (e) => setError(e instanceof ApiError ? e.message : t('seller.shops.deleteFailed')),
   })
 
+  const purgePreview = useQuery({
+    queryKey: ['shop-purge-preview', pendingPurge?.id],
+    queryFn: () => sellerApi.shopPurgePreview(pendingPurge!.id),
+    enabled: !!pendingPurge,
+    gcTime: 0,
+  })
+  const purge = useMutation({
+    mutationFn: (shop: Shop) => sellerApi.purgeShop(shop.id, purgeTyped.trim()),
+    onMutate: () => setError(''),
+    onSuccess: (res, shop) => {
+      setPendingPurge(null)
+      setDeleteOutcome(t('seller.shops.purgeDone', { shop: shop.name, products: res.deleted_products, images: res.deleted_images }))
+      invalidate()
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : t('seller.shops.purgeFailed')),
+  })
+  const openPurge = (shop: Shop) => { setDeleteOutcome(''); setError(''); setPurgeTyped(''); setPendingPurge(shop) }
+
   const restore = useMutation({
     mutationFn: (shop: Shop) => sellerApi.updateShop(shop.id, { status: 'ACTIVE' }),
     onSuccess: invalidate,
@@ -133,7 +154,7 @@ export default function SellerShopsScreen() {
     <SectionTitle title={t('seller.shopPage.title')} action={<Button dense title={showCreate ? t('common.cancel') : t('seller.shops.createShop')} onPress={() => setShowCreate((v) => !v)} />} />
     <Text style={styles.muted}>{t('seller.shopPage.desc')}</Text>
     {error ? <Text style={styles.error}>{error}</Text> : null}
-    {deleteOutcome ? <Card><Text style={styles.success}>{t(deleteOutcome === 'archived' ? 'seller.shops.archivedOutcome' : 'seller.shops.deletedOutcome')}</Text></Card> : null}
+    {deleteOutcome ? <Card><Text style={styles.success}>{deleteOutcome === 'archived' ? t('seller.shops.archivedOutcome') : deleteOutcome === 'deleted' ? t('seller.shops.deletedOutcome') : deleteOutcome}</Text></Card> : null}
 
     {showCreate && <Card>
       <Text style={styles.cardTitle}>{t('seller.shops.createTitle')}</Text>
@@ -186,6 +207,25 @@ export default function SellerShopsScreen() {
       <Button variant="outline" title={t('common.cancel')} onPress={() => setPendingDelete(null)} />
     </View>}
 
+    {pendingPurge && <View style={styles.dangerCard}>
+      <Text style={styles.cardTitle}>{t('seller.shops.purgeTitle', { shop: pendingPurge.name })}</Text>
+      {purgePreview.isError ? <Text style={styles.error}>{purgePreview.error instanceof ApiError ? purgePreview.error.message : t('seller.shops.purgeFailed')}</Text>
+        : !purgePreview.data ? <Text style={styles.small}>{t('seller.shops.purgeLoading')}</Text>
+        : <>
+          <Text style={styles.small}>{t('seller.shops.purgeSummary', { products: purgePreview.data.product_count, images: purgePreview.data.image_count })}</Text>
+          <Text style={styles.small}>{t('seller.shops.purgeSharedNote')}</Text>
+          {purgePreview.data.shops.some((s) => s.keeps_history) ? <Text style={styles.small}>{t('seller.shops.purgeHistoryNote')}</Text> : null}
+          <Text style={styles.linkDanger}>{t('seller.shops.purgeIrreversible')}</Text>
+          {purgePreview.data.blocked_shops.length > 0
+            ? <Text style={styles.error}>{t('seller.shops.purgeBlocked', { count: purgePreview.data.shops[0]?.open_order_count ?? 0 })}</Text>
+            : <Field label={t('seller.shops.purgeTypeLabel', { word: 'SUPPRIMER' })} value={purgeTyped} onChangeText={setPurgeTyped} autoCapitalize="characters" autoCorrect={false} placeholder="SUPPRIMER" />}
+        </>}
+      <Button title={t('seller.shops.purgeSubmit')} loading={purge.isPending}
+        disabled={!purgePreview.data || purgePreview.data.blocked_shops.length > 0 || purgeTyped.trim() !== 'SUPPRIMER'}
+        onPress={() => purge.mutate(pendingPurge)} />
+      <Button variant="outline" title={t('common.cancel')} onPress={() => setPendingPurge(null)} />
+    </View>}
+
     {!shops.data?.length ? <Card><View style={styles.emptyInline}><Text style={styles.cardTitle}>{t('seller.shops.noShopsYet')}</Text><Text style={[styles.muted, { textAlign: 'center' }]}>{t('seller.shopPage.noShopsYetDesc')}</Text><Button title={t('seller.shopPage.emptyCta')} onPress={() => setShowCreate(true)} /></View></Card> : shops.data.map((shop) => {
       const archived = shop.status !== 'ACTIVE'
       const s = stats[shop.id] ?? { productCount: 0, unitCount: 0, categories: [] }
@@ -203,7 +243,11 @@ export default function SellerShopsScreen() {
           {!archived ? <>
             <Pressable accessibilityRole="button" onPress={() => openSettings(shop)}><Text style={styles.link}>{t('seller.shops.settings')}</Text></Pressable>
             <Pressable accessibilityRole="button" onPress={() => { setDeleteOutcome(''); setPendingDelete(shop) }}><Text style={styles.linkDanger}>{t('seller.shops.deleteArchive')}</Text></Pressable>
-          </> : <Pressable accessibilityRole="button" onPress={() => restore.mutate(shop)}><Text style={styles.link}>{t('seller.shops.restoreShop')}</Text></Pressable>}
+          </> : <>
+            <Pressable accessibilityRole="button" onPress={() => restore.mutate(shop)}><Text style={styles.link}>{t('seller.shops.restoreShop')}</Text></Pressable>
+            {/* Suspended shops are an admin decision: only archived ones can be erased. */}
+            {shop.status === 'INACTIVE' && <Pressable accessibilityRole="button" onPress={() => openPurge(shop)}><Text style={styles.linkDanger}>{t('seller.shops.purgeAction')}</Text></Pressable>}
+          </>}
         </View>
       </Card>
     })}

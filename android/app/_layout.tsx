@@ -15,6 +15,9 @@ import { useAuth } from '../src/store/auth'
 import { useLiveOrderQueries } from '../src/lib/orderEvents'
 import { useRememberRoute } from '../src/lib/lastRoute'
 import { usePresenceHeartbeat } from '../src/lib/presence'
+import { useNotificationRouting } from '../src/lib/notificationRouting'
+import { configurePush, syncPush } from '../src/lib/push'
+import { syncFavoritesToAccount } from '../src/store/favorites'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
@@ -42,6 +45,16 @@ function RootNavigator() {
   useRememberRoute()
   // Live presence for the Direction console (who is in the app right now).
   usePresenceHeartbeat()
+  // A tapped notification opens its screen (after sign-in if needed).
+  useNotificationRouting()
+  const userId = useAuth((state) => state.user?.id)
+  useEffect(() => { void configurePush() }, [])
+  // Each session start re-attaches this phone when push was on for this account.
+  useEffect(() => {
+    if (!userId) return
+    void syncPush('user')
+    syncFavoritesToAccount()
+  }, [userId])
 
   return (
     <>
@@ -79,6 +92,7 @@ function RootNavigator() {
         <Stack.Screen name="orders/[id]" options={{ header: storeHeader, title: t('orders.detailTitle') }} />
         <Stack.Screen name="orders/live" options={{ title: t('liveMap.follow') }} />
         <Stack.Screen name="notifications" options={{ header: storeHeader, title: t('notifications.title') }} />
+        <Stack.Screen name="notification-settings" options={{ title: t('notifSettings.title') }} />
         <Stack.Screen name="points/index" options={{ header: storeHeader, title: t('points.link') }} />
         <Stack.Screen name="points/history" options={{ header: storeHeader, title: t('points.history') }} />
         <Stack.Screen name="purchases" options={{ header: storeHeader, title: t('account.pendingPurchases') }} />

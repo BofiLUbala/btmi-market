@@ -8,6 +8,7 @@ import (
 
 	"github.com/btmi-ai-market/backend/internal/email"
 	"github.com/btmi-ai-market/backend/internal/models"
+	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -22,7 +23,11 @@ type AdminManagementService struct {
 	invitationRepo *repository.AdminInvitationRepository
 	auditService   *AuditService
 	emailService   *email.Service
+	notifier       *notify.Notifier
 }
+
+// SetNotifier tells an admin when their role changes.
+func (s *AdminManagementService) SetNotifier(n *notify.Notifier) { s.notifier = n }
 
 func NewAdminManagementService(
 	adminRepo *repository.AdminRepository,
@@ -454,6 +459,12 @@ func (s *AdminManagementService) ChangeAdminRole(actorID uuid.UUID, actorRole mo
 	if err := s.adminRepo.UpdateRole(targetID, req.Role); err != nil {
 		return fmt.Errorf("failed to change admin role: %w", err)
 	}
+	s.notifier.ToAdmin(targetID, notify.Message{
+		Type:    models.NotificationTypeAdminRoleChanged,
+		Title:   "Votre rôle administrateur a changé",
+		Body:    fmt.Sprintf("Votre rôle est passé de %s à %s. Si vous n'êtes pas au courant, contactez un super administrateur.", oldRole, req.Role),
+		RefType: notify.RefAccount, RefID: targetID,
+	})
 
 	_ = s.auditService.Record(
 		actorID, actorRole, "ADMIN_ROLE_CHANGED", "admin_user", targetID.String(), req.Reason,

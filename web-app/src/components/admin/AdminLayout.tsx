@@ -157,6 +157,11 @@ export function AdminLayout() {
     }
     setNotifOpen(false)
     const meta = notif.metadata || {}
+    const link = typeof meta.link === 'string' && meta.link.startsWith('/admin') ? meta.link : ''
+    if (link) {
+      navigate(link)
+      return
+    }
     const orderId = (meta.order_id as string) || (notif.reference_type === 'ORDER' ? notif.reference_id : null)
     if (orderId) {
       navigate(`/admin/commerce/orders/${orderId}`)
@@ -483,6 +488,13 @@ export function AdminLayout() {
                         Tout marquer lu
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => { setNotifOpen(false); navigate('/admin/notifications/settings') }}
+                      style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Paramètres
+                    </button>
                   </div>
 
                   <div style={{ maxHeight: '360px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>

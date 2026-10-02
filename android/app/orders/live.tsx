@@ -4,10 +4,19 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
 import { Button, ErrorState, Loading } from '../../src/components/ui'
-// MapLibre is a native module: loaded only when this screen opens, so the
-// rest of the app never evaluates it (and Expo Go, which lacks it, still runs).
-const LiveCourierMap = lazy(() => import('../../src/components/LiveCourierMap').then((m) => ({ default: m.LiveCourierMap })))
 import { useI18n } from '../../src/store/i18n'
+
+/** Shown when this binary lacks MapLibre (Expo Go): the status line on the order page still applies. */
+function MapUnavailable() {
+  const { t } = useI18n()
+  return <ErrorState message={t('liveMap.noMap')} />
+}
+
+// MapLibre is a native module: loaded only when this screen opens, so the
+// rest of the app never evaluates it. Without it (Expo Go), say so instead of crashing.
+const LiveCourierMap = lazy(() => import('../../src/components/LiveCourierMap')
+  .then((m) => ({ default: m.LiveCourierMap ?? MapUnavailable }))
+  .catch(() => ({ default: MapUnavailable })))
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 

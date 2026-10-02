@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { useMutation } from '@tanstack/react-query'
-import { authApi } from '../api'
+import { authApi, type VerificationChannel, type WhatsAppChallenge } from '../api'
 import { ApiError } from '../api/client'
 import { Button, Card, Field, SectionTitle } from './ui'
 import { ResendEmailButton } from './AuthFormParts'
+import { ChannelSwitch, WhatsAppCodeForm, challengeFromError, useWhatsAppEnabled, whatsappErrorMessage } from './WhatsAppAuth'
 import { SellerPolicyContent } from './SellerPolicyContent'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
@@ -56,6 +57,11 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
   const [existingSellerEmail, setExistingSellerEmail] = useState(false)
   const [policyAccepted, setPolicyAccepted] = useState(false)
   const [policyModalVisible, setPolicyModalVisible] = useState(false)
+  const whatsappEnabled = useWhatsAppEnabled()
+  const [channel, setChannel] = useState<VerificationChannel>('email')
+  const [challenge, setChallenge] = useState<WhatsAppChallenge | null>(null)
+  const [challengeError, setChallengeError] = useState('')
+  const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
   const automaticLoginRunning = useRef(false)
 
   const rules = useMemo(() => PASSWORD_RULES.map((rule) => rule(password)), [password])
@@ -133,15 +139,32 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
         address: [address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', '),
         latitude,
         longitude,
+        verification_channel: useWhatsApp ? 'whatsapp' as const : 'email' as const,
       }
       return accountType === 'SELLER' ? authApi.registerSeller(body) : authApi.register(body)
     },
     onMutate: () => { setError(''); setExistingSellerEmail(false) },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       if (accountType === 'SELLER') await sellerIntent.set(email)
       else await sellerIntent.clear()
+      if (data?.challenge_id) {
+        setChallengeError('')
+        setChallenge(data as WhatsAppChallenge)
+      }
     },
     onError: (e) => {
+      const pending = challengeFromError(e)
+      if (pending) {
+        // The account exists, only the WhatsApp delivery failed: offer a resend.
+        if (accountType === 'SELLER') void sellerIntent.set(email)
+        setChallengeError(whatsappErrorMessage(e, t))
+        setChallenge(pending)
+        return
+      }
+      if (e instanceof ApiError && (e.code === 'WHATSAPP_UNAVAILABLE' || e.code === 'RATE_LIMITED')) {
+        setError(whatsappErrorMessage(e, t))
+        return
+      }
       if (e instanceof ApiError) {
         if (e.code === 'EMAIL_ALREADY_EXISTS') {
           setError(t(accountType === 'SELLER' ? 'auth.register.sellerEmailExists' : 'auth.register.emailExists'))
@@ -160,7 +183,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
   })
 
   useEffect(() => {
-    if (!register.isSuccess) return
+    if (!register.isSuccess || challenge) return
     const connectAfterActivation = async () => {
       if (automaticLoginRunning.current) return
       automaticLoginRunning.current = true
@@ -178,7 +201,28 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
       if (state === 'active') void connectAfterActivation()
     })
     return () => subscription.remove()
-  }, [accountType, email, password, register.isSuccess])
+  }, [accountType, email, password, register.isSuccess, challenge])
+
+  if (challenge) {
+    return (
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+          <SectionTitle title={t('auth.whatsapp.created')} />
+          <Card>
+            <WhatsAppCodeForm
+              challenge={challenge}
+              initialError={challengeError}
+              onVerify={async (id, code) => {
+                const user = await useAuth.getState().verifyWhatsApp(id, code)
+                await sellerIntent.clear()
+                router.replace(user.account_type === 'SELLER' ? '/seller/onboarding' : '/(buyer)/profile')
+              }}
+            />
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    )
+  }
 
   if (register.isSuccess) {
     return (
@@ -252,6 +296,12 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
         {step === 1 && (
           <Card>
             <Field label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholder={t('auth.emailPlaceholder')} />
+            {whatsappEnabled ? (
+              <View style={{ gap: 6 }}>
+                <ChannelSwitch value={channel} onChange={setChannel} label={t('auth.whatsapp.confirmWith')} />
+                <Text style={styles.muted}>{useWhatsApp ? t('auth.whatsapp.confirmHintWhatsApp') : t('auth.whatsapp.confirmHintEmail')}</Text>
+              </View>
+            ) : null}
             <Field label={t('auth.password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" maxLength={64} />
             <View>
               {ruleLabels.map((label, index) => (
@@ -312,6 +362,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
               <Text style={styles.summaryLabel}>{t('auth.register.accountDetails')}</Text>
               <Text style={styles.summaryVal}>{email}</Text>
               <Text style={styles.summaryVal}>{accountType === 'SELLER' ? t('auth.register.sellerAccount') : t('auth.register.buyerAccount')}</Text>
+              {whatsappEnabled ? <Text style={styles.summaryVal}>{t('auth.whatsapp.confirmWith')} : {useWhatsApp ? `WhatsApp (${phone})` : t('auth.email')}</Text> : null}
             </View>
 
             <View style={styles.summaryBlock}>
