@@ -784,6 +784,10 @@ func (s *CommunicationService) TriggerOrderEventNotification(orderID uuid.UUID, 
 		notifyAdmin = true
 		adminTitle = fmt.Sprintf("Mission acceptée: %s", orderNum)
 		adminBody = fmt.Sprintf("Le livreur a accepté la livraison de la commande %s.", orderNum)
+		// Live tracking starts here: tell the buyer they can follow the courier.
+		notifyBuyer = true
+		buyerTitle = fmt.Sprintf("Votre livreur est en route: %s", orderNum)
+		buyerBody = "Le livreur TBK a accepté votre commande et se rend à la boutique. Suivez-le en direct sur la carte."
 
 	case models.NotificationTypeCourierMissionRejected:
 		notifyAdmin = true

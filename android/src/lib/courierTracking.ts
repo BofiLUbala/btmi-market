@@ -1,4 +1,4 @@
-import { Platform } from 'react-native'
+import { Alert, Platform } from 'react-native'
 import * as Location from 'expo-location'
 import * as TaskManager from 'expo-task-manager'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -144,7 +144,12 @@ export async function startCourierTracking(orderId: string): Promise<StartResult
   try {
     await AsyncStorage.setItem(ORDER_KEY, orderId)
     await AsyncStorage.removeItem(PENDING_KEY)
-    const fg = await Location.requestForegroundPermissionsAsync()
+    const current = await Location.getForegroundPermissionsAsync()
+    if (!current.granted && !(await showLocationDisclosure())) {
+      setState('denied', orderId)
+      return 'denied'
+    }
+    const fg = current.granted ? current : await Location.requestForegroundPermissionsAsync()
     if (!fg.granted) {
       setState('denied', orderId)
       return 'denied'
@@ -175,6 +180,26 @@ export async function startCourierTracking(orderId: string): Promise<StartResult
     setState('denied', orderId)
     return 'unavailable'
   }
+}
+
+/**
+ * Google Play's prominent disclosure: before any system location prompt, say
+ * what is collected, why, when it runs (screen off included) and when it stops.
+ */
+function showLocationDisclosure(): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Partage de votre position',
+      "TBK collecte la position de votre téléphone pendant une livraison que vous avez acceptée, y compris lorsque l'application est fermée ou l'écran éteint. "
+        + "Elle est envoyée à l'acheteur de la commande et au support TBK pour suivre le trajet jusqu'à la boutique puis jusqu'à l'adresse de livraison. "
+        + "Le partage s'arrête automatiquement à votre arrivée. Une notification « Livraison TBK en cours » reste visible tant qu'il est actif.",
+      [
+        { text: 'Refuser', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Accepter', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    )
+  })
 }
 
 /**

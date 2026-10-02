@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.tbk.market",
+      "googleServicesFile": "./google-services.json",
       "icon": "./assets/icon.png",
       "adaptiveIcon": {
         "backgroundImage": "./assets/android-icon-background.png",

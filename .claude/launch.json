@@ -104,6 +104,41 @@
       "env": {
         "VITE_API_BASE": "http://127.0.0.1:8098/api/v1"
       }
+    },
+    {
+      "name": "android-metro-video",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "start",
+        "--prefix",
+        "android",
+        "--",
+        "--port",
+        "8084"
+      ],
+      "port": 8084,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:8099/api/v1"
+      }
+    },
+    {
+      "name": "web-app-video",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "web-app",
+        "--",
+        "--port",
+        "5178",
+        "--strictPort"
+      ],
+      "port": 5178,
+      "env": {
+        "VITE_API_BASE": "http://127.0.0.1:8099/api/v1"
+      }
     }
   ]
 }

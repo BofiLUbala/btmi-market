@@ -116,7 +116,7 @@ var catalog = map[models.NotificationType]typeSpec{
 	models.NotificationTypeOrderReady:            spec(CategoryOrders, PriorityNormal).with(audAdmin, PriorityHigh),
 	models.NotificationTypeCourierAssigned:       spec(CategoryOrders, PriorityNormal).with(audCourier, PriorityHigh),
 	models.NotificationTypeDeliveryAssigned:      spec(CategoryOrders, PriorityNormal).with(audCourier, PriorityHigh),
-	models.NotificationTypeCourierMissionAccepted: spec(CategoryAdmin, PriorityLow),
+	models.NotificationTypeCourierMissionAccepted: spec(CategoryOrders, PriorityNormal).with(audAdmin, PriorityLow),
 	models.NotificationTypeCourierMissionRejected: spec(CategoryAdmin, PriorityHigh),
 	models.NotificationTypeCourierPickedUp:       spec(CategoryOrders, PriorityNormal).with(audAdmin, PriorityLow),
 	models.NotificationTypeDeliveryInTransit:     spec(CategoryOrders, PriorityNormal).with(audAdmin, PriorityLow),

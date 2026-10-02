@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "274434002619",
+    "project_id": "tbk-market-fe46e",
+    "storage_bucket": "tbk-market-fe46e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:274434002619:android:6379d0036baee80d10639e",
+        "android_client_info": {
+          "package_name": "com.tbk.market"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfqnvjRi5DN2oxK7jrqMrR5P1D91dcmkA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
