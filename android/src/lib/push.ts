@@ -23,6 +23,8 @@ type NotificationsModule = typeof import('expo-notifications')
 
 const OWNER_KEY = 'btmi.push.owner'
 const TOKEN_KEY = 'btmi.push.token'
+/** Set once the app asked by itself: a later choice in the settings is never overridden. */
+const AUTO_ASKED_KEY = 'btmi.push.autoAsked'
 
 let mod: NotificationsModule | null | undefined
 function notifications(): NotificationsModule | null {
@@ -141,6 +143,22 @@ export async function syncPush(scope: PushScope): Promise<void> {
     await configurePush()
     if ((await N.getPermissionsAsync()).status === 'granted') await registerToken(scope)
   } catch { /* retried at next start */ }
+}
+
+/**
+ * At sign-in: push is on by default for order updates. The first time an
+ * account signs in on this phone the app asks for permission itself and
+ * attaches the phone; after that only syncPush runs, so turning push off in
+ * the settings stays off.
+ */
+export async function autoEnablePush(scope: PushScope): Promise<void> {
+  const N = notifications()
+  if (!N || (isExpoGo() && Platform.OS === 'android')) return
+  if ((await owner()) === scope) return syncPush(scope)
+  const asked = await AsyncStorage.getItem(AUTO_ASKED_KEY).catch(() => '1')
+  if (asked) return
+  await AsyncStorage.setItem(AUTO_ASKED_KEY, '1').catch(() => undefined)
+  try { await enablePush(scope) } catch { /* the settings screen still offers it */ }
 }
 
 /** Stops push to this phone for `scope` (sign-out or switched off). The

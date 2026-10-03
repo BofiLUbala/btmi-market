@@ -16,7 +16,7 @@ import { useLiveOrderQueries } from '../src/lib/orderEvents'
 import { useRememberRoute } from '../src/lib/lastRoute'
 import { usePresenceHeartbeat } from '../src/lib/presence'
 import { useNotificationRouting } from '../src/lib/notificationRouting'
-import { configurePush, syncPush } from '../src/lib/push'
+import { autoEnablePush, configurePush } from '../src/lib/push'
 import { syncFavoritesToAccount } from '../src/store/favorites'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n, type TranslationKey } from '../src/store/i18n'
@@ -57,10 +57,11 @@ function RootNavigator() {
     Alert.alert(t('auth.sessionEndedTitle' as TranslationKey), t('auth.sessionEndedBody' as TranslationKey))
     router.replace('/auth/login')
   }, [sessionEnded, t])
-  // Each session start re-attaches this phone when push was on for this account.
+  // Each session start attaches this phone for push: asked once on the first
+  // sign-in, then kept in sync (and left off if turned off in the settings).
   useEffect(() => {
     if (!userId) return
-    void syncPush('user')
+    void autoEnablePush('user')
     syncFavoritesToAccount()
   }, [userId])
 
