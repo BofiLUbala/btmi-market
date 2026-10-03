@@ -345,7 +345,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       {isLiveTracked(o.delivery_status) ? (
         <>
           <Suspense fallback={<Loading label={t('common.loading')} />}>
-            <LazyLiveCourierMap orderId={id!} />
+            <LazyLiveCourierMap orderId={id!} preview mapHeight={220} onExpand={() => router.push({ pathname: '/orders/live', params: { id: id! } })} />
           </Suspense>
           <Button variant="outline" title={`🛵 ${t('liveMap.follow')}`} onPress={() => router.push({ pathname: '/orders/live', params: { id: id! } })} />
         </>

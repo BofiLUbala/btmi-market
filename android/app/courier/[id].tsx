@@ -41,6 +41,8 @@ export default function CourierMissionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const [showChat, setShowChat] = useState(false)
   const [routeRefresh, setRouteRefresh] = useState(0)
+  // A finger on the map moves the map, not the page.
+  const [mapTouched, setMapTouched] = useState(false)
 
   const mission = useQuery({
     queryKey: ['courier', 'mission', id],
@@ -66,6 +68,7 @@ export default function CourierMissionScreen() {
   return (
     <ScrollView
       contentContainerStyle={styles.page}
+      scrollEnabled={!mapTouched}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={mission.isRefetching} onRefresh={() => void mission.refetch()} />}
     >
@@ -98,7 +101,7 @@ export default function CourierMissionScreen() {
       {/* Route: the trace, its direction, the distances and the next turn; the
           planner sets or changes its two ends until the courier arrives. */}
       <Suspense fallback={<Loading label={t('common.loading')} />}>
-        <LiveCourierMap orderId={m.order_id} audience="courier" refreshKey={routeRefresh} />
+        <LiveCourierMap orderId={m.order_id} audience="courier" refreshKey={routeRefresh} onGesture={setMapTouched} />
         {ROUTE_PLANNING.includes(m.delivery_status) ? (
           <CourierRoutePlanner orderId={m.order_id} deliveryAddress={m.delivery_address} pickupAddress={m.shop_address}
             onSaved={() => setRouteRefresh((n) => n + 1)} />

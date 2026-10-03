@@ -1,5 +1,5 @@
-import { Suspense, useMemo } from 'react'
-import { ScrollView, StyleSheet } from 'react-native'
+import { Suspense, useMemo, useState } from 'react'
+import { ScrollView, StyleSheet, useWindowDimensions } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
@@ -16,6 +16,9 @@ export default function LiveCourierScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
+  // A finger on the map moves the map, not the page.
+  const [mapTouched, setMapTouched] = useState(false)
+  const { height } = useWindowDimensions()
   // The order status decides whether there is anything to follow; the order
   // event stream refreshes it (useLiveOrderQueries) when the courier arrives.
   const tracking = useQuery({ queryKey: ['buyer', 'tracking', id], queryFn: () => buyerApi.tracking(id!), enabled: !!id })
@@ -24,9 +27,9 @@ export default function LiveCourierScreen() {
   if (tracking.isError || !tracking.data) return <ErrorState message={t('liveMap.unavailable')} retry={() => void tracking.refetch()} />
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView contentContainerStyle={styles.page} scrollEnabled={!mapTouched}>
       <Suspense fallback={<Loading label={t('common.loading')} />}>
-        <LiveCourierMap orderId={id!} />
+        <LiveCourierMap orderId={id!} onGesture={setMapTouched} mapHeight={Math.max(360, Math.round(height * 0.6))} />
       </Suspense>
       <Button variant="outline" title={t('liveMap.backToOrder')} onPress={() => router.back()} />
     </ScrollView>
