@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
-import { formatMoney, formatDateTime } from '@/lib/format'
+import { dateLocale, formatMoney, formatDateTime } from '@/lib/format'
+import { useT } from '@/store/i18n'
+import type { TranslationKey } from '@/locales/fr'
 import { adminFinanceApi, type AdminCommissionConfig, type AdminCommissionItem, type AdminSaleHistoryItem, type AdminCommissionSummary, type FinanceBreakdownItem, type FinanceBreakdownGroup } from '@/api/admin'
 
 // Amounts are shown in the currency of the sale itself. Never relabel a
@@ -10,27 +12,28 @@ const money = (value: number, currency?: string) =>
 
 type SummaryCurrencyField = 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission' | 'payments_collected' | 'payments_due'
 
-const COMMISSION_STATUS_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
-  DUE: { label: 'À reverser', bg: 'rgba(234, 179, 8, 0.15)', fg: '#eab308' },
-  COLLECTED: { label: 'Réglée', bg: 'rgba(34, 197, 94, 0.15)', fg: '#4ade80' },
-  WAIVED: { label: 'Annulée', bg: 'rgba(148, 163, 184, 0.15)', fg: '#94a3b8' },
-  ADJUSTED: { label: 'Ajustée', bg: 'rgba(129, 140, 248, 0.15)', fg: '#818cf8' }
+const COMMISSION_STATUS_BADGE: Record<string, { labelKey: TranslationKey; bg: string; fg: string }> = {
+  DUE: { labelKey: 'adminFinanceCommissionManagementPage.badgeDue', bg: 'rgba(234, 179, 8, 0.15)', fg: '#eab308' },
+  COLLECTED: { labelKey: 'adminFinanceCommissionManagementPage.badgeCollected', bg: 'rgba(34, 197, 94, 0.15)', fg: '#4ade80' },
+  WAIVED: { labelKey: 'adminFinanceCommissionManagementPage.badgeWaived', bg: 'rgba(148, 163, 184, 0.15)', fg: '#94a3b8' },
+  ADJUSTED: { labelKey: 'adminFinanceCommissionManagementPage.badgeAdjusted', bg: 'rgba(129, 140, 248, 0.15)', fg: '#818cf8' }
 }
 
 /** Rows fetched per page of the sales journal (the API caps a page at 100). */
 const JOURNAL_PAGE = 100
 
-const BREAKDOWN_LABELS: Record<FinanceBreakdownGroup, string> = {
-  shop: 'Boutique',
-  product: 'Produit',
-  variant: 'Variante',
-  seller: 'Vendeur',
-  business: 'Entreprise'
+const BREAKDOWN_LABELS: Record<FinanceBreakdownGroup, TranslationKey> = {
+  shop: 'adminFinanceCommissionManagementPage.groupShop',
+  product: 'adminFinanceCommissionManagementPage.groupProduct',
+  variant: 'adminFinanceCommissionManagementPage.groupVariant',
+  seller: 'adminFinanceCommissionManagementPage.groupSeller',
+  business: 'adminFinanceCommissionManagementPage.groupBusiness'
 }
 
-const GROUP_LABEL = { shop: 'boutique', product: 'produit', variant: 'variante', seller: 'vendeur', business: 'entreprise' } as const
+const GROUP_LABEL: Record<FinanceBreakdownGroup, TranslationKey> = { shop: 'adminFinanceCommissionManagementPage.byShop', product: 'adminFinanceCommissionManagementPage.byProduct', variant: 'adminFinanceCommissionManagementPage.byVariant', seller: 'adminFinanceCommissionManagementPage.bySeller', business: 'adminFinanceCommissionManagementPage.byBusiness' }
 
 export default function CommissionManagementPage() {
+  const t = useT()
 
   const [config, setConfig] = useState<AdminCommissionConfig | null>(null)
   const [summary, setSummary] = useState<AdminCommissionSummary | null>(null)
@@ -140,7 +143,7 @@ export default function CommissionManagementPage() {
       setCommissions((rows) => [...rows, ...(res.commissions || [])])
       setTotal(res.total || 0)
     } catch (err) {
-      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Chargement impossible' })
+      setMsg({ type: 'error', text: err instanceof Error ? err.message : t('adminFinanceCommissionManagementPage.loadFailed') })
     } finally {
       setLoadingMore(false)
     }
@@ -180,12 +183,12 @@ export default function CommissionManagementPage() {
         reason: changeReason || 'Mise à jour par l\'administrateur Finance'
       })
       setConfig(updated)
-      setMsg({ type: 'success', text: `Taux de commission TBK mis à jour avec succès: ${newRate}%` })
+      setMsg({ type: 'success', text: t('adminFinanceCommissionManagementPage.rateUpdated', { rate: newRate }) })
       setEditRateModal(false)
       setChangeReason('')
       await fetchData()
     } catch (err) {
-      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Échec de la modification du taux' })
+      setMsg({ type: 'error', text: err instanceof Error ? err.message : t('adminFinanceCommissionManagementPage.rateUpdateFailed') })
     } finally {
       setSavingRate(false)
     }
@@ -198,12 +201,12 @@ export default function CommissionManagementPage() {
     setMsg(null)
     try {
       await adminFinanceApi.markCommissionCollected(collectModalItem.id, collectNotes)
-      setMsg({ type: 'success', text: `Commission de la commande #${collectModalItem.order_number} marquée comme réglée.` })
+      setMsg({ type: 'success', text: t('adminFinanceCommissionManagementPage.markedCollected', { order: collectModalItem.order_number }) })
       setCollectModalItem(null)
       setCollectNotes('')
       await fetchData()
     } catch (err) {
-      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Échec de l\'encaissement' })
+      setMsg({ type: 'error', text: err instanceof Error ? err.message : t('adminFinanceCommissionManagementPage.collectFailed') })
     } finally {
       setSavingCollection(false)
     }
@@ -215,10 +218,10 @@ export default function CommissionManagementPage() {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>💰</span> Commission sur les Ventes TBK
+            <span>💰</span> {t('adminFinanceCommissionManagementPage.title')}
           </h2>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
-            Configuration du taux de commission plateforme, suivi des revenus nets vendeurs et gestion du recouvrement.
+            {t('adminFinanceCommissionManagementPage.subtitle')}
           </p>
         </div>
       </div>
@@ -253,13 +256,13 @@ export default function CommissionManagementPage() {
       }}>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--admin-text-muted)', letterSpacing: 0.5 }}>
-            COMMISSION SUR LES VENTES TBK
+            {t('adminFinanceCommissionManagementPage.rateCardTitle')}
           </div>
           <div style={{ fontSize: 32, fontWeight: 900, color: 'var(--admin-primary)', margin: '4px 0' }}>
             {config ? config.rate.toFixed(2) : '—'} %
           </div>
           <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>
-            Taux actuel applicable automatiquement à toutes les nouvelles ventes vérifiées.
+            {t('adminFinanceCommissionManagementPage.rateCardHint')}
           </div>
         </div>
 
@@ -282,45 +285,45 @@ export default function CommissionManagementPage() {
             gap: 6
           }}
         >
-          ✏️ Modifier le Taux
+          ✏️ {t('adminFinanceCommissionManagementPage.editRate')}
         </button>
       </div>
 
       {error && (
         <div role="alert" style={{ padding: 18, marginBottom: 20, borderRadius: 10, background: '#450a0a', border: '1px solid #991b1b', color: '#fecaca' }}>
-          <strong>Impossible de charger les données financières.</strong>
-          <button onClick={() => void fetchData()} style={{ marginLeft: 16, padding: '7px 14px', borderRadius: 7, cursor: 'pointer' }}>Réessayer</button>
+          <strong>{t('adminFinanceCommissionManagementPage.loadError')}</strong>
+          <button onClick={() => void fetchData()} style={{ marginLeft: 16, padding: '7px 14px', borderRadius: 7, cursor: 'pointer' }}>{t('common.retry')}</button>
         </div>
       )}
 
       {/* KPI Cards */}
       {!error && summary && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Chiffre d'Affaires Brut</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiGross')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--admin-text)', marginTop: 4 }}>
             {aggregateMoney('gross_sales', summary?.gross_sales || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission TBK Générée</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiCommission')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#818cf8', marginTop: 4 }}>
             {aggregateMoney('commission_amount', summary?.total_commission || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission À Reverser (DUE)</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiDue')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#eab308', marginTop: 4 }}>
             {aggregateMoney('due_commission', summary?.due_commission || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission Réglée</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiCollected')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>
             {aggregateMoney('collected_commission', summary?.collected_commission || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Revenu Net Vendeurs</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiSellerNet')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#38bdf8', marginTop: 4 }}>
             {aggregateMoney('seller_net_amount', summary?.seller_net_revenue || 0)}
           </div>
@@ -329,19 +332,19 @@ export default function CommissionManagementPage() {
         {/* Axe acheteur. Un acheteur peut avoir tout regle alors que la
             commission TBK ci-dessus reste due: les deux ne se confondent pas. */}
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiements encaissés</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiPaymentsCollected')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#facc15', marginTop: 4 }}>
             {aggregateMoney('payments_collected', summary?.payments_collected || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiements Dus</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiPaymentsDue')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#fb923c', marginTop: 4 }}>
             {aggregateMoney('payments_due', summary?.payments_due || 0)}
           </div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Unités vendues</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.kpiUnits')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--admin-text)', marginTop: 4 }}>
             {summary?.units_sold ?? 0}
           </div>
@@ -367,7 +370,7 @@ export default function CommissionManagementPage() {
               color: breakdownGroup === g ? '#ffffff' : 'var(--admin-text-muted)',
             }}
           >
-            Par {GROUP_LABEL[g]}
+            {t(GROUP_LABEL[g])}
           </button>
         ))}
       </div>
@@ -377,18 +380,18 @@ export default function CommissionManagementPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{BREAKDOWN_LABELS[breakdownGroup]}</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commandes</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Unités</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Vente Brute</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission TBK</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Net Vendeur</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Réglée / Due</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t(BREAKDOWN_LABELS[breakdownGroup])}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thOrders')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thUnits')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thGross')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thCommission')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thSellerNet')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thCollectedDue')}</th>
               </tr>
             </thead>
             <tbody>
               {breakdownItems.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>Aucune commission dans cette répartition.</td></tr>
+                <tr><td colSpan={7} style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--admin-text-muted)' }}>{t('adminFinanceCommissionManagementPage.breakdownEmpty')}</td></tr>
               ) : breakdownItems.map((item) => (
                 <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid var(--admin-border-soft)' }}>
                   <td style={{ padding: '12px 14px', fontWeight: 700 }}>
@@ -412,10 +415,10 @@ export default function CommissionManagementPage() {
       <div style={{ backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[
-            { id: 'ALL', label: 'Toutes les ventes' },
-            { id: 'DUE', label: '⏳ À reverser (DUE)' },
-            { id: 'COLLECTED', label: '✅ Réglées (COLLECTED)' },
-            { id: 'WAIVED', label: '↩️ Annulées (WAIVED)' }
+            { id: 'ALL', label: t('adminFinanceCommissionManagementPage.tabAll') },
+            { id: 'DUE', label: t('adminFinanceCommissionManagementPage.tabDue') },
+            { id: 'COLLECTED', label: t('adminFinanceCommissionManagementPage.tabCollected') },
+            { id: 'WAIVED', label: t('adminFinanceCommissionManagementPage.tabWaived') }
           ].map(tab => (
             <button
               key={tab.id}
@@ -440,7 +443,7 @@ export default function CommissionManagementPage() {
           <select
             value={paymentStatusFilter}
             onChange={(e) => setPaymentStatusFilter(e.target.value)}
-            aria-label="Statut de paiement"
+            aria-label={t('adminFinanceCommissionManagementPage.paymentStatus')}
             style={{
               padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
               border: '1px solid var(--admin-border)',
@@ -448,19 +451,19 @@ export default function CommissionManagementPage() {
               color: 'var(--admin-text)'
             }}
           >
-            <option value="">Paiement - tous</option>
-            <option value="VERIFIED">Paiement verifie</option>
-            <option value="PAID">Paye</option>
-            <option value="PENDING">En attente</option>
-            <option value="CONFIRMED">Confirme</option>
-            <option value="REFUNDED">Rembourse</option>
+            <option value="">{t('adminFinanceCommissionManagementPage.paymentAll')}</option>
+            <option value="VERIFIED">{t('adminFinanceCommissionManagementPage.paymentVerified')}</option>
+            <option value="PAID">{t('adminFinanceCommissionManagementPage.paymentPaid')}</option>
+            <option value="PENDING">{t('adminFinanceCommissionManagementPage.paymentPending')}</option>
+            <option value="CONFIRMED">{t('adminFinanceCommissionManagementPage.paymentConfirmed')}</option>
+            <option value="REFUNDED">{t('adminFinanceCommissionManagementPage.paymentRefunded')}</option>
           </select>
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <input
             type="text"
-            placeholder="Rechercher par N° commande, Entreprise ou Boutique..."
+            placeholder={t('adminFinanceCommissionManagementPage.searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             style={{
@@ -477,6 +480,7 @@ export default function CommissionManagementPage() {
           <input
             type="date"
             value={dateFrom}
+            aria-label={t('adminFinanceCommissionManagementPage.dateFrom')}
             onChange={(e) => setDateFrom(e.target.value)}
             style={{
               padding: '8px 12px',
@@ -490,6 +494,7 @@ export default function CommissionManagementPage() {
           <input
             type="date"
             value={dateTo}
+            aria-label={t('adminFinanceCommissionManagementPage.dateTo')}
             onChange={(e) => setDateTo(e.target.value)}
             style={{
               padding: '8px 12px',
@@ -505,35 +510,35 @@ export default function CommissionManagementPage() {
 
       {/* Commission Sales Table */}
       <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--admin-text-muted)', fontWeight: 600 }}>
-        {total} commission(s) enregistrée(s)
+        {t('adminFinanceCommissionManagementPage.countRecorded', { count: total })}
       </div>
       {loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>
-          Chargement du journal des commissions...
+          {t('adminFinanceCommissionManagementPage.journalLoading')}
         </div>
       ) : commissions.length === 0 ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
-          Aucune commission enregistrée selon les filtres sélectionnés.
+          {t('adminFinanceCommissionManagementPage.journalEmpty')}
         </div>
       ) : (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commande</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Boutique / Vendeur</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Acheteur</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Produits / Variantes</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Qté</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Vente Brute</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Base Commission</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Taux TBK</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commission TBK</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Net Vendeur</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Paiement</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livraison</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Statut</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Actions</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thOrder')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thShopSeller')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thBuyer')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thProducts')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thQty')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thGross')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thBase')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thRate')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thCommission')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thSellerNet')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thPayment')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminFinanceCommissionManagementPage.thDelivery')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('common.status')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -542,7 +547,7 @@ export default function CommissionManagementPage() {
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 800, color: 'var(--admin-text)' }}>#{c.order_number}</div>
                     <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
-                      {new Date(c.calculated_at).toLocaleString('fr-FR')}
+                      {new Date(c.calculated_at).toLocaleString(dateLocale())}
                     </div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
@@ -579,7 +584,7 @@ export default function CommissionManagementPage() {
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 600 }}>{adminLabel(c.payment_method || '—')}</div>
-                    <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{c.payment_status || '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{adminLabel(c.payment_status || '—')}</div>
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 14px', fontSize: 12 }}>
                     {adminLabel(c.delivery_status || c.delivery_method || c.order_status)}
@@ -593,7 +598,7 @@ export default function CommissionManagementPage() {
                       backgroundColor: (COMMISSION_STATUS_BADGE[c.status] ?? COMMISSION_STATUS_BADGE.DUE).bg,
                       color: (COMMISSION_STATUS_BADGE[c.status] ?? COMMISSION_STATUS_BADGE.DUE).fg
                     }}>
-                      {COMMISSION_STATUS_BADGE[c.status]?.label ?? c.status}
+                      {COMMISSION_STATUS_BADGE[c.status] ? t(COMMISSION_STATUS_BADGE[c.status].labelKey) : c.status}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right', padding: '12px 14px' }}>
@@ -614,13 +619,19 @@ export default function CommissionManagementPage() {
                           cursor: 'pointer'
                         }}
                       >
-                        💳 Marquer Réglée
+                        💳 {t('adminFinanceCommissionManagementPage.markCollected')}
                       </button>
                     ) : (
                       <span style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
                         {c.status === 'WAIVED'
-                          ? 'Vente annulée'
-                          : `${c.collected_at ? `Réglée le ${formatDateTime(c.collected_at)}` : 'Encaissée'}${c.collector_name ? ` par ${c.collector_name}` : ''}`}
+                          ? t('adminFinanceCommissionManagementPage.saleCancelled')
+                          : c.collected_at
+                            ? (c.collector_name
+                              ? t('adminFinanceCommissionManagementPage.settledOnBy', { date: formatDateTime(c.collected_at), name: c.collector_name })
+                              : t('adminFinanceCommissionManagementPage.settledOn', { date: formatDateTime(c.collected_at) }))
+                            : (c.collector_name
+                              ? t('adminFinanceCommissionManagementPage.collectedBy', { name: c.collector_name })
+                              : t('adminFinanceCommissionManagementPage.collected'))}
                       </span>
                     )}
                   </td>
@@ -632,7 +643,7 @@ export default function CommissionManagementPage() {
             <div style={{ padding: 12, textAlign: 'center' }}>
               <button onClick={() => void loadMore()} disabled={loadingMore}
                 style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                {loadingMore ? 'Chargement…' : `Afficher plus (${commissions.length} / ${total})`}
+                {loadingMore ? t('common.loading') : t('adminFinanceCommissionManagementPage.showMore', { shown: commissions.length, total })}
               </button>
             </div>
           )}
@@ -642,20 +653,20 @@ export default function CommissionManagementPage() {
       {/* Rate history: who changed the platform rate, when and why. */}
       {config?.history && config.history.length > 0 && (
         <div style={{ marginTop: 20, backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14, overflowX: 'auto' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Historique du taux de commission</div>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>{t('adminFinanceCommissionManagementPage.historyTitle')}</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}>
-                <th style={{ padding: '6px 8px' }}>Date</th>
-                <th style={{ padding: '6px 8px' }}>Ancien → nouveau</th>
-                <th style={{ padding: '6px 8px' }}>Par</th>
-                <th style={{ padding: '6px 8px' }}>Motif</th>
+                <th style={{ padding: '6px 8px' }}>{t('common.date')}</th>
+                <th style={{ padding: '6px 8px' }}>{t('adminFinanceCommissionManagementPage.thOldNew')}</th>
+                <th style={{ padding: '6px 8px' }}>{t('adminFinanceCommissionManagementPage.thBy')}</th>
+                <th style={{ padding: '6px 8px' }}>{t('adminFinanceCommissionManagementPage.thReason')}</th>
               </tr>
             </thead>
             <tbody>
               {config.history.slice(0, 10).map((h) => (
                 <tr key={h.id} style={{ borderTop: '1px solid var(--admin-border-soft)' }}>
-                  <td style={{ padding: '6px 8px' }}>{new Date(h.created_at).toLocaleString('fr-FR')}</td>
+                  <td style={{ padding: '6px 8px' }}>{new Date(h.created_at).toLocaleString(dateLocale())}</td>
                   <td style={{ padding: '6px 8px', fontWeight: 700 }}>{h.old_rate.toFixed(2)} % → {h.new_rate.toFixed(2)} %</td>
                   <td style={{ padding: '6px 8px' }}>{h.admin_name || '—'}</td>
                   <td style={{ padding: '6px 8px', color: 'var(--admin-text-muted)' }}>{h.reason || '—'}</td>
@@ -681,16 +692,16 @@ export default function CommissionManagementPage() {
             color: 'var(--admin-text)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 12px' }}>
-              Modifier le Taux de Commission sur les Ventes
+              {t('adminFinanceCommissionManagementPage.editModalTitle')}
             </h3>
             <p style={{ fontSize: 13, color: 'var(--admin-text-muted)', marginBottom: 16 }}>
-              Ce nouveau taux s'appliquera automatiquement aux nouvelles ventes vérifiées. Les ventes antérieures conservent leur snapshot historique.
+              {t('adminFinanceCommissionManagementPage.editModalHint')}
             </p>
 
             <form onSubmit={handleUpdateRate}>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--admin-text-muted)' }}>
-                  Nouveau Taux de Commission (%) *
+                  {t('adminFinanceCommissionManagementPage.newRateLabel')}
                 </label>
                 <input
                   type="number"
@@ -712,11 +723,11 @@ export default function CommissionManagementPage() {
 
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--admin-text-muted)' }}>
-                  Motif du changement de taux
+                  {t('adminFinanceCommissionManagementPage.reasonLabel')}
                 </label>
                 <input
                   type="text"
-                  placeholder="Ex: Ajustement annuel, offre de lancement..."
+                  placeholder={t('adminFinanceCommissionManagementPage.reasonPlaceholder')}
                   value={changeReason}
                   onChange={(e) => setChangeReason(e.target.value)}
                   style={{
@@ -741,7 +752,7 @@ export default function CommissionManagementPage() {
                     color: 'var(--admin-text)', fontSize: 13, fontWeight: 600, cursor: 'pointer'
                   }}
                 >
-                  Annuler
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -752,7 +763,7 @@ export default function CommissionManagementPage() {
                     fontSize: 13, fontWeight: 700, cursor: 'pointer'
                   }}
                 >
-                  {savingRate ? 'Enregistrement...' : 'Enregistrer'}
+                  {savingRate ? t('adminFinanceCommissionManagementPage.saving') : t('common.save')}
                 </button>
               </div>
             </form>
@@ -775,20 +786,20 @@ export default function CommissionManagementPage() {
             color: 'var(--admin-text)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 12px' }}>
-              Confirmer l'Encaissement de la Commission
+              {t('adminFinanceCommissionManagementPage.collectModalTitle')}
             </h3>
             <p style={{ fontSize: 13, color: 'var(--admin-text-muted)', marginBottom: 16 }}>
-              Commande <strong>#{collectModalItem.order_number}</strong> • Montant Commission: <strong style={{ color: '#818cf8' }}>{money(collectModalItem.commission_amount, collectModalItem.currency)}</strong>
+              {t('adminFinanceCommissionManagementPage.orderLabel')} <strong>#{collectModalItem.order_number}</strong> • {t('adminFinanceCommissionManagementPage.commissionAmountLabel')} <strong style={{ color: '#818cf8' }}>{money(collectModalItem.commission_amount, collectModalItem.currency)}</strong>
             </p>
 
             <form onSubmit={handleMarkCollected}>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--admin-text-muted)' }}>
-                  Note de règlement / Référence de paiement
+                  {t('adminFinanceCommissionManagementPage.collectNoteLabel')}
                 </label>
                 <input
                   type="text"
-                  placeholder="Ex: Reçu espèces N°884, virement bancaire..."
+                  placeholder={t('adminFinanceCommissionManagementPage.collectNotePlaceholder')}
                   value={collectNotes}
                   onChange={(e) => setCollectNotes(e.target.value)}
                   style={{
@@ -813,7 +824,7 @@ export default function CommissionManagementPage() {
                     color: 'var(--admin-text)', fontSize: 13, fontWeight: 600, cursor: 'pointer'
                   }}
                 >
-                  Annuler
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -824,7 +835,7 @@ export default function CommissionManagementPage() {
                     fontSize: 13, fontWeight: 700, cursor: 'pointer'
                   }}
                 >
-                  {savingCollection ? 'Validation...' : 'Confirmer le Règlement'}
+                  {savingCollection ? t('adminFinanceCommissionManagementPage.validating') : t('adminFinanceCommissionManagementPage.confirmCollect')}
                 </button>
               </div>
             </form>

@@ -4,7 +4,15 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../../src/store/adminAuth'
 import { mobileAdminFinanceApi } from '../../../src/api/admin'
-import { useI18n } from '../../../src/store/i18n'
+import { useI18n, type TranslationKey } from '../../../src/store/i18n'
+
+/** Translated label for a backend enum code, falling back to the raw code. */
+function codeLabel(t: (key: TranslationKey) => string, group: string, code?: string | null): string {
+  if (!code) return '—'
+  const key = `adminFinanceIndex.${group}.${code}`
+  const label = t(key as TranslationKey)
+  return label === key ? code : label
+}
 
 export default function MobileFinanceScreen() {
   const router = useRouter()
@@ -136,9 +144,9 @@ export default function MobileFinanceScreen() {
                 <View key={c.id} style={styles.itemRow}>
                   <View>
                     <Text style={styles.itemTitle}>{c.case_number}: {c.title}</Text>
-                    <Text style={styles.itemSub}>{c.case_type} • {c.priority}</Text>
+                    <Text style={styles.itemSub}>{codeLabel(t, 'caseType', c.case_type)} • {codeLabel(t, 'priority', c.priority)}</Text>
                   </View>
-                  <Text style={styles.chipCase}>{c.status}</Text>
+                  <Text style={styles.chipCase}>{codeLabel(t, 'caseStatus', c.status)}</Text>
                 </View>
               ))
             )}
@@ -154,9 +162,9 @@ export default function MobileFinanceScreen() {
                 <View key={r.id} style={styles.itemRow}>
                   <View>
                     <Text style={styles.itemTitle}>{r.event_type}</Text>
-                    <Text style={styles.itemSub}>{r.target_name} ({r.severity})</Text>
+                    <Text style={styles.itemSub}>{r.target_name} ({codeLabel(t, 'severity', r.severity)})</Text>
                   </View>
-                  <Text style={styles.chipRisk}>{r.status}</Text>
+                  <Text style={styles.chipRisk}>{codeLabel(t, 'riskStatus', r.status)}</Text>
                 </View>
               ))
             )}

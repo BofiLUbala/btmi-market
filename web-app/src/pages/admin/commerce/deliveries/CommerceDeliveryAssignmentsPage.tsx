@@ -9,7 +9,7 @@ import {
   type AdminDeliveryHandover
 } from '@/api/admin'
 import { useT } from '@/store/i18n'
-import { formatMoney } from '@/lib/format'
+import { dateLocale, formatMoney } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 import { shouldShowLiveMap } from '@/lib/liveLocation'
 
@@ -29,10 +29,11 @@ const canAssign = (o: AdminOrderItem) =>
 
 // Every ACTIVE courier can be assigned; availability only orders the list and
 // tells the admin whether the courier is currently on shift.
-const AVAILABILITY_LABEL: Record<string, string> = { AVAILABLE: 'Disponible', BUSY: 'En livraison', UNAVAILABLE: 'Hors ligne' }
-const TRANSPORT_LABEL: Record<string, string> = { MOTORCYCLE: 'Moto', BICYCLE: 'Vélo', CAR: 'Voiture', VAN: 'Camionnette', FOOT: 'À pied', TRUCK: 'Camion' }
-const SCAN_TYPE_LABEL: Record<string, string> = { PICKUP: 'Scan de retrait', DELIVERY: 'Scan de remise', PRODUCT: 'Vérification produit' }
-const SCAN_RESULT_LABEL: Record<string, string> = { SUCCESS: 'Réussi', FAILED: 'Échec', INVALID_QR: 'QR invalide', WRONG_ORDER: 'Mauvaise commande', ALREADY_USED: 'Déjà utilisé', EXPIRED: 'Expiré' }
+// Code -> translation key; translated at render time.
+const AVAILABILITY_LABEL: Record<string, TranslationKey> = { AVAILABLE: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.availAvailable', BUSY: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.availBusy', UNAVAILABLE: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.availUnavailable' } as Record<string, TranslationKey>
+const TRANSPORT_LABEL: Record<string, TranslationKey> = { MOTORCYCLE: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.transportMotorcycle', BICYCLE: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.transportBicycle', CAR: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.transportCar', VAN: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.transportVan', FOOT: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.transportFoot', TRUCK: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.transportTruck' } as Record<string, TranslationKey>
+const SCAN_TYPE_LABEL: Record<string, TranslationKey> = { PICKUP: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.scanPickup', DELIVERY: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.scanDelivery', PRODUCT: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.scanProduct' } as Record<string, TranslationKey>
+const SCAN_RESULT_LABEL: Record<string, TranslationKey> = { SUCCESS: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.resultSuccess', FAILED: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.resultFailed', INVALID_QR: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.resultInvalidQr', WRONG_ORDER: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.resultWrongOrder', ALREADY_USED: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.resultAlreadyUsed', EXPIRED: 'adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.resultExpired' } as Record<string, TranslationKey>
 const ASSIGNED_STATUSES = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'COURIER_EN_ROUTE_TO_SHOP']
 const IN_TRANSIT_STATUSES = ['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'COURIER_EN_ROUTE_TO_BUYER', 'COURIER_ARRIVED']
 
@@ -144,13 +145,13 @@ export default function CommerceDeliveryAssignmentsPage() {
       })
       setMsg({
         type: 'success',
-        text: `Livreur assigné avec succès à la commande #${assigningOrder.order_number}`
+        text: t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.assignSuccess', { number: assigningOrder.order_number })
       })
       setAssigningOrder(null)
       setNotes('')
       await fetchData()
     } catch (err) {
-      setMsg({ type: 'error', text: err instanceof Error ? err.message : 'Échec de l\'assignation' })
+      setMsg({ type: 'error', text: err instanceof Error ? err.message : t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.assignFailed') })
     } finally {
       setActionLoading(false)
     }
@@ -196,23 +197,23 @@ export default function CommerceDeliveryAssignmentsPage() {
     if (status.includes('READY')) {
       bg = 'rgba(234, 179, 8, 0.15)'
       fg = '#eab308'
-      label = 'Prêt au retrait'
+      label = t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.badgeReady')
     } else if (status === 'COURIER_ASSIGNED') {
       bg = 'rgba(99, 102, 241, 0.15)'
       fg = '#818cf8'
-      label = 'Livreur assigné'
+      label = t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.badgeAssigned')
     } else if (status === 'PICKED_UP') {
       bg = 'rgba(14, 165, 233, 0.15)'
       fg = '#38bdf8'
-      label = 'Colis récupéré'
+      label = t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.badgePickedUp')
     } else if (status === 'IN_TRANSIT') {
       bg = 'rgba(168, 85, 247, 0.15)'
       fg = '#c084fc'
-      label = 'En acheminement'
+      label = t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.badgeInTransit')
     } else if (status === 'RECEIVED' || status === 'DELIVERED') {
       bg = 'rgba(34, 197, 94, 0.15)'
       fg = '#4ade80'
-      label = 'Livré / Reçu'
+      label = t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.badgeDelivered')
     } else {
       // Any other state (cancelled, returned, arrived…) in words, not as a code.
       const key = `status.${status}` as TranslationKey
@@ -233,10 +234,10 @@ export default function CommerceDeliveryAssignmentsPage() {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🚚</span> {t('admin.commerce.dispatchQueueTitle') || 'Assignations & Supervision des Livraisons'}
+            <span>🚚</span> {t('admin.commerce.dispatchQueueTitle')}
           </h2>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
-            {t('admin.commerce.dispatchQueueSubtitle') || 'Affectation des livreurs, suivi des trajets et supervision de la remise de colis TBK.'}
+            {t('admin.commerce.dispatchQueueSubtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -256,7 +257,7 @@ export default function CommerceDeliveryAssignmentsPage() {
               gap: 6
             }}
           >
-            📦 Tous les Colis
+            📦 {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.allParcels')}
           </Link>
           <Link
             to="/admin/commerce/couriers"
@@ -274,7 +275,7 @@ export default function CommerceDeliveryAssignmentsPage() {
               gap: 6
             }}
           >
-            🛵 Gestion Livreurs
+            🛵 {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.manageCouriers')}
           </Link>
         </div>
       </div>
@@ -282,20 +283,20 @@ export default function CommerceDeliveryAssignmentsPage() {
       {/* Operational KPI summary pills */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>En attente d'assignation</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.kpiAwaiting')}</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#eab308', marginTop: 4 }}>{countReady}</div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livreurs assignés</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.kpiAssigned')}</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#818cf8', marginTop: 4 }}>{countAssigned}</div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>En cours d’acheminement</div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.kpiInTransit')}</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: '#c084fc', marginTop: 4 }}>{countInTransit}</div>
         </div>
         <div style={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border-soft)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livreurs disponibles</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>{countAvailableCouriers} <span style={{ fontSize: 13, color: 'var(--admin-text-muted)', fontWeight: 600 }}>/ {couriers.length} actifs</span></div>
+          <div style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.kpiAvailable')}</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#4ade80', marginTop: 4 }}>{countAvailableCouriers} <span style={{ fontSize: 13, color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.kpiActiveOf', { count: couriers.length })}</span></div>
         </div>
       </div>
 
@@ -319,12 +320,12 @@ export default function CommerceDeliveryAssignmentsPage() {
       <div style={{ backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 14, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
           {[
-            { id: 'ALL', label: 'Toutes les commandes' },
-            { id: 'READY_FOR_PICKUP', label: '⚡ Prêtes au retrait' },
-            { id: 'COURIER_ASSIGNED', label: '🛵 Livreur Assigné' },
-            { id: 'PICKED_UP', label: '📦 Récupérées' },
-            { id: 'IN_TRANSIT', label: '🚀 En transit' },
-            { id: 'RECEIVED', label: '✅ Livrées' }
+            { id: 'ALL', label: t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.tabAll') },
+            { id: 'READY_FOR_PICKUP', label: `⚡ ${t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.tabReady')}` },
+            { id: 'COURIER_ASSIGNED', label: `🛵 ${t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.tabAssigned')}` },
+            { id: 'PICKED_UP', label: `📦 ${t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.tabPickedUp')}` },
+            { id: 'IN_TRANSIT', label: `🚀 ${t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.tabInTransit')}` },
+            { id: 'RECEIVED', label: `✅ ${t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.tabDelivered')}` }
           ].map(tab => (
             <button
               key={tab.id}
@@ -350,7 +351,7 @@ export default function CommerceDeliveryAssignmentsPage() {
         <div style={{ display: 'flex', gap: 12 }}>
           <input
             type="text"
-            placeholder="Rechercher par N° commande, Boutique, Client ou Téléphone..."
+            placeholder={t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
@@ -370,23 +371,23 @@ export default function CommerceDeliveryAssignmentsPage() {
       {loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>
           <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
-          Chargement de la file d'attente de livraison...
+          {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.loadingQueue')}
         </div>
       ) : filteredOrders.length === 0 ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
-          Aucune commande correspondant aux critères de livraison.
+          {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.empty')}
         </div>
       ) : (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Commande</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Boutique (Retrait)</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Client & Destination</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Statut Livraison</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Livreur Assigné</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>Actions Opérationnelles</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.colOrder')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.colShop')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.colCustomer')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.colDeliveryStatus')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.colCourier')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -399,7 +400,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ fontWeight: 800, color: 'var(--admin-text)' }}>#{o.order_number}</div>
                       <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>
-                        {new Date(o.created_at).toLocaleString('fr-FR')}
+                        {new Date(o.created_at).toLocaleString(dateLocale())}
                       </div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--admin-primary)', marginTop: 2 }}>
                         {formatMoney(o.amount_due ?? o.final_total ?? 0, o.currency)}
@@ -412,10 +413,10 @@ export default function CommerceDeliveryAssignmentsPage() {
                     </td>
 
                     <td style={{ padding: '12px 14px' }}>
-                      <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{o.buyer_name || o.delivery_contact_name || 'Client TBK'}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{o.buyer_name || o.delivery_contact_name || t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.defaultCustomer')}</div>
                       <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>📞 {o.delivery_phone || o.buyer_phone || '-'}</div>
                       <div style={{ fontSize: 11, color: 'var(--admin-text-muted)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={o.delivery_address}>
-                        📍 {o.delivery_address || 'Adresse non spécifiée'}
+                        📍 {o.delivery_address || t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.noAddress')}
                       </div>
                     </td>
 
@@ -433,7 +434,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                         </div>
                       ) : (
                         <span style={{ fontSize: 12, color: 'var(--admin-text-muted)', fontStyle: 'italic' }}>
-                          Non assigné
+                          {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.notAssigned')}
                         </span>
                       )}
                     </td>
@@ -453,7 +454,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                             cursor: 'pointer'
                           }}
                         >
-                          👁️ Détail livraison
+                          👁️ {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.deliveryDetail')}
                         </button>
                         {canAssign(o) && <button
                           onClick={() => {
@@ -472,7 +473,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                             cursor: 'pointer'
                           }}
                         >
-                          {o.assigned_courier_id ? '🔄 Réassigner' : '🛵 Assigner'}
+                          {o.assigned_courier_id ? `🔄 ${t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.reassign')}` : `🛵 ${t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.assign')}`}
                         </button>}
                       </div>
                     </td>
@@ -500,16 +501,16 @@ export default function CommerceDeliveryAssignmentsPage() {
             color: 'var(--admin-text)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>🛵</span> {assigningOrder.assigned_courier_id ? 'Réassigner la livraison' : 'Assigner un livreur'} #{assigningOrder.order_number}
+              <span>🛵</span> {assigningOrder.assigned_courier_id ? t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.modalReassign') : t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.modalAssign')} #{assigningOrder.order_number}
             </h3>
             <p style={{ fontSize: 13, color: 'var(--admin-text-muted)', marginBottom: 16 }}>
-              Boutique: <strong>{assigningOrder.shop_name}</strong> • Client: <strong>{assigningOrder.buyer_name || assigningOrder.delivery_contact_name}</strong>
+              {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.modalShop')} <strong>{assigningOrder.shop_name}</strong> • {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.modalCustomer')} <strong>{assigningOrder.buyer_name || assigningOrder.delivery_contact_name}</strong>
             </p>
 
             <form onSubmit={handleAssign}>
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--admin-text-muted)' }}>
-                  Sélectionner un livreur actif *
+                  {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.selectCourierLabel')} *
                 </label>
                 <select
                   required
@@ -526,10 +527,10 @@ export default function CommerceDeliveryAssignmentsPage() {
                     fontWeight: 600
                   }}
                 >
-                  <option value="">-- Sélectionner un livreur --</option>
+                  <option value="">-- {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.selectCourierOption')} --</option>
                   {couriers.map((c) => (
                     <option key={c.id} value={c.id}>
-                      🛵 {c.first_name} {c.last_name} ({c.email}) - {AVAILABILITY_LABEL[c.availability] ?? c.availability}
+                      🛵 {c.first_name} {c.last_name} ({c.email}) - {AVAILABILITY_LABEL[c.availability] ? t(AVAILABILITY_LABEL[c.availability]) : c.availability}
                     </option>
                   ))}
                 </select>
@@ -537,11 +538,11 @@ export default function CommerceDeliveryAssignmentsPage() {
 
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--admin-text-muted)' }}>
-                  Consignes et instructions de livraison (Optionnel)
+                  {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.notesLabel')}
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Ex: Colis fragile, téléphoner au client 10 min avant, code portail 45B..."
+                  placeholder={t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.notesPlaceholder')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   style={{
@@ -573,7 +574,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  Annuler
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -590,7 +591,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                     opacity: actionLoading || !selectedCourierId ? 0.6 : 1
                   }}
                 >
-                  {actionLoading ? 'Assignation...' : 'Confirmer l\'assignation'}
+                  {actionLoading ? t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.assigning') : t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.confirmAssign')}
                 </button>
               </div>
             </form>
@@ -618,10 +619,10 @@ export default function CommerceDeliveryAssignmentsPage() {
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--admin-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
-                  Fiche opérationnelle · commande #{detailOrder.order_number}
+                  {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.detailTitle', { number: detailOrder.order_number })}
                 </h3>
                 <span style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>
-                  Statut : {adminLabel(detailOrder.delivery_status || detailOrder.status)}
+                  {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.detailStatus', { status: adminLabel(detailOrder.delivery_status || detailOrder.status) })}
                 </span>
               </div>
               <button
@@ -633,7 +634,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                   color: 'var(--admin-text)', fontWeight: 700, cursor: 'pointer'
                 }}
               >
-                ✕ Fermer
+                ✕ {t('common.close')}
               </button>
             </div>
 
@@ -641,48 +642,48 @@ export default function CommerceDeliveryAssignmentsPage() {
             <div style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
               {detailLoading ? (
                 <div style={{ padding: 40, textAlign: 'center', color: 'var(--admin-text-muted)' }}>
-                  Chargement des détails opérationnels...
+                  {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.loadingDetail')}
                 </div>
               ) : (
                 <>
                   {/* ASSIGNED COURIER */}
                   <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>
                     <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 12px', color: '#f472b6', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>🛵</span> LIVREUR ASSIGNÉ
+                      <span>🛵</span> {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.sectionCourier')}
                     </h4>
                     {detailCourier ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: 12, fontSize: 13 }}>
                         <div>
-                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Nom</div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('common.name')}</div>
                           <div style={{ fontWeight: 700 }}>{detailCourier.first_name} {detailCourier.last_name}</div>
                           <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{detailCourier.email}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Téléphone</div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('common.phone')}</div>
                           <div style={{ fontWeight: 700 }}>📞 {detailCourier.phone || '—'}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Véhicule</div>
-                          <div style={{ fontWeight: 700 }}>{TRANSPORT_LABEL[detailCourier.transport_type] ?? adminLabel(detailCourier.transport_type)}{detailCourier.vehicle_info ? ` · ${detailCourier.vehicle_info}` : ''}</div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.vehicle')}</div>
+                          <div style={{ fontWeight: 700 }}>{TRANSPORT_LABEL[detailCourier.transport_type] ? t(TRANSPORT_LABEL[detailCourier.transport_type]) : adminLabel(detailCourier.transport_type)}{detailCourier.vehicle_info ? ` · ${detailCourier.vehicle_info}` : ''}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Zone · disponibilité</div>
-                          <div style={{ fontWeight: 700 }}>{detailCourier.service_zone || '—'} · {AVAILABILITY_LABEL[detailCourier.availability] ?? adminLabel(detailCourier.availability)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.zoneAvailability')}</div>
+                          <div style={{ fontWeight: 700 }}>{detailCourier.service_zone || '—'} · {AVAILABILITY_LABEL[detailCourier.availability] ? t(AVAILABILITY_LABEL[detailCourier.availability]) : adminLabel(detailCourier.availability)}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Livraisons réussies</div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.successfulDeliveries')}</div>
                           <div style={{ fontWeight: 700 }}>
                             {detailCourier.successful_deliveries} / {detailCourier.total_deliveries}
                             {detailCourier.total_deliveries > 0 ? ` (${Math.round((detailCourier.successful_deliveries / detailCourier.total_deliveries) * 100)} %)` : ''}
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Statut du compte</div>
+                          <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.accountStatus')}</div>
                           <div style={{ fontWeight: 700 }}>{adminLabel(detailCourier.status)}</div>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>Aucun livreur assigné à cette commande pour le moment.</div>
+                      <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.noCourier')}</div>
                     )}
                   </div>
 
@@ -690,9 +691,9 @@ export default function CommerceDeliveryAssignmentsPage() {
                       courier is on the way or a route was planned. */}
                   <div style={{ color: 'var(--color-text, #111)' }}>
                     {shouldShowLiveMap({ delivery_status: fullOrderDetail?.order?.delivery_status ?? detailOrder.delivery_status }) && (
-                      <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 8px', color: '#34d399' }}>📡 POSITION DU LIVREUR</h4>
+                      <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 8px', color: '#34d399' }}>📡 {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.sectionPosition')}</h4>
                     )}
-                    <Suspense fallback={<div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>Chargement de la carte…</div>}>
+                    <Suspense fallback={<div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.loadingMap')}</div>}>
                       <LiveCourierMap orderId={detailOrder.id} audience="admin" destinationAddress={detailOrder.delivery_address || undefined} refreshKey={routeRefresh} />
                       {ROUTE_PLANNING.includes(fullOrderDetail?.order?.delivery_status ?? detailOrder.delivery_status ?? '') && (
                         <div style={{ marginTop: 12 }}>
@@ -705,24 +706,24 @@ export default function CommerceDeliveryAssignmentsPage() {
                   {/* BUYER / DESTINATION DETAILS */}
                   <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>
                     <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 12px', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>👤</span> INFORMATIONS ACHETEUR & DESTINATION
+                      <span>👤</span> {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.sectionBuyer')}
                     </h4>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Nom du Destinataire</div>
-                        <div style={{ fontWeight: 700 }}>{detailOrder.delivery_contact_name || detailOrder.buyer_name || 'Client TBK'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.recipientName')}</div>
+                        <div style={{ fontWeight: 700 }}>{detailOrder.delivery_contact_name || detailOrder.buyer_name || t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.defaultCustomer')}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Téléphone Contact</div>
+                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.contactPhone')}</div>
                         <div style={{ fontWeight: 700 }}>📞 {detailOrder.delivery_phone || detailOrder.buyer_phone || '-'}</div>
                       </div>
                       <div style={{ gridColumn: 'span 2' }}>
-                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Adresse complète de Livraison</div>
-                        <div style={{ fontWeight: 700, marginTop: 2 }}>📍 {detailOrder.delivery_address || 'Aucune adresse enregistrée'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.fullAddress')}</div>
+                        <div style={{ fontWeight: 700, marginTop: 2 }}>📍 {detailOrder.delivery_address || t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.noAddressSaved')}</div>
                       </div>
                       {detailOrder.delivery_notes && (
                         <div style={{ gridColumn: 'span 2', backgroundColor: 'rgba(234, 179, 8, 0.1)', padding: 10, borderRadius: 6, border: '1px solid rgba(234, 179, 8, 0.3)' }}>
-                          <div style={{ fontSize: 11, color: '#eab308', fontWeight: 700 }}>Instructions particulières:</div>
+                          <div style={{ fontSize: 11, color: '#eab308', fontWeight: 700 }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.specialInstructions')}</div>
                           <div style={{ fontSize: 12, color: 'var(--admin-text)', marginTop: 2 }}>{detailOrder.delivery_notes}</div>
                         </div>
                       )}
@@ -732,15 +733,15 @@ export default function CommerceDeliveryAssignmentsPage() {
                   {/* SHOP / PICKUP DETAILS */}
                   <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>
                     <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 12px', color: '#a7f3d0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>🏬</span> POINT DE RETRAIT / BOUTIQUE
+                      <span>🏬</span> {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.sectionPickup')}
                     </h4>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Entreprise / Vendeur</div>
+                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.businessSeller')}</div>
                         <div style={{ fontWeight: 700 }}>{detailOrder.business_name}</div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Boutique</div>
+                        <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>{t('admin.common.shopColumn')}</div>
                         <div style={{ fontWeight: 700 }}>{detailOrder.shop_name}</div>
                       </div>
                     </div>
@@ -749,7 +750,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                   {/* PRODUCTS / PACKAGE CONTENT */}
                   <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>
                     <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 12px', color: '#c084fc', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>📦</span> PRODUITS & CONTENU DU COLIS
+                      <span>📦</span> {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.sectionProducts')}
                     </h4>
                     {fullOrderDetail?.lines && fullOrderDetail.lines.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -765,7 +766,7 @@ export default function CommerceDeliveryAssignmentsPage() {
                       </div>
                     ) : (
                       <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>
-                        Nombre total d'articles: <strong>{detailOrder.total_items}</strong>
+                        {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.totalItems')} <strong>{detailOrder.total_items}</strong>
                       </div>
                     )}
                   </div>
@@ -774,25 +775,25 @@ export default function CommerceDeliveryAssignmentsPage() {
                   {handoverDetail && (
                     <div style={{ backgroundColor: 'var(--admin-surface-2)', borderRadius: 10, padding: 16, border: '1px solid var(--admin-border-soft)' }}>
                       <h4 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 12px', color: '#fde047', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>🔍</span> HISTORIQUE DES SCANS ET AUDIT QR
+                        <span>🔍</span> {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.sectionScans')}
                       </h4>
                       {handoverDetail.events && handoverDetail.events.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {handoverDetail.events.map((ev) => (
                             <div key={ev.id} style={{ fontSize: 12, padding: 8, backgroundColor: 'var(--admin-surface)', borderRadius: 6, border: '1px solid var(--admin-border-soft)' }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                                <span>{SCAN_TYPE_LABEL[ev.scan_type] ?? adminLabel(ev.scan_type)}</span>
-                                <span style={{ color: ev.scan_result === 'SUCCESS' ? '#4ade80' : '#f87171' }}>{SCAN_RESULT_LABEL[ev.scan_result] ?? adminLabel(ev.scan_result)}</span>
+                                <span>{SCAN_TYPE_LABEL[ev.scan_type] ? t(SCAN_TYPE_LABEL[ev.scan_type]) : adminLabel(ev.scan_type)}</span>
+                                <span style={{ color: ev.scan_result === 'SUCCESS' ? '#4ade80' : '#f87171' }}>{SCAN_RESULT_LABEL[ev.scan_result] ? t(SCAN_RESULT_LABEL[ev.scan_result]) : adminLabel(ev.scan_result)}</span>
                               </div>
                               <div style={{ fontSize: 11, color: 'var(--admin-text-muted)', marginTop: 4 }}>
-                                Horodatage: {new Date(ev.created_at).toLocaleString('fr-FR')}
+                                {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.timestamp', { time: new Date(ev.created_at).toLocaleString(dateLocale()) })}
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
                         <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>
-                          Aucun événement de scan enregistré pour le moment.
+                          {t('adminCommerceDeliveriesCommerceDeliveryAssignmentsPage.noScans')}
                         </div>
                       )}
                     </div>

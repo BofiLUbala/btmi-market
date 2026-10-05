@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { onSessionInvalidated, tokenStore } from '@/api/client'
 import { authApi } from '@/api/auth'
+import { translate } from '@/store/i18n'
 import { buyerApi } from '@/api/buyer'
 import { sellerAuthApi } from '@/api/seller'
 import type { BuyerProfile, User, AccountType, LoginResponseWithUser, SellerBusiness } from '@/api/types'
@@ -220,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // SELLER, and capabilities (not the legacy account_type) is the
       // source of truth for which profiles/businesses to fetch.
       const session = await loadSession(mode)
-      if (!session) throw new Error('Login succeeded but session could not be established')
+      if (!session) throw new Error(translate('storeAuth.sessionNotEstablished'))
       return { accountType: session.accountType, user: session.user }
     },
     [loadSession, resetState]

@@ -3,6 +3,7 @@ import { adminLabel } from '@/lib/adminLabels'
 import { useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminInventoryItem, type StockAnomaly } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { AdminStatusBadge } from '@/components/admin/AdminStatusBadge'
 
 export default function InventoryListPage() {
@@ -64,16 +65,16 @@ export default function InventoryListPage() {
   const submitAdjust = async () => {
     if (!adjusting) return
     const qty = Number(newQty)
-    if (!Number.isInteger(qty) || qty < adjusting.reserved_quantity) { setAdjustError(`Quantité entière ≥ ${adjusting.reserved_quantity} (déjà réservée) requise.`); return }
-    if (adjustReason.trim().length < 5) { setAdjustError('Motif obligatoire (5 caractères minimum).'); return }
+    if (!Number.isInteger(qty) || qty < adjusting.reserved_quantity) { setAdjustError(t('adminCommerceInventoryInventoryListPage.errQtyMin', { min: adjusting.reserved_quantity })); return }
+    if (adjustReason.trim().length < 5) { setAdjustError(t('adminCommerceInventoryInventoryListPage.errReasonMin')); return }
     setAdjustBusy(true); setAdjustError(null)
     try {
       await adminCommerceApi.adjustStock(adjusting.shop_id, adjusting.variant_id, qty, adjustReason.trim())
-      setNotice(`Stock de ${adjusting.product_name} ajusté : ${adjusting.quantity} → ${qty}.`)
+      setNotice(t('adminCommerceInventoryInventoryListPage.noticeAdjusted', { product: adjusting.product_name, from: adjusting.quantity, to: qty }))
       setAdjusting(null)
       await Promise.all([fetchInventory(), loadAnomalies()])
     } catch (err) {
-      setAdjustError(err instanceof Error ? err.message : 'Ajustement impossible')
+      setAdjustError(err instanceof Error ? err.message : t('adminCommerceInventoryInventoryListPage.errAdjustFailed'))
     } finally {
       setAdjustBusy(false)
     }
@@ -95,15 +96,15 @@ export default function InventoryListPage() {
         </p>
       </div>
 
-      {notice && <div className="admin-alert admin-alert-success" role="status">{notice} <button onClick={() => setNotice(null)} aria-label="Fermer">✕</button></div>}
+      {notice && <div className="admin-alert admin-alert-success" role="status">{notice} <button onClick={() => setNotice(null)} aria-label={t('common.close')}>✕</button></div>}
 
       {anomalies.length > 0 && (
         <div role="alert" style={{ border: '1px solid #b91c1c', background: 'rgba(127,29,29,.25)', borderRadius: 10, padding: 12, marginBottom: 16 }}>
-          <strong style={{ color: '#fca5a5' }}>{anomalies.length} anomalie(s) de stock détectée(s)</strong>
+          <strong style={{ color: '#fca5a5' }}>{t('adminCommerceInventoryInventoryListPage.anomaliesDetected', { count: anomalies.length })}</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--admin-text)' }}>
             {anomalies.slice(0, 10).map((a) => (
               <li key={`${a.shop_id}-${a.variant_id}-${adminLabel(a.type)}`}>
-                <b>{adminLabel(a.type)}</b> · {a.shop_name} · {a.product_name} — stock {a.quantity}, réservé {a.reserved_quantity}. {a.description}
+                <b>{adminLabel(a.type)}</b> · {a.shop_name} · {a.product_name} — {t('adminCommerceInventoryInventoryListPage.anomalyStock', { qty: a.quantity, reserved: a.reserved_quantity })} {a.description}
               </li>
             ))}
           </ul>
@@ -186,7 +187,7 @@ export default function InventoryListPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border-soft)', backgroundColor: 'var(--admin-surface)' }}>
-                {[t('admin.common.shopColumn'), t('admin.inventory.productColumn'), t('admin.inventory.variantSkuColumn'), t('admin.inventory.onHandColumn'), t('admin.inventory.reservedColumn'), t('admin.inventory.availableColumn'), t('common.status'), t('admin.inventory.lastUpdatedColumn'), 'Action'].map(h => (
+                {[t('admin.common.shopColumn'), t('admin.inventory.productColumn'), t('admin.inventory.variantSkuColumn'), t('admin.inventory.onHandColumn'), t('admin.inventory.reservedColumn'), t('admin.inventory.availableColumn'), t('common.status'), t('admin.inventory.lastUpdatedColumn'), t('admin.common.action')].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: 'var(--admin-text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -205,10 +206,10 @@ export default function InventoryListPage() {
                   <td style={{ padding: '10px 12px', fontWeight: 700, color: inv.available > 0 ? 'var(--admin-success)' : 'var(--admin-danger)' }}>{inv.available}</td>
                   <td style={{ padding: '10px 12px' }}><AdminStatusBadge status={inv.stock_status} /></td>
                   <td style={{ padding: '10px 12px', color: 'var(--admin-text-faint)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                    {inv.updated_at ? new Date(inv.updated_at).toLocaleString('fr-FR') : '-'}
+                    {inv.updated_at ? new Date(inv.updated_at).toLocaleString(dateLocale()) : '-'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    <button className="admin-button admin-button-small" onClick={() => openAdjust(inv)}>Ajuster</button>
+                    <button className="admin-button admin-button-small" onClick={() => openAdjust(inv)}>{t('adminCommerceInventoryInventoryListPage.adjust')}</button>
                   </td>
                 </tr>
               ))}
@@ -257,26 +258,26 @@ export default function InventoryListPage() {
         </div>
       )}
       {adjusting && (
-        <div role="dialog" aria-modal="true" aria-label="Ajuster le stock"
+        <div role="dialog" aria-modal="true" aria-label={t('adminCommerceInventoryInventoryListPage.adjustTitle')}
           style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,.7)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: 16 }}>
           <div style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 12, padding: 20, width: 'min(440px, 100%)' }}>
-            <h3 style={{ marginTop: 0 }}>Ajuster le stock</h3>
+            <h3 style={{ marginTop: 0 }}>{t('adminCommerceInventoryInventoryListPage.adjustTitle')}</h3>
             <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>
               {adjusting.product_name} · {adjusting.variant_name || adjusting.sku} · {adjusting.shop_name}<br />
-              En stock : {adjusting.quantity} · réservé : {adjusting.reserved_quantity}
+              {t('adminCommerceInventoryInventoryListPage.adjustCurrent', { qty: adjusting.quantity, reserved: adjusting.reserved_quantity })}
             </p>
-            <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>Nouvelle quantité en stock
+            <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>{t('adminCommerceInventoryInventoryListPage.newQtyLabel')}
               <input type="number" min={adjusting.reserved_quantity} step={1} value={newQty} onChange={(e) => setNewQty(e.target.value)}
                 style={{ padding: 8, borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface-2)', color: 'var(--admin-text)' }} />
             </label>
-            <label style={{ display: 'grid', gap: 4, fontSize: 13, marginTop: 10 }}>Motif (journalisé)
+            <label style={{ display: 'grid', gap: 4, fontSize: 13, marginTop: 10 }}>{t('adminCommerceInventoryInventoryListPage.reasonLabel')}
               <textarea rows={3} value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)}
                 style={{ padding: 8, borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface-2)', color: 'var(--admin-text)' }} />
             </label>
             {adjustError && <p role="alert" style={{ color: '#f87171', fontSize: 13 }}>{adjustError}</p>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <button className="admin-button" onClick={() => setAdjusting(null)} disabled={adjustBusy}>Annuler</button>
-              <button className="admin-button admin-button-primary" onClick={() => void submitAdjust()} disabled={adjustBusy}>{adjustBusy ? '…' : 'Enregistrer'}</button>
+              <button className="admin-button" onClick={() => setAdjusting(null)} disabled={adjustBusy}>{t('common.cancel')}</button>
+              <button className="admin-button admin-button-primary" onClick={() => void submitAdjust()} disabled={adjustBusy}>{adjustBusy ? '…' : t('common.save')}</button>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { adminUsersApi, type AdminUserManagementItem, type AdminRole } from '@/api/admin'
 import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
 const INVITABLE_ROLES: AdminRole[] = ['DIRECTION_ADMIN', 'COMMERCE_ADMIN', 'FINANCE_SUPPORT_ADMIN', 'TECHNICAL_ADMIN']
@@ -10,6 +11,16 @@ type ActionType = 'suspend' | 'reactivate' | 'force_logout' | 'change_role' | 'd
 
 export default function AdminUsersPage() {
   const t = useT()
+  const roleLabel = (r: string) => {
+    const key = `admin.layout.role.${r}`
+    const label = t(key)
+    return label === key ? r.replace('_', ' ') : label
+  }
+  const invitationLabel = (s: string) => {
+    const key = `adminDirectionAdminUsersPage.invitation.${s}`
+    const label = t(key)
+    return label === key ? s : label
+  }
   // Needed only to keep the operator from deleting the account they are
   // signed in with; the page itself is already SUPER_ADMIN-only.
   const { admin: currentAdmin } = useAdminAuth()
@@ -228,15 +239,15 @@ export default function AdminUsersPage() {
                     <td style={{ padding: '12px 16px' }}>{a.email}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, backgroundColor: '#1e3a8a', color: '#bfdbfe' }}>
-                        {a.role.replace('_', ' ')}
+                        {roleLabel(a.role)}
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <StatusBadge status={a.status} />
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.invitation_status || '—'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{new Date(a.created_at).toLocaleDateString('fr-FR')}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.last_login_at ? new Date(a.last_login_at).toLocaleString('fr-FR') : '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.invitation_status ? invitationLabel(a.invitation_status) : '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{new Date(a.created_at).toLocaleDateString(dateLocale())}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>{a.last_login_at ? new Date(a.last_login_at).toLocaleString(dateLocale()) : '—'}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                         {a.status === 'PENDING' && (
@@ -309,7 +320,7 @@ export default function AdminUsersPage() {
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>{t('admin.users.thRole')}</label>
                 <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value as AdminRole })} style={inputStyle}>
-                  {INVITABLE_ROLES.map((r) => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+                  {INVITABLE_ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
                 </select>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -359,7 +370,7 @@ export default function AdminUsersPage() {
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#cbd5e1', marginBottom: 6 }}>{t('admin.users.newRoleLabel')}</label>
                 <select value={actionRole} onChange={(e) => setActionRole(e.target.value as AdminRole)} style={inputStyle}>
-                  {INVITABLE_ROLES.map((r) => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+                  {INVITABLE_ROLES.map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
                 </select>
               </div>
             )}

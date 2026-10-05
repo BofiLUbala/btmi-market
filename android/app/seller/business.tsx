@@ -7,6 +7,7 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Field, Loading } from '../../src/components/ui'
 import { StructuredAddressFields, type StructuredAddressValue } from '../../src/components/StructuredAddressFields'
 import { useI18n } from '../../src/store/i18n'
+import { statusLabel } from '../../src/lib/statusLabels'
 import { useColors } from '../../src/store/theme'
 import { radius, type Colors, fonts } from '../../src/theme'
 
@@ -119,7 +120,7 @@ export default function SellerBusinessScreen() {
       <Text style={styles.label}>{t('seller.business.currency')}</Text>
       <View style={styles.chips}>
         <Chip label="USD" selected={form.default_currency === 'USD'} onPress={() => set('default_currency', 'USD')} styles={styles} />
-        <Chip label="CDF (héritage)" selected={form.default_currency === 'CDF'} onPress={() => set('default_currency', 'CDF')} styles={styles} />
+        <Chip label={t('sellerBusiness.cdfLegacy')} selected={form.default_currency === 'CDF'} onPress={() => set('default_currency', 'CDF')} styles={styles} />
       </View>
       <Button title={t('common.saveChanges')} loading={busy} onPress={() => void save()} />
     </View>
@@ -137,7 +138,7 @@ export default function SellerBusinessScreen() {
           ].map(([label, value]) => <View key={String(label)} style={styles.impactCell}><Text style={styles.impactLabel}>{label}</Text><Text style={styles.impactValue}>{value}</Text></View>)}
         </View>
         {s.shop_summaries.map((shop) => <Pressable key={shop.id} accessibilityRole="link" onPress={() => router.push('/seller/shops')} style={styles.shopRow}>
-          <View style={styles.flex1}><Text style={styles.bold}>{shop.name}</Text><Text style={styles.small}>{shop.status}</Text></View>
+          <View style={styles.flex1}><Text style={styles.bold}>{shop.name}</Text><Text style={styles.small}>{statusLabel(t, shop.status)}</Text></View>
           <Text style={styles.small}>{t(shop.product_count === 1 ? 'seller.business.shopProductCount' : 'seller.business.shopProductCountPlural', { count: shop.product_count })}</Text>
         </Pressable>)}
       </> : null}

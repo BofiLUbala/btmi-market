@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
-import { formatMoney } from '@/lib/format'
+import { dateLocale, formatMoney } from '@/lib/format'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import {
   adminDirectionApi,
@@ -298,13 +298,13 @@ export default function DirectionDashboardPage() {
             {activeTab === 'users'
               ? t('admin.direction.usersSubtitle', { count: totalUsers > 0 ? totalUsers : stats?.total_users || 0 })
               : activeTab === 'accounts'
-                ? 'Supervision globale des comptes, statuts, entreprises et participation marketplace'
+                ? t('adminDirectionDirectionDashboardPage.subtitleAccounts')
                 : activeTab === 'merchants'
-                  ? 'Aperçu stratégique des entreprises et boutiques marchandes TBK'
+                  ? t('adminDirectionDirectionDashboardPage.subtitleMerchants')
                   : activeTab === 'catalog'
-                    ? 'Supervision de la publication du catalogue et alertes stock'
+                    ? t('adminDirectionDirectionDashboardPage.subtitleCatalog')
                     : activeTab === 'disputes'
-                      ? 'Visibilité stratégique des litiges et alertes d’escalade'
+                      ? t('adminDirectionDirectionDashboardPage.subtitleDisputes')
                       : activeTab === 'audit'
                         ? t('admin.direction.auditSubtitle', { count: totalLogs })
                         : activeTab === 'auth-failures'
@@ -312,7 +312,7 @@ export default function DirectionDashboardPage() {
                           : activeTab === 'sessions'
                             ? t('admin.monitoring.sessionsSubtitle')
                         : activeTab === 'kpis'
-                          ? 'Indicateurs de performance stratégique, croissance et tendances'
+                          ? t('adminDirectionDirectionDashboardPage.subtitleKpis')
                           : t('admin.direction.pageSubtitle')}
           </p>
         </div>
@@ -359,7 +359,7 @@ export default function DirectionDashboardPage() {
                   <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('admin.direction.platformHealth')}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: stats.platform_health === 'HEALTHY' ? '#10b981' : '#ef4444' }} />
-                    <span style={{ fontSize: 20, fontWeight: 800, color: stats.platform_health === 'HEALTHY' ? '#10b981' : '#ef4444' }}>{stats.platform_health}</span>
+                    <span style={{ fontSize: 20, fontWeight: 800, color: stats.platform_health === 'HEALTHY' ? '#10b981' : '#ef4444' }}>{adminLabel(stats.platform_health)}</span>
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('admin.direction.platformHealthDetail')}</div>
                 </Drill>
@@ -446,56 +446,56 @@ export default function DirectionDashboardPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div className="admin-kpi-grid">
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Croissance Marché (GMV Cash)</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiGmv')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{formatCurrency(stats.confirmed_cash)}</div>
-                  <div style={{ fontSize: 12, color: '#10b981', marginTop: 4 }}>Volume cash double-confirmé actif</div>
+                  <div style={{ fontSize: 12, color: '#10b981', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiGmvHint')}</div>
                 </div>
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux d’achèvement commandes</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiCompletion')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>
                     {stats.total_orders > 0 ? `${Math.round((stats.completed_orders / stats.total_orders) * 100)}%` : '—'}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.completed_orders} sur {stats.total_orders} commandes</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiCompletionHint', { done: stats.completed_orders, total: stats.total_orders })}</div>
                 </div>
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux d’activation boutiques</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiActivation')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>
                     {stats.total_shops > 0 ? `${Math.round((stats.active_shops / stats.total_shops) * 100)}%` : '—'}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.active_shops} actives sur {stats.total_shops}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiActivationHint', { active: stats.active_shops, total: stats.total_shops })}</div>
                 </div>
                 <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Taux de litiges</div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiDisputeRate')}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: stats.open_disputes > 0 ? '#ef4444' : '#10b981' }}>
                     {stats.total_orders > 0 ? `${((stats.open_disputes / stats.total_orders) * 100).toFixed(1)}%` : '—'}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats.open_disputes} cas ouverts</div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.kpiDisputeHint', { count: stats.open_disputes })}</div>
                 </div>
               </div>
 
               <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 20 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 14px', color: '#f8fafc' }}>Indicateurs d’Évolution & Ratio Acheteurs / Vendeurs</h3>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 14px', color: '#f8fafc' }}>{t('adminDirectionDirectionDashboardPage.trendsTitle')}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
                   <div style={{ backgroundColor: '#1e293b', padding: 14, borderRadius: 10 }}>
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Ratio Acheteurs / Vendeurs</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.ratioTitle')}</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', marginTop: 4 }}>
-                      {stats.total_sellers > 0 ? `${(stats.total_buyers / stats.total_sellers).toFixed(1)} : 1` : 'N/A'}
+                      {stats.total_sellers > 0 ? `${(stats.total_buyers / stats.total_sellers).toFixed(1)} : 1` : t('admin.common.notAvailable')}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{stats.total_buyers} acheteurs pour {stats.total_sellers} vendeurs</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t('adminDirectionDirectionDashboardPage.ratioHint', { buyers: stats.total_buyers, sellers: stats.total_sellers })}</div>
                   </div>
                   <div style={{ backgroundColor: '#1e293b', padding: 14, borderRadius: 10 }}>
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Moyenne Boutiques par Entreprise</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.avgShops')}</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', marginTop: 4 }}>
                       {stats.total_businesses > 0 ? (stats.total_shops / stats.total_businesses).toFixed(1) : '—'}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{stats.total_shops} boutiques / {stats.total_businesses} entreprises</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t('adminDirectionDirectionDashboardPage.avgShopsHint', { shops: stats.total_shops, businesses: stats.total_businesses })}</div>
                   </div>
                   <div style={{ backgroundColor: '#1e293b', padding: 14, borderRadius: 10 }}>
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Produits par Boutique Active</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.productsPerShop')}</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', marginTop: 4 }}>
                       {stats.active_shops > 0 ? Math.round(stats.published_products / stats.active_shops) : 0}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{stats.published_products} produits en ligne</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t('adminDirectionDirectionDashboardPage.productsPerShopHint', { count: stats.published_products })}</div>
                   </div>
                 </div>
               </div>
@@ -599,7 +599,7 @@ export default function DirectionDashboardPage() {
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thBizShops')}</th>
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thOrders')}</th>
                   <th style={{ padding: '12px 16px' }}>{t('admin.direction.thPoints')}</th>
-                  <th style={{ padding: '12px 16px' }}>Created</th>
+                  <th style={{ padding: '12px 16px' }}>{t('admin.users.thCreated')}</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('admin.direction.thActions')}</th>
                 </tr>
               </thead>
@@ -638,7 +638,7 @@ export default function DirectionDashboardPage() {
                           backgroundColor: u.account_type === 'SELLER' ? '#1e3a8a' : u.account_type === 'EMPLOYEE' ? '#3730a3' : '#064e3b',
                           color: '#ffffff'
                         }}>
-                          {u.account_type}
+                          {adminLabel(u.account_type)}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
@@ -663,7 +663,7 @@ export default function DirectionDashboardPage() {
                         {u.total_points}
                       </td>
                       <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', color: '#cbd5e1' }}>
-                        {new Date(u.created_at).toLocaleDateString('fr-FR')}
+                        {new Date(u.created_at).toLocaleDateString(dateLocale())}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -793,9 +793,9 @@ export default function DirectionDashboardPage() {
       {activeTab === 'accounts' && (
         <div>
           <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 8px', color: '#f8fafc' }}>🔍 Matrice de Supervision des Comptes</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 8px', color: '#f8fafc' }}>{t('adminDirectionDirectionDashboardPage.accountsTitle')}</h3>
             <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
-              Visualisez le rattachement des comptes aux entreprises, boutiques et transactions, ainsi que leur statut de vérification et niveau de risque.
+              {t('adminDirectionDirectionDashboardPage.accountsHint')}
             </p>
           </div>
 
@@ -803,18 +803,18 @@ export default function DirectionDashboardPage() {
             <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: '#1e293b', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
-                  <th style={{ padding: '12px 16px' }}>Utilisateur</th>
-                  <th style={{ padding: '12px 16px' }}>Rôle Marché</th>
-                  <th style={{ padding: '12px 16px' }}>Entreprises / Boutiques</th>
-                  <th style={{ padding: '12px 16px' }}>Vérification Email</th>
-                  <th style={{ padding: '12px 16px' }}>Activité (Commandes)</th>
-                  <th style={{ padding: '12px 16px' }}>Points cumulés</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Détails</th>
+                  <th style={{ padding: '12px 16px' }}>{t('adminDirectionDirectionDashboardPage.thUser')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('adminDirectionDirectionDashboardPage.thMarketRole')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('adminDirectionDirectionDashboardPage.thBizShops')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('adminDirectionDirectionDashboardPage.thEmailVerification')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('adminDirectionDirectionDashboardPage.thActivity')}</th>
+                  <th style={{ padding: '12px 16px' }}>{t('adminDirectionDirectionDashboardPage.thPoints')}</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>{t('adminDirectionDirectionDashboardPage.thDetails')}</th>
                 </tr>
               </thead>
               <tbody>
                 {loadingUsers ? (
-                  <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Chargement…</td></tr>
+                  <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</td></tr>
                 ) : users.map((u) => (
                   <tr key={u.id} style={{ borderBottom: '1px solid #1e293b' }}>
                     <td style={{ padding: '12px 16px' }}>
@@ -823,29 +823,29 @@ export default function DirectionDashboardPage() {
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: '#1e3a5f', color: '#93c5fd' }}>
-                        {u.account_type === 'SELLER' && u.order_count > 0 ? 'BUYER & SELLER' : u.account_type}
+                        {u.account_type === 'SELLER' && u.order_count > 0 ? t('adminDirectionDirectionDashboardPage.buyerAndSeller') : adminLabel(u.account_type)}
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       {u.business_count > 0 ? (
-                        <span style={{ color: '#34d399', fontWeight: 600 }}>{u.business_count} ent. ({u.shop_count} bq.)</span>
+                        <span style={{ color: '#34d399', fontWeight: 600 }}>{t('adminDirectionDirectionDashboardPage.bizShopsShort', { biz: u.business_count, shops: u.shop_count })}</span>
                       ) : (
-                        <span style={{ color: '#64748b' }}>Aucune entreprise</span>
+                        <span style={{ color: '#64748b' }}>{t('adminDirectionDirectionDashboardPage.noBusiness')}</span>
                       )}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ color: u.email_verified ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
-                        {u.email_verified ? '✓ Vérifié' : '⏳ Non vérifié'}
+                        {u.email_verified ? t('adminDirectionDirectionDashboardPage.verified') : t('adminDirectionDirectionDashboardPage.notVerified')}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px' }}>{u.order_count} commandes</td>
-                    <td style={{ padding: '12px 16px', fontWeight: 700, color: '#f59e0b' }}>{u.total_points} pts</td>
+                    <td style={{ padding: '12px 16px' }}>{t('adminDirectionDirectionDashboardPage.ordersCount', { count: u.order_count })}</td>
+                    <td style={{ padding: '12px 16px', fontWeight: 700, color: '#f59e0b' }}>{t('adminDirectionDirectionDashboardPage.pointsShort', { count: u.total_points })}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                       <button
                         onClick={() => setInspectedUser(u)}
                         style={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#60a5fa', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
                       >
-                        Inspecter
+                        {t('adminDirectionDirectionDashboardPage.inspect')}
                       </button>
                     </td>
                   </tr>
@@ -861,38 +861,38 @@ export default function DirectionDashboardPage() {
         <div>
           <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Total Entreprises Marchandes</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.mTotalBiz')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc' }}>{stats?.total_businesses || 0}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Entités commerciales déclarées</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.mTotalBizHint')}</div>
             </div>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Total Boutiques / Points de Vente</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.mTotalShops')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#38bdf8' }}>{stats?.total_shops || 0}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{stats?.active_shops || 0} actives sur le marché</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.mTotalShopsHint', { count: stats?.active_shops || 0 })}</div>
             </div>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Vendeurs Actifs (Propriétaires)</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.mSellers')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{stats?.total_sellers || 0}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Comptes avec statut marchand</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.mSellersHint')}</div>
             </div>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Personnel de Boutique</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.mStaff')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#c084fc' }}>{stats?.total_employees || 0}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Employés et caissiers assignés</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.mStaffHint')}</div>
             </div>
           </div>
 
           <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 12px', color: '#f8fafc' }}>Direction & Gouvernance Marchande</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 12px', color: '#f8fafc' }}>{t('adminDirectionDirectionDashboardPage.mGovTitle')}</h3>
             <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6, margin: '0 0 16px' }}>
-              La Direction supervise le volume, l’expansion et la conformité légale des marchands. La gestion opérationnelle quotidienne des catalogues, stocks, horaires et équipes appartient au département <strong>Commerce & Opérations</strong>.
+              {t('adminDirectionDirectionDashboardPage.mGovText')} <strong>{t('adminDirectionDirectionDashboardPage.deptCommerce')}</strong>.
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link to="/admin/commerce/sellers" style={{ backgroundColor: '#1e293b', color: '#34d399', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
-                Ouvrir gestion opérationnelle des Vendeurs →
+                {t('adminDirectionDirectionDashboardPage.openSellers')}
               </Link>
               <Link to="/admin/commerce/shops" style={{ backgroundColor: '#1e293b', color: '#34d399', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
-                Ouvrir gestion opérationnelle des Boutiques →
+                {t('adminDirectionDirectionDashboardPage.openShops')}
               </Link>
             </div>
           </div>
@@ -904,36 +904,36 @@ export default function DirectionDashboardPage() {
         <div>
           <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Total Produits Référencés</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.cTotal')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc' }}>{stats?.total_products || 0}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Base globale de données</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.cTotalHint')}</div>
             </div>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>En Ligne (Publiés)</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.cLive')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#3b82f6' }}>{stats?.published_products || 0}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Visibles sur la marketplace</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.cLiveHint')}</div>
             </div>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Brouillons / Archivés</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.cDrafts')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#94a3b8' }}>{(stats?.total_products || 0) - (stats?.published_products || 0)}</div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>En préparation ou retirés</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.cDraftsHint')}</div>
             </div>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Ruptures de Stock</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.cOut')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: (stats?.out_of_stock_products || 0) > 0 ? '#f59e0b' : '#10b981' }}>
                 {stats?.out_of_stock_products || 0}
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Articles indisponibles</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.cOutHint')}</div>
             </div>
           </div>
 
           <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 10px', color: '#f8fafc' }}>Gouvernance du Catalogue</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 10px', color: '#f8fafc' }}>{t('adminDirectionDirectionDashboardPage.cGovTitle')}</h3>
             <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.5, margin: '0 0 16px' }}>
-              La Direction contrôle les tendances d’offre et les anomalies de catalogue. Pour la création de catégories, l’ajustement des stocks ou la modération des fiches produits, rendez-vous dans le département <strong>Commerce & Opérations</strong>.
+              {t('adminDirectionDirectionDashboardPage.cGovText')} <strong>{t('adminDirectionDirectionDashboardPage.deptCommerce')}</strong>.
             </p>
             <Link to="/admin/commerce/products" style={{ backgroundColor: '#1e293b', color: '#34d399', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
-              Consulter le catalogue opérationnel →
+              {t('adminDirectionDirectionDashboardPage.openCatalog')}
             </Link>
           </div>
         </div>
@@ -944,31 +944,31 @@ export default function DirectionDashboardPage() {
         <div>
           <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Litiges Actifs Ouverts</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.dOpen')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: (stats?.open_disputes || 0) > 0 ? '#ef4444' : '#10b981' }}>
                 {stats?.open_disputes || 0}
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Nécessitent une médiation</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.dOpenHint')}</div>
             </div>
             <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Alertes Critiques Plateforme</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{t('adminDirectionDirectionDashboardPage.dAlerts')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: (stats?.critical_alerts || 0) > 0 ? '#ef4444' : '#10b981' }}>
                 {stats?.critical_alerts || 0}
               </div>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Blocages ou signaux de fraude</div>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{t('adminDirectionDirectionDashboardPage.dAlertsHint')}</div>
             </div>
           </div>
 
           <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 20 }}>⚖️</span>
-              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: '#f8fafc' }}>Supervision & Habilitation Litiges</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: '#f8fafc' }}>{t('adminDirectionDirectionDashboardPage.dGovTitle')}</h3>
             </div>
             <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6, margin: '0 0 16px' }}>
-              La Direction assure la supervision stratégique des conflits et du climat de confiance de TBK Market. L’instruction détaillée, les échanges de messages, l’attribution aux médiateurs et la résolution financière sont opérés par le département <strong>Finance / Support / Confiance</strong>.
+              {t('adminDirectionDirectionDashboardPage.dGovText')} <strong>{t('adminDirectionDirectionDashboardPage.deptFinance')}</strong>.
             </p>
             <Link to="/admin/finance/cases" style={{ backgroundColor: '#1e293b', color: '#fbbf24', padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: 'none', border: '1px solid #334155' }}>
-              Ouvrir le centre de résolution des Litiges & Cas →
+              {t('adminDirectionDirectionDashboardPage.openCases')}
             </Link>
           </div>
         </div>
@@ -1058,7 +1058,7 @@ export default function DirectionDashboardPage() {
                   auditLogs.map((l) => (
                     <tr key={l.id} style={{ borderBottom: '1px solid #1e293b' }}>
                       <td style={{ padding: '12px 16px', fontSize: 12, color: '#94a3b8' }}>
-                        {new Date(l.created_at).toLocaleString('fr-FR')}
+                        {new Date(l.created_at).toLocaleString(dateLocale())}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ fontWeight: 700, color: '#ffffff' }}>{l.actor_admin_name || l.actor_admin_email || t('admin.direction.adminFallback')}</div>
@@ -1135,50 +1135,50 @@ export default function DirectionDashboardPage() {
             boxShadow: '0 25px 50px rgba(0,0,0,0.6)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>Fiche de Supervision Compte</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>{t('adminDirectionDirectionDashboardPage.inspectTitle')}</h3>
               <button onClick={() => setInspectedUser(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 18, cursor: 'pointer' }}>✕</button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Nom complet</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('admin.users.fullNameLabel')}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{inspectedUser.first_name} {inspectedUser.last_name}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Identifiant UUID</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.uuid')}</div>
                 <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#cbd5e1' }}>{inspectedUser.id}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Email</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('common.email')}</div>
                 <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.email}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Téléphone</div>
-                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.phone || 'Non renseigné'}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('common.phone')}</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.phone || t('common.notProvided')}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Type de compte</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{inspectedUser.account_type}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.accountType')}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>{adminLabel(inspectedUser.account_type)}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Statut / vérification</div>
-                <div style={{ fontSize: 13, color: '#f8fafc' }}>{adminLabel(inspectedUser.status)} · {inspectedUser.email_verified ? 'Email vérifié' : 'Email non vérifié'}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.statusVerification')}</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{adminLabel(inspectedUser.status)} · {inspectedUser.email_verified ? t('adminDirectionDirectionDashboardPage.emailVerified') : t('adminDirectionDirectionDashboardPage.emailNotVerified')}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Entreprises rattachées</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#34d399' }}>{inspectedUser.business_count} entreprise(s)</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.linkedBiz')}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#34d399' }}>{t('adminDirectionDirectionDashboardPage.bizCount', { count: inspectedUser.business_count })}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Boutiques rattachées</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>{inspectedUser.shop_count} boutique(s)</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.linkedShops')}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>{t('adminDirectionDirectionDashboardPage.shopCount', { count: inspectedUser.shop_count })}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Commandes / points</div>
-                <div style={{ fontSize: 13, color: '#f8fafc' }}>{inspectedUser.order_count} commande(s) · {inspectedUser.total_points} point(s)</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.ordersPoints')}</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{t('adminDirectionDirectionDashboardPage.ordersPointsValue', { orders: inspectedUser.order_count, points: inspectedUser.total_points })}</div>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: 10, borderRadius: 8 }}>
-                <div style={{ fontSize: 11, color: '#94a3b8' }}>Compte créé le</div>
-                <div style={{ fontSize: 13, color: '#f8fafc' }}>{new Date(inspectedUser.created_at).toLocaleString('fr-FR')}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{t('adminDirectionDirectionDashboardPage.createdAt')}</div>
+                <div style={{ fontSize: 13, color: '#f8fafc' }}>{new Date(inspectedUser.created_at).toLocaleString(dateLocale())}</div>
               </div>
             </div>
 
@@ -1187,7 +1187,7 @@ export default function DirectionDashboardPage() {
                 onClick={() => setInspectedUser(null)}
                 style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
-                Fermer
+                {t('common.close')}
               </button>
             </div>
           </div>
@@ -1396,10 +1396,10 @@ export default function DirectionDashboardPage() {
             boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)'
           }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 6px', color: '#ffffff' }}>
-              {t('admin.direction.auditMutationDiff', { action: selectedAuditLog.action })}
+              {t('admin.direction.auditMutationDiff', { action: adminLabel(selectedAuditLog.action) })}
             </h3>
             <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 18px' }}>
-              {t('admin.direction.eventIdTarget', { id: selectedAuditLog.id, targetType: selectedAuditLog.target_type, targetId: selectedAuditLog.target_id })}
+              {t('admin.direction.eventIdTarget', { id: selectedAuditLog.id, targetType: adminLabel(selectedAuditLog.target_type), targetId: selectedAuditLog.target_id })}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>

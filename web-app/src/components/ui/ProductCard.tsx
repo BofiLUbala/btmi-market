@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PublicProduct } from '@/api/types'
-import { formatDate, formatMoney } from '@/lib/format'
+import { dateLocale as dateLocaleFor, formatDate, formatMoney } from '@/lib/format'
 import { resolvePromotion } from '@/lib/promotion'
 import { getCategoryVisual } from '@/lib/categoryVisuals'
 import { categoryLabel } from '@/lib/categoryLabels'
@@ -51,7 +51,7 @@ function FavoriteButton({ product }: { product: PublicProduct }) {
 
 export function ProductCard({ product }: { product: PublicProduct }) {
   const { t, lang } = useI18n()
-  const dateLocale = lang === 'fr' ? 'fr-FR' : 'en-GB'
+  const dateLocale = dateLocaleFor(lang)
   const [imageFailed, setImageFailed] = useState(false)
   const first = product.variants?.[0]
   

@@ -3,6 +3,7 @@ import { Alert } from 'react-native'
 import { router } from 'expo-router'
 import { useAuth } from '../store/auth'
 import { useAdminAuth } from '../store/adminAuth'
+import { translate } from '../store/i18n'
 import { request } from '../api/client'
 import { adminApi } from '../api/admin'
 import { onNotificationTap, safeAppPath, type PushData } from './push'
@@ -60,12 +61,12 @@ async function open(data: PushData) {
   }
   if (data.uid && data.uid !== currentId) {
     Alert.alert(
-      "Notification d'un autre compte",
-      "Cette notification a été envoyée à un autre compte TBK que celui connecté sur ce téléphone.",
+      translate('libNotificationRouting.otherAccountTitle'),
+      translate('libNotificationRouting.otherAccountBody'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: translate('common.cancel'), style: 'cancel' },
         {
-          text: 'Changer de compte',
+          text: translate('libNotificationRouting.switchAccount'),
           onPress: async () => {
             if (isAdmin) await useAdminAuth.getState().logout()
             else await useAuth.getState().logout()

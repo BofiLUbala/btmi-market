@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { courierApi } from '../../src/api'
 import { Card, ErrorState, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import { statusLabel } from '../../src/lib/statusLabels'
@@ -22,7 +23,7 @@ export default function CourierHistoryScreen() {
   if (history.isLoading) return <Loading label={t('common.loading')} />
   if (history.isError) return <ErrorState message={t('courier.historyFailed')} retry={() => void history.refetch()} />
 
-  const locale = lang === 'en' ? 'en-US' : 'fr-FR'
+  const locale = dateLocale(lang)
   const date = (value?: string | null) => value ? new Date(value).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'medium' }) : '—'
   const items = history.data ?? []
 

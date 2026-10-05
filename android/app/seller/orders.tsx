@@ -13,11 +13,12 @@ import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import type { OrderLine, SellerOrder } from '../../src/types'
 import { expectedDeliveryText } from '../../src/lib/deliveryPlan'
-import { confirmationActorKey, isPaymentPaid, paymentStatusKey } from '../../src/lib/paymentStatus'
+import { confirmationActorKey, isPaymentPaid, paymentMethodKey, paymentStatusKey } from '../../src/lib/paymentStatus'
 import { DEFAULT_CURRENCY, formatMoney } from '../../src/lib/money'
 import { formatDateTime } from '../../src/lib/format'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { statusLabel } from '../../src/lib/statusLabels'
+import { deliveryLabel } from '../../src/lib/deliveryLabels'
 
 // Port of web-app/src/pages/seller/orders/SellerOrdersPage.tsx. Same data flow:
 // the active business (not the first one), an "all shops" / single-shop
@@ -267,17 +268,17 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
     </View>
 
     {expanded && <View style={styles.details}>
-      <Text style={styles.small}><Text style={styles.strong}>{t('orders.deliveryLabel')}:</Text> {order.delivery_method || '—'}</Text>
+      <Text style={styles.small}><Text style={styles.strong}>{t('orders.deliveryLabel')}:</Text> {deliveryLabel(t, order.delivery_method) || '—'}</Text>
       <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.baseTotal')}:</Text> {formatMoney(order.base_total ?? order.final_total, currency)}</Text>
       {order.notes ? <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.notesLabel')}:</Text> {order.notes}</Text> : null}
       <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.shopId')}:</Text> {order.shop_id}</Text>
       {d ? <View style={styles.box}>
-        <Text style={styles.strong}>Livraison</Text>
-        <Text style={styles.small}>Statut: <Text style={styles.strong}>{d.delivery_status || '—'}</Text></Text>
-        <Text style={styles.small}>Client: {d.delivery_contact_name || '—'} · {d.delivery_phone || '—'}</Text>
-        <Text style={styles.small}>Adresse: {d.delivery_address || '—'}</Text>
-        {d.delivery_notes ? <Text style={styles.small}>Instructions: {d.delivery_notes}</Text> : null}
-        <Text style={styles.small}>Frais de livraison TBK : <Text style={styles.strong}>{formatMoney(d.delivery_fee_final ?? 0, d.currency || currency)}</Text> (tarif TBK payé par l’acheteur, hors de votre revenu)</Text>
+        <Text style={styles.strong}>{t('orders.deliveryLabel')}</Text>
+        <Text style={styles.small}>{t('common.status')}: <Text style={styles.strong}>{d.delivery_status ? orderStatusLabel(d.delivery_status, t) : '—'}</Text></Text>
+        <Text style={styles.small}>{t('sellerOrders.customer')}: {d.delivery_contact_name || '—'} · {d.delivery_phone || '—'}</Text>
+        <Text style={styles.small}>{t('common.address')}: {d.delivery_address || '—'}</Text>
+        {d.delivery_notes ? <Text style={styles.small}>{t('itemQr.labelInstructions')}: {d.delivery_notes}</Text> : null}
+        <Text style={styles.small}>{t('sellerOrders.tbkDeliveryFee')} <Text style={styles.strong}>{formatMoney(d.delivery_fee_final ?? 0, d.currency || currency)}</Text> {t('sellerOrders.tbkDeliveryFeeNote')}</Text>
       </View> : null}
       {d ? <DeliveryPlanCard plan={d} status={d.status} deliveryStatus={d.delivery_status ?? undefined} deliveryMethod={d.delivery_method ?? undefined} /> : null}
       {detail.data?.lines?.length ? <View style={styles.box}>
@@ -288,8 +289,8 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
         <Text style={styles.strong}>{t('seller.orders.cashPayment')}</Text>
         {p ? <>
           <Text style={[styles.small, styles.strong]}>{t('orders.amountDue', { amount: formatMoney(p.cash_due, p.currency || currency) })}</Text>
-          <Text style={styles.small}>Mode: <Text style={styles.strong}>{p.payment_method}</Text>{p.provider ? ` · ${p.provider}` : ''}</Text>
-          <Text style={styles.small}>Majoration: {formatMoney(p.payment_markup ?? 0, p.currency || currency)} · Total: <Text style={styles.strong}>{formatMoney(p.final_total, p.currency || currency)}</Text></Text>
+          <Text style={styles.small}>{t('sellerOrders.paymentMethod')}: <Text style={styles.strong}>{t(paymentMethodKey(p.payment_method))}</Text>{p.provider ? ` · ${p.provider}` : ''}</Text>
+          <Text style={styles.small}>{t('sellerOrders.markup')}: {formatMoney(p.payment_markup ?? 0, p.currency || currency)} · {t('common.total')}: <Text style={styles.strong}>{formatMoney(p.final_total, p.currency || currency)}</Text></Text>
           <Text style={styles.small}>{t('common.status')}: <Text style={styles.strong}>{t(paymentStatusKey(p))}</Text></Text>
           {isPaymentPaid(p)
             ? <Text style={styles.small}>{confirmationActorKey(p.confirmation_actor) ? t(confirmationActorKey(p.confirmation_actor)!) : t('orders.paymentPaid')}</Text>
@@ -298,12 +299,12 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
       </View>
       {showPackageQR && packageQR.data ? <QRPanel
         qr={packageQR.data}
-        title="TBK Package QR"
+        title={t('sellerOrders.packageQrTitle')}
         imagePath={`/orders/${order.id}/package-qr/label`}
         fields={[
-          { label: 'Commande', value: orderNumber },
-          { label: 'Colis', value: `#${packageQR.data.package_number}` },
-          { label: 'Boutique', value: businessName },
+          { label: t('itemQr.labelOrder'), value: orderNumber },
+          { label: t('sellerOrders.package'), value: `#${packageQR.data.package_number}` },
+          { label: t('itemQr.labelShop'), value: businessName },
         ]}
       /> : null}
     </View>}

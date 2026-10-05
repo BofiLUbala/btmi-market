@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, dateLocale } from '@/lib/format'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductDetail } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -157,8 +157,8 @@ export default function CommerceProductDetailPage() {
             <Field label={t('admin.products.fieldCategory')} value={category_name} />
             <Field label={t('admin.products.fieldSubcategory')} value={subcategory_name} />
             <Field label={t('common.status')} value={adminLabel(p.status)} />
-            <Field label={t('admin.products.fieldPublication')} value={p.publication_status} />
-            <Field label={t('admin.products.fieldCreated')} value={new Date(p.created_at).toLocaleString('fr-FR')} />
+            <Field label={t('admin.products.fieldPublication')} value={adminLabel(p.publication_status)} />
+            <Field label={t('admin.products.fieldCreated')} value={new Date(p.created_at).toLocaleString(dateLocale())} />
           </Section>
 
           <Section title={t('admin.products.sectionImages')}>
@@ -183,7 +183,7 @@ export default function CommerceProductDetailPage() {
             <Field label={t('admin.products.fieldRegularPrice')} value={formatMoney(p.unit_price)} />
             {p.discount_active && (
               <>
-                <Field label={t('admin.products.fieldDiscount')} value={`${p.discount_type} - ${p.discount_value}`} />
+                <Field label={t('admin.products.fieldDiscount')} value={`${adminLabel(p.discount_type)} - ${p.discount_value}`} />
                 <Field label={t('admin.products.fieldEffectivePrice')} value={formatMoney((p.unit_price - (p.discount_type === 'PERCENTAGE' ? p.unit_price * p.discount_value / 100 : p.discount_value)))} />
               </>
             )}

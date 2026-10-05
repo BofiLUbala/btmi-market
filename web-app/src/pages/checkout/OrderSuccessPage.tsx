@@ -65,7 +65,7 @@ function SuccessInner() {
         }
       }
     } catch (e) {
-      setError('Impossible de charger les détails de la commande.')
+      setError(t('checkoutOrderSuccessPage.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -125,7 +125,7 @@ function SuccessInner() {
   }
 
   if (loading) return <LoadingBlock label={t('payment.confirmingOrder')} />
-  if (!order) return <ErrorBox error={error || 'Commande introuvable'} onRetry={loadData} />
+  if (!order) return <ErrorBox error={error || t('checkoutOrderSuccessPage.notFound')} onRetry={loadData} />
 
   const isMultiShop = groupOrders.length > 1
   const displayOrders = isMultiShop ? groupOrders : [order]
@@ -145,26 +145,26 @@ function SuccessInner() {
   const isMobileDelivery = payment?.payment_method === 'MOBILE_AT_DELIVERY'
 
   // Headline & Subtitle per state
-  let statusHeadline = 'Commande confirmée'
-  let statusSubtext = 'Votre commande a été transmise aux vendeurs.'
+  let statusHeadline = t('checkoutOrderSuccessPage.headlineConfirmed')
+  let statusSubtext = t('checkoutOrderSuccessPage.subtextConfirmed')
 
   if (payment?.payment_method === 'MOBILE_PAY_NOW') {
     if (isPaid) {
-      statusHeadline = 'Commande confirmée — Paiement effectué'
-      statusSubtext = `Le paiement par ${providerName || 'Mobile Money'} a été confirmé.`
+      statusHeadline = t('checkoutOrderSuccessPage.headlinePaid')
+      statusSubtext = t('checkoutOrderSuccessPage.subtextPaid', { provider: providerName || 'Mobile Money' })
     } else if (isPayNowProcessing) {
-      statusHeadline = 'Commande créée — Paiement en cours'
-      statusSubtext = 'Validez la demande de paiement reçue sur votre téléphone.'
+      statusHeadline = t('checkoutOrderSuccessPage.headlineProcessing')
+      statusSubtext = t('checkoutOrderSuccessPage.subtextProcessing')
     } else if (payment.status === 'FAILED') {
-      statusHeadline = 'Paiement mobile non abouti'
-      statusSubtext = 'La transaction a échoué. Vous pouvez réessayer la tentative.'
+      statusHeadline = t('checkoutOrderSuccessPage.headlineFailed')
+      statusSubtext = t('checkoutOrderSuccessPage.subtextFailed')
     }
   } else if (isCash) {
-    statusHeadline = 'Commande confirmée — À payer à la livraison'
-    statusSubtext = 'Montant à remettre en espèces au livreur lors de la livraison.'
+    statusHeadline = t('checkoutOrderSuccessPage.headlineCash')
+    statusSubtext = t('checkoutOrderSuccessPage.subtextCash')
   } else if (isMobileDelivery) {
-    statusHeadline = 'Commande confirmée — Paiement mobile à la livraison'
-    statusSubtext = `Le paiement par ${providerName || 'Mobile Money'} sera à effectuer lors de la remise de votre colis.`
+    statusHeadline = t('checkoutOrderSuccessPage.headlineMobileDelivery')
+    statusSubtext = t('checkoutOrderSuccessPage.subtextMobileDelivery', { provider: providerName || 'Mobile Money' })
   }
 
   const deliveryAddress = [
@@ -200,10 +200,10 @@ function SuccessInner() {
             {isPayNowProcessing && (
               <div className="stack" style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                 <div className="summary-lines">
-                  <div><span>Opérateur</span><strong>{providerName || 'Mobile Money'}</strong></div>
-                  <div><span>Référence</span><strong>{payment?.internal_reference || '—'}</strong></div>
-                  <div><span>Montant à valider</span><strong>{formatMoney(payment?.final_total ?? finalTotal, currency)}</strong></div>
-                  <div><span>Statut du paiement</span><strong style={{ color: 'var(--color-warning)' }}>Paiement en cours</strong></div>
+                  <div><span>{t('checkoutOrderSuccessPage.operator')}</span><strong>{providerName || 'Mobile Money'}</strong></div>
+                  <div><span>{t('checkoutOrderSuccessPage.reference')}</span><strong>{payment?.internal_reference || '—'}</strong></div>
+                  <div><span>{t('checkoutOrderSuccessPage.amountToApprove')}</span><strong>{formatMoney(payment?.final_total ?? finalTotal, currency)}</strong></div>
+                  <div><span>{t('checkoutOrderSuccessPage.paymentStatus')}</span><strong style={{ color: 'var(--color-warning)' }}>{t('checkoutOrderSuccessPage.paymentInProgress')}</strong></div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
@@ -212,13 +212,13 @@ function SuccessInner() {
                     loading={refreshingPayment}
                     onClick={() => void refreshPaymentStatus()}
                   >
-                    Actualiser le statut
+                    {t('checkoutOrderSuccessPage.refreshStatus')}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => navigate(`/checkout/payment`, { state: { orderId, orderIds: statePayload?.orderIds }, replace: true })}
                   >
-                    Changer de mode
+                    {t('checkoutOrderSuccessPage.changeMethod')}
                   </Button>
                 </div>
               </div>
@@ -227,10 +227,10 @@ function SuccessInner() {
             {/* Mobile Pay Now Paid Details */}
             {isPaid && payment?.payment_method === 'MOBILE_PAY_NOW' && (
               <div className="summary-lines" style={{ marginTop: 16, padding: 14, borderRadius: 10, background: 'var(--color-surface-2)' }}>
-                <div><span>Opérateur</span><strong>{providerName}</strong></div>
-                <div><span>Référence transaction</span><strong>{payment?.internal_reference || '—'}</strong></div>
-                <div><span>Montant réglé</span><strong>{formatMoney(payment?.final_total ?? finalTotal, currency)}</strong></div>
-                <div><span>Confirmation</span><strong style={{ color: 'var(--color-success)' }}>✓ Payé et vérifié</strong></div>
+                <div><span>{t('checkoutOrderSuccessPage.operator')}</span><strong>{providerName}</strong></div>
+                <div><span>{t('checkoutOrderSuccessPage.transactionReference')}</span><strong>{payment?.internal_reference || '—'}</strong></div>
+                <div><span>{t('checkoutOrderSuccessPage.amountPaid')}</span><strong>{formatMoney(payment?.final_total ?? finalTotal, currency)}</strong></div>
+                <div><span>{t('checkoutOrderSuccessPage.confirmation')}</span><strong style={{ color: 'var(--color-success)' }}>✓ {t('checkoutOrderSuccessPage.paidAndVerified')}</strong></div>
               </div>
             )}
           </section>
@@ -238,14 +238,14 @@ function SuccessInner() {
           {/* MULTI-SHOP BREAKDOWN OR SINGLE ORDER BREAKDOWN */}
           <section className="checkout-card">
             <div className="checkout-card-head">
-              <h2>{isMultiShop ? 'Boutiques & Commandes du groupe' : `Commande #${order.order.order_number || order.order.id.slice(0, 8)}`}</h2>
-              <span>{isMultiShop ? `${displayOrders.length} commandes boutiques` : order.shop_name || 'Boutique'}</span>
+              <h2>{isMultiShop ? t('checkoutOrderSuccessPage.groupTitle') : t('checkoutOrderSuccessPage.orderNumber', { number: order.order.order_number || order.order.id.slice(0, 8) })}</h2>
+              <span>{isMultiShop ? t('checkoutOrderSuccessPage.shopOrdersCount', { count: displayOrders.length }) : order.shop_name || t('checkoutOrderSuccessPage.shop')}</span>
             </div>
 
             {displayOrders.map((ordDetail, idx) => (
               <div key={ordDetail.order.id} style={{ marginTop: idx > 0 ? 20 : 12, paddingTop: idx > 0 ? 16 : 0, borderTop: idx > 0 ? '1px dashed var(--color-border)' : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <strong>Commande #{ordDetail.order.order_number || ordDetail.order.id.slice(0, 8)} — {ordDetail.shop_name || 'Boutique'}</strong>
+                  <strong>{t('checkoutOrderSuccessPage.orderFromShop', { number: ordDetail.order.order_number || ordDetail.order.id.slice(0, 8), shop: ordDetail.shop_name || t('checkoutOrderSuccessPage.shop') })}</strong>
                   {/* One shop: the order is the whole payment, so show what the buyer pays,
                       payment fee included - the same figure as the final total. */}
                   <span className="small muted">{formatMoney(isMultiShop ? ordDetail.order.final_total + ordDetail.order.delivery_fee_final : finalTotal, ordDetail.order.currency || 'USD')}</span>
@@ -253,9 +253,9 @@ function SuccessInner() {
                 {ordDetail.lines.map(line => (
                   <div className="review-order-line" key={line.id}>
                     <div>
-                      <strong>{line.product_name || `Produit #${line.product_id.slice(0, 8)}`}</strong>
-                      <span>{line.variant_name || line.variant_sku || 'Standard'} · Qté : {line.quantity}</span>
-                      <span>Prix unitaire : {formatMoney(line.final_unit_price || line.unit_price, ordDetail.order.currency || 'USD')}</span>
+                      <strong>{line.product_name || t('checkoutOrderSuccessPage.productNumber', { id: line.product_id.slice(0, 8) })}</strong>
+                      <span>{t('checkoutOrderSuccessPage.variantQty', { variant: line.variant_name || line.variant_sku || t('checkoutOrderSuccessPage.standard'), quantity: line.quantity })}</span>
+                      <span>{t('checkoutOrderSuccessPage.unitPrice', { price: formatMoney(line.final_unit_price || line.unit_price, ordDetail.order.currency || 'USD') })}</span>
                     </div>
                     <strong>{formatMoney((line.final_unit_price || line.unit_price) * line.quantity, ordDetail.order.currency || 'USD')}</strong>
                   </div>
@@ -267,79 +267,79 @@ function SuccessInner() {
           {/* DELIVERY RECAP */}
           <section className="checkout-card">
             <div className="checkout-card-head">
-              <h2>Adresse de livraison</h2>
-              <span>{order.order.delivery_method === 'PICKUP' ? 'Retrait en magasin' : 'Livraison à domicile'}</span>
+              <h2>{t('checkoutOrderSuccessPage.deliveryAddress')}</h2>
+              <span>{order.order.delivery_method === 'PICKUP' ? t('checkoutOrderSuccessPage.pickup') : t('checkoutOrderSuccessPage.homeDelivery')}</span>
             </div>
             {deliveryAddress ? (
               <p style={{ margin: '10px 0 0', fontSize: '0.95rem', lineHeight: 1.5 }}>
                 <PinIcon className="inline-icon" /> {deliveryAddress}
                 {order.order.delivery_landmark && (
                   <span className="muted" style={{ display: 'block', marginTop: 4 }}>
-                    Instructions : {order.order.delivery_landmark}
+                    {t('checkoutOrderSuccessPage.instructions', { text: order.order.delivery_landmark })}
                   </span>
                 )}
               </p>
             ) : (
-              <p className="muted" style={{ marginTop: 8 }}>Mode de livraison sélectionné lors de l’étape précédente.</p>
+              <p className="muted" style={{ marginTop: 8 }}>{t('checkoutOrderSuccessPage.deliveryChosenEarlier')}</p>
             )}
           </section>
         </div>
 
         {/* STICKY FINAL SUMMARY */}
         <aside className="checkout-card checkout-summary">
-          <span className="eyebrow">Récapitulatif final</span>
+          <span className="eyebrow">{t('checkoutOrderSuccessPage.finalSummary')}</span>
 
           <div className="summary-lines">
             <div>
-              <span>Sous-total produits</span>
+              <span>{t('checkoutOrderSuccessPage.productsSubtotal')}</span>
               <strong>{formatMoney(displayOrders.reduce((sum, o) => sum + o.order.base_total, 0), currency)}</strong>
             </div>
             {displayOrders.some(o => o.order.points_discount_amount > 0) && (
               <div>
-                <span>Remise points</span>
+                <span>{t('checkoutOrderSuccessPage.pointsDiscount')}</span>
                 <strong className="discount">−{formatMoney(displayOrders.reduce((sum, o) => sum + o.order.points_discount_amount, 0), currency)}</strong>
               </div>
             )}
             <div>
-              <span>Frais de livraison</span>
+              <span>{t('checkoutOrderSuccessPage.deliveryFee')}</span>
               <strong>{formatMoney(displayOrders.reduce((sum, o) => sum + o.order.delivery_fee_final, 0), currency)}</strong>
             </div>
             {payment?.payment_markup ? (
               <div>
-                <span>Frais paiement</span>
+                <span>{t('checkoutOrderSuccessPage.paymentFee')}</span>
                 <strong>{formatMoney(payment.payment_markup, currency)}</strong>
               </div>
             ) : null}
           </div>
 
           <div className="summary-total">
-            <span>Total général</span>
+            <span>{t('checkoutOrderSuccessPage.grandTotal')}</span>
             <strong>{formatMoney(finalTotal, currency)}</strong>
-            <small>Paiement enregistré sur le serveur</small>
+            <small>{t('checkoutOrderSuccessPage.paymentRecorded')}</small>
           </div>
 
           <div className="summary-lines" style={{ marginTop: 14 }}>
             <div>
-              <span>Mode</span>
-              <strong>{isCash ? 'Espèces à la livraison' : isMobileDelivery ? 'Mobile à la livraison' : 'Paiement mobile'}</strong>
+              <span>{t('checkoutOrderSuccessPage.method')}</span>
+              <strong>{isCash ? t('checkoutOrderSuccessPage.methodCash') : isMobileDelivery ? t('checkoutOrderSuccessPage.methodMobileDelivery') : t('checkoutOrderSuccessPage.methodMobile')}</strong>
             </div>
             {providerName && (
-              <div><span>Opérateur</span><strong>{providerName}</strong></div>
+              <div><span>{t('checkoutOrderSuccessPage.operator')}</span><strong>{providerName}</strong></div>
             )}
             <div>
-              <span>Statut</span>
+              <span>{t('common.status')}</span>
               <strong style={{ color: isPaid ? 'var(--color-success)' : isPayNowProcessing ? 'var(--color-warning)' : 'var(--color-text)' }}>
-                {isPaid ? 'Payé' : isPayNowProcessing ? 'En cours' : 'À payer'}
+                {isPaid ? t('checkoutOrderSuccessPage.statusPaid') : isPayNowProcessing ? t('checkoutOrderSuccessPage.statusInProgress') : t('checkoutOrderSuccessPage.statusToPay')}
               </strong>
             </div>
           </div>
 
           <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
             <Link to={`/orders/${orderId}/tracking`} style={{ width: '100%' }}>
-              <Button variant="accent" block>Suivre ma livraison</Button>
+              <Button variant="accent" block>{t('checkoutOrderSuccessPage.trackDelivery')}</Button>
             </Link>
             <Link to="/orders" style={{ width: '100%' }}>
-              <Button variant="outline" block>Mes commandes</Button>
+              <Button variant="outline" block>{t('account.myOrders')}</Button>
             </Link>
           </div>
         </aside>

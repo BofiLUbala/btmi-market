@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
 import { adminCommerceApi, type AdminEmployeeItem, type AdminEmployeeShopAuth } from '@/api/admin'
-import { useT } from '@/store/i18n'
+import { useT, translate } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 
 const ROLE_COLORS: Record<string, { bg: string; fg: string }> = {
   SUPER_ADMIN: { bg: '#7f1d1d', fg: '#fca5a5' },
@@ -13,14 +14,14 @@ const ROLE_COLORS: Record<string, { bg: string; fg: string }> = {
 
 function RoleBadge({ role }: { role: string }) {
   const c = ROLE_COLORS[role] || { bg: '#334155', fg: '#f1f5f9' }
-  return <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: c.bg, color: c.fg }}>{role}</span>
+  return <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: c.bg, color: c.fg }}>{ROLE_COLORS[role] || role === 'EMPLOYEE' ? adminLabel(role) : role}</span>
 }
 
 const SHOP_AUTH_REASON: Record<string, string> = {
-  'Employee not assigned to this shop': 'employé non affecté à cette boutique',
+  'Employee not assigned to this shop': 'adminCommerceEmployeesEmployeeManagementPage.reasonNotAssigned',
 }
 const shopAuthReason = (reason: string) =>
-  SHOP_AUTH_REASON[reason] ?? reason.replace(/^Employee status is (\w+)$/, (_, st: string) => `statut de l’employé : ${adminLabel(st).toLowerCase()}`)
+  SHOP_AUTH_REASON[reason] ? translate(SHOP_AUTH_REASON[reason]) : reason.replace(/^Employee status is (\w+)$/, (_, st: string) => translate('adminCommerceEmployeesEmployeeManagementPage.reasonEmployeeStatus', { status: adminLabel(st).toLowerCase() }))
 
 export default function EmployeeManagementPage() {
   const t = useT()
@@ -143,7 +144,7 @@ export default function EmployeeManagementPage() {
                     }}>{adminLabel(emp.status)}</span>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11 }}>
-                    {emp.created_at ? new Date(emp.created_at).toLocaleDateString('fr-FR') : '-'}
+                    {emp.created_at ? new Date(emp.created_at).toLocaleDateString(dateLocale()) : '-'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <button onClick={() => void checkAccess(emp)}

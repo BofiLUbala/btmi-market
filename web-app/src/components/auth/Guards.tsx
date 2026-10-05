@@ -28,15 +28,15 @@ export function RequireAuth({ children }: { children?: ReactNode }) {
  */
 function SwitchSpaceCard({ to }: { to: ActiveMode }) {
   const { switchMode } = useAuth()
+  const { t } = useI18n()
   const [busy, setBusy] = useState(false)
-  const current = to === 'buyer' ? 'vendeur' : 'acheteur'
-  const target = to === 'buyer' ? 'acheteur' : 'vendeur'
+  const toBuyer = to === 'buyer'
   return (
     <div className="auth-wrap">
       <div className="card auth-card" style={{ textAlign: 'center' }}>
-        <h1>Espace {target}</h1>
+        <h1>{t(toBuyer ? 'authGuards.titleBuyer' : 'authGuards.titleSeller')}</h1>
         <p className="muted">
-          Vous êtes connecté comme <strong>{current}</strong>. Cette page appartient à l'espace {target}.
+          {t('authGuards.signedInAs')} <strong>{t(toBuyer ? 'authGuards.roleSeller' : 'authGuards.roleBuyer')}</strong>. {t(toBuyer ? 'authGuards.belongsBuyer' : 'authGuards.belongsSeller')}
         </p>
         <button
           type="button"
@@ -44,7 +44,7 @@ function SwitchSpaceCard({ to }: { to: ActiveMode }) {
           disabled={busy}
           onClick={() => { setBusy(true); void switchMode(to) }}
         >
-          {busy ? 'Changement…' : `Passer à l'espace ${target}`}
+          {busy ? t('authGuards.switching') : t(toBuyer ? 'authGuards.switchBuyer' : 'authGuards.switchSeller')}
         </button>
       </div>
     </div>

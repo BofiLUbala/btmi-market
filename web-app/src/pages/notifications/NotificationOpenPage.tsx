@@ -6,6 +6,7 @@ import { useAuth } from '@/store/auth'
 import { useAdminAuth } from '@/store/adminAuth'
 import { LoadingBlock } from '@/components/ui/Feedback'
 import { safeInternalPath } from '@/lib/returnTo'
+import { useT } from '@/store/i18n'
 
 /**
  * Landing route of every push notification click: /notif/:id?to=…&uid=…&kind=…&aud=…
@@ -21,6 +22,7 @@ export default function NotificationOpenPage() {
   const [params] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const t = useT()
   const isAdmin = params.get('kind') === 'ADMIN'
   const audience = params.get('aud') ?? 'BUYER'
   const uid = params.get('uid') ?? ''
@@ -44,7 +46,7 @@ export default function NotificationOpenPage() {
     void mark.catch(() => undefined).finally(() => navigate(to, { replace: true }))
   }, [loading, matches, isAdmin, id, to, navigate])
 
-  if (loading) return <LoadingBlock label="Ouverture de la notification…" />
+  if (loading) return <LoadingBlock label={t('notificationsNotificationOpenPage.opening')} />
 
   if (!currentId) {
     if (isAdmin) return <Navigate to="/admin/login" state={{ from: location }} replace />
@@ -57,10 +59,9 @@ export default function NotificationOpenPage() {
     return (
       <div className="auth-wrap">
         <div className="card auth-card" style={{ textAlign: 'center' }}>
-          <h1>Notification d'un autre compte</h1>
+          <h1>{t('notificationsNotificationOpenPage.otherAccountTitle')}</h1>
           <p className="muted">
-            Cette notification a été envoyée à un autre compte TBK que celui connecté sur cet appareil.
-            Connectez-vous avec le bon compte pour l'ouvrir.
+            {t('notificationsNotificationOpenPage.otherAccountBody')}
           </p>
           <button
             type="button"
@@ -72,15 +73,15 @@ export default function NotificationOpenPage() {
               else await logout()
             }}
           >
-            {switching ? 'Déconnexion…' : 'Changer de compte'}
+            {switching ? t('notificationsNotificationOpenPage.signingOut') : t('notificationsNotificationOpenPage.switchAccount')}
           </button>
           <button type="button" className="btn btn-ghost btn-block" onClick={() => navigate(isAdmin ? '/admin' : '/', { replace: true })}>
-            Annuler
+            {t('common.cancel')}
           </button>
         </div>
       </div>
     )
   }
 
-  return <LoadingBlock label="Ouverture de la notification…" />
+  return <LoadingBlock label={t('notificationsNotificationOpenPage.opening')} />
 }

@@ -1,13 +1,20 @@
 /** Same date formatters as web-app/src/lib/format.ts, so both apps print the
  *  same "12 Sept 2026" / "12 Sept 2026, 14:05" strings. */
-export function formatDate(iso?: string | null, locale = 'en-GB'): string {
+import { getMoneyLanguage } from './money'
+
+/** The Intl locale dates are written in: the language the user picked. */
+export function dateLocale(lang: 'fr' | 'en' = getMoneyLanguage()): string {
+  return lang === 'fr' ? 'fr-FR' : 'en-GB'
+}
+
+export function formatDate(iso?: string | null, locale = dateLocale()): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function formatDateTime(iso?: string | null, locale = 'en-GB'): string {
+export function formatDateTime(iso?: string | null, locale = dateLocale()): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'

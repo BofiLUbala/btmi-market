@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { API_BASE } from '@/api/client'
+import { localizeApiError } from '@/api/errorMessages'
+import { useT } from '@/store/i18n'
 import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
 
 export default function CourierActivationPage() {
@@ -18,10 +20,11 @@ export default function CourierActivationPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [address, setAddress] = useState<StructuredAddressValue>(emptyStructuredAddress)
   const submittingRef = useRef(false)
+  const t = useT()
 
   useEffect(() => {
     if (!token) {
-      setError('Invalid activation link. Please check your email for the correct link.')
+      setError(t('courierActivation.invalidLinkCheckEmail'))
       setLoading(false)
       return
     }
@@ -30,14 +33,15 @@ export default function CourierActivationPage() {
     fetch(`${API_BASE}/courier/verify/${encodeURIComponent(token)}`)
       .then(async (response) => {
         const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error?.message || 'Invalid or expired invitation')
+        if (!response.ok) throw new Error(payload.error ? localizeApiError(response.status, payload.error.code || 'REQUEST_FAILED', payload.error.message) : t('courierActivation.invalidInvitation'))
         if (cancelled) return
         setFirstName(payload.data?.first_name ?? '')
         setLastName(payload.data?.last_name ?? '')
         setEmail(payload.data?.email ?? '')
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Invalid or expired invitation')
+        // fetch rejects with a TypeError ("Failed to fetch") when the API is unreachable.
+        if (!cancelled) setError(err instanceof TypeError ? t('apiError.NETWORK_ERROR') : err instanceof Error ? err.message : t('courierActivation.invalidInvitation'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -50,22 +54,22 @@ export default function CourierActivationPage() {
     if (submittingRef.current) return
     
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('courierActivation.passwordsMismatch'))
       return
     }
     
     if (password.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(t('courierActivation.passwordTooShort'))
       return
     }
 
     if (password.length > 64) {
-      setError('Password must not exceed 64 characters')
+      setError(t('courierActivation.passwordTooLong'))
       return
     }
 
     if (!isStructuredAddressComplete(address)) {
-      setError('Veuillez compléter la province, la ville, la commune, la rue et le numéro de parcelle.')
+      setError(t('courierActivation.addressIncomplete'))
       return
     }
 
@@ -93,12 +97,12 @@ export default function CourierActivationPage() {
       const data = await response.json()
       
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Activation failed')
+        throw new Error(data.error ? localizeApiError(response.status, data.error.code || 'REQUEST_FAILED', data.error.message) : t('courierActivation.failed'))
       }
       
-      setSuccess('Votre compte Livreur est activé.')
+      setSuccess(t('courierActivation.successTitle'))
     } catch (err: any) {
-      setError(err.message || 'Failed to activate account')
+      setError(err instanceof TypeError ? t('apiError.NETWORK_ERROR') : err.message || t('courierActivation.failed'))
     } finally {
       submittingRef.current = false
       setLoading(false)
@@ -126,10 +130,10 @@ export default function CourierActivationPage() {
         }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>❌</div>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>
-            Invalid Link
+            {t('courierActivation.invalidLinkTitle')}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            This activation link is invalid or has expired. Please contact your administrator for a new invitation.
+            {t('courierActivation.invalidLinkBody')}
           </p>
         </div>
       </div>
@@ -141,9 +145,9 @@ export default function CourierActivationPage() {
       <div className="auth-wrap">
         <div className="card auth-card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 48 }} aria-hidden="true">✅</div>
-          <h1>Votre compte Livreur est activé.</h1>
-          <p className="muted">Vous pouvez maintenant vous connecter avec votre email et le mot de passe que vous venez de créer.</p>
-          <Link to="/livreur/login" className="btn btn-primary btn-block">Accéder à mon espace Livreur</Link>
+          <h1>{t('courierActivation.successTitle')}</h1>
+          <p className="muted">{t('courierActivation.successBody')}</p>
+          <Link to="/livreur/login" className="btn btn-primary btn-block">{t('courierActivation.goToSpace')}</Link>
         </div>
       </div>
     )
@@ -169,10 +173,10 @@ export default function CourierActivationPage() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🛵</div>
           <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: 'var(--text)' }}>
-            Activate Your Courier Account
+            {t('courierActivation.title')}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            Complete your profile to start accepting deliveries
+            {t('courierActivation.subtitle')}
           </p>
         </div>
 
@@ -193,7 +197,7 @@ export default function CourierActivationPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-                First Name *
+                {t('auth.firstName')} *
               </label>
               <input
                 type="text"
@@ -214,7 +218,7 @@ export default function CourierActivationPage() {
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-                Last Name *
+                {t('auth.lastName')} *
               </label>
               <input
                 type="text"
@@ -237,7 +241,7 @@ export default function CourierActivationPage() {
 
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-              Email *
+              {t('common.email')} *
             </label>
             <input
               type="email"
@@ -259,7 +263,7 @@ export default function CourierActivationPage() {
 
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-              Password *
+              {t('auth.password')} *
             </label>
             <input
               type="password"
@@ -282,7 +286,7 @@ export default function CourierActivationPage() {
 
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>
-              Confirm Password *
+              {t('courierActivation.confirmPassword')} *
             </label>
             <input
               type="password"
@@ -305,10 +309,10 @@ export default function CourierActivationPage() {
 
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20, marginBottom: 24 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, color: 'var(--text)' }}>
-              Profile Address
+              {t('courierActivation.addressTitle')}
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
-              Where are you based for picking up packages?
+              {t('courierActivation.addressHint')}
             </p>
             <StructuredAddressFields value={address} onChange={setAddress} />
           </div>
@@ -329,7 +333,7 @@ export default function CourierActivationPage() {
               opacity: loading ? 0.7 : 1
             }}
           >
-            {loading ? 'Activating...' : 'Activate Account'}
+            {loading ? t('courierActivation.activating') : t('courierActivation.submit')}
           </button>
         </form>
       </div>

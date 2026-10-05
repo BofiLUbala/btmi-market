@@ -38,7 +38,7 @@ export default function CommerceCouriersPage() {
   }, [fetchCouriers])
 
   const handleSuspend = async (courierId: string) => {
-    const reason = prompt(t('admin.commerce.suspendReason') || 'Enter suspension reason:')
+    const reason = prompt(t('admin.commerce.suspendReason'))
     if (!reason) return
     try {
       await adminCommerceApi.suspendCourier(courierId, reason)
@@ -58,28 +58,28 @@ export default function CommerceCouriersPage() {
   }
 
   const handleCancelInvitation = async (invitation: AdminCourierInvitationItem) => {
-    if (!confirm(`Annuler l'invitation de ${invitation.first_name} ${invitation.last_name} (${invitation.email}) ?\n\nLe lien d'activation ne fonctionnera plus et vous pourrez réinviter cet email.`)) return
+    if (!confirm(t('adminCommerceCouriersCommerceCouriersPage.confirmCancelInvitation', { name: `${invitation.first_name} ${invitation.last_name}`, email: invitation.email }))) return
     setActionError('')
     setBusyId(invitation.id)
     try {
       await adminCommerceApi.cancelCourierInvitation(invitation.id)
       await fetchCouriers()
     } catch (err: any) {
-      setActionError(err?.message || "Impossible d'annuler l'invitation.")
+      setActionError(err?.message || t('adminCommerceCouriersCommerceCouriersPage.cancelInvitationFailed'))
     } finally {
       setBusyId('')
     }
   }
 
   const handleDelete = async (courier: AdminCourierListItem) => {
-    if (!confirm(`Supprimer définitivement le compte livreur de ${courier.first_name} ${courier.last_name} (${courier.email}) ?\n\nLe compte sera désactivé et supprimé. Vous pourrez recréer un livreur avec le même email.`)) return
+    if (!confirm(t('adminCommerceCouriersCommerceCouriersPage.confirmDelete', { name: `${courier.first_name} ${courier.last_name}`, email: courier.email }))) return
     setActionError('')
     setBusyId(courier.id)
     try {
       await adminCommerceApi.deleteCourier(courier.id)
       await fetchCouriers()
     } catch (err: any) {
-      setActionError(err?.message || 'Impossible de supprimer ce livreur.')
+      setActionError(err?.message || t('adminCommerceCouriersCommerceCouriersPage.deleteFailed'))
     } finally {
       setBusyId('')
     }
@@ -96,10 +96,10 @@ export default function CommerceCouriersPage() {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🛵</span> {t('admin.commerce.couriersTitle') || 'Couriers & Drivers'}
+            <span>🛵</span> {t('admin.commerce.couriersTitle')}
           </h2>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
-            {t('admin.commerce.couriersSubtitle') || 'Manage delivery fleet, field couriers, active routes, and fulfillment availability.'}
+            {t('admin.commerce.couriersSubtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -119,7 +119,7 @@ export default function CommerceCouriersPage() {
               gap: 6
             }}
           >
-            ✉ {t('admin.commerce.inviteCourier') || 'Invite Courier'}
+            ✉ {t('admin.commerce.inviteCourier')}
           </Link>
           <Link
             to="/admin/commerce/delivery-assignments"
@@ -137,7 +137,7 @@ export default function CommerceCouriersPage() {
               gap: 6
             }}
           >
-            📋 {t('admin.commerce.assignOrders') || 'Assign Orders'}
+            📋 {t('admin.commerce.assignOrders')}
           </Link>
           <Link
             to="/admin/commerce/deliveries"
@@ -155,7 +155,7 @@ export default function CommerceCouriersPage() {
               gap: 6
             }}
           >
-            🚚 {t('admin.commerce.deliveries') || 'All Deliveries'}
+            🚚 {t('admin.commerce.deliveries')}
           </Link>
         </div>
       </div>
@@ -174,14 +174,14 @@ export default function CommerceCouriersPage() {
             minWidth: 140
           }}
         >
-          <option value="">{t('admin.commerce.allStatuses') || 'All Statuses'}</option>
-          <option value="ACTIVE">{t('admin.commerce.statusActive') || 'Active'}</option>
-          <option value="PENDING">{t('admin.commerce.statusPending') || 'Pending Activation'}</option>
-          <option value="SUSPENDED">{t('admin.commerce.statusSuspended') || 'Suspended'}</option>
-          <option value="DISABLED">{t('admin.commerce.statusDisabled') || 'Disabled'}</option>
+          <option value="">{t('admin.commerce.allStatuses')}</option>
+          <option value="ACTIVE">{t('admin.commerce.statusActive')}</option>
+          <option value="PENDING">{t('admin.commerce.statusPending')}</option>
+          <option value="SUSPENDED">{t('admin.commerce.statusSuspended')}</option>
+          <option value="DISABLED">{t('admin.commerce.statusDisabled')}</option>
         </select>
         <span style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>
-          {total} {t('admin.commerce.courierCount') || 'couriers registered'}
+          {total} {t('admin.commerce.courierCount')}
         </span>
       </div>
 
@@ -193,7 +193,7 @@ export default function CommerceCouriersPage() {
 
       {invitations.length > 0 && (
         <div style={{ marginBottom: 16, backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)', padding: 16 }}>
-          <h3 style={{ margin: '0 0 12px' }}>Invitations en attente</h3>
+          <h3 style={{ margin: '0 0 12px' }}>{t('adminCommerceCouriersCommerceCouriersPage.pendingInvitations')}</h3>
           {invitations.map((invitation) => (
             <div key={invitation.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 0', borderTop: '1px solid var(--admin-border-soft)' }}>
               <div>
@@ -201,13 +201,13 @@ export default function CommerceCouriersPage() {
                 <div style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>{invitation.email}</div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'var(--admin-warning-soft)', color: 'var(--admin-warning)' }}>INVITED</span>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, background: 'var(--admin-warning-soft)', color: 'var(--admin-warning)' }}>{t('adminCommerceCouriersCommerceCouriersPage.invitedBadge')}</span>
                 <button
                   onClick={() => void handleCancelInvitation(invitation)}
                   disabled={busyId === invitation.id}
                   style={{ fontSize: 12, color: 'var(--admin-danger)', backgroundColor: 'var(--admin-danger-soft)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--admin-danger-soft)', fontWeight: 600, cursor: busyId === invitation.id ? 'not-allowed' : 'pointer', opacity: busyId === invitation.id ? 0.6 : 1 }}
                 >
-                  {busyId === invitation.id ? 'Annulation…' : "Annuler l'invitation"}
+                  {busyId === invitation.id ? t('adminCommerceCouriersCommerceCouriersPage.cancelling') : t('adminCommerceCouriersCommerceCouriersPage.cancelInvitation')}
                 </button>
               </div>
             </div>
@@ -221,20 +221,20 @@ export default function CommerceCouriersPage() {
         </div>
       ) : couriers.length === 0 ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
-          {t('admin.commerce.noCouriersFound') || 'No courier staff found.'}
+          {t('admin.commerce.noCouriersFound')}
         </div>
       ) : (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.courierName') || 'Courier Name'}</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.contactColumn') || 'Contact'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.transportType') || 'Transport'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.availability') || 'Availability'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.totalDeliveries') || 'Deliveries'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.status') || 'Status'}</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions') || 'Actions'}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.courierName')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.contactColumn')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.transportType')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.availability')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.totalDeliveries')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.status')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -244,7 +244,7 @@ export default function CommerceCouriersPage() {
                     <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>
                       {c.first_name} {c.last_name}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>ID: {c.id.slice(0, 8)}...</div>
+                    <div style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>{t('adminCommerceCouriersCommerceCouriersPage.idShort', { id: c.id.slice(0, 8) })}</div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ color: 'var(--admin-text)' }}>{c.email}</div>
@@ -259,7 +259,7 @@ export default function CommerceCouriersPage() {
                       backgroundColor: 'var(--admin-surface-2)',
                       color: 'var(--admin-text)'
                     }}>
-                      {c.transport_type || 'N/A'}
+                      {c.transport_type ? adminLabel(c.transport_type) : t('admin.common.notAvailable')}
                     </span>
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 14px' }}>
@@ -271,7 +271,7 @@ export default function CommerceCouriersPage() {
                       backgroundColor: c.availability === 'AVAILABLE' ? 'var(--admin-success-soft)' : c.availability === 'BUSY' ? 'var(--admin-warning-soft)' : 'var(--admin-surface-2)',
                       color: c.availability === 'AVAILABLE' ? 'var(--admin-success)' : c.availability === 'BUSY' ? 'var(--admin-warning)' : 'var(--admin-text-muted)'
                     }}>
-                      {c.availability || 'N/A'}
+                      {c.availability ? adminLabel(c.availability) : t('admin.common.notAvailable')}
                     </span>
                   </td>
                   <td style={{ textAlign: 'center', padding: '12px 14px' }}>
@@ -306,14 +306,14 @@ export default function CommerceCouriersPage() {
                           border: '1px solid var(--admin-border-soft)'
                         }}
                       >
-                        {t('admin.commerce.assignOrder') || 'Assign Order'}
+                        {t('admin.commerce.assignOrder')}
                       </Link>
                       {c.status === 'ACTIVE' ? (
                         <>
                         <button
                           onClick={() => void copyCourierLogin()}
                           style={{ fontSize: 12, color: 'var(--admin-primary)', backgroundColor: 'var(--admin-surface-2)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--admin-border-soft)', fontWeight: 600, cursor: 'pointer' }}
-                        >Copier le lien de connexion Livreur</button>
+                        >{t('adminCommerceCouriersCommerceCouriersPage.copyLoginLink')}</button>
                         <button
                           onClick={() => handleSuspend(c.id)}
                           style={{
@@ -327,7 +327,7 @@ export default function CommerceCouriersPage() {
                             cursor: 'pointer'
                           }}
                         >
-                          {t('admin.commerce.suspend') || 'Suspend'}
+                          {t('admin.commerce.suspend')}
                         </button>
                         </>
                       ) : (
@@ -344,7 +344,7 @@ export default function CommerceCouriersPage() {
                             cursor: 'pointer'
                           }}
                         >
-                          {t('admin.commerce.reactivate') || 'Reactivate'}
+                          {t('admin.commerce.reactivate')}
                         </button>
                       )}
                       <button
@@ -352,7 +352,7 @@ export default function CommerceCouriersPage() {
                         disabled={busyId === c.id}
                         style={{ fontSize: 12, color: '#ffffff', backgroundColor: 'var(--admin-danger)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--admin-danger)', fontWeight: 600, cursor: busyId === c.id ? 'not-allowed' : 'pointer', opacity: busyId === c.id ? 0.6 : 1 }}
                       >
-                        {busyId === c.id ? 'Suppression…' : 'Supprimer'}
+                        {busyId === c.id ? t('adminCommerceCouriersCommerceCouriersPage.deleting') : t('common.delete')}
                       </button>
                     </div>
                   </td>
@@ -378,7 +378,7 @@ export default function CommerceCouriersPage() {
               opacity: page === 0 ? 0.5 : 1
             }}
           >
-            {t('common.previous') || 'Previous'}
+            {t('common.previous')}
           </button>
           <span style={{ padding: '6px 12px', color: 'var(--admin-text-muted)', fontSize: 13 }}>
             {page + 1} / {totalPages}
@@ -396,7 +396,7 @@ export default function CommerceCouriersPage() {
               opacity: page >= totalPages - 1 ? 0.5 : 1
             }}
           >
-            {t('common.next') || 'Next'}
+            {t('common.next')}
           </button>
         </div>
       )}

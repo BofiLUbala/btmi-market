@@ -5,18 +5,13 @@ import { useI18n } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 
 export function StatusBadge({ status }: { status: string }) {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
   const key = `status.${status}` as TranslationKey
   // An unknown status from the API still has to render something readable, so
-  // fall back to the shared French labels (or a prettified value in English)
+  // fall back to the shared admin labels (FR or EN, humanised when unknown)
   // rather than showing the key.
   const translated = t(key)
-  const label =
-    translated !== key
-      ? translated
-      : lang === 'fr'
-        ? adminLabel(status)
-        : status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  const label = translated !== key ? translated : adminLabel(status)
   return <span className={`badge badge-status badge-${status}`}>{label}</span>
 }
 

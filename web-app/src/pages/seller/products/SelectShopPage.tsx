@@ -9,6 +9,8 @@ import { useT } from '@/store/i18n'
 
 export default function SelectShopPage() {
   const t = useT()
+  /** Translated enum code, falling back to the raw code. */
+  const codeLabel = (key: string, code: string) => { const v = t(key); return v === key ? code : v }
   const { activeBusiness } = useAuth()
   const navigate = useNavigate()
   const [shops, setShops] = useState<Shop[]>([])
@@ -83,11 +85,11 @@ export default function SelectShopPage() {
                   className={`badge ${shop.status === 'ACTIVE' ? 'badge-success' : 'badge-muted'}`}
                   style={{ alignSelf: 'flex-start' }}
                 >
-                  {shop.status}
+                  {codeLabel(`seller.shopStatus.${shop.status}`, shop.status)}
                 </span>
                 <h3 style={{ margin: '8px 0 2px' }}>{shop.name}</h3>
                 <span className="small muted">
-                  {[shop.city, shop.address].filter(Boolean).join(' — ') || shop.type}
+                  {[shop.city, shop.address].filter(Boolean).join(' — ') || codeLabel(`seller.shopType.${shop.type}`, shop.type)}
                 </span>
               </div>
               <Button variant="primary" block onClick={() => selectShop(shop.id)}>

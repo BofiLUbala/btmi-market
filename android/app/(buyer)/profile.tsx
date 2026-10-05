@@ -80,7 +80,7 @@ export default function ProfileScreen() {
           {hasStructuredAddress ? <>
             <Text style={themed.address}>{[p?.street, p?.building_number].filter(Boolean).join(', ') || p?.address || t('account.noAddress')}</Text>
             <Text style={themed.small}>{[p?.commune, p?.city, p?.province].filter(Boolean).join(', ')}</Text>
-            {p?.landmark ? <Text style={themed.small}>Point de repère : {p.landmark}</Text> : null}
+            {p?.landmark ? <Text style={themed.small}>{t('buyerProfile.landmark', { value: p.landmark })}</Text> : null}
           </> : <>
             <Text style={themed.address}>{p?.address || t('account.noAddress')}</Text>
             <Text style={themed.small}>{[p?.commune, p?.city, p?.country].filter(Boolean).join(', ') || t('account.noLocation')}</Text>

@@ -26,7 +26,7 @@ export function CheckoutHeader() {
   return (
     <View style={[s.shell, { paddingTop: insets.top }]}>
       <View style={s.shellRow}>
-        <Pressable style={s.shellBack} onPress={() => (router.canGoBack() ? router.back() : router.replace('/(buyer)'))} accessibilityRole="button" accessibilityLabel="Retour">
+        <Pressable style={s.shellBack} onPress={() => (router.canGoBack() ? router.back() : router.replace('/(buyer)'))} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Text style={s.shellBackText}>←</Text>
         </Pressable>
         <Text style={s.shellTitle}>{t('checkout.shellTitle')}</Text>
@@ -114,10 +114,11 @@ export function OptionCard({ title, amount, lines, selected = true }: { title: s
 /** web StructuredAddressSummary (.address-summary) */
 export function AddressSummary({ value }: { value: StructuredAddressValue }) {
   const { s } = useS()
+  const { t } = useI18n()
   const rows: Array<[string, string]> = [
-    ['Province', value.province], ['Ville', value.city], ['Commune', value.commune],
-    ['Adresse', value.street], ['Numéro', value.building_number],
-    ...(value.landmark?.trim() ? [['Point de repère', value.landmark] as [string, string]] : []),
+    [t('seller.province'), value.province], [t('common.city'), value.city], [t('common.commune'), value.commune],
+    [t('common.address'), value.street], [t('checkoutUI.buildingNumber'), value.building_number],
+    ...(value.landmark?.trim() ? [[t('checkoutUI.landmark'), value.landmark] as [string, string]] : []),
   ]
   return (
     <View style={s.summary}>

@@ -204,7 +204,7 @@ function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment
           rather than blank. */}
       {payment.provider && (
         <div className="info-row">
-          <span className="k">Opérateur</span>
+          <span className="k">{t('buyerOrderDetailPage.operator')}</span>
           <span className="v">{payment.provider_label || payment.provider}</span>
         </div>
       )}
@@ -229,7 +229,7 @@ function PaymentDetailCard({ o, payment }: { o: OrderWithLines['order']; payment
       </div>
       {payment.receipt_issued_at && (
         <div className="info-row">
-          <span className="k">Reçu émis le</span>
+          <span className="k">{t('buyerOrderDetailPage.receiptIssuedAt')}</span>
           <span className="v">{formatDateTime(payment.receipt_issued_at)}</span>
         </div>
       )}
@@ -291,17 +291,17 @@ function PayNowCard({ orderId, payment, onDone }: { orderId: string; payment: Bu
       {instructions && <p className="small">{instructions}</p>}
       {payment.provider && (
         <div className="info-row">
-          <span className="k">Opérateur</span>
+          <span className="k">{t('buyerOrderDetailPage.operator')}</span>
           <span className="v">{payment.provider_label || payment.provider}</span>
         </div>
       )}
       {waiting && <p className="small muted">{t('orders.payNowWaitingDelivery')}</p>}
-      {awaitingVerification && <p className="small muted">Le Livreur est arrivé : le paiement sera possible dès que le produit aura été vérifié.</p>}
+      {awaitingVerification && <p className="small muted">{t('buyerOrderDetailPage.awaitingVerification')}</p>}
       {noProvider && <p className="small muted">{t('orders.payNowNoProvider')}</p>}
-      {processing && <p className="small muted">Paiement lancé : validez la demande sur votre téléphone. La commande sera payée une fois l’opérateur confirmé.</p>}
+      {processing && <p className="small muted">{t('buyerOrderDetailPage.paymentProcessing')}</p>}
       {payment.payable && (
         <label className="field">
-          <span>Téléphone à débiter</span>
+          <span>{t('buyerOrderDetailPage.payerPhone')}</span>
           <input type="tel" inputMode="tel" name="payer_phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+243 ..." />
         </label>
       )}
@@ -532,8 +532,8 @@ function OrderInner() {
     } catch (e) {
       setProductVerification(null)
       setVerificationError(e instanceof ApiError && e.code === 'PRODUCT_MISMATCH'
-        ? 'Ce produit ne correspond pas à votre commande.'
-        : (e instanceof Error ? e.message : 'Vérification impossible.'))
+        ? t('buyerOrderDetailPage.productMismatch')
+        : (e instanceof Error ? e.message : t('buyerOrderDetailPage.verificationFailed')))
     } finally { setBusy(false) }
   }
 
@@ -704,13 +704,13 @@ function OrderInner() {
             <h2 style={{ fontSize: '1.1rem' }}>{t('orders.actions')}</h2>
             {['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(o.delivery_status || '') && (
               <div className="stack">
-                <strong>Vérifier le colis reçu</strong>
-                <label className="small">Numéro de commande sur le colis ({o.order_number})</label>
+                <strong>{t('buyerOrderDetailPage.verifyParcelTitle')}</strong>
+                <label className="small">{t('buyerOrderDetailPage.parcelOrderNumber', { number: o.order_number })}</label>
                 <input value={productNumber} onChange={(e) => setProductNumber(e.target.value)} placeholder="BTMI-XXXXXXXX" autoCapitalize="characters" style={{ fontSize: 16 }} />
-                <Button variant="outline" loading={busy} disabled={!productNumber.trim()} onClick={() => verifyProduct()}>Vérifier</Button>
+                <Button variant="outline" loading={busy} disabled={!productNumber.trim()} onClick={() => verifyProduct()}>{t('buyerOrderDetailPage.verify')}</Button>
                 {verificationError && <div className="checkout-inline-error">{verificationError}</div>}
                 {productVerification && <div className="checkout-inline-success">
-                  <strong>Colis vérifié ✓</strong><br />
+                  <strong>{t('buyerOrderDetailPage.parcelVerified')} ✓</strong><br />
                   {productVerification.product_name}
                 </div>}
               </div>

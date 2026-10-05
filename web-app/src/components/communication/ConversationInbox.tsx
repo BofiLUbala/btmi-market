@@ -3,6 +3,7 @@ import type { ChatParty, ConversationListItem } from '@/api/communication'
 import { lastMessageAuthor } from '@/lib/chat'
 import { StatusBadge } from '@/components/ui/Badges'
 import { useI18n } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 import { OrderChatFeed } from './OrderChatFeed'
 import './chat.css'
@@ -48,7 +49,7 @@ export function ConversationInbox(props: Props) {
   const { me, items, loading, selectedOrderId, onSelect, onBack, search, onSearch, onlyWithMessages, onOnlyWithMessages, tools, chatActions, subtitle } = props
   const { t, lang } = useI18n()
   const narrow = useNarrow()
-  const locale = lang === 'en' ? 'en-GB' : 'fr-FR'
+  const locale = dateLocale(lang)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

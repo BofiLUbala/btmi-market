@@ -47,10 +47,10 @@ export default function CommerceDeliveriesPage() {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>🚚</span> {t('admin.commerce.deliveriesTitle') || 'Deliveries & Logistics'}
+            <span>🚚</span> {t('admin.commerce.deliveriesTitle')}
           </h2>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
-            {t('admin.commerce.deliveriesSubtitle') || 'Monitor package logistics, fulfillment pipelines, and delivery progress across all shops.'}
+            {t('admin.commerce.deliveriesSubtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -70,7 +70,7 @@ export default function CommerceDeliveriesPage() {
               gap: 6
             }}
           >
-            📋 {t('admin.commerce.dispatchQueue') || 'Dispatch Queue'}
+            📋 {t('admin.commerce.dispatchQueue')}
           </Link>
           <Link
             to="/admin/commerce/couriers"
@@ -88,14 +88,14 @@ export default function CommerceDeliveriesPage() {
               gap: 6
             }}
           >
-            🛵 {t('admin.commerce.couriers') || 'Couriers'}
+            🛵 {t('admin.commerce.couriers')}
           </Link>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
-          placeholder={t('admin.orders.searchPlaceholder') || 'Search order #, customer, phone...'}
+          placeholder={t('admin.orders.searchPlaceholder')}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           style={{
@@ -121,12 +121,12 @@ export default function CommerceDeliveriesPage() {
             minWidth: 140
           }}
         >
-          <option value="">{t('admin.orders.filterAllStatus') || 'All Statuses'}</option>
-          <option value="PROCESSING">{t('admin.orders.statusProcessing') || 'Processing'}</option>
-          <option value="SHIPPED">{t('admin.orders.statusShipped') || 'Shipped / In Transit'}</option>
-          <option value="DELIVERED">{t('admin.orders.statusDelivered') || 'Delivered'}</option>
-          <option value="COMPLETED">{t('admin.orders.statusCompleted') || 'Completed'}</option>
-          <option value="CANCELLED">{t('admin.orders.statusCancelled') || 'Cancelled'}</option>
+          <option value="">{t('admin.orders.filterAllStatus')}</option>
+          <option value="PROCESSING">{t('admin.orders.statusProcessing')}</option>
+          <option value="SHIPPED">{t('admin.orders.statusShipped')}</option>
+          <option value="DELIVERED">{t('admin.orders.statusDelivered')}</option>
+          <option value="COMPLETED">{t('admin.orders.statusCompleted')}</option>
+          <option value="CANCELLED">{t('admin.orders.statusCancelled')}</option>
         </select>
         <select
           value={deliveryFilter}
@@ -141,13 +141,13 @@ export default function CommerceDeliveriesPage() {
             minWidth: 150
           }}
         >
-          <option value="">{t('admin.orders.filterAllDelivery') || 'All Methods'}</option>
-          <option value="SCHEDULED_DELIVERY">{t('admin.orders.deliveryScheduled') || 'Delivery (Courier)'}</option>
-          <option value="PICKUP">{t('admin.orders.deliveryPickup') || 'Shop Pickup'}</option>
-          <option value="DIGITAL">{t('admin.orders.deliveryDigital') || 'Digital'}</option>
+          <option value="">{t('admin.orders.filterAllDelivery')}</option>
+          <option value="SCHEDULED_DELIVERY">{t('admin.orders.deliveryScheduled')}</option>
+          <option value="PICKUP">{t('admin.orders.deliveryPickup')}</option>
+          <option value="DIGITAL">{t('admin.orders.deliveryDigital')}</option>
         </select>
         <span style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>
-          {total} {t('admin.orders.orderCount') || 'deliveries found'}
+          {total} {t('admin.orders.orderCount')}
         </span>
       </div>
 
@@ -157,19 +157,19 @@ export default function CommerceDeliveriesPage() {
         </div>
       ) : orders.length === 0 ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
-          {t('admin.orders.noResults') || 'No delivery records found.'}
+          {t('admin.orders.noResults')}
         </div>
       ) : (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.orderNumberColumn') || 'Order #'}</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.shopColumn') || 'Origin Shop'}</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.deliveryColumn') || 'Fulfillment Method'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.statusColumn') || 'Status'}</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.totalColumn') || 'Amount'}</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions') || 'Actions'}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.orderNumberColumn')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.shopColumn')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.deliveryColumn')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.statusColumn')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.totalColumn')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -195,7 +195,7 @@ export default function CommerceDeliveriesPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>{o.delivery_method === 'SCHEDULED_DELIVERY' ? '🚚' : o.delivery_method === 'PICKUP' ? '🏬' : '📲'}</span>
                         <span style={{ fontWeight: 600, color: 'var(--admin-text)' }}>
-                          {o.delivery_method === 'SCHEDULED_DELIVERY' ? 'Livraison par livreur' : adminLabel(o.delivery_method)}
+                          {o.delivery_method === 'SCHEDULED_DELIVERY' ? t('adminCommerceDeliveriesCommerceDeliveriesPage.courierDelivery') : adminLabel(o.delivery_method)}
                         </span>
                       </div>
                     </td>
@@ -219,7 +219,7 @@ export default function CommerceDeliveriesPage() {
                           border: '1px solid var(--admin-border-soft)'
                         }}
                       >
-                        {t('admin.orders.details') || 'Inspect'}
+                        {t('admin.orders.details')}
                       </Link>
                     </td>
                   </tr>
@@ -245,7 +245,7 @@ export default function CommerceDeliveriesPage() {
               opacity: page === 0 ? 0.5 : 1
             }}
           >
-            {t('common.previous') || 'Previous'}
+            {t('common.previous')}
           </button>
           <span style={{ padding: '6px 12px', color: 'var(--admin-text-muted)', fontSize: 13 }}>
             {page + 1} / {totalPages}
@@ -263,7 +263,7 @@ export default function CommerceDeliveriesPage() {
               opacity: page >= totalPages - 1 ? 0.5 : 1
             }}
           >
-            {t('common.next') || 'Next'}
+            {t('common.next')}
           </button>
         </div>
       )}

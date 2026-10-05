@@ -574,7 +574,7 @@ export default function SellerProductCreatePage() {
         name: '',
         type: 'INFO',
         values: '',
-        placeholder: 'e.g. Genuine Leather, 2026-12-31',
+        placeholder: t('sellerProductsSellerProductCreatePage.characteristicPlaceholder'),
       },
     ])
   }
@@ -644,9 +644,9 @@ export default function SellerProductCreatePage() {
       for (const [index, draft] of variantDrafts.entries()) {
         const p = parseFloat(draft.price || form.unit_price)
         const label = variantDisplayLabel(draft.attributes, variantAttrDefs, t('seller.productForm.variantN', { n: index + 1 }))
-        if (isNaN(p) || p <= 0) return `Variant "${label}" needs a valid Price (greater than 0).`
+        if (isNaN(p) || p <= 0) return t('sellerProductsSellerProductCreatePage.variantPriceInvalid', { label })
         const s = parseInt(draft.stock, 10)
-        if (isNaN(s) || s < 0) return `Variant "${label}" stock must be 0 or more.`
+        if (isNaN(s) || s < 0) return t('sellerProductsSellerProductCreatePage.variantStockInvalid', { label })
         const signature = variantAttrDefs.map((def) => getAttributeValue(draft.attributes, def).trim().toLowerCase()).join('\u001f')
         if (seenCombinations.has(signature)) return t('seller.productForm.validation.duplicateVariant')
         seenCombinations.add(signature)
@@ -667,7 +667,7 @@ export default function SellerProductCreatePage() {
 
     try {
       if (!activeBusiness || !shop) {
-        throw new Error('Business or shop information is unavailable. Reload the page and try again.')
+        throw new Error(t('sellerProductsSellerProductCreatePage.businessUnavailable'))
       }
 
       /* Step 1 — Create Product (always as DRAFT first) */
@@ -1295,7 +1295,7 @@ export default function SellerProductCreatePage() {
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 {imagePreviews.map((url, idx) => (
                   <div key={url} className="image-thumb">
-                    <img src={url} alt={`Preview ${idx + 1}`} />
+                    <img src={url} alt={t('sellerProductsSellerProductCreatePage.previewAlt', { n: idx + 1 })} />
                     {idx === 0 && <span className="badge badge-success image-primary-badge">{t('seller.productDetail.primary')}</span>}
                     <div className="image-thumb-actions">
                       {idx !== 0 && (
@@ -1487,7 +1487,7 @@ export default function SellerProductCreatePage() {
                                 options={def.input_type === 'SELECT'
                                   ? [{ value: '', label: `— ${label} —` }, ...(def.allowed_values || []).map((value) => ({ value, label: value }))]
                                   : def.input_type === 'BOOLEAN'
-                                    ? [{ value: '', label: `— ${label} —` }, { value: 'true', label: 'Oui' }, { value: 'false', label: 'Non' }]
+                                    ? [{ value: '', label: `— ${label} —` }, { value: 'true', label: t('common.yes') }, { value: 'false', label: t('common.no') }]
                                     : undefined}
                                 onFocus={() => setFocusTarget({ clientId: draft.clientId, key: def.key })}
                                 onChange={(e) => updateVariantAttribute(draft.clientId, def.key, e.target.value)}
@@ -1703,9 +1703,9 @@ export default function SellerProductCreatePage() {
             <Card className="reveal-section">
               {!isVariantMode && (
                 <div style={{ marginBottom: 24 }}>
-                  <h3>Stock at: {shop.name}</h3>
+                  <h3>{t('sellerProductsSellerProductCreatePage.stockAt', { shop: shop.name })}</h3>
                   <p className="muted small" style={{ margin: '4px 0 12px' }}>
-                    This stock belongs only to <strong>{shop.name}</strong>. Other Shops keep their own stock.
+                    {t('sellerProductsSellerProductCreatePage.stockBelongsPrefix')}<strong>{shop.name}</strong>{t('sellerProductsSellerProductCreatePage.stockBelongsSuffix')}
                   </p>
                   <div style={{ maxWidth: 280 }}>
                     <Field
@@ -1737,7 +1737,7 @@ export default function SellerProductCreatePage() {
                   {' · '}{selectedCategoryLabel}{selectedSubcategory ? ` › ${subcategoryLabel(t, selectedSubcategory.slug, selectedSubcategory.name)}` : ''}
                   {' · '}{shop.name}
                   {' · '}{totalUnits} {t('seller.productForm.unitsPlural')}
-                  {imageFiles.length > 0 && ` · ${imageFiles.length} photo${imageFiles.length > 1 ? 's' : ''}`}
+                  {imageFiles.length > 0 && ` · ${t(imageFiles.length > 1 ? 'sellerProductsSellerProductCreatePage.photoCountOther' : 'sellerProductsSellerProductCreatePage.photoCountOne', { count: imageFiles.length })}`}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                   <Button

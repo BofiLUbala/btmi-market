@@ -10,7 +10,7 @@ import { useColors } from '../../src/store/theme'
 import { spacing, type Colors, fonts } from '../../src/theme'
 import type { CashSession } from '../../src/types'
 import { formatMoney } from '../../src/lib/money'
-import { formatDateTime } from '../../src/lib/format'
+import { dateLocale, formatDateTime } from '../../src/lib/format'
 
 const POLL_INTERVAL = 30_000
 
@@ -111,7 +111,7 @@ export default function SellerCashScreen() {
       <Button variant="outline" dense title={expandedSession === session.id ? t('seller.hideDetails') : t('seller.cash.viewPayments')} onPress={() => setExpandedSession(expandedSession === session.id ? null : session.id)} />
       {expandedSession === session.id && <Fragment>
         {payments.isLoading ? <Loading label={t('common.loading')} /> : !payments.data?.length ? <Text style={styles.muted}>{t('seller.cash.noPayments')}</Text> : payments.data.map((p) => (
-          <Text key={p.id} style={styles.muted}>{formatMoney(p.amount, session.currency)} · {p.payment_method} · {new Date(p.created_at).toLocaleString()}</Text>
+          <Text key={p.id} style={styles.muted}>{formatMoney(p.amount, session.currency)} · {p.payment_method} · {new Date(p.created_at).toLocaleString(dateLocale())}</Text>
         ))}
       </Fragment>}
     </Card>))}

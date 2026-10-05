@@ -126,10 +126,10 @@ export default function LoginPage() {
         <h1>{t('auth.login.title')}</h1>
         <p className="muted small">{t('auth.login.subtitle')}</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 16 }}>
-          <span className="btn btn-primary">Acheteur</span>
-          <Link className="btn btn-outline" to="/seller/login">Vendeur</Link>
-          <Link className="btn btn-outline" to="/livreur/login">Livreur</Link>
-          <Link className="btn btn-outline" to="/admin/login">Administration</Link>
+          <span className="btn btn-primary">{t('authLoginPage.roleBuyer')}</span>
+          <Link className="btn btn-outline" to="/seller/login">{t('authLoginPage.roleSeller')}</Link>
+          <Link className="btn btn-outline" to="/livreur/login">{t('authLoginPage.roleCourier')}</Link>
+          <Link className="btn btn-outline" to="/admin/login">{t('authLoginPage.roleAdmin')}</Link>
         </div>
         {whatsappEnabled && <ChannelSwitch value={channel} onChange={(c) => { setChannel(c); setError('') }} label={t('auth.whatsapp.loginWith')} />}
         {error && <ErrorBox error={error} />}

@@ -18,10 +18,10 @@ export default function CommercePerformanceHubPage() {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>📈</span> {t('admin.commerce.performanceHubTitle') || 'Commerce Performance Hub'}
+            <span>📈</span> {t('admin.commerce.performanceHubTitle')}
           </h2>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
-            {t('admin.commerce.performanceHubSubtitle') || 'Analyze fulfillment rates, preparation times, category throughput, and merchant reliability.'}
+            {t('admin.commerce.performanceHubSubtitle')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -41,7 +41,7 @@ export default function CommercePerformanceHubPage() {
               gap: 6
             }}
           >
-            <BoxIcon style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} /> {t('admin.commerce.orders') || 'Orders'}
+            <BoxIcon style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} /> {t('admin.commerce.orders')}
           </Link>
           <Link
             to="/admin/commerce/inventory"
@@ -59,7 +59,7 @@ export default function CommercePerformanceHubPage() {
               gap: 6
             }}
           >
-            <BarChartIcon style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} /> {t('admin.commerce.inventory') || 'Inventory'}
+            <BarChartIcon style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} /> {t('admin.commerce.inventory')}
           </Link>
         </div>
       </div>
@@ -81,7 +81,7 @@ export default function CommercePerformanceHubPage() {
             transition: 'all 0.15s ease'
           }}
         >
-          💼 {t('admin.performance.sellerTitle') || 'Seller Reliability'}
+          💼 {t('admin.performance.sellerTitle')}
         </button>
         <button
           onClick={() => setActiveTab('shops')}
@@ -98,7 +98,7 @@ export default function CommercePerformanceHubPage() {
             transition: 'all 0.15s ease'
           }}
         >
-          🏪 {t('admin.performance.shopTitle') || 'Shop Performance'}
+          🏪 {t('admin.performance.shopTitle')}
         </button>
         <button
           onClick={() => setActiveTab('products')}
@@ -132,7 +132,7 @@ export default function CommercePerformanceHubPage() {
             transition: 'all 0.15s ease'
           }}
         >
-          📂 {t('admin.performance.categoryTitle') || 'Category Analytics'}
+          📂 {t('admin.performance.categoryTitle')}
         </button>
       </div>
 

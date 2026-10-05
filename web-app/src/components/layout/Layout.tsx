@@ -62,7 +62,7 @@ export function Layout() {
     return (
       <div className="checkout-shell">
         <header className="checkout-shell-header">
-          <button type="button" onClick={() => navigate(-1)} aria-label="Retour">←</button>
+          <button type="button" onClick={() => navigate(-1)} aria-label={t('common.back')}>←</button>
           <strong>{t('checkout.shellTitle')}</strong>
           <span aria-hidden>TBK</span>
         </header>

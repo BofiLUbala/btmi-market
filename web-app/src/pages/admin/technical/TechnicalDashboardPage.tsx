@@ -18,6 +18,7 @@ import {
   type VisualSearchHealth,
 } from '../../../api/admin'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
 
 // ─── Section Card ─────────────────────────────────────────────────────────────
@@ -227,15 +228,15 @@ export default function TechnicalDashboardPage() {
   }
 
   const handleRetryJob = async (jobId: string) => {
-    const reason = window.prompt(t('admin.technical.retryJobPrompt') || 'Reason for re-queuing this job:')
+    const reason = window.prompt(t('admin.technical.retryJobPrompt'))
     if (!reason || !reason.trim()) return
     try {
       await adminTechnicalApi.retryJob(jobId, reason.trim())
       const res = await adminTechnicalApi.listFailedJobs('default', 20, 0)
       setFailedJobs(res.items ?? [])
-      alert(t('admin.technical.jobRetriedSuccess') || 'Job re-queued successfully')
+      alert(t('admin.technical.jobRetriedSuccess'))
     } catch (err: any) {
-      alert(err?.message || 'Retry failed')
+      alert(err?.message || t('adminTechnicalTechnicalDashboardPage.retryFailed'))
     }
   }
 
@@ -272,14 +273,14 @@ export default function TechnicalDashboardPage() {
         {/* KPI Grid */}
         {kpis && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
-            <KPICard label={t('admin.technical.kpiApi')} value={kpis.api_status} status={kpis.api_status} icon="🌐" />
-            <KPICard label={t('admin.technical.kpiPostgresql')} value={kpis.db_status} status={kpis.db_status} icon="🗄️" />
-            <KPICard label={t('admin.technical.kpiRedis')} value={kpis.redis_status} status={kpis.redis_status} icon="⚡" />
-            <KPICard label={t('admin.technical.kpiWorkers')} value={kpis.worker_status} status={kpis.worker_status} icon="⚙️" />
+            <KPICard label={t('admin.technical.kpiApi')} value={adminLabel(kpis.api_status)} status={kpis.api_status} icon="🌐" />
+            <KPICard label={t('admin.technical.kpiPostgresql')} value={adminLabel(kpis.db_status)} status={kpis.db_status} icon="🗄️" />
+            <KPICard label={t('admin.technical.kpiRedis')} value={adminLabel(kpis.redis_status)} status={kpis.redis_status} icon="⚡" />
+            <KPICard label={t('admin.technical.kpiWorkers')} value={adminLabel(kpis.worker_status)} status={kpis.worker_status} icon="⚙️" />
             <KPICard label={t('admin.technical.kpiFailedJobs')} value={kpis.failed_jobs_count} icon="❌" />
             <KPICard label={t('admin.technical.kpiSecurityAlerts')} value={kpis.security_alerts_count} icon="🚨" />
             <KPICard label={t('admin.technical.kpiActiveSessions')} value={kpis.active_sessions_count} icon="🔑" />
-            <KPICard label={t('admin.technical.kpiBackup')} value={kpis.backup_status} status={kpis.backup_status === 'OK' ? 'HEALTHY' : 'NOT_CONFIGURED'} icon="💾" />
+            <KPICard label={t('admin.technical.kpiBackup')} value={adminLabel(kpis.backup_status)} status={kpis.backup_status === 'OK' ? 'HEALTHY' : 'NOT_CONFIGURED'} icon="💾" />
             <KPICard label={t('admin.technical.kpiMigrations')} value={adminLabel(kpis.migration_status)} status={kpis.migration_status === 'UP_TO_DATE' ? 'HEALTHY' : 'WARNING'} icon="🔄" />
             <KPICard label={t('admin.technical.kpiWebVersion')} value={kpis.web_version || '—'} icon="🌐" />
             <KPICard label={t('admin.technical.kpiAndroidVersion')} value={kpis.android_version || '—'} icon="📱" />
@@ -296,7 +297,7 @@ export default function TechnicalDashboardPage() {
           <SectionCard title={t('admin.technical.serviceHealthTitle')} icon="🏥" onRefresh={loadAll}>
             <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
               <StatusBadge status={health.overall_status} />
-              <span style={{ fontSize: 12, color: '#64748b' }}>{t('admin.technical.checkedAt', { time: new Date(health.checked_at).toLocaleTimeString('fr-FR') })}</span>
+              <span style={{ fontSize: 12, color: '#64748b' }}>{t('admin.technical.checkedAt', { time: new Date(health.checked_at).toLocaleTimeString(dateLocale()) })}</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
               {health.services.map((svc) => (
@@ -334,7 +335,7 @@ export default function TechnicalDashboardPage() {
                 m.version,
                 m.name,
                 <StatusBadge key={m.version} status={m.status} />,
-                new Date(m.applied_at).toLocaleString('fr-FR')
+                new Date(m.applied_at).toLocaleString(dateLocale())
               ])}
             />
           </SectionCard>
@@ -344,29 +345,29 @@ export default function TechnicalDashboardPage() {
 
       {/* ── BACKUPS ──────────────────────────────────────────────────── */}
       {activeTab === 'backups' && (
-        <SectionCard title="Sauvegardes de la base" icon="💾" onRefresh={() => void loadAll(true)}>
+        <SectionCard title={t('adminTechnicalTechnicalDashboardPage.backupsTitle')} icon="💾" onRefresh={() => void loadAll(true)}>
           {backups ? (
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 14, fontSize: 13, color: '#94a3b8' }}>
-              <div>Statut <StatusBadge status={backups.backup_status} /></div>
-              <div>Dernière réussie <strong style={{ color: '#f1f5f9' }}>{backups.last_successful_backup ? new Date(backups.last_successful_backup).toLocaleString('fr-FR') : 'jamais'}</strong></div>
-              <div>Taille <strong style={{ color: '#f1f5f9' }}>{backups.backup_size_formatted || '—'}</strong></div>
-              <div>Prochaine prévue <strong style={{ color: '#f1f5f9' }}>{backups.next_scheduled_backup ? new Date(backups.next_scheduled_backup).toLocaleString('fr-FR') : '—'}</strong></div>
-              <div>Rétention <strong style={{ color: '#f1f5f9' }}>{backups.retention_policy}</strong></div>
+              <div>{t('common.status')} <StatusBadge status={backups.backup_status} /></div>
+              <div>{t('adminTechnicalTechnicalDashboardPage.lastSuccessful')} <strong style={{ color: '#f1f5f9' }}>{backups.last_successful_backup ? new Date(backups.last_successful_backup).toLocaleString(dateLocale()) : t('adminTechnicalTechnicalDashboardPage.never')}</strong></div>
+              <div>{t('adminTechnicalTechnicalDashboardPage.size')} <strong style={{ color: '#f1f5f9' }}>{backups.backup_size_formatted || '—'}</strong></div>
+              <div>{t('adminTechnicalTechnicalDashboardPage.nextScheduled')} <strong style={{ color: '#f1f5f9' }}>{backups.next_scheduled_backup ? new Date(backups.next_scheduled_backup).toLocaleString(dateLocale()) : '—'}</strong></div>
+              <div>{t('adminTechnicalTechnicalDashboardPage.retention')} <strong style={{ color: '#f1f5f9' }}>{backups.retention_policy}</strong></div>
             </div>
-          ) : <p style={{ color: '#94a3b8' }}>Résumé indisponible.</p>}
+          ) : <p style={{ color: '#94a3b8' }}>{t('adminTechnicalTechnicalDashboardPage.summaryUnavailable')}</p>}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input aria-label="Motif de la sauvegarde" placeholder="Motif (journalisé, 5 caractères min.)" value={backupReason} onChange={(e) => setBackupReason(e.target.value)}
+            <input aria-label={t('adminTechnicalTechnicalDashboardPage.backupReason')} placeholder={t('adminTechnicalTechnicalDashboardPage.backupReasonPlaceholder')} value={backupReason} onChange={(e) => setBackupReason(e.target.value)}
               style={{ flex: '1 1 260px', padding: 8, background: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: 6 }} />
             <button className="admin-button admin-button-primary" disabled={backupBusy || backupReason.trim().length < 5} onClick={async () => {
               setBackupBusy(true); setBackupMessage(null)
               try {
                 setBackups(await adminTechnicalApi.createBackup(backupReason.trim()))
                 setBackupReason('')
-                setBackupMessage({ ok: true, text: 'Sauvegarde créée.' })
+                setBackupMessage({ ok: true, text: t('adminTechnicalTechnicalDashboardPage.backupCreated') })
               } catch (err: any) {
-                setBackupMessage({ ok: false, text: err?.message || 'Échec de la sauvegarde' })
+                setBackupMessage({ ok: false, text: err?.message || t('adminTechnicalTechnicalDashboardPage.backupFailed') })
               } finally { setBackupBusy(false) }
-            }}>{backupBusy ? 'Sauvegarde…' : 'Lancer une sauvegarde'}</button>
+            }}>{backupBusy ? t('adminTechnicalTechnicalDashboardPage.backingUp') : t('adminTechnicalTechnicalDashboardPage.runBackup')}</button>
           </div>
           {backupMessage && <p role="status" style={{ color: backupMessage.ok ? '#4ade80' : '#f87171', fontSize: 13 }}>{backupMessage.text}</p>}
         </SectionCard>
@@ -374,15 +375,15 @@ export default function TechnicalDashboardPage() {
 
       {/* ── VISUAL SEARCH ────────────────────────────────────────────── */}
       {activeTab === 'visual-search' && (
-        <SectionCard title="Recherche visuelle" icon="🖼️" onRefresh={() => void loadAll(true)}>
+        <SectionCard title={t('admin.layout.itemVisualSearch')} icon="🖼️" onRefresh={() => void loadAll(true)}>
           {visualSearch ? (
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13, color: '#94a3b8' }}>
-              <div>Service <strong style={{ color: '#f1f5f9' }}>{visualSearch.service_name}</strong></div>
-              <div>Statut <StatusBadge status={visualSearch.status} /></div>
-              <div>Joignable <strong style={{ color: visualSearch.reachable ? '#4ade80' : '#f87171' }}>{visualSearch.reachable ? 'oui' : 'non'}</strong></div>
-              <div>Latence <strong style={{ color: '#f1f5f9' }}>{visualSearch.latency_ms} ms</strong></div>
+              <div>{t('adminTechnicalTechnicalDashboardPage.service')} <strong style={{ color: '#f1f5f9' }}>{visualSearch.service_name}</strong></div>
+              <div>{t('common.status')} <StatusBadge status={visualSearch.status} /></div>
+              <div>{t('adminTechnicalTechnicalDashboardPage.reachable')} <strong style={{ color: visualSearch.reachable ? '#4ade80' : '#f87171' }}>{visualSearch.reachable ? t('adminTechnicalTechnicalDashboardPage.yesLower') : t('adminTechnicalTechnicalDashboardPage.noLower')}</strong></div>
+              <div>{t('admin.technical.kpiLatency')} <strong style={{ color: '#f1f5f9' }}>{visualSearch.latency_ms} ms</strong></div>
             </div>
-          ) : <p style={{ color: '#94a3b8' }}>Santé indisponible.</p>}
+          ) : <p style={{ color: '#94a3b8' }}>{t('adminTechnicalTechnicalDashboardPage.healthUnavailable')}</p>}
         </SectionCard>
       )}
 
@@ -406,7 +407,7 @@ export default function TechnicalDashboardPage() {
       {activeTab === 'database' && db && (
         <SectionCard title={t('admin.technical.postgresHealthTitle')} icon="🗄️" onRefresh={() => adminTechnicalApi.getPostgresHealth().then(setDb)}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
-            <KPICard label={t('common.status')} value={db.reachable ? 'HEALTHY' : 'DOWN'} status={db.reachable ? 'HEALTHY' : 'DOWN'} icon="✅" />
+            <KPICard label={t('common.status')} value={adminLabel(db.reachable ? 'HEALTHY' : 'DOWN')} status={db.reachable ? 'HEALTHY' : 'DOWN'} icon="✅" />
             <KPICard label={t('admin.technical.kpiTotalConnections')} value={db.connection_count} icon="🔗" />
             <KPICard label={t('admin.technical.kpiActive')} value={db.active_connections} icon="▶️" />
             <KPICard label={t('admin.technical.kpiIdle')} value={db.idle_connections} icon="⏸️" />
@@ -437,7 +438,7 @@ export default function TechnicalDashboardPage() {
       {activeTab === 'redis' && redis && (
         <SectionCard title={t('admin.technical.redisHealthTitle')} icon="⚡" onRefresh={() => adminTechnicalApi.getRedisHealth().then(setRedis)}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-            <KPICard label={t('common.status')} value={redis.reachable ? 'HEALTHY' : 'DOWN'} status={redis.reachable ? 'HEALTHY' : 'DOWN'} icon="✅" />
+            <KPICard label={t('common.status')} value={adminLabel(redis.reachable ? 'HEALTHY' : 'DOWN')} status={redis.reachable ? 'HEALTHY' : 'DOWN'} icon="✅" />
             <KPICard label={t('admin.technical.kpiLatency')} value={`${redis.latency_ms}ms`} icon="⚡" />
             <KPICard label={t('admin.technical.kpiMemoryUsed')} value={redis.memory_used_formatted || '—'} icon="💾" />
             <KPICard label={t('admin.technical.kpiKeys')} value={redis.key_count} icon="🔑" />
@@ -477,26 +478,26 @@ export default function TechnicalDashboardPage() {
             </SectionCard>
           )}
 
-          <SectionCard title={t('admin.layout.itemFailedJobs') || 'Failed Jobs Queue'} icon="❌" onRefresh={() => adminTechnicalApi.listFailedJobs('default', 20, 0).then((r) => setFailedJobs(r.items ?? []))}>
+          <SectionCard title={t('admin.layout.itemFailedJobs')} icon="❌" onRefresh={() => adminTechnicalApi.listFailedJobs('default', 20, 0).then((r) => setFailedJobs(r.items ?? []))}>
             <DataTable
-              columns={['Job ID', 'Job Type', 'Queue', 'Retries', 'Last Error', t('admin.common.actions') || 'Actions']}
+              columns={[t('adminTechnicalTechnicalDashboardPage.colJobId'), t('adminTechnicalTechnicalDashboardPage.colJobType'), t('admin.technical.colQueue'), t('adminTechnicalTechnicalDashboardPage.colRetries'), t('adminTechnicalTechnicalDashboardPage.colLastError'), t('admin.common.actions')]}
               rows={failedJobs.map((j) => [
                 <code key={j.job_id} style={{ fontSize: 11, color: '#94a3b8' }}>{j.job_id.slice(0, 8)}...</code>,
                 j.job_type,
                 j.queue,
                 String(j.retry_count),
-                <span key={`err-${j.job_id}`} style={{ color: '#f87171', fontSize: 11 }}>{j.last_error ? adminLabel(j.last_error) : 'Échec d’exécution'}</span>,
+                <span key={`err-${j.job_id}`} style={{ color: '#f87171', fontSize: 11 }}>{j.last_error ? adminLabel(j.last_error) : t('adminTechnicalTechnicalDashboardPage.executionFailed')}</span>,
                 <button
                   key={`btn-${j.job_id}`}
                   onClick={() => handleRetryJob(j.job_id)}
                   style={{ padding: '4px 10px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
                 >
-                  🔄 Retry Job
+                  🔄 {t('adminTechnicalTechnicalDashboardPage.retryJob')}
                 </button>
               ])}
             />
             {failedJobs.length === 0 && (
-              <div style={{ color: '#4ade80', fontSize: 13, marginTop: 8 }}>✅ No failed background jobs in queue.</div>
+              <div style={{ color: '#4ade80', fontSize: 13, marginTop: 8 }}>✅ {t('adminTechnicalTechnicalDashboardPage.noFailedJobs')}</div>
             )}
           </SectionCard>
         </>
@@ -512,7 +513,7 @@ export default function TechnicalDashboardPage() {
               adminLabel(e.event_type),
               e.ip_address || '—',
               <StatusBadge key={`s-${e.id}`} status={e.status} />,
-              new Date(e.created_at).toLocaleString('fr-FR'),
+              new Date(e.created_at).toLocaleString(dateLocale()),
               e.status === 'ACKNOWLEDGED' || e.status === 'RESOLVED' ? (
                 <span key={`a-${e.id}`} style={{ color: '#64748b', fontSize: 11 }}>—</span>
               ) : (
@@ -545,8 +546,8 @@ export default function TechnicalDashboardPage() {
               <span key={s.session_id} style={{ fontSize: 11, color: '#2dd4bf', background: '#134e4a', padding: '2px 6px', borderRadius: 4 }}>{adminLabel(s.admin_role)}</span>,
               s.ip_address,
               <span key={`d-${s.session_id}`} style={{ fontSize: 10, color: '#64748b', wordBreak: 'break-all' }}>{s.device_info.substring(0, 30)}…</span>,
-              new Date(s.created_at).toLocaleDateString('fr-FR'),
-              new Date(s.expires_at).toLocaleDateString('fr-FR'),
+              new Date(s.created_at).toLocaleDateString(dateLocale()),
+              new Date(s.expires_at).toLocaleDateString(dateLocale()),
               <button
                 key={`r-${s.session_id}`}
                 onClick={() => handleRevokeSession(s.session_id, s.admin_email)}
@@ -567,9 +568,9 @@ export default function TechnicalDashboardPage() {
               <div key={v.id} style={{ background: '#1e293b', borderRadius: 12, padding: 16, border: '1px solid #334155' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>
-                    {v.platform === 'WEB' ? '🌐' : v.platform === 'ANDROID' ? '📱' : '🔌'} {v.platform}
+                    {v.platform === 'WEB' ? '🌐' : v.platform === 'ANDROID' ? '📱' : '🔌'} {adminLabel(v.platform)}
                   </h4>
-                  <span style={{ fontSize: 11, color: '#64748b' }}>{t('admin.technical.updatedAt', { date: new Date(v.updated_at).toLocaleDateString('fr-FR') })}</span>
+                  <span style={{ fontSize: 11, color: '#64748b' }}>{t('admin.technical.updatedAt', { date: new Date(v.updated_at).toLocaleDateString(dateLocale()) })}</span>
                 </div>
                 <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div>{t('admin.technical.labelCurrent')} <strong style={{ color: '#2dd4bf' }}>{v.current_version}</strong></div>
@@ -602,7 +603,7 @@ export default function TechnicalDashboardPage() {
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: 420 }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>
-              {t('admin.technical.editVersionTitle', { platform: editingVersion.platform })}
+              {t('admin.technical.editVersionTitle', { platform: adminLabel(editingVersion.platform) })}
             </h3>
 
             {([

@@ -439,7 +439,7 @@ export default function SellerShopsPage() {
                   <span className={`badge ${archived ? 'badge-muted' : 'badge-success'}`}>{t(`seller.shopStatus.${shop.status}` as TranslationKey)}</span>
                 </div>
                 <span className="small muted">
-                  {[shop.building_number, shop.street, shop.commune, shop.city, shop.province].filter(Boolean).join(', ') || shop.address || shop.type}
+                  {[shop.building_number, shop.street, shop.commune, shop.city, shop.province].filter(Boolean).join(', ') || shop.address || (shop.type === 'PHYSICAL' ? t('seller.shopPage.typePhysical') : shop.type === 'ONLINE' ? t('seller.shopPage.typeOnline') : shop.type)}
                 </span>
 
                 {archived ? (

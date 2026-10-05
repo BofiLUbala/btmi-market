@@ -31,19 +31,19 @@ const isMobile = (method: string) => method === MOBILE_PAY_NOW || method === MOB
  * the operator's signed callback can make it PAID. Nothing here marks paid.
  */
 /* Same wording as web-app/src/pages/checkout/PaymentPage.tsx. */
-const TIMING_CHOICES: Array<{ timing: Timing; title: string; hint: string }> = [
-  { timing: 'NOW', title: 'Payer maintenant', hint: 'Paiement mobile immédiat, confirmé par l’opérateur avant la livraison.' },
-  { timing: 'DELIVERY', title: 'Payer à la livraison', hint: 'Rien n’est prélevé maintenant. Le montant est dû à la remise de la commande.' },
+const TIMING_CHOICES: Array<{ timing: Timing; title: TranslationKey; hint: TranslationKey }> = [
+  { timing: 'NOW', title: 'checkoutPayment.payNow', hint: 'checkoutPayment.payNowHint' },
+  { timing: 'DELIVERY', title: 'checkoutPayment.payOnDelivery', hint: 'checkoutPayment.payOnDeliveryHint' },
 ]
-const METHOD_HINT: Record<string, string> = {
-  CASH_ON_DELIVERY: 'Espèces remises au Livreur, qui confirme la réception sur place.',
-  MOBILE_AT_DELIVERY: 'Paiement mobile effectué à la remise, confirmé par l’opérateur.',
-  MOBILE_PAY_NOW: 'Paiement mobile immédiat. Aucun paiement ne sera demandé à la livraison.',
+const METHOD_HINT: Record<string, TranslationKey> = {
+  CASH_ON_DELIVERY: 'checkoutPayment.methodHintCash',
+  MOBILE_AT_DELIVERY: 'checkoutPayment.methodHintMobileAtDelivery',
+  MOBILE_PAY_NOW: 'checkoutPayment.methodHintMobileNow',
 }
-const METHOD_TITLE: Record<string, string> = {
-  CASH_ON_DELIVERY: 'Espèces',
-  MOBILE_AT_DELIVERY: 'Paiement mobile à la livraison',
-  MOBILE_PAY_NOW: 'Paiement mobile',
+const METHOD_TITLE: Record<string, TranslationKey> = {
+  CASH_ON_DELIVERY: 'checkoutPayment.methodCash',
+  MOBILE_AT_DELIVERY: 'checkoutPayment.methodMobileAtDelivery',
+  MOBILE_PAY_NOW: 'checkoutPayment.methodMobileNow',
 }
 
 export default function PaymentScreen() {
@@ -276,14 +276,14 @@ export default function PaymentScreen() {
   const firstOrder = orders[0]?.data?.order as any
   const deliveryRows: Array<[string, string]> = firstOrder
     ? ([
-        ['Province', firstOrder.delivery_province], ['Ville', firstOrder.delivery_city], ['Commune', firstOrder.delivery_commune],
-        ['Adresse', firstOrder.delivery_street || firstOrder.delivery_address], ['Numéro', firstOrder.delivery_building_number],
-        ['Point de repère', firstOrder.delivery_landmark],
+        [t('seller.province'), firstOrder.delivery_province], [t('common.city'), firstOrder.delivery_city], [t('common.commune'), firstOrder.delivery_commune],
+        [t('common.address'), firstOrder.delivery_street || firstOrder.delivery_address], [t('checkoutPayment.buildingNumber'), firstOrder.delivery_building_number],
+        [t('checkoutPayment.landmark'), firstOrder.delivery_landmark],
       ] as Array<[string, string]>).filter(([, v]) => Boolean(v))
     : []
-  let ctaLabel = 'Confirmer la commande'
-  if (place.isPending) ctaLabel = 'Création de la commande...'
-  else if (paymentMethod === MOBILE_PAY_NOW) ctaLabel = 'Payer maintenant'
+  let ctaLabel = t('checkoutPayment.confirmOrder')
+  if (place.isPending) ctaLabel = t('checkoutPayment.creatingOrder')
+  else if (paymentMethod === MOBILE_PAY_NOW) ctaLabel = t('checkoutPayment.payNow')
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -294,16 +294,16 @@ export default function PaymentScreen() {
 
         {/* One payment card with the numbered steps, as on the web */}
         <CheckoutCard>
-          <CardHead title="Mode de paiement" meta="Sélection sécurisée" />
+          <CardHead title={t('checkoutPayment.paymentMethod')} meta={t('checkoutPayment.secureSelection')} />
 
-          <Text style={styles.stepTitle}>1. Quand souhaitez-vous payer ?</Text>
+          <Text style={styles.stepTitle}>{t('checkoutPayment.step1')}</Text>
           {TIMING_CHOICES.filter((choice) => methodsFor(choice.timing).length > 0).map((choice) => (
-            <Choice key={choice.timing} styles={styles} selected={timing === choice.timing} title={choice.title} hint={choice.hint} onPress={() => chooseTiming(choice.timing)} />
+            <Choice key={choice.timing} styles={styles} selected={timing === choice.timing} title={t(choice.title)} hint={t(choice.hint)} onPress={() => chooseTiming(choice.timing)} />
           ))}
 
           {timing && methodsFor(timing).length > 0 ? (
             <>
-              <Text style={[styles.stepTitle, styles.stepGap]}>2. {timing === 'NOW' ? 'Paiement mobile immédiat' : 'Comment payer à la livraison ?'}</Text>
+              <Text style={[styles.stepTitle, styles.stepGap]}>{timing === 'NOW' ? t('checkoutPayment.step2Now') : t('checkoutPayment.step2Delivery')}</Text>
               {methodsFor(timing).map((m) => {
                 // Before a method is picked nothing is re-priced yet: fall back to the
                 // base quote's own figure instead of claiming the method is free.
@@ -313,9 +313,9 @@ export default function PaymentScreen() {
                     key={m.code}
                     styles={styles}
                     selected={paymentMethod === m.code}
-                    title={METHOD_TITLE[m.code] ?? methodLabel(m)}
-                    hint={METHOD_HINT[m.code] ?? ''}
-                    aside={markup > 0 ? `+ ${money(markup, currency)}` : 'Sans frais'}
+                    title={METHOD_TITLE[m.code] ? t(METHOD_TITLE[m.code]) : methodLabel(m)}
+                    hint={METHOD_HINT[m.code] ? t(METHOD_HINT[m.code]) : ''}
+                    aside={markup > 0 ? `+ ${money(markup, currency)}` : t('checkoutPayment.noFee')}
                     onPress={() => { setPaymentMethod(m.code); setProvider(''); setError('') }}
                   />
                 )
@@ -325,8 +325,8 @@ export default function PaymentScreen() {
 
           {needsProvider ? (
             <>
-              <Text style={[styles.stepTitle, styles.stepGap]}>3. Choisissez votre opérateur Mobile Money</Text>
-              {providers.length === 0 ? <SmallText>Aucun opérateur mobile n’est disponible actuellement.</SmallText> : (
+              <Text style={[styles.stepTitle, styles.stepGap]}>{t('checkoutPayment.step3')}</Text>
+              {providers.length === 0 ? <SmallText>{t('checkoutPayment.noProvider')}</SmallText> : (
                 <View style={styles.providers}>
                   {providers.map((prov) => (
                     <Pressable key={prov.code} onPress={() => setProvider(prov.code)} accessibilityRole="radio" accessibilityState={{ selected: provider === prov.code }} style={[styles.provider, provider === prov.code && styles.choiceSelected]}>
@@ -340,16 +340,16 @@ export default function PaymentScreen() {
 
           {needsProvider && provider ? (
             <View style={styles.phoneBlock}>
-              <Text style={styles.stepTitle}>4. Numéro de téléphone Mobile Money</Text>
+              <Text style={styles.stepTitle}>{t('checkoutPayment.step4')}</Text>
               <Field
-                label={needsPhoneNow ? 'Entrez le numéro qui recevra la demande de paiement :' : 'Numéro pour la livraison (optionnel) :'}
+                label={needsPhoneNow ? t('checkoutPayment.phoneNowLabel') : t('checkoutPayment.phoneDeliveryLabel')}
                 value={payerPhone}
                 keyboardType="phone-pad"
                 placeholder="+243 ..."
                 onChangeText={setPayerPhone}
               />
-              {needsPhoneNow && !phoneReady ? <Text style={styles.warn}>Entrez le numéro Mobile Money qui sera débité (min. 9 chiffres).</Text> : null}
-              {paymentMethod === MOBILE_AT_DELIVERY ? <SmallText>Rien n’est prélevé maintenant. Le Livreur sera présent lors du paiement à la livraison.</SmallText> : null}
+              {needsPhoneNow && !phoneReady ? <Text style={styles.warn}>{t('checkoutPayment.phoneWarn')}</Text> : null}
+              {paymentMethod === MOBILE_AT_DELIVERY ? <SmallText>{t('checkoutPayment.mobileAtDeliveryNote')}</SmallText> : null}
             </View>
           ) : null}
         </CheckoutCard>
@@ -362,18 +362,18 @@ export default function PaymentScreen() {
               <View style={styles.lineInfo}>
                 <Text style={styles.name} numberOfLines={2}>{line.product_name}</Text>
                 <Text style={styles.muted}>{[line.variant_name, w('payment.quantity', { count: line.quantity })].filter(Boolean).join(' · ')}</Text>
-                <Text style={styles.muted}>Boutique : {shop || '—'} · Prix unitaire : {money(line.final_unit_price, lineCurrency)}</Text>
+                <Text style={styles.muted}>{t('checkoutPayment.lineShopPrice', { shop: shop || '—', price: money(line.final_unit_price, lineCurrency) })}</Text>
               </View>
               <Text style={styles.linePrice}>{money(line.final_unit_price * line.quantity, lineCurrency)}</Text>
             </View>
           ))}
-          {orderIds.length > 1 ? <SmallText>Ce paiement couvre {orderIds.length} commandes boutiques distinctes.</SmallText> : null}
+          {orderIds.length > 1 ? <SmallText>{t('checkoutPayment.coversOrders', { count: orderIds.length })}</SmallText> : null}
         </CheckoutCard>
 
         {/* Delivery recap */}
         {firstOrder ? (
           <CheckoutCard>
-            <CardHead title={w('product.delivery')} meta="Livraison TBK" />
+            <CardHead title={w('product.delivery')} meta={t('checkoutPayment.tbkDelivery')} />
             {deliveryRows.length ? (
               <View style={styles.addressBox}>
                 {deliveryRows.map(([k, v]) => (
@@ -381,7 +381,7 @@ export default function PaymentScreen() {
                 ))}
               </View>
             ) : null}
-            <View style={styles.totalRow}><Text style={styles.muted}>Frais de livraison</Text><Text style={styles.value}>{money(priced.length ? sum((q) => q.delivery_fee) : Number(firstOrder.delivery_fee_final ?? 0), currency)}</Text></View>
+            <View style={styles.totalRow}><Text style={styles.muted}>{t('checkoutPayment.deliveryFee')}</Text><Text style={styles.value}>{money(priced.length ? sum((q) => q.delivery_fee) : Number(firstOrder.delivery_fee_final ?? 0), currency)}</Text></View>
           </CheckoutCard>
         ) : null}
 
@@ -394,24 +394,24 @@ export default function PaymentScreen() {
                 <View style={styles.summaryLine}><Text style={styles.muted}>{w('cart.products')}</Text><Text style={styles.value}>{money(sum((q) => q.subtotal), currency)}</Text></View>
                 {sum((q) => q.points_discount) > 0 ? <View style={styles.summaryLine}><Text style={styles.muted}>{w('payment.productPoints')}</Text><Text style={styles.discount}>−{money(sum((q) => q.points_discount), currency)}</Text></View> : null}
                 <View style={styles.summaryLine}><Text style={styles.muted}>{w('product.delivery')}</Text><Text style={styles.value}>{money(sum((q) => q.delivery_fee), currency)}</Text></View>
-                <View style={styles.summaryLine}><Text style={styles.muted}>Frais du mode de paiement</Text><Text style={styles.value}>{money(sum(methodMarkup), currency)}</Text></View>
+                <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutPayment.methodFee')}</Text><Text style={styles.value}>{money(sum(methodMarkup), currency)}</Text></View>
               </View>
               <View style={styles.total}>
-                <Text style={styles.totalLabel}>TOTAL FINAL</Text>
+                <Text style={styles.totalLabel}>{t('checkoutPayment.finalTotal')}</Text>
                 <Text style={styles.totalValue}>{money(sum(methodTotal), currency)}</Text>
-                <SmallText>Montant total calculé par le serveur</SmallText>
+                <SmallText>{t('checkoutPayment.serverTotal')}</SmallText>
               </View>
             </>
           ) : paymentMethod && pricedQuotes.some((q) => q.isError) ? (
             <ErrorState message={t('checkout.paymentFailed')} retry={() => pricedQuotes.forEach((q) => void q.refetch())} />
           ) : paymentMethod ? <Loading label={t('checkout.preparingPayment')} /> : null}
           <View>
-            <View style={styles.summaryLine}><Text style={styles.muted}>Moment du paiement</Text><Text style={styles.value}>{timing === 'NOW' ? 'Immédiat' : timing === 'DELIVERY' ? 'À la livraison' : '—'}</Text></View>
-            <View style={styles.summaryLine}><Text style={styles.muted}>Mode</Text><Text style={styles.value}>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ?? methodLabel(selectedMethod)) : '—'}</Text></View>
-            <View style={styles.summaryLine}><Text style={styles.muted}>Opérateur</Text><Text style={styles.value}>{needsProvider ? (providers.find((item) => item.code === provider)?.label ?? '—') : 'Sans objet'}</Text></View>
+            <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutPayment.paymentTiming')}</Text><Text style={styles.value}>{timing === 'NOW' ? t('checkoutPayment.timingNow') : timing === 'DELIVERY' ? t('checkoutPayment.timingDelivery') : '—'}</Text></View>
+            <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutPayment.method')}</Text><Text style={styles.value}>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ? t(METHOD_TITLE[selectedMethod.code]) : methodLabel(selectedMethod)) : '—'}</Text></View>
+            <View style={styles.summaryLine}><Text style={styles.muted}>{t('seller.paymentOperator')}</Text><Text style={styles.value}>{needsProvider ? (providers.find((item) => item.code === provider)?.label ?? '—') : t('checkoutPayment.notApplicable')}</Text></View>
           </View>
           <Text style={styles.payNote}>
-            {!timing ? 'Choisissez d’abord quand vous souhaitez payer.' : selectedMethod?.timing === 'NOW' ? 'Vous validerez la demande sur votre téléphone. La commande est confirmée dès validation.' : 'Aucun montant n’est prélevé maintenant. Le total est dû à la livraison.'}
+            {!timing ? t('checkoutPayment.noteChooseTiming') : selectedMethod?.timing === 'NOW' ? t('checkoutPayment.noteNow') : t('checkoutPayment.noteDelivery')}
           </Text>
           <Button
             variant="gold"

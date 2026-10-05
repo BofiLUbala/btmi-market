@@ -1,5 +1,6 @@
 import type { DeliveryPlan } from '../types'
 import type { TranslationKey } from '../locales/fr'
+import { dateLocale } from './format'
 
 type Translate = (key: TranslationKey, vars?: Record<string, string | number>) => string
 
@@ -21,7 +22,7 @@ export function isPaidBeforeHandover(status: string, deliveryStatus?: string, pa
   return !CLOSED_ORDER.includes(status) && !HANDED_OVER.includes(deliveryStatus || '') && SETTLED_PAYMENT.includes(paymentStatus || '')
 }
 
-const locale = (lang: string) => (lang === 'en' ? 'en-US' : 'fr-FR')
+const locale = (lang: string) => dateLocale(lang === 'en' ? 'en' : 'fr')
 
 export function formatDeliveryDay(date: string, lang: string): string {
   return new Date(`${date}T12:00:00`).toLocaleDateString(locale(lang), { weekday: 'long', day: 'numeric', month: 'long' })

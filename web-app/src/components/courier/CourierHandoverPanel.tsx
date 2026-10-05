@@ -150,53 +150,53 @@ export const CourierHandoverPanel = forwardRef<HTMLElement, {
       key: 'arrived',
       label: t('courier.handover.stepArrived'),
       state: state.courier_arrived ? 'COMPLETED' : 'LOCKED',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: t('courierCourierHandoverPanel.actorCourier'),
       canAct: false,
-      reason: state.courier_arrived ? undefined : 'Non encore arrivé'
+      reason: state.courier_arrived ? undefined : t('courierCourierHandoverPanel.reasonNotArrived')
     },
     {
       key: 'products_verified',
       label: `${t('courier.handover.stepVerified')} (${verifiedCount}/${state.lines.length})`,
       state: state.all_products_verified ? 'COMPLETED' :
              state.courier_arrived && !state.all_products_verified ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: t('courierCourierHandoverPanel.actorCourier'),
       actionType: 'VERIFY_PRODUCT',
       primaryButtonText: t('courier.handover.verifyTitle'),
       canAct: state.courier_can_verify_product === true,
-      reason: state.all_products_verified || state.courier_can_verify_product ? undefined : 'Produits non encore vérifiés'
+      reason: state.all_products_verified || state.courier_can_verify_product ? undefined : t('courierCourierHandoverPanel.reasonNotVerified')
     },
     {
       key: 'payment',
       label: isCash ? t('courier.handover.stepCashReceived') : t('courier.handover.stepProviderConfirmed'),
       state: state.payment_verified ? 'COMPLETED' :
              state.all_products_verified && !state.payment_verified ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: isCash ? 'Livreur (Vous)' : 'Acheteur / Opérateur',
+      responsibleActor: isCash ? t('courierCourierHandoverPanel.actorCourier') : t('courierCourierHandoverPanel.actorBuyerOperator'),
       actionType: isCash ? 'CONFIRM_CASH' : 'WAIT_PAYMENT',
       primaryButtonText: isCash ? t('courier.handover.confirmCashAction') : undefined,
       canAct: state.courier_can_confirm_cash === true,
-      reason: !state.all_products_verified ? 'Vérifiez d\'abord les produits' :
+      reason: !state.all_products_verified ? t('courierCourierHandoverPanel.reasonVerifyFirst') :
               state.payment_verified ? undefined :
-              isCash ? 'En attente de confirmation espèces' : 'En attente de confirmation opérateur'
+              isCash ? t('courierCourierHandoverPanel.reasonWaitCash') : t('courierCourierHandoverPanel.reasonWaitOperator')
     },
     {
       key: 'buyer_acknowledged',
       label: t('courier.handover.stepBuyerAcknowledged'),
       state: state.all_lines_acknowledged ? 'COMPLETED' :
              state.all_products_verified && !state.all_lines_acknowledged ? 'WAITING_FOR_OTHER' : 'LOCKED',
-      responsibleActor: 'Acheteur',
+      responsibleActor: t('courierCourierHandoverPanel.actorBuyer'),
       actionType: 'WAIT_BUYER',
       canAct: false,
-      reason: state.all_lines_acknowledged ? undefined : 'Acheteur doit confirmer les articles'
+      reason: state.all_lines_acknowledged ? undefined : t('courierCourierHandoverPanel.reasonBuyerMustConfirm')
     },
     {
       key: 'delivered',
       label: t('courier.handover.stepDelivered'),
       state: state.receipt_confirmed ? 'COMPLETED' :
              state.all_lines_acknowledged && state.payment_verified ? 'WAITING_FOR_OTHER' : 'LOCKED',
-      responsibleActor: 'Acheteur',
+      responsibleActor: t('courierCourierHandoverPanel.actorBuyer'),
       actionType: 'WAIT_BUYER',
       canAct: false,
-      reason: state.receipt_confirmed ? undefined : 'Confirmation acheteur requise'
+      reason: state.receipt_confirmed ? undefined : t('courierCourierHandoverPanel.reasonBuyerConfirmRequired')
     }
   ]
 
@@ -336,6 +336,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function StepItem({ step }: { step: StepInfo }) {
+  const { t } = useI18n()
   const stateStyles: Record<StepState, { opacity: number; prefix: string }> = {
     COMPLETED: { opacity: 1, prefix: '✓' },
     CURRENT_ACTION: { opacity: 1, prefix: '●' },
@@ -348,7 +349,7 @@ function StepItem({ step }: { step: StepInfo }) {
     <li style={{ padding: '6px 0', opacity: style.opacity }}>
       <strong>{style.prefix} {step.label}</strong>
       <div className="courier-muted" style={{ fontSize: '0.85rem', marginTop: 2 }}>
-        {step.responsibleActor && `Responsable: ${step.responsibleActor}`}
+        {step.responsibleActor && t('courierCourierHandoverPanel.responsible', { actor: step.responsibleActor })}
         {step.reason && ` · ${step.reason}`}
       </div>
     </li>

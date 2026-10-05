@@ -1,4 +1,5 @@
 import type { CourierLocation, LocationFreshness } from '@/api/types'
+import { dateLocale } from '@/lib/format'
 
 /**
  * Live courier map rules, shared by the buyer's tracking page and the
@@ -100,7 +101,7 @@ export function formatClock(iso: string | null | undefined, withSeconds = false)
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleTimeString('fr-FR', withSeconds ? { hour: '2-digit', minute: '2-digit', second: '2-digit' } : { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString(dateLocale(), withSeconds ? { hour: '2-digit', minute: '2-digit', second: '2-digit' } : { hour: '2-digit', minute: '2-digit' })
 }
 
 /** Where a route point came from, as shown under the map. */

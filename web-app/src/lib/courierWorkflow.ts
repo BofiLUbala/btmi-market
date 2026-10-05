@@ -1,3 +1,6 @@
+import { translate } from '@/store/i18n'
+import { adminLabel } from '@/lib/adminLabels'
+
 export type DeliveryStatus =
   | 'PENDING_TBK_ASSIGNMENT'
   | 'COURIER_ASSIGNED'
@@ -86,92 +89,92 @@ export function getCourierWorkflow(
   const steps: WorkflowStep[] = [
     {
       key: 'assigned',
-      label: 'Mission assignée',
+      label: translate('libCourierWorkflow.stepAssigned'),
       state: deliveryStatus === 'COURIER_ASSIGNED' ? 'CURRENT_ACTION' :
         ['COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
-      responsibleActor: 'Commerce Admin → Livreur',
+      responsibleActor: translate('libCourierWorkflow.actorAdminToCourier'),
       actionType: 'ACCEPT_REJECT',
-      primaryButtonText: 'Accepter la mission',
-      secondaryButtonText: 'Refuser la mission',
+      primaryButtonText: translate('libCourierWorkflow.acceptMission'),
+      secondaryButtonText: translate('libCourierWorkflow.rejectMission'),
       canAct: deliveryStatus === 'COURIER_ASSIGNED',
       prerequisites: []
     },
     {
       key: 'accepted',
-      label: 'Mission acceptée',
+      label: translate('libCourierWorkflow.stepAccepted'),
       state: deliveryStatus === 'COURIER_ACCEPTED' ? 'CURRENT_ACTION' :
         ['READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: translate('libCourierWorkflow.actorCourierYou'),
       actionType: 'WAIT_SELLER',
       canAct: false,
       prerequisites: ['assigned']
     },
     {
       key: 'ready_for_pickup',
-      label: 'Commande prête pour récupération',
+      label: translate('libCourierWorkflow.stepReadyForPickup'),
       state: deliveryStatus === 'READY_FOR_PICKUP' ? 'CURRENT_ACTION' :
         ['PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: translate('libCourierWorkflow.actorCourierYou'),
       actionType: 'PICKUP',
-      primaryButtonText: 'Confirmer la récupération',
-      secondaryButtonText: 'Scanner le QR vendeur',
+      primaryButtonText: translate('libCourierWorkflow.confirmPickup'),
+      secondaryButtonText: translate('libCourierWorkflow.scanSellerQr'),
       canAct: deliveryStatus === 'READY_FOR_PICKUP',
       prerequisites: ['accepted']
     },
     {
       key: 'picked_up',
-      label: 'Commande récupérée',
+      label: translate('libCourierWorkflow.stepPickedUp'),
       state: deliveryStatus === 'PICKED_UP' ? 'CURRENT_ACTION' :
         ['IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: translate('libCourierWorkflow.actorCourierYou'),
       actionType: 'START_DELIVERY',
-      primaryButtonText: 'Démarrer la livraison',
+      primaryButtonText: translate('libCourierWorkflow.startDelivery'),
       canAct: deliveryStatus === 'PICKED_UP',
       prerequisites: ['ready_for_pickup']
     },
     {
       key: 'in_transit',
-      label: 'En route',
+      label: translate('libCourierWorkflow.stepInTransit'),
       state: deliveryStatus === 'IN_TRANSIT' ? 'CURRENT_ACTION' :
         ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: translate('libCourierWorkflow.actorCourierYou'),
       actionType: 'ARRIVE',
-      primaryButtonText: 'Je suis arrivé',
+      primaryButtonText: translate('libCourierWorkflow.arrived'),
       canAct: deliveryStatus === 'IN_TRANSIT',
       prerequisites: ['picked_up']
     },
     {
       key: 'arrived',
-      label: 'Livreur arrivé',
+      label: translate('libCourierWorkflow.stepArrived'),
       state: deliveryStatus === 'COURIER_ARRIVED' ? 'CURRENT_ACTION' :
         ['DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'DELIVERED', 'RECEIVED', 'COMPLETED'].includes(deliveryStatus) ? 'COMPLETED' : 'PENDING',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: translate('libCourierWorkflow.actorCourierYou'),
       actionType: 'VERIFY_PRODUCT',
-      primaryButtonText: 'Vérifier les produits',
+      primaryButtonText: translate('libCourierWorkflow.verifyProducts'),
       canAct: deliveryStatus === 'COURIER_ARRIVED',
       prerequisites: ['in_transit']
     },
     {
       key: 'product_verified',
-      label: 'Produits vérifiés',
+      label: translate('libCourierWorkflow.stepProductVerified'),
       state: flags.allProductsVerified ? 'COMPLETED' :
         ['PRODUCT_VERIFIED', 'PAYMENT_VERIFIED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus) ? 'COMPLETED' :
         deliveryStatus === 'COURIER_ARRIVED' ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: 'Livreur (Vous)',
+      responsibleActor: translate('libCourierWorkflow.actorCourierYou'),
       actionType: 'VERIFY_PRODUCT',
-      primaryButtonText: 'Vérifier les produits',
+      primaryButtonText: translate('libCourierWorkflow.verifyProducts'),
       canAct: flags.courierCanVerifyProduct === true,
       prerequisites: ['arrived']
     },
     {
       key: 'payment',
-      label: isCash ? 'Espèces encaissées' : 'Paiement confirmé',
+      label: isCash ? translate('libCourierWorkflow.stepCashCollected') : translate('libCourierWorkflow.stepPaymentConfirmed'),
       state: flags.paymentVerified || flags.receiptConfirmed ? 'COMPLETED' :
         ['PAYMENT_VERIFIED', 'AWAITING_BUYER_CONFIRMATION'].includes(deliveryStatus) ? 'COMPLETED' :
         flags.allProductsVerified ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: isCash ? 'Livreur (Vous)' : 'Acheteur / Opérateur',
+      responsibleActor: isCash ? translate('libCourierWorkflow.actorCourierYou') : translate('libCourierWorkflow.actorBuyerOperator'),
       actionType: isCash ? 'CONFIRM_CASH' : 'WAIT_PAYMENT',
-      primaryButtonText: isCash ? 'Confirmer réception des espèces' : undefined,
+      primaryButtonText: isCash ? translate('libCourierWorkflow.confirmCash') : undefined,
       canAct: flags.courierCanConfirmCash === true,
       prerequisites: ['product_verified']
     },
@@ -179,20 +182,20 @@ export function getCourierWorkflow(
     // closes the handover itself. Only the buyer's confirmation remains.
     {
       key: 'buyer_acknowledged',
-      label: 'Articles confirmés par l’acheteur',
+      label: translate('libCourierWorkflow.stepBuyerAcknowledged'),
       state: flags.allLinesAcknowledged ? 'COMPLETED' :
         flags.allProductsVerified ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: 'Acheteur',
+      responsibleActor: translate('libCourierWorkflow.actorBuyer'),
       actionType: 'WAIT_BUYER',
       canAct: flags.buyerCanAcknowledge === true,
       prerequisites: ['product_verified']
     },
     {
       key: 'delivered',
-      label: 'Livraison terminée',
+      label: translate('libCourierWorkflow.stepDelivered'),
       state: flags.receiptConfirmed ? 'COMPLETED' :
         flags.allLinesAcknowledged && flags.paymentVerified ? 'CURRENT_ACTION' : 'LOCKED',
-      responsibleActor: 'Acheteur',
+      responsibleActor: translate('libCourierWorkflow.actorBuyer'),
       actionType: 'WAIT_BUYER',
       canAct: flags.buyerCanConfirmReceipt === true,
       prerequisites: ['buyer_acknowledged', 'payment']
@@ -215,89 +218,89 @@ export function getCourierWorkflow(
   }
 
   // Compute responsible actor & explanation for the current status
-  let responsibleActor = 'Système'
-  let explanation = `Suivi de livraison (${deliveryStatus}).`
+  let responsibleActor = translate('libCourierWorkflow.actorSystem')
+  let explanation = translate('libCourierWorkflow.explainDefault', { status: adminLabel(deliveryStatus) })
   let actionType: WorkflowStep['actionType'] = 'WAIT_SELLER'
   let primaryButtonText: string | undefined
   let secondaryButtonText: string | undefined
 
   switch (deliveryStatus) {
     case 'COURIER_ASSIGNED':
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Cette mission vous est attribuée. Vous devez l\'accepter ou la refuser.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainAssigned')
       actionType = 'ACCEPT_REJECT'
-      primaryButtonText = 'Accepter la mission'
-      secondaryButtonText = 'Refuser la mission'
+      primaryButtonText = translate('libCourierWorkflow.acceptMission')
+      secondaryButtonText = translate('libCourierWorkflow.rejectMission')
       break
     case 'COURIER_ACCEPTED':
-      responsibleActor = 'Vendeur'
-      explanation = 'Mission acceptée. En attente que le vendeur prépare la commande.'
+      responsibleActor = translate('libCourierWorkflow.actorSeller')
+      explanation = translate('libCourierWorkflow.explainAccepted')
       actionType = 'WAIT_SELLER'
       break
     case 'READY_FOR_PICKUP':
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'La commande est prête chez le vendeur. Confirmez la récupération des colis.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainReady')
       actionType = 'PICKUP'
-      primaryButtonText = 'Confirmer la récupération'
-      secondaryButtonText = 'Scanner le QR vendeur'
+      primaryButtonText = translate('libCourierWorkflow.confirmPickup')
+      secondaryButtonText = translate('libCourierWorkflow.scanSellerQr')
       break
     case 'PICKED_UP':
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Colis en votre possession. Démarrez le trajet de livraison.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainPickedUp')
       actionType = 'START_DELIVERY'
-      primaryButtonText = 'Démarrer la livraison'
+      primaryButtonText = translate('libCourierWorkflow.startDelivery')
       break
     case 'IN_TRANSIT':
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Trajet de livraison en cours. Validez votre arrivée une fois sur place chez l\'acheteur.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainInTransit')
       actionType = 'ARRIVE'
-      primaryButtonText = 'Je suis arrivé'
+      primaryButtonText = translate('libCourierWorkflow.arrived')
       break
     case 'COURIER_ARRIVED':
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Vous êtes arrivé chez l\'acheteur. Procédez à la vérification des produits.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainArrived')
       actionType = 'VERIFY_PRODUCT'
-      primaryButtonText = 'Vérifier les produits'
+      primaryButtonText = translate('libCourierWorkflow.verifyProducts')
       break
     case 'PRODUCT_VERIFIED':
       if (isCash) {
-        responsibleActor = 'Livreur (Vous)'
-        explanation = 'Produits vérifiés. Encaissez le montant en espèces auprès de l\'acheteur.'
+        responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+        explanation = translate('libCourierWorkflow.explainCollectCash')
         actionType = 'CONFIRM_CASH'
-        primaryButtonText = 'Confirmer réception des espèces'
+        primaryButtonText = translate('libCourierWorkflow.confirmCash')
       } else {
-        responsibleActor = 'Acheteur / Opérateur'
-        explanation = 'En attente de confirmation du paiement mobile.'
+        responsibleActor = translate('libCourierWorkflow.actorBuyerOperator')
+        explanation = translate('libCourierWorkflow.explainWaitMobile')
         actionType = 'WAIT_PAYMENT'
       }
       break
     case 'PAYMENT_VERIFIED':
     case 'DELIVERY_SCAN_SUCCESS':
     case 'AWAITING_BUYER_CONFIRMATION':
-      responsibleActor = 'Acheteur'
-      explanation = 'En attente de confirmation des articles par l\'acheteur.'
+      responsibleActor = translate('libCourierWorkflow.actorBuyer')
+      explanation = translate('libCourierWorkflow.explainWaitBuyerItems')
       actionType = 'WAIT_BUYER'
       break
     case 'DELIVERED':
     case 'RECEIVED':
     case 'COMPLETED':
-      responsibleActor = 'Aucun (Livraison terminée)'
-      explanation = 'Livraison finalisée et clôturée.'
+      responsibleActor = translate('libCourierWorkflow.actorNoneCompleted')
+      explanation = translate('libCourierWorkflow.explainCompleted')
       actionType = 'COMPLETED'
       break
     case 'FAILED':
-      responsibleActor = 'Aucun (Livraison échouée)'
-      explanation = 'La livraison a échoué. Cette mission est clôturée pour vous.'
+      responsibleActor = translate('libCourierWorkflow.actorNoneFailed')
+      explanation = translate('libCourierWorkflow.explainFailed')
       actionType = 'COMPLETED'
       break
     case 'COURIER_REJECTED':
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Vous avez refusé cette mission. Elle est désormais clôturée.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainRejected')
       actionType = 'COMPLETED'
       break
     default:
-      responsibleActor = 'Système'
-      explanation = `Suivi de livraison (${deliveryStatus}).`
+      responsibleActor = translate('libCourierWorkflow.actorSystem')
+      explanation = translate('libCourierWorkflow.explainDefault', { status: adminLabel(deliveryStatus) })
       actionType = 'WAIT_BUYER'
   }
 
@@ -310,25 +313,25 @@ export function getCourierWorkflow(
   // above must win instead of the generic flag fallbacks.
   if (deliveryStatus === 'COURIER_ARRIVED' || deliveryStatus === 'PRODUCT_VERIFIED') {
     if (flags.allProductsVerified && flags.paymentVerified) {
-      responsibleActor = 'Acheteur'
-      explanation = 'Produits vérifiés et paiement réglé. En attente de la confirmation de réception par l’acheteur.'
+      responsibleActor = translate('libCourierWorkflow.actorBuyer')
+      explanation = translate('libCourierWorkflow.explainVerifiedPaid')
       actionType = 'WAIT_BUYER'
     } else if (flags.courierCanConfirmCash) {
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Produits vérifiés. Encaissez le montant en espèces auprès de l\'acheteur.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainCollectCash')
       actionType = 'CONFIRM_CASH'
-      primaryButtonText = 'Confirmer réception des espèces'
+      primaryButtonText = translate('libCourierWorkflow.confirmCash')
     } else if (flags.courierCanVerifyProduct) {
-      responsibleActor = 'Livreur (Vous)'
-      explanation = 'Vous êtes arrivé chez l\'acheteur. Procédez à la vérification des produits.'
+      responsibleActor = translate('libCourierWorkflow.actorCourierYou')
+      explanation = translate('libCourierWorkflow.explainArrived')
       actionType = 'VERIFY_PRODUCT'
-      primaryButtonText = 'Vérifier les produits'
+      primaryButtonText = translate('libCourierWorkflow.verifyProducts')
     } else if (flags.allProductsVerified && !isCash) {
       // Mobile money is settled by the operator, not by a courier tap. Once every
       // product is verified there is nothing for the courier to click until the
       // payment is confirmed by the provider, so show a wait state, not a button.
-      responsibleActor = 'Acheteur / Opérateur'
-      explanation = 'En attente de confirmation du paiement mobile.'
+      responsibleActor = translate('libCourierWorkflow.actorBuyerOperator')
+      explanation = translate('libCourierWorkflow.explainWaitMobile')
       actionType = 'WAIT_PAYMENT'
     }
   }

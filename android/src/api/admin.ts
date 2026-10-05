@@ -1,5 +1,6 @@
 import type { DeliveryPlan } from '../types'
 import { API_URL } from './client'
+import { localizeApiError } from './errorMessages'
 import { adminTokenStore } from './adminTokenStore'
 
 export type AdminRole =
@@ -168,7 +169,9 @@ export async function adminApi<T>(path: string, options: RequestInit = {}, allow
   const json = await res.json().catch(() => null)
 
   if (!res.ok) {
-    const message = json?.error?.message || json?.message || 'Administrative request failed'
+    // Some admin handlers answer { error: "text" } instead of { error: { code, message } }.
+    const rawMessage = typeof json?.error === 'string' ? json.error : json?.error?.message || json?.message || ''
+    const message = localizeApiError(res.status, json?.error?.code || 'REQUEST_FAILED', rawMessage)
     const error = new Error(message) as Error & { code?: string; status?: number }
     error.code = json?.error?.code
     error.status = res.status

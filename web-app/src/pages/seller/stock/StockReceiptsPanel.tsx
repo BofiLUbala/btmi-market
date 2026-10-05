@@ -4,7 +4,7 @@ import type { Product, ProductVariant, StockReceipt, StockReceiptWithLines } fro
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
-import { formatMoney } from '@/lib/format'
+import { dateLocale, formatMoney } from '@/lib/format'
 import { useT } from '@/store/i18n'
 
 interface DraftLine {
@@ -310,7 +310,7 @@ export function StockReceiptsPanel({ businessId, shopId }: { businessId: string;
                   const d = details[r.id]
                   return [
                     <tr key={r.id}>
-                      <td className="small" style={{ whiteSpace: 'nowrap' }}>{new Date(r.received_at || r.created_at).toLocaleString()}</td>
+                      <td className="small" style={{ whiteSpace: 'nowrap' }}>{new Date(r.received_at || r.created_at).toLocaleString(dateLocale())}</td>
                       <td>{r.reference_number || '—'}</td>
                       <td className="wrap small muted">{r.notes || '—'}</td>
                       <td><span className="badge badge-success">{r.status === 'RECEIVED' ? t('seller.receipts.statusReceived') : r.status}</span></td>

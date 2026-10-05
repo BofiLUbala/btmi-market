@@ -71,10 +71,10 @@ export default function CommerceSellersPage() {
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>💼</span> {t('admin.commerce.sellersTitle') || 'Seller Operations'}
+            <span>💼</span> {t('admin.commerce.sellersTitle')}
           </h2>
           <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, margin: 0 }}>
-            {t('admin.commerce.sellersSubtitle') || 'Supervise marketplace sellers, verify shop operations, and track fulfillment reliability.'}
+            {t('admin.commerce.sellersSubtitle')}
           </p>
         </div>
         <Link
@@ -93,14 +93,14 @@ export default function CommerceSellersPage() {
             gap: 6
           }}
         >
-          <BarChartIcon style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} /> {t('admin.commerce.viewSellerPerformance') || 'Performance Analytics'}
+          <BarChartIcon style={{ width: 16, height: 16, marginRight: 6, verticalAlign: 'middle' }} /> {t('admin.commerce.viewSellerPerformance')}
         </Link>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
-          aria-label={t('admin.users.searchPlaceholder') || 'Search seller name, email, phone...'}
-          placeholder={t('admin.users.searchPlaceholder') || 'Search seller name, email, phone...'}
+          aria-label={t('admin.users.searchPlaceholder')}
+          placeholder={t('admin.users.searchPlaceholder')}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           style={{
@@ -114,7 +114,7 @@ export default function CommerceSellersPage() {
           }}
         />
         <select
-          aria-label={t('admin.users.filterAllStatus') || 'Filter by status'}
+          aria-label={t('admin.users.filterAllStatus')}
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
           style={{
@@ -127,13 +127,13 @@ export default function CommerceSellersPage() {
             minWidth: 140
           }}
         >
-          <option value="">{t('admin.users.filterAllStatus') || 'All Statuses'}</option>
-          <option value="ACTIVE">{t('admin.users.statusActive') || 'Active'}</option>
-          <option value="SUSPENDED">{t('admin.users.statusSuspended') || 'Suspended'}</option>
-          <option value="PENDING">{t('admin.users.statusPending') || 'Pending'}</option>
+          <option value="">{t('admin.users.filterAllStatus')}</option>
+          <option value="ACTIVE">{t('admin.users.statusActive')}</option>
+          <option value="SUSPENDED">{t('admin.users.statusSuspended')}</option>
+          <option value="PENDING">{t('admin.users.statusPending')}</option>
         </select>
         <span style={{ color: 'var(--admin-text-muted)', fontSize: 12 }}>
-          {total} {t('admin.commerce.sellersCount') || 'sellers registered'}
+          {total} {t('admin.commerce.sellersCount')}
         </span>
       </div>
 
@@ -143,21 +143,21 @@ export default function CommerceSellersPage() {
         </div>
       ) : sellers.length === 0 ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
-          {t('admin.users.noResults') || 'No sellers found matching criteria.'}
+          {t('admin.users.noResults')}
         </div>
       ) : (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)' }}>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.nameColumn') || 'Seller Name'}</th>
-                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.contactColumn') || 'Contact'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.businesses') || 'Businesses'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.shops') || 'Shops'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.ordersColumn') || 'Orders'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.performance.completionRateColumn') || 'Fulfillment'}</th>
-                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.statusColumn') || 'Status'}</th>
-                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions') || 'Actions'}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.nameColumn')}</th>
+                <th style={{ textAlign: 'left', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.contactColumn')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.businesses')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.commerce.shops')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.orders.ordersColumn')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.performance.completionRateColumn')}</th>
+                <th style={{ textAlign: 'center', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.users.statusColumn')}</th>
+                <th style={{ textAlign: 'right', padding: '12px 14px', color: 'var(--admin-text-muted)', fontWeight: 600 }}>{t('admin.common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -197,7 +197,7 @@ export default function CommerceSellersPage() {
                           {Math.round(perf.completion_rate)}%
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--admin-text-faint)', fontSize: 11 }}>N/A</span>
+                        <span style={{ color: 'var(--admin-text-faint)', fontSize: 11 }}>{t('admin.common.notAvailable')}</span>
                       )}
                     </td>
                     <td style={{ textAlign: 'center', padding: '12px 14px' }}>
@@ -226,7 +226,7 @@ export default function CommerceSellersPage() {
                           border: '1px solid var(--admin-border-soft)'
                         }}
                       >
-                        {t('admin.commerce.viewOrders') || 'Orders'}
+                        {t('admin.commerce.viewOrders')}
                       </Link>
                     </td>
                   </tr>
@@ -252,7 +252,7 @@ export default function CommerceSellersPage() {
               opacity: page === 0 ? 0.5 : 1
             }}
           >
-            {t('common.previous') || 'Previous'}
+            {t('common.previous')}
           </button>
           <span style={{ padding: '6px 12px', color: 'var(--admin-text-muted)', fontSize: 13 }}>
             {page + 1} / {totalPages}
@@ -270,7 +270,7 @@ export default function CommerceSellersPage() {
               opacity: page >= totalPages - 1 ? 0.5 : 1
             }}
           >
-            {t('common.next') || 'Next'}
+            {t('common.next')}
           </button>
         </div>
       )}

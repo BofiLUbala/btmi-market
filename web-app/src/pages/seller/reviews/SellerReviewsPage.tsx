@@ -5,10 +5,11 @@ import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { useI18n } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { ReviewIcon } from '@/components/ui/Icons'
 
 export default function SellerReviewsPage() {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
   const { activeBusiness, activeShop } = useAuth()
   const [reviewsData, setReviewsData] = useState<ShopReviewsResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -143,7 +144,7 @@ export default function SellerReviewsPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ color: 'var(--color-star)', fontWeight: 'bold' }}>{review.rating} ★</span>
-                      <span className="muted small">{new Date(review.created_at).toLocaleDateString(lang)}</span>
+                      <span className="muted small">{new Date(review.created_at).toLocaleDateString(dateLocale())}</span>
                     </div>
                   </div>
 

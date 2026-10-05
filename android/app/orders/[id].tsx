@@ -18,6 +18,7 @@ import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrol
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 import { BuyerHandoverCard, MobilePaymentCard } from '../../src/components/BuyerHandover'
 import { formatMoney } from '../../src/lib/money'
+import { dateLocale } from '../../src/lib/format'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { fonts, spacing, type Colors } from '../../src/theme'
@@ -88,7 +89,7 @@ const REASON_KEYS: Record<string, TranslationKey> = {
   REVIEW_ALREADY_EXISTS: 'orders.reasonReviewExists',
 }
 
-const locale = (lang: string) => (lang === 'en' ? 'en-US' : 'fr-FR')
+const locale = (lang: string) => dateLocale(lang === 'en' ? 'en' : 'fr')
 
 function formatDateTime(value: string, lang: string) {
   return new Date(value).toLocaleString(locale(lang), { dateStyle: 'medium', timeStyle: 'medium' })
@@ -273,7 +274,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const verifyMutation = useMutation({
     mutationFn: () => buyerApi.verifyProduct(id!, { product_number: productNumber.trim() }),
     onSuccess: (result) => { setProductVerification(result); setActionError('') },
-    onError: (e) => { setProductVerification(null); setActionError(e instanceof ApiError && e.code === 'PRODUCT_MISMATCH' ? 'Ce produit ne correspond pas à votre commande.' : (e instanceof Error ? e.message : t('common.actionImpossible'))) },
+    onError: (e) => { setProductVerification(null); setActionError(e instanceof ApiError && e.code === 'PRODUCT_MISMATCH' ? t('ordersId.productMismatch') : (e instanceof Error ? e.message : t('common.actionImpossible'))) },
   })
 
   const lines = order.data?.lines || []
@@ -440,7 +441,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
           <Text style={styles.name}>{t('orders.paymentDetail')}</Text>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.orderNumber', { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</Text><Text style={styles.muted}>{formatDateTime(o.created_at, lang)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMethod')}</Text><Text style={styles.muted}>{t(paymentMethodKey(p.payment_method))}</Text></View>
-          {p.provider ? <View style={styles.breakRow}><Text style={styles.muted}>Opérateur</Text><Text style={styles.muted}>{p.provider_label || p.provider}</Text></View> : null}
+          {p.provider ? <View style={styles.breakRow}><Text style={styles.muted}>{t('seller.paymentOperator')}</Text><Text style={styles.muted}>{p.provider_label || p.provider}</Text></View> : null}
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.amountBeforeMarkup')}</Text><Text style={styles.muted}>{formatMoney(p.final_total - Math.max(p.payment_markup, 0), p.currency)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentMarkup')}</Text><Text style={styles.muted}>{formatMoney(Math.max(p.payment_markup, 0), p.currency)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.totalDue')}</Text><Text style={[styles.muted, { fontWeight: '800' }]}>{formatMoney(p.final_total, p.currency)}</Text></View>
@@ -448,7 +449,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
           {isPaymentPaid(p) && confirmationActorKey(p.confirmation_actor) ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.confirmedBy')}</Text><Text style={styles.muted}>{t(confirmationActorKey(p.confirmation_actor)!)}</Text></View> : null}
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.createdAtLabel')}</Text><Text style={styles.muted}>{formatDateTime(p.created_at, lang)}</Text></View>
           <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.reference')}</Text><Text style={styles.muted}>{p.receipt_reference || p.internal_reference || p.provider_reference || p.id.slice(0, 8).toUpperCase()}</Text></View>
-          {p.receipt_issued_at ? <View style={styles.breakRow}><Text style={styles.muted}>Reçu émis le</Text><Text style={styles.muted}>{formatDateTime(p.receipt_issued_at, lang)}</Text></View> : null}
+          {p.receipt_issued_at ? <View style={styles.breakRow}><Text style={styles.muted}>{t('ordersId.receiptIssuedAt')}</Text><Text style={styles.muted}>{formatDateTime(p.receipt_issued_at, lang)}</Text></View> : null}
           {p.updated_at ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.lastUpdate')}</Text><Text style={styles.muted}>{formatDateTime(p.updated_at, lang)}</Text></View> : null}
           {(p as BuyerPayment & { refund_status?: string | null }).refund_status ? <View style={styles.breakRow}><Text style={styles.muted}>{t('orders.paymentStatus')}</Text><Text style={styles.muted}>{(() => { const r = (p as BuyerPayment & { refund_status?: string | null }).refund_status; return r === 'IN_PROGRESS' ? t('orders.refundInProgress') : r === 'REFUNDED' ? t('orders.refunded') : r === 'FAILED' ? t('orders.refundFailed') : r })()}</Text></View> : null}
         </Card> : null}

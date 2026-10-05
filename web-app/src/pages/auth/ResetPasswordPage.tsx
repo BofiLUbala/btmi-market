@@ -119,13 +119,13 @@ export default function ResetPasswordPage() {
         </Button>
         {done ? (
           <div className="reset-login-options">
-            <Link to="/livreur/login"><Button block>Connexion Livreur</Button></Link>
+            <Link to="/livreur/login"><Button block>{t('authResetPasswordPage.signInAsCourier')}</Button></Link>
             <Link to="/seller/login"><Button block>{t('auth.signInAsSeller')}</Button></Link>
             <Link to="/login"><Button variant="outline" block>{t('auth.signInAsBuyer')}</Button></Link>
           </div>
         ) : (
           <p className="small muted">
-            <Link to="/livreur/login" className="section-link">Connexion Livreur</Link>
+            <Link to="/livreur/login" className="section-link">{t('authResetPasswordPage.courierSignIn')}</Link>
             {' · '}
             <Link to="/seller/login" className="section-link">{t('auth.sellerSignIn')}</Link>
             {' · '}

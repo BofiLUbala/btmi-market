@@ -6,6 +6,11 @@ import { sellerApi } from '../../src/api'
 import { useColors } from '../../src/store/theme'
 import { fonts, type Colors } from '../../src/theme'
 import type { SaleFinanceDetail, SellerBreakdownGroup, SellerFinanceTimeseriesPoint } from '../../src/types'
+import { useI18n, type TranslationKey } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
+import { statusLabel } from '../../src/lib/statusLabels'
+import { deliveryLabel } from '../../src/lib/deliveryLabels'
+import { CASH_ON_DELIVERY, MOBILE_AT_DELIVERY, MOBILE_PAY_NOW, paymentMethodKey } from '../../src/lib/paymentStatus'
 
 // Port of web-app/src/pages/seller/finances/SellerFinancesPage.tsx. Same four
 // requests with the same shared scope (payment status + date range): KPI
@@ -19,30 +24,32 @@ const money = (value: number, currency = 'USD') => {
   catch { return `${(value || 0).toFixed(2)} ${currency}` }
 }
 
-const GROUP_TABS: Array<{ id: SellerBreakdownGroup; label: string }> = [
-  { id: 'shop', label: 'Boutique' },
-  { id: 'product', label: 'Produit' },
-  { id: 'variant', label: 'Variante' },
-  { id: 'business', label: 'Entreprise' },
+const GROUP_TABS: Array<{ id: SellerBreakdownGroup; label: TranslationKey }> = [
+  { id: 'shop', label: 'sellerFinances.groupShop' },
+  { id: 'product', label: 'sellerFinances.groupProduct' },
+  { id: 'variant', label: 'sellerFinances.groupVariant' },
+  { id: 'business', label: 'sellerFinances.groupBusiness' },
 ]
-const STATUS_TABS = [
-  { id: '', label: 'Toutes les ventes' },
-  { id: 'DUE', label: 'À reverser' },
-  { id: 'COLLECTED', label: 'Déjà réglées' },
+const STATUS_TABS: Array<{ id: string; label: TranslationKey }> = [
+  { id: '', label: 'sellerFinances.statusAll' },
+  { id: 'DUE', label: 'sellerFinances.statusDue' },
+  { id: 'COLLECTED', label: 'sellerFinances.statusCollected' },
 ]
-const PAYMENT_STATUSES = [
-  { id: '', label: 'Tous les paiements' },
-  { id: 'VERIFIED', label: 'Paiement vérifié' },
-  { id: 'PAID', label: 'Payé' },
-  { id: 'PENDING', label: 'En attente' },
-  { id: 'CONFIRMED', label: 'Confirmé' },
-  { id: 'REFUNDED', label: 'Remboursé' },
+const PAYMENT_STATUSES: Array<{ id: string; label: TranslationKey }> = [
+  { id: '', label: 'sellerFinances.paymentAll' },
+  { id: 'VERIFIED', label: 'sellerFinances.paymentVerified' },
+  { id: 'PAID', label: 'sellerFinances.paymentPaid' },
+  { id: 'PENDING', label: 'sellerFinances.paymentPending' },
+  { id: 'CONFIRMED', label: 'sellerFinances.paymentConfirmed' },
+  { id: 'REFUNDED', label: 'sellerFinances.paymentRefunded' },
 ]
+const KNOWN_METHODS = [CASH_ON_DELIVERY, MOBILE_PAY_NOW, MOBILE_AT_DELIVERY]
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export default function SellerFinancesScreen() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
+  const { t, lang } = useI18n()
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -80,7 +87,7 @@ export default function SellerFinancesScreen() {
 
   const aggregateMoney = (field: 'gross_sales' | 'commission_amount' | 'seller_net_amount' | 'due_commission' | 'collected_commission' | 'payments_collected' | 'payments_due') => {
     if (!summary) return ''
-    if (summary.totals_by_currency?.length) return summary.totals_by_currency.map((t) => money(t[field], t.currency)).join(' · ')
+    if (summary.totals_by_currency?.length) return summary.totals_by_currency.map((row) => money(row[field], row.currency)).join(' · ')
     return money(summary[field], summary.currency || 'USD')
   }
 
@@ -96,28 +103,34 @@ export default function SellerFinancesScreen() {
     finally { setDetailLoading(false) }
   }
 
+  // Raw backend codes shown to the seller: a translated label, the code itself when unknown.
+  const methodText = (method?: string | null) => (method ? (KNOWN_METHODS.includes(method) ? t(paymentMethodKey(method)) : method) : '—')
+  const deliveryText = (deliveryStatus?: string | null, deliveryMethod?: string | null, orderStatus?: string | null) =>
+    deliveryStatus ? statusLabel(t, deliveryStatus) : deliveryMethod ? deliveryLabel(t, deliveryMethod) : orderStatus ? statusLabel(t, orderStatus) : '—'
+  const when = (iso: string) => new Date(iso).toLocaleString(dateLocale(lang))
+
   const kpis: Array<{ label: string; value: string; color?: string; note?: string }> = summary ? [
-    { label: "Chiffre d'Affaires Brut", value: aggregateMoney('gross_sales') },
-    { label: 'Commission TBK Totale', value: aggregateMoney('commission_amount'), color: '#818cf8' },
-    { label: 'Revenu Net Vendeur', value: aggregateMoney('seller_net_amount'), color: '#4ade80' },
-    { label: 'Commission à Reverser', value: aggregateMoney('due_commission'), color: '#eab308' },
-    { label: 'Commission Déjà Réglée', value: aggregateMoney('collected_commission'), color: '#38bdf8' },
-    { label: 'Paiements Encaissés', value: aggregateMoney('payments_collected'), color: '#fbbf24', note: 'réglés par les acheteurs' },
-    { label: 'Paiements En Attente', value: aggregateMoney('payments_due'), color: '#fb923c', note: 'restant dû par les acheteurs' },
-    { label: 'Unités Vendues', value: String(summary.units_sold), note: `${summary.verified_sales} vente(s) vérifiée(s)` },
+    { label: t('sellerFinances.kpiGross'), value: aggregateMoney('gross_sales') },
+    { label: t('sellerFinances.kpiCommissionTotal'), value: aggregateMoney('commission_amount'), color: '#818cf8' },
+    { label: t('sellerFinances.kpiSellerNet'), value: aggregateMoney('seller_net_amount'), color: '#4ade80' },
+    { label: t('sellerFinances.kpiCommissionDue'), value: aggregateMoney('due_commission'), color: '#eab308' },
+    { label: t('sellerFinances.kpiCommissionCollected'), value: aggregateMoney('collected_commission'), color: '#38bdf8' },
+    { label: t('sellerFinances.kpiPaymentsCollected'), value: aggregateMoney('payments_collected'), color: '#fbbf24', note: t('sellerFinances.kpiPaymentsCollectedNote') },
+    { label: t('sellerFinances.kpiPaymentsDue'), value: aggregateMoney('payments_due'), color: '#fb923c', note: t('sellerFinances.kpiPaymentsDueNote') },
+    { label: t('sellerFinances.kpiUnitsSold'), value: String(summary.units_sold), note: t('sellerFinances.kpiVerifiedSales', { count: summary.verified_sales }) },
   ] : []
 
   return (
     <View style={styles.flex1}>
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
       <View>
-        <Text style={styles.h2}>Mes Finances & Commissions TBK</Text>
-        <Text style={styles.subtitle}>Suivi financier de vos ventes réalisées, calcul de la commission TBK et décompte de votre revenu net vendeur.</Text>
+        <Text style={styles.h2}>{t('sellerFinances.title')}</Text>
+        <Text style={styles.subtitle}>{t('sellerFinances.subtitle')}</Text>
       </View>
 
       {error && <View style={styles.alert} accessibilityRole="alert">
-        <Text style={styles.alertText}>Impossible de charger les données financières.</Text>
-        <Pressable accessibilityRole="button" onPress={retry} style={styles.alertButton}><Text style={styles.alertButtonText}>Réessayer</Text></Pressable>
+        <Text style={styles.alertText}>{t('sellerFinances.loadFailed')}</Text>
+        <Pressable accessibilityRole="button" onPress={retry} style={styles.alertButton}><Text style={styles.alertButtonText}>{t('common.retry')}</Text></Pressable>
       </View>}
 
       {/* KPI cards */}
@@ -131,40 +144,40 @@ export default function SellerFinancesScreen() {
 
       {/* Real series from the backend, never demo data */}
       {!error && summary && <View style={styles.card}>
-        <Text style={styles.chartTitle}>Évolution (ventes · commission · net)</Text>
+        <Text style={styles.chartTitle}>{t('sellerFinances.chartTitle')}</Text>
         <FinanceTrendChart points={trend.data?.points ?? []} colors={colors} />
       </View>}
 
       {/* Filters & search */}
       <View style={[styles.card, styles.filters]}>
         <View style={styles.tabRow}>
-          {STATUS_TABS.map((tab) => <Chip key={tab.id} label={tab.label} active={statusFilter === tab.id} onPress={() => setStatusFilter(tab.id)} styles={styles} />)}
+          {STATUS_TABS.map((tab) => <Chip key={tab.id} label={t(tab.label)} active={statusFilter === tab.id} onPress={() => setStatusFilter(tab.id)} styles={styles} />)}
         </View>
-        <TextInput placeholder="Rechercher par N° commande..." placeholderTextColor={colors.mutedLight} value={searchQuery} onChangeText={setSearchQuery} style={styles.input} autoCapitalize="characters" />
+        <TextInput placeholder={t('sellerFinances.searchPlaceholder')} placeholderTextColor={colors.mutedLight} value={searchQuery} onChangeText={setSearchQuery} style={styles.input} autoCapitalize="characters" />
         <View style={styles.dateRow}>
-          <TextInput placeholder="AAAA-MM-JJ" placeholderTextColor={colors.mutedLight} value={dateFrom} onChangeText={setDateFrom} style={[styles.input, styles.flex1]} keyboardType="numbers-and-punctuation" maxLength={10} accessibilityLabel="Date de début" />
-          <TextInput placeholder="AAAA-MM-JJ" placeholderTextColor={colors.mutedLight} value={dateTo} onChangeText={setDateTo} style={[styles.input, styles.flex1]} keyboardType="numbers-and-punctuation" maxLength={10} accessibilityLabel="Date de fin" />
+          <TextInput placeholder={t('sellerFinances.datePlaceholder')} placeholderTextColor={colors.mutedLight} value={dateFrom} onChangeText={setDateFrom} style={[styles.input, styles.flex1]} keyboardType="numbers-and-punctuation" maxLength={10} accessibilityLabel={t('sellerFinances.dateFrom')} />
+          <TextInput placeholder={t('sellerFinances.datePlaceholder')} placeholderTextColor={colors.mutedLight} value={dateTo} onChangeText={setDateTo} style={[styles.input, styles.flex1]} keyboardType="numbers-and-punctuation" maxLength={10} accessibilityLabel={t('sellerFinances.dateTo')} />
         </View>
         {/* Buyer payment status: server-side filter, independent of the commission status above */}
-        <View style={styles.tabRow} accessibilityLabel="Statut de paiement">
-          {PAYMENT_STATUSES.map((opt) => <Chip key={opt.id} label={opt.label} active={paymentStatusFilter === opt.id} onPress={() => setPaymentStatusFilter(opt.id)} styles={styles} />)}
+        <View style={styles.tabRow} accessibilityLabel={t('sellerFinances.paymentStatusLabel')}>
+          {PAYMENT_STATUSES.map((opt) => <Chip key={opt.id} label={t(opt.label)} active={paymentStatusFilter === opt.id} onPress={() => setPaymentStatusFilter(opt.id)} styles={styles} />)}
         </View>
-        <Text style={styles.count}>{total} vente(s) trouvée(s)</Text>
+        <Text style={styles.count}>{t('sellerFinances.salesFound', { count: total })}</Text>
       </View>
 
       {/* Breakdown */}
       <View style={styles.breakdownHead}>
-        <Text style={styles.breakdownLabel}>Répartition par :</Text>
-        {GROUP_TABS.map((g) => <Chip key={g.id} label={g.label} active={breakdownGroup === g.id} onPress={() => setBreakdownGroup(g.id)} styles={styles} />)}
+        <Text style={styles.breakdownLabel}>{t('sellerFinances.breakdownBy')}</Text>
+        {GROUP_TABS.map((g) => <Chip key={g.id} label={t(g.label)} active={breakdownGroup === g.id} onPress={() => setBreakdownGroup(g.id)} styles={styles} />)}
       </View>
       <Table styles={styles} columns={[
-        { label: GROUP_TABS.find((g) => g.id === breakdownGroup)?.label ?? '', width: 170 },
-        { label: 'Commandes', width: 100, align: 'right' },
-        { label: 'Unités', width: 80, align: 'right' },
-        { label: 'Vente Brute', width: 120, align: 'right' },
-        { label: 'Commission TBK', width: 140, align: 'right' },
-        { label: 'Net Vendeur', width: 120, align: 'right' },
-      ]} empty={breakdownItems.length === 0 ? 'Aucune vente dans cette répartition.' : undefined}>
+        { label: (() => { const g = GROUP_TABS.find((tab) => tab.id === breakdownGroup); return g ? t(g.label) : '' })(), width: 170 },
+        { label: t('sellerFinances.colOrders'), width: 100, align: 'right' },
+        { label: t('sellerFinances.colUnits'), width: 80, align: 'right' },
+        { label: t('sellerFinances.colGross'), width: 120, align: 'right' },
+        { label: t('sellerFinances.colCommission'), width: 140, align: 'right' },
+        { label: t('sellerFinances.colSellerNet'), width: 120, align: 'right' },
+      ]} empty={breakdownItems.length === 0 ? t('sellerFinances.breakdownEmpty') : undefined}>
         {breakdownItems.map((item) => <View key={`${item.id || item.label}`} style={styles.tr}>
           <View style={[styles.td, { width: 170 }]}><Text style={styles.tdBold}>{item.label}</Text>{item.sub_label ? <Text style={styles.tdSub}>{item.sub_label}</Text> : null}</View>
           <Text style={[styles.td, styles.tdText, styles.right, { width: 100 }]}>{item.sales_count}</Text>
@@ -176,28 +189,28 @@ export default function SellerFinancesScreen() {
       </Table>
 
       {/* Sales history */}
-      {sales.isLoading ? <Text style={styles.placeholder}>Chargement de votre journal financier...</Text>
-        : salesList.length === 0 ? <View style={styles.card}><Text style={styles.placeholder}>Aucune vente enregistrée pour le moment.</Text></View>
+      {sales.isLoading ? <Text style={styles.placeholder}>{t('sellerFinances.salesLoading')}</Text>
+        : salesList.length === 0 ? <View style={styles.card}><Text style={styles.placeholder}>{t('sellerFinances.salesEmpty')}</Text></View>
         : <Table styles={styles} columns={[
-          { label: 'Date / Commande', width: 170 },
-          { label: 'Acheteur', width: 140 },
-          { label: 'Entreprise / Boutique', width: 170 },
-          { label: 'Produits / Variantes', width: 240 },
-          { label: 'Qté', width: 60, align: 'center' },
-          { label: 'Vente Brute', width: 120, align: 'right' },
-          { label: 'Taux TBK', width: 90, align: 'center' },
-          { label: 'Commission TBK', width: 140, align: 'right' },
-          { label: 'Net Vendeur', width: 120, align: 'right' },
-          { label: 'Paiement', width: 150 },
-          { label: 'Livraison', width: 140, align: 'center' },
-          { label: 'Statut Commission', width: 150, align: 'center' },
-          { label: 'Détail', width: 120, align: 'right' },
+          { label: t('sellerFinances.colDateOrder'), width: 170 },
+          { label: t('sellerFinances.colBuyer'), width: 140 },
+          { label: t('sellerFinances.colBusinessShop'), width: 170 },
+          { label: t('sellerFinances.colProductsVariants'), width: 240 },
+          { label: t('sellerFinances.colQty'), width: 60, align: 'center' },
+          { label: t('sellerFinances.colGross'), width: 120, align: 'right' },
+          { label: t('sellerFinances.colRate'), width: 90, align: 'center' },
+          { label: t('sellerFinances.colCommission'), width: 140, align: 'right' },
+          { label: t('sellerFinances.colSellerNet'), width: 120, align: 'right' },
+          { label: t('sellerFinances.colPayment'), width: 150 },
+          { label: t('sellerFinances.colDelivery'), width: 140, align: 'center' },
+          { label: t('sellerFinances.colCommissionStatus'), width: 150, align: 'center' },
+          { label: t('sellerFinances.colDetail'), width: 120, align: 'right' },
         ]}>
           {salesList.map((item) => {
             const collected = item.status === 'COLLECTED'
             const currency = item.currency || 'USD'
             return <View key={item.id} style={styles.tr}>
-              <View style={[styles.td, { width: 170 }]}><Text style={styles.tdBolder}>#{item.order_number}</Text><Text style={styles.tdSub}>{new Date(item.calculated_at).toLocaleString()}</Text></View>
+              <View style={[styles.td, { width: 170 }]}><Text style={styles.tdBolder}>#{item.order_number}</Text><Text style={styles.tdSub}>{when(item.calculated_at)}</Text></View>
               <Text style={[styles.td, styles.tdText, { width: 140 }]}>{item.buyer_name || '—'}</Text>
               <View style={[styles.td, { width: 170 }]}><Text style={styles.tdSemi}>{item.shop_name}</Text><Text style={styles.tdSub}>{item.business_name}</Text></View>
               <View style={[styles.td, { width: 240 }]}>
@@ -215,18 +228,18 @@ export default function SellerFinancesScreen() {
               <Text style={[styles.td, styles.tdBolder, styles.right, { width: 140, color: '#818cf8' }]}>{money(item.commission_amount, currency)}</Text>
               <Text style={[styles.td, styles.tdBolder, styles.right, { width: 120, color: '#4ade80' }]}>{money(item.seller_net_amount, currency)}</Text>
               <View style={[styles.td, { width: 150 }]}>
-                <Text style={styles.tdSemi}>{item.payment_method || '—'}</Text>
+                <Text style={styles.tdSemi}>{methodText(item.payment_method)}</Text>
                 {item.provider ? <Text style={[styles.tdSub, { fontWeight: '600', color: colors.ink }]}>{item.provider.replace(/_/g, ' ')}</Text> : null}
-                <Text style={styles.tdSub}>{item.payment_status || '—'}</Text>
+                <Text style={styles.tdSub}>{statusLabel(t, item.payment_status) || '—'}</Text>
                 {item.payment_reference ? <Text style={[styles.tdSub, { fontSize: 10 }]}>{item.payment_reference}</Text> : null}
               </View>
-              <Text style={[styles.td, styles.tdText, styles.center, { width: 140, fontSize: 12 }]}>{item.delivery_status || item.delivery_method || item.order_status || '—'}</Text>
+              <Text style={[styles.td, styles.tdText, styles.center, { width: 140, fontSize: 12 }]}>{deliveryText(item.delivery_status, item.delivery_method, item.order_status)}</Text>
               <View style={[styles.td, { width: 150, alignItems: 'center' }]}>
-                <Text style={[styles.pill, collected ? styles.pillCollected : styles.pillDue]}>{collected ? 'Réglée' : 'À reverser'}</Text>
+                <Text style={[styles.pill, collected ? styles.pillCollected : styles.pillDue]}>{collected ? t('sellerFinances.pillCollected') : t('sellerFinances.statusDue')}</Text>
               </View>
               <View style={[styles.td, { width: 120, alignItems: 'flex-end' }]}>
                 <Pressable accessibilityRole="button" disabled={detailLoading} onPress={() => void openSale(item.order_id)} style={styles.detailButton}>
-                  <Text style={styles.detailButtonText}>Résumé</Text>
+                  <Text style={styles.detailButtonText}>{t('sellerFinances.summaryButton')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -238,26 +251,26 @@ export default function SellerFinancesScreen() {
       {selectedSale && <View style={styles.modalOverlay}>
         <View style={styles.modal}>
           <View style={styles.modalHead}>
-            <Text style={styles.modalTitle}>Vente #{selectedSale.sale.order_number}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Fermer" onPress={() => setSelectedSale(null)} hitSlop={8}><Text style={styles.modalClose}>✕</Text></Pressable>
+            <Text style={styles.modalTitle}>{t('sellerFinances.saleTitle', { number: selectedSale.sale.order_number })}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => setSelectedSale(null)} hitSlop={8}><Text style={styles.modalClose}>✕</Text></Pressable>
           </View>
           <ScrollView>
             <View style={styles.modalFacts}>
-              <Text style={styles.fact}><Text style={styles.factKey}>Acheteur :</Text> {selectedSale.buyer_name || '—'}</Text>
-              <Text style={styles.fact}><Text style={styles.factKey}>Entreprise / boutique :</Text> {selectedSale.sale.business_name} / {selectedSale.sale.shop_name}</Text>
+              <Text style={styles.fact}><Text style={styles.factKey}>{t('sellerFinances.factBuyer')}</Text> {selectedSale.buyer_name || '—'}</Text>
+              <Text style={styles.fact}><Text style={styles.factKey}>{t('sellerFinances.factBusinessShop')}</Text> {selectedSale.sale.business_name} / {selectedSale.sale.shop_name}</Text>
               <Text style={styles.fact}>
-                <Text style={styles.factKey}>Paiement :</Text> {selectedSale.payment_method || '—'}
-                {selectedSale.provider ? ` · ${selectedSale.provider.replace(/_/g, ' ')}` : ''} · {selectedSale.payment_status || '—'}
-                {selectedSale.payment_reference ? ` · réf. ${selectedSale.payment_reference}` : ''}
+                <Text style={styles.factKey}>{t('sellerFinances.factPayment')}</Text> {methodText(selectedSale.payment_method)}
+                {selectedSale.provider ? ` · ${selectedSale.provider.replace(/_/g, ' ')}` : ''} · {statusLabel(t, selectedSale.payment_status) || '—'}
+                {selectedSale.payment_reference ? ` · ${t('sellerFinances.refShort', { reference: selectedSale.payment_reference })}` : ''}
               </Text>
-              <Text style={styles.fact}><Text style={styles.factKey}>Commande / livraison :</Text> {selectedSale.order_status} · {selectedSale.delivery_status || selectedSale.delivery_method || '—'}</Text>
-              <Text style={styles.fact}><Text style={styles.factKey}>Date :</Text> {new Date(selectedSale.ordered_at).toLocaleString()}</Text>
+              <Text style={styles.fact}><Text style={styles.factKey}>{t('sellerFinances.factOrderDelivery')}</Text> {statusLabel(t, selectedSale.order_status)} · {deliveryText(selectedSale.delivery_status, selectedSale.delivery_method)}</Text>
+              <Text style={styles.fact}><Text style={styles.factKey}>{t('sellerFinances.factDate')}</Text> {when(selectedSale.ordered_at)}</Text>
             </View>
             <View style={styles.linesHead}>
-              <Text style={[styles.lineCell, styles.flex2, styles.factKey]}>Produit / variante</Text>
-              <Text style={[styles.lineCell, styles.center, styles.factKey]}>Qté</Text>
-              <Text style={[styles.lineCell, styles.right, styles.factKey]}>Prix unitaire</Text>
-              <Text style={[styles.lineCell, styles.right, styles.factKey]}>Total</Text>
+              <Text style={[styles.lineCell, styles.flex2, styles.factKey]}>{t('sellerFinances.lineProductVariant')}</Text>
+              <Text style={[styles.lineCell, styles.center, styles.factKey]}>{t('sellerFinances.colQty')}</Text>
+              <Text style={[styles.lineCell, styles.right, styles.factKey]}>{t('sellerFinances.lineUnitPrice')}</Text>
+              <Text style={[styles.lineCell, styles.right, styles.factKey]}>{t('common.total')}</Text>
             </View>
             {selectedSale.lines.map((line, index) => <View key={`${line.product_id}-${line.variant_id}-${index}`} style={styles.lineRow}>
               <View style={[styles.lineCellBox, styles.flex2]}><Text style={styles.lineText}>{line.product_name}</Text><Text style={styles.tdSub}>{line.variant_name || line.variant_sku || '—'}</Text></View>
@@ -266,25 +279,25 @@ export default function SellerFinancesScreen() {
               <Text style={[styles.lineCell, styles.lineText, styles.right]}>{money(line.gross_amount, selectedSale.sale.currency || 'USD')}</Text>
             </View>)}
             <View style={styles.breakdownBox}>
-              <Row k="Montant Produits Vente" v={money(selectedSale.sale.gross_amount, selectedSale.sale.currency || 'USD')} bold styles={styles} />
-              <Row k="Base calcul commission" v={money(selectedSale.sale.commission_base, selectedSale.sale.currency || 'USD')} bold styles={styles} />
-              <Row k="Majoration paiement" v={money(selectedSale.payment_markup, selectedSale.sale.currency || 'USD')} styles={styles} />
-              <Row k="Frais de livraison" v={money(selectedSale.delivery_fee, selectedSale.sale.currency || 'USD')} styles={styles} />
-              <Row k="Taux de commission TBK" v={`${selectedSale.sale.commission_rate.toFixed(2)}%`} bold color="#818cf8" styles={styles} />
+              <Row k={t('sellerFinances.rowProductsAmount')} v={money(selectedSale.sale.gross_amount, selectedSale.sale.currency || 'USD')} bold styles={styles} />
+              <Row k={t('sellerFinances.rowCommissionBase')} v={money(selectedSale.sale.commission_base, selectedSale.sale.currency || 'USD')} bold styles={styles} />
+              <Row k={t('sellerFinances.rowPaymentMarkup')} v={money(selectedSale.payment_markup, selectedSale.sale.currency || 'USD')} styles={styles} />
+              <Row k={t('sellerFinances.rowDeliveryFee')} v={money(selectedSale.delivery_fee, selectedSale.sale.currency || 'USD')} styles={styles} />
+              <Row k={t('sellerFinances.rowCommissionRate')} v={`${selectedSale.sale.commission_rate.toFixed(2)}%`} bold color="#818cf8" styles={styles} />
               <View style={styles.sep} />
-              <Row k="Commission TBK" v={`- ${money(selectedSale.sale.commission_amount, selectedSale.sale.currency || 'USD')}`} bold color="#818cf8" styles={styles} />
+              <Row k={t('sellerFinances.colCommission')} v={`- ${money(selectedSale.sale.commission_amount, selectedSale.sale.currency || 'USD')}`} bold color="#818cf8" styles={styles} />
               <View style={styles.sep} />
               <View style={styles.rowBetween}>
-                <Text style={[styles.tdBolder, { color: '#4ade80' }]}>Revenu Net Vendeur</Text>
+                <Text style={[styles.tdBolder, { color: '#4ade80' }]}>{t('sellerFinances.kpiSellerNet')}</Text>
                 <Text style={[styles.tdBolder, { color: '#4ade80', fontSize: 15, fontWeight: '700' }]}>{money(selectedSale.sale.seller_net_amount, selectedSale.sale.currency || 'USD')}</Text>
               </View>
               <View style={styles.rowBetween}>
-                <Text style={styles.factMuted}>Statut Règlement</Text>
-                <Text style={[styles.pill, selectedSale.sale.status === 'COLLECTED' ? styles.pillCollected : styles.pillDue]}>{selectedSale.sale.status === 'COLLECTED' ? 'Réglée à TBK' : 'À reverser à TBK'}</Text>
+                <Text style={styles.factMuted}>{t('sellerFinances.settlementStatus')}</Text>
+                <Text style={[styles.pill, selectedSale.sale.status === 'COLLECTED' ? styles.pillCollected : styles.pillDue]}>{selectedSale.sale.status === 'COLLECTED' ? t('sellerFinances.settledToTbk') : t('sellerFinances.dueToTbk')}</Text>
               </View>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Pressable accessibilityRole="button" onPress={() => setSelectedSale(null)} style={styles.closeButton}><Text style={styles.closeButtonText}>Fermer</Text></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => setSelectedSale(null)} style={styles.closeButton}><Text style={styles.closeButtonText}>{t('common.close')}</Text></Pressable>
             </View>
           </ScrollView>
         </View>
@@ -320,18 +333,19 @@ function Table({ columns, empty, children, styles }: { columns: Array<{ label: s
   </View>
 }
 
-const SERIES = [
-  { key: 'gross_sales', label: 'Ventes brutes', color: '#60a5fa' },
-  { key: 'commission_amount', label: 'Commission TBK', color: '#f87171' },
-  { key: 'seller_net_amount', label: 'Net vendeur', color: '#34d399' },
-] as const
+const SERIES: ReadonlyArray<{ key: 'gross_sales' | 'commission_amount' | 'seller_net_amount'; label: TranslationKey; color: string }> = [
+  { key: 'gross_sales', label: 'sellerFinances.seriesGross', color: '#60a5fa' },
+  { key: 'commission_amount', label: 'sellerFinances.colCommission', color: '#f87171' },
+  { key: 'seller_net_amount', label: 'sellerFinances.seriesNet', color: '#34d399' },
+]
 
 /** Port of web's FinanceTrendChart: three polylines over the backend series,
  *  drawn with plain Views (segments + dots) since the app ships no SVG lib. */
 function FinanceTrendChart({ points, colors, height = 180 }: { points: SellerFinanceTimeseriesPoint[]; colors: Colors; height?: number }) {
   const [width, setWidth] = useState(0)
+  const { t } = useI18n()
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)
-  if (points.length === 0) return <Text style={{ padding: 24, textAlign: 'center', fontSize: 12, color: colors.muted }}>Aucune donnée sur cette période.</Text>
+  if (points.length === 0) return <Text style={{ padding: 24, textAlign: 'center', fontSize: 12, color: colors.muted }}>{t('sellerFinances.chartEmpty')}</Text>
 
   const max = Math.max(...points.map((p) => Math.max(p.gross_sales, p.commission_amount, p.seller_net_amount)), 0)
   const scaleMax = max > 0 ? max : 1
@@ -357,9 +371,9 @@ function FinanceTrendChart({ points, colors, height = 180 }: { points: SellerFin
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginTop: 8 }}>
       {SERIES.map((series) => <View key={series.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <View style={{ width: 10, height: 2, backgroundColor: series.color }} />
-        <Text style={{ fontSize: 11, color: colors.muted }}>{series.label}</Text>
+        <Text style={{ fontSize: 11, color: colors.muted }}>{t(series.label)}</Text>
       </View>)}
-      <Text style={{ fontSize: 11, color: colors.muted, marginLeft: 'auto' }}>{points[0].period} → {points[points.length - 1].period} · max {money(scaleMax, currency)}</Text>
+      <Text style={{ fontSize: 11, color: colors.muted, marginLeft: 'auto' }}>{t('sellerFinances.chartRange', { from: points[0].period, to: points[points.length - 1].period, max: money(scaleMax, currency) })}</Text>
     </View>
   </View>
 }

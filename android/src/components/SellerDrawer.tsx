@@ -64,7 +64,7 @@ export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: 
   return <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('nav.closeMenu')}>
     <Pressable style={styles.panel} onPress={(e) => e.stopPropagation()} accessibilityLabel={t('seller.menu')}>
       <View style={[styles.head, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.brand}>{isEmployee ? 'TBK Employee' : 'TBK Seller'}</Text>
+        <Text style={styles.brand}>{isEmployee ? t('sellerDrawer.brandEmployee') : 'TBK Seller'}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={t('nav.closeMenu')} onPress={onClose} hitSlop={8} style={styles.close}>
           <Ionicons name="close" size={22} color={colors.onGreen} />
         </Pressable>

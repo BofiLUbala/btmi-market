@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { tokenStore } from './tokenStore'
 import { fr } from '../locales/fr'
 import { en } from '../locales/en'
+import { localizeApiError } from './errorMessages'
 
 /** Stored language flag (same key as src/store/i18n.tsx). */
 const LANGUAGE_STORAGE_KEY = 'btmi.lang'
@@ -146,19 +147,19 @@ export async function request<T>(path: string, init: RequestInit = {}, retry = t
     if (await refreshPromise) return request<T>(path, init, false)
   }
   if (!response.ok) {
-    let code = 'REQUEST_FAILED'; let message = await localized('errors.generic'); let data: Record<string, unknown> | undefined
+    let code = 'REQUEST_FAILED'; let message = ''; let data: Record<string, unknown> | undefined
     try { const body = await response.json(); code = body?.error?.code || code; message = body?.error?.message || message; data = body?.data && typeof body.data === 'object' ? body.data : undefined } catch {}
-    throw new ApiError(response.status, code, await friendlyMessage(code, message), undefined, data)
+    throw new ApiError(response.status, code, await friendlyMessage(response.status, code, message), undefined, data)
   }
   const body = await response.json()
   return (body.data ?? body) as T
 }
 
-/** Rewrites the error codes whose raw API message is a machine string into a
- *  sentence a seller can act on. Mirrors the same mapping in the web client so
- *  a rejected publish reads identically on both platforms. */
-async function friendlyMessage(code: string, message: string): Promise<string> {
-  if (code !== 'MISSING_REQUIRED_ATTRIBUTES') return message
+/** Puts an API error in the user's language (see ./errorMessages). The
+ *  missing-attributes case keeps its list of names so a rejected publish
+ *  still says what to fill in. */
+async function friendlyMessage(status: number, code: string, message: string): Promise<string> {
+  if (code !== 'MISSING_REQUIRED_ATTRIBUTES') return localizeApiError(status, code, message)
   // The API appends the missing names after the code: "MISSING_REQUIRED_ATTRIBUTES: Color, Size".
   const names = message.replace(/^MISSING_REQUIRED_ATTRIBUTES:\s*/, '').trim()
   if (!names || names === message) return await localized('errors.missingAttributesGeneric')
@@ -177,7 +178,8 @@ async function unwrap<T>(status: number, text: string): Promise<T> {
     throw new ApiError(status, 'REQUEST_FAILED', await localized('errors.generic'), `non-JSON body: ${text.slice(0, 200)}`)
   }
   if (status < 200 || status >= 300) {
-    throw new ApiError(status, body?.error?.code || 'REQUEST_FAILED', body?.error?.message || await localized('errors.generic'))
+    const code = body?.error?.code || 'REQUEST_FAILED'
+    throw new ApiError(status, code, await friendlyMessage(status, code, body?.error?.message || ''))
   }
   return (body.data ?? body) as T
 }

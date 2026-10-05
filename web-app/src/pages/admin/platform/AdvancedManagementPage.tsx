@@ -3,6 +3,7 @@ import { adminLabel } from '@/lib/adminLabels'
 import { useAdminAuth } from '@/store/adminAuth'
 import { adminAdvancedApi, Announcement, ApprovalRequest, ExportJob, MaintenanceState, AnalyticsMetric } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 
 const CLIENTS = ['WEB', 'ANDROID', 'BUYER', 'SELLER']
 const AUDIENCES = ['ALL', 'BUYERS', 'SELLERS', 'EMPLOYEES', 'ADMINS']
@@ -14,7 +15,7 @@ const DATASETS: Record<string, string[]> = {
   FINANCE_SUPPORT_ADMIN: ['ORDERS', 'CASH_SUMMARIES', 'POINTS_HISTORY', 'REVIEWS', 'CASES', 'RISK_EVENTS'],
   TECHNICAL_ADMIN: ['RISK_EVENTS', 'AUDIT_LOGS']
 }
-const fmtDate = (v?: string) => (v ? new Date(v).toLocaleString('fr-FR') : '—')
+const fmtDate = (v?: string) => (v ? new Date(v).toLocaleString(dateLocale()) : '—')
 /** <input type="datetime-local"> wants local time without seconds or zone. */
 const toLocalInput = (v?: string) => {
   if (!v) return ''
@@ -95,35 +96,38 @@ export default function AdvancedManagementPage() {
     try { await action(); setNotice(success); await load() } catch (err) { setError((err as Error).message) }
   }
 
+  const maintenanceLabel = (s: 'OFF' | 'PARTIAL' | 'FULL') =>
+    s === 'OFF' ? t('adminPlatformAdvancedManagementPage.maintOff') : s === 'PARTIAL' ? t('adminPlatformAdvancedManagementPage.maintPartial') : t('adminPlatformAdvancedManagementPage.maintFull')
+
   const changeMaintenance = (status: 'OFF' | 'PARTIAL' | 'FULL') => {
     if (!reason.trim()) { setError(t('admin.advanced.maintenanceReasonRequired')); return }
-    if (status === 'FULL' && !window.confirm('Maintenance COMPLÈTE : toutes les apps publiques seront coupées. Confirmer ?')) return
+    if (status === 'FULL' && !window.confirm(t('adminPlatformAdvancedManagementPage.confirmFull'))) return
     void run(() => adminAdvancedApi.updateMaintenance({
       status, reason: reason.trim(), message: maintMessage.trim(), affected_clients: maintClients, confirm: status === 'FULL'
-    }).then(() => setReason('')), `Maintenance : ${status}`)
+    }).then(() => setReason('')), t('adminPlatformAdvancedManagementPage.maintenanceChanged', { status: maintenanceLabel(status) }))
   }
 
   const saveDraft = () => {
     if (!draft) return
-    if (!draft.title.trim() || !draft.message.trim()) { setError('Titre et message requis.'); return }
+    if (!draft.title.trim() || !draft.message.trim()) { setError(t('adminPlatformAdvancedManagementPage.titleMessageRequired')); return }
     const body = { title: draft.title.trim(), message: draft.message.trim(), audience: draft.audience, status: draft.status,
       starts_at: fromLocalInput(draft.starts_at), ends_at: fromLocalInput(draft.ends_at) }
     void run(() => (draft.id ? adminAdvancedApi.updateAnnouncement(draft.id, body) : adminAdvancedApi.createAnnouncement(body))
-      .then(() => setDraft(null)), draft.status === 'ACTIVE' ? 'Annonce publiée' : 'Annonce enregistrée')
+      .then(() => setDraft(null)), draft.status === 'ACTIVE' ? t('adminPlatformAdvancedManagementPage.announcementPublished') : t('adminPlatformAdvancedManagementPage.announcementSaved'))
   }
 
   const setAnnouncementStatus = (a: Announcement, status: string) =>
     void run(() => adminAdvancedApi.updateAnnouncement(a.id, { title: a.title, message: a.message, audience: a.audience, status, starts_at: a.starts_at, ends_at: a.ends_at }),
-      status === 'ACTIVE' ? 'Annonce publiée' : status === 'ARCHIVED' ? 'Annonce archivée' : 'Annonce repassée en brouillon')
+      status === 'ACTIVE' ? t('adminPlatformAdvancedManagementPage.announcementPublished') : status === 'ARCHIVED' ? t('adminPlatformAdvancedManagementPage.announcementArchived') : t('adminPlatformAdvancedManagementPage.announcementDrafted'))
 
   const requestExport = () => {
-    if (!dataset || exportReason.trim().length < 3) { setError('Choisissez un jeu de données et indiquez un motif.'); return }
-    void run(() => adminAdvancedApi.createExport(dataset, exportReason.trim()).then(() => setExportReason('')), `Export ${dataset} demandé`)
+    if (!dataset || exportReason.trim().length < 3) { setError(t('adminPlatformAdvancedManagementPage.exportNeedsDatasetReason')); return }
+    void run(() => adminAdvancedApi.createExport(dataset, exportReason.trim()).then(() => setExportReason('')), t('adminPlatformAdvancedManagementPage.exportRequested', { dataset: adminLabel(dataset) }))
   }
 
   const decide = (a: ApprovalRequest, approve: boolean) => {
     const why = decisionReason.trim() || (approve ? t('admin.advanced.approvedReason') : t('admin.advanced.rejectedReason'))
-    void run(() => adminAdvancedApi.decideApproval(a.id, approve, why).then(() => setDecisionReason('')), approve ? 'Demande approuvée' : 'Demande rejetée')
+    void run(() => adminAdvancedApi.decideApproval(a.id, approve, why).then(() => setDecisionReason('')), approve ? t('adminPlatformAdvancedManagementPage.requestApproved') : t('adminPlatformAdvancedManagementPage.requestRejected'))
   }
 
   return (
@@ -137,36 +141,36 @@ export default function AdvancedManagementPage() {
 
       <section className="admin-panel">
         <div className="admin-section-title">
-          <div><h2>{t('admin.advanced.maintenanceTitle')}</h2><p>{t('admin.advanced.maintenanceDesc')} Appliquée par l’API : PARTIELLE bloque les écritures, COMPLÈTE bloque tout.</p></div>
+          <div><h2>{t('admin.advanced.maintenanceTitle')}</h2><p>{t('admin.advanced.maintenanceDesc')} {t('adminPlatformAdvancedManagementPage.maintenanceApiNote')}</p></div>
           <span className={`admin-status status-${maintenance?.status?.toLowerCase()}`}>{adminLabel(maintenance?.status || '—')}</span>
         </div>
         {canWriteMaintenance ? (
           <>
-            <textarea aria-label="Message affiché aux utilisateurs" value={maintMessage} onChange={(e) => setMaintMessage(e.target.value)} placeholder="Message affiché aux utilisateurs (bannière)" />
-            <div className="admin-actions" role="group" aria-label="Clients concernés">
+            <textarea aria-label={t('adminPlatformAdvancedManagementPage.userMessage')} value={maintMessage} onChange={(e) => setMaintMessage(e.target.value)} placeholder={t('adminPlatformAdvancedManagementPage.userMessagePlaceholder')} />
+            <div className="admin-actions" role="group" aria-label={t('adminPlatformAdvancedManagementPage.affectedClients')}>
               {CLIENTS.map((c) => (
                 <label key={c} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
                   <input type="checkbox" checked={maintClients.includes(c)}
-                    onChange={(e) => setMaintClients((cur) => (e.target.checked ? [...cur, c] : cur.filter((x) => x !== c)))} />{c}
+                    onChange={(e) => setMaintClients((cur) => (e.target.checked ? [...cur, c] : cur.filter((x) => x !== c)))} />{adminLabel(c)}
                 </label>
               ))}
-              <span className="admin-muted" style={{ fontSize: 12 }}>(aucun coché = tous les clients)</span>
+              <span className="admin-muted" style={{ fontSize: 12 }}>{t('adminPlatformAdvancedManagementPage.noneCheckedAll')}</span>
             </div>
-            <textarea aria-label="Motif" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('admin.advanced.maintenanceReasonPlaceholder')} />
+            <textarea aria-label={t('adminPlatformAdvancedManagementPage.reason')} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('admin.advanced.maintenanceReasonPlaceholder')} />
             <div className="admin-actions">
               {(['OFF', 'PARTIAL', 'FULL'] as const).map((s) => (
-                <button key={s} disabled={!maintenance || (s === maintenance.status && maintMessage === maintenance.message)} onClick={() => changeMaintenance(s)}>{s}</button>
+                <button key={s} disabled={!maintenance || (s === maintenance.status && maintMessage === maintenance.message)} onClick={() => changeMaintenance(s)}>{maintenanceLabel(s)}</button>
               ))}
             </div>
           </>
-        ) : <p className="admin-muted">Lecture seule pour votre rôle.</p>}
-        <p className="admin-muted">{t('admin.advanced.affected', { clients: (maintenance?.affected_clients?.length ? maintenance.affected_clients : CLIENTS).join(', ') })}</p>
+        ) : <p className="admin-muted">{t('adminPlatformAdvancedManagementPage.readOnly')}</p>}
+        <p className="admin-muted">{t('admin.advanced.affected', { clients: (maintenance?.affected_clients?.length ? maintenance.affected_clients : CLIENTS).map((c) => adminLabel(c)).join(', ') })}</p>
       </section>
 
       <section className="admin-panel">
         <div className="admin-section-title">
           <div><h2>{t('admin.advanced.analyticsTitle', { dashboard: dashboard[0].toUpperCase() + dashboard.slice(1) })}</h2><p>{t('admin.advanced.analyticsDesc')}</p></div>
-          <select aria-label="Période" value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          <select aria-label={t('adminPlatformAdvancedManagementPage.period')} value={days} onChange={(e) => setDays(Number(e.target.value))}>
             {[1, 7, 30, 90].map((x) => <option key={x} value={x}>{x === 1 ? t('admin.advanced.today') : t('admin.advanced.daysOption', { days: x })}</option>)}
           </select>
         </div>
@@ -174,7 +178,7 @@ export default function AdvancedManagementPage() {
           {metrics.map((m) => (
             <article key={m.key}>
               <span>{m.label}</span>
-              <strong>{m.available ? m.value?.toLocaleString('fr-FR') : t('admin.advanced.dataNotAvailable')}</strong>
+              <strong>{m.available ? m.value?.toLocaleString(dateLocale()) : t('admin.advanced.dataNotAvailable')}</strong>
               <Sparkline points={m.trend} />
               <small>{m.available ? t('admin.advanced.dailyPoints', { count: m.trend.length }) : t('admin.advanced.trackingUnavailable')}</small>
             </article>
@@ -190,23 +194,23 @@ export default function AdvancedManagementPage() {
           </div>
           {draft && (
             <div style={{ display: 'grid', gap: 8, padding: '10px 0' }}>
-              <input aria-label="Titre" placeholder="Titre" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} style={inputStyle} />
-              <textarea aria-label="Message" placeholder="Message" value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} />
+              <input aria-label={t('adminPlatformAdvancedManagementPage.titleField')} placeholder={t('adminPlatformAdvancedManagementPage.titleField')} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} style={inputStyle} />
+              <textarea aria-label={t('adminPlatformAdvancedManagementPage.messageField')} placeholder={t('adminPlatformAdvancedManagementPage.messageField')} value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} />
               <div className="admin-actions">
-                <label style={labelStyle}>Audience
-                  <select value={draft.audience} onChange={(e) => setDraft({ ...draft, audience: e.target.value })}>{AUDIENCES.map((a) => <option key={a}>{a}</option>)}</select>
+                <label style={labelStyle}>{t('adminPlatformAdvancedManagementPage.audience')}
+                  <select value={draft.audience} onChange={(e) => setDraft({ ...draft, audience: e.target.value })}>{AUDIENCES.map((a) => <option key={a} value={a}>{adminLabel(a)}</option>)}</select>
                 </label>
-                <label style={labelStyle}>Début<input type="datetime-local" value={draft.starts_at} onChange={(e) => setDraft({ ...draft, starts_at: e.target.value })} style={inputStyle} /></label>
-                <label style={labelStyle}>Fin<input type="datetime-local" value={draft.ends_at} onChange={(e) => setDraft({ ...draft, ends_at: e.target.value })} style={inputStyle} /></label>
+                <label style={labelStyle}>{t('adminPlatformAdvancedManagementPage.start')}<input type="datetime-local" value={draft.starts_at} onChange={(e) => setDraft({ ...draft, starts_at: e.target.value })} style={inputStyle} /></label>
+                <label style={labelStyle}>{t('adminPlatformAdvancedManagementPage.end')}<input type="datetime-local" value={draft.ends_at} onChange={(e) => setDraft({ ...draft, ends_at: e.target.value })} style={inputStyle} /></label>
               </div>
               <div className="admin-actions">
-                <button onClick={() => { setDraft({ ...draft, status: 'DRAFT' }); }}>Brouillon</button>
-                <button onClick={() => setDraft({ ...draft, status: 'ACTIVE' })}>Publier</button>
-                <span className="admin-muted" style={{ fontSize: 12 }}>Statut à l’enregistrement : <b>{adminLabel(draft.status)}</b></span>
+                <button onClick={() => { setDraft({ ...draft, status: 'DRAFT' }); }}>{t('adminPlatformAdvancedManagementPage.draft')}</button>
+                <button onClick={() => setDraft({ ...draft, status: 'ACTIVE' })}>{t('adminPlatformAdvancedManagementPage.publish')}</button>
+                <span className="admin-muted" style={{ fontSize: 12 }}>{t('adminPlatformAdvancedManagementPage.statusOnSave')} <b>{adminLabel(draft.status)}</b></span>
               </div>
               <div className="admin-actions">
-                <button onClick={saveDraft}>Enregistrer</button>
-                <button onClick={() => setDraft(null)}>Annuler</button>
+                <button onClick={saveDraft}>{t('common.save')}</button>
+                <button onClick={() => setDraft(null)}>{t('common.cancel')}</button>
               </div>
             </div>
           )}
@@ -215,16 +219,16 @@ export default function AdvancedManagementPage() {
               <div>
                 <strong>{a.title}</strong>
                 <p>{a.message}</p>
-                <p>{a.audience} · {fmtDate(a.starts_at)} → {fmtDate(a.ends_at)}</p>
+                <p>{adminLabel(a.audience)} · {fmtDate(a.starts_at)} → {fmtDate(a.ends_at)}</p>
               </div>
               <div className="admin-actions">
                 <span className={`admin-status status-${a.status.toLowerCase()}`}>{adminLabel(a.status)}</span>
                 {canWriteAnnouncements && (
                   <>
-                    {a.status !== 'ACTIVE' && <button onClick={() => setAnnouncementStatus(a, 'ACTIVE')}>Publier</button>}
-                    {a.status === 'ACTIVE' && <button onClick={() => setAnnouncementStatus(a, 'DRAFT')}>Dépublier</button>}
-                    {a.status !== 'ARCHIVED' && <button onClick={() => setAnnouncementStatus(a, 'ARCHIVED')}>Archiver</button>}
-                    <button onClick={() => setDraft({ id: a.id, title: a.title, message: a.message, audience: a.audience, status: a.status, starts_at: toLocalInput(a.starts_at), ends_at: toLocalInput(a.ends_at) })}>Modifier</button>
+                    {a.status !== 'ACTIVE' && <button onClick={() => setAnnouncementStatus(a, 'ACTIVE')}>{t('adminPlatformAdvancedManagementPage.publish')}</button>}
+                    {a.status === 'ACTIVE' && <button onClick={() => setAnnouncementStatus(a, 'DRAFT')}>{t('adminPlatformAdvancedManagementPage.unpublish')}</button>}
+                    {a.status !== 'ARCHIVED' && <button onClick={() => setAnnouncementStatus(a, 'ARCHIVED')}>{t('adminPlatformAdvancedManagementPage.archive')}</button>}
+                    <button onClick={() => setDraft({ id: a.id, title: a.title, message: a.message, audience: a.audience, status: a.status, starts_at: toLocalInput(a.starts_at), ends_at: toLocalInput(a.ends_at) })}>{t('common.edit')}</button>
                   </>
                 )}
               </div>
@@ -238,7 +242,7 @@ export default function AdvancedManagementPage() {
             <span>{t('admin.advanced.pendingCount', { count: approvals.filter((x) => x.status === 'PENDING').length })}</span>
           </div>
           {canDecide && approvals.some((x) => x.status === 'PENDING') && (
-            <input aria-label="Motif de décision" placeholder="Motif de la décision (optionnel)" value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} style={inputStyle} />
+            <input aria-label={t('adminPlatformAdvancedManagementPage.decisionReason')} placeholder={t('adminPlatformAdvancedManagementPage.decisionReasonPlaceholder')} value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} style={inputStyle} />
           )}
           {approvals.length === 0 ? <p className="admin-empty">{t('admin.advanced.noApprovals')}</p> : approvals.map((a) => (
             <article className="admin-list-row" key={a.id}>
@@ -258,25 +262,25 @@ export default function AdvancedManagementPage() {
         <div className="admin-section-title"><div><h2>{t('admin.advanced.exportJobsTitle')}</h2><p>{t('admin.advanced.exportJobsDesc')}</p></div></div>
         {datasets.length > 0 && (
           <div className="admin-actions" style={{ marginBottom: 10 }}>
-            <select aria-label="Jeu de données" value={dataset} onChange={(e) => setDataset(e.target.value)}>
-              <option value="">Jeu de données…</option>
-              {datasets.map((d) => <option key={d} value={d}>{d}</option>)}
+            <select aria-label={t('adminPlatformAdvancedManagementPage.dataset')} value={dataset} onChange={(e) => setDataset(e.target.value)}>
+              <option value="">{t('adminPlatformAdvancedManagementPage.datasetPlaceholder')}</option>
+              {datasets.map((d) => <option key={d} value={d}>{adminLabel(d)}</option>)}
             </select>
-            <input aria-label="Motif de l’export" placeholder="Motif de l’export" value={exportReason} onChange={(e) => setExportReason(e.target.value)} style={{ ...inputStyle, flex: '1 1 220px' }} />
+            <input aria-label={t('adminPlatformAdvancedManagementPage.exportReason')} placeholder={t('adminPlatformAdvancedManagementPage.exportReason')} value={exportReason} onChange={(e) => setExportReason(e.target.value)} style={{ ...inputStyle, flex: '1 1 220px' }} />
             <button onClick={requestExport}>{t('admin.advanced.requestExport')}</button>
           </div>
         )}
         {exports.length === 0 ? <p className="admin-empty">{t('admin.advanced.noExports')}</p> : exports.map((x) => (
           <article className="admin-list-row" key={x.id}>
             <div>
-              <strong>{x.dataset}</strong>
-              <p>{fmtDate(x.created_at)}{x.completed_at ? ` → ${fmtDate(x.completed_at)}` : ''}{typeof x.filters?.row_count === 'number' ? ` · ${x.filters.row_count} ligne(s)` : ''}</p>
+              <strong>{adminLabel(x.dataset)}</strong>
+              <p>{fmtDate(x.created_at)}{x.completed_at ? ` → ${fmtDate(x.completed_at)}` : ''}{typeof x.filters?.row_count === 'number' ? t('adminPlatformAdvancedManagementPage.rowCount', { count: x.filters.row_count }) : ''}</p>
               {x.error_message && <p style={{ color: '#fca5a5' }}>{x.error_message}</p>}
             </div>
             <div className="admin-actions">
               <span className={`admin-status status-${x.status.toLowerCase()}`}>{adminLabel(x.status)}</span>
               {x.status === 'COMPLETED' && (
-                <button onClick={() => void adminAdvancedApi.downloadExport(x.id, `${x.dataset}.csv`).catch((err) => setError((err as Error).message))}>Télécharger CSV</button>
+                <button onClick={() => void adminAdvancedApi.downloadExport(x.id, `${x.dataset}.csv`).catch((err) => setError((err as Error).message))}>{t('adminPlatformAdvancedManagementPage.downloadCsv')}</button>
               )}
             </div>
           </article>

@@ -1,3 +1,5 @@
+import { getMoneyLanguage } from '@/lib/format'
+
 export type AttributeDefLike = {
   key: string
   label_en?: string
@@ -71,7 +73,8 @@ export function canonicalizeAttributes(
   return next
 }
 
-export function attributeLabel(def: AttributeDefLike, locale = 'fr'): string {
+/** Defaults to the language the user picked. */
+export function attributeLabel(def: AttributeDefLike, locale: string = getMoneyLanguage()): string {
   if (locale.startsWith('fr')) return def.label_fr || def.label_en || def.key
   return def.label_en || def.label_fr || def.key
 }

@@ -17,6 +17,7 @@ import { extractSpecifications } from '../../../src/lib/variants'
 import { attributeLabel, canonicalizeAttributes, getAttributeValue, variantDisplayLabel, variantHasAttribute } from '../../../src/lib/categoryAttributes'
 import type { CategoryAttributeDefinition, Product, ProductVariant } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
+import { dateLocale } from '../../../src/lib/format'
 import { DescriptionEditor } from '../../../src/components/DescriptionEditor'
 import { OptionPicker } from '../../../src/components/OptionPicker'
 import { attributeOptions, sameAttribute, VARIANT_TYPE_NAMES } from '../../../src/lib/attributeOptions'
@@ -227,9 +228,9 @@ export default function SellerProductDetailScreen() {
     const parsed = canonicalizeAttributes(Object.fromEntries(Object.entries(variantAttrs).map(([k, v]) => [k.trim(), v.trim()]).filter(([k, v]) => k && v)), categoryAttrDefs)
     if (knownAttributeKeys.length > 0) {
       const missing = knownAttributeKeys.filter((k) => !parsed[k])
-      if (missing.length > 0) { setActionError(`Set a value for ${missing.join(', ')} so buyers can select this variant. Every variant of this product must define the same attributes.`); return }
+      if (missing.length > 0) { setActionError(t('sellerProductsId.setValueForVariant', { attrs: missing.join(', ') })); return }
     } else if (Object.keys(parsed).length === 0) { setActionError(t('seller.productDetail.atLeastOneAttr')); return }
-    if (variants.some((v) => sameCombination(v.attributes || {}, parsed))) { setActionError('Une variante avec cette combinaison exacte d’attributs existe déjà pour ce produit.'); return }
+    if (variants.some((v) => sameCombination(v.attributes || {}, parsed))) { setActionError(t('sellerProductsId.duplicateCombination')); return }
     const ok = await run(async () => {
       const created = await sellerApi.createVariant(activeBusiness!.id, productId, {
         name: variantForm.name.trim() || Object.values(parsed).join(' / ') || undefined, sku: variantForm.sku.trim() || undefined, attributes: parsed,
@@ -256,7 +257,7 @@ export default function SellerProductDetailScreen() {
   async function saveVariantAttributes(variantId: string) {
     const attrs = canonicalizeAttributes(Object.fromEntries(Object.entries(editAttrs).map(([k, v]) => [k.trim(), v.trim()]).filter(([k, v]) => k && v)), categoryAttrDefs)
     if (Object.keys(attrs).length === 0) { setActionError(t('seller.productDetail.enterAttrValue')); return }
-    if (variants.some((v) => v.id !== variantId && sameCombination(v.attributes || {}, attrs))) { setActionError('Une autre variante possède déjà cette combinaison exacte d’attributs.'); return }
+    if (variants.some((v) => v.id !== variantId && sameCombination(v.attributes || {}, attrs))) { setActionError(t('sellerProductsId.duplicateCombinationOther')); return }
     const ok = await run(() => sellerApi.updateVariant(variantId, { attributes: attrs }), 'seller.productDetail.updateAttrsFailed', t('seller.productDetail.attrsUpdated'))
     if (ok) setEditingAttrsFor(null)
   }
@@ -276,10 +277,10 @@ export default function SellerProductDetailScreen() {
     const requiredDefs = categoryAttrDefs.filter((d) => d.required)
     for (const id of ids) {
       const empty = requiredDefs.find((def) => !getAttributeValue(completionAttrs[id] || {}, def))
-      if (empty) { setActionError(`Renseignez ${empty.label_fr || empty.label_en || empty.key} avant d’enregistrer.`); return }
+      if (empty) { setActionError(t('sellerProductsId.fillBeforeSave', { label: attributeLabel(empty, lang) })); return }
     }
-    const saved = requiredDefs.filter((def) => ids.some((id) => !variantHasAttribute(variants.find((v) => v.id === id)?.attributes, def) && String(completionAttrs[id]?.[def.key] || '').trim())).map((def) => def.label_fr || def.label_en || def.key)
-    const ok = await run(() => Promise.all(ids.map((id) => sellerApi.updateVariant(id, { attributes: canonicalizeAttributes(Object.fromEntries(Object.entries(completionAttrs[id] || {}).map(([k, v]) => [k.trim(), String(v).trim()]).filter(([k, v]) => k && v)), categoryAttrDefs) }))), 'seller.productDetail.updateAttrsFailed', `${saved.join(', ')} ${saved.length > 1 ? 'enregistrées' : 'enregistrée'}`)
+    const saved = requiredDefs.filter((def) => ids.some((id) => !variantHasAttribute(variants.find((v) => v.id === id)?.attributes, def) && String(completionAttrs[id]?.[def.key] || '').trim())).map((def) => attributeLabel(def, lang))
+    const ok = await run(() => Promise.all(ids.map((id) => sellerApi.updateVariant(id, { attributes: canonicalizeAttributes(Object.fromEntries(Object.entries(completionAttrs[id] || {}).map(([k, v]) => [k.trim(), String(v).trim()]).filter(([k, v]) => k && v)), categoryAttrDefs) }))), 'seller.productDetail.updateAttrsFailed', t(saved.length > 1 ? 'sellerProductsId.savedMany' : 'sellerProductsId.savedOne', { labels: saved.join(', ') }))
     if (ok && close) setShowCompletion(false)
   }
 
@@ -288,8 +289,8 @@ export default function SellerProductDetailScreen() {
     if (!shopId) { setActionError(t('seller.productDetail.selectShopLocation')); return }
     const qty = parseInt(stockByVariant[variantId], 10)
     if (isNaN(qty) || qty <= 0) { setActionError(t('seller.productDetail.validStockQty')); return }
-    const shopName = shops.find((s) => s.id === shopId)?.name ?? 'shop'
-    const ok = await run(() => sellerApi.addStock(shopId, { variant_id: variantId, quantity: qty, notes: t('seller.productDetail.noteRestock') }), 'seller.productDetail.addStockFailed', `Added ${qty} units to ${shopName} successfully.`)
+    const shopName = shops.find((s) => s.id === shopId)?.name ?? t('sellerProductsId.shopFallback')
+    const ok = await run(() => sellerApi.addStock(shopId, { variant_id: variantId, quantity: qty, notes: t('seller.productDetail.noteRestock') }), 'seller.productDetail.addStockFailed', t('sellerProductsId.stockAdded', { count: qty, shop: shopName }))
     if (ok) setStockByVariant((prev) => ({ ...prev, [variantId]: '' }))
   }
 
@@ -313,7 +314,7 @@ export default function SellerProductDetailScreen() {
   function removeImage(imageId: string) {
     Alert.alert(t('seller.productDetail.removePhotoConfirm'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => void run(() => sellerApi.deleteProductImage(activeBusiness!.id, productId, imageId), 'seller.productDetail.removePhotoFailed', t('seller.productDetail.photoRemoved')) },
+      { text: t('common.remove'), style: 'destructive', onPress: () => void run(() => sellerApi.deleteProductImage(activeBusiness!.id, productId, imageId), 'seller.productDetail.removePhotoFailed', t('seller.productDetail.photoRemoved')) },
     ])
   }
 
@@ -347,28 +348,28 @@ export default function SellerProductDetailScreen() {
 
       {/* ── Actionable draft requirements ── */}
       {!published && missingRequirements.length > 0 ? <View style={styles.warnBox} accessibilityRole="alert">
-        <Text style={styles.h3}><Ionicons name="warning-outline" size={14} color={colors.muted} /> {missingRequirements.length} caractéristique{missingRequirements.length > 1 ? 's' : ''} obligatoire{missingRequirements.length > 1 ? 's' : ''} manquante{missingRequirements.length > 1 ? 's' : ''}</Text>
+        <Text style={styles.h3}><Ionicons name="warning-outline" size={14} color={colors.muted} /> {t(missingRequirements.length > 1 ? 'sellerProductsId.missingRequiredMany' : 'sellerProductsId.missingRequiredOne', { count: missingRequirements.length })}</Text>
         {missingRequirements.map((req) => {
           const label = attributeLabel(req.def, lang)
           return <View key={req.def.key} style={styles.reqItem}>
-            <Text style={styles.bold}>{label} manquante</Text>
-            {req.variants.length > 0 ? <Text style={styles.small}>Manquante sur : {req.variants.map((v) => `• ${variantDisplayLabel(v.attributes, categoryAttrDefs, v.name || v.sku || 'Variante')}`).join('  ')}</Text> : null}
-            <Button dense variant="outline" title={`Compléter ${label}`} onPress={openCompletion} />
+            <Text style={styles.bold}>{t('sellerProductsId.attrMissing', { label })}</Text>
+            {req.variants.length > 0 ? <Text style={styles.small}>{t('sellerProductsId.missingOn')} {req.variants.map((v) => `• ${variantDisplayLabel(v.attributes, categoryAttrDefs, v.name || v.sku || t('sellerProductsId.variantFallback'))}`).join('  ')}</Text> : null}
+            <Button dense variant="outline" title={t('sellerProductsId.completeAttr', { label })} onPress={openCompletion} />
           </View>
         })}
-        <Button dense title={variants.length === 0 ? 'Créer une variante' : 'Compléter toutes les variantes'} onPress={openCompletion} />
+        <Button dense title={variants.length === 0 ? t('sellerProductsId.createVariant') : t('sellerProductsId.completeAllVariants')} onPress={openCompletion} />
       </View> : null}
-      {!published && categoryAttrDefs.some((d) => d.required) && missingRequirements.length === 0 ? <View style={styles.successBox}><Text style={styles.successText}>✓ Toutes les caractéristiques obligatoires sont complètes.</Text></View> : null}
+      {!published && categoryAttrDefs.some((d) => d.required) && missingRequirements.length === 0 ? <View style={styles.successBox}><Text style={styles.successText}>✓ {t('sellerProductsId.allRequiredComplete')}</Text></View> : null}
 
       {/* ── Product QR ── */}
-      {qr.data ? <QRPanel qr={qr.data} title="TBK Product QR" imagePath={`/businesses/${activeBusiness.id}/products/${p.id}/qr/label`} fields={[{ label: 'Produit', value: p.name }, { label: 'SKU', value: p.sku || '' }, { label: 'Boutique', value: activeBusiness.name || '' }]} /> : null}
+      {qr.data ? <QRPanel qr={qr.data} title={t('sellerProductsId.productQrTitle')} imagePath={`/businesses/${activeBusiness.id}/products/${p.id}/qr/label`} fields={[{ label: t('itemQr.labelProduct'), value: p.name }, { label: 'SKU', value: p.sku || '' }, { label: t('itemQr.labelShop'), value: activeBusiness.name || '' }]} /> : null}
 
       {/* ── Overview ── */}
       <View style={styles.card}>
         <View style={styles.wrapRow}>
           <Text style={[styles.badge, published ? styles.badgeOk : styles.badgeWarn]}>{t(`seller.publicationStatus.${p.publication_status}` as TranslationKey)}</Text>
           {p.sku ? <Text style={styles.mono}>{t('seller.productDetail.skuInfo', { sku: p.sku })}</Text> : null}
-          <Text style={styles.small}>· {t('seller.productDetail.basePrice', { price: Number(p.unit_price || 0).toLocaleString() })}</Text>
+          <Text style={styles.small}>· {t('seller.productDetail.basePrice', { price: Number(p.unit_price || 0).toLocaleString(dateLocale()) })}</Text>
           <Text style={styles.small}>· {t('seller.productDetail.unitLabel', { unit: p.unit || 'PCS' })}</Text>
           {p.category_id ? <Text style={styles.badgeOutline}><Ionicons name="folder-outline" size={14} color={colors.muted} /> {categories.find((c) => c.id === p.category_id)?.name || t('seller.productDetail.categoryFallback')}</Text> : null}
         </View>
@@ -435,27 +436,27 @@ export default function SellerProductDetailScreen() {
               <Chip label={t('seller.productDetail.discountPercentOff')} selected={promo.discount_type === 'PERCENTAGE'} onPress={() => setPromo((f) => ({ ...f, discount_type: 'PERCENTAGE' }))} styles={styles} />
               <Chip label={t('seller.productDetail.discountFixed')} selected={promo.discount_type === 'FIXED'} onPress={() => setPromo((f) => ({ ...f, discount_type: 'FIXED' }))} styles={styles} />
             </View>
-            <Field label={promo.discount_type === 'PERCENTAGE' ? t('seller.productDetail.discountPercentLabel') : t('seller.productDetail.discountAmountLabel')} value={promo.discount_value} onChangeText={(v) => setPromo((f) => ({ ...f, discount_value: v }))} keyboardType="decimal-pad" placeholder={promo.discount_type === 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 15000'} />
-            <Field label={t('seller.productDetail.startDateOptional')} value={promo.discount_start} onChangeText={(v) => setPromo((f) => ({ ...f, discount_start: v }))} placeholder="AAAA-MM-JJTHH:MM" autoCapitalize="characters" />
-            <Field label={t('seller.productDetail.endDateOptional')} value={promo.discount_end} onChangeText={(v) => setPromo((f) => ({ ...f, discount_end: v }))} placeholder="AAAA-MM-JJTHH:MM" autoCapitalize="characters" />
+            <Field label={promo.discount_type === 'PERCENTAGE' ? t('seller.productDetail.discountPercentLabel') : t('seller.productDetail.discountAmountLabel')} value={promo.discount_value} onChangeText={(v) => setPromo((f) => ({ ...f, discount_value: v }))} keyboardType="decimal-pad" placeholder={promo.discount_type === 'PERCENTAGE' ? t('sellerProductsId.percentPlaceholder') : t('sellerProductsId.amountPlaceholder')} />
+            <Field label={t('seller.productDetail.startDateOptional')} value={promo.discount_start} onChangeText={(v) => setPromo((f) => ({ ...f, discount_start: v }))} placeholder={t('sellerProductsId.dateTimePlaceholder')} autoCapitalize="characters" />
+            <Field label={t('seller.productDetail.endDateOptional')} value={promo.discount_end} onChangeText={(v) => setPromo((f) => ({ ...f, discount_end: v }))} placeholder={t('sellerProductsId.dateTimePlaceholder')} autoCapitalize="characters" />
           </> : null}
           {promoPreview ? <View style={styles.previewBox}>
             <Text style={styles.small}>{t('seller.productDetail.promotionLivePreview')}</Text>
             <View style={styles.wrapRow}>
               <Text style={[styles.bigStat, { color: colors.green }]}>{isNaN(parseFloat(promo.discount_value)) ? '—' : formatMoney(discounted(p.unit_price || 0, promo.discount_type, parseFloat(promo.discount_value)), currency)}</Text>
               <Text style={styles.strike}>{formatMoney(p.unit_price, currency)}</Text>
-              <Text style={[styles.badge, styles.badgeOk]}>{promo.discount_type === 'PERCENTAGE' ? `${promo.discount_value}% OFF` : `${formatMoney(parseFloat(promo.discount_value), currency)} OFF`}</Text>
+              <Text style={[styles.badge, styles.badgeOk]}>{promo.discount_type === 'PERCENTAGE' ? t('sellerProductsId.percentOff', { value: promo.discount_value }) : t('sellerProductsId.amountOff', { amount: formatMoney(parseFloat(promo.discount_value), currency) })}</Text>
             </View>
           </View> : null}
           <Button title={t('seller.productDetail.savePromotionSettings')} loading={busy} onPress={() => void savePromotion()} />
         </View> : p.discount_active ? <View style={{ gap: 6 }}>
           <View style={styles.previewBox}>
             <Text style={styles.small}>{t('seller.productDetail.currentActivePromotion')}</Text>
-            <Text style={[styles.bigStat, { color: colors.green }]}>{p.discount_type === 'PERCENTAGE' ? `${p.discount_value}% OFF` : `${formatMoney(p.discount_value || 0, currency)} OFF`}</Text>
-            {p.unit_price ? <Text style={styles.small}>(Sale Price: <Text style={styles.bold}>{formatMoney(discounted(p.unit_price || 0, p.discount_type, p.discount_value || 0), currency)}</Text> {t('seller.productDetail.normalPrice', { price: formatMoney(p.unit_price, currency) })})</Text> : null}
+            <Text style={[styles.bigStat, { color: colors.green }]}>{p.discount_type === 'PERCENTAGE' ? t('sellerProductsId.percentOff', { value: p.discount_value ?? 0 }) : t('sellerProductsId.amountOff', { amount: formatMoney(p.discount_value || 0, currency) })}</Text>
+            {p.unit_price ? <Text style={styles.small}>({t('sellerProductsId.salePriceLabel')} <Text style={styles.bold}>{formatMoney(discounted(p.unit_price || 0, p.discount_type, p.discount_value || 0), currency)}</Text> {t('seller.productDetail.normalPrice', { price: formatMoney(p.unit_price, currency) })})</Text> : null}
           </View>
-          {p.discount_start ? <Text style={styles.small}>{t('seller.productDetail.startsAt', { date: new Date(p.discount_start).toLocaleString() })}</Text> : null}
-          {p.discount_end ? <Text style={styles.small}>{t('seller.productDetail.endsAt', { date: new Date(p.discount_end).toLocaleString() })}</Text> : null}
+          {p.discount_start ? <Text style={styles.small}>{t('seller.productDetail.startsAt', { date: new Date(p.discount_start).toLocaleString(dateLocale()) })}</Text> : null}
+          {p.discount_end ? <Text style={styles.small}>{t('seller.productDetail.endsAt', { date: new Date(p.discount_end).toLocaleString(dateLocale()) })}</Text> : null}
           {!p.discount_start && !p.discount_end ? <Text style={styles.small}>{t('seller.productDetail.activeIndefinitely')}</Text> : null}
         </View> : <Text style={styles.small}>{t('seller.productDetail.noActivePromo')}</Text>}
       </View>
@@ -464,12 +465,12 @@ export default function SellerProductDetailScreen() {
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <View style={styles.flex1}>
-            <Text style={styles.h3}>Product Photos ({images.length})</Text>
-            <Text style={styles.small}>Link a photo to a variant so buyers see that exact colour or model when they select it. Photos left as “All variants” show for the whole product.</Text>
+            <Text style={styles.h3}>{t('sellerProductsId.photosTitle', { count: images.length })}</Text>
+            <Text style={styles.small}>{t('sellerProductsId.photosDesc')}</Text>
           </View>
-          {images.length < MAX_IMAGES ? <Button dense variant="outline" title="+ Add Photo" disabled={busy} onPress={pickImage} /> : null}
+          {images.length < MAX_IMAGES ? <Button dense variant="outline" title={t('seller.productForm.addPhoto')} disabled={busy} onPress={pickImage} /> : null}
         </View>
-        {images.length === 0 ? <Text style={[styles.small, { textAlign: 'center', padding: 16 }]}>No photos yet. Buyers are far more likely to order a product that shows a photo.</Text>
+        {images.length === 0 ? <Text style={[styles.small, { textAlign: 'center', padding: 16 }]}>{t('sellerProductsId.noPhotos')}</Text>
           : images.map((img) => <View key={img.id} style={styles.photoCard}>
             <View>
               <Image source={resolveMediaUrl(img.url)} style={styles.photo} contentFit="cover" accessibilityLabel={img.file_name || p.name} />
@@ -479,9 +480,9 @@ export default function SellerProductDetailScreen() {
               <Text style={styles.small}>{t('seller.productDetail.showsVariant')}</Text>
               <View style={styles.chips}>
                 <Chip label={t('seller.productDetail.allVariants')} selected={!img.variant_id} disabled={busy} onPress={() => void run(() => sellerApi.assignImageVariant(activeBusiness.id, p.id, img.id, null), 'seller.productDetail.linkPhotoFailed', t('seller.productDetail.photoLinkedWhole'))} styles={styles} />
-                {variants.map((v) => <Chip key={v.id} label={Object.values(v.attributes ?? {}).join(' / ') || v.name || v.sku || 'Variant'} selected={img.variant_id === v.id} disabled={busy} onPress={() => void run(() => sellerApi.assignImageVariant(activeBusiness.id, p.id, img.id, v.id), 'seller.productDetail.linkPhotoFailed', t('seller.productDetail.photoLinkedVariant'))} styles={styles} />)}
+                {variants.map((v) => <Chip key={v.id} label={Object.values(v.attributes ?? {}).join(' / ') || v.name || v.sku || t('sellerProductsId.variantFallback')} selected={img.variant_id === v.id} disabled={busy} onPress={() => void run(() => sellerApi.assignImageVariant(activeBusiness.id, p.id, img.id, v.id), 'seller.productDetail.linkPhotoFailed', t('seller.productDetail.photoLinkedVariant'))} styles={styles} />)}
               </View>
-              <Pressable accessibilityRole="button" disabled={busy} onPress={() => removeImage(img.id)}><Text style={styles.removeText}>Remove</Text></Pressable>
+              <Pressable accessibilityRole="button" disabled={busy} onPress={() => removeImage(img.id)}><Text style={styles.removeText}>{t('common.remove')}</Text></Pressable>
             </View>
           </View>)}
       </View>
@@ -490,7 +491,7 @@ export default function SellerProductDetailScreen() {
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <View style={styles.flex1}>
-            <Text style={styles.h3}>Variants & Inventory ({variants.length})</Text>
+            <Text style={styles.h3}>{t('sellerProductsId.variantsInventoryTitle', { count: variants.length })}</Text>
             <Text style={styles.small}>{t('seller.productDetail.variantsInventoryDesc')}</Text>
           </View>
           <Button dense title={showVariantForm ? t('common.cancel') : `+ ${t('seller.productDetail.addVariant')}`} onPress={() => setShowVariantForm((v) => !v)} />
@@ -499,8 +500,8 @@ export default function SellerProductDetailScreen() {
         {showVariantForm ? <View style={styles.inlineForm}>
           <Text style={styles.h4}>{t('seller.productDetail.newVariant')}</Text>
           <Text style={styles.small}>{knownAttributeKeys.length > 0
-            ? `Give this variant its own value for ${knownAttributeKeys.join(' and ')}. Buyers pick a product by these attributes, so every variant must define the same ones.`
-            : 'Add the attributes that tell your variants apart (Color, Size, Storage…). Buyers use these as the selection buttons on the marketplace.'}</Text>
+            ? t('sellerProductsId.giveVariantValue', { attrs: knownAttributeKeys.join(t('sellerProductsId.andJoiner')) })
+            : t('sellerProductsId.addAttrsIntro')}</Text>
           {Object.keys(variantAttrs).map((key) => <View key={key} style={styles.attrRow}>
             <View style={styles.flex1}>
             <AttrValue
@@ -515,7 +516,7 @@ export default function SellerProductDetailScreen() {
               </View>}
             />
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${key} from this variant`} onPress={() => setVariantAttrs((prev) => { const next = { ...prev }; delete next[key]; return next })} style={styles.xBtn}><Text style={styles.text}>✕</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('sellerProductsId.removeAttrA11y', { key })} onPress={() => setVariantAttrs((prev) => { const next = { ...prev }; delete next[key]; return next })} style={styles.xBtn}><Text style={styles.text}>✕</Text></Pressable>
           </View>)}
           <View style={styles.chips}>
             {VARIANT_TYPE_NAMES.filter((name) => !Object.keys(variantAttrs).some((k) => sameAttribute(k, name))).map((name) => (
@@ -546,11 +547,11 @@ export default function SellerProductDetailScreen() {
             <View style={styles.rowBetween}>
               <View style={styles.flex1}>
                 <Text style={styles.bold}>{v.name || t('seller.productDetail.defaultVariant')}</Text>
-                {v.sku ? <Text style={styles.mono}>SKU: {v.sku}</Text> : null}
+                {v.sku ? <Text style={styles.mono}>{t('seller.productDetail.skuInfo', { sku: v.sku })}</Text> : null}
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
                 <Text style={styles.bold}>{formatMoney(Number(v.sale_price || 0), currency)}</Text>
-                <Text style={[styles.badge, v.status === 'ACTIVE' ? styles.badgeOk : styles.badgeMuted]}>{v.status}</Text>
+                <Text style={[styles.badge, v.status === 'ACTIVE' ? styles.badgeOk : styles.badgeMuted]}>{v.status === 'ACTIVE' ? t('sellerProductsId.variantActive') : v.status === 'INACTIVE' ? t('sellerProductsId.variantInactive') : v.status}</Text>
               </View>
             </View>
             <View style={styles.rowBetween}>
@@ -559,10 +560,10 @@ export default function SellerProductDetailScreen() {
             </View>
             <View style={styles.chips}>
               {attrEntries.map(([k, val]) => <Text key={k} style={styles.attrChip}><Text style={styles.bold}>{k}:</Text> {val}</Text>)}
-              {attrEntries.length === 0 ? <Text style={[styles.tiny, { color: colors.warning }]}>Aucun attribut — non sélectionnable par les acheteurs</Text> : null}
+              {attrEntries.length === 0 ? <Text style={[styles.tiny, { color: colors.warning }]}>{t('sellerProductsId.noAttrsNotSelectable')}</Text> : null}
             </View>
             {editingAttrsFor === v.id ? <View style={styles.inlineForm}>
-              {Object.keys(editAttrs).length === 0 ? <Text style={styles.small}>This product has no attribute names yet. Add one below.</Text> : null}
+              {Object.keys(editAttrs).length === 0 ? <Text style={styles.small}>{t('sellerProductsId.noAttrNamesYet')}</Text> : null}
               {Object.keys(editAttrs).map((key) => <View key={key}>
                 <AttrValue
                   attr={categoryAttrDefs.find((d) => d.key === key) || { key, label_fr: key, label_en: key }}
@@ -581,13 +582,13 @@ export default function SellerProductDetailScreen() {
                   <Chip key={name} label={`+ ${name}`} selected={false} onPress={() => setEditAttrs((prev) => ({ ...prev, [name]: '' }))} styles={styles} />
                 ))}
               </View>
-              <Button dense title="Enregistrer" disabled={busy} onPress={() => void saveVariantAttributes(v.id)} />
+              <Button dense title={t('common.save')} disabled={busy} onPress={() => void saveVariantAttributes(v.id)} />
             </View> : null}
             <View style={styles.rowBetween}>
               <Text style={styles.small}>{t('seller.productDetail.availableStock')}</Text>
-              <Text style={[styles.bold, { color: available > 0 ? colors.green : colors.danger }]}>{available} dispo {reserved > 0 ? `(${total} tot · ${reserved} rés)` : ''}</Text>
+              <Text style={[styles.bold, { color: available > 0 ? colors.green : colors.danger }]}>{available} {t('sellerProductsId.availableSuffix')} {reserved > 0 ? t('sellerProductsId.reservedShort', { total, reserved }) : ''}</Text>
             </View>
-            {rows.length > 0 ? rows.map((row) => <Text key={row.id} style={styles.small}><Ionicons name="storefront-outline" size={14} color={colors.muted} /> {shops.find((s) => s.id === row.shop_id)?.name ?? 'Boutique'}: <Text style={styles.bold}>{Math.max(0, row.quantity - (row.reserved_quantity || 0))}</Text> dispo</Text>) : null}
+            {rows.length > 0 ? rows.map((row) => <Text key={row.id} style={styles.small}><Ionicons name="storefront-outline" size={14} color={colors.muted} /> {shops.find((s) => s.id === row.shop_id)?.name ?? t('seller.shopProducts.shopFallback')}: <Text style={styles.bold}>{Math.max(0, row.quantity - (row.reserved_quantity || 0))}</Text> {t('sellerProductsId.availableSuffix')}</Text>) : null}
             {!scopedShopId && shops.length > 1 ? <View style={styles.chips}>{shops.map((s) => <Chip key={s.id} label={s.name} selected={targetShop === s.id} onPress={() => setTargetShopByVariant((prev) => ({ ...prev, [v.id]: s.id }))} styles={styles} />)}</View> : null}
             <View style={styles.attrRow}>
               <TextInput style={[styles.input, { width: 90 }]} value={stockByVariant[v.id] ?? ''} onChangeText={(val) => setStockByVariant((prev) => ({ ...prev, [v.id]: val }))} placeholder={t('seller.productDetail.qtyPlaceholder')} placeholderTextColor={colors.mutedLight} keyboardType="number-pad" />
@@ -602,31 +603,31 @@ export default function SellerProductDetailScreen() {
     {showCompletion ? <View style={styles.modalOverlay}>
       <View style={styles.modal}>
         <View style={styles.rowBetween}>
-          <View style={styles.flex1}><Text style={styles.h3}>Compléter les variantes</Text><Text style={styles.small}>Seules les caractéristiques obligatoires à compléter sont affichées.</Text></View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Fermer" onPress={() => setShowCompletion(false)} hitSlop={8}><Text style={styles.close}>×</Text></Pressable>
+          <View style={styles.flex1}><Text style={styles.h3}>{t('sellerProductsId.completeVariantsTitle')}</Text><Text style={styles.small}>{t('sellerProductsId.completeVariantsDesc')}</Text></View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => setShowCompletion(false)} hitSlop={8}><Text style={styles.close}>×</Text></Pressable>
         </View>
         <ScrollView contentContainerStyle={{ gap: 12, paddingVertical: 8 }} keyboardShouldPersistTaps="handled">
           {variants.filter((v) => categoryAttrDefs.some((d) => d.required && !variantHasAttribute(v.attributes, d))).map((v, index) => {
             const missingDefs = categoryAttrDefs.filter((d) => d.required && !variantHasAttribute(v.attributes, d))
             return <View key={v.id} style={styles.variantCard}>
-              <Text style={styles.bold}>{variantDisplayLabel(v.attributes, categoryAttrDefs, v.name || `Variante ${index + 1}`)}</Text>
-              <Text style={styles.small}>SKU : {v.sku || '—'} · Prix : {formatMoney(Number(v.sale_price || 0), currency)}</Text>
+              <Text style={styles.bold}>{variantDisplayLabel(v.attributes, categoryAttrDefs, v.name || t('sellerProductsId.variantNumber', { n: index + 1 }))}</Text>
+              <Text style={styles.small}>{t('sellerProductsId.skuPrice', { sku: v.sku || '—', price: formatMoney(Number(v.sale_price || 0), currency) })}</Text>
               {missingDefs.map((def) => {
                 const value = completionAttrs[v.id]?.[def.key] || getAttributeValue(v.attributes, def)
                 const set = (val: string) => setCompletionAttrs((prev) => ({ ...prev, [v.id]: { ...prev[v.id], [def.key]: val } }))
                 return <View key={def.key} style={{ gap: 4 }}>
                   <Text style={styles.label}>{attributeLabel(def, lang)} *</Text>
                   {attributeOptions(def, categorySlug, [value]) ? <OptionPicker label="" options={attributeOptions(def, categorySlug, [value])!.values} swatch={attributeOptions(def, categorySlug, [value])!.swatch} value={value} onChange={(next) => set(next as string)} />
-                    : <TextInput style={styles.input} value={value} onChangeText={set} keyboardType={def.input_type === 'NUMBER' ? 'decimal-pad' : 'default'} placeholder={def.input_type === 'DATE' ? 'AAAA-MM-JJ' : undefined} placeholderTextColor={colors.mutedLight} />}
+                    : <TextInput style={styles.input} value={value} onChangeText={set} keyboardType={def.input_type === 'NUMBER' ? 'decimal-pad' : 'default'} placeholder={def.input_type === 'DATE' ? t('sellerProductsId.datePlaceholder') : undefined} placeholderTextColor={colors.mutedLight} />}
                 </View>
               })}
-              <Button dense variant="outline" title="Enregistrer cette variante" disabled={busy} onPress={() => void saveCompletion([v.id])} />
+              <Button dense variant="outline" title={t('sellerProductsId.saveThisVariant')} disabled={busy} onPress={() => void saveCompletion([v.id])} />
             </View>
           })}
         </ScrollView>
         <View style={[styles.wrapRow, { justifyContent: 'flex-end' }]}>
-          <Button dense variant="outline" title="Annuler" onPress={() => setShowCompletion(false)} />
-          <Button dense title="Enregistrer toutes les modifications" disabled={busy} onPress={() => void saveCompletion(variants.filter((v) => categoryAttrDefs.some((d) => d.required && !variantHasAttribute(v.attributes, d))).map((v) => v.id), true)} />
+          <Button dense variant="outline" title={t('common.cancel')} onPress={() => setShowCompletion(false)} />
+          <Button dense title={t('sellerProductsId.saveAllChanges')} disabled={busy} onPress={() => void saveCompletion(variants.filter((v) => categoryAttrDefs.some((d) => d.required && !variantHasAttribute(v.attributes, d))).map((v) => v.id), true)} />
         </View>
       </View>
     </View> : null}

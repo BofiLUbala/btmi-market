@@ -44,14 +44,19 @@ export function formatMoney(amount: number | null | undefined, currency: string 
   return `${sign}${number}${NBSP}${label}`
 }
 
-export function formatDate(iso?: string | null, locale = 'en-GB'): string {
+/** The Intl locale dates are written in: the language the user picked. */
+export function dateLocale(lang: 'fr' | 'en' = moneyLanguage): string {
+  return lang === 'fr' ? 'fr-FR' : 'en-GB'
+}
+
+export function formatDate(iso?: string | null, locale = dateLocale()): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function formatDateTime(iso?: string | null, locale = 'en-GB'): string {
+export function formatDateTime(iso?: string | null, locale = dateLocale()): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '—'

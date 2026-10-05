@@ -56,7 +56,7 @@ export function Header() {
   return (
     <header className="header">
       <div className="container header-inner">
-        <Link to="/" className="brand" aria-label="TBK — accueil">
+        <Link to="/" className="brand" aria-label={t('layoutHeader.homeAria')}>
           <span className="brand-mark" aria-hidden="true">TBK</span>
         </Link>
 
@@ -144,7 +144,7 @@ export function Header() {
           {user ? (
             user.account_type === 'COURIER' || user.capabilities?.courier ? (
               <Link to="/courier/dashboard" className="header-link header-link-user">
-                {user.avatar_url ? <HeaderAvatar user={user} /> : `Livreur (${user.first_name})`}
+                {user.avatar_url ? <HeaderAvatar user={user} /> : t('layoutHeader.courierName', { name: user.first_name })}
               </Link>
             ) : user.account_type === 'SELLER' ? (
               <Link to="/seller/dashboard" className="header-link header-link-user">
@@ -246,7 +246,7 @@ export function Header() {
               {user ? (
                 user.account_type === 'COURIER' || user.capabilities?.courier ? (
                   <Link to="/courier/dashboard" className="dnav-link">
-                    {user.avatar_url ? <HeaderAvatar user={user} /> : `Livreur (${user.first_name})`}
+                    {user.avatar_url ? <HeaderAvatar user={user} /> : t('layoutHeader.courierName', { name: user.first_name })}
                   </Link>
                 ) : user.account_type === 'SELLER' ? (
                   <Link to="/seller/dashboard" className="dnav-link">
@@ -288,7 +288,7 @@ export function MobileNav() {
   ]
   const accountTab = {
     to: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? '/courier/dashboard' : user?.account_type === 'SELLER' ? '/seller/dashboard' : user?.account_type === 'EMPLOYEE' ? '/employee/dashboard' : '/account',
-    label: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? 'Livreur' : user?.account_type === 'SELLER' ? t('nav.sellerHub') : user?.account_type === 'EMPLOYEE' ? t('nav.workspace') : t('nav.account'),
+    label: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? t('layoutHeader.courier') : user?.account_type === 'SELLER' ? t('nav.sellerHub') : user?.account_type === 'EMPLOYEE' ? t('nav.workspace') : t('nav.account'),
     icon: (user?.account_type === 'COURIER' || user?.capabilities?.courier) ? <TruckIcon /> : user?.account_type === 'SELLER' ? <StoreIcon /> : user?.account_type === 'EMPLOYEE' ? <BriefcaseIcon /> : <CustomerIcon />,
     end: false
   }

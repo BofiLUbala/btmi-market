@@ -34,6 +34,7 @@ import { attributeLabel } from '../../src/lib/attributeLabels'
 import { useI18n } from '../../src/store/i18n'
 import type { ProductReviewSummary } from '../../src/types'
 import { formatMoney } from '../../src/lib/money'
+import { dateLocale } from '../../src/lib/format'
 import {
   buildAttributeGroups,
   resolveVariant,
@@ -51,7 +52,7 @@ const stars = (rating: number) =>
   )}`
 
 const reviewDate = (value: string, lang: string) => {
-  const locale = lang === 'en' ? 'en-US' : 'fr-FR'
+  const locale = dateLocale(lang === 'en' ? 'en' : 'fr')
   const date = new Date(value)
   return Number.isNaN(date.getTime())
     ? ''
@@ -458,8 +459,8 @@ export default function ProductScreen() {
             </View>
             {(onSale || promotion.phase === 'upcoming') && (promotion.startsAt || promotion.endsAt) ? (
               <Text style={styles.promoWindow}>
-                {promotion.startsAt ? t('product.promotionFrom', { start: promotion.startsAt.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') }) : ''}
-                {promotion.endsAt ? ' ' + t('product.promotionTo', { end: promotion.endsAt.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') }) : ''}
+                {promotion.startsAt ? t('product.promotionFrom', { start: promotion.startsAt.toLocaleDateString(dateLocale(lang === 'en' ? 'en' : 'fr')) }) : ''}
+                {promotion.endsAt ? ' ' + t('product.promotionTo', { end: promotion.endsAt.toLocaleDateString(dateLocale(lang === 'en' ? 'en' : 'fr')) }) : ''}
               </Text>
             ) : null}
             <View style={styles.priceDivider} />
@@ -614,7 +615,7 @@ export default function ProductScreen() {
             <View style={styles.stepper}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="−"
+                accessibilityLabel={t('web.cart.decreaseQuantity')}
                 disabled={quantity <= 1}
                 style={[styles.stepBtn, quantity <= 1 && styles.optionDisabled]}
                 onPress={() => setQuantity(Math.max(1, quantity - 1))}
@@ -624,7 +625,7 @@ export default function ProductScreen() {
               <Text style={styles.stepValue}>{quantity}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="+"
+                accessibilityLabel={t('web.cart.increaseQuantity')}
                 disabled={quantity >= stock}
                 style={[styles.stepBtn, quantity >= stock && styles.optionDisabled]}
                 onPress={() => setQuantity(quantity + 1)}

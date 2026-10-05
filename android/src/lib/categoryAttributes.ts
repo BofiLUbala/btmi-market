@@ -1,3 +1,5 @@
+import { getMoneyLanguage } from './money'
+
 // Verbatim port of web-app/src/lib/categoryAttributes.ts so both apps judge
 // required attributes, aliases (Couleur/Color…) and variant labels identically.
 export type AttributeDefLike = {
@@ -73,7 +75,8 @@ export function canonicalizeAttributes(
   return next
 }
 
-export function attributeLabel(def: AttributeDefLike, locale = 'fr'): string {
+/** Defaults to the language the user picked. */
+export function attributeLabel(def: AttributeDefLike, locale: string = getMoneyLanguage()): string {
   if (locale.startsWith('fr')) return def.label_fr || def.label_en || def.key
   return def.label_en || def.label_fr || def.key
 }

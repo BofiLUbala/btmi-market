@@ -14,6 +14,7 @@ import { useOrderEvents } from '@/lib/orderEvents'
 import { canWriteTo, groupByDay, initialContact, startsRun, threadWith } from '@/lib/chat'
 import { StatusBadge } from '@/components/ui/Badges'
 import { useI18n } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 import './chat.css'
 
@@ -160,7 +161,7 @@ export function OrderChatFeed({ orderId, role, onClose, onBack, showHeader = tru
     }
   }
 
-  const locale = lang === 'en' ? 'en-GB' : 'fr-FR'
+  const locale = dateLocale(lang)
   const time = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   const dayLabel = (day: string) => {
     const today = new Date()

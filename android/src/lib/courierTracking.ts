@@ -6,6 +6,7 @@ import NetInfo from '@react-native-community/netinfo'
 import { create } from 'zustand'
 import { courierApi } from '../api'
 import { ApiError } from '../api/client'
+import { translate } from '../store/i18n'
 import type { CourierLocationPoint, CourierMission } from '../types'
 
 /**
@@ -163,8 +164,8 @@ export async function startCourierTracking(orderId: string): Promise<StartResult
       distanceInterval: 25,
       pausesUpdatesAutomatically: false,
       foregroundService: {
-        notificationTitle: 'Livraison TBK en cours',
-        notificationBody: 'Partage de position actif',
+        notificationTitle: translate('libCourierTracking.serviceTitle'),
+        notificationBody: translate('libCourierTracking.serviceBody'),
         notificationColor: '#091223',
       },
     })
@@ -189,13 +190,11 @@ export async function startCourierTracking(orderId: string): Promise<StartResult
 function showLocationDisclosure(): Promise<boolean> {
   return new Promise((resolve) => {
     Alert.alert(
-      'Partage de votre position',
-      "TBK collecte la position de votre téléphone pendant une livraison que vous avez acceptée, y compris lorsque l'application est fermée ou l'écran éteint. "
-        + "Elle est envoyée à l'acheteur de la commande et au support TBK pour suivre le trajet jusqu'à la boutique puis jusqu'à l'adresse de livraison. "
-        + "Le partage s'arrête automatiquement à votre arrivée. Une notification « Livraison TBK en cours » reste visible tant qu'il est actif.",
+      translate('libCourierTracking.disclosureTitle'),
+      translate('libCourierTracking.disclosureBody'),
       [
-        { text: 'Refuser', style: 'cancel', onPress: () => resolve(false) },
-        { text: 'Accepter', onPress: () => resolve(true) },
+        { text: translate('libCourierTracking.decline'), style: 'cancel', onPress: () => resolve(false) },
+        { text: translate('courier.accept'), onPress: () => resolve(true) },
       ],
       { cancelable: true, onDismiss: () => resolve(false) },
     )

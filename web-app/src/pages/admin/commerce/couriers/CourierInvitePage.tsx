@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminCommerceApi } from '@/api/admin'
+import { useT } from '@/store/i18n'
 
 /* ─────────────────────────────────────────────────────────
    Scoped styles — cip- prefix avoids class name collisions
@@ -56,16 +57,18 @@ const CSS = `
 }
 `
 
+// Labels are translated at render time (transport<Value> keys).
 const TRANSPORT_OPTIONS = [
-  { value: 'MOTORBIKE', label: '🏍️  Moto' },
-  { value: 'BICYCLE',   label: '🚲  Vélo' },
-  { value: 'CAR',       label: '🚗  Voiture' },
-  { value: 'VAN',       label: '🚐  Fourgonnette' },
-  { value: 'WALKING',   label: '🚶  À pied' },
-]
+  { value: 'MOTORBIKE', icon: '🏍️', labelKey: 'adminCommerceCouriersCourierInvitePage.transportMotorbike' },
+  { value: 'BICYCLE',   icon: '🚲', labelKey: 'adminCommerceCouriersCourierInvitePage.transportBicycle' },
+  { value: 'CAR',       icon: '🚗', labelKey: 'adminCommerceCouriersCourierInvitePage.transportCar' },
+  { value: 'VAN',       icon: '🚐', labelKey: 'adminCommerceCouriersCourierInvitePage.transportVan' },
+  { value: 'WALKING',   icon: '🚶', labelKey: 'adminCommerceCouriersCourierInvitePage.transportWalking' },
+] as const
 
 export default function CourierInvitePage() {
   const navigate = useNavigate()
+  const t = useT()
 
   const [firstName,     setFirstName]     = useState('')
   const [lastName,      setLastName]      = useState('')
@@ -99,7 +102,7 @@ export default function CourierInvitePage() {
       setInvitationUrl(invitationUrl ? new URL(invitationUrl, window.location.origin).toString() : '')
       setSuccess(true)
     } catch (err: any) {
-      setError(err.message || "Une erreur s'est produite. Veuillez réessayer.")
+      setError(err.message || t('adminCommerceCouriersCourierInvitePage.genericError'))
     } finally {
       setLoading(false)
     }
@@ -109,7 +112,7 @@ export default function CourierInvitePage() {
     navigator.clipboard.writeText(invitationUrl).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
-    }).catch(() => setError("Impossible de copier le lien. Sélectionnez-le manuellement."))
+    }).catch(() => setError(t('adminCommerceCouriersCourierInvitePage.copyFailed')))
   }
 
   const resetForm = () => {
@@ -126,9 +129,9 @@ export default function CourierInvitePage() {
         {/* ── Header ── */}
         <div className="cip-header">
           <div className="cip-header-icon">✉️</div>
-          <h1 className="cip-title">Inviter un livreur</h1>
+          <h1 className="cip-title">{t('admin.commerce.inviteCourier')}</h1>
           <p className="cip-subtitle">
-            Créez le profil du livreur et envoyez-lui une invitation pour activer son compte TBK.
+            {t('adminCommerceCouriersCourierInvitePage.subtitle')}
           </p>
         </div>
 
@@ -146,21 +149,21 @@ export default function CourierInvitePage() {
             <div className="cip-alert cip-alert-success" style={{ margin: '0 0 20px' }}>
               <span className="cip-alert-icon">✅</span>
               <div>
-                <strong>Invitation envoyée avec succès !</strong>
+                <strong>{t('adminCommerceCouriersCourierInvitePage.successTitle')}</strong>
                 <br />
                 <span style={{ fontSize: 13 }}>
-                  Le livreur <strong>{firstName} {lastName}</strong> recevra un e-mail à{' '}
-                  <strong>{email}</strong> pour activer son compte.
+                  {t('adminCommerceCouriersCourierInvitePage.successCourier')} <strong>{firstName} {lastName}</strong> {t('adminCommerceCouriersCourierInvitePage.successEmailAt')}{' '}
+                  <strong>{email}</strong> {t('adminCommerceCouriersCourierInvitePage.successToActivate')}
                 </span>
               </div>
             </div>
 
             {invitationUrl && (
               <>
-                <div className="cip-url-label">Lien d'activation</div>
+                <div className="cip-url-label">{t('adminCommerceCouriersCourierInvitePage.activationLink')}</div>
                 <div className="cip-url-box">{invitationUrl}</div>
                 <p style={{ fontSize: 12, color: 'var(--admin-text-muted)', margin: '4px 0 0' }}>
-                  Partagez ce lien directement si l'e-mail n'est pas reçu.
+                  {t('adminCommerceCouriersCourierInvitePage.shareLinkHint')}
                 </p>
               </>
             )}
@@ -168,17 +171,17 @@ export default function CourierInvitePage() {
             <div className="cip-success-actions">
               {invitationUrl && (
                 <button className="cip-btn cip-btn-ghost" onClick={handleCopy}>
-                  {copied ? '✓ Copié !' : '📋 Copier le lien'}
+                  {copied ? `✓ ${t('adminCommerceCouriersCourierInvitePage.copied')}` : `📋 ${t('adminCommerceCouriersCourierInvitePage.copyLink')}`}
                 </button>
               )}
               <button
                 className="cip-btn cip-btn-primary"
                 onClick={() => navigate('/admin/commerce/couriers')}
               >
-                Voir tous les livreurs →
+                {t('adminCommerceCouriersCourierInvitePage.viewAllCouriers')} →
               </button>
               <button className="cip-btn cip-btn-secondary" onClick={resetForm}>
-                Inviter un autre livreur
+                {t('adminCommerceCouriersCourierInvitePage.inviteAnother')}
               </button>
             </div>
           </div>
@@ -193,13 +196,13 @@ export default function CourierInvitePage() {
               <div className="cip-section">
                 <div className="cip-section-header">
                   <div className="cip-section-dot" />
-                  <p className="cip-section-title">Informations personnelles</p>
+                  <p className="cip-section-title">{t('adminCommerceCouriersCourierInvitePage.sectionPersonal')}</p>
                 </div>
 
                 <div className="cip-row">
                   <div className="cip-field">
                     <label className="cip-label" htmlFor="cip-firstName">
-                      Prénom <span className="cip-required">*</span>
+                      {t('auth.firstName')} <span className="cip-required">*</span>
                     </label>
                     <input
                       id="cip-firstName"
@@ -207,14 +210,14 @@ export default function CourierInvitePage() {
                       type="text"
                       value={firstName}
                       onChange={e => setFirstName(e.target.value)}
-                      placeholder="Ex : Moussa"
+                      placeholder={t('adminCommerceCouriersCourierInvitePage.firstNamePlaceholder')}
                       required
                       autoComplete="given-name"
                     />
                   </div>
                   <div className="cip-field">
                     <label className="cip-label" htmlFor="cip-lastName">
-                      Nom <span className="cip-required">*</span>
+                      {t('auth.lastName')} <span className="cip-required">*</span>
                     </label>
                     <input
                       id="cip-lastName"
@@ -222,7 +225,7 @@ export default function CourierInvitePage() {
                       type="text"
                       value={lastName}
                       onChange={e => setLastName(e.target.value)}
-                      placeholder="Ex : Traoré"
+                      placeholder={t('adminCommerceCouriersCourierInvitePage.lastNamePlaceholder')}
                       required
                       autoComplete="family-name"
                     />
@@ -231,7 +234,7 @@ export default function CourierInvitePage() {
 
                 <div className="cip-field">
                   <label className="cip-label" htmlFor="cip-email">
-                    Adresse e-mail <span className="cip-required">*</span>
+                    {t('adminCommerceCouriersCourierInvitePage.emailLabel')} <span className="cip-required">*</span>
                   </label>
                   <input
                     id="cip-email"
@@ -239,7 +242,7 @@ export default function CourierInvitePage() {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="ex : moussa.traore@email.com"
+                    placeholder={t('adminCommerceCouriersCourierInvitePage.emailPlaceholder')}
                     required
                     autoComplete="email"
                   />
@@ -247,7 +250,7 @@ export default function CourierInvitePage() {
 
                 <div className="cip-field">
                   <label className="cip-label" htmlFor="cip-phone">
-                    Téléphone <span className="cip-required">*</span>
+                    {t('common.phone')} <span className="cip-required">*</span>
                   </label>
                   <input
                     id="cip-phone"
@@ -255,7 +258,7 @@ export default function CourierInvitePage() {
                     type="tel"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    placeholder="Ex : +243 81 000 0000"
+                    placeholder={t('adminCommerceCouriersCourierInvitePage.phonePlaceholder')}
                     required
                     autoComplete="tel"
                   />
@@ -266,12 +269,12 @@ export default function CourierInvitePage() {
               <div className="cip-section">
                 <div className="cip-section-header">
                   <div className="cip-section-dot" style={{ background: '#f59e0b' }} />
-                  <p className="cip-section-title">Informations de livraison</p>
+                  <p className="cip-section-title">{t('adminCommerceCouriersCourierInvitePage.sectionDelivery')}</p>
                 </div>
 
                 <div className="cip-field">
                   <label className="cip-label" htmlFor="cip-transport">
-                    Type de transport <span className="cip-required">*</span>
+                    {t('adminCommerceCouriersCourierInvitePage.transportLabel')} <span className="cip-required">*</span>
                   </label>
                   <select
                     id="cip-transport"
@@ -281,7 +284,7 @@ export default function CourierInvitePage() {
                     required
                   >
                     {TRANSPORT_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
+                      <option key={o.value} value={o.value}>{`${o.icon}  ${t(o.labelKey)}`}</option>
                     ))}
                   </select>
                 </div>
@@ -289,7 +292,7 @@ export default function CourierInvitePage() {
                 <div className="cip-row">
                   <div className="cip-field">
                     <label className="cip-label" htmlFor="cip-vehicle">
-                      Informations véhicule <span className="cip-optional">(facultatif)</span>
+                      {t('adminCommerceCouriersCourierInvitePage.vehicleLabel')} <span className="cip-optional">({t('adminCommerceCouriersCourierInvitePage.optional')})</span>
                     </label>
                     <input
                       id="cip-vehicle"
@@ -297,12 +300,12 @@ export default function CourierInvitePage() {
                       type="text"
                       value={vehicleInfo}
                       onChange={e => setVehicleInfo(e.target.value)}
-                      placeholder="Ex : Honda Dio 2023, AB-1234"
+                      placeholder={t('adminCommerceCouriersCourierInvitePage.vehiclePlaceholder')}
                     />
                   </div>
                   <div className="cip-field">
                     <label className="cip-label" htmlFor="cip-zone">
-                      Zone de couverture <span className="cip-optional">(facultatif)</span>
+                      {t('adminCommerceCouriersCourierInvitePage.zoneLabel')} <span className="cip-optional">({t('adminCommerceCouriersCourierInvitePage.optional')})</span>
                     </label>
                     <input
                       id="cip-zone"
@@ -310,7 +313,7 @@ export default function CourierInvitePage() {
                       type="text"
                       value={serviceZone}
                       onChange={e => setServiceZone(e.target.value)}
-                      placeholder="Ex : Plateau, Cocody"
+                      placeholder={t('adminCommerceCouriersCourierInvitePage.zonePlaceholder')}
                     />
                   </div>
                 </div>
@@ -320,8 +323,8 @@ export default function CourierInvitePage() {
               <div className="cip-footer">
                 <button type="submit" className="cip-btn cip-btn-primary" disabled={loading}>
                   {loading
-                    ? <><div className="cip-spinner" /> Envoi en cours…</>
-                    : <>✉️ Envoyer l'invitation</>
+                    ? <><div className="cip-spinner" /> {t('adminCommerceCouriersCourierInvitePage.sending')}</>
+                    : <>✉️ {t('adminCommerceCouriersCourierInvitePage.send')}</>
                   }
                 </button>
                 <button
@@ -329,7 +332,7 @@ export default function CourierInvitePage() {
                   className="cip-btn cip-btn-secondary"
                   onClick={() => navigate('/admin/commerce/couriers')}
                 >
-                  Annuler
+                  {t('common.cancel')}
                 </button>
               </div>
 

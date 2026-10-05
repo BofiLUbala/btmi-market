@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { adminDirectionApi, adminMonitoringApi, type ActiveSession, type SignedOutAccount } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { LivePresencePanel } from './LivePresencePanel'
 import { LiveToolbar, RoleBadge, SummaryCards, cell, deviceLabel, headRow, tableBox, useLiveReload, useMonitoringSummary } from './monitoringShared'
 
@@ -122,7 +123,7 @@ export default function ActiveSessionsTab() {
                     </span>
                     {s.devices > 1 && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{t('admin.monitoring.devices', { count: s.devices })}</div>}
                   </td>
-                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(s.last_active_at).toLocaleString('fr-FR')}>{ago(s.last_active_at, t)}</td>
+                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(s.last_active_at).toLocaleString(dateLocale())}>{ago(s.last_active_at, t)}</td>
                   <td style={{ ...cell, fontSize: 12, color: '#94a3b8' }} title={s.user_agent}>{deviceLabel(s.user_agent)}</td>
                   <td style={{ ...cell, fontFamily: 'monospace', fontSize: 12, color: '#cbd5e1' }}>{s.ip_address || '—'}</td>
                   <td style={{ ...cell, textAlign: 'right' }}>
@@ -182,7 +183,7 @@ export default function ActiveSessionsTab() {
                     <div style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace' }}>{a.email}</div>
                   </td>
                   <td style={cell}><RoleBadge role={a.role} /></td>
-                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(a.signed_out_at).toLocaleString('fr-FR')}>{ago(a.signed_out_at, t)}</td>
+                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(a.signed_out_at).toLocaleString(dateLocale())}>{ago(a.signed_out_at, t)}</td>
                   <td style={{ ...cell, fontSize: 12, color: '#cbd5e1' }}>{a.reason || '—'}</td>
                   <td style={{ ...cell, fontSize: 12 }}>
                     {suspended

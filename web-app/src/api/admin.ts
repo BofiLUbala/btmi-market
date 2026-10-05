@@ -1,5 +1,6 @@
 import type { CourierLocation, DeliveryPlan, GeocodeCandidate, RoutePointInput, ShopPurgePreview, ShopPurgeResult } from './types'
 import { API_BASE } from './client'
+import { localizeApiError } from './errorMessages'
 
 export type AdminRole =
   | 'SUPER_ADMIN'
@@ -741,7 +742,9 @@ export async function adminApi<T>(
   const json = await res.json().catch(() => null)
 
   if (!res.ok) {
-    const message = json?.error?.message || json?.message || 'Administrative request failed'
+    // Some admin handlers answer { error: "text" } instead of { error: { code, message } }.
+    const rawMessage = typeof json?.error === 'string' ? json.error : json?.error?.message || json?.message || ''
+    const message = localizeApiError(res.status, json?.error?.code || 'REQUEST_FAILED', rawMessage)
     const error = new Error(message) as Error & { code?: string; status?: number }
     error.code = json?.error?.code
     error.status = res.status

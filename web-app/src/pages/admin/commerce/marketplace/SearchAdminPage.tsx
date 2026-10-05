@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent, type ReactNode } from 'react'
 import { adminCommerceApi, type AdminSearchAnalytics, type AdminSearchQueryLog, type AdminSearchSynonym } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 
 type Tab = 'analytics' | 'queries' | 'synonyms'
 
@@ -9,7 +10,7 @@ const th = { textAlign: 'left', padding: '10px 12px', color: '#94a3b8', fontWeig
 const td = { padding: '10px 12px', color: '#f8fafc' } as const
 
 function percent(value: number | null | undefined) {
-  return `${((value ?? 0) * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`
+  return (value ?? 0).toLocaleString(dateLocale(), { style: 'percent', maximumFractionDigits: 1 })
 }
 
 function Table({ headers, rows, empty }: { headers: string[]; rows: ReactNode[][]; empty: string }) {
@@ -125,13 +126,13 @@ export default function SearchAdminPage() {
           <div className="admin-kpi-grid" style={{ marginBottom: 8 }}>
             {[
               { label: t('common.status'), value: analytics.available ? t('admin.searchAdmin.online') : t('admin.searchAdmin.offline'), color: analytics.available ? '#34d399' : '#ef4444' },
-              { label: t('admin.searchAdmin.searches'), value: (analytics.searches ?? 0).toLocaleString('fr-FR') },
-              { label: t('admin.searchAdmin.zeroResultSearches'), value: (analytics.zero_result_searches ?? 0).toLocaleString('fr-FR'), color: analytics.zero_result_searches ? '#fbbf24' : undefined },
-              { label: t('admin.searchAdmin.approximateSearches'), value: (analytics.approximate_searches ?? 0).toLocaleString('fr-FR') },
+              { label: t('admin.searchAdmin.searches'), value: (analytics.searches ?? 0).toLocaleString(dateLocale()) },
+              { label: t('admin.searchAdmin.zeroResultSearches'), value: (analytics.zero_result_searches ?? 0).toLocaleString(dateLocale()), color: analytics.zero_result_searches ? '#fbbf24' : undefined },
+              { label: t('admin.searchAdmin.approximateSearches'), value: (analytics.approximate_searches ?? 0).toLocaleString(dateLocale()) },
               { label: t('admin.searchAdmin.ctr'), value: rate(analytics.click_through_rate), color: analytics.click_through_rate == null ? '#64748b' : undefined },
               { label: t('admin.searchAdmin.addToCartRate'), value: rate(analytics.add_to_cart_rate), color: analytics.add_to_cart_rate == null ? '#64748b' : undefined },
-              { label: t('admin.searchAdmin.totalQueries'), value: analytics.total_queries?.toLocaleString('fr-FR') ?? '0' },
-              { label: t('admin.searchAdmin.failedSearches'), value: analytics.failed_searches?.toLocaleString('fr-FR') ?? '0', color: analytics.failed_searches ? '#ef4444' : undefined },
+              { label: t('admin.searchAdmin.totalQueries'), value: analytics.total_queries?.toLocaleString(dateLocale()) ?? '0' },
+              { label: t('admin.searchAdmin.failedSearches'), value: analytics.failed_searches?.toLocaleString(dateLocale()) ?? '0', color: analytics.failed_searches ? '#ef4444' : undefined },
             ].map((stat) => (
               <div key={stat.label} style={{ ...card, textAlign: 'center' }}>
                 <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{stat.label}</div>
@@ -144,7 +145,7 @@ export default function SearchAdminPage() {
           <Section title={t('admin.searchAdmin.topQueries')}>
             <Table empty={noData}
               headers={[t('admin.searchAdmin.colQuery'), t('admin.searchAdmin.colSearches'), t('admin.searchAdmin.colAvgResults'), t('admin.searchAdmin.colClicks'), t('admin.searchAdmin.colCtr')]}
-              rows={(analytics.top_queries ?? []).map((q) => [q.query, q.searches, q.avg_results.toLocaleString('fr-FR', { maximumFractionDigits: 1 }), analytics.clicks_collected ? q.clicks : unavailable, rate(q.ctr)])} />
+              rows={(analytics.top_queries ?? []).map((q) => [q.query, q.searches, q.avg_results.toLocaleString(dateLocale(), { maximumFractionDigits: 1 }), analytics.clicks_collected ? q.clicks : unavailable, rate(q.ctr)])} />
           </Section>
           <Section title={t('admin.searchAdmin.zeroResultQueries')}>
             <Table empty={noData}
@@ -174,7 +175,7 @@ export default function SearchAdminPage() {
           <Table empty={t('admin.searchAdmin.noQueriesLogged')}
             headers={[t('admin.searchAdmin.colTimestamp'), t('admin.searchAdmin.colQuery'), t('admin.searchAdmin.colNormalized'), t('admin.searchAdmin.colResultsCount'), t('admin.searchAdmin.colMatchMode'), t('admin.searchAdmin.colClicks'), t('admin.searchAdmin.colSearchType')]}
             rows={queries.map((q) => [
-              <span style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(q.created_at).toLocaleString('fr-FR')}</span>,
+              <span style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(q.created_at).toLocaleString(dateLocale())}</span>,
               <strong>{q.query}</strong>,
               <span style={{ color: '#94a3b8' }}>{q.normalized_query || '—'}</span>,
               <span style={{ color: q.results_count === 0 ? '#ef4444' : '#34d399', fontWeight: 700 }}>{q.results_count}</span>,

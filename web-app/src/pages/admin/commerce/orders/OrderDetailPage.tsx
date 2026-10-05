@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, dateLocale } from '@/lib/format'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminCommerceApi, type AdminOrderDetail, type AdminDeliveryHandover } from '@/api/admin'
 import { OrderChatFeed } from '@/components/communication/OrderChatFeed'
@@ -107,7 +107,7 @@ export default function OrderDetailPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{t('admin.orders.detailTitle', { number: order.order.order_number })}</h2>
-          <div style={{ color: '#64748b', fontSize: 12 }}>{t('admin.orders.placedAt', { date: new Date(order.order.created_at).toLocaleString('fr-FR') })}</div>
+          <div style={{ color: '#64748b', fontSize: 12 }}>{t('admin.orders.placedAt', { date: new Date(order.order.created_at).toLocaleString(dateLocale()) })}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <StatusBadge status={order.order.status} />
@@ -123,17 +123,17 @@ export default function OrderDetailPage() {
             <Field label={t('admin.orders.fieldBaseTotal')} value={formatMoney(order.order.base_total)} />
             <Field label={t('admin.orders.fieldDeliveryFee')} value={formatMoney(order.order.delivery_fee)} />
             <Field label={t('admin.orders.fieldPointsDiscount')} value={order.order.points_discount > 0 ? `-${formatMoney(order.order.points_discount)}` : formatMoney(0)} />
-            <Field label={t('admin.orders.fieldPaymentMethod')} value={order.order.payment_method || order.payment?.payment_method || '-'} />
-            {order.order.payment_provider && <Field label="Opérateur" value={order.order.payment_provider.replace(/_/g, ' ')} />}
+            <Field label={t('admin.orders.fieldPaymentMethod')} value={adminLabel(order.order.payment_method || order.payment?.payment_method, '-')} />
+            {order.order.payment_provider && <Field label={t('adminCommerceOrdersOrderDetailPage.fieldProvider')} value={order.order.payment_provider.replace(/_/g, ' ')} />}
             <Field label={t('admin.orders.fieldPaymentStatus')} value={<StatusBadge status={order.order.payment_status} />} />
-            {order.order.payment_reference && <Field label="Référence paiement" value={order.order.payment_reference} />}
+            {order.order.payment_reference && <Field label={t('adminCommerceOrdersOrderDetailPage.fieldPaymentReference')} value={order.order.payment_reference} />}
             {order.order.paid_at && (
               <Field
-                label="Paiement confirmé le"
-                value={`${new Date(order.order.paid_at).toLocaleString('fr-FR')}${order.order.payment_confirmation_actor ? ` · ${order.order.payment_confirmation_actor}` : ''}`}
+                label={t('adminCommerceOrdersOrderDetailPage.fieldPaidAt')}
+                value={`${new Date(order.order.paid_at).toLocaleString(dateLocale())}${order.order.payment_confirmation_actor ? ` · ${adminLabel(order.order.payment_confirmation_actor)}` : ''}`}
               />
             )}
-            {order.order.seller_name && <Field label="Vendeur" value={order.order.seller_name} />}
+            {order.order.seller_name && <Field label={t('adminCommerceOrdersOrderDetailPage.fieldSeller')} value={order.order.seller_name} />}
             <Field label={t('admin.orders.fieldDeliveryMethod')} value={order.order.delivery_method ? adminLabel(order.order.delivery_method) : t('admin.common.notAvailable')} />
             {order.order.is_stuck && <Field label={t('admin.orders.fieldStuckReason')} value={order.order.stuck_reason || t('admin.orders.stuckReasonDefault')} />}
           </Section>
@@ -144,9 +144,9 @@ export default function OrderDetailPage() {
               label={t('deliveryPlan.title')}
               value={expectedDeliveryText(order.order, t, lang) || t('deliveryPlan.notSet')}
             />
-            {!!order.order.delivery_attempts && <Field label={t('courierPlan.notFound')} value={t('deliveryPlan.attempts', { count: order.order.delivery_attempts })} />}
+            {!!order.order.delivery_attempts && <Field label={t('admin.orders.deliveryAttemptsLabel')} value={t('deliveryPlan.attempts', { count: order.order.delivery_attempts })} />}
             {order.order.cancelled_stage && <Field label={t('admin.orders.deliveryStatus')} value={cancelStageText(order.order, t)} />}
-            {order.order.returned_to_seller_at && <Field label={t('deliveryPlan.title')} value={t('deliveryPlan.returned', { date: new Date(order.order.returned_to_seller_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') })} />}
+            {order.order.returned_to_seller_at && <Field label={t('deliveryPlan.title')} value={t('deliveryPlan.returned', { date: new Date(order.order.returned_to_seller_at).toLocaleString(dateLocale()) })} />}
             {order.order.delivery_status === 'RETURNING_TO_SELLER' && (
               <div style={{ margin: '8px 0' }}>
                 <div style={{ fontSize: 12, color: '#fcd34d', marginBottom: 6 }}>{t('deliveryPlan.returning')}</div>
@@ -170,7 +170,7 @@ export default function OrderDetailPage() {
               <>
                 <Field label={t('admin.orders.assignedCourierId')} value={order.order.courier_name ? `${order.order.courier_name} · ${order.order.assigned_courier_id}` : order.order.assigned_courier_id} />
                 {order.order.courier_assigned_at && (
-                  <Field label={t('admin.orders.assignedAt')} value={new Date(order.order.courier_assigned_at).toLocaleString('fr-FR')} />
+                  <Field label={t('admin.orders.assignedAt')} value={new Date(order.order.courier_assigned_at).toLocaleString(dateLocale())} />
                 )}
                 {order.order.courier_notes && <Field label={t('admin.orders.courierNotes')} value={order.order.courier_notes} />}
               </>
@@ -273,50 +273,50 @@ export default function OrderDetailPage() {
                     <div>
                       <div style={{ fontSize: 13, color: '#f8fafc' }}>{adminLabel(event.status)}</div>
                       {event.notes && <div style={{ fontSize: 12, color: '#94a3b8' }}>{event.notes}</div>}
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.created_at).toLocaleString('fr-FR')}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(event.created_at).toLocaleString(dateLocale())}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </Section>
           )}
-          <Section title="Remise sécurisée (QR)">
+          <Section title={t('adminCommerceOrdersOrderDetailPage.handoverTitle')}>
             {handover?.package ? (
               <>
-                <Field label="Référence colis" value={handover.package.reference} />
-                <Field label="Colis n°" value={`#${handover.package.package_number}`} />
+                <Field label={t('adminCommerceOrdersOrderDetailPage.fieldPackageRef')} value={handover.package.reference} />
+                <Field label={t('adminCommerceOrdersOrderDetailPage.fieldPackageNumber')} value={`#${handover.package.package_number}`} />
                 <Field
-                  label="État du QR"
-                  value={`${adminLabel(handover.package.status)}${handover.package.operational ? ' · opérationnel' : ' · non opérationnel'}`}
+                  label={t('adminCommerceOrdersOrderDetailPage.fieldQrState')}
+                  value={`${adminLabel(handover.package.status)} · ${handover.package.operational ? t('adminCommerceOrdersOrderDetailPage.operational') : t('adminCommerceOrdersOrderDetailPage.notOperational')}`}
                 />
-                <Field label="Livreur assigné" value={handover.assigned_courier_id || 'Non assigné'} />
+                <Field label={t('adminCommerceOrdersOrderDetailPage.fieldAssignedCourier')} value={handover.assigned_courier_id || t('adminCommerceOrdersOrderDetailPage.notAssigned')} />
                 <Field
-                  label="Scan de récupération"
-                  value={handover.package.pickup_verified_at ? new Date(handover.package.pickup_verified_at).toLocaleString('fr-FR') : 'En attente'}
-                />
-                <Field
-                  label="Scan de livraison"
-                  value={handover.package.delivery_scanned_at ? new Date(handover.package.delivery_scanned_at).toLocaleString('fr-FR') : 'En attente'}
+                  label={t('adminCommerceOrdersOrderDetailPage.fieldPickupScan')}
+                  value={handover.package.pickup_verified_at ? new Date(handover.package.pickup_verified_at).toLocaleString(dateLocale()) : t('adminCommerceOrdersOrderDetailPage.pending')}
                 />
                 <Field
-                  label="Réception confirmée"
-                  value={handover.package.receipt_confirmed_at ? new Date(handover.package.receipt_confirmed_at).toLocaleString('fr-FR') : 'En attente'}
+                  label={t('adminCommerceOrdersOrderDetailPage.fieldDeliveryScan')}
+                  value={handover.package.delivery_scanned_at ? new Date(handover.package.delivery_scanned_at).toLocaleString(dateLocale()) : t('adminCommerceOrdersOrderDetailPage.pending')}
+                />
+                <Field
+                  label={t('adminCommerceOrdersOrderDetailPage.fieldReceiptConfirmed')}
+                  value={handover.package.receipt_confirmed_at ? new Date(handover.package.receipt_confirmed_at).toLocaleString(dateLocale()) : t('adminCommerceOrdersOrderDetailPage.pending')}
                 />
                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                  La réception de la marchandise est indépendante de la vérification du paiement en espèces.
+                  {t('adminCommerceOrdersOrderDetailPage.receiptIndependentNote')}
                 </div>
               </>
             ) : (
-              <div style={{ fontSize: 13, color: '#94a3b8' }}>Aucun colis QR généré pour cette commande.</div>
+              <div style={{ fontSize: 13, color: '#94a3b8' }}>{t('adminCommerceOrdersOrderDetailPage.noQrPackage')}</div>
             )}
           </Section>
 
-          <Section title="QR article (résolution)">
+          <Section title={t('adminCommerceOrdersOrderDetailPage.itemQrTitle')}>
             <AdminOrderItemQRResolver />
           </Section>
 
           {(handover?.events ?? []).length > 0 && (
-            <Section title="Historique des scans">
+            <Section title={t('adminCommerceOrdersOrderDetailPage.scanHistoryTitle')}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {(handover?.events ?? []).map((e) => (
                   <div key={e.id} style={{ display: 'flex', gap: 10, padding: 8, backgroundColor: '#1e293b', borderRadius: 6 }}>
@@ -333,17 +333,17 @@ export default function OrderDetailPage() {
                     />
                     <div>
                       <div style={{ fontSize: 13, color: '#f8fafc' }}>
-                        {e.scan_type} · {e.scan_result}
+                        {adminLabel(e.scan_type)} · {adminLabel(e.scan_result)}
                         {e.reason ? ` (${e.reason})` : ''}
                       </div>
-                      {e.courier_id && <div style={{ fontSize: 12, color: '#94a3b8' }}>Livreur {e.courier_id.slice(0, 8)}</div>}
-                      {e.status_before && <div style={{ fontSize: 12, color: '#94a3b8' }}>{e.status_before} → {e.status_after || e.status_before}</div>}
+                      {e.courier_id && <div style={{ fontSize: 12, color: '#94a3b8' }}>{t('adminCommerceOrdersOrderDetailPage.courierShort', { id: e.courier_id.slice(0, 8) })}</div>}
+                      {e.status_before && <div style={{ fontSize: 12, color: '#94a3b8' }}>{adminLabel(e.status_before)} → {adminLabel(e.status_after || e.status_before)}</div>}
                       {e.latitude != null && e.longitude != null && (
                         <div style={{ fontSize: 11, color: '#64748b' }}>
                           {e.latitude.toFixed(5)}, {e.longitude.toFixed(5)}
                         </div>
                       )}
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(e.created_at).toLocaleString('fr-FR')}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{new Date(e.created_at).toLocaleString(dateLocale())}</div>
                     </div>
                   </div>
                 ))}
@@ -354,7 +354,7 @@ export default function OrderDetailPage() {
       </div>
 
       <div style={{ marginTop: 20 }}>
-        <Section title="💬 Messages avec le support TBK (acheteur, boutique, livreur)">
+        <Section title={`💬 ${t('adminCommerceOrdersOrderDetailPage.chatTitle')}`}>
           <div style={{ height: 'min(560px, 80dvh)' }}>
             <OrderChatFeed orderId={id!} role="ADMIN" showHeader={false} />
           </div>

@@ -1,10 +1,14 @@
+import { getLang } from '@/store/i18n'
+
 /**
  * Labels for the codes the API sends to the admin console (statuses,
  * roles, payment/delivery methods, audit actions, case/risk types…).
  *
- * The console is French-only; showing `CASH_ON_DELIVERY` or `UNDER_REVIEW` to an
- * operator is a bug. Unknown codes are humanised ("SOME_NEW_CODE" → "Some new
- * code") so a value the backend adds later never shows up raw.
+ * The console follows the language the user picked: every code has a French
+ * label (`LABELS`) and an English one (`EN_LABELS`), chosen at call time.
+ * Showing `CASH_ON_DELIVERY` or `UNDER_REVIEW` to an operator is a bug. Unknown
+ * codes are humanised ("SOME_NEW_CODE" → "Some new code") so a value the
+ * backend adds later never shows up raw.
  */
 const LABELS: Record<string, string> = {
   // Generic statuses
@@ -94,12 +98,85 @@ function humanise(code: string): string {
 }
 
 const EN_LABELS: Record<string, string> = {
-  TBK_STANDARD: 'TBK delivery', TBK_DELIVERY: 'TBK delivery', LIVRAISON_BOUTIQUE: 'Shop delivery', OK: 'OK',
-  UP_TO_DATE: 'Up to date', MPESA: 'M-Pesa', ORANGE_MONEY: 'Orange Money', AIRTEL_MONEY: 'Airtel Money',
+  // Generic statuses
+  ACTIVE: 'Active', INACTIVE: 'Inactive', PENDING: 'Pending', SUSPENDED: 'Suspended', DISABLED: 'Disabled',
+  DEACTIVATED: 'Deactivated', ARCHIVED: 'Archived', DRAFT: 'Draft', PUBLISHED: 'Published', HIDDEN: 'Hidden',
+  REMOVED: 'Removed', DISCONTINUED: 'Discontinued', BLOCKED: 'Blocked', TERMINATED: 'Terminated', EXPIRED: 'Expired',
+  REVOKED: 'Revoked', OPEN: 'Open', CLOSED: 'Closed', RESOLVED: 'Resolved', DISMISSED: 'Dismissed',
+  UNDER_REVIEW: 'Under review', WAITING_FOR_ADMIN: 'Waiting for an admin', WAITING: 'Waiting', NEW: 'New',
+  APPROVED: 'Approved', REJECTED: 'Rejected', ACKNOWLEDGED: 'Acknowledged', IGNORED: 'Ignored', APPLIED: 'Applied',
+  QUEUED: 'Queued', PROCESSING: 'Processing', SUCCEEDED: 'Succeeded', FAILED: 'Failed', COMPLETED: 'Completed',
+  CONFIRMED: 'Confirmed', VERIFIED: 'Verified', VALID: 'Valid', UNKNOWN: 'Unknown', AVAILABLE: 'Available',
+  UNAVAILABLE: 'Unavailable', BUSY: 'Busy', PENDING_REVIEW: 'Pending review', PENDING_VERIFICATION: 'Pending verification',
+  // Health / technical
+  HEALTHY: 'Healthy', OK: 'OK', DEGRADED: 'Degraded', DOWN: 'Down', CRITICAL: 'Critical', WARNING: 'Warning',
+  INFO: 'Info', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low', UP_TO_DATE: 'Up to date', OUTDATED: 'Outdated',
+  NOT_DEPLOYED: 'Not deployed', NOT_CONFIGURED: 'Not configured', CONFIGURED: 'Configured', RUNNING: 'Running', STOPPED: 'Stopped',
+  // Orders
+  ACCEPTED: 'Accepted', PREPARING: 'Preparing', READY: 'Ready', READY_FOR_PICKUP: 'Ready for pickup',
+  OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Delivered', RECEIVED: 'Received', CANCELLED: 'Cancelled', REFUNDED: 'Refunded',
+  AWAITING_PAYMENT: 'Awaiting payment', AWAITING_BUYER_CONFIRMATION: 'Awaiting buyer confirmation', HANDED_TO_PARTNER: 'Handed to partner',
+  // Delivery
+  PENDING_TBK_ASSIGNMENT: 'Waiting for a courier', COURIER_ASSIGNED: 'Courier assigned', COURIER_ACCEPTED: 'Courier accepted',
+  COURIER_REJECTED: 'Courier declined', COURIER_EN_ROUTE_TO_SHOP: 'Courier heading to the shop', PICKED_UP: 'Picked up',
+  COURIER_PICKED_UP: 'Picked up', IN_TRANSIT: 'In transit', COURIER_EN_ROUTE_TO_BUYER: 'On the way to the buyer',
+  COURIER_NEAR_DESTINATION: 'Courier nearby', COURIER_ARRIVED: 'Courier arrived', DELIVERY_SCAN_SUCCESS: 'Handover scanned',
+  RETURNING_TO_SELLER: 'Returning to seller', RETURNED_TO_SELLER: 'Returned to seller', DELIVERY_FAILED: 'Delivery failed',
+  DELIVERY_DELAYED: 'Delivery delayed', DELIVERY_ASSIGNED: 'Delivery assigned', DELIVERY_IN_TRANSIT: 'Delivery in progress',
+  DELIVERY_PENDING_ASSIGNMENT: 'Delivery to assign', BUYER_NOT_FOUND: 'Buyer not found',
+  // Delivery methods
+  TBK_STANDARD: 'TBK delivery', TBK_DELIVERY: 'TBK delivery', TBK: 'TBK', PICKUP: 'In-store pickup',
+  SHOP_DELIVERY: 'Shop delivery', LIVRAISON_BOUTIQUE: 'Shop delivery', PARTNER: 'Delivery partner',
+  // Payments
+  CASH_ON_DELIVERY: 'Cash on delivery', MOBILE_AT_DELIVERY: 'Mobile payment on delivery', MOBILE_PAY_NOW: 'Mobile payment now',
+  CASH: 'Cash', MOBILE: 'Mobile', ONLINE: 'Online', MPESA: 'M-Pesa', ORANGE_MONEY: 'Orange Money', AIRTEL_MONEY: 'Airtel Money',
+  DUE: 'Due', PAID: 'Paid', WAIVED: 'Waived', COLLECTED: 'Collected', RECONCILED: 'Reconciled',
+  CASH_COLLECTED: 'Cash collected', CASH_CONFIRMATION_REQUIRED: 'Cash confirmation required', PAYMENT_INITIATED: 'Payment initiated',
+  PAYMENT_CONFIRMED: 'Payment confirmed', PAYMENT_VERIFIED: 'Payment verified', PAYMENT_FAILED: 'Payment failed',
+  METHOD_SELECTED: 'Method selected', PROVIDER_SELECTED: 'Provider selected', WEBHOOK_RECEIVED: 'Provider notification received',
+  COMMISSION_COMPUTED: 'Commission computed', NOW: 'Now', DELIVERY: 'On delivery', NONE: 'None', PERCENTAGE: 'Percentage', FIXED: 'Fixed amount',
+  // Admin roles & actors
+  SUPER_ADMIN: 'Super admin', DIRECTION_ADMIN: 'Management admin', COMMERCE_ADMIN: 'Commerce admin',
+  FINANCE_SUPPORT_ADMIN: 'Finance & support admin', TECHNICAL_ADMIN: 'Technical admin', ADMIN: 'Admin', ADMIN_USER: 'Administrator',
+  BUYER: 'Buyer', SELLER: 'Seller', SELLER_OWNER: 'Seller (owner)', EMPLOYEE: 'Employee', MANAGER: 'Manager', OWNER: 'Owner',
+  COURIER: 'Courier', SYSTEM: 'System', USER: 'User',
+  // Shops / businesses / categories
+  PHYSICAL: 'Physical shop', RETAIL: 'Retail', WHOLESALE: 'Wholesale', SERVICES: 'Services', MANUFACTURING: 'Manufacturing',
+  COMMERCE: 'Commerce', FINANCE: 'Finance', TECHNICAL: 'Technical', GENERAL: 'General', DIRECTION: 'Management',
+  // Stock
+  IN_STOCK: 'In stock', LOW_STOCK: 'Low stock', OUT_OF_STOCK: 'Out of stock', STOCK_IN: 'Stock in', SALE: 'Sale',
+  SALE_ONLINE: 'Online sale', SALE_PHYSICAL: 'In-store sale', ADJUSTMENT: 'Adjustment', RETURN: 'Return', TRANSFER_IN: 'Transfer in',
+  TRANSFER_OUT: 'Transfer out', INITIAL: 'Initial stock', RESERVED: 'Reserved', ESCROW: 'Escrow',
+  // Cases & risk
+  PAYMENT_DISPUTE: 'Payment dispute', DELIVERY_ISSUE: 'Delivery issue', PRODUCT_ISSUE: 'Product issue',
+  REFUND_REQUEST: 'Refund request', FRAUD: 'Fraud', OTHER: 'Other', ORDER_STUCK: 'Stuck order', STUCK_ORDER: 'Stuck order',
+  SELLER_CANCELLATIONS: 'Seller cancellations', HIGH_CANCELLATION_RATE: 'High cancellation rate', PAYMENT_ANOMALY: 'Payment anomaly',
+  // Security
+  ADMIN_LOGIN_SUCCESS: 'Admin sign-in succeeded', ADMIN_LOGIN_FAILED: 'Admin sign-in failed', ADMIN_BRUTE_FORCE_SUSPECTED: 'Suspected brute force',
+  // Worker errors
+  PAYMENT_NOT_FOUND: 'Payment not found', PAYMENT_NOT_VERIFIED: 'Payment not verified',
+  // Audit actions
+  SHOP_STATUS_SUSPENDED: 'Shop suspended', SHOP_STATUS_ACTIVE: 'Shop reactivated', BUSINESS_STATUS_ACTIVE: 'Business reactivated',
+  BUSINESS_STATUS_SUSPENDED: 'Business suspended', MAINTENANCE_UPDATE: 'Maintenance updated', CATEGORY_UPDATE: 'Category updated',
+  CATEGORY_CREATE: 'Category created', SUBCATEGORY_UPDATE: 'Subcategory updated', SUBCATEGORY_CREATE: 'Subcategory created',
+  GLOBAL_CONFIG_UPDATE: 'Settings updated', APPROVAL_REQUEST: 'Approval requested', APPROVAL_APPROVED: 'Approval granted',
+  APPROVAL_REJECTED: 'Approval rejected', COURIER_INVITED: 'Courier invited', COURIER_INVITATION_CANCELLED: 'Courier invitation cancelled',
+  COURIER_SUSPENDED: 'Courier suspended', COURIER_REACTIVATED: 'Courier reactivated', COURIER_DELETED: 'Courier deleted',
+  ANNOUNCEMENT_CREATE: 'Announcement created', ANNOUNCEMENT_UPDATE: 'Announcement updated', STOCK_ADJUSTMENT: 'Stock adjustment',
+  USER_DELETED: 'User deleted', USER_SUSPENDED: 'User suspended', USER_REACTIVATED: 'User reactivated',
+  USER_FORCE_LOGOUT: 'User forcibly signed out', CREATE_CASE: 'Case created', ASSIGN_CASE: 'Case assigned', RESOLVE_CASE: 'Case resolved',
+  ADD_CASE_MESSAGE: 'Message added to case', SECURITY_EVENT_ACKNOWLEDGE: 'Security alert acknowledged',
+  ADMIN_PROFILE_UPDATED: 'Admin profile updated', ADMIN_DELETED: 'Admin deleted', ADMIN_INVITED: 'Admin invited', ADMIN_SUSPENDED: 'Admin suspended',
+  ADMIN_SESSION_REVOKE: 'Admin session revoked', ADMIN_FORCE_LOGOUT: 'Admin forcibly signed out', EXPORT_REQUEST: 'Export requested',
+  EXPORT_DOWNLOAD: 'Export downloaded', SUPER_ADMIN_BOOTSTRAP_CREATED: 'Initial super admin created',
+  SUPER_ADMIN_CREDENTIALS_UPDATED: 'Super admin credentials updated', SUPER_ADMIN_PASSWORD_RESET: 'Super admin password reset',
+  PRODUCT_ARCHIVE: 'Product archived', PRODUCT_UNPUBLISH: 'Product unpublished', PRODUCT_PUBLISH: 'Product published',
+  UPDATE_PAYMENT_CONFIGURATION: 'Payment method updated', FEATURE_FLAG_UPDATE: 'Feature updated',
+  DELIVERY_FEE_SETTINGS_UPDATE: 'Delivery fee updated', DELIVERY_FEE_ZONE_UPDATE: 'City fee updated',
+  DELIVERY_FEE_ZONE_DELETE: 'City fee deleted', APP_VERSION_UPDATE: 'App version updated',
+  MANUAL_POINT_ADJUSTMENT: 'Manual points adjustment', DATABASE_BACKUP_CREATED: 'Backup created', RESOLVE_RISK_EVENT: 'Risk resolved',
+  COMMISSION_RATE_UPDATE: 'Commission rate updated', COMMISSION_SETTLED: 'Commission settled',
 }
-
-/** The console language, as the i18n provider sets it on <html lang>. */
-const isEnglish = () => typeof document !== 'undefined' && document.documentElement.lang.startsWith('en')
 
 /** Label for an API code in the console language; `fallback` when there is no value. */
 export function adminLabel(code?: string | null, fallback = '—'): string {
@@ -107,6 +184,6 @@ export function adminLabel(code?: string | null, fallback = '—'): string {
   const raw = code.trim()
   const key = raw.toUpperCase()
   const isCode = /^[A-Z0-9_]+$/.test(raw)
-  if (isEnglish()) return EN_LABELS[key] ?? (isCode ? humanise(raw) : raw)
-  return LABELS[key] ?? (isCode ? humanise(raw) : raw)
+  const labels = getLang() === 'en' ? EN_LABELS : LABELS
+  return labels[key] ?? (isCode ? humanise(raw) : raw)
 }

@@ -18,6 +18,7 @@ import {
   type NotificationItem,
 } from '../../src/api/communication'
 import { useI18n } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
 
@@ -140,7 +141,7 @@ export default function SellerNotificationsScreen() {
   const formatDateTime = (val: string) => {
     try {
       const d = new Date(val)
-      return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
+      return d.toLocaleDateString(dateLocale(lang === 'en' ? 'en' : 'fr'), {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',

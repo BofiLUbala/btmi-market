@@ -5,10 +5,22 @@ import { sellerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
-import { useI18n } from '../../src/store/i18n'
+import { useI18n, type TranslationKey } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors, fonts } from '../../src/theme'
 import { formatMoney } from '../../src/lib/money'
+
+const MOVEMENT_TYPE_KEYS: Record<string, TranslationKey> = {
+  INITIAL: 'sellerStock.movementInitial',
+  STOCK_IN: 'sellerStock.movementStockIn',
+  ADJUSTMENT: 'sellerStock.movementAdjustment',
+  SALE_ONLINE: 'sellerStock.movementSaleOnline',
+  SALE_PHYSICAL: 'sellerStock.movementSalePhysical',
+  RETURN: 'sellerStock.movementReturn',
+  TRANSFER_IN: 'sellerStock.movementTransferIn',
+  TRANSFER_OUT: 'sellerStock.movementTransferOut',
+}
 
 export default function SellerStockScreen() {
   const { t } = useI18n()
@@ -62,12 +74,12 @@ export default function SellerStockScreen() {
     ) : (
       movements.isLoading ? <Loading label={t('seller.stockPage.loading')} /> : movements.isError ? <ErrorState message={t('seller.stockPage.loadFailed')} retry={() => void movements.refetch()} /> : !movements.data?.length ? <Card><Text style={styles.muted}>{t('seller.stockPage.noMovements')}</Text></Card> : movements.data.map((m) => <Card key={m.id}>
         <View style={styles.row}>
-          <Text style={styles.badge}>{m.movement_type}</Text>
+          <Text style={styles.badge}>{MOVEMENT_TYPE_KEYS[m.movement_type] ? t(MOVEMENT_TYPE_KEYS[m.movement_type]) : m.movement_type}</Text>
           <Text style={[styles.delta, m.quantity > 0 ? styles.positive : styles.negative]}>{m.quantity > 0 ? `+${m.quantity}` : m.quantity}</Text>
         </View>
         <Text style={styles.muted}>{m.product?.name || m.variant?.name || ''} · {t('common.previous')} {m.previous_quantity} → {t('seller.stockPage.new')} {m.new_quantity}</Text>
         {m.notes ? <Text style={styles.muted}>{m.notes}</Text> : null}
-        <Text style={styles.date}>{new Date(m.created_at).toLocaleString()}</Text>
+        <Text style={styles.date}>{new Date(m.created_at).toLocaleString(dateLocale())}</Text>
       </Card>)
     )}
   </ScrollView>

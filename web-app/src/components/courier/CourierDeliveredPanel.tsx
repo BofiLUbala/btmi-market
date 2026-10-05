@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { courierApi } from '@/api/courier'
 import type { CourierDeliveredProduct, CourierEarnings } from '@/api/types'
-import { formatMoney } from '@/lib/format'
+import { dateLocale, formatMoney } from '@/lib/format'
+import { useT } from '@/store/i18n'
 
 /** Today's date where the deliveries happen (YYYY-MM-DD). */
 export function kinshasaToday(): string {
@@ -19,6 +20,7 @@ export function cashLabel(earnings: CourierEarnings | null): string {
  * and every product they delivered (that day, or all days).
  */
 export function CourierDeliveredPanel() {
+  const t = useT()
   const [day, setDay] = useState(kinshasaToday)
   const [allDays, setAllDays] = useState(false)
   const [earnings, setEarnings] = useState<CourierEarnings | null>(null)
@@ -37,11 +39,11 @@ export function CourierDeliveredPanel() {
       setEarnings(e)
       setItems(Array.isArray(p) ? p : [])
     } catch {
-      setError('Impossible de charger vos livraisons.')
+      setError(t('courierCourierDeliveredPanel.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [day, allDays])
+  }, [day, allDays, t])
 
   useEffect(() => { void load() }, [load])
 
@@ -53,31 +55,31 @@ export function CourierDeliveredPanel() {
   }, [items])
 
   const isToday = day === kinshasaToday()
-  const dayLabel = isToday ? 'aujourd’hui' : `le ${new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+  const date = new Date(`${day}T12:00:00`).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <>
       <section className="courier-glass courier-section">
         <div className="courier-heading courier-delivered-heading">
           <div>
-            <p className="courier-eyebrow">Argent encaissé</p>
-            <h2>Encaissé {dayLabel}</h2>
+            <p className="courier-eyebrow">{t('courierCourierDeliveredPanel.cashEyebrow')}</p>
+            <h2>{isToday ? t('courierCourierDeliveredPanel.cashedToday') : t('courierCourierDeliveredPanel.cashedOn', { date })}</h2>
           </div>
           <label className="courier-day-picker">
-            <span>Jour</span>
+            <span>{t('courierCourierDeliveredPanel.day')}</span>
             <input type="date" value={day} max={kinshasaToday()} onChange={(e) => e.target.value && setDay(e.target.value)} />
           </label>
         </div>
-        {error && <div className="courier-alert courier-alert-error"><span>{error}</span><button onClick={() => void load()}>Réessayer</button></div>}
+        {error && <div className="courier-alert courier-alert-error"><span>{error}</span><button onClick={() => void load()}>{t('common.retry')}</button></div>}
         <div className="courier-earnings">
           <div className="courier-earnings-total">
-            <small>Espèces reçues des acheteurs</small>
+            <small>{t('courierCourierDeliveredPanel.cashFromBuyers')}</small>
             <strong>{loading && !earnings ? '…' : cashLabel(earnings)}</strong>
-            <span>{earnings?.cash_orders ?? 0} paiement{(earnings?.cash_orders ?? 0) === 1 ? '' : 's'} en espèces confirmé{(earnings?.cash_orders ?? 0) === 1 ? '' : 's'}</span>
+            <span>{t((earnings?.cash_orders ?? 0) === 1 ? 'courierCourierDeliveredPanel.cashPaymentsOne' : 'courierCourierDeliveredPanel.cashPaymentsOther', { count: earnings?.cash_orders ?? 0 })}</span>
           </div>
           <div className="courier-earnings-figures">
-            <div><strong>{earnings?.orders_delivered ?? 0}</strong><small>Commandes livrées</small></div>
-            <div><strong>{earnings?.items_delivered ?? 0}</strong><small>Articles livrés</small></div>
+            <div><strong>{earnings?.orders_delivered ?? 0}</strong><small>{t('courierCourierDeliveredPanel.ordersDelivered')}</small></div>
+            <div><strong>{earnings?.items_delivered ?? 0}</strong><small>{t('courierCourierDeliveredPanel.itemsDelivered')}</small></div>
           </div>
         </div>
       </section>
@@ -85,18 +87,18 @@ export function CourierDeliveredPanel() {
       <section className="courier-glass courier-section">
         <div className="courier-heading courier-delivered-heading">
           <div>
-            <p className="courier-eyebrow">{items.length} article{items.length === 1 ? '' : 's'}</p>
-            <h2>Produits livrés {allDays ? '— tous les jours' : dayLabel}</h2>
+            <p className="courier-eyebrow">{t(items.length === 1 ? 'courierCourierDeliveredPanel.itemsOne' : 'courierCourierDeliveredPanel.itemsOther', { count: items.length })}</p>
+            <h2>{allDays ? t('courierCourierDeliveredPanel.deliveredAllDays') : isToday ? t('courierCourierDeliveredPanel.deliveredToday') : t('courierCourierDeliveredPanel.deliveredOn', { date })}</h2>
           </div>
           <label className="courier-all-days">
             <input type="checkbox" checked={allDays} onChange={(e) => setAllDays(e.target.checked)} />
-            <span>Tous les jours</span>
+            <span>{t('courierCourierDeliveredPanel.allDays')}</span>
           </label>
         </div>
         {loading && !items.length ? (
-          <p className="courier-muted">Chargement…</p>
+          <p className="courier-muted">{t('common.loading')}</p>
         ) : orders.length === 0 ? (
-          <div className="courier-empty"><strong>Aucun produit livré {allDays ? 'pour le moment' : dayLabel}.</strong><p>Les produits apparaissent ici dès la remise à l’acheteur.</p></div>
+          <div className="courier-empty"><strong>{allDays ? t('courierCourierDeliveredPanel.emptyAll') : isToday ? t('courierCourierDeliveredPanel.emptyToday') : t('courierCourierDeliveredPanel.emptyOn', { date })}</strong><p>{t('courierCourierDeliveredPanel.emptyHint')}</p></div>
         ) : (
           <div className="courier-delivered-list">
             {orders.map((lines) => {
@@ -106,13 +108,13 @@ export function CourierDeliveredPanel() {
                 <article key={head.order_id} className="courier-delivered-order">
                   <header>
                     <div>
-                      <strong>Commande #{head.order_number}</strong>
-                      <span>{head.shop_name} · {new Date(head.delivered_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      <strong>{t('courierCourierDeliveredPanel.orderNumber', { number: head.order_number })}</strong>
+                      <span>{head.shop_name} · {new Date(head.delivered_at).toLocaleString(dateLocale(), { dateStyle: 'short', timeStyle: 'short' })}</span>
                     </div>
                     <div className="courier-delivered-amount">
                       <strong>{formatMoney(total, head.currency)}</strong>
                       <span className={head.cash_collected ? 'is-cash' : ''}>
-                        {head.cash_collected ? 'Espèces encaissées' : head.payment_method === 'CASH_ON_DELIVERY' ? 'Espèces' : 'Payé en ligne'}
+                        {head.cash_collected ? t('courierCourierDeliveredPanel.cashCollected') : head.payment_method === 'CASH_ON_DELIVERY' ? t('courierCourierDeliveredPanel.cash') : t('courierCourierDeliveredPanel.paidOnline')}
                       </span>
                     </div>
                   </header>

@@ -1,5 +1,6 @@
 import type { DeliveryPlan } from '../api/types'
 import type { TranslationKey } from '../locales/fr'
+import { dateLocale } from './format'
 
 type Translate = (key: TranslationKey, vars?: Record<string, string | number | undefined | null>) => string
 
@@ -24,7 +25,7 @@ export function isPaidBeforeHandover(status: string, deliveryStatus?: string, pa
 }
 
 export function formatDeliveryDay(date: string, lang: string): string {
-  return new Date(`${date}T12:00:00`).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return new Date(`${date}T12:00:00`).toLocaleDateString(dateLocale(lang === 'en' ? 'en' : 'fr'), { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 /** "jeudi 25 septembre · après-midi (12h–17h)", or null when not planned yet. */

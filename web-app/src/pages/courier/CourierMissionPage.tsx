@@ -5,7 +5,7 @@ import { courierApi } from '@/api/courier'
 import { ApiError, type HandoverState, type HandoverVerificationResult } from '@/api/types'
 import { useI18n } from '@/store/i18n'
 import { lineLabel } from '@/lib/lineLabel'
-import { formatMoney } from '@/lib/format'
+import { dateLocale, formatMoney } from '@/lib/format'
 import { timelineNote } from '@/lib/timelineNote'
 import { getCourierWorkflow } from '@/lib/courierWorkflow'
 import { useOrderEvents } from '@/lib/orderEvents'
@@ -27,7 +27,7 @@ type DeliveryHistory={id:string;previous_status:string;new_status:string;actor_r
 type Mission={order_id:string;order_number:string;status:string;delivery_status:string;shop_name:string;business_name:string;shop_address:string;service_zone:string;package_count:number;delivery_address:string;delivery_contact:string;delivery_phone:string;delivery_notes?:string;total_amount:number;products_total?:number;delivery_fee?:number;payment_markup?:number;currency:string;payment_method:string;payment_status:string;lines?:MissionLine[];history?:MissionHistory[];delivery_history?:DeliveryHistory[];assigned_at?:string;accepted_at?:string;ready_at?:string;picked_up_at?:string;started_at?:string;arrived_at?:string;delivered_at?:string}&DeliveryPlan
 
 export default function CourierMissionPage(){
-  const {id=''}=useParams(), navigate=useNavigate(), {t,lang}=useI18n()
+  const {id=''}=useParams(), navigate=useNavigate(), {t}=useI18n()
   /** Translated API code, falling back to the raw code. */
   const tr=(key:string, fallback:string)=>{const v=t(key as TranslationKey); return v===key?fallback:v}
   const [m,setM]=useState<Mission|null>(null), [error,setError]=useState('')
@@ -92,11 +92,11 @@ export default function CourierMissionPage(){
     setActionSuccess('')
     try {
       await api(path, {method:'POST', body: body ? JSON.stringify(body) : undefined})
-      setActionSuccess(message || 'Action effectuée avec succès.')
+      setActionSuccess(message || t('courierCourierMissionPage.actionSuccess'))
       await load()
     } catch(err: any) {
       const msg = err?.message || err?.error || t('courier.dashboard.actionError')
-      setActionError(`Impossible d'effectuer cette action : ${msg}`)
+      setActionError(t('courierCourierMissionPage.actionFailed', { msg }))
     } finally {
       setActionBusy('')
     }
@@ -123,7 +123,7 @@ export default function CourierMissionPage(){
         await load()
       }
     } catch (e) {
-      setVerifyError(e instanceof ApiError ? e.message : "Impossible de vérifier le produit.")
+      setVerifyError(e instanceof ApiError ? e.message : t('courierCourierMissionPage.verifyFailed'))
     } finally {
       setVerifying(false)
     }
@@ -172,15 +172,15 @@ export default function CourierMissionPage(){
         {/* Action Panel — always visible at the top */}
         {workflow && (
           <section className="courier-card" style={{marginTop:16, borderLeft:'4px solid var(--color-accent)'}}>
-            <p className="courier-eyebrow">Statut actuel &amp; action requise</p>
+            <p className="courier-eyebrow">{t('courierCourierMissionPage.eyebrow')}</p>
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginBottom:12}}>
-              <h2 style={{margin:0}}>Fiche Mission #{m.order_number}</h2>
+              <h2 style={{margin:0}}>{t('courierCourierMissionPage.missionSheet', { number: m.order_number })}</h2>
               <span className="courier-status">{t(`courier.status.${m.delivery_status}`)}</span>
             </div>
 
             <div className="courier-details" style={{marginBottom:14}}>
-              <Detail l="Acteur responsable" v={workflow.responsibleActor} />
-              <Detail l="Prochaine action" v={workflow.explanation} />
+              <Detail l={t('courierCourierMissionPage.responsibleActor')} v={workflow.responsibleActor} />
+              <Detail l={t('courierCourierMissionPage.nextAction')} v={workflow.explanation} />
             </div>
 
             {actionError && <div className="courier-error" style={{marginBottom:12}}>{actionError}</div>}
@@ -191,29 +191,29 @@ export default function CourierMissionPage(){
               {workflow.actionType === 'ACCEPT_REJECT' && m && (
                 <>
                   <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/accept`, undefined, t('courier.dashboard.accepted'))}>
-                    {isAccepting ? 'Acceptation...' : (workflow.primaryButtonText || 'Accepter')}
+                    {isAccepting ? t('courierCourierMissionPage.accepting') : (workflow.primaryButtonText || t('courierCourierMissionPage.accept'))}
                   </button>
                   <button disabled={!!actionBusy} className="courier-btn courier-btn-danger" onClick={reject}>
-                    {isRejecting ? 'Refus...' : (workflow.secondaryButtonText || 'Refuser')}
+                    {isRejecting ? t('courierCourierMissionPage.rejecting') : (workflow.secondaryButtonText || t('courier.dashboard.reject'))}
                   </button>
                 </>
               )}
 
               {workflow.actionType === 'WAIT_SELLER' && (
                 <div className="courier-waiting">
-                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
-                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>{t('courierCourierMissionPage.nextAction')}</p>
+                  <p>{t('courierCourierMissionPage.responsible')} <strong>{workflow.responsibleActor}</strong></p>
                   <p className="courier-muted">{workflow.explanation}</p>
                 </div>
               )}
 
               {workflow.actionType === 'PICKUP' && m && (
                 <>
-                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/pickup`, undefined, 'Récupération confirmée.')}>
-                    {isConfirmingPickup ? 'Confirmation...' : (workflow.primaryButtonText || 'Confirmer la récupération')}
+                  <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/pickup`, undefined, t('courierCourierMissionPage.pickupConfirmed'))}>
+                    {isConfirmingPickup ? t('courierCourierMissionPage.confirming') : (workflow.primaryButtonText || t('courierCourierMissionPage.confirmPickup'))}
                   </button>
                   <button className="courier-btn courier-btn-scan" onClick={()=>m && navigate(`/courier/scan?type=PICKUP&order_id=${m.order_id}`)}>
-                    {workflow.secondaryButtonText || 'Scanner le QR vendeur'}
+                    {workflow.secondaryButtonText || t('courierCourierMissionPage.scanSellerQr')}
                   </button>
                 </>
               )}
@@ -223,20 +223,20 @@ export default function CourierMissionPage(){
               )}
               {workflow.actionType === 'START_DELIVERY' && m && (
                 <button disabled={!!actionBusy || !m.expected_delivery_date} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/start`, undefined, t('courier.dashboard.started'))}>
-                  {isStarting ? 'Démarrage...' : (workflow.primaryButtonText || 'Démarrer la livraison')}
+                  {isStarting ? t('courierCourierMissionPage.starting') : (workflow.primaryButtonText || t('courierCourierMissionPage.startDelivery'))}
                 </button>
               )}
 
               {workflow.actionType === 'ARRIVE' && m && (
                 <button disabled={!!actionBusy} className="courier-btn courier-btn-primary" onClick={()=>void act(`/courier/missions/${m.order_id}/arrive`, undefined, t('courier.dashboard.arrived'))}>
-                  {isArriving ? 'Validation d\'arrivée...' : (workflow.primaryButtonText || 'Je suis arrivé')}
+                  {isArriving ? t('courierCourierMissionPage.arriving') : (workflow.primaryButtonText || t('courier.dashboard.arrive'))}
                 </button>
               )}
 
               {workflow.actionType === 'VERIFY_PRODUCT' && m && (
                 <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
-                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
-                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>{t('courierCourierMissionPage.nextAction')}</p>
+                  <p>{t('courierCourierMissionPage.responsible')} <strong>{workflow.responsibleActor}</strong></p>
                   <p className="courier-muted">{workflow.explanation}</p>
                   <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:8, width:'100%'}}>
                     <input
@@ -272,9 +272,9 @@ export default function CourierMissionPage(){
 
               {workflow.actionType === 'CONFIRM_CASH' && m && (
                 <div style={{display:'flex', flexDirection:'column', gap:8, alignItems:'flex-start'}}>
-                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
-                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
-                  <p className="courier-muted">{workflow.explanation} Montant à encaisser : <strong>{formatMoney(m.total_amount, m.currency)}</strong></p>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>{t('courierCourierMissionPage.nextAction')}</p>
+                  <p>{t('courierCourierMissionPage.responsible')} <strong>{workflow.responsibleActor}</strong></p>
+                  <p className="courier-muted">{workflow.explanation} {t('courierCourierMissionPage.amountToCollect')} <strong>{formatMoney(m.total_amount, m.currency)}</strong></p>
                   {/* Cash is confirmed in the handover panel, which first asks whether the
                       exact amount was received: no one-tap money confirmation here. */}
                   <button className="courier-btn courier-btn-primary" onClick={scrollToHandover}>
@@ -285,23 +285,23 @@ export default function CourierMissionPage(){
 
               {workflow.actionType === 'WAIT_PAYMENT' && (
                 <div className="courier-waiting">
-                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
-                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>{t('courierCourierMissionPage.nextAction')}</p>
+                  <p>{t('courierCourierMissionPage.responsible')} <strong>{workflow.responsibleActor}</strong></p>
                   <p className="courier-muted">{workflow.explanation}</p>
                 </div>
               )}
 
               {workflow.actionType === 'WAIT_BUYER' && (
                 <div className="courier-waiting">
-                  <p style={{fontWeight:700, color:'var(--color-text)'}}>Prochaine action</p>
-                  <p>Responsable: <strong>{workflow.responsibleActor}</strong></p>
+                  <p style={{fontWeight:700, color:'var(--color-text)'}}>{t('courierCourierMissionPage.nextAction')}</p>
+                  <p>{t('courierCourierMissionPage.responsible')} <strong>{workflow.responsibleActor}</strong></p>
                   <p className="courier-muted">{workflow.explanation}</p>
                 </div>
               )}
 
               {workflow.actionType === 'COMPLETED' && (
                 <div className="courier-waiting">
-                  <p style={{fontWeight:700, color:'var(--color-success)'}}>✓ Livraison terminée</p>
+                  <p style={{fontWeight:700, color:'var(--color-success)'}}>✓ {t('courierCourierMissionPage.deliveryDone')}</p>
                   <p className="courier-muted">{workflow.explanation}</p>
                 </div>
               )}
@@ -341,16 +341,16 @@ export default function CourierMissionPage(){
             <Detail l={t('courier.dashboard.packages')} v={String(m.package_count)}/>
             <Detail l={t('courier.dashboard.client')} v={m.delivery_contact}/>
             <Detail l={t('courier.dashboard.phone')} v={m.delivery_phone}/>
-            <Detail l="Mode de paiement" v={tr(`payment.method.${m.payment_method}`, m.payment_method)}/>
-            <Detail l="Statut du paiement" v={tr(`tracking.pay.${m.payment_status}`, m.payment_status)}/>
-            <Detail l="Produits" v={formatMoney(m.products_total ?? 0, m.currency)}/>
-            <Detail l="Frais de livraison TBK" v={formatMoney(m.delivery_fee ?? 0, m.currency)}/>
-            {(m.payment_markup ?? 0) > 0 && <Detail l="Frais de paiement" v={formatMoney(m.payment_markup ?? 0, m.currency)}/>}
-            <Detail l="Montant total à encaisser" v={formatMoney(m.total_amount, m.currency)}/>
+            <Detail l={t('courier.handover.method')} v={tr(`payment.method.${m.payment_method}`, m.payment_method)}/>
+            <Detail l={t('courier.handover.paymentStatus')} v={tr(`tracking.pay.${m.payment_status}`, m.payment_status)}/>
+            <Detail l={t('courierCourierMissionPage.products')} v={formatMoney(m.products_total ?? 0, m.currency)}/>
+            <Detail l={t('courierCourierMissionPage.deliveryFee')} v={formatMoney(m.delivery_fee ?? 0, m.currency)}/>
+            {(m.payment_markup ?? 0) > 0 && <Detail l={t('courierCourierMissionPage.paymentFee')} v={formatMoney(m.payment_markup ?? 0, m.currency)}/>}
+            <Detail l={t('courierCourierMissionPage.totalToCollect')} v={formatMoney(m.total_amount, m.currency)}/>
             {m.delivery_notes&&<Detail l={t('courier.dashboard.instructions')} v={m.delivery_notes}/>}
           </div>
           {m.lines&&m.lines.length>0&&<>
-            <h2>Produits</h2>
+            <h2>{t('courierCourierMissionPage.products')}</h2>
             <div className="courier-details">
               {m.lines.map(line=><Detail key={line.id} l={lineLabel(line.product_name,line.variant_name)} v={`${line.quantity} × ${formatMoney(line.final_unit_price, m.currency)}`}/>)}
             </div>
@@ -365,13 +365,13 @@ export default function CourierMissionPage(){
 
           <h2>{t('courier.timeline.title')}</h2>
           <ol style={{paddingLeft:0, listStyle:'none'}}>
-            {steps.map(([key,at])=><li key={key} style={{padding:'8px 0',opacity:at?1:.45}}><strong>{at?'✓':'○'} {t(key)}</strong>{at&&<div className="courier-muted">{new Date(at).toLocaleString(lang)}</div>}</li>)}
+            {steps.map(([key,at])=><li key={key} style={{padding:'8px 0',opacity:at?1:.45}}><strong>{at?'✓':'○'} {t(key)}</strong>{at&&<div className="courier-muted">{new Date(at).toLocaleString(dateLocale())}</div>}</li>)}
           </ol>
 
           {m.history&&m.history.length>0&&<>
-            <h2>Historique enregistré</h2>
+            <h2>{t('courierCourierMissionPage.history')}</h2>
             <ol style={{paddingLeft:0, listStyle:'none'}}>
-              {m.history.map(event=><li key={event.id} style={{padding:'8px 0'}}><strong>{tr(`status.${event.status}`, event.status)}</strong>{event.notes&&<div>{timelineNote((k)=>t(k as TranslationKey), event.notes)}</div>}<div className="courier-muted">{new Date(event.created_at).toLocaleString(lang)}</div></li>)}
+              {m.history.map(event=><li key={event.id} style={{padding:'8px 0'}}><strong>{tr(`status.${event.status}`, event.status)}</strong>{event.notes&&<div>{timelineNote((k)=>t(k as TranslationKey), event.notes)}</div>}<div className="courier-muted">{new Date(event.created_at).toLocaleString(dateLocale())}</div></li>)}
             </ol>
           </>}
         </section>

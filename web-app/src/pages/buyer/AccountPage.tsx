@@ -69,7 +69,7 @@ function AccountInner() {
               <>
                 <div className="profile-address">{[buyerProfile.street, buyerProfile.building_number].filter(Boolean).join(', ') || buyerProfile?.address || t('account.noAddress')}</div>
                 <div className="small muted">{[buyerProfile.commune, buyerProfile.city, buyerProfile.province].filter(Boolean).join(', ')}</div>
-                {buyerProfile.landmark && <div className="small muted">Point de repère : {buyerProfile.landmark}</div>}
+                {buyerProfile.landmark && <div className="small muted">{t('buyerAccountPage.landmark', { landmark: buyerProfile.landmark })}</div>}
               </>
             ) : (
               <>

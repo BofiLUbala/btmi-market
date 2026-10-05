@@ -19,6 +19,7 @@ import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 import { lastMessageAuthor } from '../../src/lib/chat'
 import { subscribeOrderEvents } from '../../src/lib/orderEvents'
 import type { TranslationKey } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
@@ -96,7 +97,7 @@ export default function SellerMessagesScreen() {
   const formatDateTime = (val: string) => {
     try {
       const d = new Date(val)
-      return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
+      return d.toLocaleDateString(dateLocale(lang === 'en' ? 'en' : 'fr'), {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',

@@ -12,6 +12,8 @@ import { useT } from '@/store/i18n'
 
 export default function SellerBusinessPage() {
   const t = useT()
+  /** Translated enum code, falling back to the raw code. */
+  const codeLabel = (key: string, code: string) => { const v = t(key); return v === key ? code : v }
   const { activeBusiness, sellerBusinesses, setActiveBusiness, setSellerBusinesses, setActiveShop } = useAuth()
   const navigate = useNavigate()
   const [summary, setSummary] = useState<BusinessLifecycleSummary | null>(null)
@@ -82,7 +84,7 @@ export default function SellerBusinessPage() {
     {saved && <div className="card success-box" role="status">{t('seller.business.saved')}</div>}
 
     <form onSubmit={save} className="card business-info-form">
-      <div className="card-header"><div><div className="eyebrow">{t('seller.business.infoEyebrow')}</div><h2>{t('seller.business.details')}</h2></div><span className="badge badge-success">{activeBusiness.status}</span></div>
+      <div className="card-header"><div><div className="eyebrow">{t('seller.business.infoEyebrow')}</div><h2>{t('seller.business.details')}</h2></div><span className="badge badge-success">{codeLabel(`sellerBusinessSellerBusinessPage.status.${activeBusiness.status}`, activeBusiness.status)}</span></div>
       <div className="business-form-grid">
         <Field label={t('seller.business.name')} name="name" required value={form.name} onChange={e => set('name', e.target.value)} />
         <Field label={t('seller.onboarding.businessType')} name="business_type" as="select" value={form.business_type} onChange={e => set('business_type', e.target.value)} options={[{value:'RETAIL',label:t('seller.businessType.RETAIL')},{value:'WHOLESALE',label:t('seller.businessType.WHOLESALE')},{value:'MANUFACTURING',label:t('seller.businessType.MANUFACTURING')},{value:'SERVICES',label:t('seller.businessType.SERVICES')},{value:'OTHER',label:t('seller.businessType.OTHER')}]} />
@@ -91,7 +93,7 @@ export default function SellerBusinessPage() {
         <Field label="WhatsApp" name="whatsapp" value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)} />
         <Field label={t('common.email')} name="email" type="email" required value={form.email} onChange={e => set('email', e.target.value)} />
         <StructuredAddressFields value={{ province: form.province, city: form.city, commune: form.commune, province_id: form.province_id, city_id: form.city_id, commune_id: form.commune_id, street: form.street, building_number: form.building_number, landmark: form.landmark }} onChange={(address) => setForm((current) => ({ ...current, ...address }))} />
-        <Field label={t('seller.business.currency')} name="default_currency" as="select" value={form.default_currency} options={[{value:'USD',label:'USD'},{value:'CDF',label:'CDF (héritage)'}]} onChange={e => set('default_currency', e.target.value)} />
+        <Field label={t('seller.business.currency')} name="default_currency" as="select" value={form.default_currency} options={[{value:'USD',label:'USD'},{value:'CDF',label:t('sellerBusinessSellerBusinessPage.currencyCdfLegacy')}]} onChange={e => set('default_currency', e.target.value)} />
       </div>
       <Button type="submit" loading={busy}>{t('common.saveChanges')}</Button>
     </form>
@@ -100,7 +102,7 @@ export default function SellerBusinessPage() {
       <div className="row-between"><div><div className="eyebrow">{t('seller.business.summaryEyebrow')}</div><h2>{t('seller.business.activeFootprint')}</h2></div><Link to="/seller/employees" className="section-link">{t('seller.business.viewEmployees')}</Link></div>
       {loading ? <LoadingBlock label={t('seller.business.loadingImpact')} /> : summary && <>
         <div className="business-impact-grid"><div><span>{t('seller.shops')}</span><strong>{summary.shops}</strong></div><div><span>{t('seller.products')}</span><strong>{summary.products}</strong></div><div><span>{t('seller.employees')}</span><strong>{summary.employees}</strong></div><div><span>{t('seller.business.inventoryUnits')}</span><strong>{summary.inventory_units}</strong></div><div><span>{t('seller.business.activeOrders')}</span><strong>{summary.active_orders}</strong></div><div><span>{t('seller.business.historicalOrders')}</span><strong>{summary.historical_orders}</strong></div></div>
-        <div className="business-shop-summary">{summary.shop_summaries.map(shop => <Link to="/seller/shops" key={shop.id} className="business-shop-row"><div><strong>{shop.name}</strong><span>{shop.status}</span></div><span>{t(shop.product_count === 1 ? 'seller.business.shopProductCount' : 'seller.business.shopProductCountPlural', { count: shop.product_count })}</span></Link>)}</div>
+        <div className="business-shop-summary">{summary.shop_summaries.map(shop => <Link to="/seller/shops" key={shop.id} className="business-shop-row"><div><strong>{shop.name}</strong><span>{codeLabel(`seller.shopStatus.${shop.status}`, shop.status)}</span></div><span>{t(shop.product_count === 1 ? 'seller.business.shopProductCount' : 'seller.business.shopProductCountPlural', { count: shop.product_count })}</span></Link>)}</div>
       </>}
     </section>
 

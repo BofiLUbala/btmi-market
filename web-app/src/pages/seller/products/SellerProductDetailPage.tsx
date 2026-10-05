@@ -3,8 +3,8 @@ import { DescriptionEditor } from '@/components/seller/DescriptionEditor'
 import { AttributeValueField } from '@/components/seller/AttributeValueField'
 import { VARIANT_TYPE_NAMES, sameAttribute } from '@/lib/attributeOptions'
 import { DescriptionPreview } from '@/components/ui/DescriptionSections'
-import { formatMoney } from '@/lib/format'
-import { useI18n } from '@/store/i18n'
+import { dateLocale, formatMoney } from '@/lib/format'
+import { useI18n, useT } from '@/store/i18n'
 import { categoryLabel, subcategoryLabel } from '@/lib/categoryLabels'
 import { productApi, productImageApi, inventoryApi, shopApi, categoryApi } from '@/api/seller'
 import type { Product, ProductVariant, Shop, InventoryItem, CategoryResponse, CategoryAttributeDefinition, ProductImageResponse, QRIdentity } from '@/api/types'
@@ -29,7 +29,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom'
 
 export default function SellerProductDetailPage() {
   const { activeBusiness, activeShop } = useAuth()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { productId } = useParams<{ productId: string }>()
   const [searchParams] = useSearchParams()
   const scopedShopId = searchParams.get('shop') || ''
@@ -157,13 +157,13 @@ export default function SellerProductDetailPage() {
     for (const def of requiredDefs) {
       if (def.variant_attribute) {
         if (variants.length === 0) {
-          missing.push({ def, reason: 'Aucune variante créée avec cette caractéristique', variants: [] })
+          missing.push({ def, reason: t('sellerProductsSellerProductDetailPage.reasonNoVariant'), variants: [] })
         } else {
           const variantsLacking = variants.filter((v) => !variantHasAttribute(v.attributes, def))
           if (variantsLacking.length > 0) {
             missing.push({
               def,
-              reason: `Manquant sur ${variantsLacking.length} variante(s)`,
+              reason: t('sellerProductsSellerProductDetailPage.reasonMissingOn', { count: variantsLacking.length }),
               variants: variantsLacking,
             })
           }
@@ -175,12 +175,12 @@ export default function SellerProductDetailPage() {
           variants.every((v) => variantHasAttribute(v.attributes, def))
         if (!hasSpec && !hasOnAllVariants) {
           const variantsLacking = variants.filter((v) => !variantHasAttribute(v.attributes, def))
-          missing.push({ def, reason: 'Caractéristique obligatoire non renseignée', variants: variantsLacking })
+          missing.push({ def, reason: t('sellerProductsSellerProductDetailPage.reasonRequiredMissing'), variants: variantsLacking })
         }
       }
     }
     return missing
-  }, [product, categoryAttrDefs, variants, specifications])
+  }, [product, categoryAttrDefs, variants, specifications, t])
 
   function openCompletionEditor(attributeKey?: string) {
     if (variants.length === 0) {
@@ -453,7 +453,7 @@ export default function SellerProductDetailPage() {
       const missing = knownAttributeKeys.filter((k) => !parsedAttrs[k])
       if (missing.length > 0) {
         setActionError(
-          `Set a value for ${missing.join(', ')} so buyers can select this variant. Every variant of this product must define the same attributes.`
+          t('sellerProductsSellerProductDetailPage.setValueFor', { attributes: missing.join(', ') })
         )
         return
       }
@@ -477,7 +477,7 @@ export default function SellerProductDetailPage() {
       )
     })
     if (isDuplicate) {
-      setActionError('Une variante avec cette combinaison exacte d’attributs existe déjà pour ce produit.')
+      setActionError(t('sellerProductsSellerProductDetailPage.duplicateCombo'))
       return
     }
 
@@ -610,7 +610,7 @@ export default function SellerProductDetailPage() {
       )
     })
     if (isDuplicate) {
-      setActionError('Une autre variante possède déjà cette combinaison exacte d’attributs.')
+      setActionError(t('sellerProductsSellerProductDetailPage.duplicateOther'))
       return
     }
 
@@ -635,7 +635,7 @@ export default function SellerProductDetailPage() {
       const empty = requiredDefs.find((def) => !getAttributeValue(values, def))
       if (empty) {
         setFocusAttributeKey(empty.key)
-        setActionError(`Renseignez ${empty.label_fr || empty.label_en || empty.key} avant d’enregistrer.`)
+        setActionError(t('sellerProductsSellerProductDetailPage.fillBeforeSave', { attribute: attributeLabel(empty, lang) }))
         return
       }
     }
@@ -661,8 +661,8 @@ export default function SellerProductDetailPage() {
           const original = variants.find((variant) => variant.id === id)
           return !variantHasAttribute(original?.attributes, def) && String(completionAttrs[id]?.[def.key] || '').trim()
         }))
-        .map((def) => def.label_fr || def.label_en || def.key)
-      setStockMsg(`${savedLabels.join(', ')} ${savedLabels.length > 1 ? 'enregistrées' : 'enregistrée'}`)
+        .map((def) => attributeLabel(def, lang))
+      setStockMsg(t(savedLabels.length > 1 ? 'sellerProductsSellerProductDetailPage.savedMany' : 'sellerProductsSellerProductDetailPage.savedOne', { labels: savedLabels.join(', ') }))
       await load()
       if (closeAfterSave) closeCompletionEditor()
     } catch (err) {
@@ -689,13 +689,21 @@ export default function SellerProductDetailPage() {
       await inventoryApi.addStock(shopId, { variant_id: variantId, quantity: qty, notes: t('seller.productDetail.noteRestock') })
       setStockByVariant((prev) => ({ ...prev, [variantId]: '' }))
       const shopObj = shops.find((s) => s.id === shopId)
-      setStockMsg(`Added ${qty} units to ${shopObj ? shopObj.name : 'shop'} successfully.`)
+      setStockMsg(t('seller.productDetail.stockAdded', { count: qty, shop: shopObj ? shopObj.name : t('seller.shopProducts.shopFallback') }))
       await load()
     } catch (err) {
       setActionError(err instanceof Error ? err.message : t('seller.productDetail.addStockFailed'))
     } finally {
       setBusy(false)
     }
+  }
+
+  // Variant status is an API code (ACTIVE / INACTIVE / DISCONTINUED): show a label, or the raw code if unknown.
+  const variantStatusLabel = (status?: string) => {
+    if (!status) return ''
+    const key = `sellerProductsSellerProductDetailPage.variantStatus.${status}`
+    const label = t(key)
+    return label === key ? status : label
   }
 
   if (!activeBusiness) {
@@ -748,41 +756,41 @@ export default function SellerProductDetailPage() {
       {/* ── Actionable draft requirements ── */}
       {product.publication_status !== 'PUBLISHED' && missingRequirements.length > 0 && (
         <div className="missing-requirements notice notice-warning mb-4" role="alert">
-          <h2><WarningIcon className="inline-icon" /> {missingRequirements.length} caractéristique{missingRequirements.length > 1 ? 's' : ''} obligatoire{missingRequirements.length > 1 ? 's' : ''} manquante{missingRequirements.length > 1 ? 's' : ''}</h2>
+          <h2><WarningIcon className="inline-icon" /> {t(missingRequirements.length > 1 ? 'sellerProductsSellerProductDetailPage.missingHeaderOther' : 'sellerProductsSellerProductDetailPage.missingHeaderOne', { count: missingRequirements.length })}</h2>
           <div className="missing-requirements-list">
             {missingRequirements.map((req) => {
-              const label = attributeLabel(req.def)
+              const label = attributeLabel(req.def, lang)
               return (
                 <section key={req.def.key} className="missing-requirement-item">
                   <div>
-                    <strong>{label} manquante</strong>
+                    <strong>{t('sellerProductsSellerProductDetailPage.attrMissing', { label })}</strong>
                     {req.variants.length > 0 && (
                       <div className="missing-variant-summary">
-                        <span>Manquante sur :</span>
+                        <span>{t('sellerProductsSellerProductDetailPage.missingOn')}</span>
                         {req.variants.map((variant) => (
                           <span key={variant.id}>
-                            • {variantDisplayLabel(variant.attributes, categoryAttrDefs, variant.name || variant.sku || 'Variante')}
+                            • {variantDisplayLabel(variant.attributes, categoryAttrDefs, variant.name || variant.sku || t('sellerProductsSellerProductDetailPage.variantFallback'))}
                           </span>
                         ))}
                       </div>
                     )}
                   </div>
                   <Button size="sm" variant="outline" onClick={() => openCompletionEditor(req.def.key)}>
-                    Compléter {label}
+                    {t('sellerProductsSellerProductDetailPage.completeAttr', { label })}
                   </Button>
                 </section>
               )
             })}
           </div>
           <Button size="sm" onClick={() => openCompletionEditor()}>
-            {variants.length === 0 ? 'Créer une variante' : 'Compléter toutes les variantes'}
+            {variants.length === 0 ? t('sellerProductsSellerProductDetailPage.createVariant') : t('sellerProductsSellerProductDetailPage.completeAll')}
           </Button>
         </div>
       )}
 
       {product.publication_status !== 'PUBLISHED' && categoryAttrDefs.some((def) => def.required) && missingRequirements.length === 0 && (
         <div className="notice notice-success mb-4" role="status">
-          ✓ Toutes les caractéristiques obligatoires sont complètes.
+          ✓ {t('sellerProductsSellerProductDetailPage.allRequiredComplete')}
         </div>
       )}
 
@@ -791,10 +799,10 @@ export default function SellerProductDetailPage() {
           <div ref={completionDialogRef} className="completion-modal" role="dialog" aria-modal="true" aria-labelledby="completion-title">
             <div className="completion-modal-header">
               <div>
-                <h2 id="completion-title">Compléter les variantes</h2>
-                <p>Seules les caractéristiques obligatoires à compléter sont affichées.</p>
+                <h2 id="completion-title">{t('sellerProductsSellerProductDetailPage.completionTitle')}</h2>
+                <p>{t('sellerProductsSellerProductDetailPage.completionDesc')}</p>
               </div>
-              <button type="button" className="completion-modal-close" aria-label="Fermer" onClick={closeCompletionEditor}>×</button>
+              <button type="button" className="completion-modal-close" aria-label={t('common.close')} onClick={closeCompletionEditor}>×</button>
             </div>
             <div className="completion-variants">
               {variants.filter((variant) => categoryAttrDefs.some((def) => def.required && !variantHasAttribute(variant.attributes, def))).map((variant, index) => {
@@ -803,13 +811,13 @@ export default function SellerProductDetailPage() {
                   <section key={variant.id} className="completion-variant-card">
                     <div className="completion-variant-title">
                       <div>
-                        <strong>{variantDisplayLabel(variant.attributes, categoryAttrDefs, variant.name || `Variante ${index + 1}`)}</strong>
-                        <span>SKU : {variant.sku || '—'} · Prix : {formatMoney(Number(variant.sale_price || 0), product.currency)}</span>
+                        <strong>{variantDisplayLabel(variant.attributes, categoryAttrDefs, variant.name || t('sellerProductsSellerProductDetailPage.variantNumbered', { n: index + 1 }))}</strong>
+                        <span>{t('sellerProductsSellerProductDetailPage.skuPrice', { sku: variant.sku || '—', price: formatMoney(Number(variant.sale_price || 0), product.currency) })}</span>
                       </div>
                     </div>
                     <div className="completion-fields">
                       {missingDefs.map((def) => {
-                        const label = attributeLabel(def)
+                        const label = attributeLabel(def, lang)
                         const value = completionAttrs[variant.id]?.[def.key] || getAttributeValue(variant.attributes, def)
                         const commonProps = {
                           id: `complete-${variant.id}-${def.key}`,
@@ -823,7 +831,7 @@ export default function SellerProductDetailPage() {
                           <label key={def.key} htmlFor={commonProps.id} className="completion-field">
                             <span>{label} *</span>
                             {def.allowed_values?.length > 0 || def.input_type === 'select' ? (
-                              <select {...commonProps}><option value="">Sélectionner</option>{def.allowed_values.map((option) => <option key={option} value={option}>{option}</option>)}</select>
+                              <select {...commonProps}><option value="">{t('sellerProductsSellerProductDetailPage.selectPlaceholder')}</option>{def.allowed_values.map((option) => <option key={option} value={option}>{option}</option>)}</select>
                             ) : (
                               <AttributeValueField
                                 attribute={def}
@@ -841,15 +849,15 @@ export default function SellerProductDetailPage() {
                         )
                       })}
                     </div>
-                    <Button size="sm" variant="outline" disabled={busy} onClick={() => saveCompletionVariants([variant.id])}>Enregistrer cette variante</Button>
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => saveCompletionVariants([variant.id])}>{t('sellerProductsSellerProductDetailPage.saveThisVariant')}</Button>
                   </section>
                 )
               })}
             </div>
             <div className="completion-modal-actions">
-              <Button variant="ghost" onClick={closeCompletionEditor}>Annuler</Button>
+              <Button variant="ghost" onClick={closeCompletionEditor}>{t('common.cancel')}</Button>
               <Button disabled={busy} onClick={() => saveCompletionVariants(variants.filter((variant) => categoryAttrDefs.some((def) => def.required && !variantHasAttribute(variant.attributes, def))).map((variant) => variant.id), true)}>
-                Enregistrer toutes les modifications
+                {t('sellerProductsSellerProductDetailPage.saveAllChanges')}
               </Button>
             </div>
           </div>
@@ -861,12 +869,12 @@ export default function SellerProductDetailPage() {
       {productQR && (
         <QRPanel
           qr={productQR}
-          title="TBK Product QR"
+          title={t('sellerProductsSellerProductDetailPage.qrTitle')}
           imagePath={`/businesses/${activeBusiness.id}/products/${product.id}/qr/label`}
           fields={[
-            { label: 'Produit', value: product.name },
+            { label: t('sellerProductsSellerProductDetailPage.qrProduct'), value: product.name },
             { label: 'SKU', value: product.sku || '' },
-            { label: 'Boutique', value: activeBusiness.name || '' },
+            { label: t('seller.shopProducts.shopFallback'), value: activeBusiness.name || '' },
           ]}
         />
       )}
@@ -1068,7 +1076,7 @@ export default function SellerProductDetailPage() {
                   type="number"
                   min="1"
                   step="any"
-                  placeholder={promoForm.discount_type === 'PERCENTAGE' ? 'e.g. 20' : 'e.g. 15000'}
+                  placeholder={promoForm.discount_type === 'PERCENTAGE' ? t('seller.productForm.discountPlaceholderPct') : t('seller.productForm.discountPlaceholderFixed')}
                   value={promoForm.discount_value}
                   onChange={(e) => setPromoForm({ ...promoForm, discount_value: e.target.value })}
                 />
@@ -1133,7 +1141,7 @@ export default function SellerProductDetailPage() {
                     </strong>
                     {product.unit_price && (
                       <span className="small muted">
-                        (Sale Price: <strong>{(() => {
+                        ({t('sellerProductsSellerProductDetailPage.salePriceLabel')} <strong>{(() => {
                           const base = product.unit_price || 0
                           const val = product.discount_value || 0
                           if (product.discount_type === 'PERCENTAGE') return formatMoney(base * (1 - val / 100), product.currency)
@@ -1147,12 +1155,12 @@ export default function SellerProductDetailPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {product.discount_start && (
                     <span className="small muted">
-                      {t('seller.productDetail.startsAt', { date: new Date(product.discount_start).toLocaleString() })}
+                      {t('seller.productDetail.startsAt', { date: new Date(product.discount_start).toLocaleString(dateLocale()) })}
                     </span>
                   )}
                   {product.discount_end && (
                     <span className="small muted">
-                      {t('seller.productDetail.endsAt', { date: new Date(product.discount_end).toLocaleString() })}
+                      {t('seller.productDetail.endsAt', { date: new Date(product.discount_end).toLocaleString(dateLocale()) })}
                     </span>
                   )}
                   {!product.discount_start && !product.discount_end && (
@@ -1171,15 +1179,14 @@ export default function SellerProductDetailPage() {
       <Card style={{ marginTop: 24 }}>
         <div className="row-between" style={{ marginBottom: 4 }}>
           <div>
-            <h3 style={{ margin: 0 }}>Product Photos ({images.length})</h3>
+            <h3 style={{ margin: 0 }}>{t('seller.productDetail.photosTitle', { count: images.length })}</h3>
             <p className="muted small" style={{ margin: '2px 0 0' }}>
-              Link a photo to a variant so buyers see that exact colour or model when they select it.
-              Photos left as “All variants” show for the whole product.
+              {t('seller.productDetail.photosDesc')}
             </p>
           </div>
           {images.length < 10 && (
             <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer' }}>
-              + Add Photo
+              {t('sellerProductsSellerProductDetailPage.addPhoto')}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -1196,7 +1203,7 @@ export default function SellerProductDetailPage() {
 
         {images.length === 0 ? (
           <p className="muted small" style={{ padding: 16, textAlign: 'center' }}>
-            No photos yet. Buyers are far more likely to order a product that shows a photo.
+            {t('seller.productDetail.noPhotosYet')}
           </p>
         ) : (
           <div className="photo-grid">
@@ -1218,7 +1225,7 @@ export default function SellerProductDetailPage() {
                     <option value="">{t('seller.productDetail.allVariants')}</option>
                     {variants.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {Object.values(v.attributes ?? {}).join(' / ') || v.name || v.sku || 'Variant'}
+                        {Object.values(v.attributes ?? {}).join(' / ') || v.name || v.sku || t('sellerProductsSellerProductDetailPage.variantFallback')}
                       </option>
                     ))}
                   </select>
@@ -1229,7 +1236,7 @@ export default function SellerProductDetailPage() {
                     disabled={busy}
                     onClick={() => void removeImage(img.id)}
                   >
-                    Remove
+                    {t('common.remove')}
                   </button>
                 </div>
               </div>
@@ -1242,7 +1249,7 @@ export default function SellerProductDetailPage() {
       <Card style={{ marginTop: 24 }}>
         <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ margin: 0 }}>Variants & Inventory ({variants.length})</h3>
+            <h3 style={{ margin: 0 }}>{t('seller.productDetail.variantsInventoryTitle', { count: variants.length })}</h3>
             <p className="muted small" style={{ margin: '2px 0 0' }}>{t('seller.productDetail.variantsInventoryDesc')}</p>
           </div>
           <Button size="sm" onClick={() => setShowVariantForm(!showVariantForm)}>
@@ -1255,8 +1262,8 @@ export default function SellerProductDetailPage() {
             <h4 style={{ margin: '0 0 4px' }}>{t('seller.productDetail.newVariant')}</h4>
             <p className="muted small" style={{ margin: '0 0 12px' }}>
               {knownAttributeKeys.length > 0
-                ? <>Give this variant its own value for {knownAttributeKeys.join(' and ')}. Buyers pick a product by these attributes, so every variant must define the same ones.</>
-                : <>Add the attributes that tell your variants apart (Color, Size, Storage…). Buyers use these as the selection buttons on the marketplace.</>}
+                ? t('seller.productDetail.variantFormKnownDesc', { attributes: knownAttributeKeys.join(t('sellerProductsSellerProductDetailPage.andSeparator')) })
+                : t('seller.productDetail.variantFormUnknownDesc')}
             </p>
 
             {/* Structured attribute inputs — these become the buyer's selectors */}
@@ -1264,12 +1271,12 @@ export default function SellerProductDetailPage() {
               {Object.keys(variantAttrs).map((key) => (
                 <div key={key} className="attr-edit-row" style={{ display: 'grid', gridTemplateColumns: '160px 1fr auto', gap: 8, alignItems: 'center' }}>
                   <label className="small bold" htmlFor={`vattr-${key}`}>
-                    {attributeLabel(categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key })}
+                    {attributeLabel(categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key }, lang)}
                   </label>
                   <AttributeValueField
                     id={`vattr-${key}`}
                     attribute={categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key }}
-                    label={attributeLabel(categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key })}
+                    label={attributeLabel(categoryAttrDefs.find((def) => def.key === key) || { key, label_fr: key, label_en: key }, lang)}
                     categorySlug={categorySlug}
                     value={variantAttrs[key]}
                     onChange={(next) => setVariantAttrs((prev) => ({ ...prev, [key]: next }))}
@@ -1287,7 +1294,7 @@ export default function SellerProductDetailPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    title={`Remove ${key} from this variant`}
+                    title={t('seller.productDetail.removeAttr', { attr: key })}
                     onClick={() =>
                       setVariantAttrs((prev) => {
                         const next = { ...prev }
@@ -1345,7 +1352,7 @@ export default function SellerProductDetailPage() {
                     }
                   }}
                 >
-                  + Add
+                  {t('seller.productDetail.addButton')}
                 </Button>
               </div>
             </div>
@@ -1466,7 +1473,7 @@ export default function SellerProductDetailPage() {
                           <strong>{v.name || t('seller.productDetail.defaultVariant')}</strong>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, alignItems: 'center' }}>
                             <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
-                              {v.status}
+                              {variantStatusLabel(v.status)}
                             </span>
                             {attrEntries.map(([k, val]) => (
                               <span key={k} className="attr-chip">
@@ -1475,7 +1482,7 @@ export default function SellerProductDetailPage() {
                             ))}
                             {attrEntries.length === 0 && (
                               <span className="small" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }}>
-                                No attributes — not selectable by buyers
+                                {t('seller.productDetail.noAttrsNotSelectable')}
                               </span>
                             )}
                             <button
@@ -1492,7 +1499,7 @@ export default function SellerProductDetailPage() {
                             <div style={{ marginTop: 8, padding: 10, background: 'var(--color-surface-2)', borderRadius: 6, display: 'grid', gap: 6 }}>
                               {Object.keys(editAttrs).length === 0 && (
                                 <span className="small muted">
-                                  This product has no attribute names yet. Add one below.
+                                  {t('seller.productDetail.noAttrNamesYet')}
                                 </span>
                               )}
                               {Object.keys(editAttrs).map((key) => (
@@ -1537,10 +1544,10 @@ export default function SellerProductDetailPage() {
                                     }
                                   }}
                                 >
-                                  + Add
+                                  {t('seller.productDetail.addButton')}
                                 </Button>
                                 <Button size="sm" disabled={busy} onClick={() => saveVariantAttributes(v.id)}>
-                                  Save
+                                  {t('common.save')}
                                 </Button>
                               </div>
                             </div>
@@ -1551,18 +1558,18 @@ export default function SellerProductDetailPage() {
                         <td>
                           <div>
                             <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
-                              {variantAvailable} available
+                              {t('seller.productDetail.availableInline', { count: variantAvailable })}
                             </span>
                             {variantReserved > 0 && (
                               <span className="small muted" style={{ display: 'block' }}>
-                                ({variantTotal} total · {variantReserved} reserved)
+                                {t('seller.productDetail.shopRes', { total: variantTotal, res: variantReserved })}
                               </span>
                             )}
                           </div>
                         </td>
                         <td>
                           {invList.length === 0 ? (
-                            <span className="small muted">0 in all shops</span>
+                            <span className="small muted">{t('seller.productDetail.zeroInAllShops')}</span>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                               {invList.map((inv) => {
@@ -1572,7 +1579,7 @@ export default function SellerProductDetailPage() {
                                 return (
                                   <span key={inv.id} className="small muted">
                                     <StoreIcon className="inline-icon" /> {t('seller.productDetail.shopAvail', { shop: sObj ? sObj.name : t('seller.shopProducts.shopFallback'), avail })}
-                                    {res > 0 && ` (${inv.quantity} total · ${res} res)`}
+                                    {res > 0 && ` ${t('seller.productDetail.shopRes', { total: inv.quantity, res })}`}
                                   </span>
                                 )
                               })}
@@ -1605,7 +1612,7 @@ export default function SellerProductDetailPage() {
                               style={{ width: 65 }}
                             />
                             <Button size="sm" disabled={busy} onClick={() => addStock(v.id)}>
-                              + Add
+                              {t('seller.productDetail.addButton')}
                             </Button>
                           </div>
                         </td>
@@ -1632,13 +1639,13 @@ export default function SellerProductDetailPage() {
                     <div className="mobile-data-card-header">
                       <div>
                         <h4 className="mobile-data-card-title">{v.name || t('seller.productDetail.defaultVariant')}</h4>
-                        {v.sku && <span className="mono small muted">SKU: {v.sku}</span>}
+                        {v.sku && <span className="mono small muted">{t('seller.productDetail.skuInfo', { sku: v.sku })}</span>}
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <span className="mobile-data-card-price"><VariantPriceEditor variant={v} currency={product.currency} onSaved={load} /></span>
                         <div style={{ marginTop: 4 }}>
                           <span className={`badge badge-${v.status === 'ACTIVE' ? 'success' : 'muted'}`} style={{ fontSize: '0.7rem' }}>
-                            {v.status}
+                            {variantStatusLabel(v.status)}
                           </span>
                         </div>
                       </div>
@@ -1665,7 +1672,7 @@ export default function SellerProductDetailPage() {
                         ))}
                         {attrEntries.length === 0 && (
                           <span className="small" style={{ color: 'var(--color-warning)', fontSize: '0.75rem' }}>
-                            Aucun attribut — non sélectionnable par les acheteurs
+                            {t('seller.productDetail.noAttrsNotSelectable')}
                           </span>
                         )}
                       </div>
@@ -1694,7 +1701,7 @@ export default function SellerProductDetailPage() {
                             </div>
                           ))}
                           <Button size="sm" disabled={busy} onClick={() => saveVariantAttributes(v.id)}>
-                            Enregistrer
+                            {t('common.save')}
                           </Button>
                         </div>
                       )}
@@ -1703,7 +1710,7 @@ export default function SellerProductDetailPage() {
                     <div className="mobile-data-card-row">
                       <span className="small muted">{t('seller.productDetail.availableStock')}</span>
                       <span style={{ fontWeight: 700, color: variantAvailable > 0 ? 'var(--color-primary)' : 'var(--color-danger)' }}>
-                        {variantAvailable} dispo {variantReserved > 0 && `(${variantTotal} tot · ${variantReserved} rés)`}
+                        {t('sellerProductsSellerProductDetailPage.availableShort', { count: variantAvailable })} {variantReserved > 0 && t('sellerProductsSellerProductDetailPage.shortRes', { total: variantTotal, res: variantReserved })}
                       </span>
                     </div>
 
@@ -1714,7 +1721,7 @@ export default function SellerProductDetailPage() {
                           const avail = Math.max(0, inv.quantity - (inv.reserved_quantity || 0))
                           return (
                             <span key={inv.id}>
-                              <StoreIcon className="inline-icon" /> {sObj ? sObj.name : 'Boutique'}: <strong>{avail}</strong> dispo
+                              <StoreIcon className="inline-icon" /> {sObj ? sObj.name : t('seller.shopProducts.shopFallback')}: <strong>{avail}</strong> {t('sellerProductsSellerProductDetailPage.availWord')}
                             </span>
                           )
                         })}
@@ -1767,6 +1774,7 @@ function VariantPriceEditor({ variant, currency, onSaved }: { variant: ProductVa
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const t = useT()
 
   if (!editing) {
     return (
@@ -1774,7 +1782,7 @@ function VariantPriceEditor({ variant, currency, onSaved }: { variant: ProductVa
         <strong>{formatMoney(Number(variant.sale_price || 0), currency)}</strong>
         <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: '0.72rem', padding: '2px 6px' }}
           onClick={() => { setValue(String(variant.sale_price || '')); setError(''); setEditing(true) }}>
-          Modifier
+          {t('common.edit')}
         </button>
       </span>
     )
@@ -1783,7 +1791,7 @@ function VariantPriceEditor({ variant, currency, onSaved }: { variant: ProductVa
   async function save() {
     const price = parseFloat(value.replace(',', '.'))
     if (!Number.isFinite(price) || price <= 0) {
-      setError('Prix invalide')
+      setError(t('sellerProductsSellerProductDetailPage.invalidPrice'))
       return
     }
     setSaving(true)
@@ -1793,7 +1801,7 @@ function VariantPriceEditor({ variant, currency, onSaved }: { variant: ProductVa
       setEditing(false)
       await onSaved()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de la mise à jour')
+      setError(err instanceof Error ? err.message : t('sellerProductsSellerProductDetailPage.updateFailed'))
     } finally {
       setSaving(false)
     }
@@ -1804,9 +1812,9 @@ function VariantPriceEditor({ variant, currency, onSaved }: { variant: ProductVa
       <input className="input input-sm" type="number" inputMode="decimal" min="0.01" step="0.01" value={value} autoFocus
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEditing(false) }}
-        style={{ width: 90 }} aria-label="Nouveau prix" />
+        style={{ width: 90 }} aria-label={t('sellerProductsSellerProductDetailPage.newPrice')} />
       <Button size="sm" disabled={saving} onClick={() => void save()}>{saving ? '…' : 'OK'}</Button>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>Annuler</button>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>{t('common.cancel')}</button>
       {error && <span className="small" style={{ color: 'var(--color-danger)', width: '100%' }}>{error}</span>}
     </span>
   )

@@ -163,7 +163,7 @@ export default function CartPage() {
           <p>
             <strong>
               {cart.isMultiShop
-                ? `${cart.shops.length} boutiques · une seule commande à payer`
+                ? t('checkoutCartPage.multiShopSummary', { count: cart.shops.length })
                 : t('cart.orderFrom', { shop: cart.shops[0]?.shopName ?? '' })}
             </strong>
           </p>
@@ -178,7 +178,7 @@ export default function CartPage() {
           {profileBlocked && <button onClick={() => setProfileModalOpen(true)}>{t('cart.completeProfile')}</button>}
         </div>
       )}
-      {profileSaved && <div className="checkout-inline-success" role="status">Your buyer profile is complete. You can continue checkout.</div>}
+      {profileSaved && <div className="checkout-inline-success" role="status">{t('checkoutCartPage.profileComplete')}</div>}
 
       {recentlyRemoved && (
         <div
@@ -215,7 +215,7 @@ export default function CartPage() {
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => setRecentlyRemoved(null)}
-              aria-label="Dismiss"
+              aria-label={t('checkoutCartPage.dismiss')}
             >
               ✕
             </button>
@@ -236,7 +236,7 @@ export default function CartPage() {
           </div>
           {cart.isMultiShop && (
             <p className="small muted" style={{ margin: '0 0 8px' }}>
-              Commande séparée pour cette boutique, livrée et suivie séparément.
+              {t('checkoutCartPage.separateOrderNote')}
             </p>
           )}
           {shop.lines.map((l) => {
@@ -274,7 +274,7 @@ export default function CartPage() {
                           className="btn btn-ghost btn-sm"
                           onClick={() => cart.setQuantity(key, issue.available)}
                         >
-                          Réduire à {issue.available}
+                          {t('checkoutCartPage.reduceTo', { count: issue.available })}
                         </button>
                       </>
                     )}
@@ -354,7 +354,7 @@ export default function CartPage() {
                 ))}
                 {preview.points_discount_amount > 0 && <div><span>{t('cart.pointsDiscount')}</span><strong className="discount">−{formatMoney(preview.points_discount_amount, preview.currency)}</strong></div>}
                 <div><span>{t('product.delivery')}</span><strong>{t('cart.calculatedNext')}</strong></div>
-                <div><span>Frais du mode de paiement</span><strong>{t('cart.calculatedNext')}</strong></div>
+                <div><span>{t('checkoutCartPage.paymentMethodFee')}</span><strong>{t('cart.calculatedNext')}</strong></div>
               </div>
               <div className="summary-total">
                 <span>{t('cart.totalProducts')}</span>
@@ -380,7 +380,7 @@ export default function CartPage() {
               </Button>
               {blockedByIssues && (
                 <p className="small muted" style={{ marginTop: 8 }}>
-                  Corrigez les lignes signalées ci-dessus pour continuer.
+                  {t('checkoutCartPage.fixFlaggedLines')}
                 </p>
               )}
             </>

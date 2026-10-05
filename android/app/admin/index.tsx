@@ -12,7 +12,16 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAdminAuth } from '../../src/store/adminAuth'
-import { useI18n } from '../../src/store/i18n'
+import { useI18n, type TranslationKey } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
+
+/** Translated label for a backend enum code, falling back to the raw code. */
+function codeLabel(t: (key: TranslationKey) => string, group: string, code?: string | null): string {
+  if (!code) return '—'
+  const key = `adminIndex.${group}.${code}`
+  const label = t(key as TranslationKey)
+  return label === key ? code : label
+}
 import {
   mobileAdminDirectionApi,
   type DirectionOverviewStats,
@@ -144,7 +153,7 @@ export default function MobileDirectionScreen() {
         </View>
 
         <TouchableOpacity style={styles.signOutBtn} onPress={() => router.push({ pathname: '/notification-settings', params: { space: 'admin' } })}>
-          <Text style={styles.signOutText}>Notifications</Text>
+          <Text style={styles.signOutText}>{t('notifications.title')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.signOutBtn} onPress={handleLogout}>
           <Text style={styles.signOutText}>{t('admin.direction.signOut')}</Text>
@@ -251,10 +260,10 @@ export default function MobileDirectionScreen() {
             <View key={u.id} style={styles.userResultRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName}>{u.first_name} {u.last_name}</Text>
-                <Text style={styles.userMeta}>{u.email} • {u.account_type}</Text>
+                <Text style={styles.userMeta}>{u.email} • {codeLabel(t, 'accountType', u.account_type)}</Text>
                 <View style={styles.statusPill}>
                   <Text style={[styles.statusText, { color: u.status === 'ACTIVE' ? '#10b981' : '#ef4444' }]}>
-                    {u.status}
+                    {codeLabel(t, 'userStatus', u.status)}
                   </Text>
                 </View>
               </View>
@@ -277,7 +286,7 @@ export default function MobileDirectionScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.auditAction}>{l.action}</Text>
                 <Text style={styles.auditReason}>{l.reason}</Text>
-                <Text style={styles.auditMeta}>{l.actor_admin_name || t('admin.direction.adminFallback')} • {new Date(l.created_at).toLocaleTimeString()}</Text>
+                <Text style={styles.auditMeta}>{l.actor_admin_name || t('admin.direction.adminFallback')} • {new Date(l.created_at).toLocaleTimeString(dateLocale())}</Text>
               </View>
               <View style={styles.targetBadge}>
                 <Text style={styles.targetText}>{l.target_type}</Text>

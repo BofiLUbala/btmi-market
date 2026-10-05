@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { courierApi } from '../../src/api'
 import { Card, ErrorState, Loading } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
 import { useColors } from '../../src/store/theme'
 import { spacing, type Colors } from '../../src/theme'
 import { formatMoney } from '../../src/lib/money'
@@ -23,7 +24,7 @@ export default function CourierDeliveredScreen() {
   const [day, setDay] = useState(kinshasaToday)
   const [allDays, setAllDays] = useState(false)
   const today = kinshasaToday()
-  const locale = lang === 'en' ? 'en-US' : 'fr-FR'
+  const locale = dateLocale(lang)
 
   const earnings = useQuery({ queryKey: ['courier', 'earnings', day], queryFn: () => courierApi.earnings(day) })
   const products = useQuery({

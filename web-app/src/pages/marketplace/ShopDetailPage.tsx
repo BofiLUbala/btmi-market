@@ -46,6 +46,12 @@ export default function ShopDetailPage() {
     )
   }, [id, tab])
 
+  /** Translated enum code, falling back to the raw code. */
+  const codeLabel = (key: string, code?: string | null) => {
+    if (!code) return code ?? ''
+    const v = t(key)
+    return v === key ? code : v
+  }
   const initial = useMemo(() => (shop ? initials(shop.name) : '—'), [shop])
   const canonical = absoluteUrl(`/shops/${id}`)
   usePageMeta(shop ? {
@@ -69,7 +75,7 @@ export default function ShopDetailPage() {
             </div>
             <h1 style={{ fontSize: '1.6rem' }}>{shop.name}</h1>
             <div className="muted small">
-              {shop.type} · {shop.city}
+              {codeLabel(`seller.shopType.${shop.type}`, shop.type)} · {shop.city}
               {shop.address ? ` · ${shop.address}` : ''}
               {shop.phone ? ` · ${shop.phone}` : ''}
             </div>
@@ -83,7 +89,7 @@ export default function ShopDetailPage() {
           </div>
           <div className="stack small" style={{ gap: 4, textAlign: 'right' }}>
             <span className="badge">{shop.seller_level}</span>
-            <span className="badge">{shop.seller_trust}</span>
+            <span className="badge">{codeLabel(`seller.growth.trust.${shop.seller_trust}`, shop.seller_trust)}</span>
             <span className="muted">{shop.product_count === 1 ? t('shop.productsCount', { count: shop.product_count }) : t('shop.productsCountPlural', { count: shop.product_count })}</span>
             <span className="muted">{t('common.memberSince')} {formatDate(shop.created_at)}</span>
           </div>

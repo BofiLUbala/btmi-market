@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { ErrorBox, LoadingBlock, SuccessBox } from '@/components/ui/Feedback'
 import type { TranslationKey } from '@/locales/fr'
 import {
@@ -183,7 +184,7 @@ export default function NotificationSettings({ space }: { space: SettingsSpace }
                   <strong>{d.device_label || tk(d.platform === 'WEB' ? 'notifSettings.devices.web' : 'notifSettings.devices.app')}</strong>
                   <span className="muted small">
                     {tk(d.platform === 'WEB' ? 'notifSettings.devices.web' : 'notifSettings.devices.app')}
-                    {d.last_success_at && ` · ${tk('notifSettings.devices.lastSuccess', { date: new Date(d.last_success_at).toLocaleString('fr-FR') })}`}
+                    {d.last_success_at && ` · ${tk('notifSettings.devices.lastSuccess', { date: new Date(d.last_success_at).toLocaleString(dateLocale()) })}`}
                   </span>
                 </div>
                 <button type="button" className="btn btn-ghost btn-sm" disabled={busy !== null}

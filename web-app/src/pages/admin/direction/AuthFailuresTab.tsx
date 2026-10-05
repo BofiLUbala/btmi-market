@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { adminMonitoringApi, type AuthFailure } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 import { LiveToolbar, RoleBadge, SummaryCards, cell, deviceLabel, headRow, tableBox, useLiveReload, useMonitoringSummary } from './monitoringShared'
 
@@ -68,7 +69,7 @@ export default function AuthFailuresTab() {
               <tr><td colSpan={6} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('admin.monitoring.noFailures', { days: summary?.retention_days ?? 30 })}</td></tr>
             ) : failures.map((f) => (
               <tr key={f.id} style={{ borderBottom: '1px solid #1e293b' }}>
-                <td style={{ ...cell, fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{new Date(f.created_at).toLocaleString('fr-FR')}</td>
+                <td style={{ ...cell, fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{new Date(f.created_at).toLocaleString(dateLocale())}</td>
                 <td style={{ ...cell, color: '#fff', fontFamily: 'monospace', fontSize: 12 }}>{f.email}</td>
                 <td style={cell}><RoleBadge role={f.role} /></td>
                 <td style={cell}>

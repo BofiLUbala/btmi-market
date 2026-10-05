@@ -321,19 +321,19 @@ export default function SellerOrdersPage() {
         {order.notes && <div><strong>{t('seller.orders.notesLabel')}:</strong> {order.notes}</div>}
         <div><strong>{t('seller.orders.shopId')}:</strong> {order.shop_id}</div>
         {detail?.order && <div className="seller-payment-box">
-          <strong>Livraison</strong>
-          <div>Statut: <strong>{detail.order.delivery_status ? orderStatusLabel(detail.order.delivery_status, t) : '—'}</strong></div>
-          <div>Client: {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
-          <div>Adresse: {detail.order.delivery_address || '—'}</div>
-          {detail.order.delivery_notes && <div>Point de repère / instructions : {detail.order.delivery_notes}</div>}
-          <div>Frais de livraison TBK : {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)} <span className="small muted">(tarif TBK payé par l’acheteur, hors de votre revenu)</span></div>
+          <strong>{t('sellerOrdersSellerOrdersPage.deliveryTitle')}</strong>
+          <div>{t('sellerOrdersSellerOrdersPage.statusLabel')} <strong>{detail.order.delivery_status ? orderStatusLabel(detail.order.delivery_status, t) : '—'}</strong></div>
+          <div>{t('sellerOrdersSellerOrdersPage.clientLabel')} {detail.order.delivery_contact_name || '—'} · {detail.order.delivery_phone || '—'}</div>
+          <div>{t('sellerOrdersSellerOrdersPage.addressLabel')} {detail.order.delivery_address || '—'}</div>
+          {detail.order.delivery_notes && <div>{t('sellerOrdersSellerOrdersPage.landmarkLabel')} {detail.order.delivery_notes}</div>}
+          <div>{t('sellerOrdersSellerOrdersPage.deliveryFeeLabel')} {formatMoney(detail.order.delivery_fee_final, detail.order.currency || order.currency || DEFAULT_CURRENCY)} <span className="small muted">{t('sellerOrdersSellerOrdersPage.deliveryFeeHint')}</span></div>
         </div>}
         {detail?.order && <DeliveryPlanCard plan={detail.order} status={detail.order.status} deliveryStatus={detail.order.delivery_status} deliveryMethod={detail.order.delivery_method} />}
         {detail?.lines?.length ? <div className="seller-order-lines"><strong>{t('cart.products')}</strong>{detail.lines.map((line) => <SellerOrderLineQR key={line.id} line={line} orderId={order.id} orderNumber={order.order_number || order.id.slice(0, 8)} shopName={activeBusiness?.name || ''} currency={detail.order?.currency || order.currency || DEFAULT_CURRENCY} />)}</div> : <div>{t('seller.orders.loadingDetails')}</div>}
         <div className="seller-payment-box">
           <strong>{t('seller.orders.cashPayment')}</strong>
           {payment ? <>
-            <div>Mode: <strong>{codeLabel(t, 'payment.method.', payment.payment_method)}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
+            <div>{t('sellerOrdersSellerOrdersPage.modeLabel')} <strong>{codeLabel(t, 'payment.method.', payment.payment_method)}</strong>{payment.provider ? ` · ${payment.provider}` : ''}</div>
             {/* Base + markup = total, so the three figures add up on screen. */}
             <div>{t('orders.amountBeforeMarkup')}: {formatMoney(payment.final_total - payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)}</div>
             <div>{t('orders.paymentMarkup')}: {formatMoney(payment.payment_markup, payment.currency || order.currency || DEFAULT_CURRENCY)}</div>
@@ -352,9 +352,9 @@ export default function SellerOrdersPage() {
             title={t('seller.orders.packageQrTitle')}
             imagePath={`/orders/${order.id}/package-qr/label`}
             fields={[
-              { label: 'Commande', value: order.order_number || order.id.slice(0, 8) },
-              { label: 'Colis', value: `#${packageQRs[order.id].package_number}` },
-              { label: 'Boutique', value: activeBusiness?.name || '' },
+              { label: t('sellerOrdersSellerOrdersPage.qrOrder'), value: order.order_number || order.id.slice(0, 8) },
+              { label: t('sellerOrdersSellerOrdersPage.qrPackage'), value: `#${packageQRs[order.id].package_number}` },
+              { label: t('sellerOrdersSellerOrdersPage.qrShop'), value: activeBusiness?.name || '' },
             ]}
           />
         )}

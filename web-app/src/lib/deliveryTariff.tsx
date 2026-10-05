@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { get } from '@/api/client'
 import { formatMoney } from '@/lib/format'
 import { useOrderEvents } from '@/lib/orderEvents'
+import { useT } from '@/store/i18n'
 
 /** The TBK delivery tariff set by Finance in the Control Center. */
 export type DeliveryTariff = {
@@ -32,18 +33,19 @@ export function useDeliveryTariff(): DeliveryTariff | null {
  *  never enter the seller's revenue or the commission base. */
 export function DeliveryTariffNote() {
   const tariff = useDeliveryTariff()
+  const t = useT()
   if (!tariff) return null
   return (
     <div className="delivery-tariff-note" role="note">
-      <strong>Livraison TBK : {formatMoney(tariff.default_fee, tariff.currency)} par commande</strong>
+      <strong>{t('libDeliveryTariff.perOrder', { fee: formatMoney(tariff.default_fee, tariff.currency) })}</strong>
       {tariff.zones.length > 0 && (
         <span> · {tariff.zones.map((z) => `${z.city_name} ${formatMoney(z.fee, tariff.currency)}`).join(' · ')}</span>
       )}
       {tariff.free_delivery_threshold != null && (
-        <span> · offerte dès {formatMoney(tariff.free_delivery_threshold, tariff.currency)} d’achat</span>
+        <span> · {t('libDeliveryTariff.freeFrom', { amount: formatMoney(tariff.free_delivery_threshold, tariff.currency) })}</span>
       )}
       <p className="small muted" style={{ margin: '4px 0 0' }}>
-        Tarif fixé par TBK et payé par l’acheteur. Il revient à TBK : il n’entre ni dans votre revenu ni dans l’assiette de commission.
+        {t('libDeliveryTariff.note')}
       </p>
     </div>
   )

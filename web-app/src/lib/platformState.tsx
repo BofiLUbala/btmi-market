@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_BASE } from '@/api/client'
+import { useT } from '@/store/i18n'
 
 /** What the Control Center publishes for every public client. */
 export type PlatformState = {
@@ -65,6 +66,7 @@ function readDismissed(): string[] {
 /** Maintenance notice and active announcements for the given audience. */
 export function PlatformBanner({ audience }: { audience: 'BUYERS' | 'SELLERS' }) {
   const state = usePlatformState()
+  const t = useT()
   const [dismissed, setDismissed] = useState<string[]>(readDismissed)
   if (!state) return null
 
@@ -81,12 +83,12 @@ export function PlatformBanner({ audience }: { audience: 'BUYERS' | 'SELLERS' })
     <div className="platform-banners">
       {state.maintenance_active && (
         <div role="alert" className={`platform-banner platform-banner-${state.maintenance.status === 'FULL' ? 'danger' : 'warning'}`}>
-          <strong>{state.maintenance.status === 'FULL' ? 'Maintenance en cours' : 'Maintenance partielle'}</strong>
+          <strong>{state.maintenance.status === 'FULL' ? t('libPlatformState.maintenanceFull') : t('libPlatformState.maintenancePartial')}</strong>
           <span>
             {state.maintenance.message ||
               (state.maintenance.status === 'FULL'
-                ? 'La plateforme est momentanément indisponible.'
-                : 'La consultation reste possible ; les commandes et modifications sont suspendues.')}
+                ? t('libPlatformState.unavailable')
+                : t('libPlatformState.readOnly'))}
           </span>
         </div>
       )}
@@ -94,7 +96,7 @@ export function PlatformBanner({ audience }: { audience: 'BUYERS' | 'SELLERS' })
         <div key={a.id} role="status" className="platform-banner platform-banner-info">
           <strong>{a.title}</strong>
           <span>{a.message}</span>
-          <button type="button" aria-label="Masquer l’annonce" onClick={() => dismiss(a.id)}>✕</button>
+          <button type="button" aria-label={t('libPlatformState.dismiss')} onClick={() => dismiss(a.id)}>✕</button>
         </div>
       ))}
     </div>

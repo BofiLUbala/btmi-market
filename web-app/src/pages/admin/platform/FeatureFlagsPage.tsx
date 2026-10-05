@@ -126,7 +126,7 @@ export default function FeatureFlagsPage() {
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: CATEGORY_COLORS[f.category] || '#94a3b8' }}>{adminLabel(f.category)}</span>
                   </td>
-                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{f.scope}</td>
+                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{adminLabel(f.scope)}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{
                       fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,

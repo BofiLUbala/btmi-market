@@ -1,5 +1,5 @@
 import { useAuth } from '@/store/auth'
-import { formatMoney, formatDateTime } from '@/lib/format'
+import { dateLocale, formatMoney, formatDateTime } from '@/lib/format'
 import { cashApi } from '@/api/seller'
 import { Card, CardGrid } from '@/components/ui/Card'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -35,6 +35,8 @@ const CASH_SESSION_STATUS_KEYS: Record<string, TranslationKey> = {
 
 export default function SellerCashPage() {
   const t = useT()
+  /** Translated enum code, falling back to the raw code. */
+  const codeLabel = (key: string, code: string) => { const v = t(key); return v === key ? code : v }
   const { activeBusiness, activeShop } = useAuth()
   const [summary, setSummary] = useState<CashSummary | null>(null)
   const [sessions, setSessions] = useState<CashSession[]>([])
@@ -247,8 +249,8 @@ export default function SellerCashPage() {
                     <div className="stat-value">{formatMoney(shop.total_cash_sales)}</div>
                     <p className="muted small">
                       {t('seller.cash.sessionsOpenClosed', { open: shop.open_sessions, closed: shop.closed_sessions })}
-                      {shop.total_shortage > 0 && t('seller.cash.shortage', { amount: shop.total_shortage.toLocaleString() })}
-                      {shop.total_overage > 0 && t('seller.cash.overage', { amount: shop.total_overage.toLocaleString() })}
+                      {shop.total_shortage > 0 && t('seller.cash.shortage', { amount: shop.total_shortage.toLocaleString(dateLocale()) })}
+                      {shop.total_overage > 0 && t('seller.cash.overage', { amount: shop.total_overage.toLocaleString(dateLocale()) })}
                     </p>
                   </Card>
                 ))}
@@ -304,11 +306,11 @@ export default function SellerCashPage() {
                         <tr key={session.id}>
                           <td>{session.shop_name || shopName(session.shop_id)}</td>
                           <td>{[session.employee_first_name, session.employee_last_name].filter(Boolean).join(' ') || '—'}</td>
-                          <td>{session.opening_amount.toLocaleString()}</td>
-                          <td>{session.cash_sales_total.toLocaleString()}</td>
-                          <td>{session.expected_amount.toLocaleString()}</td>
-                          <td>{session.declared_closing_amount?.toLocaleString() || '—'}</td>
-                          <td className={!session.difference ? 'success' : 'danger'}>{session.difference?.toLocaleString() ?? '—'}</td>
+                          <td>{session.opening_amount.toLocaleString(dateLocale())}</td>
+                          <td>{session.cash_sales_total.toLocaleString(dateLocale())}</td>
+                          <td>{session.expected_amount.toLocaleString(dateLocale())}</td>
+                          <td>{session.declared_closing_amount?.toLocaleString(dateLocale()) || '—'}</td>
+                          <td className={!session.difference ? 'success' : 'danger'}>{session.difference?.toLocaleString(dateLocale()) ?? '—'}</td>
                           <td>
                             <span className={`badge badge-${session.status === 'RECONCILED' ? 'success' : session.status === 'CLOSED' ? 'warning' : 'primary'}`}>{t(CASH_SESSION_STATUS_KEYS[session.status] ?? 'seller.cash.status.OPEN')}</span>
                             {session.reconciliation_result && RECONCILIATION_KEYS[session.reconciliation_result] && (
@@ -372,7 +374,7 @@ export default function SellerCashPage() {
                                         <td>{p.reference_type === 'ORDER' ? t('seller.cash.sourceOrder') : p.reference_type === 'SALE' ? t('seller.cash.sourceSale') : p.reference_type}</td>
                                         <td className="small muted">{p.reference_id.slice(0, 8).toUpperCase()}</td>
                                         <td className="num">{formatMoney(p.amount, p.currency)}</td>
-                                        <td><span className="badge badge-primary">{p.status}</span></td>
+                                        <td><span className="badge badge-primary">{codeLabel(`tracking.pay.${p.status}`, p.status)}</span></td>
                                       </tr>
                                     ))}
                                   </tbody>

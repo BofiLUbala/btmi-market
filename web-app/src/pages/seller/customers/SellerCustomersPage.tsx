@@ -6,6 +6,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { CustomerIcon, PlusIcon } from '@/components/ui/Icons'
 
 interface Customer {
@@ -153,8 +154,8 @@ export default function SellerCustomersPage() {
                       {customer.email}
                     </td>
                     <td>{customer.total_orders}</td>
-                    <td>{customer.total_spent.toLocaleString()}</td>
-                    <td className="small">{new Date(customer.created_at).toLocaleDateString()}</td>
+                    <td>{customer.total_spent.toLocaleString(dateLocale())}</td>
+                    <td className="small">{new Date(customer.created_at).toLocaleDateString(dateLocale())}</td>
                   </tr>
                 ))}
               </tbody>

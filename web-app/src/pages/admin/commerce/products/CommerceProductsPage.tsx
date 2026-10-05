@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, dateLocale } from '@/lib/format'
 import { Link, useSearchParams } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductListItem } from '@/api/admin'
 import { useT } from '@/store/i18n'
@@ -146,7 +146,7 @@ export default function CommerceProductsPage() {
                   <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{p.variant_count}</td>
                   <td style={{ padding: '10px 12px', color: '#cbd5e1' }}>{p.image_count}</td>
                   <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                    {new Date(p.updated_at).toLocaleDateString('fr-FR')}
+                    {new Date(p.updated_at).toLocaleDateString(dateLocale())}
                   </td>
                 </tr>
               ))}

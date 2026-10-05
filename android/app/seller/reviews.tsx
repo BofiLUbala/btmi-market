@@ -7,6 +7,7 @@ import { resolveMediaUrl } from '../../src/api/client'
 import { ErrorState, Loading } from '../../src/components/ui'
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors, fonts } from '../../src/theme'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -84,7 +85,7 @@ export default function SellerReviews() {
               {review.verified_purchase ? <Text style={styles.badge}>{t('reviews.verifiedPurchase')}</Text> : null}
             </View>
             <Text style={styles.stars}>{review.rating} ★</Text>
-            <Text style={styles.small}>{new Date(review.created_at).toLocaleDateString()}</Text>
+            <Text style={styles.small}>{new Date(review.created_at).toLocaleDateString(dateLocale())}</Text>
           </View>
           {review.comment ? <Text style={[styles.small, { marginTop: 8 }]}>{review.comment}</Text> : null}
         </View>)}

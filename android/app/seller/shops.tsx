@@ -234,7 +234,7 @@ export default function SellerShopsScreen() {
           <Text style={styles.shopName}>{shop.name}</Text>
           <Text style={[styles.badge, archived ? styles.badgeMuted : styles.badgeActive]}>{t(`seller.shopStatus.${shop.status ?? 'ACTIVE'}` as TranslationKey)}</Text>
         </View>
-        <Text style={styles.muted}>{[shop.building_number, shop.street, shop.commune, shop.city, shop.province].filter(Boolean).join(', ') || shop.address || shop.type}</Text>
+        <Text style={styles.muted}>{[shop.building_number, shop.street, shop.commune, shop.city, shop.province].filter(Boolean).join(', ') || shop.address || (shop.type ? t(`seller.shopType.${shop.type}` as TranslationKey) : '')}</Text>
         <Text style={styles.small}>{t('seller.shops.statsProducts', { count: s.productCount })} · {t('seller.shops.statsUnits', { count: s.unitCount })}</Text>
         {s.categories.length > 0 ? <Text style={styles.small}>{s.categories.join(' • ')}</Text> : null}
         {shop.id === activeShop ? <Text style={styles.activeHint}>{t('seller.shops.currentShop')}</Text> : !archived && <Button variant="outline" dense title={t('seller.shops.setActive')} onPress={() => setActiveShop(shop.id)} />}

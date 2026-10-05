@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { adminApi } from '@/api/admin'
 import { API_BASE } from '@/api/client'
-import { formatMoney } from '@/lib/format'
+import { dateLocale, formatMoney } from '@/lib/format'
 import { useT } from '@/store/i18n'
 
 type Zone = { city_id: string; city_name: string; province_name: string; fee: number; active: boolean; updated_at: string }
@@ -104,47 +104,47 @@ export default function DeliveryFeesPage() {
 
   const saveSettings = () => {
     const fee = Number(defaultFee)
-    if (!Number.isFinite(fee) || fee < 0) { setError('Tarif par défaut invalide.'); return }
+    if (!Number.isFinite(fee) || fee < 0) { setError(t('adminFinanceDeliveryFeesPage.invalidDefaultFee')); return }
     const th = threshold.trim() === '' ? null : Number(threshold)
-    if (th !== null && (!Number.isFinite(th) || th <= 0)) { setError('Seuil de gratuité invalide (laisser vide pour désactiver).'); return }
-    if (reason.trim().length < 5) { setError('Motif obligatoire (5 caractères minimum).'); return }
+    if (th !== null && (!Number.isFinite(th) || th <= 0)) { setError(t('adminFinanceDeliveryFeesPage.invalidThreshold')); return }
+    if (reason.trim().length < 5) { setError(t('adminFinanceDeliveryFeesPage.reasonRequired')); return }
     void run(() => api.update({ default_fee: fee, ...(th === null ? { clear_threshold: true } : { free_delivery_threshold: th }), reason: reason.trim() }).then((c) => { setReason(''); return c }),
-      'Tarif enregistré — appliqué aux prochaines sélections de livraison.')
+      t('adminFinanceDeliveryFeesPage.feeSaved'))
   }
 
   const saveZone = () => {
     const fee = Number(zoneFee)
-    if (!zoneCity) { setError('Choisissez une ville.'); return }
-    if (!Number.isFinite(fee) || fee < 0) { setError('Tarif de ville invalide.'); return }
-    if (zoneReason.trim().length < 5) { setError('Motif obligatoire (5 caractères minimum).'); return }
-    void run(() => api.upsertZone(zoneCity, fee, true, zoneReason.trim()).then((c) => { setZoneCity(''); setZoneFee(''); setZoneReason(''); return c }), 'Tarif de ville enregistré.')
+    if (!zoneCity) { setError(t('adminFinanceDeliveryFeesPage.chooseCity')); return }
+    if (!Number.isFinite(fee) || fee < 0) { setError(t('adminFinanceDeliveryFeesPage.invalidCityFee')); return }
+    if (zoneReason.trim().length < 5) { setError(t('adminFinanceDeliveryFeesPage.reasonRequired')); return }
+    void run(() => api.upsertZone(zoneCity, fee, true, zoneReason.trim()).then((c) => { setZoneCity(''); setZoneFee(''); setZoneReason(''); return c }), t('adminFinanceDeliveryFeesPage.cityFeeSaved'))
   }
 
   const editZone = (z: Zone) => {
-    const raw = window.prompt(`Nouveau tarif pour ${z.city_name} (${config?.currency || 'USD'}) :`, String(z.fee))
+    const raw = window.prompt(t('adminFinanceDeliveryFeesPage.promptNewFee', { city: z.city_name, currency: config?.currency || 'USD' }), String(z.fee))
     if (raw == null) return
     const fee = Number(raw)
-    if (!Number.isFinite(fee) || fee < 0) { setError('Tarif de ville invalide.'); return }
-    const why = window.prompt('Motif (5 caractères minimum) :')
+    if (!Number.isFinite(fee) || fee < 0) { setError(t('adminFinanceDeliveryFeesPage.invalidCityFee')); return }
+    const why = window.prompt(t('adminFinanceDeliveryFeesPage.promptReason'))
     if (!why || why.trim().length < 5) return
-    void run(() => api.upsertZone(z.city_id, fee, z.active, why.trim()), `Tarif de ${z.city_name} modifié.`)
+    void run(() => api.upsertZone(z.city_id, fee, z.active, why.trim()), t('adminFinanceDeliveryFeesPage.cityFeeUpdated', { city: z.city_name }))
   }
 
   const toggleZone = (z: Zone) => {
-    const why = window.prompt(`${z.active ? 'Suspendre' : 'Réactiver'} le tarif de ${z.city_name} — motif :`)
+    const why = window.prompt(t(z.active ? 'adminFinanceDeliveryFeesPage.promptSuspend' : 'adminFinanceDeliveryFeesPage.promptReactivate', { city: z.city_name }))
     if (!why || why.trim().length < 5) return
-    void run(() => api.upsertZone(z.city_id, z.fee, !z.active, why.trim()), `Tarif de ${z.city_name} ${z.active ? 'suspendu' : 'réactivé'}.`)
+    void run(() => api.upsertZone(z.city_id, z.fee, !z.active, why.trim()), t(z.active ? 'adminFinanceDeliveryFeesPage.citySuspended' : 'adminFinanceDeliveryFeesPage.cityReactivated', { city: z.city_name }))
   }
 
   const removeZone = (z: Zone) => {
-    const why = window.prompt(`Supprimer le tarif de ${z.city_name} (retour au tarif par défaut) — motif :`)
+    const why = window.prompt(t('adminFinanceDeliveryFeesPage.promptRemove', { city: z.city_name }))
     if (!why || why.trim().length < 5) return
-    void run(() => api.deleteZone(z.city_id, why.trim()), `${z.city_name} revient au tarif par défaut.`)
+    void run(() => api.deleteZone(z.city_id, why.trim()), t('adminFinanceDeliveryFeesPage.cityRemoved', { city: z.city_name }))
   }
 
   const cur = config?.currency || 'USD'
   const configured = useMemo(() => new Set(config?.zones.map((z) => z.city_id)), [config])
-  const scopeLabel = (h: HistoryItem) => h.scope === 'DEFAULT' ? 'Tarif par défaut' : h.scope === 'THRESHOLD' ? 'Seuil de gratuité' : `Ville · ${h.city_name || '—'}`
+  const scopeLabel = (h: HistoryItem) => h.scope === 'DEFAULT' ? t('adminFinanceDeliveryFeesPage.defaultFee') : h.scope === 'THRESHOLD' ? t('adminFinanceDeliveryFeesPage.freeThreshold') : t('adminFinanceDeliveryFeesPage.scopeCity', { city: h.city_name || '—' })
   const value = (v: number | null) => (v == null ? '—' : formatMoney(v, cur))
 
   return (
@@ -152,11 +152,11 @@ export default function DeliveryFeesPage() {
       <div className="admin-page-head">
         <div>
           <p className="admin-page-eyebrow">{t('admin.layout.navFinance')}</p>
-          <h1>Frais de livraison</h1>
-          <p>Tarif de la livraison TBK. Il est appliqué au checkout (web et Android), montré aux vendeurs et figé sur chaque commande pour la comptabilité.</p>
+          <h1>{t('adminFinanceDeliveryFeesPage.title')}</h1>
+          <p>{t('adminFinanceDeliveryFeesPage.subtitle')}</p>
         </div>
         <div className="admin-page-actions">
-          <button className="admin-button" onClick={() => { void load(); void loadLedger() }} disabled={busy}>Actualiser</button>
+          <button className="admin-button" onClick={() => { void load(); void loadLedger() }} disabled={busy}>{t('common.refresh')}</button>
         </div>
       </div>
 
@@ -164,49 +164,51 @@ export default function DeliveryFeesPage() {
       {notice && <div className="admin-alert admin-alert-success" role="status">{notice}</div>}
 
       <section style={card}>
-        <h3 style={{ marginTop: 0 }}>Tarif par défaut</h3>
+        <h3 style={{ marginTop: 0 }}>{t('adminFinanceDeliveryFeesPage.defaultFee')}</h3>
         {config && <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, marginTop: 0 }}>
-          Actuel : <strong style={{ color: 'var(--admin-text)' }}>{formatMoney(config.default_fee, cur)}</strong> par commande
-          {config.free_delivery_threshold != null && <> · gratuit dès <strong style={{ color: 'var(--admin-text)' }}>{formatMoney(config.free_delivery_threshold, cur)}</strong> de produits</>}
-          {' '}· modifié le {new Date(config.updated_at).toLocaleString('fr-FR')}{config.updated_by_name ? ` par ${config.updated_by_name}` : ''}
+          {t('adminFinanceDeliveryFeesPage.current')} <strong style={{ color: 'var(--admin-text)' }}>{formatMoney(config.default_fee, cur)}</strong> {t('adminFinanceDeliveryFeesPage.perOrder')}
+          {config.free_delivery_threshold != null && <> · {t('adminFinanceDeliveryFeesPage.freeFrom')} <strong style={{ color: 'var(--admin-text)' }}>{formatMoney(config.free_delivery_threshold, cur)}</strong> {t('adminFinanceDeliveryFeesPage.ofProducts')}</>}
+          {' '}· {config.updated_by_name
+            ? t('adminFinanceDeliveryFeesPage.updatedAtBy', { date: new Date(config.updated_at).toLocaleString(dateLocale()), name: config.updated_by_name })
+            : t('adminFinanceDeliveryFeesPage.updatedAt', { date: new Date(config.updated_at).toLocaleString(dateLocale()) })}
         </p>}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>Tarif par commande ({cur})
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>{t('adminFinanceDeliveryFeesPage.feePerOrderLabel', { currency: cur })}
             <input type="number" min={0} step="0.01" value={defaultFee} onChange={(e) => setDefaultFee(e.target.value)} style={{ ...inputStyle, width: 140 }} />
           </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>Livraison gratuite dès ({cur}, vide = jamais)
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>{t('adminFinanceDeliveryFeesPage.freeFromLabel', { currency: cur })}
             <input type="number" min={0} step="0.01" value={threshold} onChange={(e) => setThreshold(e.target.value)} style={{ ...inputStyle, width: 200 }} />
           </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)', flex: '1 1 240px' }}>Motif (journalisé)
-            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. révision tarifaire carburant" style={inputStyle} />
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)', flex: '1 1 240px' }}>{t('adminFinanceDeliveryFeesPage.reasonLogged')}
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('adminFinanceDeliveryFeesPage.reasonPlaceholder')} style={inputStyle} />
           </label>
-          <button className="admin-button admin-button-primary" onClick={saveSettings} disabled={busy}>Enregistrer</button>
+          <button className="admin-button admin-button-primary" onClick={saveSettings} disabled={busy}>{t('common.save')}</button>
         </div>
       </section>
 
       <section style={card}>
-        <h3 style={{ marginTop: 0 }}>Tarifs par ville</h3>
-        <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, marginTop: 0 }}>Une ville listée ici remplace le tarif par défaut pour les livraisons vers cette ville.</p>
+        <h3 style={{ marginTop: 0 }}>{t('adminFinanceDeliveryFeesPage.cityFeesTitle')}</h3>
+        <p style={{ color: 'var(--admin-text-muted)', fontSize: 13, marginTop: 0 }}>{t('adminFinanceDeliveryFeesPage.cityFeesHint')}</p>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>Ville
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>{t('common.city')}
             <select value={zoneCity} onChange={(e) => setZoneCity(e.target.value)} style={{ ...inputStyle, minWidth: 220 }}>
-              <option value="">Choisir…</option>
+              <option value="">{t('adminFinanceDeliveryFeesPage.choose')}</option>
               {cities.filter((c) => !configured.has(c.id)).sort((a, b) => a.name.localeCompare(b.name)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>Tarif ({cur})
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)' }}>{t('adminFinanceDeliveryFeesPage.feeLabel', { currency: cur })}
             <input type="number" min={0} step="0.01" value={zoneFee} onChange={(e) => setZoneFee(e.target.value)} style={{ ...inputStyle, width: 120 }} />
           </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)', flex: '1 1 220px' }}>Motif
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--admin-text-muted)', flex: '1 1 220px' }}>{t('adminFinanceDeliveryFeesPage.reason')}
             <input value={zoneReason} onChange={(e) => setZoneReason(e.target.value)} style={inputStyle} />
           </label>
-          <button className="admin-button admin-button-primary" onClick={saveZone} disabled={busy}>Ajouter</button>
+          <button className="admin-button admin-button-primary" onClick={saveZone} disabled={busy}>{t('adminFinanceDeliveryFeesPage.add')}</button>
         </div>
-        {config && config.zones.length === 0 ? <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>Aucune ville particulière : toutes les livraisons utilisent le tarif par défaut.</p> : (
+        {config && config.zones.length === 0 ? <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>{t('adminFinanceDeliveryFeesPage.noCities')}</p> : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead><tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}>
-                <th style={{ padding: '8px' }}>Ville</th><th style={{ padding: '8px' }}>Province</th><th style={{ padding: '8px' }}>Tarif</th><th style={{ padding: '8px' }}>Statut</th><th style={{ padding: '8px', textAlign: 'right' }}>Actions</th>
+                <th style={{ padding: '8px' }}>{t('common.city')}</th><th style={{ padding: '8px' }}>{t('adminFinanceDeliveryFeesPage.province')}</th><th style={{ padding: '8px' }}>{t('adminFinanceDeliveryFeesPage.fee')}</th><th style={{ padding: '8px' }}>{t('common.status')}</th><th style={{ padding: '8px', textAlign: 'right' }}>{t('admin.direction.thActions')}</th>
               </tr></thead>
               <tbody>
                 {config?.zones.map((z) => (
@@ -214,11 +216,11 @@ export default function DeliveryFeesPage() {
                     <td style={{ padding: '8px', fontWeight: 700 }}>{z.city_name}</td>
                     <td style={{ padding: '8px' }}>{z.province_name}</td>
                     <td style={{ padding: '8px' }}>{formatMoney(z.fee, cur)}</td>
-                    <td style={{ padding: '8px' }}><span className={`admin-status status-${z.active ? 'active' : 'inactive'}`}>{z.active ? 'ACTIF' : 'SUSPENDU'}</span></td>
+                    <td style={{ padding: '8px' }}><span className={`admin-status status-${z.active ? 'active' : 'inactive'}`}>{z.active ? t('adminFinanceDeliveryFeesPage.statusActive') : t('adminFinanceDeliveryFeesPage.statusSuspended')}</span></td>
                     <td style={{ padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button className="admin-button admin-button-small" onClick={() => editZone(z)}>Modifier</button>{' '}
-                      <button className="admin-button admin-button-small" onClick={() => toggleZone(z)}>{z.active ? 'Suspendre' : 'Réactiver'}</button>{' '}
-                      <button className="admin-button admin-button-small admin-button-danger" onClick={() => removeZone(z)}>Supprimer</button>
+                      <button className="admin-button admin-button-small" onClick={() => editZone(z)}>{t('common.edit')}</button>{' '}
+                      <button className="admin-button admin-button-small" onClick={() => toggleZone(z)}>{z.active ? t('admin.direction.suspend') : t('admin.direction.reactivate')}</button>{' '}
+                      <button className="admin-button admin-button-small admin-button-danger" onClick={() => removeZone(z)}>{t('common.delete')}</button>
                     </td>
                   </tr>
                 ))}
@@ -230,30 +232,30 @@ export default function DeliveryFeesPage() {
 
       <section style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <h3 style={{ margin: 0 }}>Comptabilité des frais de livraison</h3>
+          <h3 style={{ margin: 0 }}>{t('adminFinanceDeliveryFeesPage.ledgerTitle')}</h3>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {(['month', 'all', 'custom'] as const).map((r) => (
               <button key={r} className={`admin-button admin-button-small ${range === r ? 'admin-button-primary' : ''}`} onClick={() => setRange(r)}>
-                {r === 'month' ? 'Ce mois' : r === 'all' ? 'Tout' : 'Période'}
+                {r === 'month' ? t('adminFinanceDeliveryFeesPage.rangeMonth') : r === 'all' ? t('adminFinanceDeliveryFeesPage.rangeAll') : t('adminFinanceDeliveryFeesPage.rangeCustom')}
               </button>
             ))}
             {range === 'custom' && <>
-              <input type="date" aria-label="Du" value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
-              <input type="date" aria-label="Au" value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
+              <input type="date" aria-label={t('adminFinanceDeliveryFeesPage.from')} value={from} onChange={(e) => setFrom(e.target.value)} style={inputStyle} />
+              <input type="date" aria-label={t('adminFinanceDeliveryFeesPage.to')} value={to} onChange={(e) => setTo(e.target.value)} style={inputStyle} />
             </>}
           </div>
         </div>
-        <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>Calculé sur les montants figés de chaque commande livrée par TBK (hors commandes annulées). C'est un revenu TBK (la livraison est assurée par TBK, pas le vendeur) : exclu de la commission vendeur, jamais mélangé à ses ventes. Vue résumée aussi disponible dans l'onglet Aperçu.</p>
+        <p style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>{t('adminFinanceDeliveryFeesPage.ledgerHint')}</p>
         {ledger && <>
           <div className="admin-kpi-grid" style={{ marginBottom: 14 }}>
             {[
-              ['Commandes livrées par TBK', String(ledger.orders)],
-              ['Frais facturés (brut)', formatMoney(ledger.fees_charged, ledger.currency)],
-              ['Remises points', formatMoney(ledger.points_discount, ledger.currency)],
-              ['Frais dus par les acheteurs', formatMoney(ledger.fees_billed, ledger.currency)],
-              ['Frais encaissés', formatMoney(ledger.fees_collected, ledger.currency)],
-              ['Reste à encaisser', formatMoney(ledger.fees_outstanding, ledger.currency)],
-              ['Livraisons gratuites', String(ledger.free_deliveries)]
+              [t('adminFinanceDeliveryFeesPage.kpiOrders'), String(ledger.orders)],
+              [t('adminFinanceDeliveryFeesPage.kpiCharged'), formatMoney(ledger.fees_charged, ledger.currency)],
+              [t('adminFinanceDeliveryFeesPage.kpiPoints'), formatMoney(ledger.points_discount, ledger.currency)],
+              [t('adminFinanceDeliveryFeesPage.kpiBilled'), formatMoney(ledger.fees_billed, ledger.currency)],
+              [t('adminFinanceDeliveryFeesPage.kpiCollected'), formatMoney(ledger.fees_collected, ledger.currency)],
+              [t('adminFinanceDeliveryFeesPage.kpiOutstanding'), formatMoney(ledger.fees_outstanding, ledger.currency)],
+              [t('adminFinanceDeliveryFeesPage.kpiFree'), String(ledger.free_deliveries)]
             ].map(([k, v]) => (
               <div key={k} style={{ background: 'var(--admin-surface-2)', borderRadius: 10, padding: 12 }}>
                 <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{k}</div>
@@ -264,7 +266,7 @@ export default function DeliveryFeesPage() {
           {ledger.by_city.length > 0 && (
             <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead><tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}><th style={{ padding: 8 }}>Ville de livraison</th><th style={{ padding: 8 }}>Commandes</th><th style={{ padding: 8 }}>Frais dus</th><th style={{ padding: 8 }}>Encaissés</th></tr></thead>
+              <thead><tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}><th style={{ padding: 8 }}>{t('adminFinanceDeliveryFeesPage.thDeliveryCity')}</th><th style={{ padding: 8 }}>{t('adminFinanceDeliveryFeesPage.thOrders')}</th><th style={{ padding: 8 }}>{t('adminFinanceDeliveryFeesPage.thFeesOwed')}</th><th style={{ padding: 8 }}>{t('adminFinanceDeliveryFeesPage.thCollected')}</th></tr></thead>
               <tbody>{ledger.by_city.map((r) => (
                 <tr key={r.city} style={{ borderTop: '1px solid var(--admin-border-soft)' }}>
                   <td style={{ padding: 8 }}>{r.city}</td><td style={{ padding: 8 }}>{r.orders}</td>
@@ -279,13 +281,13 @@ export default function DeliveryFeesPage() {
 
       {config?.history && config.history.length > 0 && (
         <section style={card}>
-          <h3 style={{ marginTop: 0 }}>Historique des changements</h3>
+          <h3 style={{ marginTop: 0 }}>{t('adminFinanceDeliveryFeesPage.historyTitle')}</h3>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead><tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}><th style={{ padding: 6 }}>Date</th><th style={{ padding: 6 }}>Élément</th><th style={{ padding: 6 }}>Ancien → nouveau</th><th style={{ padding: 6 }}>Par</th><th style={{ padding: 6 }}>Motif</th></tr></thead>
+            <thead><tr style={{ textAlign: 'left', color: 'var(--admin-text-muted)' }}><th style={{ padding: 6 }}>{t('common.date')}</th><th style={{ padding: 6 }}>{t('adminFinanceDeliveryFeesPage.thItem')}</th><th style={{ padding: 6 }}>{t('adminFinanceDeliveryFeesPage.thOldNew')}</th><th style={{ padding: 6 }}>{t('adminFinanceDeliveryFeesPage.thBy')}</th><th style={{ padding: 6 }}>{t('adminFinanceDeliveryFeesPage.reason')}</th></tr></thead>
             <tbody>{config.history.map((h) => (
               <tr key={h.id} style={{ borderTop: '1px solid var(--admin-border-soft)' }}>
-                <td style={{ padding: 6 }}>{new Date(h.created_at).toLocaleString('fr-FR')}</td>
+                <td style={{ padding: 6 }}>{new Date(h.created_at).toLocaleString(dateLocale())}</td>
                 <td style={{ padding: 6 }}>{scopeLabel(h)}</td>
                 <td style={{ padding: 6, fontWeight: 700 }}>{value(h.old_value)} → {value(h.new_value)}</td>
                 <td style={{ padding: 6 }}>{h.admin_name || '—'}</td>

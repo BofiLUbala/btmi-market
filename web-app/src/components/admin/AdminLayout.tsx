@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { adminProfileApi } from '@/api/admin'
 import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import { AdminIcon } from './AdminIcon'
 import { ADMINISTRATION, matchLocation, sectionsForRole, type NavSection } from './adminNav'
 import {
@@ -394,7 +395,7 @@ export function AdminLayout() {
               <button
                 type="button"
                 onClick={() => setNotifOpen((prev) => !prev)}
-                aria-label="Notifications opérationnelles"
+                aria-label={t('adminAdminLayout.notificationsAria')}
                 style={{
                   position: 'relative',
                   background: 'none',
@@ -464,7 +465,7 @@ export function AdminLayout() {
                   >
                     <div style={{ fontWeight: 700, fontSize: '13px', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span>🔔</span>
-                      <span>Notifications Opérationnelles</span>
+                      <span>{t('adminAdminLayout.notificationsTitle')}</span>
                       {notifCount > 0 && (
                         <span style={{ fontSize: '11px', backgroundColor: '#ef4444', color: '#fff', padding: '1px 6px', borderRadius: '8px' }}>
                           {notifCount}
@@ -485,7 +486,7 @@ export function AdminLayout() {
                           textDecoration: 'underline'
                         }}
                       >
-                        Tout marquer lu
+                        {t('adminAdminLayout.markAllRead')}
                       </button>
                     )}
                     <button
@@ -493,14 +494,14 @@ export function AdminLayout() {
                       onClick={() => { setNotifOpen(false); navigate('/admin/notifications/settings') }}
                       style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
                     >
-                      Paramètres
+                      {t('notifSettings.link')}
                     </button>
                   </div>
 
                   <div style={{ maxHeight: '360px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                     {notifs.length === 0 ? (
                       <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
-                        Aucune notification opérationnelle
+                        {t('adminAdminLayout.notificationsEmpty')}
                       </div>
                     ) : (
                       notifs.map((n) => (
@@ -530,7 +531,7 @@ export function AdminLayout() {
                             {n.body}
                           </span>
                           <span style={{ fontSize: '10px', color: '#64748b', alignSelf: 'flex-end', marginTop: '2px' }}>
-                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(n.created_at).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                       ))

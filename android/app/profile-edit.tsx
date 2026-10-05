@@ -92,16 +92,16 @@ export default function EditProfileScreen() {
       <Field label={t('editProfile.country')} value={form.country} onChangeText={(v) => setForm((f) => ({ ...f, country: v }))} />
 
       <View style={styles.addressHead}>
-        <Text style={styles.addressTitle}>Adresse de livraison</Text>
-        <Text style={styles.addressHint}>C'est l'adresse utilisée pour vos livraisons.</Text>
+        <Text style={styles.addressTitle}>{t('checkout.address')}</Text>
+        <Text style={styles.addressHint}>{t('profileedit.addressHint')}</Text>
       </View>
       <StructuredAddressFields value={address} onChange={setAddress} />
       {!isStructuredAddressComplete(address) ? (
-        <Text style={styles.addressIncomplete}>Veuillez sélectionner la province, la ville et la commune, puis l'avenue et le numéro.</Text>
+        <Text style={styles.addressIncomplete}>{t('profileedit.addressIncomplete')}</Text>
       ) : (
         <TouchableOpacity style={styles.completeBadge}>
           <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={styles.completeText}>Adresse complète</Text>
+          <Text style={styles.completeText}>{t('profileedit.addressComplete')}</Text>
         </TouchableOpacity>
       )}
 

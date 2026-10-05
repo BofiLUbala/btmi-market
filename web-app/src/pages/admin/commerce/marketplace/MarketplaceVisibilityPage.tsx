@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { adminCommerceApi, type AdminMarketplaceVisibility, type AdminShopPageControl } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { adminLabel } from '@/lib/adminLabels'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -129,17 +130,17 @@ export default function MarketplaceVisibilityPage() {
           )}
 
           <div className="admin-kpi-grid" style={{ marginTop: 12 }}>
-            <Field label={t('admin.marketplace.productStatus')} value={visibility.product_status} />
-            <Field label={t('admin.marketplace.publication')} value={visibility.publication_status} />
-            <Field label={t('admin.marketplace.shopStatus')} value={visibility.shop_status} />
-            <Field label={t('admin.marketplace.businessStatus')} value={visibility.business_status} />
+            <Field label={t('admin.marketplace.productStatus')} value={adminLabel(visibility.product_status)} />
+            <Field label={t('admin.marketplace.publication')} value={adminLabel(visibility.publication_status)} />
+            <Field label={t('admin.marketplace.shopStatus')} value={adminLabel(visibility.shop_status)} />
+            <Field label={t('admin.marketplace.businessStatus')} value={adminLabel(visibility.business_status)} />
           </div>
 
           <div className="admin-kpi-grid" style={{ marginTop: 8 }}>
             <Field label={t('admin.marketplace.stockAvailable')} value={visibility.stock_available} color={visibility.stock_available > 0 ? '#34d399' : '#ef4444'} />
-            <Field label={t('admin.marketplace.shopOfferStatus')} value={visibility.shop_offer_status || 'ACTIVE'} />
-            <Field label={t('admin.marketplace.policyStatus')} value={visibility.policy_status || 'PASS'} />
-            <Field label={t('admin.marketplace.moderationStatus')} value={visibility.moderation_status || 'APPROVED'} />
+            <Field label={t('admin.marketplace.shopOfferStatus')} value={adminLabel(visibility.shop_offer_status || 'ACTIVE')} />
+            <Field label={t('admin.marketplace.policyStatus')} value={adminLabel(visibility.policy_status || 'PASS')} />
+            <Field label={t('admin.marketplace.moderationStatus')} value={adminLabel(visibility.moderation_status || 'APPROVED')} />
           </div>
         </div>
       )}
@@ -153,8 +154,8 @@ export default function MarketplaceVisibilityPage() {
               <div style={{ fontWeight: 700, fontSize: 16 }}>{shopControl.shop_name} ({shopControl.business_name})</div>
               <div style={{ fontSize: 12, color: '#94a3b8' }}>
                 {shopControl.marketplace_visibility
-                  ? t('admin.marketplace.visibilityEnabledStatus', { status: shopControl.status })
-                  : t('admin.marketplace.visibilityDisabledStatus', { status: shopControl.status })}
+                  ? t('admin.marketplace.visibilityEnabledStatus', { status: adminLabel(shopControl.status) })
+                  : t('admin.marketplace.visibilityDisabledStatus', { status: adminLabel(shopControl.status) })}
               </div>
             </div>
           </div>

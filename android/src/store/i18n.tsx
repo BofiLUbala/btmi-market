@@ -26,6 +26,25 @@ interface I18nState {
 
 const I18nContext = createContext<I18nState | null>(null)
 
+/** The language the provider last rendered with, for code that runs outside a
+ *  component (module helpers, API client, label maps). */
+let currentLang: Lang = 'fr'
+export function getLang(): Lang {
+  return currentLang
+}
+
+/** True when the key exists in the dictionaries (used to localize API error codes). */
+export function hasTranslation(key: string): key is TranslationKey {
+  return key in fr
+}
+
+/** `t()` for code that cannot call a hook. Call it at render/run time, never at
+ *  module load, or it freezes the language that was active on import. */
+export function translate(key: TranslationKey, vars?: Record<string, string | number>, lang: Lang = currentLang): string {
+  const value = DICTIONARIES[lang][key] ?? fr[key] ?? (key as string)
+  return interpolate(value as string, vars)
+}
+
 /** Reads the device locale from Intl (built into Hermes), which avoids pulling
  *  in expo-localization just for this. The marketplace serves the DRC, so
  *  French is the default for any device not explicitly set to English. */
@@ -91,6 +110,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // Set during render so every child that formats money this render already
   // uses the new language.
   setMoneyLanguage(lang)
+  currentLang = lang
   const value = useMemo(() => ({ lang, setLang: persist, toggleLang, t }), [lang, persist, toggleLang, t])
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>

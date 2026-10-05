@@ -1,5 +1,5 @@
 import { useAuth } from '@/store/auth'
-import { formatMoney } from '@/lib/format'
+import { dateLocale, formatMoney } from '@/lib/format'
 import { inventoryApi } from '@/api/seller'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -145,6 +145,13 @@ export default function SellerStockPage() {
     )
   }
 
+  // movement_type is an API code (STOCK_IN, SALE_ONLINE…): show a label, or the raw code if unknown.
+  const movementTypeLabel = (code: string) => {
+    const key = `sellerStockSellerStockPage.movementType.${code}`
+    const label = t(key)
+    return label === key ? code : label
+  }
+
   return (
     <div className="seller-stock">
       <div className="page-header">
@@ -254,12 +261,12 @@ export default function SellerStockPage() {
                 <tbody>
                   {movements.map((m) => (
                     <tr key={m.id}>
-                      <td><span className="badge badge-primary">{m.movement_type}</span></td>
+                      <td><span className="badge badge-primary">{movementTypeLabel(m.movement_type)}</span></td>
                       <td className={`num ${m.quantity > 0 ? 'success' : 'danger'}`}>{m.quantity > 0 ? `+${m.quantity}` : m.quantity}</td>
                       <td className="num">{m.previous_quantity}</td>
                       <td className="num">{m.new_quantity}</td>
                       <td className="wrap small muted">{m.notes || '—'}</td>
-                      <td className="small" style={{ whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString()}</td>
+                      <td className="small" style={{ whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString(dateLocale())}</td>
                     </tr>
                   ))}
                 </tbody>

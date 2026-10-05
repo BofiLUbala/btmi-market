@@ -169,13 +169,13 @@ const state = stockStatus(av, threshold)
                     <div className="mobile-data-card-header">
                       <div>
                         <strong style={{ fontSize: '0.95rem' }}>{variantLabel(item.variant)}</strong>
-                        {item.variant.sku && <span className="mono small muted" style={{ display: 'block' }}>SKU: {item.variant.sku}</span>}
+                        {item.variant.sku && <span className="mono small muted" style={{ display: 'block' }}>{t('seller.productDetail.skuInfo', { sku: item.variant.sku })}</span>}
                       </div>
                       <span className={`stock-state ${STOCK_STATE_CLASS[state]}`}>{t(`stock.state.${state}` as TranslationKey)}</span>
                     </div>
                     <div className="mobile-data-card-row">
                       <span className="small muted">{t('seller.shopProducts.available')}: <strong>{av}</strong></span>
-                      <span className="small muted">({item.inventory.quantity} tot · {item.inventory.reserved_quantity} rés)</span>
+                      <span className="small muted">{t('sellerProductsShopProductsPage.shortRes', { total: item.inventory.quantity, res: item.inventory.reserved_quantity })}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 4 }}>
                       <input

@@ -3,10 +3,18 @@ import { Card, CardGrid } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { AvatarUpload } from '@/components/ui/AvatarUpload'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 
 export default function SellerProfilePage() {
   const t = useT()
   const { user, activeBusiness, logout, refreshUser } = useAuth()
+  // account_type / status are API codes: show a translated label, or the raw code if unknown.
+  const codeLabel = (group: 'accountType' | 'userStatus', code?: string) => {
+    if (!code) return '—'
+    const key = `sellerProfileSellerProfilePage.${group}.${code}`
+    const label = t(key)
+    return label === key ? code : label
+  }
 
   return (
     <div className="seller-profile">
@@ -17,7 +25,7 @@ export default function SellerProfilePage() {
       <CardGrid>
         <Card>
           <h3>{t('seller.accountType')}</h3>
-          <div className="stat-value">{user?.account_type || '—'}</div>
+          <div className="stat-value">{codeLabel('accountType', user?.account_type)}</div>
         </Card>
         <Card>
           <h3>{t('seller.activeBusiness')}</h3>
@@ -25,7 +33,7 @@ export default function SellerProfilePage() {
         </Card>
         <Card>
           <h3>{t('common.memberSince')}</h3>
-          <div className="stat-value">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</div>
+          <div className="stat-value">{user?.created_at ? new Date(user.created_at).toLocaleDateString(dateLocale()) : '—'}</div>
         </Card>
       </CardGrid>
 
@@ -65,7 +73,7 @@ export default function SellerProfilePage() {
           )}
           <div>
             <div className="muted small">{t('common.status')}</div>
-            <div><span className={`badge badge-${user?.status === 'ACTIVE' ? 'success' : 'warning'}`}>{user?.status || '—'}</span></div>
+            <div><span className={`badge badge-${user?.status === 'ACTIVE' ? 'success' : 'warning'}`}>{codeLabel('userStatus', user?.status)}</span></div>
           </div>
         </div>
       </Card>

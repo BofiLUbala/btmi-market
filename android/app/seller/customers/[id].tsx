@@ -10,7 +10,7 @@ import { useColors } from '../../../src/store/theme'
 import { spacing, type Colors } from '../../../src/theme'
 import { statusLabel } from '../../../src/lib/statusLabels'
 import { formatMoney } from '../../../src/lib/money'
-import { formatDateTime } from '../../../src/lib/format'
+import { dateLocale, formatDateTime } from '../../../src/lib/format'
 
 export default function SellerCustomerDetailScreen() {
   const { t } = useI18n()
@@ -50,7 +50,7 @@ export default function SellerCustomerDetailScreen() {
       {!editing ? <>
         <Text style={styles.muted}>{c.phone || '—'}{c.email ? ` · ${c.email}` : ''}</Text>
         <Text style={styles.muted}>{t('common.status')}: {statusLabel(t, c.status)}</Text>
-        <Text style={styles.muted}>{t('seller.customers.joined')}: {new Date(c.created_at).toLocaleDateString()}</Text>
+        <Text style={styles.muted}>{t('seller.customers.joined')}: {new Date(c.created_at).toLocaleDateString(dateLocale())}</Text>
         <Button variant="outline" dense title={t('seller.customers.edit')} onPress={() => setEditing(true)} />
       </> : <>
         <Field label={t('auth.firstName')} value={form.first_name} onChangeText={(v) => setForm((f) => ({ ...f, first_name: v }))} autoCapitalize="words" />

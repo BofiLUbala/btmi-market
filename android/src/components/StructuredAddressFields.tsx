@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, TextInput } from 'react-native'
 import { Field } from './ui'
+import { useT } from '../store/i18n'
 import { locationsApi, type LocationProvince, type LocationCity, type LocationCommune } from '../api'
 
 export interface StructuredAddressValue {
@@ -26,6 +27,7 @@ function PickerField({ label, value, placeholder, items, loading, onSelect }: {
   items: PickerItem[]; loading?: boolean
   onSelect: (item: PickerItem) => void
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
   const filtered = useMemo(() => {
@@ -52,12 +54,12 @@ function PickerField({ label, value, placeholder, items, loading, onSelect }: {
             <View style={s.sheetHeader}>
               <Text style={s.sheetTitle}>{label}</Text>
               <TouchableOpacity onPress={() => { setOpen(false); setFilter('') }}>
-                <Text style={s.sheetClose}>Fermer</Text>
+                <Text style={s.sheetClose}>{t('common.close')}</Text>
               </TouchableOpacity>
             </View>
             <TextInput
               style={s.search}
-              placeholder="Rechercher…"
+              placeholder={t('structuredAddressFields.searchPlaceholder')}
               value={filter}
               onChangeText={setFilter}
               autoFocus
@@ -74,7 +76,7 @@ function PickerField({ label, value, placeholder, items, loading, onSelect }: {
                   <Text style={[s.optionText, item.name === value && s.optionTextActive]}>{item.name}</Text>
                 </TouchableOpacity>
               )}
-              ListEmptyComponent={<Text style={s.empty}>{loading ? 'Chargement…' : 'Aucun résultat'}</Text>}
+              ListEmptyComponent={<Text style={s.empty}>{loading ? t('common.loading') : t('structuredAddressFields.noResults')}</Text>}
             />
           </View>
         </View>
@@ -86,6 +88,7 @@ function PickerField({ label, value, placeholder, items, loading, onSelect }: {
 /* ── Address form ────────────────────────────────────────────────────── */
 
 export function StructuredAddressFields({ value, onChange }: { value: StructuredAddressValue; onChange: (v: StructuredAddressValue) => void }) {
+  const t = useT()
   const [provinces, setProvinces] = useState<LocationProvince[]>([])
   const [cities, setCities] = useState<LocationCity[]>([])
   const [communes, setCommunes] = useState<LocationCommune[]>([])
@@ -122,16 +125,16 @@ export function StructuredAddressFields({ value, onChange }: { value: Structured
 
   return <>
     <PickerField
-      label="Province" value={value.province}
-      placeholder="Sélectionner une province"
+      label={t('structuredAddressFields.province')} value={value.province}
+      placeholder={t('structuredAddressFields.selectProvince')}
       items={provinces} onSelect={item => onChange({
         ...value, province_id: item.id, province: item.name,
         city_id: '', city: '', commune_id: '', commune: ''
       })}
     />
     <PickerField
-      label="Ville" value={value.city}
-      placeholder={!value.province_id ? "Sélectionnez d'abord la province" : loadingCities ? 'Chargement…' : 'Sélectionner une ville'}
+      label={t('structuredAddressFields.city')} value={value.city}
+      placeholder={!value.province_id ? t('structuredAddressFields.provinceFirst') : loadingCities ? t('common.loading') : t('structuredAddressFields.selectCity')}
       items={cities} loading={loadingCities}
       onSelect={item => onChange({
         ...value, city_id: item.id, city: item.name,
@@ -139,14 +142,14 @@ export function StructuredAddressFields({ value, onChange }: { value: Structured
       })}
     />
     <PickerField
-      label="Commune" value={value.commune}
-      placeholder={!value.city_id ? "Sélectionnez d'abord la ville" : loadingCommunes ? 'Chargement…' : 'Sélectionner une commune'}
+      label={t('structuredAddressFields.commune')} value={value.commune}
+      placeholder={!value.city_id ? t('structuredAddressFields.cityFirst') : loadingCommunes ? t('common.loading') : t('structuredAddressFields.selectCommune')}
       items={communes} loading={loadingCommunes}
       onSelect={item => onChange({ ...value, commune_id: item.id, commune: item.name })}
     />
-    <Field label="Avenue / Rue / Adresse" value={value.street} onChangeText={next => onChange({ ...value, street: next })} />
-    <Field label="Numéro de la parcelle (ex : 12, 12A)" value={value.building_number} onChangeText={next => onChange({ ...value, building_number: next })} />
-    <Field label="Point de repère (facultatif)" value={value.landmark} onChangeText={next => onChange({ ...value, landmark: next })} />
+    <Field label={t('structuredAddressFields.street')} value={value.street} onChangeText={next => onChange({ ...value, street: next })} />
+    <Field label={t('structuredAddressFields.buildingNumber')} value={value.building_number} onChangeText={next => onChange({ ...value, building_number: next })} />
+    <Field label={t('structuredAddressFields.landmark')} value={value.landmark} onChangeText={next => onChange({ ...value, landmark: next })} />
   </>
 }
 

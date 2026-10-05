@@ -27,6 +27,7 @@ import { canWriteTo, dayKey, initialContact, startsRun, threadWith } from '../li
 import { subscribeOrderEvents } from '../lib/orderEvents'
 import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
+import { dateLocale } from '../lib/format'
 import { radius, spacing, type Colors } from '../theme'
 
 interface OrderChatFeedProps {
@@ -174,7 +175,7 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
     void deliver({ ...p, failed: false })
   }
 
-  const locale = lang === 'en' ? 'en-GB' : 'fr-FR'
+  const locale = dateLocale(lang)
   const time = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   const dayLabel = (day: string) => {
     const d = new Date(`${day}T12:00:00`)

@@ -90,7 +90,7 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
         {product.category_name ? <Text numberOfLines={1} style={styles.kicker}>{categoryLabel(t, product.category_slug, product.category_name)}</Text> : null}
         <Text numberOfLines={2} style={[styles.name, outOfStock && styles.mutedText]}>{product.name}</Text>
         <Text numberOfLines={1} style={styles.shop}>{product.shop_name || t('product.aSeller')}</Text>
-        <Text style={staticStyles.rating} accessibilityLabel={`${rating.toFixed(1)} / 5, ${reviews}`}>
+        <Text style={staticStyles.rating} accessibilityLabel={t('productCard.ratingA11y', { rating: rating.toFixed(1), count: reviews })}>
           <Text style={styles.stars}>{stars}</Text>{reviews > 0 && <Text style={styles.reviewCount}> ({reviews})</Text>}
         </Text>
         {!outOfStock ? <Text style={[styles.stock, lowStock && styles.stockLow]}>{t(lowStock ? 'stock.lowStock' : 'stock.inStock')}</Text> : null}

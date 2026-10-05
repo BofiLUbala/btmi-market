@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import type { SellerGrowth as SellerGrowthData } from '@/api/types'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 import { GrowthIcon } from '@/components/ui/Icons'
 
@@ -71,8 +72,8 @@ export default function SellerGrowthPage() {
       <CardGrid>
         <Card>
           <h3>{t('seller.growth.currentPoints')}</h3>
-          <div className="stat-value">{growth.points.current_points.toLocaleString()}</div>
-          <p className="muted small">{t('seller.growth.lifetime', { count: growth.points.lifetime_points.toLocaleString() })}</p>
+          <div className="stat-value">{growth.points.current_points.toLocaleString(dateLocale())}</div>
+          <p className="muted small">{t('seller.growth.lifetime', { count: growth.points.lifetime_points.toLocaleString(dateLocale()) })}</p>
         </Card>
         <Card>
           <h3>{t('seller.growth.currentLevel')}</h3>
@@ -103,7 +104,7 @@ export default function SellerGrowthPage() {
             <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
           </div>
           <p className="muted small" style={{ marginTop: 8 }}>
-            {t('seller.growth.pointsProgress', { current: growth.points.current_points.toLocaleString(), max: growth.level.max_points.toLocaleString(), description: growth.level.description })}
+            {t('seller.growth.pointsProgress', { current: growth.points.current_points.toLocaleString(dateLocale()), max: growth.level.max_points.toLocaleString(dateLocale()), description: growth.level.description })}
           </p>
         </Card>
       </div>

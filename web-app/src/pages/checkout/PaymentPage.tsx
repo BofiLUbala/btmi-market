@@ -8,7 +8,7 @@ import { ErrorBox, LoadingBlock } from '@/components/ui/Feedback'
 import { formatMoney } from '@/lib/format'
 import { RequireAuth } from '@/components/auth/Guards'
 import { CheckoutProgress } from '@/components/checkout/CheckoutProgress'
-import { useT } from '@/store/i18n'
+import { translate, useT } from '@/store/i18n'
 import type { TranslationKey } from '@/locales/fr'
 import { WarningIcon } from '@/components/ui/Icons'
 import { useOrderEvents } from '@/lib/orderEvents'
@@ -30,30 +30,30 @@ const METHOD_LABEL: Record<string, TranslationKey> = {
  */
 type Timing = 'NOW' | 'DELIVERY'
 
-const TIMING_CHOICES: { timing: Timing; title: string; hint: string }[] = [
+const TIMING_CHOICES: { timing: Timing; title: TranslationKey; hint: TranslationKey }[] = [
   {
     timing: 'NOW',
-    title: 'Payer maintenant',
-    hint: 'Paiement mobile immédiat, confirmé par l’opérateur avant la livraison.'
+    title: 'checkoutPaymentPage.timingNowTitle' as TranslationKey,
+    hint: 'checkoutPaymentPage.timingNowHint' as TranslationKey
   },
   {
     timing: 'DELIVERY',
-    title: 'Payer à la livraison',
-    hint: 'Rien n’est prélevé maintenant. Le montant est dû à la remise de la commande.'
+    title: 'checkoutPaymentPage.timingDeliveryTitle' as TranslationKey,
+    hint: 'checkoutPaymentPage.timingDeliveryHint' as TranslationKey
   }
 ]
 
-const METHOD_HINT: Record<string, string> = {
-  CASH_ON_DELIVERY: 'Espèces remises au Livreur, qui confirme la réception sur place.',
-  MOBILE_AT_DELIVERY: 'Paiement mobile effectué à la remise, confirmé par l’opérateur.',
-  MOBILE_PAY_NOW: 'Paiement mobile immédiat. Aucun paiement ne sera demandé à la livraison.'
+const METHOD_HINT: Record<string, TranslationKey> = {
+  CASH_ON_DELIVERY: 'checkoutPaymentPage.hintCash' as TranslationKey,
+  MOBILE_AT_DELIVERY: 'checkoutPaymentPage.hintMobileAtDelivery' as TranslationKey,
+  MOBILE_PAY_NOW: 'checkoutPaymentPage.hintMobilePayNow' as TranslationKey
 }
 
 /** The label a method carries in the grouped UI, where its timing is already known. */
-const METHOD_TITLE: Record<string, string> = {
-  CASH_ON_DELIVERY: 'Espèces',
-  MOBILE_AT_DELIVERY: 'Paiement mobile à la livraison',
-  MOBILE_PAY_NOW: 'Paiement mobile'
+const METHOD_TITLE: Record<string, TranslationKey> = {
+  CASH_ON_DELIVERY: 'checkoutPaymentPage.titleCash' as TranslationKey,
+  MOBILE_AT_DELIVERY: 'checkoutPaymentPage.titleMobileAtDelivery' as TranslationKey,
+  MOBILE_PAY_NOW: 'checkoutPaymentPage.titleMobilePayNow' as TranslationKey
 }
 
 function isMobile(code: string) {
@@ -62,34 +62,35 @@ function isMobile(code: string) {
 
 function checkoutErrorMessage(error: unknown, fallback: string) {
   if (!(error instanceof ApiError)) return fallback
-  const messages: Record<string, string> = {
-    PAYMENT_PROVIDER_REQUIRED: 'Veuillez sélectionner un opérateur Mobile Money.',
-    PAYMENT_PROVIDER_NOT_CONFIGURED: 'Le paiement mobile est temporairement indisponible.',
-    PAYMENT_PROVIDER_UNKNOWN: 'Opérateur Mobile Money non reconnu. Veuillez en choisir un autre.',
-    PAYMENT_PROVIDER_UNAVAILABLE: 'Cet opérateur Mobile Money est indisponible. Veuillez en choisir un autre.',
-    PAYMENT_METHOD_UNAVAILABLE: 'Ce mode de paiement est indisponible. Veuillez en choisir un autre.',
-    DELIVERY_NOT_SELECTED: 'Veuillez sélectionner une livraison avant de passer la commande.',
-    DELIVERY_DETAILS_INCOMPLETE: 'Veuillez renseigner une adresse de livraison valide.',
-    PAYER_PHONE_REQUIRED: 'Veuillez saisir le numéro Mobile Money qui sera débité.',
-    PAYMENT_ALREADY_SELECTED: 'Un autre mode de paiement est déjà associé à cette commande.',
-    PAYMENT_ALREADY_CREATED: 'Un paiement est déjà associé à cette commande.',
-    PAYMENT_ALREADY_SETTLED: 'Cette commande a déjà été réglée.',
-    PAYMENT_IN_PROGRESS: 'Un traitement de paiement est déjà en cours.',
-    PAYMENT_STATE_CHANGED: 'Le statut de la commande a évolué. Veuillez rafraîchir la page.',
-    PAYMENT_NOT_FOUND: 'Impossible de retrouver le paiement associé.',
-    PAYMENT_NOT_CONFIGURED: 'Le mode de paiement sélectionné n’est pas configuré.',
-    PAYMENT_CLOSED: 'Ce paiement n’est plus accessible.',
-    AMOUNT_MISMATCH: 'Le montant de la commande a changé, veuillez réessayer.',
-    INVALID_STATE: 'L’état de la commande ne permet pas cette action. Veuillez rafraîchir la page.',
-    INVALID_STATE_TRANSITION: 'L’état de la commande ne permet pas cette action. Veuillez rafraîchir la page.',
-    ORDER_NOT_FOUND: 'Impossible de retrouver la commande.',
-    ORDER_CANCELLED: 'Cette commande a été annulée.',
-    ORDER_COMPLETED: 'Cette commande est déjà terminée.',
-    CHECKOUT_GROUP_NOT_FOUND: 'Session de commande introuvable. Veuillez reprendre depuis le panier.'
+  const messages: Record<string, TranslationKey> = {
+    PAYMENT_PROVIDER_REQUIRED: 'checkoutPaymentPage.errProviderRequired' as TranslationKey,
+    PAYMENT_PROVIDER_NOT_CONFIGURED: 'checkoutPaymentPage.errProviderNotConfigured' as TranslationKey,
+    PAYMENT_PROVIDER_UNKNOWN: 'checkoutPaymentPage.errProviderUnknown' as TranslationKey,
+    PAYMENT_PROVIDER_UNAVAILABLE: 'checkoutPaymentPage.errProviderUnavailable' as TranslationKey,
+    PAYMENT_METHOD_UNAVAILABLE: 'checkoutPaymentPage.errMethodUnavailable' as TranslationKey,
+    DELIVERY_NOT_SELECTED: 'checkoutPaymentPage.errDeliveryNotSelected' as TranslationKey,
+    DELIVERY_DETAILS_INCOMPLETE: 'checkoutPaymentPage.errDeliveryIncomplete' as TranslationKey,
+    PAYER_PHONE_REQUIRED: 'checkoutPaymentPage.errPayerPhoneRequired' as TranslationKey,
+    PAYMENT_ALREADY_SELECTED: 'checkoutPaymentPage.errAlreadySelected' as TranslationKey,
+    PAYMENT_ALREADY_CREATED: 'checkoutPaymentPage.errAlreadyCreated' as TranslationKey,
+    PAYMENT_ALREADY_SETTLED: 'checkoutPaymentPage.errAlreadySettled' as TranslationKey,
+    PAYMENT_IN_PROGRESS: 'checkoutPaymentPage.errInProgress' as TranslationKey,
+    PAYMENT_STATE_CHANGED: 'checkoutPaymentPage.errStateChanged' as TranslationKey,
+    PAYMENT_NOT_FOUND: 'checkoutPaymentPage.errPaymentNotFound' as TranslationKey,
+    PAYMENT_NOT_CONFIGURED: 'checkoutPaymentPage.errPaymentNotConfigured' as TranslationKey,
+    PAYMENT_CLOSED: 'checkoutPaymentPage.errPaymentClosed' as TranslationKey,
+    AMOUNT_MISMATCH: 'checkoutPaymentPage.errAmountMismatch' as TranslationKey,
+    INVALID_STATE: 'checkoutPaymentPage.errInvalidState' as TranslationKey,
+    INVALID_STATE_TRANSITION: 'checkoutPaymentPage.errInvalidState' as TranslationKey,
+    ORDER_NOT_FOUND: 'checkoutPaymentPage.errOrderNotFound' as TranslationKey,
+    ORDER_CANCELLED: 'checkoutPaymentPage.errOrderCancelled' as TranslationKey,
+    ORDER_COMPLETED: 'checkoutPaymentPage.errOrderCompleted' as TranslationKey,
+    CHECKOUT_GROUP_NOT_FOUND: 'checkoutPaymentPage.errCheckoutGroupNotFound' as TranslationKey
   }
   const code = error.code ?? ''
   const msg = error.message ?? ''
-  return messages[code] ?? messages[msg] ?? (msg && msg !== code ? msg : fallback)
+  const key = messages[code] ?? messages[msg]
+  return key ? translate(key) : (msg && msg !== code ? msg : fallback)
 }
 
 function validationMessage(input: {
@@ -104,20 +105,20 @@ function validationMessage(input: {
   quoteReady: boolean
 }) {
   if (input.orderIds.length === 0 || input.orders.length === 0 || input.orders.some(order => order.lines.length === 0)) {
-    return 'Votre panier ne contient aucun article à commander.'
+    return translate('checkoutPaymentPage.valEmptyCart')
   }
   if (input.orders.some(({ order }) => order.delivery_method !== 'PICKUP' && (
     !order.delivery_contact_name?.trim() || !order.delivery_phone?.trim() || !order.delivery_address?.trim()
   ))) {
-    return 'Veuillez renseigner une adresse de livraison valide.'
+    return translate('checkoutPaymentPage.errDeliveryIncomplete')
   }
-  if (!input.timing) return 'Veuillez sélectionner quand vous souhaitez payer.'
-  if (!input.paymentMethod) return 'Veuillez sélectionner un mode de paiement.'
-  if (input.needsProvider && !input.provider) return 'Veuillez sélectionner un opérateur Mobile Money.'
+  if (!input.timing) return translate('checkoutPaymentPage.valTiming')
+  if (!input.paymentMethod) return translate('checkoutPaymentPage.valMethod')
+  if (input.needsProvider && !input.provider) return translate('checkoutPaymentPage.errProviderRequired')
   if (input.needsPhoneNow && input.payerPhone.trim().length < 9) {
-    return 'Veuillez saisir le numéro Mobile Money qui sera débité.'
+    return translate('checkoutPaymentPage.errPayerPhoneRequired')
   }
-  if (!input.quoteReady) return 'Le montant final est en cours de calcul. Veuillez réessayer.'
+  if (!input.quoteReady) return translate('checkoutPaymentPage.valQuoteNotReady')
   return ''
 }
 
@@ -212,7 +213,7 @@ function PaymentInner() {
         if (mounted) {
           const newAgg = aggregateQuotes(loadedQuotes)
           if (lastTotal != null && newAgg?.final_total !== lastTotal) {
-            setQuoteChangedAlert('Le montant de votre commande a été mis à jour. Vérifiez le nouveau total avant de continuer.')
+            setQuoteChangedAlert(t('checkoutPaymentPage.alertAmountUpdated'))
           }
           setQuotes(loadedQuotes)
           setError('')
@@ -234,7 +235,7 @@ function PaymentInner() {
     ]).then(([loadedQuotes, loadedOrders]) => {
       const next = aggregateQuotes(loadedQuotes)
       if (quote && next && next.delivery_fee !== quote.delivery_fee) {
-        setQuoteChangedAlert(`Les frais de livraison TBK ont été mis à jour : ${formatMoney(next.delivery_fee, next.currency)}. Vérifiez le nouveau total avant de continuer.`)
+        setQuoteChangedAlert(t('checkoutPaymentPage.alertDeliveryFeeUpdated', { amount: formatMoney(next.delivery_fee, next.currency) }))
       }
       setQuotes(loadedQuotes)
       setOrders(loadedOrders)
@@ -272,7 +273,7 @@ function PaymentInner() {
   async function placeOrder() {
     if (confirming || initiating) return
     if (!orderId) {
-      setError('Impossible de retrouver la commande. Veuillez reprendre le panier.')
+      setError(t('checkoutPaymentPage.orderMissing'))
       return
     }
     if (validationError) {
@@ -302,7 +303,7 @@ function PaymentInner() {
         } catch (initErr) {
           // If initiate fails, still navigate to Step 4 so buyer can view order and retry status
           const refreshed = await buyerApi.getPayment(orderId).catch(() => created)
-          navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds, checkoutGroupId: state?.checkoutGroupId, error: checkoutErrorMessage(initErr, 'Erreur lors du lancement du paiement.') }, replace: true })
+          navigate(`/orders/${orderId}/success`, { state: { payment: refreshed, orderIds, checkoutGroupId: state?.checkoutGroupId, error: checkoutErrorMessage(initErr, t('checkoutPaymentPage.initiateFailed')) }, replace: true })
         } finally {
           setInitiating(false)
           setConfirming(false)
@@ -326,19 +327,19 @@ function PaymentInner() {
   const providers = quote.providers ?? []
 
   // Dynamic button label according to server & client state
-  let ctaLabel = 'Confirmer la commande'
+  let ctaLabel = t('checkoutPaymentPage.ctaConfirm')
   if (confirming || initiating) {
-    ctaLabel = 'Création de la commande...'
+    ctaLabel = t('checkoutPaymentPage.ctaCreating')
   } else if (payment) {
     if (['PAID', 'VERIFIED'].includes(payment.status)) {
-      ctaLabel = 'Voir la commande'
+      ctaLabel = t('checkoutPaymentPage.ctaViewOrder')
     } else if (['PROCESSING', 'PENDING'].includes(payment.status) && payment.payment_method === 'MOBILE_PAY_NOW') {
-      ctaLabel = 'Paiement en cours...'
+      ctaLabel = t('checkoutPaymentPage.ctaProcessing')
     } else {
-      ctaLabel = 'Commande confirmée'
+      ctaLabel = t('checkoutPaymentPage.ctaConfirmed')
     }
   } else if (paymentMethod === 'MOBILE_PAY_NOW') {
-    ctaLabel = 'Payer maintenant'
+    ctaLabel = t('checkoutPaymentPage.timingNowTitle')
   }
 
   return (
@@ -363,13 +364,13 @@ function PaymentInner() {
           {/* SINGLE UNIFIED PAYMENT CARD */}
           <section className="checkout-card">
             <div className="checkout-card-head">
-              <h2>Mode de paiement</h2>
-              <span>Sélection sécurisée</span>
+              <h2>{t('checkoutPaymentPage.methodHeading')}</h2>
+              <span>{t('checkoutPaymentPage.secureSelection')}</span>
             </div>
 
             {/* Step 1 — Timing */}
             <div className="stack" style={{ marginTop: 16 }}>
-              <strong>1. Quand souhaitez-vous payer ?</strong>
+              <strong>1. {t('checkoutPaymentPage.stepWhen')}</strong>
               {TIMING_CHOICES.map(choice => {
                 const available = quote.payment_methods.some(method => method.timing === choice.timing)
                 if (!available) return null
@@ -387,8 +388,8 @@ function PaymentInner() {
                       onChange={() => chooseTiming(choice.timing)}
                     />
                     <span>
-                      <strong>{choice.title}</strong><br />
-                      <small className="muted">{choice.hint}</small>
+                      <strong>{t(choice.title)}</strong><br />
+                      <small className="muted">{t(choice.hint)}</small>
                     </span>
                   </label>
                 )
@@ -398,7 +399,7 @@ function PaymentInner() {
             {/* Step 2 — Method */}
             {timing && methodsForTiming.length > 0 && (
               <div className="stack" style={{ marginTop: 20 }}>
-                <strong>2. {timing === 'NOW' ? 'Paiement mobile immédiat' : 'Comment payer à la livraison ?'}</strong>
+                <strong>2. {timing === 'NOW' ? t('checkoutPaymentPage.stepMethodNow') : t('checkoutPaymentPage.stepMethodDelivery')}</strong>
                 {methodsForTiming.map(method => (
                   <label
                     className={`delivery-option payment-method-option ${paymentMethod === method.code ? 'selected' : ''}`}
@@ -413,11 +414,11 @@ function PaymentInner() {
                       onChange={() => { setPaymentMethod(method.code); setProvider(''); setQuoteChangedAlert('') }}
                     />
                     <span>
-                      <strong>{METHOD_TITLE[method.code] ?? method.label}</strong><br />
-                      <small className="muted">{METHOD_HINT[method.code] ?? ''}</small>
+                      <strong>{METHOD_TITLE[method.code] ? t(METHOD_TITLE[method.code]) : method.label}</strong><br />
+                      <small className="muted">{METHOD_HINT[method.code] ? t(METHOD_HINT[method.code]) : ''}</small>
                     </span>
                     <span className="payment-method-markup">
-                      {method.markup_amount > 0 ? `+ ${formatMoney(method.markup_amount, quote.currency)}` : 'Sans frais'}
+                      {method.markup_amount > 0 ? `+ ${formatMoney(method.markup_amount, quote.currency)}` : t('checkoutPaymentPage.noFee')}
                     </span>
                   </label>
                 ))}
@@ -427,9 +428,9 @@ function PaymentInner() {
             {/* Step 3 — Operator */}
             {needsProvider && (
               <div className="stack" style={{ marginTop: 20 }}>
-                <strong>3. Choisissez votre opérateur Mobile Money</strong>
+                <strong>3. {t('checkoutPaymentPage.stepOperator')}</strong>
                 {providers.length === 0 && (
-                  <p className="small muted">Aucun opérateur mobile n’est disponible actuellement.</p>
+                  <p className="small muted">{t('checkoutPaymentPage.noOperators')}</p>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
                   {providers.map(option => (
@@ -456,10 +457,10 @@ function PaymentInner() {
             {/* Step 4 — Handset Phone (if needed) */}
             {needsProvider && provider && (
               <div className="stack" style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
-                <strong>4. Numéro de téléphone Mobile Money</strong>
+                <strong>4. {t('checkoutPaymentPage.stepPhone')}</strong>
                 <label className="field" style={{ display: 'block' }}>
                   <span className="muted" style={{ fontSize: '0.85rem' }}>
-                    {needsPhoneNow ? 'Entrez le numéro qui recevra la demande de paiement :' : 'Numéro pour la livraison (optionnel) :'}
+                    {needsPhoneNow ? t('checkoutPaymentPage.phoneNowLabel') : t('checkoutPaymentPage.phoneDeliveryLabel')}
                   </span>
                   <input
                     type="tel"
@@ -473,12 +474,12 @@ function PaymentInner() {
                 </label>
                 {needsPhoneNow && !phoneReady && (
                   <p className="small muted" style={{ color: 'var(--color-warning)' }}>
-                    Entrez le numéro Mobile Money qui sera débité (min. 9 chiffres).
+                    {t('checkoutPaymentPage.phoneTooShort')}
                   </p>
                 )}
                 {paymentMethod === 'MOBILE_AT_DELIVERY' && (
                   <p className="small muted" style={{ marginTop: 6 }}>
-                    Rien n’est prélevé maintenant. Le Livreur sera présent lors du paiement à la livraison.
+                    {t('checkoutPaymentPage.mobileAtDeliveryNote')}
                   </p>
                 )}
               </div>
@@ -504,7 +505,7 @@ function PaymentInner() {
                     <div>
                       <strong>{product?.name || line.product_name || t('product.fallback', { id: line.product_id.slice(0, 8) })}</strong>
                       <span>{variant?.name || line.variant_name || variant?.sku || line.variant_sku || line.variant_id.slice(0, 8)} · {t('payment.quantity', { count: line.quantity })}</span>
-                      <span>Boutique : {current.shop_name || '—'} · Prix unitaire : {formatMoney(unitPrice, current.order.currency || 'USD')}</span>
+                      <span>{t('checkoutPaymentPage.shopAndUnitPrice', { shop: current.shop_name || '—', price: formatMoney(unitPrice, current.order.currency || 'USD') })}</span>
                     </div>
                     <strong>{formatMoney(unitPrice * line.quantity, current.order.currency || 'USD')}</strong>
                   </div>
@@ -513,7 +514,7 @@ function PaymentInner() {
             )}
             {orderIds.length > 1 && (
               <p className="small muted" style={{ marginTop: 10 }}>
-                Ce paiement couvre {orderIds.length} commandes boutiques distinctes.
+                {t('checkoutPaymentPage.coversOrders', { count: orderIds.length })}
               </p>
             )}
           </section>
@@ -527,16 +528,16 @@ function PaymentInner() {
               </div>
               {deliveryCommune && (
                 <dl className="address-summary">
-                  <div><dt>Province</dt><dd>{deliveryProvince}</dd></div>
-                  <div><dt>Ville</dt><dd>{deliveryCity}</dd></div>
-                  <div><dt>Commune</dt><dd>{deliveryCommune}</dd></div>
-                  <div><dt>Adresse</dt><dd>{deliveryStreet}</dd></div>
-                  <div><dt>Numéro</dt><dd>{deliveryBuildingNumber}</dd></div>
-                  {deliveryLandmark && <div><dt>Instructions</dt><dd>{deliveryLandmark}</dd></div>}
+                  <div><dt>{t('checkoutPaymentPage.province')}</dt><dd>{deliveryProvince}</dd></div>
+                  <div><dt>{t('checkoutPaymentPage.city')}</dt><dd>{deliveryCity}</dd></div>
+                  <div><dt>{t('checkoutPaymentPage.commune')}</dt><dd>{deliveryCommune}</dd></div>
+                  <div><dt>{t('checkoutPaymentPage.address')}</dt><dd>{deliveryStreet}</dd></div>
+                  <div><dt>{t('checkoutPaymentPage.number')}</dt><dd>{deliveryBuildingNumber}</dd></div>
+                  {deliveryLandmark && <div><dt>{t('checkoutPaymentPage.instructions')}</dt><dd>{deliveryLandmark}</dd></div>}
                 </dl>
               )}
               <div className="total-row" style={{ marginTop: 10 }}>
-                <span>Frais de livraison</span>
+                <span>{t('checkoutPaymentPage.deliveryFee')}</span>
                 <span>{formatMoney(summary.delivery.fee_final)}</span>
               </div>
             </section>
@@ -553,29 +554,29 @@ function PaymentInner() {
             )}
             <div><span>{t('product.delivery')}</span><strong>{formatMoney(quote.delivery_fee, quote.currency)}</strong></div>
             <div>
-              <span>Frais du mode de paiement</span>
+              <span>{t('checkoutPaymentPage.paymentMethodFee')}</span>
               <strong>{formatMoney(quote.payment_markup, quote.currency)}</strong>
             </div>
           </div>
 
           <div className="summary-total">
-            <span>Total final</span>
+            <span>{t('checkoutPaymentPage.finalTotal')}</span>
             <strong>{formatMoney(quote.final_total, quote.currency)}</strong>
-            <small>{quoting ? 'Recalcul du total…' : 'Montant total calculé par le serveur'}</small>
+            <small>{quoting ? t('checkoutPaymentPage.recalculating') : t('checkoutPaymentPage.serverTotal')}</small>
           </div>
 
           <div className="summary-lines" style={{ marginTop: 12 }}>
-            <div><span>Timing</span><strong>{timing === 'NOW' ? 'Immédiat' : timing === 'DELIVERY' ? 'À la livraison' : '—'}</strong></div>
-            <div><span>Mode</span><strong>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ?? selectedMethod.label) : '—'}</strong></div>
-            <div><span>Opérateur</span><strong>{needsProvider ? (providers.find(item => item.code === provider)?.label ?? '—') : 'Sans objet'}</strong></div>
+            <div><span>{t('checkoutPaymentPage.timing')}</span><strong>{timing === 'NOW' ? t('checkoutPaymentPage.timingNow') : timing === 'DELIVERY' ? t('checkoutPaymentPage.timingDelivery') : '—'}</strong></div>
+            <div><span>{t('checkoutPaymentPage.method')}</span><strong>{selectedMethod ? (METHOD_TITLE[selectedMethod.code] ? t(METHOD_TITLE[selectedMethod.code]) : selectedMethod.label) : '—'}</strong></div>
+            <div><span>{t('checkoutPaymentPage.operator')}</span><strong>{needsProvider ? (providers.find(item => item.code === provider)?.label ?? '—') : t('checkoutPaymentPage.notApplicable')}</strong></div>
           </div>
 
           <div className="pay-note">
             {!timing
-              ? 'Choisissez d’abord quand vous souhaitez payer.'
+              ? t('checkoutPaymentPage.noteChooseTiming')
               : selectedMethod?.timing === 'NOW'
-              ? 'Vous validerez la demande sur votre téléphone. La commande est confirmée dès validation.'
-              : 'Aucun montant n’est prélevé maintenant. Le total est dû à la livraison.'}
+              ? t('checkoutPaymentPage.noteNow')
+              : t('checkoutPaymentPage.noteDelivery')}
           </div>
 
           {validationError && <p className="checkout-inline-error" role="alert" style={{ marginTop: 12 }}>{validationError}</p>}

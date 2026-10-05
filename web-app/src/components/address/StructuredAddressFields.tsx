@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Field } from '@/components/ui/Field'
 import { locationsApi, type CityOption, type CommuneOption, type ProvinceOption } from '@/api/locations'
+import { useT } from '@/store/i18n'
 
 export interface StructuredAddressValue {
   province: string
@@ -28,6 +29,7 @@ export const isStructuredAddressComplete = (value: StructuredAddressValue) =>
  * be submitted with a new parent.
  */
 export function StructuredAddressFields({ value, onChange }: { value: StructuredAddressValue; onChange: (value: StructuredAddressValue) => void }) {
+  const t = useT()
   const [provinces, setProvinces] = useState<ProvinceOption[]>([])
   const [cities, setCities] = useState<CityOption[]>([])
   const [communes, setCommunes] = useState<CommuneOption[]>([])
@@ -78,43 +80,44 @@ export function StructuredAddressFields({ value, onChange }: { value: Structured
   return (
     <div className="structured-address">
       <Field
-        as="select" label="Province" name="province_id" required
+        as="select" label={t('addressStructuredAddressFields.province')} name="province_id" required
         value={value.province_id}
         onChange={e => selectProvince(e.target.value)}
-        options={[{ value: '', label: 'Sélectionner une province' }, ...provinces.map(item => ({ value: item.id, label: item.name }))]}
+        options={[{ value: '', label: t('addressStructuredAddressFields.selectProvince') }, ...provinces.map(item => ({ value: item.id, label: item.name }))]}
       />
       <Field
-        as="select" label="Ville" name="city_id" required
+        as="select" label={t('common.city')} name="city_id" required
         value={value.city_id}
         disabled={!value.province_id || loadingCities}
         onChange={e => selectCity(e.target.value)}
-        options={[{ value: '', label: value.province_id ? (loadingCities ? 'Chargement…' : 'Sélectionner une ville') : "Sélectionnez d'abord la province" }, ...cities.map(item => ({ value: item.id, label: item.name }))]}
+        options={[{ value: '', label: value.province_id ? (loadingCities ? t('common.loading') : t('addressStructuredAddressFields.selectCity')) : t('addressStructuredAddressFields.provinceFirst') }, ...cities.map(item => ({ value: item.id, label: item.name }))]}
       />
       <Field
-        as="select" label="Commune" name="commune_id" required
+        as="select" label={t('common.commune')} name="commune_id" required
         value={value.commune_id}
         disabled={!value.city_id || loadingCommunes}
         onChange={e => selectCommune(e.target.value)}
-        options={[{ value: '', label: value.city_id ? (loadingCommunes ? 'Chargement…' : 'Sélectionner une commune') : "Sélectionnez d'abord la ville" }, ...communes.map(item => ({ value: item.id, label: item.name }))]}
+        options={[{ value: '', label: value.city_id ? (loadingCommunes ? t('common.loading') : t('addressStructuredAddressFields.selectCommune')) : t('addressStructuredAddressFields.cityFirst') }, ...communes.map(item => ({ value: item.id, label: item.name }))]}
       />
-      <Field label="Avenue / Rue / Adresse" name="street" required value={value.street} onChange={e => onChange({ ...value, street: e.target.value })} />
-      <Field label="Numéro de la parcelle (ex : 12, 12A)" name="building_number" required value={value.building_number} onChange={e => onChange({ ...value, building_number: e.target.value })} />
-      <Field label="Point de repère (facultatif, ex : à côté de la pharmacie)" name="landmark" value={value.landmark} onChange={e => onChange({ ...value, landmark: e.target.value })} />
+      <Field label={t('addressStructuredAddressFields.street')} name="street" required value={value.street} onChange={e => onChange({ ...value, street: e.target.value })} />
+      <Field label={t('addressStructuredAddressFields.buildingNumber')} name="building_number" required value={value.building_number} onChange={e => onChange({ ...value, building_number: e.target.value })} />
+      <Field label={t('addressStructuredAddressFields.landmarkHint')} name="landmark" value={value.landmark} onChange={e => onChange({ ...value, landmark: e.target.value })} />
     </div>
   )
 }
 
 /** Readable recap of what the buyer selected, shown once the address resolves. */
 export function StructuredAddressSummary({ value }: { value: StructuredAddressValue }) {
+  const t = useT()
   if (!isStructuredAddressComplete(value)) return null
   return (
     <dl className="address-summary">
-      <div><dt>Province</dt><dd>{value.province}</dd></div>
-      <div><dt>Ville</dt><dd>{value.city}</dd></div>
-      <div><dt>Commune</dt><dd>{value.commune}</dd></div>
-      <div><dt>Adresse</dt><dd>{value.street}</dd></div>
-      <div><dt>Numéro</dt><dd>{value.building_number}</dd></div>
-      {value.landmark.trim() && <div><dt>Point de repère</dt><dd>{value.landmark}</dd></div>}
+      <div><dt>{t('addressStructuredAddressFields.province')}</dt><dd>{value.province}</dd></div>
+      <div><dt>{t('common.city')}</dt><dd>{value.city}</dd></div>
+      <div><dt>{t('common.commune')}</dt><dd>{value.commune}</dd></div>
+      <div><dt>{t('common.address')}</dt><dd>{value.street}</dd></div>
+      <div><dt>{t('addressStructuredAddressFields.number')}</dt><dd>{value.building_number}</dd></div>
+      {value.landmark.trim() && <div><dt>{t('addressStructuredAddressFields.landmark')}</dt><dd>{value.landmark}</dd></div>}
     </dl>
   )
 }

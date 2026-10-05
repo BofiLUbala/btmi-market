@@ -140,7 +140,7 @@ export default function GlobalConfigPage() {
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
           <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 24, width: '100%', maxWidth: 420 }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>{t('admin.config.editModalTitle', { key: pending.key })}</h3>
-            <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 6 }}>{t('admin.config.valueLabel', { type: pending.value_type })}</label>
+            <label style={{ fontSize: 12, color: '#94a3b8', display: 'block', marginBottom: 6 }}>{t('admin.config.valueLabel', { type: adminLabel(pending.value_type) })}</label>
             <input
               value={value}
               onChange={(e) => setValue(e.target.value)}

@@ -41,7 +41,7 @@ export default function CommerceShopsPage() {
       setItems(res.shops ?? [])
       setTotal(res.total ?? 0)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Chargement impossible')
+      setError(err instanceof Error ? err.message : t('adminCommerceShopsCommerceShopsPage.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -73,46 +73,46 @@ export default function CommerceShopsPage() {
         <div>
           <p className="admin-page-eyebrow">{t('admin.layout.navCommerce')}</p>
           <h1>{t('admin.layout.itemShops')}</h1>
-          <p>{total} boutique(s){scopedTo ? ` · ${scopedTo}` : ''} · données en direct</p>
+          <p>{scopedTo ? t('adminCommerceShopsCommerceShopsPage.summaryScoped', { count: total, business: scopedTo }) : t('adminCommerceShopsCommerceShopsPage.summary', { count: total })}</p>
         </div>
         <div className="admin-page-actions">
-          {businessId && <button className="admin-button" onClick={() => { params.delete('business_id'); setParams(params) }}>Toutes les entreprises</button>}
-          <Link className="admin-button" to="/admin/commerce/shops/analytics">Analytics</Link>
-          <Link className="admin-button" to="/admin/commerce/performance/shops">Performance</Link>
-          <button className="admin-button" onClick={() => void fetchData()} disabled={loading}>Actualiser</button>
+          {businessId && <button className="admin-button" onClick={() => { params.delete('business_id'); setParams(params) }}>{t('adminCommerceShopsCommerceShopsPage.allBusinesses')}</button>}
+          <Link className="admin-button" to="/admin/commerce/shops/analytics">{t('adminCommerceShopsCommerceShopsPage.analytics')}</Link>
+          <Link className="admin-button" to="/admin/commerce/performance/shops">{t('adminCommerceShopsCommerceShopsPage.performance')}</Link>
+          <button className="admin-button" onClick={() => void fetchData()} disabled={loading}>{t('common.refresh')}</button>
         </div>
       </div>
 
       {notice && <div className="admin-alert admin-alert-success" role="status">{notice}</div>}
-      {error && <div className="admin-alert" role="alert">{error} <button onClick={() => void fetchData()}>Réessayer</button></div>}
+      {error && <div className="admin-alert" role="alert">{error} <button onClick={() => void fetchData()}>{t('common.retry')}</button></div>}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-        <input aria-label="Rechercher une boutique" placeholder="Boutique, entreprise ou ville…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+        <input aria-label={t('adminCommerceShopsCommerceShopsPage.searchLabel')} placeholder={t('adminCommerceShopsCommerceShopsPage.searchPlaceholder')} value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
           style={{ flex: '1 1 260px', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
-        <select aria-label="Statut" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0) }}
+        <select aria-label={t('common.status')} value={status} onChange={(e) => { setStatus(e.target.value); setPage(0) }}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
-          <option value="">Tous les statuts</option>
-          <option value="ACTIVE">Actives</option>
-          <option value="INACTIVE">Inactives</option>
-          <option value="SUSPENDED">Suspendues</option>
+          <option value="">{t('adminCommerceShopsCommerceShopsPage.allStatuses')}</option>
+          <option value="ACTIVE">{t('adminCommerceShopsCommerceShopsPage.statusActive')}</option>
+          <option value="INACTIVE">{t('adminCommerceShopsCommerceShopsPage.statusInactive')}</option>
+          <option value="SUSPENDED">{t('adminCommerceShopsCommerceShopsPage.statusSuspended')}</option>
         </select>
       </div>
 
       {selected.size > 0 && (
-        <div role="toolbar" aria-label="Sélection" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--admin-border)', background: 'var(--admin-surface)' }}>
-          <span style={{ fontSize: 13 }}>{selected.size} boutique(s) sélectionnée(s)</span>
-          <button className="admin-button admin-button-small" onClick={() => setSelected(new Set())}>Tout désélectionner</button>
+        <div role="toolbar" aria-label={t('adminCommerceShopsCommerceShopsPage.selection')} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--admin-border)', background: 'var(--admin-surface)' }}>
+          <span style={{ fontSize: 13 }}>{t('adminCommerceShopsCommerceShopsPage.selectedCount', { count: selected.size })}</span>
+          <button className="admin-button admin-button-small" onClick={() => setSelected(new Set())}>{t('adminCommerceShopsCommerceShopsPage.deselectAll')}</button>
           <button className="admin-button admin-button-small admin-button-danger" style={{ marginLeft: 'auto' }} onClick={() => setPurgeIds(Array.from(selected))}>
-            Supprimer définitivement ({selected.size})
+            {t('adminCommerceShopsCommerceShopsPage.purgeSelected', { count: selected.size })}
           </button>
         </div>
       )}
 
       {loading ? (
-        <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>Chargement…</div>
+        <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)' }}>{t('common.loading')}</div>
       ) : items.length === 0 ? (
         <div style={{ padding: 48, textAlign: 'center', color: 'var(--admin-text-muted)', backgroundColor: 'var(--admin-surface)', borderRadius: 10 }}>
-          Aucune boutique ne correspond à ces filtres.
+          {t('adminCommerceShopsCommerceShopsPage.empty')}
         </div>
       ) : (
         <div style={{ overflowX: 'auto', backgroundColor: 'var(--admin-surface)', borderRadius: 10, border: '1px solid var(--admin-border-soft)' }}>
@@ -120,34 +120,34 @@ export default function CommerceShopsPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', backgroundColor: 'var(--admin-surface-2)', color: 'var(--admin-text-muted)', textAlign: 'left' }}>
                 <th style={{ padding: '12px 0 12px 14px', width: 28 }}>
-                  <input type="checkbox" aria-label="Sélectionner toutes les boutiques de la page" checked={allOnPage} onChange={togglePage} />
+                  <input type="checkbox" aria-label={t('adminCommerceShopsCommerceShopsPage.selectPage')} checked={allOnPage} onChange={togglePage} />
                 </th>
-                <th style={{ padding: '12px 14px' }}>Boutique</th>
-                <th style={{ padding: '12px 14px' }}>Entreprise</th>
-                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Produits</th>
-                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Unités dispo.</th>
-                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Commandes (en cours)</th>
-                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Avis</th>
-                <th style={{ padding: '12px 14px', textAlign: 'center' }}>Statut</th>
-                <th style={{ padding: '12px 14px', textAlign: 'right' }}>Actions</th>
+                <th style={{ padding: '12px 14px' }}>{t('adminCommerceShopsCommerceShopsPage.colShop')}</th>
+                <th style={{ padding: '12px 14px' }}>{t('adminCommerceShopsCommerceShopsPage.colBusiness')}</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>{t('adminCommerceShopsCommerceShopsPage.colProducts')}</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>{t('adminCommerceShopsCommerceShopsPage.colUnits')}</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>{t('adminCommerceShopsCommerceShopsPage.colOrders')}</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>{t('adminCommerceShopsCommerceShopsPage.colReviews')}</th>
+                <th style={{ padding: '12px 14px', textAlign: 'center' }}>{t('common.status')}</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right' }}>{t('admin.common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {items.map((s) => (
                 <tr key={s.id} style={{ borderBottom: '1px solid var(--admin-border-soft)', backgroundColor: selected.has(s.id) ? 'var(--admin-surface-2)' : undefined }}>
                   <td style={{ padding: '12px 0 12px 14px' }}>
-                    <input type="checkbox" aria-label={`Sélectionner ${s.name}`} checked={selected.has(s.id)} onChange={() => toggle(s.id)} />
+                    <input type="checkbox" aria-label={t('adminCommerceShopsCommerceShopsPage.selectShop', { name: s.name })} checked={selected.has(s.id)} onChange={() => toggle(s.id)} />
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ fontWeight: 700, color: 'var(--admin-text)' }}>{s.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--admin-text-muted)' }}>{adminLabel(s.type)} · {s.city || '—'} · {s.phone || '—'}</div>
                     <div style={{ fontSize: 11, color: 'var(--admin-text-faint)' }}>
-                      Livraison : {[s.supports_shop_delivery && 'boutique', s.supports_partner_delivery && 'partenaire'].filter(Boolean).join(', ') || 'retrait uniquement'}
+                      {t('adminCommerceShopsCommerceShopsPage.deliveryLine', { modes: [s.supports_shop_delivery && t('adminCommerceShopsCommerceShopsPage.deliveryShop'), s.supports_partner_delivery && t('adminCommerceShopsCommerceShopsPage.deliveryPartner')].filter(Boolean).join(', ') || t('adminCommerceShopsCommerceShopsPage.pickupOnly') })}
                     </div>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     <div>{s.business_name}</div>
-                    {s.business_status !== 'ACTIVE' && <span className={`admin-status status-${s.business_status.toLowerCase()}`}>Entreprise {s.business_status}</span>}
+                    {s.business_status !== 'ACTIVE' && <span className={`admin-status status-${s.business_status.toLowerCase()}`}>{t('adminCommerceShopsCommerceShopsPage.businessStatus', { status: adminLabel(s.business_status) })}</span>}
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>{s.product_count}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'center', color: s.available_units > 0 ? 'inherit' : '#f87171' }}>{s.available_units}</td>
@@ -155,12 +155,12 @@ export default function CommerceShopsPage() {
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>{s.review_count > 0 ? `★ ${s.review_score.toFixed(1)} (${s.review_count})` : '—'}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}><span className={`admin-status status-${s.status.toLowerCase()}`}>{adminLabel(s.status)}</span></td>
                   <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <Link className="admin-button admin-button-small" to={`/admin/commerce/inventory?shop_id=${s.id}`}>Stock</Link>{' '}
-                    <Link className="admin-button admin-button-small" to={`/admin/commerce/orders?shop_id=${s.id}`}>Commandes</Link>{' '}
+                    <Link className="admin-button admin-button-small" to={`/admin/commerce/inventory?shop_id=${s.id}`}>{t('adminCommerceShopsCommerceShopsPage.stock')}</Link>{' '}
+                    <Link className="admin-button admin-button-small" to={`/admin/commerce/orders?shop_id=${s.id}`}>{t('adminCommerceShopsCommerceShopsPage.orders')}</Link>{' '}
                     {s.status === 'ACTIVE' ? (
-                      <button className="admin-button admin-button-small admin-button-danger" onClick={() => setTarget({ kind: 'SHOP', id: s.id, name: s.name, status: 'SUSPENDED' })}>Suspendre</button>
+                      <button className="admin-button admin-button-small admin-button-danger" onClick={() => setTarget({ kind: 'SHOP', id: s.id, name: s.name, status: 'SUSPENDED' })}>{t('adminCommerceShopsCommerceShopsPage.suspend')}</button>
                     ) : (
-                      <button className="admin-button admin-button-small" onClick={() => setTarget({ kind: 'SHOP', id: s.id, name: s.name, status: 'ACTIVE' })}>Réactiver</button>
+                      <button className="admin-button admin-button-small" onClick={() => setTarget({ kind: 'SHOP', id: s.id, name: s.name, status: 'ACTIVE' })}>{t('adminCommerceShopsCommerceShopsPage.reactivate')}</button>
                     )}
                   </td>
                 </tr>
@@ -172,9 +172,9 @@ export default function CommerceShopsPage() {
 
       {totalPages > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16 }}>
-          <button className="admin-button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Précédent</button>
-          <span style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>Page {page + 1} / {totalPages}</span>
-          <button className="admin-button" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Suivant</button>
+          <button className="admin-button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>{t('common.previous')}</button>
+          <span style={{ color: 'var(--admin-text-muted)', fontSize: 13 }}>{t('admin.common.pageOf', { page: page + 1, total: totalPages })}</span>
+          <button className="admin-button" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>{t('common.next')}</button>
         </div>
       )}
 

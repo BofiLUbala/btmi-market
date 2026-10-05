@@ -8,6 +8,7 @@ import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { CheckoutProgress } from '../../src/components/CheckoutProgress'
 import { CardHead, CheckoutCard, Eyebrow, SmallText, checkoutPage } from '../../src/components/CheckoutUI'
 import { useColors } from '../../src/store/theme'
+import { useI18n } from '../../src/store/i18n'
 import { formatMoney } from '../../src/lib/money'
 import { fonts, type Colors } from '../../src/theme'
 
@@ -20,17 +21,18 @@ const PROVIDER_NAMES: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 
 export default function OrderSuccessScreen() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
+  const { t } = useI18n()
   const { orderId, orderIds: idsParam } = useLocalSearchParams<{ orderId?: string; orderIds?: string }>()
   const orderIds = (idsParam || orderId || '').split(',').filter(Boolean)
 
   const payment = useQuery({ queryKey: ['buyer', 'payment', orderId], queryFn: () => buyerApi.getPayment(orderId!), enabled: Boolean(orderId) })
   const orders = useQueries({ queries: orderIds.map((id) => ({ queryKey: ['buyer', 'order', id], queryFn: () => buyerApi.order(id) })) })
 
-  if (!orderId) return <ErrorState message="Commande introuvable" retry={() => router.replace('/(buyer)/cart')} />
-  if (orders.some((q) => q.isLoading)) return <Loading label="Confirmation de la commande…" />
+  if (!orderId) return <ErrorState message={t('checkoutSuccess.notFound')} retry={() => router.replace('/(buyer)/cart')} />
+  if (orders.some((q) => q.isLoading)) return <Loading label={t('checkoutSuccess.confirming')} />
   const details = orders.map((q) => q.data).filter((d): d is NonNullable<typeof d> => Boolean(d))
   const order = details.find((d) => d.order.id === orderId) ?? details[0]
-  if (!order) return <ErrorState message="Commande introuvable" retry={() => orders.forEach((q) => void q.refetch())} />
+  if (!order) return <ErrorState message={t('checkoutSuccess.notFound')} retry={() => orders.forEach((q) => void q.refetch())} />
 
   const p = payment.data
   const isMultiShop = details.length > 1
@@ -43,17 +45,17 @@ export default function OrderSuccessScreen() {
   const isCash = p?.payment_method === 'CASH_ON_DELIVERY'
   const isMobileDelivery = p?.payment_method === 'MOBILE_AT_DELIVERY'
 
-  let headline = 'Commande confirmée'
-  let subtext = 'Votre commande a été transmise aux vendeurs.'
+  let headline = t('checkoutSuccess.headline')
+  let subtext = t('checkoutSuccess.subtext')
   if (p?.payment_method === 'MOBILE_PAY_NOW' && isPaid) {
-    headline = 'Commande confirmée — Paiement effectué'
-    subtext = `Le paiement par ${providerName || 'Mobile Money'} a été confirmé.`
+    headline = t('checkoutSuccess.headlinePaid')
+    subtext = t('checkoutSuccess.subtextPaid', { provider: providerName || 'Mobile Money' })
   } else if (isCash) {
-    headline = 'Commande confirmée — À payer à la livraison'
-    subtext = 'Montant à remettre en espèces au livreur lors de la livraison.'
+    headline = t('checkoutSuccess.headlineCash')
+    subtext = t('checkoutSuccess.subtextCash')
   } else if (isMobileDelivery) {
-    headline = 'Commande confirmée — Paiement mobile à la livraison'
-    subtext = `Le paiement par ${providerName || 'Mobile Money'} sera à effectuer lors de la remise de votre colis.`
+    headline = t('checkoutSuccess.headlineMobileDelivery')
+    subtext = t('checkoutSuccess.subtextMobileDelivery', { provider: providerName || 'Mobile Money' })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,21 +80,21 @@ export default function OrderSuccessScreen() {
 
       <CheckoutCard>
         <CardHead
-          title={isMultiShop ? 'Boutiques & Commandes du groupe' : `Commande #${order.order.order_number || order.order.id.slice(0, 8)}`}
-          meta={isMultiShop ? `${details.length} commandes boutiques` : order.shop_name || 'Boutique'}
+          title={isMultiShop ? t('checkoutSuccess.groupTitle') : t('checkoutSuccess.orderNumber', { number: order.order.order_number || order.order.id.slice(0, 8) })}
+          meta={isMultiShop ? t('checkoutSuccess.shopOrdersCount', { count: details.length }) : order.shop_name || t('orders.shop')}
         />
         {details.map((d) => (
           <View key={d.order.id} style={styles.orderBlock}>
             <View style={styles.rowBetween}>
-              <Text style={styles.bold}>Commande #{d.order.order_number || d.order.id.slice(0, 8)} — {d.shop_name || 'Boutique'}</Text>
+              <Text style={styles.bold}>{t('checkoutSuccess.orderFromShop', { number: d.order.order_number || d.order.id.slice(0, 8), shop: d.shop_name || t('orders.shop') })}</Text>
               <Text style={styles.muted}>{money(isMultiShop ? d.order.final_total + (d.order.delivery_fee_final ?? 0) : finalTotal)}</Text>
             </View>
             {d.lines.map((line) => (
               <View key={line.id} style={styles.reviewLine}>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={styles.bold}>{line.product_name}</Text>
-                  <Text style={styles.muted}>{line.variant_name || 'Standard'} · Qté : {line.quantity}</Text>
-                  <Text style={styles.muted}>Prix unitaire : {money(line.final_unit_price || line.unit_price || 0)}</Text>
+                  <Text style={styles.muted}>{t('checkoutSuccess.variantQty', { variant: line.variant_name || t('checkoutSuccess.standard'), count: line.quantity })}</Text>
+                  <Text style={styles.muted}>{t('checkoutSuccess.unitPrice', { price: money(line.final_unit_price || line.unit_price || 0) })}</Text>
                 </View>
                 <Text style={styles.bold}>{money((line.final_unit_price || line.unit_price || 0) * line.quantity)}</Text>
               </View>
@@ -102,32 +104,32 @@ export default function OrderSuccessScreen() {
       </CheckoutCard>
 
       <CheckoutCard>
-        <CardHead title="Adresse de livraison" meta={o.delivery_method === 'PICKUP' ? 'Retrait en magasin' : 'Livraison à domicile'} />
+        <CardHead title={t('checkoutSuccess.deliveryAddress')} meta={o.delivery_method === 'PICKUP' ? t('checkoutSuccess.pickup') : t('checkoutSuccess.homeDelivery')} />
         {deliveryAddress ? (
           <Text style={styles.address}><Ionicons name="location-outline" size={15} color={colors.muted} /> {deliveryAddress}</Text>
-        ) : <SmallText>Mode de livraison sélectionné lors de l’étape précédente.</SmallText>}
+        ) : <SmallText>{t('checkoutSuccess.deliveryModeNote')}</SmallText>}
       </CheckoutCard>
 
       <CheckoutCard>
-        <Eyebrow>Récapitulatif final</Eyebrow>
+        <Eyebrow>{t('checkoutSuccess.finalSummary')}</Eyebrow>
         <View>
-          <View style={styles.summaryLine}><Text style={styles.muted}>Sous-total produits</Text><Text style={styles.value}>{money(sum((d) => d.order.base_total ?? d.order.final_total))}</Text></View>
-          {sum((d) => d.order.points_discount_amount ?? 0) > 0 ? <View style={styles.summaryLine}><Text style={styles.muted}>Remise points</Text><Text style={[styles.value, { color: colors.success }]}>−{money(sum((d) => d.order.points_discount_amount ?? 0))}</Text></View> : null}
-          <View style={styles.summaryLine}><Text style={styles.muted}>Frais de livraison</Text><Text style={styles.value}>{money(sum((d) => d.order.delivery_fee_final ?? 0))}</Text></View>
-          {p?.payment_markup ? <View style={styles.summaryLine}><Text style={styles.muted}>Frais paiement</Text><Text style={styles.value}>{money(p.payment_markup)}</Text></View> : null}
+          <View style={styles.summaryLine}><Text style={styles.muted}>{t('orders.productsSubtotal')}</Text><Text style={styles.value}>{money(sum((d) => d.order.base_total ?? d.order.final_total))}</Text></View>
+          {sum((d) => d.order.points_discount_amount ?? 0) > 0 ? <View style={styles.summaryLine}><Text style={styles.muted}>{t('web.cart.pointsDiscount')}</Text><Text style={[styles.value, { color: colors.success }]}>−{money(sum((d) => d.order.points_discount_amount ?? 0))}</Text></View> : null}
+          <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutPayment.deliveryFee')}</Text><Text style={styles.value}>{money(sum((d) => d.order.delivery_fee_final ?? 0))}</Text></View>
+          {p?.payment_markup ? <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutSuccess.paymentFee')}</Text><Text style={styles.value}>{money(p.payment_markup)}</Text></View> : null}
         </View>
         <View style={styles.total}>
-          <Text style={styles.totalLabel}>TOTAL GÉNÉRAL</Text>
+          <Text style={styles.totalLabel}>{t('checkoutSuccess.grandTotal')}</Text>
           <Text style={styles.totalValue}>{money(finalTotal)}</Text>
-          <SmallText>Paiement enregistré sur le serveur</SmallText>
+          <SmallText>{t('checkoutSuccess.paymentRecorded')}</SmallText>
         </View>
         <View>
-          <View style={styles.summaryLine}><Text style={styles.muted}>Mode</Text><Text style={styles.value}>{isCash ? 'Espèces à la livraison' : isMobileDelivery ? 'Mobile à la livraison' : 'Paiement mobile'}</Text></View>
-          {providerName ? <View style={styles.summaryLine}><Text style={styles.muted}>Opérateur</Text><Text style={styles.value}>{providerName}</Text></View> : null}
-          <View style={styles.summaryLine}><Text style={styles.muted}>Statut</Text><Text style={[styles.value, isPaid && { color: colors.success }]}>{isPaid ? 'Payé' : 'À payer'}</Text></View>
+          <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutPayment.method')}</Text><Text style={styles.value}>{isCash ? t('checkoutSuccess.modeCash') : isMobileDelivery ? t('checkoutSuccess.modeMobileDelivery') : t('checkoutPayment.methodMobileNow')}</Text></View>
+          {providerName ? <View style={styles.summaryLine}><Text style={styles.muted}>{t('seller.paymentOperator')}</Text><Text style={styles.value}>{providerName}</Text></View> : null}
+          <View style={styles.summaryLine}><Text style={styles.muted}>{t('common.status')}</Text><Text style={[styles.value, isPaid && { color: colors.success }]}>{isPaid ? t('orders.paymentPaid') : t('checkoutSuccess.toPay')}</Text></View>
         </View>
-        <Button variant="gold" title="Suivre ma livraison" onPress={() => router.replace({ pathname: '/orders/[id]', params: { id: orderId } })} />
-        <Button variant="outline" title="Mes commandes" onPress={() => router.replace('/orders')} />
+        <Button variant="gold" title={t('checkoutSuccess.trackDelivery')} onPress={() => router.replace({ pathname: '/orders/[id]', params: { id: orderId } })} />
+        <Button variant="outline" title={t('profile.myOrders')} onPress={() => router.replace('/orders')} />
       </CheckoutCard>
     </ScrollView>
   )

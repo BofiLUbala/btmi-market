@@ -321,7 +321,7 @@ export default function RegisterPage({ accountType = 'BUYER' }: { accountType?: 
         <p className="muted small">{isSeller ? t('seller.auth.register.subtitle') : t('auth.register.subtitle')}</p>
 
         {/* Wizard progress stepper with visual progress bar */}
-        <nav className="wizard-stepper-wrap" aria-label={t('auth.register.progressLabel') || 'Registration progress'}>
+        <nav className="wizard-stepper-wrap" aria-label={t('auth.register.progressLabel')}>
           <div className="wizard-stepper-track">
             <div className="wizard-stepper-fill" style={{ width: `${((step - 1) / 3) * 100}%` }} />
           </div>

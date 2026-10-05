@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { DeliveryPlan } from '../../api/types'
 import { useI18n } from '../../store/i18n'
+import { dateLocale } from '../../lib/format'
 import { cancelStageText, expectedDeliveryText } from '../../lib/deliveryPlan'
 import { Button } from '../ui/Button'
 import { ErrorBox } from '../ui/Feedback'
@@ -58,7 +59,7 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
       {stage && <div className="small bold">{stage}</div>}
       {returning && <div className="small">{t('deliveryPlan.returning')}</div>}
       {returned && plan.returned_to_seller_at && (
-        <div className="small">✓ {t('deliveryPlan.returned', { date: new Date(plan.returned_to_seller_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') })}</div>
+        <div className="small">✓ {t('deliveryPlan.returned', { date: new Date(plan.returned_to_seller_at).toLocaleString(dateLocale(lang)) })}</div>
       )}
       {error && <ErrorBox error={error} />}
       {returning && onConfirmReturn && (

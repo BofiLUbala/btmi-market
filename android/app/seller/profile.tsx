@@ -3,13 +3,21 @@ import { router } from 'expo-router'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useAuth } from '../../src/store/auth'
 import { AvatarPicker } from '../../src/components/AvatarPicker'
-import { useI18n } from '../../src/store/i18n'
+import { useI18n, type TranslationKey } from '../../src/store/i18n'
+import { dateLocale } from '../../src/lib/format'
 import { useColors } from '../../src/store/theme'
 import { radius, type Colors, fonts } from '../../src/theme'
 
 // Port of web-app/src/pages/seller/profile/SellerProfilePage.tsx: account type,
 // active business and member-since cards, the read-only account information
 // (photo upload, name, email, phone, city, commune, status) and the session card.
+const ACCOUNT_TYPE_KEYS: Record<string, TranslationKey> = {
+  BUYER: 'sellerProfile.accountTypeBuyer',
+  SELLER: 'sellerProfile.accountTypeSeller',
+  EMPLOYEE: 'sellerProfile.accountTypeEmployee',
+  COURIER: 'sellerProfile.accountTypeCourier',
+}
+
 export default function SellerProfileScreen() {
   const { t } = useI18n()
   const colors = useColors()
@@ -30,9 +38,9 @@ export default function SellerProfileScreen() {
   return <ScrollView contentContainerStyle={styles.page}>
     <Text style={styles.h1}>{t('seller.profile.title')}</Text>
 
-    <View style={styles.card}><Text style={styles.h3}>{t('seller.accountType')}</Text><Text style={styles.stat}>{user?.account_type || '—'}</Text></View>
+    <View style={styles.card}><Text style={styles.h3}>{t('seller.accountType')}</Text><Text style={styles.stat}>{user?.account_type ? (ACCOUNT_TYPE_KEYS[user.account_type] ? t(ACCOUNT_TYPE_KEYS[user.account_type]) : user.account_type) : '—'}</Text></View>
     <View style={styles.card}><Text style={styles.h3}>{t('seller.activeBusiness')}</Text><Text style={styles.stat}>{activeBusiness?.name || t('common.none')}</Text></View>
-    <View style={styles.card}><Text style={styles.h3}>{t('common.memberSince')}</Text><Text style={styles.stat}>{user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</Text></View>
+    <View style={styles.card}><Text style={styles.h3}>{t('common.memberSince')}</Text><Text style={styles.stat}>{user?.created_at ? new Date(user.created_at).toLocaleDateString(dateLocale()) : '—'}</Text></View>
 
     <View style={styles.card}>
       <Text style={styles.h2}>{t('seller.accountInfo')}</Text>

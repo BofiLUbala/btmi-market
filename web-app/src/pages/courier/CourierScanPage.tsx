@@ -172,7 +172,7 @@ export default function CourierScanPage() {
             onClick={() => { lastRejected.current = null; setError('') }}
             style={{ marginTop: 10, minHeight: 44, width: '100%', border: 0, borderRadius: 12, fontWeight: 800 }}
           >
-            Réessayer
+            {t('common.retry')}
           </button>
         )}
         {/* No camera, a denied camera, or a handheld scanner that types the code: the same
@@ -187,7 +187,7 @@ export default function CourierScanPage() {
             }}
             style={{ marginTop: 14, display: 'grid', gap: 8 }}
           >
-            <label htmlFor="courier-manual-code" style={{ fontSize: 13 }}>Saisir le code du QR</label>
+            <label htmlFor="courier-manual-code" style={{ fontSize: 13 }}>{t('courierCourierScanPage.manualLabel')}</label>
             <input
               id="courier-manual-code"
               name="qr_code"
@@ -198,7 +198,7 @@ export default function CourierScanPage() {
               style={{ minHeight: 44, borderRadius: 10, border: 0, padding: '0 12px' }}
             />
             <button type="submit" disabled={sending || !manual.trim()} style={{ minHeight: 44, border: 0, borderRadius: 12, fontWeight: 800 }}>
-              Valider le code
+              {t('courierCourierScanPage.submitCode')}
             </button>
           </form>
         )}

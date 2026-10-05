@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { requireOptionalNativeModule } from 'expo-modules-core'
 import { API_URL, request } from '../api/client'
 import { adminApi } from '../api/admin'
+import { translate, type TranslationKey } from '../store/i18n'
 
 /**
  * Mobile push for TBK, through Expo's push service (FCM on Android).
@@ -52,15 +53,15 @@ export function isExpoGo(): boolean {
 
 /** Android channels, one per category, so the user can tune them in the
  * system settings too. Urgent categories ring; marketing stays quiet. */
-const CHANNELS: { id: string; name: string; high: boolean }[] = [
-  { id: 'orders', name: 'Commandes et livraisons', high: true },
-  { id: 'payments', name: 'Paiements', high: true },
-  { id: 'messages', name: 'Messages', high: true },
-  { id: 'shop', name: 'Boutique et catalogue', high: false },
-  { id: 'admin', name: 'Alertes opérationnelles', high: true },
-  { id: 'security', name: 'Sécurité du compte', high: true },
-  { id: 'watchlist', name: 'Produits suivis', high: false },
-  { id: 'marketing', name: 'Offres TBK', high: false },
+const CHANNELS: { id: string; nameKey: TranslationKey; high: boolean }[] = [
+  { id: 'orders', nameKey: 'libPush.channelOrders', high: true },
+  { id: 'payments', nameKey: 'libPush.channelPayments', high: true },
+  { id: 'messages', nameKey: 'libPush.channelMessages', high: true },
+  { id: 'shop', nameKey: 'libPush.channelShop', high: false },
+  { id: 'admin', nameKey: 'libPush.channelAdmin', high: true },
+  { id: 'security', nameKey: 'libPush.channelSecurity', high: true },
+  { id: 'watchlist', nameKey: 'libPush.channelWatchlist', high: false },
+  { id: 'marketing', nameKey: 'libPush.channelMarketing', high: false },
 ]
 
 let configured = false
@@ -75,7 +76,7 @@ export async function configurePush(): Promise<void> {
   if (Platform.OS === 'android') {
     await Promise.all(CHANNELS.map((c) =>
       N.setNotificationChannelAsync(c.id, {
-        name: c.name,
+        name: translate(c.nameKey),
         importance: c.high ? N.AndroidImportance.HIGH : N.AndroidImportance.DEFAULT,
         lockscreenVisibility: N.AndroidNotificationVisibility.PRIVATE,
       }).catch(() => undefined)
@@ -90,7 +91,7 @@ async function owner(): Promise<PushScope | null> {
 
 function deviceLabel(): string {
   const name = Constants.deviceName
-  return name ? `Application TBK · ${name}` : `Application TBK (${Platform.OS === 'ios' ? 'iOS' : 'Android'})`
+  return name ? translate('libPush.deviceNamed', { name }) : translate('libPush.devicePlatform', { platform: Platform.OS === 'ios' ? 'iOS' : 'Android' })
 }
 
 function call<T>(scope: PushScope, path: string, init?: RequestInit): Promise<T> {

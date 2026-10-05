@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
-import { formatMoney, formatDateTime } from '@/lib/format'
+import { formatMoney, formatDateTime, dateLocale } from '@/lib/format'
 import { useParams, Link } from 'react-router-dom'
 import {
   adminFinanceApi,
@@ -161,7 +161,7 @@ export default function FinanceDashboardPage() {
     setScanningRisk(true)
     try {
       const res = await adminFinanceApi.scanRisk()
-      setActionSuccess(`Analyse des risques terminée : ${res.raised} nouvel(s) événement(s).`)
+      setActionSuccess(t('adminFinanceFinanceDashboardPage.riskScanDone', { count: res.raised }))
       await loadTabContent()
     } catch (err: any) {
       setError(err?.message || t('admin.finance.actionFailed'))
@@ -354,9 +354,9 @@ if (tab === 'overview') {
     try {
       const saved = await adminFinanceApi.updatePaymentConfig(config.code, config)
       setPaymentConfigs(items => items.map(item => item.code === saved.code ? saved : item))
-      setActionSuccess(`Mode de paiement ${saved.label} enregistré`)
+      setActionSuccess(t('adminFinanceFinanceDashboardPage.paymentConfigSaved', { label: saved.label }))
     } catch (err: any) {
-      setError(err?.message || 'Impossible d’enregistrer la configuration')
+      setError(err?.message || t('adminFinanceFinanceDashboardPage.paymentConfigSaveFailed'))
     }
   }
 
@@ -518,7 +518,7 @@ if (tab === 'overview') {
 
       {error && (
         <div style={{ backgroundColor: '#7f1d1d', color: '#fca5a5', padding: '12px 16px', borderRadius: 8, marginBottom: 16, border: '1px solid #dc2626' }}>
-          ⚠️ Impossible de charger les données financières. <button onClick={() => void loadTabContent()}>Réessayer</button>
+          ⚠️ {t('adminFinanceFinanceDashboardPage.loadFinanceError')} <button onClick={() => void loadTabContent()}>{t('common.retry')}</button>
         </div>
       )}
 
@@ -535,13 +535,13 @@ if (tab === 'overview') {
           {/* TBK PLATFORM FINANCE — real numbers from sale_commissions + verified payments */}
           <div style={{ border: '1px solid #4338ca', backgroundColor: '#1e1b4b', borderRadius: 10, padding: 18, marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#a5b4fc' }}>TBK Platform Finance — live</h3>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#a5b4fc' }}>{t('adminFinanceFinanceDashboardPage.platformFinanceTitle')}</h3>
               <div style={{ display: 'flex', gap: 8 }}>
                 {(['today', 'week', 'month', 'all', 'custom'] as const).map((r) => (
                   <button key={r} onClick={() => setDateRange(r)}
                     style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #4338ca', cursor: 'pointer', fontWeight: 700, fontSize: 12,
                       backgroundColor: dateRange === r ? '#4f46e5' : 'transparent', color: dateRange === r ? '#fff' : '#a5b4fc' }}>
-                    {r === 'today' ? 'Today' : r === 'week' ? '7 days' : r === 'month' ? 'Month' : r === 'all' ? 'All time' : 'Custom'}
+                    {r === 'today' ? t('adminFinanceFinanceDashboardPage.rangeToday') : r === 'week' ? t('adminFinanceFinanceDashboardPage.range7Days') : r === 'month' ? t('adminFinanceFinanceDashboardPage.rangeMonth') : r === 'all' ? t('adminFinanceFinanceDashboardPage.rangeAll') : t('adminFinanceFinanceDashboardPage.rangeCustom')}
                   </button>
                 ))}
               </div>
@@ -552,63 +552,63 @@ if (tab === 'overview') {
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
               {dateRange === 'custom' && (
                 <>
-                  <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="Date de début"
+                  <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label={t('adminFinanceFinanceDashboardPage.ariaDateFrom')}
                     style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }} />
                   <span style={{ color: '#818cf8', fontSize: 12 }}>→</span>
-                  <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label="Date de fin"
+                  <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label={t('adminFinanceFinanceDashboardPage.ariaDateTo')}
                     style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }} />
                 </>
               )}
-              <select value={financePaymentStatus} onChange={(e) => setFinancePaymentStatus(e.target.value)} aria-label="Statut de paiement"
+              <select value={financePaymentStatus} onChange={(e) => setFinancePaymentStatus(e.target.value)} aria-label={t('adminFinanceFinanceDashboardPage.ariaPaymentStatus')}
                 style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }}>
-                <option value="">Paiement · tous</option>
-                <option value="DUE">Dû</option>
-                <option value="VERIFIED">Paiement vérifié</option>
-                <option value="PAID">Payé</option>
-                <option value="PENDING">En attente</option>
-                <option value="CONFIRMED">Confirmé</option>
-                <option value="REFUNDED">Remboursé</option>
+                <option value="">{t('adminFinanceFinanceDashboardPage.optPaymentAll')}</option>
+                <option value="DUE">{t('adminFinanceFinanceDashboardPage.optPaymentDue')}</option>
+                <option value="VERIFIED">{t('adminFinanceFinanceDashboardPage.optPaymentVerified')}</option>
+                <option value="PAID">{t('adminFinanceFinanceDashboardPage.optPaid')}</option>
+                <option value="PENDING">{t('adminFinanceFinanceDashboardPage.optPending')}</option>
+                <option value="CONFIRMED">{t('adminFinanceFinanceDashboardPage.optConfirmed')}</option>
+                <option value="REFUNDED">{t('adminFinanceFinanceDashboardPage.optRefunded')}</option>
               </select>
-              <select value={financeCommissionStatus} onChange={(e) => setFinanceCommissionStatus(e.target.value)} aria-label="Statut de commission"
+              <select value={financeCommissionStatus} onChange={(e) => setFinanceCommissionStatus(e.target.value)} aria-label={t('adminFinanceFinanceDashboardPage.ariaCommissionStatus')}
                 style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #4338ca', background: '#0f172a', color: '#e0e7ff', fontSize: 12 }}>
-                <option value="">Commission · toutes</option>
-                <option value="DUE">Commission due</option>
-                <option value="COLLECTED">Commission encaissée</option>
-                <option value="WAIVED">Commission annulée</option>
+                <option value="">{t('adminFinanceFinanceDashboardPage.optCommissionAll')}</option>
+                <option value="DUE">{t('adminFinanceFinanceDashboardPage.optCommissionDue')}</option>
+                <option value="COLLECTED">{t('adminFinanceFinanceDashboardPage.optCommissionCollected')}</option>
+                <option value="WAIVED">{t('adminFinanceFinanceDashboardPage.optCommissionWaived')}</option>
               </select>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
-              <MetricCard title="Ventes brutes (marchandise)" value={financeReport!.totals_by_currency.map(x => financeMoney(x.gross_sales, x.currency)).join(' · ')} sub={`${financeReport!.verified_sales} sales verified`} color="#60a5fa" />
-              <MetricCard title={`Commission TBK (${financeReport!.commission_rate.toFixed(2)}%)`} value={financeReport!.totals_by_currency.map(x => financeMoney(x.commission_amount, x.currency)).join(' · ')} sub="DUE / COLLECTED tracked separately" color="#f87171" />
-              <MetricCard title="Revenu net vendeur" value={financeReport!.totals_by_currency.map(x => financeMoney(x.seller_net_amount, x.currency)).join(' · ')} sub={`Gross − commission`} color="#34d399" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiGrossSales')} value={financeReport!.totals_by_currency.map(x => financeMoney(x.gross_sales, x.currency)).join(' · ')} sub={t('adminFinanceFinanceDashboardPage.kpiGrossSalesSub', { count: financeReport!.verified_sales })} color="#60a5fa" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiCommission', { rate: financeReport!.commission_rate.toFixed(2) })} value={financeReport!.totals_by_currency.map(x => financeMoney(x.commission_amount, x.currency)).join(' · ')} sub={t('adminFinanceFinanceDashboardPage.kpiCommissionSub')} color="#f87171" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiSellerNet')} value={financeReport!.totals_by_currency.map(x => financeMoney(x.seller_net_amount, x.currency)).join(' · ')} sub={t('adminFinanceFinanceDashboardPage.kpiSellerNetSub')} color="#34d399" />
               {/* Cash and mobile money are reported separately: one figure for
                   both made an operator settlement indistinguishable from notes
                   handed to a courier. */}
-              <MetricCard title="Espèces collectées" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.collected_cash, financeReport!.currency || 'USD')} sub="remises au Livreur · avec livraison" color="#fbbf24" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiCashCollected')} value={financeReport!.mixed_currency ? t('adminFinanceFinanceDashboardPage.multipleCurrencies') : financeMoney(financeReport!.collected_cash, financeReport!.currency || 'USD')} sub={t('adminFinanceFinanceDashboardPage.kpiCashCollectedSub')} color="#fbbf24" />
               <MetricCard
-                title="Mobile money collecté"
-                value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.collected_mobile ?? 0, financeReport!.currency || 'USD')}
-                sub={(financeReport!.collected_by_provider ?? []).map(p => `${p.provider.replace(/_/g, ' ')} ${financeMoney(p.amount, p.currency || financeReport!.currency || 'USD')}`).join(' · ') || 'confirmé par l’opérateur'}
+                title={t('adminFinanceFinanceDashboardPage.kpiMobileCollected')}
+                value={financeReport!.mixed_currency ? t('adminFinanceFinanceDashboardPage.multipleCurrencies') : financeMoney(financeReport!.collected_mobile ?? 0, financeReport!.currency || 'USD')}
+                sub={(financeReport!.collected_by_provider ?? []).map(p => `${p.provider.replace(/_/g, ' ')} ${financeMoney(p.amount, p.currency || financeReport!.currency || 'USD')}`).join(' · ') || t('adminFinanceFinanceDashboardPage.kpiMobileCollectedSub')}
                 color="#34d399"
               />
-              <MetricCard title="Commission annulée (remboursements)" value={financeReport!.mixed_currency ? 'Plusieurs devises' : financeMoney(financeReport!.waived_commission, financeReport!.currency || 'USD')} sub={`${financeReport!.refunded_sales} refunded sales`} color="#a78bfa" />
-              <MetricCard title="Ventes en attente" value={String(financeReport!.pending_orders)} sub="no verified payment yet" color="#94a3b8" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiCommissionWaived')} value={financeReport!.mixed_currency ? t('adminFinanceFinanceDashboardPage.multipleCurrencies') : financeMoney(financeReport!.waived_commission, financeReport!.currency || 'USD')} sub={t('adminFinanceFinanceDashboardPage.refundedSalesCount', { count: financeReport!.refunded_sales })} color="#a78bfa" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiPendingSales')} value={String(financeReport!.pending_orders)} sub={t('adminFinanceFinanceDashboardPage.kpiPendingSalesSub')} color="#94a3b8" />
               {/* Axe acheteur — encaissé / restant dû — distinct de l'axe
                   commission TBK (due / encaissée) au-dessus. */}
-              <MetricCard title="Paiements encaissés" value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_collected, x.currency)).join(' · ') || financeMoney(financeReport!.payments_collected, financeReport!.currency || 'USD')} sub="réglés par les acheteurs" color="#facc15" />
-              <MetricCard title="Paiements dus" value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_due, x.currency)).join(' · ') || financeMoney(financeReport!.payments_due, financeReport!.currency || 'USD')} sub="restant dû par les acheteurs" color="#fb923c" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiPaymentsCollected')} value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_collected, x.currency)).join(' · ') || financeMoney(financeReport!.payments_collected, financeReport!.currency || 'USD')} sub={t('adminFinanceFinanceDashboardPage.kpiPaymentsCollectedSub')} color="#facc15" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiPaymentsDue')} value={financeReport!.totals_by_currency.map(x => financeMoney(x.payments_due, x.currency)).join(' · ') || financeMoney(financeReport!.payments_due, financeReport!.currency || 'USD')} sub={t('adminFinanceFinanceDashboardPage.kpiPaymentsDueSub')} color="#fb923c" />
               {/* A subset of "dus", not a figure to add to it: the operator has
                   been asked and has not answered yet. */}
-              <MetricCard title="Paiements en attente" value={financeMoney(financeReport!.payments_pending ?? 0, financeReport!.currency || 'USD')} sub="dont opérateur en attente de confirmation" color="#a78bfa" />
-              <MetricCard title="Remboursements" value={financeMoney(financeReport!.refunded_amount ?? 0, financeReport!.currency || 'USD')} sub={`${financeReport!.refunded_sales} vente(s) remboursée(s)`} color="#f87171" />
-              <MetricCard title="Unités vendues" value={String(financeReport!.units_sold)} sub="order line quantities" color="#e2e8f0" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiPaymentsPending')} value={financeMoney(financeReport!.payments_pending ?? 0, financeReport!.currency || 'USD')} sub={t('adminFinanceFinanceDashboardPage.kpiPaymentsPendingSub')} color="#a78bfa" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiRefunds')} value={financeMoney(financeReport!.refunded_amount ?? 0, financeReport!.currency || 'USD')} sub={t('adminFinanceFinanceDashboardPage.refundedSalesCount', { count: financeReport!.refunded_sales })} color="#f87171" />
+              <MetricCard title={t('adminFinanceFinanceDashboardPage.kpiUnitsSold')} value={String(financeReport!.units_sold)} sub={t('adminFinanceFinanceDashboardPage.kpiUnitsSoldSub')} color="#e2e8f0" />
             </div>
 
             {/* Real series from /admin/finance/timeseries — no demo data. */}
             <div style={{ border: '1px solid #4338ca', borderRadius: 8, padding: 12, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#a5b4fc', marginBottom: 6 }}>Évolution — ventes · commission · net</div>
-              <FinanceTrendChart points={trend} emptyLabel="Aucune vente sur cette période." />
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#a5b4fc', marginBottom: 6 }}>{t('adminFinanceFinanceDashboardPage.trendTitle')}</div>
+              <FinanceTrendChart points={trend} emptyLabel={t('adminFinanceFinanceDashboardPage.trendEmpty')} />
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -616,7 +616,7 @@ if (tab === 'overview') {
                 <button key={g} onClick={() => setBreakdownGroup(g)}
                   style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #4338ca', cursor: 'pointer', fontWeight: 700, fontSize: 12,
                     backgroundColor: breakdownGroup === g ? '#312e81' : 'transparent', color: breakdownGroup === g ? '#c7d2fe' : '#818cf8' }}>
-                  By {g}
+                  {({ shop: t('adminFinanceFinanceDashboardPage.byShop'), product: t('adminFinanceFinanceDashboardPage.byProduct'), variant: t('adminFinanceFinanceDashboardPage.byVariant'), seller: t('adminFinanceFinanceDashboardPage.bySeller'), business: t('adminFinanceFinanceDashboardPage.byBusiness') } as const)[g]}
                 </button>
               ))}
             </div>
@@ -624,18 +624,18 @@ if (tab === 'overview') {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ backgroundColor: '#312e81', textAlign: 'left', color: '#c7d2fe' }}>
-                  <th style={{ padding: '8px 10px' }}>Entité</th>
-                  <th style={{ padding: '8px 10px' }}>Commandes</th>
-                  <th style={{ padding: '8px 10px' }}>Unités</th>
-                  <th style={{ padding: '8px 10px' }}>Vente brute</th>
-                  <th style={{ padding: '8px 10px' }}>Commission</th>
-                  <th style={{ padding: '8px 10px' }}>Net vendeur</th>
-                  <th style={{ padding: '8px 10px' }}>Réglée / due</th>
+                  <th style={{ padding: '8px 10px' }}>{t('adminFinanceFinanceDashboardPage.colEntity')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('adminFinanceFinanceDashboardPage.colOrders')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('adminFinanceFinanceDashboardPage.colUnits')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('adminFinanceFinanceDashboardPage.colGrossSale')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('adminFinanceFinanceDashboardPage.colCommission')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('adminFinanceFinanceDashboardPage.colSellerNet')}</th>
+                  <th style={{ padding: '8px 10px' }}>{t('adminFinanceFinanceDashboardPage.colSettledDue')}</th>
                 </tr>
               </thead>
               <tbody>
                 {breakdownItems.length === 0 && (
-                  <tr><td colSpan={7} style={{ padding: 12, color: '#818cf8', textAlign: 'center' }}>Aucune commission enregistrée sur cette période.</td></tr>
+                  <tr><td colSpan={7} style={{ padding: 12, color: '#818cf8', textAlign: 'center' }}>{t('adminFinanceFinanceDashboardPage.breakdownEmpty')}</td></tr>
                 )}
                 {breakdownItems.map((item) => (
                   <tr key={`${item.id || item.label}`} style={{ borderBottom: '1px solid #4338ca' }}>
@@ -661,26 +661,25 @@ if (tab === 'overview') {
               read as one number. */}
           <div style={{ border: '1px solid #b45309', backgroundColor: '#292008', borderRadius: 10, padding: 18, marginBottom: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 10 }}>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fbbf24' }}>Frais de livraison — revenu TBK</h3>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fbbf24' }}>{t('adminFinanceFinanceDashboardPage.deliveryTitle')}</h3>
               <Link to="/admin/finance/delivery-fees" style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24', textDecoration: 'underline' }}>
-                Tarifs &amp; détail par ville →
+                {t('adminFinanceFinanceDashboardPage.deliveryRatesLink')}
               </Link>
             </div>
             <p style={{ color: '#d4b483', fontSize: 12, marginTop: 0, marginBottom: 14 }}>
-              La livraison est assurée par TBK (pas le vendeur) : ce que le client paie pour la livraison est donc un revenu de la
-              plateforme, distinct de la commission sur les ventes ci-dessus. Même période que le panneau Commission.
+              {t('adminFinanceFinanceDashboardPage.deliveryIntro')}
             </p>
             {deliveryLedger ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-                <MetricCard title="Commandes livrées par TBK" value={String(deliveryLedger.orders)} sub="sur la période" color="#fbbf24" />
-                <MetricCard title="Frais facturés (brut)" value={financeMoney(deliveryLedger.fees_charged, deliveryLedger.currency)} sub="avant remise en points" color="#fbbf24" />
-                <MetricCard title="Frais dus par les acheteurs" value={financeMoney(deliveryLedger.fees_billed, deliveryLedger.currency)} sub="après remise en points" color="#f59e0b" />
-                <MetricCard title="Frais encaissés" value={financeMoney(deliveryLedger.fees_collected, deliveryLedger.currency)} sub="revenu TBK déjà perçu" color="#34d399" />
-                <MetricCard title="Reste à encaisser" value={financeMoney(deliveryLedger.fees_outstanding, deliveryLedger.currency)} sub="livré, pas encore réglé" color="#fb923c" />
-                <MetricCard title="Livraisons gratuites" value={String(deliveryLedger.free_deliveries)} sub="seuil de gratuité atteint" color="#94a3b8" />
+                <MetricCard title={t('adminFinanceFinanceDashboardPage.dlvOrders')} value={String(deliveryLedger.orders)} sub={t('adminFinanceFinanceDashboardPage.dlvOrdersSub')} color="#fbbf24" />
+                <MetricCard title={t('adminFinanceFinanceDashboardPage.dlvCharged')} value={financeMoney(deliveryLedger.fees_charged, deliveryLedger.currency)} sub={t('adminFinanceFinanceDashboardPage.dlvChargedSub')} color="#fbbf24" />
+                <MetricCard title={t('adminFinanceFinanceDashboardPage.dlvBilled')} value={financeMoney(deliveryLedger.fees_billed, deliveryLedger.currency)} sub={t('adminFinanceFinanceDashboardPage.dlvBilledSub')} color="#f59e0b" />
+                <MetricCard title={t('adminFinanceFinanceDashboardPage.dlvCollected')} value={financeMoney(deliveryLedger.fees_collected, deliveryLedger.currency)} sub={t('adminFinanceFinanceDashboardPage.dlvCollectedSub')} color="#34d399" />
+                <MetricCard title={t('adminFinanceFinanceDashboardPage.dlvOutstanding')} value={financeMoney(deliveryLedger.fees_outstanding, deliveryLedger.currency)} sub={t('adminFinanceFinanceDashboardPage.dlvOutstandingSub')} color="#fb923c" />
+                <MetricCard title={t('adminFinanceFinanceDashboardPage.dlvFree')} value={String(deliveryLedger.free_deliveries)} sub={t('adminFinanceFinanceDashboardPage.dlvFreeSub')} color="#94a3b8" />
               </div>
             ) : (
-              <p style={{ color: '#d4b483', fontSize: 13 }}>Aucune livraison TBK sur cette période.</p>
+              <p style={{ color: '#d4b483', fontSize: 13 }}>{t('adminFinanceFinanceDashboardPage.deliveryEmpty')}</p>
             )}
           </div>
 
@@ -702,20 +701,20 @@ if (tab === 'overview') {
           {paymentConfigs.map((config, index) => (
             <div key={config.code} style={{ padding: 16, background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: 10, alignItems: 'end' }}>
-                <label>Libellé<input value={config.label} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, label:e.target.value} : item))} /></label>
-                <label>Actif<input type="checkbox" checked={config.enabled} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, enabled:e.target.checked} : item))} /></label>
-                <label>Majoration<select value={config.markup_type} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_type:e.target.value as AdminPaymentMethodConfig['markup_type']} : item))}><option value="NONE">Aucune</option><option value="PERCENTAGE">%</option><option value="FIXED">Fixe</option></select></label>
-                <label>Valeur<input type="number" min="0" step="0.01" value={config.markup_value} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_value:Number(e.target.value)} : item))} /></label>
+                <label>{t('adminFinanceFinanceDashboardPage.cfgLabel')}<input value={config.label} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, label:e.target.value} : item))} /></label>
+                <label>{t('adminFinanceFinanceDashboardPage.cfgEnabled')}<input type="checkbox" checked={config.enabled} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, enabled:e.target.checked} : item))} /></label>
+                <label>{t('adminFinanceFinanceDashboardPage.cfgMarkup')}<select value={config.markup_type} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_type:e.target.value as AdminPaymentMethodConfig['markup_type']} : item))}><option value="NONE">{t('adminFinanceFinanceDashboardPage.cfgMarkupNone')}</option><option value="PERCENTAGE">%</option><option value="FIXED">{t('adminFinanceFinanceDashboardPage.cfgMarkupFixed')}</option></select></label>
+                <label>{t('adminFinanceFinanceDashboardPage.cfgValue')}<input type="number" min="0" step="0.01" value={config.markup_value} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_value:Number(e.target.value)} : item))} /></label>
                 {/* A fixed markup is an amount, so it needs a currency; a
                     percentage is currency-free and says so instead. */}
-                <label>Devise{config.markup_type === 'FIXED' ? (
+                <label>{t('adminFinanceFinanceDashboardPage.cfgCurrency')}{config.markup_type === 'FIXED' ? (
                   <select value={config.markup_currency ?? 'USD'} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, markup_currency:e.target.value} : item))}>
                     <option value="USD">USD</option>
-                    <option value="CDF">CDF (héritage)</option>
+                    <option value="CDF">{t('adminFinanceFinanceDashboardPage.cfgCdfLegacy')}</option>
                   </select>
-                ) : <input value={config.markup_type === 'PERCENTAGE' ? '% — sans devise' : '—'} readOnly />}</label>
-                <label>Fournisseur<input value={config.provider} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, provider:e.target.value} : item))} /></label>
-                <button className="admin-button" onClick={() => void savePaymentConfig(config)}>Enregistrer</button>
+                ) : <input value={config.markup_type === 'PERCENTAGE' ? t('adminFinanceFinanceDashboardPage.cfgPercentNoCurrency') : '—'} readOnly />}</label>
+                <label>{t('adminFinanceFinanceDashboardPage.cfgProvider')}<input value={config.provider} onChange={e => setPaymentConfigs(items => items.map((item, i) => i === index ? {...item, provider:e.target.value} : item))} /></label>
+                <button className="admin-button" onClick={() => void savePaymentConfig(config)}>{t('common.save')}</button>
               </div>
               <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>{adminLabel(config.code)} · {adminLabel(config.timing)} · {adminLabel(config.channel)} <span style={{ opacity: 0.6 }}>({config.code})</span></div>
             </div>
@@ -793,7 +792,7 @@ if (tab === 'overview') {
                       backgroundColor: SETTLED_STATUSES.includes(p.payment_status) ? '#064e3b' : p.payment_status === 'DISPUTED' ? '#7f1d1d' : '#78350f',
                       color: SETTLED_STATUSES.includes(p.payment_status) ? '#34d399' : p.payment_status === 'DISPUTED' ? '#fca5a5' : '#fcd34d'
                     }}>
-                      {p.payment_status}
+                      {adminLabel(p.payment_status)}
                     </span>
                     {p.anomaly_flag && <span style={{ marginLeft: 6, fontSize: 12 }} title={p.anomaly_reason}>{t('admin.finance.anomalyBadge')}</span>}
                   </td>
@@ -849,12 +848,12 @@ if (tab === 'overview') {
                   <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{u.email}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ backgroundColor: '#1e293b', color: '#fbbf24', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>
-                      {account.account_type === 'BUYER' ? 'BUYER POINTS' : `SELLER POINTS — ${account.business_name}`}
+                      {(account.account_type === 'BUYER' ? t('adminFinanceFinanceDashboardPage.buyerPoints') : t('adminFinanceFinanceDashboardPage.sellerPoints', { name: account.business_name })).toUpperCase()}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#60a5fa' }}>{t('admin.finance.ptsAmount', { value: account.current_points.toLocaleString('fr-FR') })}</td>
-                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{t('admin.finance.ptsAmount', { value: account.reserved_points.toLocaleString('fr-FR') })}</td>
-                  <td style={{ padding: '12px 14px', color: '#a78bfa' }}>{t('admin.finance.ptsAmount', { value: account.lifetime_points.toLocaleString('fr-FR') })}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#60a5fa' }}>{t('admin.finance.ptsAmount', { value: account.current_points.toLocaleString(dateLocale()) })}</td>
+                  <td style={{ padding: '12px 14px', color: '#94a3b8' }}>{t('admin.finance.ptsAmount', { value: account.reserved_points.toLocaleString(dateLocale()) })}</td>
+                  <td style={{ padding: '12px 14px', color: '#a78bfa' }}>{t('admin.finance.ptsAmount', { value: account.lifetime_points.toLocaleString(dateLocale()) })}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
@@ -909,7 +908,7 @@ if (tab === 'overview') {
                   <td style={{ padding: '12px 14px' }}>{s.cash_confirmation_rate}%</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: s.trust_status === 'TRUSTED' ? '#064e3b' : '#7f1d1d', color: s.trust_status === 'TRUSTED' ? '#34d399' : '#fca5a5' }}>
-                      {s.trust_status}
+                      {adminLabel(s.trust_status)}
                     </span>
                   </td>
                 </tr>
@@ -953,7 +952,7 @@ if (tab === 'overview') {
                   <td style={{ padding: '12px 14px', maxWidth: 300, color: '#cbd5e1' }}>{r.comment}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: r.moderation_status === 'HIDDEN' ? '#7f1d1d' : '#064e3b', color: r.moderation_status === 'HIDDEN' ? '#fca5a5' : '#34d399' }}>
-                      {r.moderation_status}
+                      {adminLabel(r.moderation_status)}
                     </span>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
@@ -1005,7 +1004,7 @@ if (tab === 'overview') {
                   <td style={{ padding: '12px 14px', color: '#cbd5e1' }}>{r.comment}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: r.moderation_status === 'HIDDEN' ? '#7f1d1d' : '#064e3b', color: r.moderation_status === 'HIDDEN' ? '#fca5a5' : '#34d399' }}>
-                      {r.moderation_status}
+                      {adminLabel(r.moderation_status)}
                     </span>
                   </td>
                   <td style={{ padding: '12px 14px' }}>
@@ -1065,7 +1064,7 @@ if (tab === 'overview') {
                   <td style={{ padding: '12px 14px', fontWeight: 700 }}>{c.title}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: c.priority === 'HIGH' || c.priority === 'URGENT' ? '#7f1d1d' : '#1e293b', color: c.priority === 'HIGH' || c.priority === 'URGENT' ? '#fca5a5' : '#94a3b8' }}>
-                      {c.priority}
+                      {adminLabel(c.priority)}
                     </span>
                   </td>
                   <td style={{ padding: '12px 14px', color: '#cbd5e1' }}>{c.assigned_admin || t('admin.finance.unassigned')}</td>
@@ -1088,11 +1087,11 @@ if (tab === 'overview') {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 10, flexWrap: 'wrap' }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{t('admin.finance.riskTitle')}</h3>
             <button className="admin-button" onClick={() => void handleRiskScan()} disabled={scanningRisk}>
-              {scanningRisk ? 'Analyse…' : 'Analyser maintenant'}
+              {scanningRisk ? t('adminFinanceFinanceDashboardPage.scanning') : t('adminFinanceFinanceDashboardPage.scanNow')}
             </button>
           </div>
           <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 12px' }}>
-            Règles automatiques (toutes les 5 min) : commandes bloquées, litiges répétés, taux d’annulation, stock incohérent, paiement réglé sans confirmation. Seuils : Configuration globale.
+            {t('adminFinanceFinanceDashboardPage.riskRulesNote')}
           </p>
           <FilterBar
             statusValue={statusFilter}
@@ -1117,7 +1116,7 @@ if (tab === 'overview') {
                   <td style={{ padding: '12px 14px', fontWeight: 700 }}>{adminLabel(r.event_type)}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: r.severity === 'CRITICAL' ? '#7f1d1d' : '#78350f', color: r.severity === 'CRITICAL' ? '#fca5a5' : '#fcd34d' }}>
-                      {r.severity}
+                      {adminLabel(r.severity)}
                     </span>
                   </td>
                   <td style={{ padding: '12px 14px' }}>{r.target_name} ({adminLabel(r.target_type)})</td>
@@ -1173,7 +1172,7 @@ if (tab === 'overview') {
               {/* The payment-method surcharge is part of what the buyer pays;
                   without it the lines above do not add up to the amount due. */}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
-                <span style={{ color: '#94a3b8' }}>Majoration moyen de paiement</span>
+                <span style={{ color: '#94a3b8' }}>{t('adminFinanceFinanceDashboardPage.labelPaymentMarkup')}</span>
                 <span>+{formatMoney(selectedPayment.payment_markup ?? 0, selectedPayment.currency || 'USD')}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 800, borderTop: '1px solid #334155', paddingTop: 8, marginTop: 6, color: '#34d399' }}>
@@ -1193,7 +1192,7 @@ if (tab === 'overview') {
                 <StatusBadge
                   ok={!!selectedPayment.confirmation_actor && selectedPayment.confirmation_actor !== 'LEGACY_DECLARATION'}
                   label={selectedPayment.confirmation_actor
-                    ? t('admin.finance.confirmedAtTime', { time: selectedPayment.paid_at ? new Date(selectedPayment.paid_at).toLocaleTimeString('fr-FR') : selectedPayment.confirmation_actor })
+                    ? t('admin.finance.confirmedAtTime', { time: selectedPayment.paid_at ? new Date(selectedPayment.paid_at).toLocaleTimeString(dateLocale()) : selectedPayment.confirmation_actor })
                     : t('admin.finance.waiting')}
                 />
               </div>
@@ -1206,7 +1205,7 @@ if (tab === 'overview') {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginTop: 8 }}>
                 <span>{t('admin.finance.labelAuthoritativeStatus')}</span>
-                <span style={{ fontWeight: 700, color: SETTLED_STATUSES.includes(selectedPayment.payment_status) ? '#34d399' : '#fcd34d' }}>{selectedPayment.payment_status}</span>
+                <span style={{ fontWeight: 700, color: SETTLED_STATUSES.includes(selectedPayment.payment_status) ? '#34d399' : '#fcd34d' }}>{adminLabel(selectedPayment.payment_status)}</span>
               </div>
             </div>
 
@@ -1217,18 +1216,18 @@ if (tab === 'overview') {
               const sale = saleDetail && saleDetail !== 'none' ? saleDetail.sale : null
               const currency = sale?.currency || selectedPayment.currency || 'USD'
               const badge = !settled
-                ? { text: 'PAIEMENT NON RÉGLÉ · PAS DE COMMISSION', bg: '#78350f', fg: '#fde68a' }
+                ? { text: t('adminFinanceFinanceDashboardPage.badgeUnsettled'), bg: '#78350f', fg: '#fde68a' }
                 : !sale
-                  ? { text: saleDetail === null ? 'CHARGEMENT…' : 'COMMISSION NON CALCULÉE', bg: '#7f1d1d', fg: '#fca5a5' }
+                  ? { text: saleDetail === null ? t('adminFinanceFinanceDashboardPage.badgeLoading') : t('adminFinanceFinanceDashboardPage.badgeNotComputed'), bg: '#7f1d1d', fg: '#fca5a5' }
                   : sale.status === 'COLLECTED'
-                    ? { text: 'ENCAISSÉE PAR TBK', bg: '#065f46', fg: '#6ee7b7' }
+                    ? { text: t('adminFinanceFinanceDashboardPage.badgeCollected'), bg: '#065f46', fg: '#6ee7b7' }
                     : sale.status === 'WAIVED'
-                      ? { text: 'ANNULÉE (REMBOURSEMENT)', bg: '#334155', fg: '#cbd5e1' }
-                      : { text: 'DUE · À ENCAISSER', bg: '#78350f', fg: '#fde68a' }
+                      ? { text: t('adminFinanceFinanceDashboardPage.badgeWaived'), bg: '#334155', fg: '#cbd5e1' }
+                      : { text: t('adminFinanceFinanceDashboardPage.badgeDue'), bg: '#78350f', fg: '#fde68a' }
               return (
                 <div style={{ backgroundColor: '#1e1b4b', border: '1px solid #4338ca', borderRadius: 8, padding: 14, marginBottom: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#a5b4fc' }}>COMMISSION PLATEFORME TBK</h4>
+                    <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#a5b4fc' }}>{t('adminFinanceFinanceDashboardPage.commissionBoxTitle')}</h4>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 600, backgroundColor: badge.bg, color: badge.fg }}>
                       {badge.text}
                     </span>
@@ -1236,36 +1235,36 @@ if (tab === 'overview') {
                   {sale ? (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
                       <div>
-                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Vente brute éligible</div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>{t('adminFinanceFinanceDashboardPage.saleEligibleGross')}</div>
                         <div style={{ fontWeight: 700, color: '#f8fafc' }}>{formatMoney(sale.commission_base, currency)}</div>
                       </div>
                       <div>
-                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Taux appliqué à la vente</div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>{t('adminFinanceFinanceDashboardPage.saleRateApplied')}</div>
                         <div style={{ fontWeight: 700, color: '#a5b4fc' }}>{sale.commission_rate.toFixed(2)}%</div>
                       </div>
                       <div>
-                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Commission TBK</div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>{t('adminFinanceFinanceDashboardPage.saleCommission')}</div>
                         <div style={{ fontWeight: 700, color: '#f87171' }}>{formatMoney(sale.commission_amount, currency)}</div>
                       </div>
                       <div>
-                        <div style={{ color: '#94a3b8', fontSize: 11 }}>Revenu net vendeur</div>
+                        <div style={{ color: '#94a3b8', fontSize: 11 }}>{t('adminFinanceFinanceDashboardPage.kpiSellerNet')}</div>
                         <div style={{ fontWeight: 700, color: '#34d399' }}>{formatMoney(sale.seller_net_amount, currency)}</div>
                       </div>
                       {sale.status === 'COLLECTED' && (
                         <div style={{ gridColumn: '1 / -1', color: '#94a3b8', fontSize: 11 }}>
-                          Encaissée{sale.collected_at ? ` le ${new Date(sale.collected_at).toLocaleString('fr-FR')}` : ''}{sale.collector_name ? ` par ${sale.collector_name}` : ''}
+                          {t('adminFinanceFinanceDashboardPage.saleCollected')}{sale.collected_at ? t('adminFinanceFinanceDashboardPage.saleCollectedOn', { date: new Date(sale.collected_at).toLocaleString(dateLocale()) }) : ''}{sale.collector_name ? t('adminFinanceFinanceDashboardPage.saleCollectedBy', { name: sale.collector_name }) : ''}
                         </div>
                       )}
                     </div>
                   ) : (
                     <div style={{ fontSize: 12, color: '#94a3b8' }}>
                       {settled
-                        ? 'Aucun enregistrement de commission pour cette vente réglée.'
-                        : 'La commission TBK est calculée au moment où le paiement est réglé.'}
+                        ? t('adminFinanceFinanceDashboardPage.saleNoRecord')
+                        : t('adminFinanceFinanceDashboardPage.saleComputedOnSettle')}
                     </div>
                   )}
                   <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 8, borderTop: '1px solid #312e81', paddingTop: 6 }}>
-                    Frais de livraison ({formatMoney(selectedPayment.delivery_fee, currency)}) et majoration de paiement exclus de l'assiette de commission TBK.
+                    {t('adminFinanceFinanceDashboardPage.commissionBaseNote', { fee: formatMoney(selectedPayment.delivery_fee, currency) })}
                   </div>
                 </div>
               )
@@ -1294,7 +1293,7 @@ if (tab === 'overview') {
                   {paymentDetail.order_history.map((h, i) => (
                     <div key={`${adminLabel(h.status)}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#cbd5e1' }}>
                       <span>{adminLabel(h.status)}{h.note ? ` — ${h.note}` : ''}</span>
-                      <span style={{ color: '#64748b', flexShrink: 0 }}>{new Date(h.timestamp).toLocaleString('fr-FR')}</span>
+                      <span style={{ color: '#64748b', flexShrink: 0 }}>{new Date(h.timestamp).toLocaleString(dateLocale())}</span>
                     </div>
                   ))}
                 </div>
@@ -1342,9 +1341,9 @@ if (tab === 'overview') {
             <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 16px' }}>{selectedPointUser.user_id}</p>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Point account</label>
+              <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{t('adminFinanceFinanceDashboardPage.labelPointAccount')}</label>
               <select value={`${selectedPointAccount.account_type}:${selectedPointAccount.business_id || ''}`} onChange={(e) => { const found=selectedPointUser.accounts.find((a) => `${a.account_type}:${a.business_id || ''}`===e.target.value); if(found) setSelectedPointAccount(found) }} style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6 }}>
-                {selectedPointUser.accounts.map((a) => <option key={`${a.account_type}:${a.business_id || ''}`} value={`${a.account_type}:${a.business_id || ''}`}>{a.account_type === 'BUYER' ? 'Buyer Points' : `Seller Points — ${a.business_name}`}</option>)}
+                {selectedPointUser.accounts.map((a) => <option key={`${a.account_type}:${a.business_id || ''}`} value={`${a.account_type}:${a.business_id || ''}`}>{a.account_type === 'BUYER' ? t('adminFinanceFinanceDashboardPage.buyerPoints') : t('adminFinanceFinanceDashboardPage.sellerPoints', { name: a.business_name })}</option>)}
               </select>
             </div>
             <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 16px' }}>{t('admin.finance.currentAvailable', { points: selectedPointAccount.current_points })}</p>
@@ -1371,9 +1370,9 @@ if (tab === 'overview') {
 
             {selectedPointAccount.account_type === 'BUYER' && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Derniers mouvements</div>
-                {pointHistory === null ? <div style={{ fontSize: 12, color: '#64748b' }}>Chargement…</div>
-                  : pointHistory.length === 0 ? <div style={{ fontSize: 12, color: '#64748b' }}>Aucun mouvement.</div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{t('adminFinanceFinanceDashboardPage.recentMovements')}</div>
+                {pointHistory === null ? <div style={{ fontSize: 12, color: '#64748b' }}>{t('common.loading')}</div>
+                  : pointHistory.length === 0 ? <div style={{ fontSize: 12, color: '#64748b' }}>{t('adminFinanceFinanceDashboardPage.noMovements')}</div>
                   : (
                     <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 140, overflowY: 'auto', fontSize: 12 }}>
                       {pointHistory.slice(0, 20).map((h) => (
@@ -1426,7 +1425,7 @@ if (tab === 'overview') {
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: '#1e293b', color: '#94a3b8' }}>{adminLabel(selectedCase.case_type)}</span>
-                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#7f1d1d' : '#1e293b', color: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#fca5a5' : '#94a3b8' }}>{selectedCase.priority}</span>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#7f1d1d' : '#1e293b', color: selectedCase.priority === 'HIGH' || selectedCase.priority === 'URGENT' ? '#fca5a5' : '#94a3b8' }}>{adminLabel(selectedCase.priority)}</span>
                   <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, backgroundColor: selectedCase.status === 'RESOLVED' ? '#064e3b' : '#78350f', color: selectedCase.status === 'RESOLVED' ? '#34d399' : '#fcd34d' }}>{adminLabel(selectedCase.status)}</span>
                 </div>
 
@@ -1462,7 +1461,7 @@ if (tab === 'overview') {
                       <div key={m.id} style={{ backgroundColor: '#1e293b', borderRadius: 6, padding: 8, fontSize: 12 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: 11, marginBottom: 4 }}>
                           <span>{m.sender_name || m.sender_type}</span>
-                          <span>{new Date(m.created_at).toLocaleString('fr-FR')}</span>
+                          <span>{new Date(m.created_at).toLocaleString(dateLocale())}</span>
                         </div>
                         <div style={{ color: '#cbd5e1' }}>{m.message}</div>
                       </div>
@@ -1541,21 +1540,21 @@ if (tab === 'overview') {
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{t('admin.finance.labelCaseType')}</label>
               <select value={newCaseType} onChange={(e) => setNewCaseType(e.target.value)} style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6 }}>
-                <option value="PAYMENT_DISPUTE">PAYMENT_DISPUTE</option>
-                <option value="ORDER_CLAIM">ORDER_CLAIM</option>
-                <option value="PRODUCT_REPORT">PRODUCT_REPORT</option>
-                <option value="REVIEW_REPORT">REVIEW_REPORT</option>
-                <option value="SUPPORT_REQUEST">SUPPORT_REQUEST</option>
+                <option value="PAYMENT_DISPUTE">{adminLabel('PAYMENT_DISPUTE')}</option>
+                <option value="ORDER_CLAIM">{adminLabel('ORDER_CLAIM')}</option>
+                <option value="PRODUCT_REPORT">{adminLabel('PRODUCT_REPORT')}</option>
+                <option value="REVIEW_REPORT">{adminLabel('REVIEW_REPORT')}</option>
+                <option value="SUPPORT_REQUEST">{adminLabel('SUPPORT_REQUEST')}</option>
               </select>
             </div>
 
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>{t('admin.finance.labelPriority')}</label>
               <select value={newCasePriority} onChange={(e) => setNewCasePriority(e.target.value)} style={{ width: '100%', padding: 8, backgroundColor: '#1e293b', border: 'none', color: '#fff', borderRadius: 6 }}>
-                <option value="LOW">LOW</option>
-                <option value="MEDIUM">MEDIUM</option>
-                <option value="HIGH">HIGH</option>
-                <option value="URGENT">URGENT</option>
+                <option value="LOW">{adminLabel('LOW')}</option>
+                <option value="MEDIUM">{adminLabel('MEDIUM')}</option>
+                <option value="HIGH">{adminLabel('HIGH')}</option>
+                <option value="URGENT">{adminLabel('URGENT')}</option>
               </select>
             </div>
 

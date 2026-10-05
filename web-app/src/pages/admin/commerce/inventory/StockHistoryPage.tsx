@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
 import { adminCommerceApi, type AdminStockMovementItem } from '@/api/admin'
-import { useT } from '@/store/i18n'
+import { useT, translate } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 
 /** Older admin adjustments were logged in English ("Admin stock adjustment by ROLE: …"). */
 const stockNote = (note?: string | null) =>
-  note?.replace(/^Admin stock adjustment by ([A-Z_]+): /, (_, role: string) => `Ajustement de stock par l’administration (${adminLabel(role).toLowerCase()}) : `) ?? ''
+  note?.replace(/^Admin stock adjustment by ([A-Z_]+): /, (_, role: string) => translate('adminCommerceInventoryStockHistoryPage.noteAdminAdjustment', { role: adminLabel(role).toLowerCase() })) ?? ''
 
 export default function StockHistoryPage() {
   const t = useT()
@@ -57,7 +58,7 @@ export default function StockHistoryPage() {
       TRANSFER_OUT: { bg: '#9a3412', fg: '#ffedd5' },
     }
     const c = map[type] || { bg: '#334155', fg: '#f1f5f9' }
-    return <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: c.bg, color: c.fg }}>{type}</span>
+    return <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: c.bg, color: c.fg }}>{adminLabel(type)}</span>
   }
 
   return (
@@ -75,14 +76,14 @@ export default function StockHistoryPage() {
         <select value={movementType} onChange={(e) => { setMovementType(e.target.value); setPage(0) }}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13, minWidth: 130 }}>
           <option value="">{t('admin.stockHistory.allTypesOption')}</option>
-          <option value="INITIAL">Initial</option>
-          <option value="STOCK_IN">Réapprovisionnement</option>
-          <option value="SALE_PHYSICAL">Vente en boutique</option>
-          <option value="SALE_ONLINE">Vente en ligne</option>
+          <option value="INITIAL">{t('adminCommerceInventoryStockHistoryPage.optInitial')}</option>
+          <option value="STOCK_IN">{t('adminCommerceInventoryStockHistoryPage.optStockIn')}</option>
+          <option value="SALE_PHYSICAL">{t('adminCommerceInventoryStockHistoryPage.optSalePhysical')}</option>
+          <option value="SALE_ONLINE">{t('adminCommerceInventoryStockHistoryPage.optSaleOnline')}</option>
           <option value="ADJUSTMENT">{t('admin.stockHistory.adjustmentOption')}</option>
           <option value="RETURN">{t('admin.stockHistory.returnOption')}</option>
-          <option value="TRANSFER_IN">Transfert entrant</option>
-          <option value="TRANSFER_OUT">Transfert sortant</option>
+          <option value="TRANSFER_IN">{t('adminCommerceInventoryStockHistoryPage.optTransferIn')}</option>
+          <option value="TRANSFER_OUT">{t('adminCommerceInventoryStockHistoryPage.optTransferOut')}</option>
         </select>
         <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0) }}
           style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #334155', backgroundColor: '#0f172a', color: '#f8fafc', fontSize: 13 }} />
@@ -110,7 +111,7 @@ export default function StockHistoryPage() {
                 const delta = m.new_quantity - m.previous_quantity
                 return (
                   <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
-                    <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString('fr-FR')}</td>
+                    <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(m.created_at).toLocaleString(dateLocale())}</td>
                     <td style={{ padding: '10px 12px' }}>{typeColor(m.movement_type)}</td>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.shop_name || m.shop_id}</td>
                     <td style={{ padding: '10px 12px', color: '#f8fafc', fontSize: 12 }}>{m.variant_name || m.product_name}</td>

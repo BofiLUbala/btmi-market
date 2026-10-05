@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { adminPresenceApi, type PresenceSnapshot } from '@/api/admin'
 import { useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 import { RoleBadge, cell, deviceLabel, headRow, tableBox, useLiveReload } from './monitoringShared'
 
@@ -99,7 +100,7 @@ export function LivePresencePanel() {
           ))}
           {Object.entries(s.by_platform).map(([platform, n]) => (
             <span key={platform} style={{ padding: '4px 10px', borderRadius: 999, backgroundColor: '#172554', color: '#bfdbfe' }}>
-              {platform === 'android' ? 'App Android' : platform === 'ios' ? 'App iOS' : 'Web'} · <strong style={{ color: '#fff' }}>{n}</strong>
+              {platform === 'android' ? t('adminDirectionMonitoringShared.androidApp') : platform === 'ios' ? t('adminDirectionLivePresencePanel.iosApp') : t('adminDirectionLivePresencePanel.web')} · <strong style={{ color: '#fff' }}>{n}</strong>
             </span>
           ))}
         </div>
@@ -151,11 +152,11 @@ export function LivePresencePanel() {
                     {v.background && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{t('admin.presence.background')}</div>}
                   </td>
                   <td style={{ ...cell, fontFamily: 'monospace', fontSize: 12, color: '#e2e8f0' }}>{v.path}</td>
-                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(v.first_seen_at).toLocaleString('fr-FR')}>
+                  <td style={{ ...cell, fontSize: 12, color: '#cbd5e1', whiteSpace: 'nowrap' }} title={new Date(v.first_seen_at).toLocaleString(dateLocale())}>
                     {since(v.first_seen_at)}
                   </td>
                   <td style={{ ...cell, fontSize: 12, color: '#94a3b8' }} title={v.user_agent}>
-                    {v.platform === 'android' ? 'App Android' : deviceLabel(v.user_agent)}
+                    {v.platform === 'android' ? t('adminDirectionMonitoringShared.androidApp') : deviceLabel(v.user_agent)}
                   </td>
                   <td style={{ ...cell, fontFamily: 'monospace', fontSize: 12, color: '#cbd5e1' }}>{v.ip_address || '—'}</td>
                 </tr>

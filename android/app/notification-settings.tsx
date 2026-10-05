@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { useI18n } from '../src/store/i18n'
+import { dateLocale } from '../src/lib/format'
 import { useColors } from '../src/store/theme'
 import { radius, spacing, type Colors } from '../src/theme'
 import type { TranslationKey } from '../src/locales/fr'
@@ -186,7 +187,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.rowText}>
               <Text style={styles.label}>{d.device_label || tk(d.platform === 'WEB' ? 'notifSettings.devices.web' : 'notifSettings.devices.app')}</Text>
               {d.last_success_at && (
-                <Text style={styles.small}>{tk('notifSettings.devices.lastSuccess', { date: new Date(d.last_success_at).toLocaleString('fr-FR') })}</Text>
+                <Text style={styles.small}>{tk('notifSettings.devices.lastSuccess', { date: new Date(d.last_success_at).toLocaleString(dateLocale()) })}</Text>
               )}
             </View>
             <Pressable accessibilityRole="button" disabled={busy}

@@ -4,11 +4,10 @@ import { fetchAdminOrderCommunications, type ConversationListItem } from '@/api/
 import { useOrderEvents } from '@/lib/orderEvents'
 import { ErrorBox } from '@/components/ui/Feedback'
 import { ConversationInbox } from '@/components/communication/ConversationInbox'
+import { useT } from '@/store/i18n'
 
-const STATUSES: [string, string][] = [
-  ['', 'Tous les statuts'], ['PENDING', 'En attente'], ['ACCEPTED', 'Acceptée'], ['PREPARING', 'En préparation'],
-  ['READY', 'Prête'], ['OUT_FOR_DELIVERY', 'En livraison'], ['DELIVERED', 'Livrée'], ['COMPLETED', 'Terminée'], ['CANCELLED', 'Annulée'],
-]
+// Order status codes; the label is translated at render (status.<CODE>).
+const STATUSES: string[] = ['', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED', 'CANCELLED']
 
 /**
  * TBK support inbox: the private channels the buyer, the seller team and the
@@ -17,6 +16,7 @@ const STATUSES: [string, string][] = [
  */
 export default function CommerceOrderCommunicationsPage() {
   const navigate = useNavigate()
+  const t = useT()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedOrderId = searchParams.get('order_id') || ''
 
@@ -42,7 +42,7 @@ export default function CommerceOrderCommunicationsPage() {
       setTotal(res?.total || 0)
       setError('')
     } catch (err) {
-      if (!silent) setError(err instanceof Error ? err.message : 'Chargement impossible')
+      if (!silent) setError(err instanceof Error ? err.message : t('adminCommerceCommunicationsCommerceOrderCommunicationsPage.loadFailed'))
     } finally {
       if (!silent) setLoading(false)
     }
@@ -61,11 +61,11 @@ export default function CommerceOrderCommunicationsPage() {
   return (
     <div style={{ paddingBottom: 16 }}>
       <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px', color: 'var(--admin-text, #f8fafc)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        💬 Messages des commandes
+        💬 {t('adminCommerceCommunicationsCommerceOrderCommunicationsPage.title')}
         <span style={{ fontSize: 13, background: 'var(--admin-surface-2, #1e293b)', padding: '2px 10px', borderRadius: 12, color: 'var(--admin-text-muted, #94a3b8)' }}>{total}</span>
       </h2>
       <div style={{ color: 'var(--admin-text-muted, #94a3b8)', fontSize: 13, marginBottom: 12 }}>
-        Canaux privés avec le support TBK : acheteur, boutique et livreur écrivent chacun à TBK, jamais entre acheteur et boutique.
+        {t('adminCommerceCommunicationsCommerceOrderCommunicationsPage.subtitle')}
       </div>
       {error && <ErrorBox error={error} onRetry={() => void load()} />}
       <ConversationInbox
@@ -81,14 +81,14 @@ export default function CommerceOrderCommunicationsPage() {
         onOnlyWithMessages={setOnlyWithMessages}
         subtitle={(c) => [c.shop_name, c.buyer_name].filter(Boolean).join(' · ')}
         tools={(
-          <select className="inbox-search" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Statut de commande">
-            {STATUSES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          <select className="inbox-search" value={status} onChange={(e) => setStatus(e.target.value)} aria-label={t('adminCommerceCommunicationsCommerceOrderCommunicationsPage.orderStatus')}>
+            {STATUSES.map((v) => <option key={v} value={v}>{v ? t(`status.${v}`) : t('admin.commerce.allStatuses')}</option>)}
           </select>
         )}
         chatActions={(
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
             <button type="button" className="chat-send" style={{ height: 34, fontSize: 13 }} onClick={() => navigate(`/admin/commerce/orders/${selectedOrderId}`)}>
-              Fiche commande →
+              {t('adminCommerceCommunicationsCommerceOrderCommunicationsPage.orderSheet')} →
             </button>
           </div>
         )}

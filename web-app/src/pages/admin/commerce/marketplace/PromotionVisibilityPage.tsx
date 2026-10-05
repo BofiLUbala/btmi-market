@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import CampaignComposer from '@/components/admin/CampaignComposer'
 import { adminLabel } from '@/lib/adminLabels'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, dateLocale } from '@/lib/format'
 import { adminCommerceApi, type AdminPromotionVisibility } from '@/api/admin'
 import { useT } from '@/store/i18n'
 
@@ -109,10 +109,10 @@ export default function PromotionVisibilityPage() {
                       )}
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {p.start_date ? new Date(p.start_date).toLocaleDateString('fr-FR') : t('admin.promotions.immediate')}
+                      {p.start_date ? new Date(p.start_date).toLocaleDateString(dateLocale()) : t('admin.promotions.immediate')}
                     </td>
                     <td style={{ padding: '10px 12px', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                      {p.end_date ? new Date(p.end_date).toLocaleDateString('fr-FR') : t('admin.promotions.ongoing')}
+                      {p.end_date ? new Date(p.end_date).toLocaleDateString(dateLocale()) : t('admin.promotions.ongoing')}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{

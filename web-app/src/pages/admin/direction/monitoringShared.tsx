@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { adminMonitoringApi, type MonitoringSummary } from '@/api/admin'
-import { useT } from '@/store/i18n'
+import { translate, useT } from '@/store/i18n'
+import { dateLocale } from '@/lib/format'
 import type { TranslationKey } from '@/locales/fr'
 
 /** How often the monitoring tabs reload while visible. */
@@ -34,7 +35,7 @@ export function RoleBadge({ role }: { role: string }) {
 /** Short, human device label from a user agent. */
 export function deviceLabel(ua: string): string {
   if (!ua) return '—'
-  if (/okhttp|expo|reactnative|dalvik/i.test(ua)) return 'App Android'
+  if (/okhttp|expo|reactnative|dalvik/i.test(ua)) return translate('adminDirectionMonitoringShared.androidApp')
   const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : ''
   const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : ''
   const label = [browser, os].filter(Boolean).join(' · ')
@@ -113,7 +114,7 @@ export function LiveToolbar({ role, onRole, roles, updatedAt, onRefresh, refresh
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}>
         <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,.2)' }} />
         {updatedAt
-          ? t('admin.monitoring.liveUpdated', { time: updatedAt.toLocaleTimeString('fr-FR') })
+          ? t('admin.monitoring.liveUpdated', { time: updatedAt.toLocaleTimeString(dateLocale()) })
           : t('admin.monitoring.liveConnecting')}
       </span>
       <button className="admin-button" onClick={onRefresh} disabled={refreshing} style={{ marginLeft: 'auto' }}>

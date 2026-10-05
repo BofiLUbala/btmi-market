@@ -1,5 +1,6 @@
 import { useMemo, type CSSProperties } from 'react'
 import { formatMoney } from '@/lib/format'
+import { useT } from '@/store/i18n'
 
 /** One bucket of a finance series. Matches the backend's
  *  FinanceTimeseriesPoint on both the admin and the seller side. */
@@ -20,9 +21,9 @@ interface Props {
 }
 
 const SERIES = [
-  { key: 'gross_sales', label: 'Ventes brutes', color: 'var(--color-info)' },
-  { key: 'commission_amount', label: 'Commission TBK', color: 'var(--color-danger)' },
-  { key: 'seller_net_amount', label: 'Net vendeur', color: 'var(--color-success)' }
+  { key: 'gross_sales', labelKey: 'uiFinanceTrendChart.grossSales', color: 'var(--color-info)' },
+  { key: 'commission_amount', labelKey: 'uiFinanceTrendChart.commission', color: 'var(--color-danger)' },
+  { key: 'seller_net_amount', labelKey: 'uiFinanceTrendChart.sellerNet', color: 'var(--color-success)' }
 ] as const
 
 const VIEW_W = 720
@@ -42,7 +43,8 @@ const legendStyle: CSSProperties = {
  * Buckets of different currencies are drawn as separate series groups would
  * be misleading, so the caller filters to one currency before passing points.
  */
-export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée sur cette période.', height = 180 }: Props) {
+export default function FinanceTrendChart({ points, emptyLabel, height = 180 }: Props) {
+  const t = useT()
   const geometry = useMemo(() => {
     if (points.length === 0) return null
     const max = Math.max(
@@ -62,7 +64,7 @@ export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée
   if (!geometry) {
     return (
       <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--color-text-muted)' }}>
-        {emptyLabel}
+        {emptyLabel ?? t('uiFinanceTrendChart.empty')}
       </div>
     )
   }
@@ -76,7 +78,7 @@ export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée
         viewBox={`0 0 ${VIEW_W} ${height}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label={`Évolution des ventes, de la commission TBK et du net vendeur sur ${points.length} période(s)`}
+        aria-label={t('uiFinanceTrendChart.ariaLabel', { count: points.length })}
         style={{ width: '100%', height, display: 'block' }}
       >
         <line x1={0} y1={height - 12} x2={VIEW_W} y2={height - 12} stroke="var(--color-border)" strokeWidth={1} />
@@ -89,7 +91,7 @@ export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée
               <path d={path} fill="none" stroke={series.color} strokeWidth={2} vectorEffect="non-scaling-stroke" />
               {points.map((p, i) => (
                 <circle key={p.period} cx={geometry.x(i)} cy={geometry.y(p[series.key])} r={2.5} fill={series.color}>
-                  <title>{`${p.period} — ${series.label}: ${money(p[series.key])}`}</title>
+                  <title>{`${p.period} — ${t(series.labelKey)}: ${money(p[series.key])}`}</title>
                 </circle>
               ))}
             </g>
@@ -100,7 +102,7 @@ export default function FinanceTrendChart({ points, emptyLabel = 'Aucune donnée
         {SERIES.map((series) => (
           <span key={series.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 10, height: 2, backgroundColor: series.color, display: 'inline-block' }} />
-            {series.label}
+            {t(series.labelKey)}
           </span>
         ))}
         <span style={{ marginLeft: 'auto' }}>

@@ -1,5 +1,12 @@
 import { authenticatedBlob } from '@/api/client'
 import { useEffect, useState } from 'react'
+import { useT, type TranslationKey } from '@/store/i18n'
+
+const STATUS_KEYS: Record<string, TranslationKey> = {
+  ACTIVE: 'qrQRPanel.statusActive',
+  REVOKED: 'qrQRPanel.statusRevoked',
+  EXPIRED: 'qrQRPanel.statusExpired',
+}
 
 /** A line printed on the label. Only non-sensitive identity data belongs here. */
 export type LabelField = { label: string; value: string }
@@ -23,6 +30,7 @@ export function QRPanel({
   title: string
   fields?: LabelField[]
 }) {
+  const t = useT()
   const [src, setSrc] = useState('')
   const [error, setError] = useState('')
 
@@ -36,13 +44,13 @@ export function QRPanel({
         setSrc(url)
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'QR unavailable')
+        if (!cancelled) setError(e instanceof Error ? e.message : t('qrQRPanel.unavailable'))
       })
     return () => {
       cancelled = true
       if (url) URL.revokeObjectURL(url)
     }
-  }, [imagePath])
+  }, [imagePath, t])
 
   function download() {
     if (!src) return
@@ -56,7 +64,7 @@ export function QRPanel({
     if (!src) return
     const w = window.open('', '_blank', 'width=520,height=680')
     if (!w) {
-      setError('Autorisez les fenêtres pop-up pour imprimer l’étiquette.')
+      setError(t('qrQRPanel.allowPopups'))
       return
     }
     const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c)
@@ -108,7 +116,7 @@ export function QRPanel({
         </p>
       )}
       <div style={{ marginTop: 6, overflowWrap: 'anywhere' }}>
-        <strong>{qr.reference}</strong> · {qr.status}
+        <strong>{qr.reference}</strong> · {STATUS_KEYS[qr.status] ? t(STATUS_KEYS[qr.status]) : qr.status}
       </div>
       {fields.filter((f) => f.value).length > 0 && (
         <div className="small muted" style={{ marginTop: 4, overflowWrap: 'anywhere' }}>
@@ -117,10 +125,10 @@ export function QRPanel({
       )}
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         <button className="btn btn-outline" style={{ minWidth: 120, flex: '1 1 120px', maxWidth: 200 }} onClick={download} disabled={!src}>
-          Download QR
+          {t('qrQRPanel.download')}
         </button>
         <button className="btn btn-outline" style={{ minWidth: 120, flex: '1 1 120px', maxWidth: 200 }} onClick={print} disabled={!src}>
-          Print QR
+          {t('qrQRPanel.print')}
         </button>
       </div>
     </div>

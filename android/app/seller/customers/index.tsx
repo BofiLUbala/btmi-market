@@ -10,6 +10,7 @@ import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { spacing, type Colors } from '../../../src/theme'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { dateLocale } from '../../../src/lib/format'
 
 const emptyForm = { first_name: '', last_name: '', phone: '', email: '' }
 
@@ -55,7 +56,7 @@ export default function SellerCustomersScreen() {
           <Text style={styles.muted}>{customer.phone || '—'}{customer.email ? ` · ${customer.email}` : ''}</Text>
           {/* web table columns: orders, total spent, joined */}
           <Text style={styles.muted}>{t('seller.customers.orders')}: {customer.total_orders ?? 0} · {t('seller.customers.totalSpent')}: {Number(customer.total_purchased ?? 0).toLocaleString()}</Text>
-          <Text style={styles.muted}>{t('seller.customers.joined')}: {new Date(customer.created_at).toLocaleDateString()}</Text>
+          <Text style={styles.muted}>{t('seller.customers.joined')}: {new Date(customer.created_at).toLocaleDateString(dateLocale())}</Text>
         </Card>
       </Pressable>
     ))}

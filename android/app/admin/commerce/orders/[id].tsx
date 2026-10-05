@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { adminCommerceApi, type AdminCourierListItem, type AdminOrderDetail, type AdminOrderItem } from '../../../../src/api/admin'
 import { useI18n, type TranslationKey } from '../../../../src/store/i18n'
 import { formatMoney } from '../../../../src/lib/money'
+import { dateLocale } from '../../../../src/lib/format'
 import { deliveryLabel } from '../../../../src/lib/deliveryLabels'
 import { cancelStageText, expectedDeliveryText, returnedText } from '../../../../src/lib/deliveryPlan'
 import { useOrderEvents } from '../../../../src/lib/orderEvents'
@@ -193,7 +194,7 @@ export default function AdminOrderDetailScreen() {
 
       <View style={styles.header}>
         <Text style={styles.title}>{t('admin.orders.detailTitle', { number: o.order_number })}</Text>
-        <Text style={styles.muted}>{t('admin.orders.placedAt', { date: new Date(o.created_at).toLocaleString() })}</Text>
+        <Text style={styles.muted}>{t('admin.orders.placedAt', { date: new Date(o.created_at).toLocaleString(dateLocale()) })}</Text>
         <View style={styles.badgeRow}>
           <Badge status={o.status} />
           {o.delivery_status ? <Badge status={o.delivery_status} /> : null}
@@ -234,7 +235,7 @@ export default function AdminOrderDetailScreen() {
         {o.assigned_courier_id ? (
           <>
             <Field label={t('admin.orders.assignedCourierId')} value={o.courier_name ? `${o.courier_name} · ${o.assigned_courier_id}` : o.assigned_courier_id} />
-            {o.courier_assigned_at ? <Field label={t('admin.orders.assignedAt')} value={new Date(o.courier_assigned_at).toLocaleString()} /> : null}
+            {o.courier_assigned_at ? <Field label={t('admin.orders.assignedAt')} value={new Date(o.courier_assigned_at).toLocaleString(dateLocale())} /> : null}
             {o.courier_notes ? <Field label={t('admin.orders.courierNotes')} value={o.courier_notes} /> : null}
           </>
         ) : null}
@@ -309,7 +310,7 @@ export default function AdminOrderDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.lineName}>{statusLabel(t, h.status)}</Text>
               {h.notes ? <Text style={styles.muted}>{h.notes}</Text> : null}
-              <Text style={styles.time}>{h.changed_by || '—'} · {new Date(h.created_at).toLocaleString()}</Text>
+              <Text style={styles.time}>{h.changed_by || '—'} · {new Date(h.created_at).toLocaleString(dateLocale())}</Text>
             </View>
           </View>
         ))}

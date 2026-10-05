@@ -1,5 +1,6 @@
 import { api, API_BASE } from '@/api/client'
 import { adminApi } from '@/api/admin'
+import { translate } from '@/store/i18n'
 
 /**
  * Browser push for TBK. One browser profile holds one push subscription; it
@@ -61,9 +62,9 @@ export function needsIosInstall(): boolean {
 
 export function deviceLabel(): string {
   const ua = navigator.userAgent
-  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'appareil'
-  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Firefox/.test(ua) ? 'Firefox' : /Chrome|CriOS/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : 'Navigateur'
-  return `${browser} sur ${os}`
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : translate('libPush.deviceFallback')
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Firefox/.test(ua) ? 'Firefox' : /Chrome|CriOS/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : translate('libPush.browserFallback')
+  return translate('libPush.browserOnOs', { browser, os })
 }
 
 function keyBytes(base64url: string): Uint8Array {

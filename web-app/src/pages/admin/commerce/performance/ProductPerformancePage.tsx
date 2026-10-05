@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { adminCommerceApi, type AdminProductPerformance } from '@/api/admin'
 import { adminLabel } from '@/lib/adminLabels'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, dateLocale } from '@/lib/format'
 import { useT } from '@/store/i18n'
 
 const PAGE_SIZE = 20
@@ -36,7 +36,7 @@ export default function ProductPerformancePage() {
 
   const pages = Math.ceil(total / PAGE_SIZE)
   const page = Math.floor(offset / PAGE_SIZE) + 1
-  const measured = (v: number | null) => (v == null ? '—' : v.toLocaleString())
+  const measured = (v: number | null) => (v == null ? '—' : v.toLocaleString(dateLocale()))
 
   return (
     <div>
