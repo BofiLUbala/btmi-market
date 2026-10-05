@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../store/auth'
 import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
-import { radius, type Colors } from '../theme'
+import { fonts, radius, type Colors } from '../theme'
 
 type NavItem = { key: TranslationKey; path: string; icon: keyof typeof Ionicons.glyphMap }
 
@@ -56,28 +56,32 @@ export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: 
   if (!visible) return null
   const row = (item: NavItem) => {
     const active = item.path === '/seller' ? pathname === '/seller' : pathname.startsWith(item.path)
-    return <Pressable key={item.path} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => go(item.path)} style={({ pressed }) => [styles.row, (pressed || active) && styles.rowActive]}>
-      <Ionicons name={item.icon} size={18} color={colors.ink} />
-      <Text style={styles.rowText}>{t(item.key)}</Text>
+    return <Pressable key={item.path} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => go(item.path)} style={({ pressed }) => [styles.row, pressed && styles.rowPressed, active && styles.rowActive]}>
+      <View style={[styles.rowIcon, active && styles.rowIconActive]}><Ionicons name={item.icon} size={17} color={active ? colors.onGreen : colors.green} /></View>
+      <Text style={[styles.rowText, active && styles.rowTextActive]}>{t(item.key)}</Text>
     </Pressable>
   }
   return <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('nav.closeMenu')}>
     <Pressable style={styles.panel} onPress={(e) => e.stopPropagation()} accessibilityLabel={t('seller.menu')}>
       <View style={[styles.head, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.brand}>{isEmployee ? t('sellerDrawer.brandEmployee') : 'TBK Seller'}</Text>
+        <View style={styles.brandRow}>
+          <View style={styles.brandTile}><Ionicons name="storefront-outline" size={18} color={colors.onGreen} /></View>
+          <Text style={styles.brand}>{isEmployee ? t('sellerDrawer.brandEmployee') : 'TBK Seller'}</Text>
+        </View>
         <Pressable accessibilityRole="button" accessibilityLabel={t('nav.closeMenu')} onPress={onClose} hitSlop={8} style={styles.close}>
-          <Ionicons name="close" size={22} color={colors.onGreen} />
+          <Ionicons name="close" size={20} color={colors.onNavy} />
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 12 }]}>
         {(isEmployee ? EMPLOYEE_NAV : NAV).map(row)}
         {!isEmployee && PINNED.map(row)}
         <View style={styles.divider} />
-        <Pressable accessibilityRole="button" onPress={() => go('/(buyer)')} style={({ pressed }) => [styles.row, pressed && styles.rowActive]}>
+        <Pressable accessibilityRole="button" onPress={() => go('/(buyer)')} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+          <View style={styles.rowIcon}><Ionicons name="bag-handle-outline" size={17} color={colors.green} /></View>
           <Text style={styles.rowText}>{t('nav.marketplace')}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => { onClose(); void logout(); router.replace('/(buyer)') }} style={styles.row}>
-          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
+        <Pressable accessibilityRole="button" onPress={() => { onClose(); void logout(); router.replace('/(buyer)') }} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+          <View style={[styles.rowIcon, styles.rowIconDanger]}><Ionicons name="log-out-outline" size={17} color={colors.danger} /></View>
           <Text style={styles.rowTextDanger}>{t('common.signOut')}</Text>
         </Pressable>
       </ScrollView>
@@ -91,13 +95,21 @@ export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', flexDirection: 'row', zIndex: 70 },
   panel: { width: '86%', maxWidth: 320, backgroundColor: colors.white, height: '100%', boxShadow: '0px 10px 30px rgba(0,0,0,0.18)' },
-  head: { paddingHorizontal: 16, paddingBottom: 16, backgroundColor: colors.green, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brand: { color: colors.onGreen, fontWeight: '700', fontSize: 16 },
-  close: { padding: 4 },
-  list: { padding: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 10, borderRadius: radius.sm },
-  rowActive: { backgroundColor: colors.surface2 },
-  rowText: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  rowTextDanger: { fontSize: 15, fontWeight: '600', color: colors.danger },
+  // Navy hero band like the seller header (reference 6).
+  head: { paddingHorizontal: 16, paddingBottom: 18, backgroundColor: colors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  brandTile: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
+  brand: { color: colors.onNavy, fontFamily: fonts.display, fontWeight: '700', fontSize: 17, letterSpacing: -0.2, flexShrink: 1 },
+  close: { width: 34, height: 34, borderRadius: radius.sm, backgroundColor: colors.navySoft, borderWidth: 1, borderColor: colors.navyLine, alignItems: 'center', justifyContent: 'center' },
+  list: { padding: 12, gap: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 8, borderRadius: radius.sm },
+  rowPressed: { backgroundColor: colors.surface2 },
+  rowActive: { backgroundColor: colors.greenSoft },
+  rowIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  rowIconActive: { backgroundColor: colors.green },
+  rowIconDanger: { backgroundColor: colors.dangerSoft },
+  rowText: { fontSize: 14.5, fontWeight: '600', color: colors.ink },
+  rowTextActive: { color: colors.green, fontWeight: '700' },
+  rowTextDanger: { fontSize: 14.5, fontWeight: '600', color: colors.danger },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
 })

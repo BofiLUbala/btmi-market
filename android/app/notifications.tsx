@@ -20,7 +20,7 @@ import {
 import { useI18n } from '../src/store/i18n'
 import { dateLocale } from '../src/lib/format'
 import { useColors } from '../src/store/theme'
-import { radius, spacing, type Colors } from '../src/theme'
+import { fonts, kicker, radius, shadow, spacing, type Colors } from '../src/theme'
 
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
   switch (type) {
@@ -155,7 +155,26 @@ export default function NotificationsScreen() {
 
   const unreadCount = items.filter((i) => !i.is_read).length
 
-  const renderItem = ({ item }: { item: NotificationItem }) => {
+  // Aujourd'hui / Cette semaine / Plus tôt, from each notification's own timestamp.
+  type Row = { kind: 'header'; key: string; label: string } | { kind: 'item'; key: string; item: NotificationItem }
+  const rows = useMemo<Row[]>(() => {
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
+    const weekAgo = startOfToday.getTime() - 6 * 86_400_000
+    const groups: Array<{ key: string; label: string; items: NotificationItem[] }> = [
+      { key: 'today', label: t('notifications.groupToday'), items: [] },
+      { key: 'week', label: t('notifications.groupWeek'), items: [] },
+      { key: 'earlier', label: t('notifications.groupEarlier'), items: [] },
+    ]
+    for (const n of items) {
+      const at = new Date(n.created_at).getTime()
+      groups[at >= startOfToday.getTime() ? 0 : at >= weekAgo ? 1 : 2].items.push(n)
+    }
+    return groups.flatMap((g) => g.items.length ? [{ kind: 'header' as const, key: `h-${g.key}`, label: g.label }, ...g.items.map((item) => ({ kind: 'item' as const, key: item.id, item }))] : [])
+  }, [items, t])
+
+  const renderRow = ({ item: row }: { item: Row }) => {
+    if (row.kind === 'header') return <Text style={styles.groupLabel}>{row.label}</Text>
+    const item = row.item
     const iconName = getNotificationIcon(item.type)
     return (
       <TouchableOpacity
@@ -164,7 +183,7 @@ export default function NotificationsScreen() {
         activeOpacity={0.7}
       >
         <View style={[styles.iconContainer, !item.is_read ? styles.iconContainerUnread : styles.iconContainerRead]}>
-          <Ionicons name={iconName} size={20} color={!item.is_read ? '#FFFFFF' : colors.muted} />
+          <Ionicons name={iconName} size={19} color={!item.is_read ? colors.green : colors.muted} />
         </View>
         <View style={styles.contentContainer}>
           <View style={styles.titleRow}>
@@ -190,15 +209,7 @@ export default function NotificationsScreen() {
           {unreadCount > 0 && (
             <View style={styles.counterBadge}>
               <Text style={styles.counterText}>{unreadCount}</Text>
-              <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={t('notifSettings.title')}
-            onPress={() => router.push({ pathname: '/notification-settings', params: { space: 'buyer' } })}
-            hitSlop={10}
-          >
-            <Ionicons name="settings-outline" size={20} color={colors.muted} />
-          </TouchableOpacity>
-        </View>
+            </View>
           )}
           <TouchableOpacity
             accessibilityRole="button"
@@ -239,9 +250,9 @@ export default function NotificationsScreen() {
         </View>
       ) : (
         <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
+          data={rows}
+          keyExtractor={(row) => row.key}
+          renderItem={renderRow}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.green} />}
         />
@@ -261,10 +272,9 @@ const makeStyles = (colors: Colors) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      backgroundColor: colors.white,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.xs,
+      backgroundColor: colors.cream,
     },
     topBarLeft: {
       flexDirection: 'row',
@@ -272,18 +282,20 @@ const makeStyles = (colors: Colors) =>
       gap: 8,
     },
     pageTitle: {
-      fontSize: 18,
+      fontSize: 21,
+      fontFamily: fonts.display,
       fontWeight: '700',
+      letterSpacing: -0.3,
       color: colors.ink,
     },
     counterBadge: {
       backgroundColor: colors.green,
-      borderRadius: 12,
+      borderRadius: radius.pill,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
     counterText: {
-      color: '#FFFFFF',
+      color: colors.onGreen,
       fontSize: 11,
       fontWeight: '800',
     },
@@ -293,39 +305,48 @@ const makeStyles = (colors: Colors) =>
     },
     markAllText: {
       color: colors.green,
-      fontSize: 13,
+      fontSize: 12.5,
       fontWeight: '700',
     },
+    groupLabel: {
+      ...kicker,
+      color: colors.muted,
+      marginTop: 8,
+      marginBottom: -2,
+    },
     listContent: {
-      padding: spacing.md,
-      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xl,
+      gap: 10,
     },
     itemCard: {
       flexDirection: 'row',
       backgroundColor: colors.white,
       borderRadius: radius.md,
-      padding: spacing.md,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: spacing.md,
+      gap: 12,
       alignItems: 'flex-start',
+      ...shadow.card,
     },
     itemCardUnread: {
-      borderColor: colors.green,
       backgroundColor: colors.white,
     },
     iconContainer: {
       width: 40,
       height: 40,
-      borderRadius: 20,
+      borderRadius: radius.sm,
       alignItems: 'center',
       justifyContent: 'center',
     },
     iconContainerUnread: {
-      backgroundColor: colors.green,
+      backgroundColor: colors.greenSoft,
     },
     iconContainerRead: {
-      backgroundColor: colors.surfaceAlt,
+      backgroundColor: colors.surface2,
     },
     contentContainer: {
       flex: 1,
@@ -337,7 +358,7 @@ const makeStyles = (colors: Colors) =>
       marginBottom: 2,
     },
     title: {
-      fontSize: 14,
+      fontSize: 13.5,
       fontWeight: '700',
       color: colors.ink,
       flex: 1,
@@ -350,17 +371,17 @@ const makeStyles = (colors: Colors) =>
       height: 8,
       borderRadius: 4,
       backgroundColor: colors.green,
-      marginLeft: 6,
+      marginLeft: 8,
     },
     bodyText: {
-      fontSize: 13,
+      fontSize: 12.5,
       color: colors.muted,
-      lineHeight: 18,
-      marginTop: 2,
+      lineHeight: 17,
+      marginTop: 1,
     },
     dateText: {
       fontSize: 11,
-      color: colors.mutedLight,
+      color: colors.faint,
       marginTop: 6,
     },
     centerBox: {
@@ -387,13 +408,13 @@ const makeStyles = (colors: Colors) =>
       maxWidth: 260,
     },
     errorBox: {
-      backgroundColor: '#FEE2E2',
+      backgroundColor: colors.dangerSoft,
       padding: 10,
       margin: spacing.md,
       borderRadius: radius.sm,
     },
     errorText: {
-      color: '#DC2626',
+      color: colors.danger,
       fontSize: 13,
       textAlign: 'center',
     },

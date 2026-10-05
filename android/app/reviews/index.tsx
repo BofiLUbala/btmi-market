@@ -7,7 +7,7 @@ import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { formatDate } from '../../src/lib/format'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, type Colors, fonts } from '../../src/theme'
+import { kicker, radius, shadow, type Colors, fonts } from '../../src/theme'
 import Ionicons from '@expo/vector-icons/Ionicons'
 
 // Port of web-app/src/pages/buyer/MyReviewsPage.tsx: product / shop tabs with
@@ -80,25 +80,25 @@ export default function MyReviews() {
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
-  eyebrow: { color: c.green, fontSize: 11.5, fontWeight: '800', letterSpacing: 1.3 },
-  h1: { fontSize: 26, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
-  h3: { fontSize: 18, fontWeight: '700', color: c.ink, textAlign: 'center' },
-  text: { color: c.ink, fontSize: 14 },
+  page: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48, gap: 12, backgroundColor: c.cream, flexGrow: 1 },
+  eyebrow: { ...kicker, color: c.green },
+  h1: { fontSize: 22, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3, color: c.ink, marginTop: 2 },
+  h3: { fontSize: 16, fontFamily: fonts.display, fontWeight: '700', color: c.ink, textAlign: 'center' },
+  text: { color: c.ink, fontSize: 13.5, lineHeight: 19 },
   bold: { color: c.ink, fontWeight: '700', fontSize: 14 },
-  muted: { color: c.muted, fontSize: 15 },
-  small: { color: c.muted, fontSize: 13 },
-  link: { color: c.green, fontSize: 14, fontWeight: '600' },
+  muted: { color: c.muted, fontSize: 13, marginTop: 2 },
+  small: { color: c.muted, fontSize: 12 },
+  link: { color: c.green, fontSize: 13, fontWeight: '700' },
   tabs: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  tab: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.sm, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
+  tab: { minHeight: 34, justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
   tabOn: { backgroundColor: c.green, borderColor: c.green },
-  tabText: { color: c.ink, fontWeight: '600' },
-  tabTextOn: { color: c.onGreen },
-  empty: { alignItems: 'center', paddingVertical: 32, gap: 8 },
-  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 16 },
-  item: { gap: 8, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: c.border },
+  tabText: { color: c.ink, fontWeight: '600', fontSize: 13 },
+  tabTextOn: { color: c.onGreen, fontWeight: '700' },
+  empty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 16, gap: 8, backgroundColor: c.white, borderRadius: 18, borderWidth: 1, borderColor: c.border, ...shadow.card },
+  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 18, padding: 16, gap: 14, ...shadow.card },
+  item: { gap: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: c.border },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   rowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  stars: { color: c.star, fontSize: 16 },
-  badge: { fontSize: 11, fontWeight: '700', color: c.ink, backgroundColor: c.surface2, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, overflow: 'hidden' },
+  stars: { color: c.star, fontSize: 16, letterSpacing: 1 },
+  badge: { fontSize: 11, fontWeight: '700', color: c.success, backgroundColor: c.successSoft, paddingVertical: 3, paddingHorizontal: 8, borderRadius: radius.pill, overflow: 'hidden' },
 })

@@ -139,6 +139,23 @@
       "env": {
         "VITE_API_BASE": "http://127.0.0.1:8099/api/v1"
       }
+    },
+    {
+      "name": "android-expo-web-live",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "web",
+        "--prefix",
+        "android",
+        "--",
+        "--port",
+        "19007"
+      ],
+      "port": 19007,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:5173/api/v1"
+      }
     }
   ]
 }

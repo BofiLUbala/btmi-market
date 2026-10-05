@@ -1,6 +1,6 @@
 /**
- * Web typography on native: Inter for text, Fraunces for titles and prices —
- * the exact pairing web-app/index.html loads from Google Fonts.
+ * Native typography: Inter throughout; titles and prices (`fonts.display`)
+ * use its bold cuts.
  *
  * On Android a custom font ignores `fontWeight`: each weight is its own
  * family (Inter_600SemiBold…). Rather than rewrite ~90 style sheets, this
@@ -48,12 +48,9 @@ function weightOf(value: unknown): number {
 
 /** Same weights the web loads: Inter 400–700, Fraunces 400–600. */
 function familyFor(display: boolean, weight: number, italic: boolean): string {
-  if (display) {
-    if (italic) return 'Fraunces_400Regular_Italic'
-    if (weight >= 600) return 'Fraunces_600SemiBold'
-    if (weight >= 500) return 'Fraunces_500Medium'
-    return 'Fraunces_400Regular'
-  }
+  // Display text (titles, prices) is a heavy geometric sans in the TBK
+  // reference design, so the display marker resolves to Inter's bold cuts.
+  if (display) return weight >= 500 ? 'Inter_700Bold' : 'Inter_600SemiBold'
   if (italic && weight < 500) return 'Inter_400Regular_Italic'
   if (weight >= 700) return 'Inter_700Bold'
   if (weight >= 600) return 'Inter_600SemiBold'

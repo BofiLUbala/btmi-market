@@ -255,12 +255,12 @@ export default function DeliveryScreen() {
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   flex: { flex: 1 },
-  rewardsTitle: { color: colors.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 17 },
-  pointsNote: { width: '100%', color: colors.success, fontSize: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  rewardsTitle: { color: colors.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 15.5, letterSpacing: -0.2 },
+  pointsNote: { width: '100%', color: colors.success, fontSize: 13, fontWeight: '600', paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border },
   // web .checkout-checkbox
-  checkbox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 12 },
-  checkboxTick: { width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  checkbox: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12 },
+  checkboxTick: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxTickOn: { backgroundColor: colors.green, borderColor: colors.green },
-  checkboxLabel: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  checkboxHint: { fontSize: 13, color: colors.muted, marginTop: 2 },
+  checkboxLabel: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  checkboxHint: { fontSize: 12.5, color: colors.muted, marginTop: 2, lineHeight: 17 },
 })

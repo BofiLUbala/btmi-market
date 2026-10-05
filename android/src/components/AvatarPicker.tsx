@@ -81,15 +81,16 @@ export function AvatarPicker({ size, name }: { size: number; name: string }) {
   }
 
   const avatarUrl = user?.avatar_url
-  const circle = { width: size, height: size, borderRadius: size / 2 }
+  // Rounded tile (reference "Mon compte"), not a circle.
+  const circle = { width: size, height: size, borderRadius: Math.round(size / 4) }
 
   return (
     <Pressable onPress={onPress} disabled={uploading} style={circle} accessibilityRole="button" accessibilityLabel={t('profile.changePhoto')}>
       {avatarUrl ? (
         <Image source={resolveMediaUrl(avatarUrl)} style={[circle, { backgroundColor: colors.surfaceAlt }]} contentFit="cover" />
       ) : (
-        <View style={[circle, styles.avatarPlaceholder, { backgroundColor: colors.goldSoft }]}>
-          <Text style={{ color: colors.green, fontWeight: '800', fontSize: size * 0.36 }}>{initials(name) || '?'}</Text>
+        <View style={[circle, styles.avatarPlaceholder, { backgroundColor: colors.green }]}>
+          <Text style={{ color: colors.onGreen, fontWeight: '700', fontSize: size * 0.36 }}>{initials(name) || '?'}</Text>
         </View>
       )}
       <View style={[styles.avatarBadge, { backgroundColor: colors.green, borderColor: colors.white }]}>

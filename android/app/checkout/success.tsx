@@ -6,11 +6,11 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
 import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { CheckoutProgress } from '../../src/components/CheckoutProgress'
-import { CardHead, CheckoutCard, Eyebrow, SmallText, checkoutPage } from '../../src/components/CheckoutUI'
+import { CardHead, CheckoutCard, Eyebrow, SmallText } from '../../src/components/CheckoutUI'
 import { useColors } from '../../src/store/theme'
 import { useI18n } from '../../src/store/i18n'
 import { formatMoney } from '../../src/lib/money'
-import { fonts, type Colors } from '../../src/theme'
+import { fonts, radius, shadow, spacing, type Colors } from '../../src/theme'
 
 const PROVIDER_NAMES: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 'Airtel Money', ORANGE_MONEY: 'Orange Money' }
 
@@ -65,20 +65,16 @@ export default function OrderSuccessScreen() {
   const sum = (pick: (d: typeof details[number]) => number) => details.reduce((acc, d) => acc + pick(d), 0)
 
   return (
-    <ScrollView contentContainerStyle={checkoutPage}>
-      <CheckoutProgress current="order" />
+    <ScrollView contentContainerStyle={styles.page}>
+      <View style={styles.hero}>
+        <View style={styles.progressChip}><CheckoutProgress current="order" /></View>
+        <View style={styles.mark}><Ionicons name={isPaid || isCash || isMobileDelivery ? 'checkmark' : 'information'} size={34} color={colors.green} /></View>
+        <Text style={styles.h1}>{headline}</Text>
+        <Text style={styles.sub}>{subtext}</Text>
+      </View>
 
-      <CheckoutCard style={styles.statusCard}>
-        <View style={styles.statusRow}>
-          <View style={styles.mark}><Ionicons name={isPaid || isCash || isMobileDelivery ? 'checkmark' : 'information'} size={28} color={colors.onGold} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.h1}>{headline}</Text>
-            <Text style={styles.sub}>{subtext}</Text>
-          </View>
-        </View>
-      </CheckoutCard>
-
-      <CheckoutCard>
+      <View style={styles.body}>
+      <CheckoutCard style={styles.overlap}>
         <CardHead
           title={isMultiShop ? t('checkoutSuccess.groupTitle') : t('checkoutSuccess.orderNumber', { number: order.order.order_number || order.order.id.slice(0, 8) })}
           meta={isMultiShop ? t('checkoutSuccess.shopOrdersCount', { count: details.length }) : order.shop_name || t('orders.shop')}
@@ -91,12 +87,13 @@ export default function OrderSuccessScreen() {
             </View>
             {d.lines.map((line) => (
               <View key={line.id} style={styles.reviewLine}>
+                <View style={styles.thumb}><Ionicons name="bag-handle-outline" size={20} color={colors.green} /></View>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={styles.bold}>{line.product_name}</Text>
                   <Text style={styles.muted}>{t('checkoutSuccess.variantQty', { variant: line.variant_name || t('checkoutSuccess.standard'), count: line.quantity })}</Text>
                   <Text style={styles.muted}>{t('checkoutSuccess.unitPrice', { price: money(line.final_unit_price || line.unit_price || 0) })}</Text>
                 </View>
-                <Text style={styles.bold}>{money((line.final_unit_price || line.unit_price || 0) * line.quantity)}</Text>
+                <Text style={styles.price}>{money((line.final_unit_price || line.unit_price || 0) * line.quantity)}</Text>
               </View>
             ))}
           </View>
@@ -105,9 +102,14 @@ export default function OrderSuccessScreen() {
 
       <CheckoutCard>
         <CardHead title={t('checkoutSuccess.deliveryAddress')} meta={o.delivery_method === 'PICKUP' ? t('checkoutSuccess.pickup') : t('checkoutSuccess.homeDelivery')} />
-        {deliveryAddress ? (
-          <Text style={styles.address}><Ionicons name="location-outline" size={15} color={colors.muted} /> {deliveryAddress}</Text>
-        ) : <SmallText>{t('checkoutSuccess.deliveryModeNote')}</SmallText>}
+        <View style={styles.iconRow}>
+          <View style={styles.iconTile}><Ionicons name="location" size={18} color={colors.green} /></View>
+          <View style={{ flex: 1 }}>
+            {deliveryAddress ? (
+              <Text style={styles.address}>{deliveryAddress}</Text>
+            ) : <SmallText>{t('checkoutSuccess.deliveryModeNote')}</SmallText>}
+          </View>
+        </View>
       </CheckoutCard>
 
       <CheckoutCard>
@@ -119,8 +121,10 @@ export default function OrderSuccessScreen() {
           {p?.payment_markup ? <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutSuccess.paymentFee')}</Text><Text style={styles.value}>{money(p.payment_markup)}</Text></View> : null}
         </View>
         <View style={styles.total}>
-          <Text style={styles.totalLabel}>{t('checkoutSuccess.grandTotal')}</Text>
-          <Text style={styles.totalValue}>{money(finalTotal)}</Text>
+          <View style={styles.rowBetween}>
+            <Text style={styles.totalLabel}>{t('checkoutSuccess.grandTotal')}</Text>
+            <Text style={styles.totalValue}>{money(finalTotal)}</Text>
+          </View>
           <SmallText>{t('checkoutSuccess.paymentRecorded')}</SmallText>
         </View>
         <View>
@@ -128,29 +132,38 @@ export default function OrderSuccessScreen() {
           {providerName ? <View style={styles.summaryLine}><Text style={styles.muted}>{t('seller.paymentOperator')}</Text><Text style={styles.value}>{providerName}</Text></View> : null}
           <View style={styles.summaryLine}><Text style={styles.muted}>{t('common.status')}</Text><Text style={[styles.value, isPaid && { color: colors.success }]}>{isPaid ? t('orders.paymentPaid') : t('checkoutSuccess.toPay')}</Text></View>
         </View>
-        <Button variant="gold" title={t('checkoutSuccess.trackDelivery')} onPress={() => router.replace({ pathname: '/orders/[id]', params: { id: orderId } })} />
+        <Button title={t('checkoutSuccess.trackDelivery')} onPress={() => router.replace({ pathname: '/orders/[id]', params: { id: orderId } })} />
+        <Button variant="outline" title={t('web.cart.continueShopping')} onPress={() => router.replace('/(buyer)')} />
         <Button variant="outline" title={t('profile.myOrders')} onPress={() => router.replace('/orders')} />
       </CheckoutCard>
+      </View>
     </ScrollView>
   )
 }
 
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
-    statusCard: { paddingVertical: 28, paddingHorizontal: 24 },
-    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    mark: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.gold, alignItems: 'center', justifyContent: 'center' },
-    h1: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 22 },
-    sub: { color: c.muted, fontSize: 15, marginTop: 4 },
+    page: { paddingBottom: spacing.xl },
+    hero: { backgroundColor: c.green, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 56, alignItems: 'center', gap: 10, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+    progressChip: { alignSelf: 'stretch', backgroundColor: c.white, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 14 },
+    mark: { width: 72, height: 72, borderRadius: 36, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center', marginBottom: 4, ...shadow.card },
+    h1: { color: c.onGreen, fontFamily: fonts.display, fontWeight: '700', fontSize: 22, letterSpacing: -0.3, textAlign: 'center' },
+    sub: { color: c.onGreen, opacity: 0.82, fontSize: 13.5, lineHeight: 19, textAlign: 'center' },
+    body: { paddingHorizontal: spacing.md, gap: 14 },
+    overlap: { marginTop: -36 },
     orderBlock: { gap: 4 },
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-    bold: { color: c.ink, fontWeight: '700', fontSize: 15, flexShrink: 1 },
-    muted: { color: c.muted, fontSize: 14 },
-    reviewLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.border },
-    address: { color: c.ink, fontSize: 15, lineHeight: 22 },
-    summaryLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.border, borderStyle: 'dashed' },
-    value: { color: c.ink, fontWeight: '700', fontSize: 14, flexShrink: 1, textAlign: 'right' },
-    total: { gap: 5, paddingTop: 14, borderTopWidth: 2, borderTopColor: c.green },
-    totalLabel: { color: c.ink, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
-    totalValue: { color: c.ink, fontSize: 30, fontWeight: '700' },
+    bold: { color: c.ink, fontWeight: '700', fontSize: 14, flexShrink: 1 },
+    price: { color: c.green, fontWeight: '800', fontSize: 14 },
+    muted: { color: c.muted, fontSize: 12.5 },
+    reviewLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border },
+    thumb: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center' },
+    iconRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    iconTile: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
+    address: { color: c.ink, fontSize: 14, fontWeight: '600', lineHeight: 20 },
+    summaryLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: c.border },
+    value: { color: c.ink, fontWeight: '700', fontSize: 13, flexShrink: 1, textAlign: 'right' },
+    total: { gap: 4, paddingTop: 12 },
+    totalLabel: { color: c.muted, fontSize: 13, fontWeight: '600' },
+    totalValue: { color: c.green, fontSize: 22, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 },
   })

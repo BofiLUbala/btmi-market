@@ -2,7 +2,7 @@ import { useMemo, type PropsWithChildren, type ReactNode } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, type StyleProp, type TextInputProps, type ViewStyle, View } from 'react-native'
 import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
-import { fonts, radius, spacing, type Colors } from '../theme'
+import { fonts, radius, shadow, spacing, type Colors } from '../theme'
 
 export function Card({ children, onPress }: PropsWithChildren<{ onPress?: () => void }>) {
   const c = useColors()
@@ -71,21 +71,21 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
  *  structural ones live in `styles` and are created once. */
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
-    card: { backgroundColor: c.white, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: c.border, gap: spacing.sm },
-    button: { minHeight: 52, borderRadius: radius.pill, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
-    buttonText: { color: c.onGreen, fontSize: 15, fontWeight: '600', letterSpacing: 0.2 },
+    card: { backgroundColor: c.white, borderRadius: 18, padding: spacing.md, borderWidth: 1, borderColor: c.border, gap: spacing.sm, ...shadow.card },
+    button: { minHeight: 52, borderRadius: 14, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
+    buttonText: { color: c.onGreen, fontSize: 15, fontWeight: '700', letterSpacing: 0.1 },
     buttonDense: { minHeight: 44, paddingHorizontal: spacing.sm },
     buttonTextDense: { fontSize: 14 },
-    outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.ink },
-    outlineText: { color: c.ink },
+    outline: { backgroundColor: c.white, borderWidth: 1.5, borderColor: c.green },
+    outlineText: { color: c.green },
     gold: { backgroundColor: c.gold },
     goldText: { color: c.onGold },
-    label: { color: c.ink, fontWeight: '500', fontSize: 14 },
-    input: { minHeight: 50, backgroundColor: c.white, borderWidth: 1, borderColor: c.borderControl, borderRadius: radius.sm, paddingHorizontal: 14, color: c.ink, fontSize: 16 },
+    label: { color: c.ink, fontWeight: '600', fontSize: 13 },
+    input: { minHeight: 50, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderControl, borderRadius: radius.sm, paddingHorizontal: 14, color: c.ink, fontSize: 15 },
     error: { color: c.danger, fontSize: 13 },
-    sectionTitle: { fontSize: 22, fontFamily: fonts.display, fontWeight: '500', color: c.ink, letterSpacing: -0.2 },
+    sectionTitle: { fontSize: 18, fontFamily: fonts.display, fontWeight: '700', color: c.ink, letterSpacing: -0.3 },
     muted: { color: c.muted, textAlign: 'center' },
-    errorTitle: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 20 },
+    errorTitle: { color: c.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 18 },
   })
 
 const styles = StyleSheet.create({

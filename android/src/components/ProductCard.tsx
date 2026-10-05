@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Image } from 'expo-image'
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import type { PublicProduct } from '../types'
-import { fonts, kicker, radius, spacing, type Colors } from '../theme'
+import { fonts, kicker, radius, shadow, spacing, type Colors } from '../theme'
 import { categoryImage } from '../lib/categoryVisuals'
 import { categoryLabel } from '../lib/categoryLabels'
 import { useColors } from '../store/theme'
@@ -83,7 +83,7 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
           })}
           style={staticStyles.fav}
         >
-          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={19} color={favorite ? '#B3261E' : '#1C1C1A'} />
+          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={19} color={favorite ? '#1E5EF3' : '#0B1530'} />
         </Pressable>
       </View>
       <View style={staticStyles.body}>
@@ -106,22 +106,22 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
 /** Colour-bearing styles are rebuilt per theme; layout-only rules stay static. */
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
-    // Editorial card: the photo carries it, so no frame around the whole card.
-    card: { flex: 1, maxWidth: '48.5%' },
-    // 4:5 cover, as on the web storefront.
-    media: { aspectRatio: 4 / 5, backgroundColor: c.surfaceAlt, borderRadius: 14, overflow: 'hidden' },
-    kicker: { ...kicker, fontSize: 10, color: c.muted },
-    name: { color: c.ink, fontWeight: '500', fontSize: 14, lineHeight: 19, minHeight: 38 },
+    // Reference card: white tile, photo on top, blue price underneath.
+    card: { flex: 1, maxWidth: '48.5%', backgroundColor: c.white, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: c.border, ...shadow.card },
+    // Square crop so every listing photo lines up across the grid.
+    media: { aspectRatio: 1, backgroundColor: c.surfaceAlt, overflow: 'hidden' },
+    kicker: { ...kicker, fontSize: 9.5, color: c.green },
+    name: { color: c.ink, fontWeight: '600', fontSize: 13.5, lineHeight: 18, minHeight: 36 },
     mutedText: { color: c.muted },
     shop: { color: c.muted, fontSize: 12 },
     stock: { color: c.success, fontSize: 12, fontWeight: '600' },
     stockLow: { color: c.warning },
     stars: { color: c.star, fontSize: 12, letterSpacing: 0.5 },
     reviewCount: { color: c.muted, fontSize: 11 },
-    price: { color: c.ink, fontFamily: fonts.display, fontWeight: '600', fontSize: 17, marginTop: 2 },
+    price: { color: c.green, fontFamily: fonts.display, fontWeight: '700', fontSize: 16, marginTop: 2 },
     salePrice: { color: c.danger },
     strikePrice: { color: c.muted, fontSize: 12, textDecorationLine: 'line-through' },
-    discountBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: c.danger, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+    discountBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: c.green, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
     discountBadgeText: { color: '#FFFFFF', fontWeight: '700', fontSize: 11 },
     upcomingBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: c.warningSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
     upcomingBadgeText: { color: c.ink, fontWeight: '600', fontSize: 10 },
@@ -133,8 +133,8 @@ const staticStyles = StyleSheet.create({
   pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
   image: { width: '100%', height: '100%' },
   imageOut: { opacity: 0.5 },
-  fav: { position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
-  body: { paddingTop: 10, paddingHorizontal: 2, gap: 4 },
+  fav: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center' },
+  body: { paddingTop: 10, paddingHorizontal: 10, paddingBottom: 12, gap: 3 },
   rating: { fontSize: 12 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs, marginTop: 2 },
 })

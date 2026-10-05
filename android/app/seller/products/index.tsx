@@ -7,7 +7,7 @@ import { useAuth } from '../../../src/store/auth'
 import { Button, Loading } from '../../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
-import { radius, spacing, type Colors, fonts } from '../../../src/theme'
+import { radius, shadow, spacing, type Colors, fonts } from '../../../src/theme'
 import type { Product, PublicationStatus } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -125,7 +125,7 @@ export default function SellerProductsScreen() {
   }
 
   if (!activeBusiness) return <View style={styles.center}>
-    <Ionicons name="cube-outline" size={40} color={colors.muted} />
+    <View style={styles.emptyIcon}><Ionicons name="cube-outline" size={28} color={colors.green} /></View>
     <Text style={styles.h2}>{t('seller.noBusinessSelected')}</Text>
     <Text style={[styles.muted, styles.centerText]}>{t('seller.productList.noBusinessSubtitle')}</Text>
   </View>
@@ -134,11 +134,11 @@ export default function SellerProductsScreen() {
     <View style={styles.head}>
       <Text style={styles.h1}>{t('seller.products')}</Text>
       <Text style={styles.muted}>{t('seller.productList.scopedDesc')}</Text>
-      <Button title={t('seller.productList.createProduct')} onPress={() => router.push('/seller/products/create')} />
+      <Button style={styles.createBtn} title={t('seller.productList.createProduct')} onPress={() => router.push('/seller/products/create')} />
     </View>
 
     {!activeShop ? <View style={styles.card}><View style={styles.emptyInline}>
-      <Ionicons name="storefront-outline" size={40} color={colors.muted} />
+      <View style={styles.emptyIcon}><Ionicons name="storefront-outline" size={28} color={colors.green} /></View>
       <Text style={styles.h3}>{t('seller.productList.selectShopTitle')}</Text>
       <Text style={[styles.muted, styles.centerText]}>{t('seller.productList.selectShopDesc')}</Text>
     </View></View> : <>
@@ -155,7 +155,7 @@ export default function SellerProductsScreen() {
       {inventory.isError ? <View style={styles.errorBox}><Text style={styles.errorText}>{inventory.error instanceof Error ? inventory.error.message : t('seller.productList.loadFailed')}</Text></View> : null}
 
       {inventory.isLoading ? <Loading label={t('seller.productList.loading')} /> : products.length === 0 ? <View style={styles.card}><View style={styles.emptyInline}>
-        <Text style={{ fontSize: 40, color: colors.muted }}>⌕</Text>
+        <View style={styles.emptyIcon}><Text style={styles.emptyGlyph}>⌕</Text></View>
         <Text style={styles.h3}>{search || status ? t('seller.productList.noMatchTitle') : t('seller.productList.noProductsTitle')}</Text>
         <Text style={[styles.muted, styles.centerText]}>{search || status ? t('seller.productList.noMatchDesc') : t('seller.productList.noProductsDesc')}</Text>
       </View></View> : products.map((product) => {
@@ -167,13 +167,15 @@ export default function SellerProductsScreen() {
         const discounted = product.discount_type === 'PERCENTAGE' ? base * (1 - val / 100) : Math.max(0, base - val)
         const currency = (product as Product & { currency?: string }).currency
         return <View key={product.id} style={styles.card}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.badgeOutline} numberOfLines={1}>{product.category_name || t('seller.productList.generalCategory')}</Text>
-            <Text style={[styles.badge, published ? { backgroundColor: colors.successSoft, color: colors.success } : { backgroundColor: colors.warningSoft, color: colors.warning }]}>{publicationStatusLabel(product.publication_status, t)}</Text>
-          </View>
-          <View>
-            <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
-            <Text style={styles.mono}>{product.sku ? t('seller.productDetail.skuInfo', { sku: product.sku }) : t('seller.productList.noSku')}</Text>
+          {/* Article row: rounded thumb tile, name + SKU, status pill */}
+          <View style={styles.itemRow}>
+            <View style={styles.thumb}><Ionicons name="cube-outline" size={24} color={colors.green} /></View>
+            <View style={styles.itemMain}>
+              <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
+              <Text style={styles.mono} numberOfLines={1}>{product.sku ? t('seller.productDetail.skuInfo', { sku: product.sku }) : t('seller.productList.noSku')}</Text>
+              <Text style={styles.badgeOutline} numberOfLines={1}>{product.category_name || t('seller.productList.generalCategory')}</Text>
+            </View>
+            <Text style={[styles.badge, published ? styles.badgeOnline : styles.badgeDraft]}>{publicationStatusLabel(product.publication_status, t)}</Text>
           </View>
           <View style={styles.stats}>
             <View style={styles.stat}>
@@ -181,7 +183,7 @@ export default function SellerProductsScreen() {
               {product.discount_active ? <>
                 <Text style={[styles.statValue, { color: colors.green }]}>{formatMoney(discounted, currency)}</Text>
                 <Text style={styles.strike}>{formatMoney(Number(product.unit_price), currency)}</Text>
-              </> : <Text style={styles.statValue}>{product.unit_price ? formatMoney(Number(product.unit_price), currency) : '—'}</Text>}
+              </> : <Text style={[styles.statValue, { color: colors.green }]}>{product.unit_price ? formatMoney(Number(product.unit_price), currency) : '—'}</Text>}
             </View>
             <View style={styles.stat}><Text style={styles.statLabel}>{t('seller.productList.availableLabel')}</Text><Text style={[styles.statValue, { color: available > 0 ? colors.success : colors.muted }]}>{available}</Text></View>
             <View style={styles.stat}><Text style={styles.statLabel}>{t('seller.productList.variantsLabel')}</Text><Text style={styles.statValue}>{product.variant_count || 1}</Text></View>
@@ -199,34 +201,42 @@ export default function SellerProductsScreen() {
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
+  page: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xl, gap: 12 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl, gap: 8 },
   centerText: { textAlign: 'center' },
-  head: { gap: 8, alignItems: 'flex-start' },
-  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
-  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink, textAlign: 'center' },
-  h3: { fontSize: 17, fontWeight: '700', color: c.ink, textAlign: 'center' },
-  muted: { color: c.muted, fontSize: 14 },
-  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 12, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
+  head: { gap: 6, alignItems: 'stretch', marginBottom: 4 },
+  h1: { fontSize: 22, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3, color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3, color: c.ink, textAlign: 'center' },
+  h3: { fontSize: 16, fontWeight: '700', color: c.ink, textAlign: 'center' },
+  muted: { color: c.muted, fontSize: 13.5, lineHeight: 19 },
+  createBtn: { marginTop: 6 },
+  // White rounded card with the reference's soft lift.
+  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 14, gap: 12, ...shadow.card },
   emptyInline: { alignItems: 'center', paddingVertical: 24, gap: 6 },
+  emptyIcon: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  emptyGlyph: { fontSize: 28, color: c.green, fontWeight: '700' },
   toolbar: { gap: 10 },
-  search: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.sm, borderWidth: 1, borderColor: c.borderControl, backgroundColor: c.white, color: c.ink, fontSize: 15 },
+  search: { minHeight: 48, paddingHorizontal: 14, borderRadius: radius.sm, borderWidth: 1, borderColor: c.border, backgroundColor: c.white, color: c.ink, fontSize: 15, ...shadow.card },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filter: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
-  filterActive: { backgroundColor: c.green, borderColor: c.green },
+  filter: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
+  filterActive: { backgroundColor: c.navy, borderColor: c.navy },
   filterText: { color: c.ink, fontWeight: '600', fontSize: 13 },
-  filterTextActive: { color: c.onGreen },
+  filterTextActive: { color: c.onNavy },
   errorBox: { padding: 12, borderRadius: radius.sm, backgroundColor: c.dangerSoft, borderWidth: 1, borderColor: c.danger },
   errorText: { color: c.danger },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  badge: { fontSize: 12, fontWeight: '700', paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden' },
-  badgeOutline: { flexShrink: 1, fontSize: 12, fontWeight: '600', color: c.ink, paddingVertical: 2, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: c.border },
-  // web .seller-product-card-main h3: Fraunces
-  name: { fontSize: 18, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
-  mono: { fontFamily: 'monospace', fontSize: 13, color: c.muted, marginTop: 2 },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  thumb: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  itemMain: { flex: 1, minWidth: 0, gap: 3, alignItems: 'flex-start' },
+  badge: { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', paddingVertical: 4, paddingHorizontal: 9, borderRadius: 999, overflow: 'hidden' },
+  badgeOnline: { backgroundColor: c.successSoft, color: c.success },
+  badgeDraft: { backgroundColor: c.surface2, color: c.muted },
+  badgeOutline: { maxWidth: '100%', fontSize: 11.5, fontWeight: '600', color: c.muted, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, borderWidth: 1, borderColor: c.border, marginTop: 2 },
+  name: { fontSize: 15, fontWeight: '700', color: c.ink, letterSpacing: -0.1 },
+  mono: { fontFamily: 'monospace', fontSize: 12, color: c.muted },
   stats: { flexDirection: 'row', gap: 8 },
-  stat: { flex: 1, gap: 2, padding: 10, borderRadius: 10, backgroundColor: c.surface2 },
-  statLabel: { color: c.muted, fontSize: 12 },
+  stat: { flex: 1, gap: 2, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.sm, backgroundColor: c.surface2 },
+  statLabel: { color: c.muted, fontSize: 11.5 },
   statValue: { color: c.ink, fontWeight: '700', fontSize: 15 },
   strike: { textDecorationLine: 'line-through', fontSize: 12.5, color: c.muted },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },

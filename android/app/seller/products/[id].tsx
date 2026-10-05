@@ -11,7 +11,7 @@ import { Button, ErrorState, Field, Loading } from '../../../src/components/ui'
 import { QRPanel } from '../../../src/components/OrderItemQRSection'
 import { useI18n, type TranslationKey } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
-import { radius, spacing, type Colors, fonts } from '../../../src/theme'
+import { radius, shadow, spacing, type Colors, fonts } from '../../../src/theme'
 import { prepareProductImageUpload } from '../../../src/lib/imageUpload'
 import { extractSpecifications } from '../../../src/lib/variants'
 import { attributeLabel, canonicalizeAttributes, getAttributeValue, variantDisplayLabel, variantHasAttribute } from '../../../src/lib/categoryAttributes'
@@ -474,7 +474,7 @@ export default function SellerProductDetailScreen() {
           : images.map((img) => <View key={img.id} style={styles.photoCard}>
             <View>
               <Image source={resolveMediaUrl(img.url)} style={styles.photo} contentFit="cover" accessibilityLabel={img.file_name || p.name} />
-              {img.is_primary ? <Text style={[styles.badge, styles.badgeOk, styles.photoBadge]}>{t('seller.productDetail.primary')}</Text> : null}
+              {img.is_primary ? <Text style={[styles.badge, styles.badgePrimary, styles.photoBadge]}>{t('seller.productDetail.primary')}</Text> : null}
             </View>
             <View style={[styles.flex1, { gap: 6 }]}>
               <Text style={styles.small}>{t('seller.productDetail.showsVariant')}</Text>
@@ -656,12 +656,12 @@ function AttrValue({ attr, label, categorySlug, value, onChange, fallback }: {
 
 const makeStyles = (c: Colors) => StyleSheet.create({
   flex1: { flex: 1 },
-  page: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 28, gap: 16 },
+  page: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xl, gap: 12 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: 8 },
   header: { gap: 6, alignItems: 'flex-start' },
-  h1: { fontSize: 24, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
-  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
-  h3: { fontSize: 17, fontWeight: '700', color: c.ink },
+  h1: { fontSize: 22, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3, color: c.ink },
+  h2: { fontSize: 20, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3, color: c.ink },
+  h3: { fontSize: 16, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.2, color: c.ink },
   h4: { fontSize: 15, fontWeight: '700', color: c.ink },
   text: { color: c.ink, fontSize: 14 },
   bold: { color: c.ink, fontWeight: '700', fontSize: 14 },
@@ -674,7 +674,7 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   strike: { textDecorationLine: 'line-through', color: c.muted, fontSize: 14 },
   linkSmall: { color: c.green, fontSize: 12, fontWeight: '700' },
   removeText: { color: c.danger, fontSize: 12, fontWeight: '600' },
-  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 12, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
+  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 16, gap: 12, ...shadow.card },
   inlineForm: { gap: 10, padding: 12, borderRadius: radius.sm, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
   errorBox: { padding: 12, borderRadius: radius.sm, backgroundColor: c.dangerSoft, borderWidth: 1, borderColor: c.danger },
   errorText: { color: c.danger },
@@ -689,24 +689,25 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   badgeOk: { backgroundColor: c.successSoft, color: c.success },
   badgeWarn: { backgroundColor: c.warningSoft, color: c.warning },
   badgeMuted: { backgroundColor: c.surface2, color: c.muted },
+  badgePrimary: { backgroundColor: c.green, color: c.onGreen, fontSize: 9.5, letterSpacing: 0.6, textTransform: 'uppercase' },
   badgeOutline: { fontSize: 12, color: c.ink, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, borderWidth: 1, borderColor: c.border },
   specCell: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: c.borderControl, backgroundColor: c.white },
-  chipOn: { backgroundColor: c.green, borderColor: c.green },
+  chip: { minHeight: 32, justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
+  chipOn: { backgroundColor: c.navy, borderColor: c.navy },
   chipText: { color: c.ink, fontSize: 12.5, fontWeight: '600' },
-  chipTextOn: { color: c.onGreen },
+  chipTextOn: { color: c.onNavy },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: c.borderControl, alignItems: 'center', justifyContent: 'center' },
   checkboxOn: { backgroundColor: c.green, borderColor: c.green },
   checkMark: { color: c.onGreen, fontWeight: '700', fontSize: 13 },
-  input: { minHeight: 40, paddingHorizontal: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: c.borderControl, backgroundColor: c.white, color: c.ink, fontSize: 14 },
+  input: { minHeight: 44, paddingHorizontal: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: c.borderControl, backgroundColor: c.surface2, color: c.ink, fontSize: 14 },
   attrRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   attrLabel: { width: 90 },
   xBtn: { paddingHorizontal: 8, paddingVertical: 6 },
   attrChip: { fontSize: 12, color: c.ink, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
   photoCard: { flexDirection: 'row', gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border },
-  photo: { width: 110, height: 110, borderRadius: radius.sm, backgroundColor: c.surfaceAlt },
+  photo: { width: 96, height: 96, borderRadius: 14, backgroundColor: c.surfaceAlt },
   photoBadge: { position: 'absolute', top: 6, left: 6 },
   variantCard: { gap: 8, padding: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 12, zIndex: 100 },

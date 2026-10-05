@@ -49,11 +49,11 @@ export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
     <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
       <View style={styles.topRow}>
         <Pressable accessibilityRole="button" accessibilityLabel={t('nav.openMenu')} onPress={onOpenMenu} style={styles.toggle}>
-          <Ionicons name="menu" size={22} color={colors.ink} />
+          <Ionicons name="menu" size={22} color={colors.onNavy} />
         </Pressable>
         <View style={styles.headerRight}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('seller.notifications')} onPress={() => router.push('/seller/notifications')} style={styles.bell}>
-            <Ionicons name="notifications-outline" size={20} color={colors.ink} />
+            <Ionicons name="notifications-outline" size={20} color={colors.onNavy} />
             {unreadNotifications > 0 && <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text></View>}
           </Pressable>
           <PreferenceToggleButtons round />
@@ -63,15 +63,15 @@ export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
       {/* web hides both switchers for an employee account */}
       {!isEmployee && <View style={styles.contextRow}>
         <Pressable accessibilityRole="button" style={[styles.pill, !activeBusiness && styles.pillEmpty]} onPress={() => setSwitcher('business')}>
-          <Ionicons name="business-outline" size={16} color={colors.green} />
+          <View style={styles.pillTile}><Ionicons name="business-outline" size={15} color={colors.onGreen} /></View>
           <Text numberOfLines={1} style={[styles.pillLabel, !activeBusiness && styles.pillLabelEmpty]}>{activeBusiness ? activeBusiness.name : t('seller.noBusinessSelected')}</Text>
-          {sellerBusinesses.length > 1 && <Ionicons name="chevron-down" size={14} color={colors.muted} />}
+          {sellerBusinesses.length > 1 && <Ionicons name="chevron-down" size={14} color={colors.onNavyMuted} />}
         </Pressable>
         {activeBusiness && shopList.length > 0 && (
           <Pressable accessibilityRole="button" style={styles.pill} onPress={() => { if (shopList.length > 1) setSwitcher('shop') }}>
-            <Ionicons name="storefront-outline" size={16} color={colors.green} />
+            <View style={styles.pillTile}><Ionicons name="storefront-outline" size={15} color={colors.onGreen} /></View>
             <Text numberOfLines={1} style={styles.pillLabel}>{currentShop ? currentShop.name : t('seller.allShops')}</Text>
-            {shopList.length > 1 && <Ionicons name="chevron-down" size={14} color={colors.muted} />}
+            {shopList.length > 1 && <Ionicons name="chevron-down" size={14} color={colors.onNavyMuted} />}
           </Pressable>
         )}
       </View>}
@@ -115,22 +115,23 @@ export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   // web: background #fff, border-bottom 1px, padding 56px 12px 10px
-  header: { backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
+  // Reference 6 "Espace vendeur": the seller chrome is the dark navy hero bar
+  // (navy in both themes), white icons, shop context as blue icon tiles.
+  header: { backgroundColor: colors.navy, borderBottomWidth: 1, borderBottomColor: colors.navyLine, paddingHorizontal: spacing.md, paddingBottom: 12, gap: 10 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   // web: .seller-header-right at <640px — gap 8, bell link padding 6/10
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   bell: { paddingVertical: 6, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },
-  bellBadge: { position: 'absolute', top: -2, right: 2, minWidth: 18, height: 18, borderRadius: 10, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: -2, right: 2, minWidth: 18, height: 18, borderRadius: 10, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.navy },
   bellBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  // web: .seller-mobile-toggle — 38px square, radius-sm, transparent, 1px border
-  toggle: { width: 38, height: 38, borderRadius: 6, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  // web: .seller-header-left — grid of 2 equal columns, gap 8
+  toggle: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.navySoft, borderWidth: 1, borderColor: colors.navyLine, alignItems: 'center', justifyContent: 'center' },
   contextRow: { flexDirection: 'row', gap: 8 },
-  // web: .seller-context-btn — h40, padding 7/9, surface-2, 1px border, radius 10
-  pill: { flex: 1, minWidth: 0, minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 9, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },
+  // Shop context: navySoft card, blue rounded-12 icon tile, bold white name.
+  pill: { flex: 1, minWidth: 0, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 7, backgroundColor: colors.navySoft, borderWidth: 1, borderColor: colors.navyLine, borderRadius: radius.sm },
   pillEmpty: { borderStyle: 'dashed' },
-  pillLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.ink },
-  pillLabelEmpty: { color: colors.muted },
+  pillTile: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
+  pillLabel: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.onNavy, letterSpacing: -0.1 },
+  pillLabelEmpty: { color: colors.onNavyMuted, fontWeight: '600' },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.white, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.md, gap: spacing.xs, maxHeight: '80%' },
   sheetTitle: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6 },

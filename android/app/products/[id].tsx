@@ -6,6 +6,7 @@ import {
   LayoutAnimation,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -20,7 +21,7 @@ import { resolveMediaUrl } from '../../src/api/client'
 import { useCart } from '../../src/store/cart'
 import { Button, Card, ErrorState, Loading } from '../../src/components/ui'
 import { useColors } from '../../src/store/theme'
-import { fonts, kicker, radius, spacing, type Colors } from '../../src/theme'
+import { fonts, kicker, radius, shadow, spacing, type Colors } from '../../src/theme'
 import { categoryImage } from '../../src/lib/categoryVisuals'
 import { categoryLabel } from '../../src/lib/categoryLabels'
 import { colorSwatch, isColorAttribute } from '../../src/lib/colorSwatch'
@@ -353,6 +354,16 @@ export default function ProductScreen() {
                 {stock > 3 ? t('stock.inStock') : stock > 0 ? t('stock.lowStock') : t('stock.outOfStock')}
               </Text>
             </View>
+            <View style={styles.galleryActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('product.share')}
+              hitSlop={8}
+              style={styles.favBtn}
+              onPress={() => { void Share.share({ message: `${product.name} · ${formatMoney(price, product.currency)}` }).catch(() => undefined) }}
+            >
+              <Ionicons name="share-social-outline" size={19} color={colors.green} />
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={isFavorite ? t('product.removeFromFavorites') : t('product.addToFavorites')}
@@ -373,45 +384,33 @@ export default function ProductScreen() {
                 addedAt: new Date().toISOString(),
               })}
             >
-              <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={20} color={isFavorite ? '#B3261E' : '#1C1C1A'} />
+              <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={20} color={isFavorite ? colors.danger : colors.green} />
             </Pressable>
+            </View>
           </View>
           <View style={styles.galleryBottom} pointerEvents="none">
-            {categoryName ? (
-              <Text style={styles.galleryCaption} numberOfLines={1}>
-                {categoryName}{subcategoryName ? ` / ${subcategoryName}` : ''}
-              </Text>
-            ) : <View />}
+            <View />
             {photos.length > 1 ? (
               <View style={styles.counter}>
                 <Text style={styles.counterText}>{photoIndex + 1} / {photos.length}</Text>
               </View>
             ) : null}
           </View>
+          {photos.length > 1 ? (
+            <View style={styles.dots} pointerEvents="none">
+              {photos.map((url, i) => (
+                <View key={url + i} style={[styles.pageDot, i === photoIndex && styles.pageDotActive]} />
+              ))}
+            </View>
+          ) : null}
         </View>
-        {photos.length > 1 ? (
-          <View style={styles.dots}>
-            {photos.map((url, i) => (
-              <View key={url + i} style={[styles.pageDot, i === photoIndex && styles.pageDotActive]} />
-            ))}
-          </View>
-        ) : null}
 
         <View style={styles.content}>
-          {/* Seller + reference */}
-          <View style={styles.sellerRow}>
-            <View style={styles.sellerLeft}>
-              <Text style={styles.metaLabel}>{t('product.soldByLabel')}</Text>
-              <View style={styles.shopChip}>
-                <Text style={styles.shopChipText} numberOfLines={1}>{product.shop_name || t('product.aSeller')}</Text>
-              </View>
-              {trusted ? (
-                <Ionicons name="checkmark-circle" size={16} color={colors.success} accessibilityLabel={t('product.trustedSeller')} />
-              ) : null}
-            </View>
-            {sku ? <Text style={styles.metaLabel} numberOfLines={1}>{t('product.skuLabel', { sku })}</Text> : null}
-          </View>
-
+          {categoryName ? (
+            <Text style={styles.categoryKicker} numberOfLines={1}>
+              {categoryName}{subcategoryName ? ` / ${subcategoryName}` : ''}
+            </Text>
+          ) : null}
           <Text style={styles.title}>{product.name}</Text>
 
           <View style={styles.ratingLine}>
@@ -432,6 +431,21 @@ export default function ProductScreen() {
                 {reviewQuery.isLoading ? t('product.loadingReviews') : t('reviews.noneYet')}
               </Text>
             )}
+          </View>
+
+          {/* Seller + reference */}
+          <View style={styles.sellerRow}>
+            <View style={styles.sellerTile}><Ionicons name="storefront-outline" size={18} color={colors.green} /></View>
+            <View style={styles.sellerLeft}>
+              <Text style={styles.metaLabel}>{t('product.soldByLabel')}</Text>
+              <View style={styles.shopLine}>
+                <Text style={styles.shopChipText} numberOfLines={1}>{product.shop_name || t('product.aSeller')}</Text>
+                {trusted ? (
+                  <Ionicons name="checkmark-circle" size={16} color={colors.green} accessibilityLabel={t('product.trustedSeller')} />
+                ) : null}
+              </View>
+            </View>
+            {sku ? <Text style={styles.skuText} numberOfLines={1}>{t('product.skuLabel', { sku })}</Text> : null}
           </View>
 
           {/* Price card */}
@@ -476,8 +490,13 @@ export default function ProductScreen() {
                 </Text>
               </View>
               <View style={styles.deliveryMeta}>
-                <Text style={styles.metaLabel}>{t('product.delivery')}</Text>
+                <Ionicons name="cube-outline" size={14} color={colors.green} />
+                <Text style={styles.deliveryLabel}>{t('product.delivery')}</Text>
                 <Text style={styles.deliveryValue}>{freeDelivery ? t('product.deliveryFree') : t('product.deliveryAtCheckout')}</Text>
+              </View>
+              <View style={styles.deliveryMeta}>
+                <Ionicons name="phone-portrait-outline" size={14} color={colors.green} />
+                <Text style={styles.deliveryValue}>{t('product.mobileMoneyPill')}</Text>
               </View>
             </View>
           </View>
@@ -519,7 +538,7 @@ export default function ProductScreen() {
                           accessibilityState={{ selected: isSelected, disabled: !exists }}
                           disabled={!exists}
                           onPress={() => chooseValue(g.key, val)}
-                          style={[styles.colourCard, otherCombo && styles.optionOther, isSelected && styles.optionSelected, !exists && styles.optionDisabled]}
+                          style={[styles.colourCard, otherCombo && styles.optionOther, isSelected && styles.colourSelected, !exists && styles.optionDisabled]}
                         >
                           <View style={[styles.colourDot, { backgroundColor: swatch ?? colors.surfaceAlt }]}>
                             {isSelected ? <View style={styles.colourDotInner} /> : null}
@@ -627,10 +646,10 @@ export default function ProductScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('web.cart.increaseQuantity')}
                 disabled={quantity >= stock}
-                style={[styles.stepBtn, quantity >= stock && styles.optionDisabled]}
+                style={[styles.stepBtn, styles.stepPlus, quantity >= stock && styles.optionDisabled]}
                 onPress={() => setQuantity(quantity + 1)}
               >
-                <Ionicons name="add" size={18} color={colors.ink} />
+                <Ionicons name="add" size={18} color={colors.onGreen} />
               </Pressable>
             </View>
           </View>
@@ -764,16 +783,18 @@ export default function ProductScreen() {
             {t('product.selectOptionsFirst', { options: missingOptions.join(' · ') })}
           </Text>
         )}
-        <View style={styles.barRow}>
-          <View style={styles.totalBlock}>
+        <View style={styles.totalBlock}>
+          <View style={styles.flex1}>
             <Text style={styles.metaLabel}>{t('product.total')}</Text>
-            <Text style={styles.totalValue} numberOfLines={1}>
-              {formatMoney(price * quantity, product.currency)}
-            </Text>
             <Text style={styles.totalSub} numberOfLines={1}>
               {t('product.totalDetail', { qty: quantity, price: formatMoney(price, product.currency) })}
             </Text>
           </View>
+          <Text style={styles.totalValue} numberOfLines={1}>
+            {formatMoney(price * quantity, product.currency)}
+          </Text>
+        </View>
+        <View style={styles.barRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('product.addToCart')}
@@ -781,8 +802,8 @@ export default function ProductScreen() {
             onPress={addLine}
             style={({ pressed }) => [styles.cartBtn, !canBuy && styles.optionDisabled, pressed && styles.pressed]}
           >
-            <Ionicons name="bag-outline" size={17} color={colors.ink} />
-            <Text style={styles.cartBtnText}>{t('product.cartShort')}</Text>
+            <Ionicons name="bag-add-outline" size={19} color={colors.green} />
+            <Text style={styles.cartBtnText} numberOfLines={1}>{t('product.cartShort')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -803,7 +824,7 @@ export default function ProductScreen() {
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  screen: { flex: 1 },
+  screen: { flex: 1, backgroundColor: colors.white },
   flex1: { flex: 1 },
   pressed: { opacity: 0.85 },
   dot: { width: 8, height: 8, borderRadius: 4 },
@@ -811,23 +832,23 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
 
   gallery: { backgroundColor: colors.surfaceAlt, overflow: 'hidden' },
   galleryTop: { position: 'absolute', top: 14, left: 14, right: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  overlayChip: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  overlayChipText: { ...kicker, fontSize: 10, color: '#1C1C1A' },
-  favBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.94)', alignItems: 'center', justifyContent: 'center' },
-  galleryBottom: { position: 'absolute', left: 14, right: 14, bottom: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  overlayChip: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  overlayChipText: { fontSize: 11, fontWeight: '700', color: '#0B1530' },
+  favBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', ...shadow.card },
+  galleryBottom: { position: 'absolute', left: 14, right: 14, bottom: 34, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   galleryCaption: { ...kicker, fontSize: 10, color: '#1C1C1A', backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, overflow: 'hidden', flexShrink: 1 },
-  counter: { backgroundColor: 'rgba(28,28,26,0.82)', borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 },
+  counter: { backgroundColor: 'rgba(11,21,48,0.72)', borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
   counterText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 12 },
-  pageDot: { width: 8, height: 4, borderRadius: 2, backgroundColor: colors.border },
-  pageDotActive: { width: 36, backgroundColor: colors.gold },
+  dots: { position: 'absolute', left: 0, right: 0, bottom: 34, flexDirection: 'row', justifyContent: 'center', gap: 5 },
+  pageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.75)' },
+  pageDotActive: { width: 18, backgroundColor: colors.green },
 
-  content: { paddingHorizontal: spacing.md, paddingTop: 18, gap: 18 },
-  sellerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  sellerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
-  shopChip: { borderWidth: 1, borderColor: colors.borderControl, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, flexShrink: 1 },
-  shopChipText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
-  title: { fontSize: 26, lineHeight: 32, fontFamily: fonts.display, fontWeight: '600', color: colors.ink, letterSpacing: -0.3, marginTop: -6 },
+  content: { paddingHorizontal: spacing.md, paddingTop: 22, gap: 16, marginTop: -22, backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, ...shadow.card },
+  sellerLeft: { flex: 1, gap: 2 },
+  shopChip: { flexShrink: 1 },
+  shopChipText: { color: colors.ink, fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  title: { fontSize: 22, lineHeight: 28, fontFamily: fonts.display, fontWeight: '700', color: colors.ink, letterSpacing: -0.3, marginTop: -10 },
   ratingLine: { flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: -8 },
   ratingStars: { color: colors.star, fontSize: 14, letterSpacing: 1 },
   ratingValue: { color: colors.ink, fontSize: 14, fontWeight: '700' },
@@ -835,65 +856,73 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   ratingLink: { color: colors.muted, fontSize: 13, textDecorationLine: 'underline' },
   ratingMuted: { color: colors.muted, fontSize: 13 },
 
-  priceCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, padding: spacing.md, gap: 10 },
+  priceCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, padding: spacing.md, gap: 12, ...shadow.card },
   priceTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: 6 },
-  price: { fontSize: 32, lineHeight: 38, fontFamily: fonts.display, fontWeight: '600', color: colors.ink },
+  price: { fontSize: 28, lineHeight: 34, fontFamily: fonts.display, fontWeight: '700', color: colors.green, letterSpacing: -0.4 },
   perUnit: { ...kicker, fontSize: 11, color: colors.muted },
   strikePrice: { fontSize: 14, color: colors.muted, textDecorationLine: 'line-through' },
-  promoBadge: { borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.goldSoft, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  promoBadgeText: { color: colors.gold, fontWeight: '800', fontSize: 13 },
+  promoBadge: { backgroundColor: colors.dangerSoft, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  promoBadgeText: { color: colors.danger, fontWeight: '800', fontSize: 12.5 },
   promoWindow: { color: colors.muted, fontSize: 12 },
-  priceDivider: { height: 1, backgroundColor: colors.border },
-  priceBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  stockLine: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  stockText: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
-  deliveryMeta: { alignItems: 'flex-end', gap: 2 },
-  deliveryValue: { color: colors.ink, fontSize: 12, fontWeight: '600' },
+  priceDivider: { height: 0 },
+  priceBottom: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  stockLine: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.surface2, flexShrink: 1 },
+  stockText: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
+  deliveryMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.greenSoft, flexShrink: 1 },
+  deliveryValue: { color: colors.green, fontSize: 12, fontWeight: '700', flexShrink: 1 },
 
   optionSection: { gap: 10 },
   optionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  optionLabel: { ...kicker, fontSize: 11, color: colors.muted, flexShrink: 1 },
-  optionValue: { color: colors.ink, fontWeight: '800' },
-  optionSelected: { borderColor: colors.gold, borderWidth: 2, borderStyle: 'solid' },
+  optionLabel: { fontSize: 13, fontWeight: '700', color: colors.ink, flexShrink: 1 },
+  optionValue: { color: colors.green, fontWeight: '700' },
+  optionSelected: { borderColor: colors.navy, backgroundColor: colors.navy, borderStyle: 'solid' },
   optionOther: { borderStyle: 'dashed', borderColor: colors.borderControl },
   optionDisabled: { opacity: 0.4 },
   colourGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
-  colourCard: { width: '48.5%', minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
+  colourCard: { width: '48.5%', minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10 },
   colourDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0,0,0,0.18)', alignItems: 'center', justifyContent: 'center' },
-  colourDotInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.gold, borderWidth: 1.5, borderColor: '#FFFFFF' },
+  colourDotInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.green, borderWidth: 1.5, borderColor: '#FFFFFF' },
   colourName: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   colourStock: { fontSize: 11, marginTop: 2 },
   tileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tile: { minWidth: 58, height: 50, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  tileEven: { flexGrow: 1, flexBasis: 56 },
-  tileText: { color: colors.ink, fontSize: 14, fontWeight: '600' },
-  tileTextSelected: { color: colors.gold, fontWeight: '800' },
+  tile: { minWidth: 44, height: 44, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  tileEven: { flexGrow: 0 },
+  tileText: { color: colors.ink, fontSize: 13.5, fontWeight: '600' },
+  tileTextSelected: { color: colors.onNavy, fontWeight: '700' },
   tileTextOut: { color: colors.muted, textDecorationLine: 'line-through' },
   tileSub: { color: colors.muted, fontSize: 9, marginTop: 1 },
-  tileBadge: { position: 'absolute', top: -5, right: -5, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.gold, borderWidth: 2, borderColor: colors.cream },
+  tileBadge: { position: 'absolute', top: -4, right: -4, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.cyan, borderWidth: 2, borderColor: colors.white },
 
-  qtyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, padding: spacing.md },
-  qtyTitle: { ...kicker, fontSize: 11, color: colors.ink },
-  qtySub: { color: colors.muted, fontSize: 13, marginTop: 4 },
+  qtyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, padding: 14, ...shadow.card },
+  qtyTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  qtySub: { color: colors.muted, fontSize: 12.5, marginTop: 3 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  stepBtn: { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: 38, height: 38, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  galleryActions: { flexDirection: 'row', gap: 10 },
+  stepPlus: { backgroundColor: colors.green, borderColor: colors.green },
+  colourSelected: { borderColor: colors.green, borderWidth: 1.5, backgroundColor: colors.greenSoft },
+  categoryKicker: { ...kicker, color: colors.green },
+  sellerTile: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  shopLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  skuText: { color: colors.muted, fontSize: 11, maxWidth: 110 },
+  deliveryLabel: { color: colors.green, fontSize: 12, fontWeight: '600' },
   stepValue: { minWidth: 34, textAlign: 'center', color: colors.ink, fontSize: 16, fontWeight: '700' },
 
   block: { gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionSquare: { width: 10, height: 10, backgroundColor: colors.gold, borderRadius: 2 },
-  sectionHeaderText: { ...kicker, fontSize: 12, fontWeight: '800', color: colors.ink },
-  specTable: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, paddingHorizontal: spacing.md },
+  sectionSquare: { width: 4, height: 16, backgroundColor: colors.green, borderRadius: 2 },
+  sectionHeaderText: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  specTable: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, paddingHorizontal: spacing.md, ...shadow.card },
   specRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.border },
   specRowLast: { borderBottomWidth: 0 },
-  specKey: { ...kicker, fontSize: 10, color: colors.muted, flex: 1, lineHeight: 16 },
+  specKey: { fontSize: 12.5, color: colors.muted, flex: 1, lineHeight: 18 },
   specVal: { color: colors.ink, fontSize: 13, fontWeight: '700', flex: 1.4, textAlign: 'right' },
 
   infoList: { gap: 10 },
-  infoCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white },
+  infoCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, ...shadow.card },
   infoSummary: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.md, paddingVertical: 14 },
-  infoTitle: { ...kicker, fontSize: 12, fontWeight: '800', color: colors.ink, flex: 1 },
+  infoTitle: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
   infoBody: { paddingHorizontal: spacing.md, paddingBottom: spacing.md },
 
   reviewLoading: { minHeight: 120 },
@@ -901,7 +930,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   reviewEmpty: { color: colors.muted, lineHeight: 20 },
   summary: { flexDirection: 'row', gap: 18, alignItems: 'center' },
   scoreBlock: { width: 105, alignItems: 'center' },
-  score: { fontSize: 38, fontFamily: fonts.display, fontWeight: '500', color: colors.ink },
+  score: { fontSize: 38, fontFamily: fonts.display, fontWeight: '700', color: colors.ink },
   summaryStars: { color: colors.star, fontSize: 17, letterSpacing: 1 },
   reviewTotal: { fontSize: 11, color: colors.muted, textAlign: 'center', marginTop: 5 },
   breakdown: { flex: 1, gap: 6 },
@@ -972,12 +1001,12 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     shadowRadius: 10,
   },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  totalBlock: { flex: 1, minWidth: 80 },
-  totalValue: { color: colors.ink, fontSize: 20, fontFamily: fonts.display, fontWeight: '600', marginTop: 1 },
+  totalBlock: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  totalValue: { color: colors.green, fontSize: 20, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 },
   totalSub: { color: colors.muted, fontSize: 11 },
-  cartBtn: { height: 48, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.borderControl, backgroundColor: colors.white },
-  cartBtnText: { ...kicker, fontSize: 11, fontWeight: '800', color: colors.ink },
-  orderBtn: { height: 48, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center', maxWidth: 150 },
-  orderBtnText: { ...kicker, fontSize: 11, fontWeight: '800', color: colors.onGold },
-  selectHint: { color: colors.gold, fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  cartBtn: { width: 60, height: 52, alignItems: 'center', justifyContent: 'center', gap: 1, borderRadius: 14, borderWidth: 1.5, borderColor: colors.green, backgroundColor: colors.white },
+  cartBtnText: { fontSize: 9.5, fontWeight: '700', color: colors.green },
+  orderBtn: { flex: 1, height: 52, paddingHorizontal: 18, borderRadius: 14, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', ...shadow.raised },
+  orderBtnText: { fontSize: 15, fontWeight: '700', color: colors.onGreen },
+  selectHint: { color: colors.green, fontSize: 12, fontWeight: '600', textAlign: 'center' },
 })

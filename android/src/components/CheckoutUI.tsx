@@ -3,9 +3,11 @@ import { useMemo, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { useColors } from '../store/theme'
-import { fonts, spacing, type Colors } from '../theme'
+import { fonts, radius, shadow, spacing, type Colors } from '../theme'
 import type { StructuredAddressValue } from './StructuredAddressFields'
+import { BrandLogo } from './BrandLogo'
 
 /**
  * Native versions of the web checkout building blocks (pages.css:
@@ -27,10 +29,10 @@ export function CheckoutHeader() {
     <View style={[s.shell, { paddingTop: insets.top }]}>
       <View style={s.shellRow}>
         <Pressable style={s.shellBack} onPress={() => (router.canGoBack() ? router.back() : router.replace('/(buyer)'))} accessibilityRole="button" accessibilityLabel={t('common.back')}>
-          <Text style={s.shellBackText}>←</Text>
+          <Ionicons name="chevron-back" size={20} color={c.ink} />
         </Pressable>
         <Text style={s.shellTitle}>{t('checkout.shellTitle')}</Text>
-        <Text style={[s.shellBrand, { color: c.ink }]}>TBK</Text>
+        <BrandLogo size={30} />
       </View>
     </View>
   )
@@ -101,7 +103,7 @@ export function OptionCard({ title, amount, lines, selected = true }: { title: s
   const { s } = useS()
   return (
     <View style={[s.option, selected && s.optionOn]}>
-      <View style={[s.radio, selected && s.radioOn]} />
+      <View style={[s.radio, selected && s.radioOn]}>{selected ? <View style={s.radioDot} /> : null}</View>
       <View style={s.optionTop}>
         <Text style={s.optionTitle}>{title}</Text>
         {amount ? <Text style={s.optionAmount}>{amount}</Text> : null}
@@ -113,7 +115,7 @@ export function OptionCard({ title, amount, lines, selected = true }: { title: s
 
 /** web StructuredAddressSummary (.address-summary) */
 export function AddressSummary({ value }: { value: StructuredAddressValue }) {
-  const { s } = useS()
+  const { c, s } = useS()
   const { t } = useI18n()
   const rows: Array<[string, string]> = [
     [t('seller.province'), value.province], [t('common.city'), value.city], [t('common.commune'), value.commune],
@@ -122,12 +124,15 @@ export function AddressSummary({ value }: { value: StructuredAddressValue }) {
   ]
   return (
     <View style={s.summary}>
-      {rows.map(([k, v]) => (
-        <View key={k} style={s.summaryRow}>
-          <Text style={s.summaryKey}>{k}</Text>
-          <Text style={s.summaryVal}>{v}</Text>
-        </View>
-      ))}
+      <View style={s.pinTile}><Ionicons name="location" size={18} color={c.green} /></View>
+      <View style={s.summaryRows}>
+        {rows.map(([k, v]) => (
+          <View key={k} style={s.summaryRow}>
+            <Text style={s.summaryKey}>{k}</Text>
+            <Text style={s.summaryVal}>{v}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   )
 }
@@ -147,44 +152,45 @@ export function UnderlineLink({ title, onPress }: { title: string; onPress: () =
   )
 }
 
-export const checkoutPage = { padding: spacing.md, gap: 22, paddingBottom: spacing.xl } as const
+export const checkoutPage = { padding: spacing.md, gap: 14, paddingBottom: spacing.xl } as const
 
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     shell: { backgroundColor: c.white, borderBottomWidth: 1, borderBottomColor: c.border },
-    shellRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
-    shellBack: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: c.border, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center' },
-    shellBackText: { color: c.ink, fontSize: 21 },
-    shellTitle: { flex: 1, textAlign: 'center', color: c.ink, fontSize: 17, fontWeight: '700' },
-    shellBrand: { width: 40, textAlign: 'right', fontSize: 11.5, fontWeight: '700' },
-    heading: { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
-    h1: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 29, letterSpacing: -0.4 },
-    headingSub: { color: c.muted, marginTop: 5, fontSize: 15 },
-    pill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: c.surface2, color: c.muted, fontSize: 14, overflow: 'hidden' },
-    card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 17, gap: 12 },
-    rewards: { backgroundColor: c.goldSoft, borderRadius: 12, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
-    rewardsOn: { borderColor: c.gold },
-    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: c.border },
-    cardTitle: { flex: 1, color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 18 },
-    cardMeta: { color: c.muted, fontSize: 14 },
-    eyebrow: { color: c.ink, fontSize: 11.5, fontWeight: '700', letterSpacing: 1.3, textTransform: 'uppercase' },
-    h2: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 22 },
+    shellRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 10 },
+    shellBack: { width: 38, height: 38, borderRadius: 19, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center' },
+    shellTitle: { flex: 1, color: c.ink, fontSize: 18, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 },
+    heading: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
+    h1: { color: c.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 22, letterSpacing: -0.3 },
+    headingSub: { color: c.muted, marginTop: 4, fontSize: 13.5, lineHeight: 19 },
+    pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: c.navy, color: c.onNavy, fontSize: 11.5, fontWeight: '700', overflow: 'hidden' },
+    card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: spacing.md, gap: 12, ...shadow.card },
+    rewards: { backgroundColor: c.greenSoft, borderRadius: radius.md, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', borderColor: c.greenSoft },
+    rewardsOn: { borderColor: c.green, borderWidth: 1.5 },
+    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border },
+    cardTitle: { flex: 1, color: c.ink, fontWeight: '700', fontSize: 15 },
+    cardMeta: { color: c.green, fontSize: 12, fontWeight: '700' },
+    eyebrow: { color: c.ink, fontSize: 13, fontWeight: '700' },
+    h2: { color: c.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 17, letterSpacing: -0.2 },
     divider: { height: 1, backgroundColor: c.border, marginVertical: 4 },
-    switch: { width: 50, height: 28, padding: 3, borderRadius: 999, backgroundColor: c.border },
+    switch: { width: 48, height: 28, padding: 3, borderRadius: radius.pill, backgroundColor: c.borderControl },
     switchOn: { backgroundColor: c.green },
     knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF', elevation: 2 },
-    knobOn: { transform: [{ translateX: 22 }] },
-    option: { borderWidth: 1, borderColor: c.border, borderRadius: 10, padding: 16, paddingRight: 46, gap: 5, backgroundColor: c.white },
+    knobOn: { transform: [{ translateX: 20 }] },
+    option: { borderWidth: 1, borderColor: c.border, borderRadius: 14, padding: 14, paddingRight: 46, gap: 4, backgroundColor: c.white },
     optionOn: { borderColor: c.green, borderWidth: 1.5 },
-    radio: { position: 'absolute', top: 18, right: 18, width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: c.border },
-    radioOn: { borderWidth: 6, borderColor: c.green },
+    radio: { position: 'absolute', top: 15, right: 15, width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: c.borderControl, alignItems: 'center', justifyContent: 'center' },
+    radioOn: { borderColor: c.green, backgroundColor: c.green },
+    radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.onGreen },
     optionTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-    optionTitle: { color: c.ink, fontSize: 16, fontWeight: '700', flex: 1 },
-    optionAmount: { color: c.ink, fontSize: 16, fontWeight: '700' },
-    small: { color: c.muted, fontSize: 14, lineHeight: 20 },
-    summary: { gap: 6, padding: 12, borderRadius: 12, backgroundColor: c.surface2 },
+    optionTitle: { color: c.ink, fontSize: 14.5, fontWeight: '700', flex: 1 },
+    optionAmount: { color: c.green, fontSize: 15, fontWeight: '800' },
+    small: { color: c.muted, fontSize: 12.5, lineHeight: 18 },
+    summary: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
+    pinTile: { width: 36, height: 36, borderRadius: 10, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
+    summaryRows: { flex: 1, gap: 5 },
     summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-    summaryKey: { color: c.muted, fontSize: 14 },
-    summaryVal: { color: c.ink, fontSize: 14, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
-    underline: { textAlign: 'center', color: c.ink, fontWeight: '700', fontSize: 15, textDecorationLine: 'underline', paddingTop: 8, paddingBottom: 2 },
+    summaryKey: { color: c.muted, fontSize: 12.5 },
+    summaryVal: { color: c.ink, fontSize: 13, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
+    underline: { textAlign: 'center', color: c.green, fontWeight: '700', fontSize: 14, paddingTop: 6, paddingBottom: 2 },
   })

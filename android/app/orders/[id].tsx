@@ -3,6 +3,7 @@ import { LazyLiveCourierMap } from '../../src/components/LazyLiveCourierMap'
 import { isLiveTracked } from '../../src/lib/liveTracking'
 import { Image } from 'expo-image'
 import { Pressable } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { resolveMediaUrl } from '../../src/api/client'
 import { timelineNote } from '../../src/lib/timelineNote'
 import { OrderRatingCard } from '../../src/components/OrderRatingCard'
@@ -16,12 +17,13 @@ import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrollView'
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
+import type { ChatParty } from '../../src/api/communication'
 import { BuyerHandoverCard, MobilePaymentCard } from '../../src/components/BuyerHandover'
 import { formatMoney } from '../../src/lib/money'
 import { dateLocale } from '../../src/lib/format'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { fonts, spacing, type Colors } from '../../src/theme'
+import { fonts, radius, shadow, spacing, type Colors } from '../../src/theme'
 import type { OrderStatusHistory, BuyerPayment, ProductVerification, OrderLine } from '../../src/types'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { deliveryLabel } from '../../src/lib/deliveryLabels'
@@ -132,21 +134,28 @@ function WebOrderTimeline({ o, payment, styles }: { o: Ord; payment: BuyerPaymen
   const done = visible.map((step) => step.done(o, payment))
   const current = done.findIndex((d) => !d)
   return (
-    <Card>
+    <View style={styles.timelineCard}>
       <Text style={styles.cardH2}>{w('orders.lifecycle')}</Text>
-      {visible.map((step, i) => (
-        <View key={step.key} style={styles.webStep}>
-          <View style={[styles.webDot, (done[i] || i === current) && { borderColor: colors.gold }]}>
-            {done[i] ? <Text style={styles.webTick}>✓</Text> : null}
+      {visible.map((step, i) => {
+        const isCurrent = i === current
+        const last = i === visible.length - 1
+        return (
+          <View key={step.key} style={styles.webStep}>
+            <View style={styles.webRail}>
+              <View style={[styles.webDot, done[i] && styles.webDotDone, isCurrent && styles.webDotCurrent]}>
+                {done[i] ? <Ionicons name="checkmark" size={13} color={colors.onGreen} /> : isCurrent ? <Ionicons name="ellipse" size={8} color={colors.green} /> : null}
+              </View>
+              {!last ? <View style={[styles.webLine, done[i] && { backgroundColor: colors.green }]} /> : null}
+            </View>
+            <View style={styles.webStepBody}>
+              <Text style={[styles.webStepText, isCurrent && { color: colors.green }, !done[i] && !isCurrent && { color: colors.muted, fontWeight: '600' }]}>{w(step.label)}</Text>
+              {step.key === 'payment' ? <Text style={styles.webStepSub}>{t(paymentStatusKey(payment) as TranslationKey)}</Text> : null}
+            </View>
           </View>
-          <Text style={styles.webStepText}>
-            {w(step.label)}
-            {step.key === 'payment' ? <Text style={styles.muted}>  {t(paymentStatusKey(payment) as TranslationKey)}</Text> : null}
-          </Text>
-        </View>
-      ))}
-      <Text style={[styles.muted, { marginTop: 8 }]}>{w('tracking.note')}</Text>
-    </Card>
+        )
+      })}
+      <Text style={[styles.hint, { marginTop: 8 }]}>{w('tracking.note')}</Text>
+    </View>
   )
 }
 
@@ -234,6 +243,7 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   const [productNumber, setProductNumber] = useState('')
   const [productVerification, setProductVerification] = useState<ProductVerification | null>(null)
   const [showChat, setShowChat] = useState(false)
+  const [chatParty, setChatParty] = useState<ChatParty | undefined>(undefined)
 
   const order = useQuery({
     queryKey: ['buyer','order',id],
@@ -320,25 +330,58 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
 
   return <View style={{ flex: 1, backgroundColor: colors.cream }}>
     <KeyboardAwareScrollView contentContainerStyle={styles.page}>
-      <Pressable onPress={() => router.push('/orders')} accessibilityRole="link"><Text style={styles.backLink}>← {t('web.account.myOrders' as TranslationKey)}</Text></Pressable>
+      {/* Blue order-tracking header (reference 5); the timeline card overlaps it. */}
+      <View style={styles.hero}>
+        <Pressable onPress={() => router.push('/orders')} accessibilityRole="link" style={styles.backRow}>
+          <View style={styles.backCircle}><Ionicons name="chevron-back" size={18} color={colors.onGreen} /></View>
+          <Text style={styles.backLink}>{t('web.account.myOrders' as TranslationKey)}</Text>
+        </Pressable>
 
-      {/* web .live-bar */}
-      <View style={styles.liveBar}>
-        {/* A finished order no longer streams updates; do not claim it is live. */}
-        {!isTerminal(o.status) ? <View style={styles.liveLabel}><View style={styles.liveDot} /><Text style={styles.liveText}>{t('web.orders.live' as TranslationKey)}</Text></View> : null}
-        <Text style={[styles.muted, { flex: 1 }]}>{t('web.orders.updated' as TranslationKey, { time: formatDateTime(new Date(order.dataUpdatedAt).toISOString(), lang) })}</Text>
-        <Pressable accessibilityRole="button" disabled={order.isFetching} onPress={() => void order.refetch()} style={styles.refreshBtn}><Text style={styles.refreshText}>{order.isFetching ? '⟳' : t('web.orders.refresh' as TranslationKey)}</Text></Pressable>
-      </View>
+        <Text style={styles.heroKicker}>{t('web.orders.orderNumber' as TranslationKey, { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</Text>
+        <Text style={styles.h1}>{statusLabel(t, o.status)}</Text>
+        <Text style={styles.heroMuted}>{formatDateTime(o.created_at, lang)}</Text>
+        <Text style={styles.shopLine}><Text style={styles.heroMuted}>{t('web.orders.shop' as TranslationKey)}: </Text><Text style={styles.bold}>{order.data.shop_name}</Text>{order.data.business_name ? <Text style={styles.heroMuted}> · {order.data.business_name}</Text> : null}{order.data.seller_name ? <Text style={styles.heroMuted}> · {order.data.seller_name}</Text> : null}</Text>
+        {isTerminal(o.status) && <Text style={styles.heroMuted}>{t('orders.terminalNote')}</Text>}
 
-      <View style={styles.titleRow}>
-        <Text style={styles.h1}>{t('web.orders.orderNumber' as TranslationKey, { number: o.order_number || o.id.slice(0, 8).toUpperCase() })}</Text>
-        <Text style={styles.badge}>{statusLabel(t, o.status)}</Text>
+        {/* web .live-bar */}
+        <View style={styles.liveBar}>
+          {/* A finished order no longer streams updates; do not claim it is live. */}
+          {!isTerminal(o.status) ? <View style={styles.liveLabel}><View style={styles.liveDot} /><Text style={styles.liveText}>{t('web.orders.live' as TranslationKey)}</Text></View> : null}
+          <Text style={[styles.heroMuted, { flex: 1, fontSize: 12 }]}>{t('web.orders.updated' as TranslationKey, { time: formatDateTime(new Date(order.dataUpdatedAt).toISOString(), lang) })}</Text>
+          <Pressable accessibilityRole="button" disabled={order.isFetching} onPress={() => void order.refetch()} style={styles.refreshBtn}><Text style={styles.refreshText}>{order.isFetching ? '⟳' : t('web.orders.refresh' as TranslationKey)}</Text></Pressable>
+        </View>
       </View>
-      <Text style={styles.muted}>{formatDateTime(o.created_at, lang)}</Text>
-      <Text style={styles.shopLine}><Text style={styles.muted}>{t('web.orders.shop' as TranslationKey)}: </Text><Text style={styles.bold}>{order.data.shop_name}</Text>{order.data.business_name ? <Text style={styles.muted}> · {order.data.business_name}</Text> : null}{order.data.seller_name ? <Text style={styles.muted}> · {order.data.seller_name}</Text> : null}</Text>
-      {isTerminal(o.status) && <Text style={styles.hint}>{t('orders.terminalNote')}</Text>}
 
       <WebOrderTimeline o={o} payment={p ?? null} styles={styles} />
+
+      {/* Courier card (reference 5): once a TBK courier is assigned and the delivery is still open. The API never names the courier, so the card shows the delivery step; the round button opens the courier channel of the order chat. */}
+      {isTbk && courierReached(o, 'COURIER_ASSIGNED') && !closed && !isTerminalDelivery(o.delivery_status || undefined) ? (
+        <View style={styles.courierCard}>
+          <View style={styles.courierAvatar}><Ionicons name="bicycle" size={20} color={colors.onNavy} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.courierKicker}>{t('orders.yourCourier')}</Text>
+            <Text style={styles.courierName} numberOfLines={1}>{statusLabel(t, o.delivery_status || o.status)}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('orders.messageCourier')} onPress={() => { setChatParty('COURIER'); setShowChat(true) }} style={styles.courierBtn}>
+            <Ionicons name="chatbubble-ellipses" size={19} color={colors.navy} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Items summary row (reference 5) */}
+      {lines.length ? (
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryThumbs}>
+            {lines.slice(0, 2).map((line, i) => (
+              <View key={line.id} style={[styles.summaryThumb, i > 0 && { marginLeft: -14 }]}>
+                {line.image_url ? <Image source={resolveMediaUrl(line.image_url)} style={styles.summaryThumbImg} contentFit="cover" /> : <Ionicons name="cube-outline" size={18} color={colors.green} />}
+              </View>
+            ))}
+          </View>
+          <Text style={styles.summaryCount}>{t('orders.itemsCount', { count: lines.reduce((n, l) => n + l.quantity, 0) })}</Text>
+          <Text style={styles.summaryTotal}>{formatMoney(grandTotal, currency)}</Text>
+        </View>
+      ) : null}
 
       <DeliveryPlanCard plan={o} status={o.status} deliveryStatus={o.delivery_status} deliveryMethod={deliveryMethod} />
 
@@ -400,8 +443,11 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       {deliveryMethod ? <SectionTitle title={t('orders.liveTracking')}/> : null}
       <Card>{timeline.length ? timeline.map((step,i)=>(
         <View key={`${step.status}-${i}`} style={styles.timelineRow}>
-          <View style={[styles.dot, step.done && styles.dotDone]}/>
-          <View style={{flex:1}}>
+          <View style={styles.webRail}>
+            <View style={[styles.webDot, step.done && styles.webDotDone]}>{step.done ? <Ionicons name="checkmark" size={13} color={colors.onGreen} /> : null}</View>
+            {i < timeline.length - 1 ? <View style={[styles.webLine, step.done && { backgroundColor: colors.green }]} /> : null}
+          </View>
+          <View style={{flex:1,paddingBottom:12}}>
             <Text style={[styles.stepStatus, step.done && styles.stepDone]}>{statusLabel(t, step.status)}</Text>
             {step.event ? <>
               {step.event.notes ? <Text style={styles.muted}>{timelineNote(t, step.event.notes)}</Text> : null}
@@ -465,8 +511,10 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
         <OrderChatFeed
           orderId={id!}
           role="BUYER"
-          onClose={() => setShowChat(false)}
+          onClose={() => { setShowChat(false); setChatParty(undefined) }}
           showHeader={true}
+          initialParty={chatParty}
+          product={lines[0] ? { name: lines[0].product_name, imageUrl: lines[0].image_url, price: lines[0].final_unit_price, productId: lines[0].product_id } : undefined}
         />
       </View>
     )}
@@ -496,20 +544,56 @@ function PurchasedLine({ line, orderId, eligibility, styles, reasonText }: { lin
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  backLink: { color: colors.ink, fontSize: 14, fontWeight: '600' },
-  liveBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
-  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  hero: { backgroundColor: colors.green, marginHorizontal: -spacing.md, marginTop: -spacing.md, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: 56, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg, gap: 4 },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  backCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.onGreen, opacity: 0.9 },
+  backLink: { color: colors.onGreen, fontSize: 16, fontFamily: fonts.display, fontWeight: '700' },
+  heroKicker: { color: colors.onGreen, opacity: 0.75, fontSize: 12, fontWeight: '600' },
+  heroMuted: { color: colors.onGreen, opacity: 0.8, fontSize: 13 },
+  liveBar: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.onGreen, borderStyle: 'solid', opacity: 0.95 },
+  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.white, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
-  liveText: { color: colors.success, fontWeight: '700', fontSize: 13 },
-  refreshBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  refreshText: { color: colors.ink, fontWeight: '600', fontSize: 13 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginTop: 8 },
-  h1: { flex: 1, color: colors.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 24 },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden', backgroundColor: colors.warningSoft, color: colors.warning, fontWeight: '600', fontSize: 12 },
-  shopLine: { fontSize: 14, marginTop: 2 },
-  bold: { color: colors.ink, fontWeight: '700' },
-  cardH2: { color: colors.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 18, marginBottom: 4 },
-  webStep: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  webDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  webTick: { color: colors.gold, fontSize: 9, fontWeight: '700' },
-  webStepText: { flex: 1, color: colors.ink, fontSize: 15 },lineRow:{flexDirection:'row',gap:12,alignItems:'flex-start'},thumb:{width:56,height:56,borderRadius:10,backgroundColor:colors.surface2,alignItems:'center',justifyContent:'center',overflow:'hidden'},thumbImg:{width:56,height:56},thumbText:{color:colors.muted,fontWeight:'800'},deliveryBox:{marginTop:8,padding:12,borderRadius:10,backgroundColor:colors.surface2,gap:2},page:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.xl},shop:{color:colors.muted},status:{fontWeight:'900',color:colors.green},total:{fontSize:23,fontWeight:'900',color:colors.ink,marginTop:6},name:{fontSize:17,fontWeight:'900',color:colors.ink},muted:{color:colors.muted,marginBottom:4},hint:{color:colors.muted,fontSize:13},error:{color:colors.danger},timelineRow:{flexDirection:'row',gap:spacing.sm,paddingVertical:6},dot:{width:12,height:12,borderRadius:6,borderWidth:2,borderColor:colors.border,marginTop:4},dotDone:{backgroundColor:colors.green,borderColor:colors.green},stepStatus:{color:colors.ink,fontWeight:'800',textTransform:'capitalize'},stepDone:{color:colors.green},time:{color:colors.muted,fontSize:12},breakRow:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',columnGap:8}})
+  liveText: { color: colors.success, fontWeight: '700', fontSize: 12 },
+  refreshBtn: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.white },
+  refreshText: { color: colors.green, fontWeight: '700', fontSize: 12 },
+  h1: { color: colors.onGreen, fontFamily: fonts.display, fontWeight: '700', fontSize: 22, letterSpacing: -0.3 },
+  shopLine: { fontSize: 13, marginTop: 2 },
+  bold: { color: colors.onGreen, fontWeight: '700' },
+  timelineCard: { marginTop: -56, backgroundColor: colors.white, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: spacing.md, ...shadow.card },
+  cardH2: { color: colors.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 16, letterSpacing: -0.2, marginBottom: 10 },
+  webStep: { flexDirection: 'row', gap: 12 },
+  webRail: { width: 22, alignItems: 'center' },
+  webDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' },
+  webDotDone: { backgroundColor: colors.green, borderColor: colors.green },
+  webDotCurrent: { backgroundColor: colors.greenSoft, borderColor: colors.green },
+  webLine: { width: 2, flex: 1, minHeight: 12, backgroundColor: colors.border, marginVertical: 2 },
+  webStepBody: { flex: 1, paddingBottom: 12, paddingTop: 2 },
+  webStepText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
+  webStepSub: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  lineRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  thumb: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  thumbImg: { width: 56, height: 56 },
+  thumbText: { color: colors.muted, fontWeight: '800' },
+  deliveryBox: { marginTop: 8, padding: 12, borderRadius: radius.sm, backgroundColor: colors.surface2, gap: 2 },
+  page: { padding: spacing.md, gap: 12, paddingBottom: spacing.xl },
+  name: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  muted: { color: colors.muted, fontSize: 13, marginBottom: 4 },
+  hint: { color: colors.muted, fontSize: 12 },
+  error: { color: colors.danger },
+  timelineRow: { flexDirection: 'row', gap: 12 },
+  stepStatus: { color: colors.muted, fontWeight: '700', fontSize: 13, textTransform: 'capitalize', paddingTop: 2 },
+  stepDone: { color: colors.ink },
+  time: { color: colors.muted, fontSize: 12 },
+  courierCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.navy, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: colors.navyLine },
+  courierAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.navySoft, borderWidth: 1, borderColor: colors.navyLine, alignItems: 'center', justifyContent: 'center' },
+  courierKicker: { color: colors.onNavyMuted, fontSize: 11.5 },
+  courierName: { color: colors.onNavy, fontSize: 14, fontWeight: '700', marginTop: 1 },
+  courierBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.cyan, alignItems: 'center', justifyContent: 'center' },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 12, ...shadow.card },
+  summaryThumbs: { flexDirection: 'row' },
+  summaryThumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.greenSoft, borderWidth: 2, borderColor: colors.white, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  summaryThumbImg: { width: '100%', height: '100%' },
+  summaryCount: { flex: 1, color: colors.ink, fontSize: 13.5, fontWeight: '700' },
+  summaryTotal: { color: colors.green, fontSize: 15, fontFamily: fonts.display, fontWeight: '700' },
+  breakRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 8 },
+})

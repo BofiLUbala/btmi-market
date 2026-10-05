@@ -3,12 +3,13 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { buyerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
 import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors, fonts } from '../../src/theme'
+import { radius, shadow, spacing, type Colors, fonts } from '../../src/theme'
 import { formatMoney } from '../../src/lib/money'
 import { CASH_ON_DELIVERY, MOBILE_AT_DELIVERY, MOBILE_PAY_NOW, isPaymentPaid } from '../../src/lib/paymentStatus'
 import type { BuyerPayment, PaymentMethodConfig, PaymentProviderCode } from '../../src/types'
@@ -58,6 +59,7 @@ export default function PaymentScreen() {
     return ids.length ? ids : orderId ? [orderId] : []
   }, [orderIdsParam, orderId])
   const { t } = useI18n()
+  const insets = useSafeAreaInsets()
 
   const [timing, setTiming] = useState<Timing | ''>('')
   const [paymentMethod, setPaymentMethod] = useState('')
@@ -298,7 +300,7 @@ export default function PaymentScreen() {
 
           <Text style={styles.stepTitle}>{t('checkoutPayment.step1')}</Text>
           {TIMING_CHOICES.filter((choice) => methodsFor(choice.timing).length > 0).map((choice) => (
-            <Choice key={choice.timing} styles={styles} selected={timing === choice.timing} title={t(choice.title)} hint={t(choice.hint)} onPress={() => chooseTiming(choice.timing)} />
+            <Choice key={choice.timing} styles={styles} colors={colors} icon={choice.timing === 'NOW' ? 'flash-outline' : 'cube-outline'} selected={timing === choice.timing} title={t(choice.title)} hint={t(choice.hint)} onPress={() => chooseTiming(choice.timing)} />
           ))}
 
           {timing && methodsFor(timing).length > 0 ? (
@@ -312,6 +314,8 @@ export default function PaymentScreen() {
                   <Choice
                     key={m.code}
                     styles={styles}
+                    colors={colors}
+                    icon={m.code === CASH_ON_DELIVERY ? 'cash-outline' : 'phone-portrait-outline'}
                     selected={paymentMethod === m.code}
                     title={METHOD_TITLE[m.code] ? t(METHOD_TITLE[m.code]) : methodLabel(m)}
                     hint={METHOD_HINT[m.code] ? t(METHOD_HINT[m.code]) : ''}
@@ -330,7 +334,11 @@ export default function PaymentScreen() {
                 <View style={styles.providers}>
                   {providers.map((prov) => (
                     <Pressable key={prov.code} onPress={() => setProvider(prov.code)} accessibilityRole="radio" accessibilityState={{ selected: provider === prov.code }} style={[styles.provider, provider === prov.code && styles.choiceSelected]}>
-                      <Text style={styles.name}>{prov.label}</Text>
+                      <View style={[styles.logo, provider === prov.code && styles.logoOn]}>
+                        <Ionicons name="phone-portrait" size={16} color={provider === prov.code ? colors.onGreen : colors.green} />
+                      </View>
+                      <Text style={[styles.name, styles.flex]}>{prov.label}</Text>
+                      <View style={[styles.radio, provider === prov.code && styles.radioOn]}>{provider === prov.code ? <View style={styles.radioDot} /> : null}</View>
                     </Pressable>
                   ))}
                 </View>
@@ -397,8 +405,10 @@ export default function PaymentScreen() {
                 <View style={styles.summaryLine}><Text style={styles.muted}>{t('checkoutPayment.methodFee')}</Text><Text style={styles.value}>{money(sum(methodMarkup), currency)}</Text></View>
               </View>
               <View style={styles.total}>
-                <Text style={styles.totalLabel}>{t('checkoutPayment.finalTotal')}</Text>
-                <Text style={styles.totalValue}>{money(sum(methodTotal), currency)}</Text>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>{t('checkoutPayment.finalTotal')}</Text>
+                  <Text style={styles.totalValue}>{money(sum(methodTotal), currency)}</Text>
+                </View>
                 <SmallText>{t('checkoutPayment.serverTotal')}</SmallText>
               </View>
             </>
@@ -413,20 +423,31 @@ export default function PaymentScreen() {
           <Text style={styles.payNote}>
             {!timing ? t('checkoutPayment.noteChooseTiming') : selectedMethod?.timing === 'NOW' ? t('checkoutPayment.noteNow') : t('checkoutPayment.noteDelivery')}
           </Text>
-          <Button
-            variant="gold"
-            title={ctaLabel}
-            loading={place.isPending}
-            disabled={!readyToPlace || !pricedReady}
-            onPress={() => { setError(''); place.mutate() }}
-          />
         </CheckoutCard>
       </ScrollView>
+
+      {/* Fixed pay bar: amount due + secure CTA (reference "Paiement Mobile Money") */}
+      <View style={[styles.payBar, { paddingBottom: Math.max(insets.bottom, 12) + 2 }]}>
+        <View style={styles.payBarRow}>
+          <Text style={styles.payBarLabel}>{t('checkoutSuccess.toPay')}</Text>
+          <Text style={styles.payBarValue}>{pricedReady ? money(sum(methodTotal), currency) : '—'}</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !readyToPlace || !pricedReady || place.isPending }}
+          disabled={!readyToPlace || !pricedReady || place.isPending}
+          onPress={() => { setError(''); place.mutate() }}
+          style={({ pressed }) => [styles.payBtn, (!readyToPlace || !pricedReady || place.isPending) && styles.payBtnDisabled, pressed && styles.pressed]}
+        >
+          <Ionicons name="lock-closed" size={16} color={colors.onGreen} />
+          <Text style={styles.payBtnText} numberOfLines={1}>{place.isPending ? t('common.oneMoment') : ctaLabel}</Text>
+        </Pressable>
+      </View>
     </KeyboardAvoidingView>
   )
 }
 
-function Choice({ styles, selected, title, hint, aside, onPress }: { styles: ReturnType<typeof makeStyles>; selected: boolean; title: string; hint?: string; aside?: string; onPress: () => void }) {
+function Choice({ styles, colors, icon, selected, title, hint, aside, onPress }: { styles: ReturnType<typeof makeStyles>; colors: Colors; icon: keyof typeof Ionicons.glyphMap; selected: boolean; title: string; hint?: string; aside?: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
@@ -434,50 +455,64 @@ function Choice({ styles, selected, title, hint, aside, onPress }: { styles: Ret
       accessibilityState={{ selected }}
       style={[styles.choice, selected && styles.choiceSelected]}
     >
-      <View style={[styles.radio, selected && styles.radioOn]} />
+      <View style={[styles.logo, selected && styles.logoOn]}>
+        <Ionicons name={icon} size={17} color={selected ? colors.onGreen : colors.green} />
+      </View>
       <View style={styles.lineInfo}>
         <Text style={styles.name}>{title}</Text>
         {hint ? <Text style={styles.muted}>{hint}</Text> : null}
         {aside ? <Text style={styles.markup}>{aside}</Text> : null}
       </View>
+      <View style={[styles.radio, selected && styles.radioOn]}>{selected ? <View style={styles.radioDot} /> : null}</View>
     </Pressable>
   )
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   flex: { flex: 1 },
-  stepTitle: { color: colors.ink, fontWeight: '700', fontSize: 16 },
-  stepGap: { marginTop: 8 },
+  pressed: { opacity: 0.88 },
+  stepTitle: { color: colors.ink, fontWeight: '700', fontSize: 13 },
+  stepGap: { marginTop: 6 },
   lineInfo: { flex: 1, gap: 3 },
-  name: { color: colors.ink, fontWeight: '700', fontSize: 15 },
-  muted: { color: colors.muted, fontSize: 14, flexShrink: 1 },
-  markup: { color: colors.ink, fontWeight: '700', fontSize: 14, marginTop: 4 },
-  warn: { color: colors.warning, fontSize: 14 },
-  linePrice: { color: colors.ink, fontWeight: '700', fontSize: 15 },
-  reviewLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  name: { color: colors.ink, fontWeight: '700', fontSize: 14 },
+  muted: { color: colors.muted, fontSize: 12.5, lineHeight: 17, flexShrink: 1 },
+  markup: { color: colors.green, fontWeight: '700', fontSize: 12.5, marginTop: 2 },
+  warn: { color: colors.warning, fontSize: 13 },
+  linePrice: { color: colors.green, fontWeight: '800', fontSize: 14 },
+  reviewLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  value: { color: colors.ink, fontWeight: '700', fontSize: 14, flexShrink: 1, textAlign: 'right' },
-  discount: { color: colors.success, fontWeight: '700', fontSize: 14 },
-  addressBox: { gap: 6, padding: 12, borderRadius: 12, backgroundColor: colors.surface2 },
-  summaryLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border, borderStyle: 'dashed' },
-  total: { gap: 5, paddingTop: 14, borderTopWidth: 2, borderTopColor: colors.green },
-  totalLabel: { color: colors.ink, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
-  totalValue: { color: colors.ink, fontSize: 30, fontWeight: '700' },
-  payNote: { color: colors.muted, fontSize: 14, lineHeight: 20, padding: 12, borderRadius: 12, backgroundColor: colors.surface2 },
-  providers: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  provider: { flexBasis: '46%', flexGrow: 1, alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  phoneBlock: { gap: 8, marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
+  value: { color: colors.ink, fontWeight: '700', fontSize: 13, flexShrink: 1, textAlign: 'right' },
+  discount: { color: colors.success, fontWeight: '700', fontSize: 13 },
+  addressBox: { gap: 6, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  summaryLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.border },
+  total: { gap: 4, paddingTop: 12 },
+  totalLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  totalValue: { color: colors.ink, fontSize: 22, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 },
+  payNote: { color: colors.muted, fontSize: 12.5, lineHeight: 18, padding: 12, borderRadius: 12, backgroundColor: colors.greenSoft },
+  providers: { gap: 10 },
+  provider: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  phoneBlock: { gap: 8, marginTop: 6, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border },
   // web .delivery-option + selected ring
-  choice: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 16, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  choice: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
   choiceSelected: { borderColor: colors.green, borderWidth: 1.5 },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border, marginTop: 1 },
-  radioOn: { borderWidth: 6, borderColor: colors.green },
+  logo: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  logoOn: { backgroundColor: colors.green },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: colors.green, backgroundColor: colors.green },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.onGreen },
+  payBtn: { minHeight: 52, borderRadius: 14, backgroundColor: colors.green, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: spacing.lg, ...shadow.raised },
+  payBtnDisabled: { opacity: 0.5 },
+  payBar: { backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: spacing.md, paddingTop: 12, paddingBottom: 14, gap: 10 },
+  payBarRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  payBarLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  payBarValue: { color: colors.ink, fontSize: 20, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 },
+  payBtnText: { color: colors.onGreen, fontSize: 15, fontWeight: '700', flexShrink: 1 },
   // kept for the post-payment status view above
-  page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
-  blockTitle: { color: colors.ink, fontWeight: '700', fontSize: 16 },
+  page: { padding: spacing.md, gap: 12, paddingBottom: spacing.xl },
+  blockTitle: { color: colors.ink, fontWeight: '700', fontSize: 15 },
   row: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   lineRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   errorText: { color: colors.danger, fontWeight: '700' },
   eyebrow: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: spacing.sm },
-  cashDue: { color: colors.ink, fontSize: 32, fontFamily: fonts.display, fontWeight: '500' },
+  cashDue: { color: colors.ink, fontSize: 32, fontFamily: fonts.display, fontWeight: '700' },
 })

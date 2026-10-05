@@ -14,6 +14,10 @@ import {
   View,
 } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { Image } from 'expo-image'
+import { router } from 'expo-router'
+import { resolveMediaUrl } from '../api/client'
+import { formatMoney } from '../lib/money'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   fetchOrderConversation,
@@ -28,13 +32,17 @@ import { subscribeOrderEvents } from '../lib/orderEvents'
 import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { dateLocale } from '../lib/format'
-import { radius, spacing, type Colors } from '../theme'
+import { radius, shadow, spacing, type Colors } from '../theme'
 
 interface OrderChatFeedProps {
   orderId: string
   role?: ChatParty
   onClose?: () => void
   showHeader?: boolean
+  /** Channel to open first (e.g. the courier from the order's courier card). */
+  initialParty?: ChatParty
+  /** The order's first item, shown as the conversation's context card. */
+  product?: { name?: string; imageUrl?: string | null; price?: number; productId?: string }
 }
 
 /** A message typed here and not yet confirmed by the server. */
@@ -54,7 +62,7 @@ const partyKey = (p: ChatParty) => `chat.party.${p}` as TranslationKey
  * never one). Fetching never marks anything read: only the thread on screen,
  * while the app is in the foreground.
  */
-export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = true }: OrderChatFeedProps) {
+export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = true, initialParty, product }: OrderChatFeedProps) {
   const { t, lang } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -118,8 +126,8 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
 
   const contacts = detail?.contacts ?? []
   useEffect(() => {
-    if (!contact && contacts.length) setContact(initialContact(contacts))
-  }, [contacts, contact])
+    if (!contact && contacts.length) setContact(initialParty && contacts.some((c) => c.party === initialParty) ? initialParty : initialContact(contacts))
+  }, [contacts, contact, initialParty])
 
   const me = detail?.my_party ?? role
   const selected = contacts.find((c) => c.party === contact)
@@ -227,9 +235,10 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
         <View style={styles.header}>
           {onClose ? (
             <TouchableOpacity onPress={onClose} style={styles.iconBtn} accessibilityLabel={t('chat.back')}>
-              <Ionicons name="arrow-back" size={20} color={colors.ink} />
+              <Ionicons name="chevron-back" size={20} color={colors.ink} />
             </TouchableOpacity>
           ) : null}
+          <View style={styles.avatar}><Ionicons name="storefront" size={18} color={colors.green} /></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle} numberOfLines={1}>#{detail?.order_number || orderId.slice(0, 8).toUpperCase()}</Text>
             {detail?.shop_name ? <Text style={styles.headerSub} numberOfLines={1}>{detail.shop_name}</Text> : null}
@@ -257,6 +266,22 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
           )
         })}
       </ScrollView>
+      {product?.name ? (
+        <View style={styles.productCard}>
+          <View style={styles.productThumb}>
+            {product.imageUrl ? <Image source={resolveMediaUrl(product.imageUrl)} style={styles.productImg} contentFit="cover" /> : <Ionicons name="cube-outline" size={18} color={colors.green} />}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>
+            {typeof product.price === 'number' ? <Text style={styles.productPrice}>{formatMoney(product.price)}</Text> : null}
+          </View>
+          {product.productId ? (
+            <TouchableOpacity onPress={() => router.push(`/products/${product.productId}`)} style={styles.productBtn} accessibilityRole="link" accessibilityLabel={t('chat.productContext')}>
+              <Text style={styles.productBtnText}>{t('common.view')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
       {selected ? <Text style={styles.privacy}>🔒 {t('chat.privacy', { party: label(selected.party) })}</Text> : null}
 
       {loading && !detail ? (
@@ -305,7 +330,7 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
           disabled={!draft.trim() || !writable}
           accessibilityLabel={t('chat.send')}
         >
-          <Ionicons name="send" size={18} color="#FFFFFF" />
+          <Ionicons name="send" size={17} color={colors.onGreen} />
         </TouchableOpacity>
       </View>
     </View>
@@ -313,41 +338,49 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: c.white },
+  container: { flex: 1, backgroundColor: c.cream },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.white },
-  iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surfaceAlt },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: c.ink },
+  iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface2 },
+  avatar: { width: 40, height: 40, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: c.greenSoft },
+  headerTitle: { fontSize: 15, fontWeight: '700', color: c.ink, letterSpacing: -0.2 },
   headerSub: { fontSize: 12, color: c.muted, marginTop: 1 },
   tabsBar: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.white },
   tabsRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 8 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceAlt, maxWidth: 260 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.white, maxWidth: 260 },
   tabOn: { backgroundColor: c.green, borderColor: c.green },
-  tabText: { fontSize: 13, fontWeight: '700', color: c.ink, flexShrink: 1 },
+  tabText: { fontSize: 12.5, fontWeight: '600', color: c.ink, flexShrink: 1 },
   tabTextOn: { color: c.onGreen },
   badge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: c.danger, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
-  privacy: { fontSize: 11, color: c.muted, paddingHorizontal: spacing.md, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: c.border },
+  badgeText: { color: c.onGreen, fontSize: 11, fontWeight: '800' },
+  privacy: { fontSize: 11, color: c.muted, paddingHorizontal: spacing.md, paddingVertical: 6, backgroundColor: c.cream },
+  productCard: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: spacing.md, marginTop: spacing.sm, padding: 10, borderRadius: radius.md, backgroundColor: c.white, borderWidth: 1, borderColor: c.border, ...shadow.card },
+  productThumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: c.greenSoft, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  productImg: { width: '100%', height: '100%' },
+  productName: { color: c.ink, fontSize: 13, fontWeight: '700' },
+  productPrice: { color: c.green, fontSize: 13, fontWeight: '700', marginTop: 1 },
+  productBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: c.green },
+  productBtnText: { color: c.onGreen, fontSize: 12, fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg, gap: 8, backgroundColor: c.cream },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: c.ink },
   emptyDesc: { fontSize: 13, color: c.muted, textAlign: 'center', maxWidth: 280 },
   list: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: c.cream, flexGrow: 1 },
-  day: { alignSelf: 'center', marginTop: 10, marginBottom: 4, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 999, overflow: 'hidden', backgroundColor: c.surfaceAlt, color: c.muted, fontSize: 11, fontWeight: '700' },
+  day: { alignSelf: 'center', marginTop: 12, marginBottom: 6, paddingHorizontal: 12, paddingVertical: 3, borderRadius: radius.pill, overflow: 'hidden', backgroundColor: c.surface2, color: c.muted, fontSize: 11, fontWeight: '600' },
   msg: { marginTop: 2, maxWidth: '100%' },
   run: { marginTop: 10 },
   mine: { alignItems: 'flex-end' },
   theirs: { alignItems: 'flex-start' },
   sender: { fontSize: 11, fontWeight: '700', color: c.muted, marginHorizontal: 6, marginBottom: 2 },
-  bubble: { maxWidth: '82%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16 },
+  bubble: { maxWidth: '80%', paddingHorizontal: 13, paddingVertical: 9, borderRadius: 16 },
   bubbleMine: { backgroundColor: c.green, borderBottomRightRadius: 4 },
   bubbleTheirs: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderBottomLeftRadius: 4 },
   bubbleTbk: { backgroundColor: c.warningSoft, borderWidth: 1, borderColor: c.warning, borderBottomLeftRadius: 4 },
-  textMine: { color: c.onGreen, fontSize: 15, lineHeight: 20 },
-  textTheirs: { color: c.ink, fontSize: 15, lineHeight: 20 },
-  meta: { fontSize: 10, color: c.muted, marginHorizontal: 6, marginTop: 2 },
+  textMine: { color: c.onGreen, fontSize: 14, lineHeight: 19 },
+  textTheirs: { color: c.ink, fontSize: 14, lineHeight: 19 },
+  meta: { fontSize: 10, color: c.faint, marginHorizontal: 6, marginTop: 3 },
   retry: { fontSize: 12, fontWeight: '800', color: c.danger, marginHorizontal: 6, marginTop: 2 },
   error: { fontSize: 12, color: c.danger, paddingHorizontal: spacing.md, paddingVertical: 4, backgroundColor: c.white },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.white },
-  input: { flex: 1, minHeight: 42, maxHeight: 120, backgroundColor: c.surfaceAlt, borderRadius: 21, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, fontSize: 15, color: c.ink },
-  send: { width: 42, height: 42, borderRadius: 21, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center' },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.white },
+  input: { flex: 1, minHeight: 42, maxHeight: 120, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border, borderRadius: 21, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, fontSize: 14, color: c.ink },
+  send: { width: 42, height: 42, borderRadius: 21, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center', ...shadow.raised },
   sendOff: { opacity: 0.45 },
 })

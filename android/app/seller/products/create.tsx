@@ -3,16 +3,18 @@ import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'expo-image'
 import {
-  Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View,
+  Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../../src/api'
 import { ApiError } from '../../../src/api/client'
 import { useAuth } from '../../../src/store/auth'
-import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../../src/components/ui'
+import { Button, Card, ErrorState, Field, Loading } from '../../../src/components/ui'
 import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
-import { fonts, spacing, radius, type Colors } from '../../../src/theme'
+import { fonts, spacing, radius, shadow, type Colors } from '../../../src/theme'
 import { prepareProductImageUpload, type UploadFile } from '../../../src/lib/imageUpload'
 import { categoryLabel, subcategoryLabel } from '../../../src/lib/categoryLabels'
 import { attributeLabel } from '../../../src/lib/attributeLabels'
@@ -109,6 +111,8 @@ export default function SellerProductCreateScreen() {
   const [selfRating, setSelfRating] = useState(0)
   const [images, setImages] = useState<UploadFile[]>([])
   const [pickingImage, setPickingImage] = useState(false)
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const insets = useSafeAreaInsets()
   const [characteristics, setCharacteristics] = useState<CharacteristicRow[]>([])
   const [combosState, setCombosState] = useState<ComboRow[]>([])
   const [simpleStock, setSimpleStock] = useState('0')
@@ -487,11 +491,29 @@ export default function SellerProductCreateScreen() {
     : form.discount_type === 'PERCENTAGE' ? Math.max(0, price - (price * discountValue) / 100)
       : Math.max(0, price - discountValue)
 
+  const atMax = images.length >= MAX_IMAGES
+  // Values chosen on the VARIANT characteristics, shown as the reference's
+  // "Pointures / variantes disponibles" chips.
+  const variantValueChips = characteristics
+    .filter((c) => c.type === 'VARIANT')
+    .flatMap((c) => splitValues(c.values).map((value) => ({ key: `${c.id}-${value}`, value })))
+
   return <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    {/* ── Header (reference 10): X close + bold title ── */}
+    <View style={styles.topBar}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
+        hitSlop={8}
+        onPress={() => (router.canGoBack() ? router.back() : router.replace('/seller/products'))}
+        style={styles.closeBtn}
+      >
+        <Ionicons name="close" size={22} color={colors.ink} />
+      </Pressable>
+      <Text style={styles.topTitle} numberOfLines={1}>{t('sellerUi.publishItem')}</Text>
+    </View>
+
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-      <SectionTitle title={t('seller.productForm.title')} />
-
-
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {partialFailure ? <Card>
@@ -506,23 +528,94 @@ export default function SellerProductCreateScreen() {
         /> : null}
       </Card> : null}
 
-      {/* One page, same order as the web create form: category first; the rest
-          appears once a category is chosen (web `detailsVisible`). */}
-      {/* Step 2 — Category */}
-      {<Card>
-        <Text style={styles.cardTitle}>{t('seller.productForm.categoryLabel')}</Text>
-        <View style={styles.chipRow}>
+      {/* ── Photo slots: 84px rounded tiles, PRINCIPALE badge on the first,
+          then dashed blue "Photo" (camera) and "Ajouter" (gallery) slots ── */}
+      <View style={styles.block}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoGrid}>
+          {images.map((img, index) => <View key={`${img.uri}-${index}`} style={styles.photoTile}>
+            <View>
+              <Image source={img.uri} style={styles.photo} contentFit="cover" accessibilityLabel={index === 0 ? t('seller.productForm.primary') : undefined} />
+              {index === 0 ? <Text style={styles.primaryTag} numberOfLines={1}>{t('sellerUi.mainPhoto')}</Text> : null}
+              <Pressable accessibilityRole="button" accessibilityLabel={t('common.delete')} hitSlop={6} onPress={() => removeImage(index)} style={styles.photoRemoveBtn}>
+                <Ionicons name="close" size={13} color="#FFFFFF" />
+              </Pressable>
+            </View>
+            {index !== 0 ? <Pressable accessibilityRole="button" hitSlop={4} onPress={() => makePrimary(index)}><Text style={styles.photoLink} numberOfLines={2}>{t('seller.productForm.setPrimary')}</Text></Pressable> : null}
+          </View>)}
+          {!atMax ? <>
+            <Pressable accessibilityRole="button" disabled={pickingImage} onPress={() => void addImageFrom('camera')} style={({ pressed }) => [styles.addSlot, pickingImage && styles.addSlotDisabled, pressed && styles.addSlotPressed]}>
+              <Ionicons name="camera-outline" size={22} color={colors.green} />
+              <Text style={styles.addSlotText} numberOfLines={1}>{pickingImage ? t('common.oneMoment') : t('sellerUi.photo')}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('seller.productForm.addPhoto')} disabled={pickingImage} onPress={pickImage} style={({ pressed }) => [styles.addSlot, styles.addSlotPlain, pickingImage && styles.addSlotDisabled, pressed && styles.addSlotPressed]}>
+              <Ionicons name="add" size={22} color={colors.green} />
+              <Text style={styles.addSlotText} numberOfLines={1}>{t('sellerUi.add')}</Text>
+            </Pressable>
+          </> : null}
+        </ScrollView>
+        {atMax ? <Text style={styles.hint}>{t('seller.productForm.maxPhotos')}</Text> : <Text style={styles.hint}>{t('seller.productForm.photosDescMobile')}</Text>}
+      </View>
+
+      {/* ── Name, price ($) + category select ── */}
+      <View style={styles.block}>
+        <Text style={styles.fieldLabel}>{t('sellerUi.itemName')}</Text>
+        <TextInput
+          style={styles.input}
+          value={form.name}
+          onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
+          autoCapitalize="words"
+          placeholderTextColor={colors.mutedLight}
+          accessibilityLabel={t('seller.productForm.productName')}
+        />
+
+        <View style={styles.twoCol}>
+          <View style={styles.flex1}>
+            <Text style={styles.fieldLabel}>{t('sellerUi.price')}</Text>
+            <View style={styles.priceBox}>
+              <TextInput
+                style={styles.priceInput}
+                value={form.unit_price}
+                onChangeText={(v) => setForm((f) => ({ ...f, unit_price: v }))}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={colors.mutedLight}
+                accessibilityLabel={t('seller.productForm.salePrice')}
+              />
+              <Text style={styles.priceSuffix}>$</Text>
+            </View>
+          </View>
+          <View style={styles.flex1}>
+            <Text style={styles.fieldLabel}>{t('sellerUi.category')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: categoryOpen }}
+              accessibilityLabel={t('seller.productForm.categoryLabel')}
+              onPress={() => setCategoryOpen((open) => !open)}
+              style={[styles.select, categoryOpen && styles.selectOpen]}
+            >
+              <Text style={[styles.selectText, !selectedCategory && styles.selectPlaceholder]} numberOfLines={1}>
+                {selectedCategory ? categoryLabel(t, selectedCategory.slug, selectedCategory.name) : t('sellerUi.chooseCategory')}
+              </Text>
+              <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
+            </Pressable>
+          </View>
+        </View>
+
+        {categoryOpen ? <View style={styles.selectList}>
           {(categories.data ?? []).map((c: Category) => <Pressable
             key={c.id}
             accessibilityRole="button"
-            style={[styles.chip, categoryId === c.id && styles.chipActive]}
-            onPress={() => { setCategoryId(c.id); setSubcategoryId(''); setCharacteristics([]) }}
+            accessibilityState={{ selected: categoryId === c.id }}
+            style={({ pressed }) => [styles.selectOption, categoryId === c.id && styles.selectOptionActive, pressed && styles.selectOptionPressed]}
+            onPress={() => { setCategoryId(c.id); setSubcategoryId(''); setCharacteristics([]); setCategoryOpen(false) }}
           >
-            <Text style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}>{categoryLabel(t, c.slug, c.name)}</Text>
+            <Text style={[styles.selectOptionText, categoryId === c.id && styles.selectOptionTextActive]}>{categoryLabel(t, c.slug, c.name)}</Text>
+            {categoryId === c.id ? <Ionicons name="checkmark" size={18} color={colors.green} /> : null}
           </Pressable>)}
-        </View>
+        </View> : null}
+
         {subcategories.length > 0 && <>
-          <Text style={styles.cardTitle}>{t('product.subcategory')}</Text>
+          <Text style={styles.fieldLabel}>{t('product.subcategory')}</Text>
           <View style={styles.chipRow}>
             {subcategories.map((s: Category) => <Pressable
               key={s.id}
@@ -537,29 +630,37 @@ export default function SellerProductCreateScreen() {
         {requiredAttributeLabels.length > 0 && <Text style={styles.notice}>
           {t('seller.productForm.categoryRequiresNotice', { attributes: requiredAttributeLabels.join(', ') })}
         </Text>}
-      </Card>}
+      </View>
+
+      {/* The rest depends on the category (web `detailsVisible`). */}
       {categoryId ? <>
-      {/* Step 1 — Basic information */}
-      {<Card>
+      {/* ── Pointures / variantes disponibles ── */}
+      <View style={styles.block}>
+        <Text style={styles.fieldLabel}>{t('sellerUi.variantsAvailable')}</Text>
+        <View style={styles.chipRow}>
+          {variantValueChips.map((chip) => <View key={chip.key} style={styles.valueChip}><Text style={styles.valueChipText}>{chip.value}</Text></View>)}
+          <Pressable accessibilityRole="button" onPress={() => addCustomCharacteristic()} style={({ pressed }) => [styles.addChip, pressed && styles.addSlotPressed]}>
+            <Text style={styles.addChipText}>+ {t('sellerUi.add')}</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Description ── */}
+      <DescriptionEditor categorySlug={selectedCategory?.slug} value={form.description} onChange={(description) => setForm((f) => ({ ...f, description }))} />
+
+      {/* ── Product details (SKU, unit) ── */}
+      <Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.productInfo')}</Text>
-        <Field label={t('seller.productForm.productName')} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} autoCapitalize="words" />
         <Field label={t('seller.productForm.skuOptional')} value={form.sku} onChangeText={(v) => setForm((f) => ({ ...f, sku: v }))} autoCapitalize="none" />
         <Field label={t('product.unit')} value={form.unit} onChangeText={(v) => setForm((f) => ({ ...f, unit: v }))} autoCapitalize="characters" />
-      </Card>}
+      </Card>
 
-      {/* The description layout depends on the category, so it is filled
-          once the category is known rather than in step 1. */}
-      {categoryId ? (
-        <DescriptionEditor categorySlug={selectedCategory?.slug} value={form.description} onChange={(description) => setForm((f) => ({ ...f, description }))} />
-      ) : null}
-
-      {/* Step 3 — Pricing */}
-      {<Card>
+      {/* ── Pricing extras: cost, self-rating, promotion ── */}
+      <Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.pricingTitle')}</Text>
-        <Field label={t('seller.productForm.salePrice')} value={form.unit_price} onChangeText={(v) => setForm((f) => ({ ...f, unit_price: v }))} keyboardType="numeric" />
         <Field label={t('seller.productForm.costPriceOptional')} value={form.cost_price} onChangeText={(v) => setForm((f) => ({ ...f, cost_price: v }))} keyboardType="numeric" />
 
-        <Text style={styles.cardTitle}>{t('seller.productForm.selfRatingLabel')}</Text>
+        <Text style={styles.subLabel}>{t('seller.productForm.selfRatingLabel')}</Text>
         <View style={styles.stars}>
           {[1, 2, 3, 4, 5].map((n) => <Pressable key={n} accessibilityRole="button" onPress={() => setSelfRating(n)}>
             <Text style={[styles.star, n <= selfRating && styles.starActive]}>★</Text>
@@ -567,7 +668,7 @@ export default function SellerProductCreateScreen() {
         </View>
 
         <Pressable accessibilityRole="switch" accessibilityState={{ checked: form.discount_active }} style={styles.toggleRow} onPress={() => setForm((f) => ({ ...f, discount_active: !f.discount_active }))}>
-          <View style={[styles.checkbox, form.discount_active && styles.checkboxOn]} />
+          <View style={[styles.checkbox, form.discount_active && styles.checkboxOn]}>{form.discount_active ? <Ionicons name="checkmark" size={16} color={colors.onGreen} /> : null}</View>
           <Text style={styles.toggleLabel}>{t('seller.productForm.enablePromotion')}</Text>
         </Pressable>
         {form.discount_active && <>
@@ -591,143 +692,116 @@ export default function SellerProductCreateScreen() {
           />
           <Text style={styles.muted}>{t('seller.productForm.promoPreview')}: {formatMoney(promoPrice)}</Text>
         </>}
-      </Card>}
+      </Card>
 
-      {/* Step 4 — Photos */}
-      {<Card>
-        <Text style={styles.cardTitle}>{t('seller.productForm.photosTitle')}</Text>
-        <Text style={styles.muted}>{t('seller.productForm.photosDescMobile')}</Text>
-        <View style={styles.photoGrid}>
-          {images.map((img, index) => <View key={`${img.uri}-${index}`} style={styles.photoTile}>
-            <Image source={img.uri} style={styles.photo} contentFit="cover" />
-            {index === 0 ? <Text style={styles.primaryTag}>{t('seller.productForm.primary')}</Text> : null}
-            <View style={styles.photoActions}>
-              {index !== 0 ? <Button dense variant="outline" title={t('seller.productForm.setPrimary')} onPress={() => makePrimary(index)} /> : null}
-              <Button dense variant="outline" title={t('common.delete')} onPress={() => removeImage(index)} />
-            </View>
-          </View>)}
+      {/* ── Characteristics & variants ── */}
+      <Card>
+        <Text style={styles.cardTitle}>{t('seller.productForm.characteristicsTitle')}</Text>
+        <Text style={styles.muted}>{t('seller.productForm.characteristicsDescMobile')}</Text>
+        {missingAttributes.length > 0 && <Text style={styles.notice}>
+          {t('seller.productForm.validation.missingAttributes', { attributes: missingAttributes.join(', ') })}
+        </Text>}
+
+        {categorySuggestions.length > 0 && <>
+          <Text style={styles.subLabel}>{t('seller.productForm.suggestedForCategory')}</Text>
+          <View style={styles.chipRow}>
+            {categorySuggestions.map((s) => {
+              const used = characteristics.some((c) => c.name.trim().toLowerCase() === s.name.toLowerCase())
+              const required = requiredAttributeAliases.has(s.name.toLowerCase())
+              return <Pressable key={s.name} accessibilityRole="button" disabled={used} style={[styles.chip, used && styles.chipUsed, required && !used && styles.chipRequired]} onPress={() => addSuggestion(s)}>
+                <Text style={[styles.chipText, used && styles.chipTextUsed]}>{required ? `${s.name} *` : s.name}</Text>
+              </Pressable>
+            })}
+          </View>
+        </>}
+
+        <Text style={styles.subLabel}>{t('seller.productForm.variantChip')}</Text>
+        <View style={styles.chipRow}>
+          {VARIANT_TYPE_NAMES.filter((name) => !characteristics.some((c) => sameAttribute(c.name, name) || sameAttribute(c.definitionKey ?? '', name))).map((name) => <Pressable key={name} accessibilityRole="button" style={styles.addChip} onPress={() => addCustomCharacteristic(name)}>
+            <Text style={styles.addChipText}>+ {name}</Text>
+          </Pressable>)}
         </View>
-        <Button
-          variant="outline"
-          title={images.length >= MAX_IMAGES ? t('seller.productForm.maxPhotos') : t('seller.productForm.addPhoto')}
-          loading={pickingImage}
-          disabled={images.length >= MAX_IMAGES}
-          onPress={pickImage}
-        />
-      </Card>}
 
-      {/* Step 5 — Characteristics & variants */}
-      {<>
-        <Card>
-          <Text style={styles.cardTitle}>{t('seller.productForm.characteristicsTitle')}</Text>
-          <Text style={styles.muted}>{t('seller.productForm.characteristicsDescMobile')}</Text>
-          {missingAttributes.length > 0 && <Text style={styles.notice}>
-            {t('seller.productForm.validation.missingAttributes', { attributes: missingAttributes.join(', ') })}
-          </Text>}
+        <Text style={styles.subLabel}>{t('seller.productForm.popularCharacteristics')}</Text>
+        <View style={styles.chipRow}>
+          {POPULAR_CUSTOM_CHARACTERISTICS.map((name) => <Pressable key={name} accessibilityRole="button" style={styles.chip} onPress={() => addCustomCharacteristic(attributeLabel(t, name))}>
+            <Text style={styles.chipText}>{attributeLabel(t, name)}</Text>
+          </Pressable>)}
+        </View>
+        <Button variant="outline" dense title={t('seller.productForm.addCustomCharacteristic')} onPress={() => addCustomCharacteristic()} />
+      </Card>
 
-          {categorySuggestions.length > 0 && <>
-            <Text style={styles.subLabel}>{t('seller.productForm.suggestedForCategory')}</Text>
-            <View style={styles.chipRow}>
-              {categorySuggestions.map((s) => {
-                const used = characteristics.some((c) => c.name.trim().toLowerCase() === s.name.toLowerCase())
-                const required = requiredAttributeAliases.has(s.name.toLowerCase())
-                return <Pressable key={s.name} accessibilityRole="button" disabled={used} style={[styles.chip, used && styles.chipUsed, required && !used && styles.chipRequired]} onPress={() => addSuggestion(s)}>
-                  <Text style={[styles.chipText, used && styles.chipTextUsed]}>{required ? `${s.name} *` : s.name}</Text>
-                </Pressable>
-              })}
-            </View>
-          </>}
-
-          <Text style={styles.subLabel}>{t('seller.productForm.variantChip')}</Text>
-          <View style={styles.chipRow}>
-            {VARIANT_TYPE_NAMES.filter((name) => !characteristics.some((c) => sameAttribute(c.name, name) || sameAttribute(c.definitionKey ?? '', name))).map((name) => <Pressable key={name} accessibilityRole="button" style={styles.chip} onPress={() => addCustomCharacteristic(name)}>
-              <Text style={styles.chipText}>+ {name}</Text>
-            </Pressable>)}
-          </View>
-
-          <Text style={styles.subLabel}>{t('seller.productForm.popularCharacteristics')}</Text>
-          <View style={styles.chipRow}>
-            {POPULAR_CUSTOM_CHARACTERISTICS.map((name) => <Pressable key={name} accessibilityRole="button" style={styles.chip} onPress={() => addCustomCharacteristic(attributeLabel(t, name))}>
-              <Text style={styles.chipText}>{attributeLabel(t, name)}</Text>
-            </Pressable>)}
-          </View>
-          <Button variant="outline" dense title={t('seller.productForm.addCustomCharacteristic')} onPress={() => addCustomCharacteristic()} />
-        </Card>
-
-        {characteristics.map((c) => <Card key={c.id}>
-          <Field label={t('seller.productForm.attributeName')} value={c.name} onChangeText={(v) => updateCharacteristic(c.id, 'name', v)} autoCapitalize="words" editable={!c.definitionKey} />
-          <View style={styles.chipRow}>
-            {(['VARIANT', 'INFO'] as const).map((type) => <Pressable
-              key={type}
-              accessibilityRole="button"
-              disabled={Boolean(c.definitionKey)}
-              style={[styles.chip, c.type === type && styles.chipActive]}
-              onPress={() => updateCharacteristic(c.id, 'type', type)}
-            >
-              <Text style={[styles.chipText, c.type === type && styles.chipTextActive]}>
-                {t(type === 'VARIANT' ? 'seller.productForm.variantChip' : 'seller.productForm.infoChip')}
-              </Text>
-            </Pressable>)}
-          </View>
-          {(() => {
-            // Pick, don't type: variants take several values, info one.
-            const picker = attributeOptions({ key: c.definitionKey || c.name, label_fr: c.name }, selectedCategory?.slug, splitValues(c.values))
-            if (!picker) {
-              return <Field
-                label={t(c.type === 'VARIANT' ? 'seller.productForm.valuesCommaSeparated' : 'seller.productForm.specValueLabel')}
-                value={c.values}
-                onChangeText={(v) => updateCharacteristic(c.id, 'values', v)}
-                placeholder={c.placeholder}
-              />
-            }
-            return <OptionPicker
-              label={c.name || t('seller.productForm.specValueLabel')}
-              options={picker.values}
-              swatch={picker.swatch}
-              multiple={c.type === 'VARIANT'}
-              value={c.type === 'VARIANT' ? splitValues(c.values) : c.values}
-              onChange={(next) => updateCharacteristic(c.id, 'values', Array.isArray(next) ? next.join(', ') : next)}
+      {characteristics.map((c) => <Card key={c.id}>
+        <Field label={t('seller.productForm.attributeName')} value={c.name} onChangeText={(v) => updateCharacteristic(c.id, 'name', v)} autoCapitalize="words" editable={!c.definitionKey} />
+        <View style={styles.chipRow}>
+          {(['VARIANT', 'INFO'] as const).map((type) => <Pressable
+            key={type}
+            accessibilityRole="button"
+            disabled={Boolean(c.definitionKey)}
+            style={[styles.chip, c.type === type && styles.chipActive]}
+            onPress={() => updateCharacteristic(c.id, 'type', type)}
+          >
+            <Text style={[styles.chipText, c.type === type && styles.chipTextActive]}>
+              {t(type === 'VARIANT' ? 'seller.productForm.variantChip' : 'seller.productForm.infoChip')}
+            </Text>
+          </Pressable>)}
+        </View>
+        {(() => {
+          // Pick, don't type: variants take several values, info one.
+          const picker = attributeOptions({ key: c.definitionKey || c.name, label_fr: c.name }, selectedCategory?.slug, splitValues(c.values))
+          if (!picker) {
+            return <Field
+              label={t(c.type === 'VARIANT' ? 'seller.productForm.valuesCommaSeparated' : 'seller.productForm.specValueLabel')}
+              value={c.values}
+              onChangeText={(v) => updateCharacteristic(c.id, 'values', v)}
+              placeholder={c.placeholder}
             />
-          })()}
-          {!c.definitionKey ? <Button dense variant="outline" title={t('seller.productForm.removeCharacteristic')} onPress={() => removeCharacteristic(c.id)} /> : null}
-        </Card>)}
-      </>}
+          }
+          return <OptionPicker
+            label={c.name || t('seller.productForm.specValueLabel')}
+            options={picker.values}
+            swatch={picker.swatch}
+            multiple={c.type === 'VARIANT'}
+            value={c.type === 'VARIANT' ? splitValues(c.values) : c.values}
+            onChange={(next) => updateCharacteristic(c.id, 'values', Array.isArray(next) ? next.join(', ') : next)}
+          />
+        })()}
+        {!c.definitionKey ? <Button dense variant="outline" title={t('seller.productForm.removeCharacteristic')} onPress={() => removeCharacteristic(c.id)} /> : null}
+      </Card>)}
 
-      {/* Step 6 — Shop & stock */}
-      {<>
-        <Card>
-          <Text style={styles.cardTitle}>{t('seller.productForm.shopTitle')}</Text>
-          {!shops.data?.length ? <>
-            <Text style={styles.muted}>{t('seller.productForm.noShopYet')}</Text>
-            <Button variant="outline" title={t('seller.shops')} onPress={() => router.push('/seller/shops')} />
-          </> : <View style={styles.chipRow}>
-            {shops.data.map((s: Shop) => <Pressable
-              key={s.id}
-              accessibilityRole="button"
-              style={[styles.chip, shopId === s.id && styles.chipActive]}
-              onPress={() => setShopId(s.id)}
-            >
-              <Text style={[styles.chipText, shopId === s.id && styles.chipTextActive]}>{s.name}</Text>
-            </Pressable>)}
-          </View>}
-          {selectedShop ? <Text style={styles.muted}>{t('seller.productForm.stockScopedDesc', { shop: selectedShop.name })}</Text> : null}
-        </Card>
+      {/* ── Shop & stock ── */}
+      <Card>
+        <Text style={styles.cardTitle}>{t('seller.productForm.shopTitle')}</Text>
+        {!shops.data?.length ? <>
+          <Text style={styles.muted}>{t('seller.productForm.noShopYet')}</Text>
+          <Button variant="outline" title={t('seller.shops')} onPress={() => router.push('/seller/shops')} />
+        </> : <View style={styles.chipRow}>
+          {shops.data.map((s: Shop) => <Pressable
+            key={s.id}
+            accessibilityRole="button"
+            style={[styles.chip, shopId === s.id && styles.chipActive]}
+            onPress={() => setShopId(s.id)}
+          >
+            <Text style={[styles.chipText, shopId === s.id && styles.chipTextActive]}>{s.name}</Text>
+          </Pressable>)}
+        </View>}
+        {selectedShop ? <Text style={styles.muted}>{t('seller.productForm.stockScopedDesc', { shop: selectedShop.name })}</Text> : null}
+      </Card>
 
-        <Card>
-          <Text style={styles.cardTitle}>{t('seller.productForm.stockTitle')}</Text>
-          {!isVariantMode
-            ? <Field label={t('seller.productForm.initialStock')} value={simpleStock} onChangeText={setSimpleStock} keyboardType="numeric" />
-            : activeCombos.map((combo) => <View key={combo.key} style={styles.comboRow}>
-              <Text style={styles.comboLabel}>{combo.label}</Text>
-              <Field label={t('seller.productForm.salePriceFc')} value={combo.price} onChangeText={(v) => updateCombo(combo.key, 'price', v)} keyboardType="numeric" />
-              <Field label={t('seller.productForm.initialStock')} value={combo.stock} onChangeText={(v) => updateCombo(combo.key, 'stock', v)} keyboardType="numeric" />
-            </View>)}
-          <Text style={styles.muted}>{t('seller.productForm.totalStock')} {totalUnits} {t('seller.productForm.unitsPlural')}</Text>
-        </Card>
-      </>}
+      <Card>
+        <Text style={styles.cardTitle}>{t('seller.productForm.stockTitle')}</Text>
+        {!isVariantMode
+          ? <Field label={t('seller.productForm.initialStock')} value={simpleStock} onChangeText={setSimpleStock} keyboardType="numeric" />
+          : activeCombos.map((combo) => <View key={combo.key} style={styles.comboRow}>
+            <Text style={styles.comboLabel}>{combo.label}</Text>
+            <Field label={t('seller.productForm.salePriceFc')} value={combo.price} onChangeText={(v) => updateCombo(combo.key, 'price', v)} keyboardType="numeric" />
+            <Field label={t('seller.productForm.initialStock')} value={combo.stock} onChangeText={(v) => updateCombo(combo.key, 'stock', v)} keyboardType="numeric" />
+          </View>)}
+        <Text style={styles.muted}>{t('seller.productForm.totalStock')} {totalUnits} {t('seller.productForm.unitsPlural')}</Text>
+      </Card>
 
-      {/* Step 7 — Review */}
-      {<Card>
+      {/* ── Review ── */}
+      <Card>
         <Text style={styles.cardTitle}>{t('seller.productForm.reviewTitle')}</Text>
         <SummaryRow styles={styles} label={t('seller.productForm.productName')} value={form.name.trim() || '—'} />
         <SummaryRow styles={styles} label={t('seller.productForm.categoryLabel')} value={[
@@ -743,16 +817,20 @@ export default function SellerProductCreateScreen() {
           {t('seller.productForm.validation.missingAttributes', { attributes: missingAttributes.join(', ') })}
           {' '}{t('seller.productForm.validation.missingThem')}
         </Text>}
-        {stepLabel ? <Text style={styles.muted}>{stepLabel}</Text> : null}
-        {/* Repeated next to the buttons: the top copy is off-screen when the
-            seller taps Publish at the bottom of a long form. */}
-        {error ? <Text style={styles.error} accessibilityRole="alert">{error}</Text> : null}
-        <Button variant="outline" title={t('seller.productForm.saveDraft')} loading={busy} disabled={busy} onPress={() => submit('DRAFT')} />
-        <Button title={t('seller.productForm.publishProduct')} loading={busy} disabled={busy || missingAttributes.length > 0 || categoryAttributesQuery.isError || categoryAttributesQuery.isLoading} onPress={() => submit('PUBLISHED')} />
-      </Card>}
-
+      </Card>
       </> : null}
     </ScrollView>
+
+    {/* ── Bottom bar: "Brouillon" (outline, saves a DRAFT) + "Publier" ── */}
+    <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      {stepLabel ? <Text style={styles.stepText}>{stepLabel}</Text> : null}
+      {/* Repeated by the buttons: the top copy is off-screen on a long form. */}
+      {error ? <Text style={styles.error} accessibilityRole="alert" numberOfLines={3}>{error}</Text> : null}
+      <View style={styles.bottomRow}>
+        <Button style={styles.flex1} variant="outline" title={t('sellerUi.draft')} loading={busy && publishIntentRef.current === 'DRAFT'} disabled={busy} onPress={() => submit('DRAFT')} />
+        <Button style={styles.flex1} title={t('sellerUi.publish')} loading={busy && publishIntentRef.current === 'PUBLISHED'} disabled={busy || missingAttributes.length > 0 || categoryAttributesQuery.isError || categoryAttributesQuery.isLoading} onPress={() => submit('PUBLISHED')} />
+      </View>
+    </View>
   </KeyboardAvoidingView>
 }
 
@@ -763,39 +841,84 @@ function SummaryRow({ styles, label, value }: { styles: ReturnType<typeof makeSt
   </View>
 }
 
+/* Reference 10 "Publier un article": white page, X + bold title, photo slots,
+   filled labelled inputs, blue-bordered price, select, chips, bottom bar. */
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  root: { flex: 1 },
-  page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 },
+  root: { flex: 1, backgroundColor: colors.white },
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.md, paddingVertical: 12, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface2 },
+  topTitle: { flex: 1, fontSize: 20, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3, color: colors.ink },
+  page: { padding: spacing.md, gap: 18, paddingBottom: spacing.xl, backgroundColor: colors.white },
+  block: { gap: 8 },
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl },
   flex1: { flex: 1 },
   muted: { color: colors.muted },
-  subLabel: { color: colors.ink, fontWeight: '700' },
+  hint: { color: colors.muted, fontSize: 12 },
+  subLabel: { color: colors.ink, fontWeight: '700', fontSize: 13 },
+  fieldLabel: { color: colors.ink, fontWeight: '600', fontSize: 13, marginTop: 2 },
   error: { color: colors.danger, fontWeight: '700' },
   notice: { color: colors.gold, fontWeight: '700' },
-  // web .card > h3: Fraunces 1.2rem
-  cardTitle: { fontSize: 19, fontFamily: fonts.display, fontWeight: '500', color: colors.ink },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  chip: { minHeight: 40, justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  chipActive: { backgroundColor: colors.green, borderColor: colors.green },
+  cardTitle: { fontSize: 16, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.2, color: colors.ink },
+
+  // Filled inputs like the shared `Field`; the price gets the blue border.
+  input: { minHeight: 50, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 14, color: colors.ink, fontSize: 15 },
+  twoCol: { flexDirection: 'row', gap: 10 },
+  priceBox: { minHeight: 50, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.green, borderRadius: radius.sm, paddingHorizontal: 14 },
+  priceInput: { flex: 1, minHeight: 48, color: colors.ink, fontSize: 16, fontWeight: '700' },
+  priceSuffix: { color: colors.green, fontSize: 15, fontWeight: '700', marginLeft: 6 },
+  select: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 14 },
+  selectOpen: { borderColor: colors.green },
+  selectText: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '600' },
+  selectPlaceholder: { color: colors.mutedLight, fontWeight: '400' },
+  selectList: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: colors.white, overflow: 'hidden', ...shadow.card },
+  selectOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 46, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+  selectOptionActive: { backgroundColor: colors.greenSoft },
+  selectOptionPressed: { backgroundColor: colors.surface2 },
+  selectOptionText: { color: colors.ink, fontSize: 14.5, fontWeight: '600' },
+  selectOptionTextActive: { color: colors.green, fontWeight: '700' },
+
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { minHeight: 36, justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  chipActive: { backgroundColor: colors.navy, borderColor: colors.navy },
   chipRequired: { borderColor: colors.gold },
   chipUsed: { opacity: 0.45 },
-  chipText: { color: colors.ink, fontWeight: '700' },
-  chipTextActive: { color: colors.onGreen },
+  chipText: { color: colors.ink, fontWeight: '600', fontSize: 13 },
+  chipTextActive: { color: colors.onNavy },
   chipTextUsed: { color: colors.muted },
+  // Chosen variant values: filled navy pills; "+ Ajouter": outlined blue.
+  valueChip: { minHeight: 34, minWidth: 40, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.navy },
+  valueChipText: { color: colors.onNavy, fontWeight: '700', fontSize: 13 },
+  addChip: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.green, backgroundColor: colors.white },
+  addChipText: { color: colors.green, fontWeight: '700', fontSize: 13 },
+
   stars: { flexDirection: 'row', gap: spacing.xs },
-  star: { fontSize: 34, color: colors.starEmpty },
+  star: { fontSize: 32, color: colors.starEmpty },
   starActive: { color: colors.star },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: colors.borderControl },
+  checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center' },
   checkboxOn: { backgroundColor: colors.green, borderColor: colors.green },
   toggleLabel: { color: colors.ink, fontWeight: '700', flex: 1 },
-  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  photoTile: { width: 150, gap: spacing.xs },
-  photo: { width: 150, height: 150, borderRadius: radius.sm, backgroundColor: colors.surfaceAlt },
-  primaryTag: { color: colors.green, fontWeight: '700', fontSize: 12 },
-  photoActions: { gap: spacing.xs },
+
+  // Photo slots: 84px rounded-14 tiles.
+  photoGrid: { flexDirection: 'row', gap: 10, paddingVertical: 2 },
+  photoTile: { width: 84, gap: 4 },
+  photo: { width: 84, height: 84, borderRadius: 14, backgroundColor: colors.surfaceAlt },
+  primaryTag: { position: 'absolute', left: 5, top: 5, maxWidth: 74, overflow: 'hidden', backgroundColor: colors.green, color: colors.onGreen, fontSize: 8.5, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', paddingVertical: 2, paddingHorizontal: 6, borderRadius: 6 },
+  photoRemoveBtn: { position: 'absolute', right: 5, top: 5, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+  photoLink: { color: colors.green, fontWeight: '700', fontSize: 11, textAlign: 'center' },
+  addSlot: { width: 84, height: 84, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.green, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 4 },
+  addSlotPlain: { backgroundColor: colors.white },
+  addSlotDisabled: { opacity: 0.5 },
+  addSlotPressed: { opacity: 0.75 },
+  addSlotText: { color: colors.green, fontWeight: '700', fontSize: 11, textAlign: 'center' },
+
   comboRow: { gap: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
   comboLabel: { color: colors.ink, fontWeight: '700' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
   summaryValue: { color: colors.ink, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
+
+  // Sticky bottom action bar.
+  bottomBar: { gap: 8, paddingHorizontal: spacing.md, paddingTop: 12, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, ...shadow.card },
+  bottomRow: { flexDirection: 'row', gap: 10 },
+  stepText: { color: colors.muted, fontSize: 12 },
 })

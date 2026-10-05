@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
-import { radius, spacing, type Colors } from '../theme'
+import { fonts, radius, shadow, spacing, type Colors } from '../theme'
 import {
   composeDescription,
   descriptionTemplateFor,
@@ -126,17 +126,19 @@ export function DescriptionEditor({
 
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
-    box: { gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface2 },
+    // White rounded card like the other form sections (reference 10).
+    box: { gap: spacing.sm, padding: spacing.md, borderRadius: 18, borderWidth: 1, borderColor: c.border, backgroundColor: c.white, ...shadow.card },
     head: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
-    title: { color: c.ink, fontWeight: '600', fontSize: 15 },
-    tone: { borderRadius: 999, borderWidth: 1, borderColor: c.border, backgroundColor: c.white, paddingHorizontal: 10, paddingVertical: 3 },
-    toneText: { color: c.muted, fontSize: 12, fontWeight: '600' },
+    title: { color: c.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 16, letterSpacing: -0.2 },
+    tone: { borderRadius: 999, backgroundColor: c.greenSoft, paddingHorizontal: 10, paddingVertical: 4 },
+    toneText: { color: c.green, fontSize: 11.5, fontWeight: '700' },
     hint: { color: c.muted, fontSize: 12, lineHeight: 17 },
     section: { gap: 6 },
-    label: { color: c.ink, fontWeight: '500', fontSize: 14 },
+    label: { color: c.ink, fontWeight: '600', fontSize: 13 },
     optional: { color: c.muted, fontWeight: '400', fontSize: 12 },
-    input: { minHeight: 72, backgroundColor: c.white, borderWidth: 1, borderColor: c.borderControl, borderRadius: radius.sm, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, color: c.ink, fontSize: 15, textAlignVertical: 'top' },
-    inputTall: { minHeight: 96 },
+    // Filled grey textarea, same look as the shared `Field`.
+    input: { minHeight: 80, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.borderControl, borderRadius: radius.sm, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, color: c.ink, fontSize: 15, textAlignVertical: 'top' },
+    inputTall: { minHeight: 104 },
     extra: { gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: c.border, borderStyle: 'dashed' },
     extraHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     remove: { color: c.danger, fontWeight: '600', fontSize: 13 },

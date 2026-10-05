@@ -8,6 +8,7 @@ import { useI18n } from '../store/i18n'
 import { BuyerMenu } from './BuyerMenu'
 import { fonts, spacing, type Colors } from '../theme'
 import type { TranslationKey } from '../locales/fr'
+import { BrandLogo } from './BrandLogo'
 
 /**
  * The storefront header the web shows on every buyer page at phone width:
@@ -36,7 +37,7 @@ export function StoreHeader({ back = false }: { back?: boolean }) {
           </Pressable>
         ) : null}
         <Pressable onPress={() => router.push('/(buyer)')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt' as TranslationKey)}>
-          <View style={s.logo}><Text style={s.logoText}>TBK</Text></View>
+          <BrandLogo size={40} />
         </Pressable>
         <View style={s.search}>
           {/* Android wraps long placeholders instead of truncating them, so
@@ -72,12 +73,10 @@ const makeStyles = (c: Colors) =>
     wrap: { backgroundColor: c.white, borderBottomWidth: 1, borderBottomColor: c.border },
     row: { height: 64, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.md },
     back: { marginLeft: -6 },
-    logo: { minWidth: 44, height: 30, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.ink, alignItems: 'center', justifyContent: 'center' },
-    logoText: { color: c.onGreen, fontSize: 13, fontFamily: fonts.display, fontWeight: '600', letterSpacing: 1 },
-    search: { flex: 1, height: 40, borderRadius: 999, backgroundColor: c.surface2, flexDirection: 'row', alignItems: 'center', gap: 2, paddingLeft: 14, paddingRight: 4 },
+    search: { flex: 1, height: 42, borderRadius: 12, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border, flexDirection: 'row', alignItems: 'center', gap: 2, paddingLeft: 14, paddingRight: 4 },
     inputWrap: { flex: 1, minWidth: 60, justifyContent: 'center' },
     placeholder: { position: 'absolute', left: 0, right: 0, color: c.faint, fontSize: 14 },
     input: { color: c.ink, fontSize: 14, paddingVertical: 0, paddingHorizontal: 0 },
     iconBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-    menu: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    menu: { width: 40, height: 40, borderRadius: 12, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center' },
   })

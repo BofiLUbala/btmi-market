@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { takePendingNotificationLink } from '../../src/lib/notificationRouting'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import type { TranslationKey } from '../../src/locales/fr'
 import { router } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { authApi } from '../../src/api'
 import { useAuth } from '../../src/store/auth'
 import { ApiError } from '../../src/api/client'
 import { Button } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { spacing, type Colors, fonts } from '../../src/theme'
+import { spacing, type Colors, fonts, kicker, radius, shadow } from '../../src/theme'
 import { sellerIntent } from '../../src/store/sellerIntent'
 import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrollView'
 import { RememberMe, useRememberedEmail } from '../../src/components/AuthFormParts'
@@ -24,6 +25,7 @@ export default function LoginScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
+  const insets = useSafeAreaInsets()
   const { email, setEmail, password, setPassword, remember, setRemember, prefilled, passwordPrefilled, persist, forgetPassword } = useRememberedEmail('buyer')
   const [error, setError] = useState('')
   const [notActivated, setNotActivated] = useState(false)
@@ -101,26 +103,38 @@ export default function LoginScreen() {
   // Buyer, seller, employee and courier accounts all sign in here and are
   // routed by account type; administration has its own space.
   if (challenge) {
-    return <View style={styles.root}>
-      <KeyboardAwareScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Text style={styles.title}>{w('auth.login.title')}</Text>
-          <WhatsAppCodeForm
-            challenge={challenge}
-            initialError={challengeError}
-            onVerify={async (id, code) => { const user = await verifyWhatsApp(id, code); await routeAfterLogin(user.email) }}
-            onBack={() => setChallenge(null)}
-          />
-        </View>
+    // Reference 14 "Code SMS": plain white page, back chevron, code entry.
+    return <View style={[styles.codeRoot, { paddingTop: insets.top }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('auth.whatsapp.back')} onPress={() => setChallenge(null)} hitSlop={10} style={styles.codeBack}>
+        <Ionicons name="chevron-back" size={24} color={colors.ink} />
+      </Pressable>
+      <KeyboardAwareScrollView contentContainerStyle={styles.codePage} keyboardShouldPersistTaps="handled">
+        <WhatsAppCodeForm
+          challenge={challenge}
+          initialError={challengeError}
+          onVerify={async (id, code) => { const user = await verifyWhatsApp(id, code); await routeAfterLogin(user.email) }}
+          onBack={() => setChallenge(null)}
+        />
       </KeyboardAwareScrollView>
     </View>
   }
 
   return <View style={styles.root}>
     <KeyboardAwareScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-      <View style={styles.card}>
+      <View style={[styles.hero, { paddingTop: insets.top + 12 }]}>
+        {router.canGoBack() ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={t('auth.whatsapp.back')} onPress={() => router.back()} hitSlop={10} style={styles.heroBack}>
+            <Ionicons name="chevron-back" size={22} color={colors.onNavy} />
+          </Pressable>
+        ) : null}
+        <View style={styles.glow}>
+          <View style={styles.logoTile}><Image source={LOGO} style={styles.logo} resizeMode="contain" /></View>
+        </View>
+        <Text style={styles.kicker}>{t('auth.login.kicker')}</Text>
         <Text style={styles.title}>{w('auth.login.title')}</Text>
         <Text style={styles.subtitle}>{w('auth.login.subtitle')}</Text>
+      </View>
+      <View style={styles.card}>
         {whatsappEnabled ? <ChannelSwitch value={channel} onChange={(c) => { setChannel(c); setError('') }} label={t('auth.whatsapp.loginWith')} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {notActivated ? (
@@ -201,33 +215,45 @@ export default function LoginScreen() {
         {!useWhatsApp ? <RememberMe checked={remember} onChange={setRemember} /> : null}
         <Button title={useWhatsApp ? t('auth.whatsapp.sendCode') : w('auth.login.submit')} loading={busy} disabled={!identifier.trim() || !password} onPress={submit} />
         <Text style={[styles.linkLine, styles.center]}>{w('auth.login.noAccount')} <Text style={styles.link} onPress={() => router.push('/auth/register')}>{w('auth.login.createOne')}</Text></Text>
+        <Pressable accessibilityRole="link" onPress={() => router.push('/admin/login')} style={styles.adminLink} hitSlop={6}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={colors.muted} />
+          <Text style={styles.adminLinkText}>{t('auth.adminSpace')}</Text>
+        </Pressable>
       </View>
-      <Pressable accessibilityRole="link" onPress={() => router.push('/admin/login')} style={styles.adminLink} hitSlop={6}>
-        <Ionicons name="shield-checkmark-outline" size={16} color={colors.muted} />
-        <Text style={styles.adminLinkText}>{t('auth.adminSpace')}</Text>
-      </Pressable>
     </KeyboardAwareScrollView>
   </View>
 }
 
+const LOGO = require('../../assets/icon.png')
+
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  page: { flexGrow: 1, justifyContent: 'center', padding: spacing.md },
-  // web .auth-card
-  card: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 20, padding: 16, gap: 12 },
-  title: { color: colors.ink, fontSize: 28, fontFamily: fonts.display, fontWeight: '500' },
-  subtitle: { color: colors.muted, fontSize: 14, lineHeight: 21 },
-  error: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 12, borderRadius: 12 },
+  root: { flex: 1, backgroundColor: colors.navy },
+  page: { flexGrow: 1 },
+  // Navy hero (reference 7): glowing logo tile, white title, muted subtitle.
+  hero: { paddingHorizontal: spacing.lg, paddingBottom: 32, gap: 8 },
+  heroBack: { position: 'absolute', left: spacing.md, top: 12, zIndex: 1, width: 38, height: 38, borderRadius: 19, backgroundColor: colors.navySoft, alignItems: 'center', justifyContent: 'center' },
+  glow: { alignSelf: 'center', width: 168, height: 168, borderRadius: 84, backgroundColor: colors.navySoft, borderWidth: 1, borderColor: colors.navyLine, alignItems: 'center', justifyContent: 'center', marginTop: 36, marginBottom: 28 },
+  logoTile: { width: 104, height: 104, borderRadius: 28, overflow: 'hidden', backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center', ...shadow.raised },
+  logo: { width: 104, height: 104 },
+  kicker: { ...kicker, color: colors.cyan },
+  codeRoot: { flex: 1, backgroundColor: colors.white },
+  codeBack: { marginLeft: spacing.sm, marginTop: 8, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  codePage: { flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xl },
+  title: { color: colors.onNavy, fontSize: 26, lineHeight: 32, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 },
+  subtitle: { color: colors.onNavyMuted, fontSize: 14, lineHeight: 21 },
+  // White rounded-top sheet holding the form.
+  card: { flexGrow: 1, backgroundColor: colors.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl, gap: 14 },
+  error: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 12, borderRadius: radius.sm, fontSize: 14 },
   field: { gap: 8 },
-  label: { color: colors.ink, fontWeight: '500', fontSize: 14 },
-  input: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, paddingHorizontal: 14, color: colors.ink, fontSize: 16 },
+  label: { color: colors.ink, fontWeight: '600', fontSize: 13 },
+  input: { minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2, paddingHorizontal: 16, color: colors.ink, fontSize: 16 },
   inputWithIcon: { paddingRight: 44 },
-  eye: { position: 'absolute', right: 12, top: 13 },
+  eye: { position: 'absolute', right: 14, top: 16 },
   forgot: { alignSelf: 'flex-end', paddingVertical: 2 },
-  forgotText: { color: colors.ink, fontWeight: '600', fontSize: 14 },
+  forgotText: { color: colors.green, fontWeight: '600', fontSize: 13 },
   center: { textAlign: 'center' },
-  adminLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: spacing.md, paddingVertical: 8 },
-  adminLinkText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
-  linkLine: { color: colors.muted, fontSize: 14, lineHeight: 21 },
-  link: { color: colors.ink, fontWeight: '600' },
+  adminLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: spacing.sm, paddingVertical: 8 },
+  adminLinkText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  linkLine: { color: colors.muted, fontSize: 13, lineHeight: 20 },
+  link: { color: colors.green, fontWeight: '700' },
 })

@@ -82,7 +82,8 @@ function RootNavigator() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/login" options={{ header: storeHeader, title: t('common.signIn') }} />
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/login" options={{ headerShown: false, title: t('common.signIn') }} />
         <Stack.Screen name="auth/register" options={{ header: storeHeader, title: t('auth.createAccount') }} />
         <Stack.Screen name="auth/register-choice" options={{ header: storeHeader, title: t('auth.createAccount') }} />
         <Stack.Screen name="auth/register-buyer" options={{ header: storeHeader, title: t('auth.register.buyerFlowLabel') }} />
@@ -92,6 +93,7 @@ function RootNavigator() {
         <Stack.Screen name="auth/registration-recovery" options={{ header: storeHeader, title: t('auth.reinitialize.title') }} />
         <Stack.Screen name="auth/employee-invite" options={{ title: t('seller.employeeInvite.title') }} />
         <Stack.Screen name="profile-edit" options={{ header: storeHeader, title: t('editProfile.title') }} />
+        <Stack.Screen name="addresses" options={{ header: storeHeader, title: t('addresses.title') }} />
         <Stack.Screen name="products/[id]" options={{ header: storeHeader, title: t('product.title') }} />
         <Stack.Screen name="categories/[slug]" options={{ header: storeHeader, title: t('categories.pageTitle') }} />
         <Stack.Screen name="checkout/delivery" options={{ header: checkoutHeader, title: t('checkout.delivery') }} />
@@ -102,6 +104,7 @@ function RootNavigator() {
         <Stack.Screen name="orders/live" options={{ title: t('liveMap.follow') }} />
         <Stack.Screen name="notifications" options={{ header: storeHeader, title: t('notifications.title') }} />
         <Stack.Screen name="notification-settings" options={{ title: t('notifSettings.title') }} />
+        <Stack.Screen name="help" options={{ header: storeHeader, title: t('help.title') }} />
         <Stack.Screen name="points/index" options={{ header: storeHeader, title: t('points.link') }} />
         <Stack.Screen name="points/history" options={{ header: storeHeader, title: t('points.history') }} />
         <Stack.Screen name="purchases" options={{ header: storeHeader, title: t('account.pendingPurchases') }} />

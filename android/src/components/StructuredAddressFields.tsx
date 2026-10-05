@@ -1,6 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, TextInput } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Field } from './ui'
+import { useColors } from '../store/theme'
+import { radius, type Colors } from '../theme'
 import { useT } from '../store/i18n'
 import { locationsApi, type LocationProvince, type LocationCity, type LocationCommune } from '../api'
 
@@ -28,6 +31,8 @@ function PickerField({ label, value, placeholder, items, loading, onSelect }: {
   onSelect: (item: PickerItem) => void
 }) {
   const t = useT()
+  const c = useColors()
+  const s = useMemo(() => makeStyles(c), [c])
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
   const filtered = useMemo(() => {
@@ -40,13 +45,16 @@ function PickerField({ label, value, placeholder, items, loading, onSelect }: {
     <>
       <TouchableOpacity style={s.picker} onPress={() => setOpen(true)} activeOpacity={0.7}>
         <Text style={s.pickerLabel}>{label}</Text>
-        {loading ? (
-          <ActivityIndicator size="small" color="#999" />
-        ) : (
-          <Text style={[s.pickerValue, !value && s.placeholder]} numberOfLines={1}>
-            {value || placeholder}
-          </Text>
-        )}
+        <View style={s.pickerBox}>
+          {loading ? (
+            <View style={{ flex: 1 }}><ActivityIndicator size="small" color={c.muted} style={{ alignSelf: 'flex-start' }} /></View>
+          ) : (
+            <Text style={[s.pickerValue, !value && s.placeholder]} numberOfLines={1}>
+              {value || placeholder}
+            </Text>
+          )}
+          <Ionicons name="chevron-down" size={18} color={c.muted} />
+        </View>
       </TouchableOpacity>
       <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
         <View style={s.overlay}>
@@ -60,6 +68,7 @@ function PickerField({ label, value, placeholder, items, loading, onSelect }: {
             <TextInput
               style={s.search}
               placeholder={t('structuredAddressFields.searchPlaceholder')}
+              placeholderTextColor={c.mutedLight}
               value={filter}
               onChangeText={setFilter}
               autoFocus
@@ -153,20 +162,22 @@ export function StructuredAddressFields({ value, onChange }: { value: Structured
   </>
 }
 
-const s = StyleSheet.create({
-  picker: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingVertical: 13, paddingHorizontal: 12, marginBottom: 10, backgroundColor: '#fff' },
-  pickerLabel: { fontSize: 13, color: '#666', marginBottom: 2 },
-  pickerValue: { fontSize: 15, color: '#111', flexShrink: 1, textAlign: 'right' },
-  placeholder: { color: '#999' },
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.3)' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '70%', paddingBottom: 30 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  sheetTitle: { fontSize: 16, fontWeight: '700' },
-  sheetClose: { fontSize: 15, color: '#2563EB' },
-  search: { marginHorizontal: 16, marginTop: 10, marginBottom: 4, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, fontSize: 15, backgroundColor: '#f5f5f5' },
-  option: { paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 0.5, borderBottomColor: '#eee' },
-  optionActive: { backgroundColor: '#EFF6FF' },
-  optionText: { fontSize: 15, color: '#222' },
-  optionTextActive: { color: '#2563EB', fontWeight: '600' },
-  empty: { textAlign: 'center', color: '#999', padding: 20, fontSize: 14 },
+const makeStyles = (c: Colors) => StyleSheet.create({
+  // Filled select field (reference "Créer mon compte"): label above, value + chevron.
+  picker: { gap: 6, marginBottom: 12 },
+  pickerLabel: { fontSize: 13, fontWeight: '600', color: c.ink },
+  pickerBox: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 50, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface2, paddingHorizontal: 14 },
+  pickerValue: { flex: 1, fontSize: 15, color: c.ink },
+  placeholder: { color: c.mutedLight },
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheet: { backgroundColor: c.white, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, maxHeight: '70%', paddingBottom: 30 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: c.border },
+  sheetTitle: { fontSize: 17, fontWeight: '700', color: c.ink },
+  sheetClose: { fontSize: 14, fontWeight: '600', color: c.green },
+  search: { marginHorizontal: 16, marginTop: 12, marginBottom: 6, borderWidth: 1, borderColor: c.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: c.ink, backgroundColor: c.surface2 },
+  option: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
+  optionActive: { backgroundColor: c.greenSoft },
+  optionText: { fontSize: 15, color: c.ink },
+  optionTextActive: { color: c.green, fontWeight: '600' },
+  empty: { textAlign: 'center', color: c.muted, padding: 20, fontSize: 14 },
 })

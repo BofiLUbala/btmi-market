@@ -14,68 +14,63 @@
  */
 
 export const lightColors = {
-  /* Brand — taken from the TBK logo, a black-and-white monogram.
-     `green`/`greenSoft` keep their names so the ~250 call sites stay
-     untouched; only the values move. */
-  green: '#1C1C1A',
-  greenSoft: '#EFEDE8',
+  /* Brand — the TBK reference design: vivid blue primary on cool-grey pages,
+     navy for the dark hero surfaces. `green`/`greenSoft`/`gold` keep their
+     historical names so the ~250 call sites stay untouched; only values move.
+     `green` is the primary fill (buttons, selected states). */
+  green: '#1E5EF3',
+  greenSoft: '#E8EFFE',
 
-  /* Action accent. Burnt amber is the one hue that stays legible with white
-     text (5.01), on cream (4.60) and against the near-black primary (3.41),
-     so a "Buy" button never reads as just another dark button. */
-  gold: '#B4531B',
-  goldDark: '#8F3F13',
-  goldSoft: '#FBEEE5',
+  /* Secondary action accent (the cyan-blue "checkout" buttons). Deep enough
+     to carry white text (4.6:1). */
+  gold: '#0A73CF',
+  goldDark: '#075BA6',
+  goldSoft: '#E2F2FD',
 
-  /* Review stars: a convention, not brand colour, and deep enough to stay
-     legible on cream (5.03) unlike the previous light gold. */
-  star: '#8A6207',
-  starEmpty: '#D8D3C7',
+  /* Review stars: the reference's amber. */
+  star: '#E8890C',
+  starEmpty: '#D5DBE5',
 
-  /* Neutrals are the web's light tokens verbatim (--color-bg / -surface /
-     -text / -text-muted / -border). The dark palette below already matched
-     them hex for hex; only these light values had drifted, which showed up as
-     the seller workspace reading subtly different from the same page on web. */
-  cream: '#F7F5F0',
+  /* Cool neutrals: light grey page, white cards, navy-black text. */
+  cream: '#F2F4F8',
   white: '#FFFFFF',
-  ink: '#1C1C1A',
-  muted: '#6B6A63',
+  ink: '#0B1530',
+  muted: '#5A6378',
   /* Lighter grey for inactive tab labels, where `muted` reads too strong. */
-  mutedLight: '#68726C',
-  border: '#E3DED3',
-  /* Border for form controls, where the outline is the only thing marking the
-     control as interactive and so must clear WCAG's 3:1 for UI components.
-     `border` stays lighter because a card outline is decorative -- grouping is
-     carried by spacing -- and darkening it would box in every surface. */
-  borderControl: '#8C887C',
+  mutedLight: '#667089',
+  border: '#E4E8EF',
+  /* Border for form controls: clears WCAG's 3:1 for UI components. */
+  borderControl: '#8C95A8',
   /* Neutral fills for skeletons, placeholders and empty media slots. */
-  surfaceAlt: '#ECEAE4',
+  surfaceAlt: '#E9EDF4',
 
-  /* Semantic feedback keeps its conventional meaning: green still means
-     "in stock / verified", independent of the brand colour. */
-  danger: '#B42318',
+  danger: '#D92D20',
   dangerSoft: '#FEECEB',
-  success: '#167647',
+  success: '#12805C',
 
-  /* Soft/strong feedback pairs mirroring the web's --color-*-soft tokens, used
-     by the seller stat-card icon badges and order status pills so both apps
-     tint the same metric the same way. */
-  successSoft: '#E7F7EE',
-  info: '#2F6F9F',
-  infoSoft: '#E0F2FE',
+  successSoft: '#E3F6EE',
+  info: '#1E5EF3',
+  infoSoft: '#E8EFFE',
   warning: '#B7791F',
   warningSoft: '#FFF7DF',
   purple: '#7C3AED',
   magenta: '#A21CAF',
-  surface2: '#F0EDE6',
-  /* web --color-text-faint and the .status-out_for_delivery pill (--status-out on #ffedd5). */
-  faint: '#9A978D',
+  surface2: '#EDF0F5',
+  faint: '#8D96A8',
   out: '#D1802F',
   outSoft: '#FFEDD5',
 
-  /* Foreground for text/icons sitting ON a filled brand colour. Flips with the
-     theme: in dark mode `green` becomes light, so white text on it would be
-     unreadable. Never hardcode '#fff' on a themed fill — use this. */
+  /* Dark hero surfaces (seller dashboard, welcome, cart summary, account
+     header). Stay dark in both themes, so text on them uses `onNavy`. */
+  navy: '#0A1633',
+  navySoft: '#14244A',
+  navyLine: '#22345E',
+  onNavy: '#FFFFFF',
+  onNavyMuted: '#A9B5CF',
+  /* Bright cyan for highlights on navy (figures, active tab glow). */
+  cyan: '#22B8F0',
+
+  /* Foreground for text/icons sitting ON a filled brand colour. */
   onGreen: '#FFFFFF',
   onGold: '#FFFFFF',
 } as const
@@ -85,63 +80,70 @@ export const lightColors = {
 export type Colors = Record<keyof typeof lightColors, string>
 
 export const darkColors: Colors = {
-  /* `green` is the primary fill, so it inverts to a light tone; `greenSoft`
-     becomes a dark tint rather than a light one. */
-  green: '#F2F0EA',
-  greenSoft: '#26262C',
+  green: '#5B93FF',
+  greenSoft: '#16264A',
 
-  gold: '#E2793D',
-  goldDark: '#C25F27',
-  goldSoft: '#3A2417',
+  gold: '#38BDF8',
+  goldDark: '#0EA5E9',
+  goldSoft: '#0F2A3D',
 
-  star: '#E0B93F',
-  starEmpty: '#4A463D',
+  star: '#F5A524',
+  starEmpty: '#3A4560',
 
-  /* `cream` is the page background and `white` the card surface — both become
-     dark surfaces here, which is why every screen can keep using the same
-     names without knowing which theme is active. */
-  cream: '#16161A',
-  white: '#1E1E23',
-  ink: '#F2F0EA',
-  muted: '#A6A49C',
-  mutedLight: '#8E8C83',
-  border: '#35353D',
-  borderControl: '#4A4A52',
-  surfaceAlt: '#2B2B32',
+  cream: '#070D1D',
+  white: '#101A31',
+  ink: '#EEF2FA',
+  muted: '#A3AEC6',
+  mutedLight: '#8994AE',
+  border: '#1F2C4A',
+  borderControl: '#4A5878',
+  surfaceAlt: '#1A2540',
 
-  /* Lightened so they still pass contrast on a dark surface. */
   danger: '#F87171',
-  dangerSoft: '#33191A',
+  dangerSoft: '#3A1A1E',
   success: '#4ADE80',
 
-  successSoft: '#14301F',
+  successSoft: '#123024',
   info: '#60A5FA',
-  infoSoft: '#16283D',
+  infoSoft: '#16264A',
   warning: '#FBBF24',
   warningSoft: '#332612',
   purple: '#A78BFA',
   magenta: '#E879F9',
-  surface2: '#26262C',
-  faint: '#7A786F',
+  surface2: '#18223B',
+  faint: '#76819B',
   out: '#FB923C',
-  outSoft: '#FFEDD5',
+  outSoft: '#3A2614',
 
-  onGreen: '#16161A',
-  onGold: '#16161A',
+  navy: '#050B1A',
+  navySoft: '#111D3A',
+  navyLine: '#1F2C4A',
+  onNavy: '#FFFFFF',
+  onNavyMuted: '#A3AEC6',
+  cyan: '#38C6F5',
+
+  onGreen: '#061024',
+  onGold: '#061024',
 }
 
 export const spacing = { xs: 6, sm: 10, md: 16, lg: 24, xl: 32 } as const
-export const radius = { sm: 12, md: 16, lg: 24, pill: 999 } as const
+export const radius = { sm: 12, md: 16, lg: 22, pill: 999 } as const
 
-/** Same type pairing as the web: Fraunces for titles and prices, Inter for
- *  everything else (loaded in app/_layout.tsx). */
+/** Soft card lift used by the reference design (white cards on cool grey). */
+export const shadow = {
+  card: { shadowColor: '#0B1530', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  raised: { shadowColor: '#1E5EF3', shadowOpacity: 0.32, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+} as const
+
+/** Titles and prices use the display face: a heavy geometric sans (Inter
+ *  bold weights, see src/typography.ts), matching the reference design. */
 export const fonts = {
   /** Fraunces; src/typography.ts maps it to the right weight file. */
   display: 'Fraunces',
 } as const
 
 /** Uppercase eyebrow above titles (category, section kicker). */
-export const kicker = { fontSize: 11, fontWeight: '600', letterSpacing: 1.4, textTransform: 'uppercase' } as const
+export const kicker = { fontSize: 10.5, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' } as const
 
 /** Admin console — `app/admin/_layout.tsx` renders its header/background
  *  always dark, independent of `useColors()`/the light-dark toggle (mirrors

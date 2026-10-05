@@ -8,7 +8,7 @@ import { Button, ErrorState, Field, Loading } from '../src/components/ui'
 import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete } from '../src/components/StructuredAddressFields'
 import { useI18n } from '../src/store/i18n'
 import { useColors } from '../src/store/theme'
-import { spacing, type Colors } from '../src/theme'
+import { radius, shadow, spacing, type Colors } from '../src/theme'
 import Ionicons from '@expo/vector-icons/Ionicons'
 
 const canonicalPhone = (value: string) => {
@@ -84,26 +84,34 @@ export default function EditProfileScreen() {
   const errorMessage = validationError || (mutation.error instanceof ApiError ? mutation.error.message : mutation.error instanceof Error ? mutation.error.message : t('editProfile.saveFailed'))
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
-      <Field label={t('editProfile.firstName')} value={form.first_name} onChangeText={(v) => setForm((f) => ({ ...f, first_name: v }))} />
-      <Field label={t('editProfile.lastName')} value={form.last_name} onChangeText={(v) => setForm((f) => ({ ...f, last_name: v }))} />
-      <Field label={t('editProfile.phone')} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} keyboardType="phone-pad" placeholder="+243 …" />
-      <Field label={t('editProfile.backupPhone')} value={form.backup_phone} onChangeText={(v) => setForm((f) => ({ ...f, backup_phone: v }))} keyboardType="phone-pad" placeholder={t('common.optional')} />
-      <Field label={t('editProfile.country')} value={form.country} onChangeText={(v) => setForm((f) => ({ ...f, country: v }))} />
-
-      <View style={styles.addressHead}>
-        <Text style={styles.addressTitle}>{t('checkout.address')}</Text>
-        <Text style={styles.addressHint}>{t('profileedit.addressHint')}</Text>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.page}>
+      <View style={styles.card}>
+        <Field label={t('editProfile.firstName')} value={form.first_name} onChangeText={(v) => setForm((f) => ({ ...f, first_name: v }))} />
+        <Field label={t('editProfile.lastName')} value={form.last_name} onChangeText={(v) => setForm((f) => ({ ...f, last_name: v }))} />
+        <Field label={t('editProfile.phone')} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} keyboardType="phone-pad" placeholder="+243 …" />
+        <Field label={t('editProfile.backupPhone')} value={form.backup_phone} onChangeText={(v) => setForm((f) => ({ ...f, backup_phone: v }))} keyboardType="phone-pad" placeholder={t('common.optional')} />
+        <Field label={t('editProfile.country')} value={form.country} onChangeText={(v) => setForm((f) => ({ ...f, country: v }))} />
       </View>
-      <StructuredAddressFields value={address} onChange={setAddress} />
-      {!isStructuredAddressComplete(address) ? (
-        <Text style={styles.addressIncomplete}>{t('profileedit.addressIncomplete')}</Text>
-      ) : (
-        <TouchableOpacity style={styles.completeBadge}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={styles.completeText}>{t('profileedit.addressComplete')}</Text>
-        </TouchableOpacity>
-      )}
+
+      {/* Address card (reference "Mes adresses"): blue pin tile, title, warm hint box. */}
+      <View style={[styles.card, isStructuredAddressComplete(address) && styles.cardSelected]}>
+        <View style={styles.addressHead}>
+          <View style={styles.pinTile}><Ionicons name="location" size={18} color={colors.onGreen} /></View>
+          <Text style={styles.addressTitle}>{t('checkout.address')}</Text>
+        </View>
+        <View style={styles.hintBox}>
+          <Text style={styles.addressHint}>{t('profileedit.addressHint')}</Text>
+        </View>
+        <StructuredAddressFields value={address} onChange={setAddress} />
+        {!isStructuredAddressComplete(address) ? (
+          <Text style={styles.addressIncomplete}>{t('profileedit.addressIncomplete')}</Text>
+        ) : (
+          <TouchableOpacity style={styles.completeBadge}>
+            <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+            <Text style={styles.completeText}>{t('profileedit.addressComplete')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {(mutation.isError || validationError) && <ErrorState message={errorMessage} />}
 
@@ -113,11 +121,16 @@ export default function EditProfileScreen() {
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  page: { padding: spacing.md, gap: spacing.md },
-  addressHead: { marginTop: spacing.xs },
-  addressTitle: { fontWeight: '800', fontSize: 15, color: colors.ink },
-  addressHint: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  screen: { flex: 1, backgroundColor: colors.cream },
+  page: { padding: spacing.md, gap: 12, paddingBottom: spacing.xl },
+  card: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 18, padding: 16, gap: 12, ...shadow.card },
+  cardSelected: { borderColor: colors.green, borderWidth: 1.5 },
+  addressHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pinTile: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' },
+  addressTitle: { flex: 1, fontWeight: '700', fontSize: 16, letterSpacing: -0.2, color: colors.ink },
+  hintBox: { backgroundColor: colors.warningSoft, borderRadius: radius.sm, paddingVertical: 10, paddingHorizontal: 12 },
+  addressHint: { color: colors.warning, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   addressIncomplete: { color: colors.muted, fontSize: 12, fontStyle: 'italic' },
-  completeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  completeText: { color: colors.success, fontWeight: '700', fontSize: 13 },
+  completeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: colors.successSoft, borderRadius: radius.pill, paddingVertical: 5, paddingHorizontal: 10 },
+  completeText: { color: colors.success, fontWeight: '700', fontSize: 12 },
 })

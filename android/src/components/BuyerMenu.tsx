@@ -8,8 +8,9 @@ import { useCart } from '../store/cart'
 import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
 import { PreferenceToggles } from './PreferenceToggles'
-import type { Colors } from '../theme'
+import { fonts, type Colors } from '../theme'
 import type { TranslationKey } from '../locales/fr'
+import { BrandLogo } from './BrandLogo'
 
 type IconName = keyof typeof Ionicons.glyphMap
 
@@ -44,9 +45,9 @@ export function BuyerMenu({ open, onClose }: { open: boolean; onClose: () => voi
       <View style={s.root}>
         <View style={[s.drawer, { paddingTop: insets.top }]}>
           <View style={s.head}>
-            <Text style={s.brand}>TBK</Text>
+            <BrandLogo size={36} />
             <Pressable accessibilityRole="button" accessibilityLabel={t('nav.closeMenu' as TranslationKey)} onPress={onClose} hitSlop={10}>
-              <Ionicons name="close" size={22} color={c.ink} />
+              <Ionicons name="close" size={22} color={c.onNavy} />
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={s.nav}>
@@ -60,8 +61,9 @@ export function BuyerMenu({ open, onClose }: { open: boolean; onClose: () => voi
                   router.push(link.to)
                 }}
               >
-                <Ionicons name={link.icon} size={19} color={c.muted} />
+                <View style={s.tile}><Ionicons name={link.icon} size={17} color={c.green} /></View>
                 <Text style={s.linkText}>{link.label}</Text>
+                <Ionicons name="chevron-forward" size={16} color={c.faint} />
               </Pressable>
             ))}
             <View style={s.prefs}><PreferenceToggles /></View>
@@ -76,13 +78,14 @@ export function BuyerMenu({ open, onClose }: { open: boolean; onClose: () => voi
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, flexDirection: 'row' },
-    drawer: { width: '86%', maxWidth: 320, backgroundColor: c.white, elevation: 16 },
+    drawer: { width: '86%', maxWidth: 320, backgroundColor: c.cream, elevation: 16 },
     backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
-    head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: c.border },
-    brand: { color: c.ink, fontWeight: '700', fontSize: 16 },
-    nav: { padding: 12, gap: 2 },
-    link: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 12 },
+    // Navy brand strip, like the account header.
+    head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 18, backgroundColor: c.navy },
+    nav: { padding: 12, gap: 6 },
+    link: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, backgroundColor: c.white, borderWidth: 1, borderColor: c.border },
     linkPressed: { backgroundColor: c.surface2 },
-    linkText: { color: c.ink, fontSize: 16, fontWeight: '500' },
-    prefs: { marginTop: 12 },
+    tile: { width: 32, height: 32, borderRadius: 10, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
+    linkText: { flex: 1, color: c.ink, fontSize: 14, fontWeight: '600' },
+    prefs: { marginTop: 10 },
   })

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
+import { Image } from 'expo-image'
+import * as ImagePicker from 'expo-image-picker'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { prepareAvatarUpload } from '../lib/imageUpload'
 import { useMutation } from '@tanstack/react-query'
 import { authApi, type VerificationChannel, type WhatsAppChallenge } from '../api'
 import { ApiError } from '../api/client'
@@ -13,7 +17,7 @@ import { useColors } from '../store/theme'
 import { sellerIntent } from '../store/sellerIntent'
 import { useAuth } from '../store/auth'
 import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from './StructuredAddressFields'
-import { radius, spacing, type Colors } from '../theme'
+import { kicker, radius, spacing, type Colors } from '../theme'
 
 const PASSWORD_RULES = [
   (value: string) => value.length >= 8,
@@ -29,12 +33,17 @@ const canonicalPhone = (value: string) => {
   return digits.length === 10 && digits.startsWith('0') ? `243${digits.slice(1)}` : digits
 }
 
-export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' }) {
+export function RegisterFlow({ accountType: initialAccountType }: { accountType: 'BUYER' | 'SELLER' }) {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  // "Je veux aussi vendre": switches between the buyer and seller sign-up.
+  const [alsoSell, setAlsoSell] = useState(initialAccountType === 'SELLER')
+  const accountType: 'BUYER' | 'SELLER' = alsoSell ? 'SELLER' : 'BUYER'
+  // Optional profile photo: picked now, uploaded once the session opens.
+  const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null)
   
   // Step 1: Account
   const [email, setEmail] = useState('')
@@ -63,6 +72,34 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
   const [challengeError, setChallengeError] = useState('')
   const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
   const automaticLoginRunning = useRef(false)
+
+  async function pickPhoto(fromCamera: boolean) {
+    const permission = fromCamera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!permission.granted) {
+      Alert.alert(t(fromCamera ? 'profile.cameraNeeded' : 'profile.photosNeeded'), t(fromCamera ? 'profile.cameraNeededBody' : 'profile.photosNeededBody'))
+      return
+    }
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 }
+    const result = fromCamera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync({ ...options, selectionLimit: 1 })
+    if (!result.canceled && result.assets[0]) setPhoto(result.assets[0])
+  }
+
+  function choosePhoto() {
+    Alert.alert(t('profile.photoTitle'), undefined, [
+      { text: t('profile.takePhoto'), onPress: () => void pickPhoto(true) },
+      { text: t('profile.chooseFromGallery'), onPress: () => void pickPhoto(false) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ])
+  }
+
+  /** Best effort: a failed photo upload never blocks the new account. */
+  async function uploadPendingPhoto() {
+    if (!photo) return
+    try {
+      await authApi.uploadAvatar(await prepareAvatarUpload(photo))
+      await useAuth.getState().refresh()
+    } catch { /* the photo can be added later from the profile */ }
+  }
 
   const rules = useMemo(() => PASSWORD_RULES.map((rule) => rule(password)), [password])
   const ruleLabels = useMemo(
@@ -189,6 +226,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
       automaticLoginRunning.current = true
       try {
         const user = await useAuth.getState().login(email.trim().toLowerCase(), password)
+        await uploadPendingPhoto()
         await sellerIntent.clear()
         router.replace(user.account_type === 'SELLER' ? '/seller/onboarding' : '/(buyer)/profile')
       } catch {
@@ -201,7 +239,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
       if (state === 'active') void connectAfterActivation()
     })
     return () => subscription.remove()
-  }, [accountType, email, password, register.isSuccess, challenge])
+  }, [accountType, email, password, register.isSuccess, challenge, photo])
 
   if (challenge) {
     return (
@@ -214,6 +252,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
               initialError={challengeError}
               onVerify={async (id, code) => {
                 const user = await useAuth.getState().verifyWhatsApp(id, code)
+                await uploadPendingPhoto()
                 await sellerIntent.clear()
                 router.replace(user.account_type === 'SELLER' ? '/seller/onboarding' : '/(buyer)/profile')
               }}
@@ -255,13 +294,16 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
         </View>
 
         {/* Step Indicator */}
+        <View style={styles.progress} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {[1, 2, 3, 4].map((n) => <View key={n} style={[styles.progressSeg, n <= step && styles.progressSegOn]} />)}
+        </View>
         <View style={styles.stepsRow}>
           <Pressable
             style={[styles.stepBadge, step === 1 && styles.stepBadgeActive, step > 1 && styles.stepBadgeDone]}
             onPress={() => step > 1 && setStep(1)}
           >
             <Text style={[styles.stepBadgeText, (step === 1 || step > 1) && styles.stepBadgeTextActive]}>
-              {step > 1 ? '✓' : '1'} {t('auth.register.stepAccount')}
+              {step > 1 ? '✓ ' : ''}{t('auth.register.stepAccount')}
             </Text>
           </Pressable>
           <Pressable
@@ -269,7 +311,7 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
             onPress={() => step > 2 && setStep(2)}
           >
             <Text style={[styles.stepBadgeText, (step === 2 || step > 2) && styles.stepBadgeTextActive]}>
-              {step > 2 ? '✓' : '2'} {t('auth.register.stepPersonal')}
+              {step > 2 ? '✓ ' : ''}{t('auth.register.stepPersonal')}
             </Text>
           </Pressable>
           <Pressable
@@ -277,12 +319,12 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
             onPress={() => step > 3 && setStep(3)}
           >
             <Text style={[styles.stepBadgeText, (step === 3 || step > 3) && styles.stepBadgeTextActive]}>
-              {step > 3 ? '✓' : '3'} {t('auth.register.stepAddress')}
+              {step > 3 ? '✓ ' : ''}{t('auth.register.stepAddress')}
             </Text>
           </Pressable>
           <View style={[styles.stepBadge, step === 4 && styles.stepBadgeActive]}>
             <Text style={[styles.stepBadgeText, step === 4 && styles.stepBadgeTextActive]}>
-              4 {t('auth.register.stepReview')}
+              {t('auth.register.stepReview')}
             </Text>
           </View>
         </View>
@@ -319,6 +361,15 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
         {/* Step 2: Personal Information */}
         {step === 2 && (
           <Card>
+            <Pressable style={styles.photoCard} onPress={choosePhoto} accessibilityRole="button" accessibilityLabel={t('auth.register.photoTitle')}>
+              <View style={styles.photoCircle}>
+                {photo ? <Image source={{ uri: photo.uri }} style={styles.photoImg} contentFit="cover" /> : <Ionicons name="camera-outline" size={22} color={colors.green} />}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.photoTitle}>{t('auth.register.photoTitle')}</Text>
+                <Text style={styles.photoHint}>{t('auth.register.photoHint')}</Text>
+              </View>
+            </Pressable>
             <Field label={t('auth.firstName')} value={firstName} onChangeText={setFirstName} autoCapitalize="words" autoComplete="given-name" />
             {accountType === 'SELLER' && (
               <Field label={t('auth.middleName')} value={middleName} onChangeText={setMiddleName} autoCapitalize="words" autoComplete="additional-name" />
@@ -326,6 +377,20 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
             <Field label={t('auth.lastName')} value={lastName} onChangeText={setLastName} autoCapitalize="words" autoComplete="family-name" />
             <Field label={t('auth.phone')} value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" placeholder={t('auth.phonePlaceholder')} />
             <Field label={t('auth.register.backupPhone')} value={backupPhone} onChangeText={setBackupPhone} keyboardType="phone-pad" placeholder={t('common.optional')} />
+            <Pressable
+              style={[styles.sellCard, alsoSell && styles.sellCardOn]}
+              onPress={() => { setAlsoSell((v) => !v); setPolicyAccepted(false) }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: alsoSell }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sellTitle}>{t('auth.register.alsoSell')}</Text>
+                <Text style={styles.photoHint}>{t('auth.register.alsoSellHint')}</Text>
+              </View>
+              <View style={[styles.checkbox, alsoSell && styles.checkboxChecked]}>
+                {alsoSell ? <Ionicons name="checkmark" size={15} color={colors.onGreen} /> : null}
+              </View>
+            </Pressable>
             <View style={styles.btnRow}>
               <View style={styles.btnCol}>
                 <Button title={`← ${t('auth.register.back')}`} variant="outline" onPress={prevStep} />
@@ -434,38 +499,51 @@ export function RegisterFlow({ accountType }: { accountType: 'BUYER' | 'SELLER' 
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  flex: { flex: 1 },
-  page: { padding: spacing.md, gap: spacing.md },
-  muted: { color: colors.muted, lineHeight: 21 },
-  rule: { color: colors.muted, lineHeight: 23 },
-  success: { color: colors.success, fontWeight: '800', lineHeight: 21 },
-  error: { color: colors.danger, fontWeight: '800' },
-  errorBox: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 12, borderRadius: radius.sm },
-  link: { color: colors.green, fontWeight: '800', textAlign: 'center', marginVertical: spacing.sm },
-  flowBanner: { borderRadius: radius.sm, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 14 },
-  buyerBanner: { backgroundColor: colors.greenSoft, borderColor: colors.green },
-  sellerBanner: { backgroundColor: colors.goldSoft, borderColor: colors.gold },
-  flowBannerText: { color: colors.ink, fontWeight: '700', textAlign: 'center' },
+  flex: { flex: 1, backgroundColor: colors.cream },
+  page: { padding: spacing.md, gap: 12, paddingBottom: spacing.xl },
+  muted: { color: colors.muted, fontSize: 13, lineHeight: 20 },
+  rule: { color: colors.muted, fontSize: 13, lineHeight: 22 },
+  success: { color: colors.success, fontWeight: '700', fontSize: 13, lineHeight: 21 },
+  error: { color: colors.danger, fontWeight: '700', fontSize: 13 },
+  errorBox: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 12, borderRadius: radius.sm, fontSize: 14 },
+  link: { color: colors.green, fontWeight: '700', fontSize: 13, textAlign: 'center', marginVertical: spacing.sm },
+  // Kicker-style pill naming the flow (buyer / seller).
+  flowBanner: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingVertical: 6, paddingHorizontal: 12 },
+  buyerBanner: { backgroundColor: colors.greenSoft },
+  sellerBanner: { backgroundColor: colors.goldSoft },
+  flowBannerText: { ...kicker, color: colors.green },
+  // Reference 15: segmented blue progress bar.
+  progress: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  progressSeg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  progressSegOn: { backgroundColor: colors.green },
   stepsRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  stepBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.lg, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border },
+  stepBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
   stepBadgeActive: { backgroundColor: colors.green, borderColor: colors.green },
-  stepBadgeDone: { backgroundColor: colors.surfaceAlt, borderColor: colors.green },
-  stepBadgeText: { fontSize: 12, fontWeight: '700', color: colors.muted },
-  stepBadgeTextActive: { color: colors.white },
+  stepBadgeDone: { backgroundColor: colors.greenSoft, borderColor: colors.greenSoft },
+  stepBadgeText: { fontSize: 11.5, fontWeight: '700', color: colors.muted },
+  stepBadgeTextActive: { color: colors.onGreen },
   btnRow: { flexDirection: 'row', gap: 10, marginTop: spacing.sm },
   btnCol: { flex: 1 },
-  reviewHeading: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  summaryBlock: { padding: spacing.sm, backgroundColor: colors.surfaceAlt, borderRadius: radius.sm, gap: 3 },
-  summaryLabel: { fontSize: 12, fontWeight: '700', color: colors.gold, textTransform: 'uppercase' },
+  reviewHeading: { fontSize: 18, fontWeight: '700', letterSpacing: -0.2, color: colors.ink },
+  summaryBlock: { padding: 12, backgroundColor: colors.surface2, borderRadius: radius.sm, gap: 3 },
+  summaryLabel: { ...kicker, color: colors.green, marginBottom: 2 },
   summaryVal: { fontSize: 14, color: colors.ink, fontWeight: '600' },
-  policyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: spacing.xs },
-  checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  policyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: spacing.xs, padding: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: colors.borderControl, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxChecked: { backgroundColor: colors.green, borderColor: colors.green },
-  checkboxMark: { color: colors.white, fontSize: 13, fontWeight: '700' },
+  checkboxMark: { color: colors.onGreen, fontSize: 13, fontWeight: '700' },
   policyText: { flex: 1, color: colors.muted, fontSize: 13, lineHeight: 19 },
-  policyLink: { color: colors.gold, fontWeight: '800' },
+  policyLink: { color: colors.green, fontWeight: '700' },
+  photoCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  photoCircle: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.green, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  photoImg: { width: '100%', height: '100%' },
+  photoTitle: { color: colors.ink, fontSize: 14, fontWeight: '600' },
+  photoHint: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  sellCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
+  sellCardOn: { borderColor: colors.green, backgroundColor: colors.greenSoft },
+  sellTitle: { color: colors.green, fontSize: 14, fontWeight: '700' },
   modalRoot: { flex: 1 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white },
   modalTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
   modalBody: { padding: spacing.md, paddingBottom: spacing.xl },
 })

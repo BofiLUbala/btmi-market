@@ -8,7 +8,7 @@ import { resolveMediaUrl } from '../../src/api/client'
 import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, type Colors, fonts } from '../../src/theme'
+import { kicker, radius, shadow, type Colors, fonts } from '../../src/theme'
 import { statusLabel } from '../../src/lib/statusLabels'
 import { formatMoney } from '../../src/lib/money'
 import { formatDateTime } from '../../src/lib/format'
@@ -170,35 +170,35 @@ function statusTint(status: string, c: Colors) {
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
-  eyebrow: { color: c.green, fontSize: 11.5, fontWeight: '800', letterSpacing: 1.3 },
-  h1: { fontSize: 26, fontFamily: fonts.display, fontWeight: '500', color: c.ink },
-  h2: { fontSize: 18, fontWeight: '700', color: c.ink },
-  text: { color: c.ink, fontSize: 14 },
-  bold: { color: c.ink, fontWeight: '700', fontSize: 14 },
-  muted: { color: c.muted, fontSize: 15 },
-  small: { color: c.muted, fontSize: 13 },
-  link: { color: c.green, fontSize: 13, fontWeight: '600', marginTop: 4 },
+  page: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 48, gap: 12, backgroundColor: c.cream, flexGrow: 1 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10, backgroundColor: c.cream },
+  eyebrow: { ...kicker, color: c.green },
+  h1: { fontSize: 22, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3, color: c.ink, marginTop: 2 },
+  h2: { fontSize: 16, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.2, color: c.ink },
+  text: { color: c.ink, fontSize: 13 },
+  bold: { color: c.ink, fontWeight: '700', fontSize: 13.5 },
+  muted: { color: c.muted, fontSize: 13, marginTop: 2 },
+  small: { color: c.muted, fontSize: 12 },
+  link: { color: c.green, fontSize: 12.5, fontWeight: '700', marginTop: 4 },
   linkAccent: { color: c.gold, fontWeight: '700' },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
+  chip: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
   chipActive: { backgroundColor: c.green, borderColor: c.green },
-  chipText: { color: c.ink, fontSize: 13 },
+  chipText: { color: c.ink, fontSize: 12.5, fontWeight: '600' },
   chipTextActive: { color: c.onGreen, fontWeight: '700' },
-  liveBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border },
-  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.success },
-  liveText: { color: c.success, fontWeight: '700', fontSize: 13 },
-  refreshBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: c.border, backgroundColor: c.white },
-  refreshText: { color: c.ink, fontSize: 12, fontWeight: '600' },
-  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 16, gap: 12, boxShadow: '0px 1px 2px rgba(0,0,0,0.06)' },
+  liveBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: c.white, borderWidth: 1, borderColor: c.border },
+  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.successSoft, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: c.success },
+  liveText: { color: c.success, fontWeight: '700', fontSize: 12 },
+  refreshBtn: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: c.greenSoft },
+  refreshText: { color: c.green, fontSize: 12, fontWeight: '700' },
+  card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 18, padding: 16, gap: 12, ...shadow.card },
   rowBetween: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
-  badge: { fontSize: 12, fontWeight: '700', paddingVertical: 3, paddingHorizontal: 10, borderRadius: 999, overflow: 'hidden' },
-  line: { flexDirection: 'row', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border, alignItems: 'flex-start' },
-  thumb: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  thumbImg: { width: 56, height: 56 },
+  badge: { fontSize: 11, fontWeight: '700', paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.pill, overflow: 'hidden' },
+  line: { flexDirection: 'row', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: c.border, alignItems: 'flex-start' },
+  thumb: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  thumbImg: { width: 52, height: 52 },
   thumbText: { color: c.muted, fontWeight: '800' },
-  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 12, borderRadius: radius.sm, backgroundColor: c.surface2 },
   footerCell: { minWidth: '28%', flexGrow: 1, gap: 2 },
 })

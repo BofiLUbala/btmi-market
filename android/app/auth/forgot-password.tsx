@@ -9,7 +9,7 @@ import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrol
 import { ResendEmailButton } from '../../src/components/AuthFormParts'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { spacing, type Colors } from '../../src/theme'
+import { radius, spacing, type Colors } from '../../src/theme'
 
 /** Same response time whether or not the account exists (no enumeration by timing). */
 async function requestReset(identifier: string) {
@@ -38,7 +38,7 @@ export default function ForgotPassword() {
   if (sentTo) {
     return <KeyboardAwareScrollView contentContainerStyle={styles.page}>
       <Card>
-        <View style={styles.icon}><Ionicons name="mail-outline" size={28} color={colors.ink} /></View>
+        <View style={styles.icon}><Ionicons name="mail-outline" size={26} color={colors.onGreen} /></View>
         <Text style={styles.sentTitle}>{t('auth.forgotSentTitle')}</Text>
         <Text style={[styles.muted, styles.center]}>{t('auth.forgotSentTo', { identifier: sentTo })}</Text>
         <Button title={t('auth.backToSignIn')} onPress={() => router.replace('/auth/login')} />
@@ -72,10 +72,10 @@ export default function ForgotPassword() {
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  page: { padding: spacing.md, gap: spacing.md },
-  muted: { color: colors.muted, lineHeight: 21 },
+  page: { flexGrow: 1, padding: spacing.md, gap: 12, backgroundColor: colors.cream },
+  muted: { color: colors.muted, fontSize: 14, lineHeight: 21 },
   center: { textAlign: 'center' },
-  link: { color: colors.ink, fontWeight: '600', paddingVertical: 6 },
-  icon: { alignSelf: 'center', width: 56, height: 56, borderRadius: 28, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
-  sentTitle: { color: colors.ink, fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  link: { color: colors.green, fontWeight: '700', fontSize: 14, paddingVertical: 6 },
+  icon: { alignSelf: 'center', width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  sentTitle: { color: colors.ink, fontSize: 22, fontWeight: '700', letterSpacing: -0.3, textAlign: 'center' },
 })

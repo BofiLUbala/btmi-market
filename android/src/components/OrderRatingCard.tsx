@@ -6,7 +6,7 @@ import { ApiError } from '../api/client'
 import { Button, Card, Field } from './ui'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
-import type { Colors } from '../theme'
+import { fonts, radius, type Colors } from '../theme'
 
 /**
  * web OrderRatingCard: the buyer rates a delivered order with five stars and a
@@ -58,7 +58,7 @@ export function OrderRatingCard({ orderId }: { orderId: string }) {
 
   return <Card>
     <Text style={styles.title}>{t('orderRating.title')}</Text>
-    <Text style={styles.muted}>{reviewId ? t('orderRating.editableHint') : t('orderRating.subtitle')}</Text>
+    <Text style={[styles.muted, { textAlign: 'center' }]}>{reviewId ? t('orderRating.editableHint') : t('orderRating.subtitle')}</Text>
     <View style={styles.stars} accessibilityRole="radiogroup" accessibilityLabel={t('orderRating.title')}>
       {[1, 2, 3, 4, 5].map((n) => (
         <Pressable
@@ -80,17 +80,17 @@ export function OrderRatingCard({ orderId }: { orderId: string }) {
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {saved && !editing ? <Text style={styles.muted}>✓ {t('orderRating.saved')}</Text> : null}
     {editing
-      ? <Button variant="gold" loading={busy} title={reviewId ? t('orderRating.update') : t('orderRating.submit')} onPress={() => void submit()} />
+      ? <Button loading={busy} title={reviewId ? t('orderRating.update') : t('orderRating.submit')} onPress={() => void submit()} />
       : <Button variant="outline" title={t('orderRating.edit')} onPress={() => { setEditing(true); setSaved(false) }} />}
   </Card>
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  title: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  muted: { color: colors.muted, marginBottom: 4 },
-  stars: { flexDirection: 'row', gap: 8, marginVertical: 6 },
-  star: { fontSize: 34, color: colors.border },
-  starOn: { color: colors.gold },
-  comment: { color: colors.ink, marginBottom: 6 },
-  error: { color: colors.danger },
+  title: { fontSize: 16, fontFamily: fonts.display, fontWeight: '700', color: colors.ink, textAlign: 'center' },
+  muted: { color: colors.muted, fontSize: 13, marginBottom: 4 },
+  stars: { flexDirection: 'row', gap: 10, marginVertical: 6, alignSelf: 'center' },
+  star: { fontSize: 36, color: colors.starEmpty },
+  starOn: { color: colors.star },
+  comment: { color: colors.ink, fontSize: 13.5, marginBottom: 6, padding: 12, borderRadius: radius.sm, backgroundColor: colors.surface2 },
+  error: { color: colors.danger, fontSize: 13 },
 })

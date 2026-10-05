@@ -152,12 +152,12 @@ export function ResendEmailButton({ onResend, label, initialCooldown = true }: {
 
 const makeStyles = (colors: Colors, dark?: boolean) => StyleSheet.create({
   remember: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 2 },
-  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: dark ? '#475569' : colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  boxOn: { backgroundColor: dark ? '#2563eb' : colors.ink, borderColor: dark ? '#2563eb' : colors.ink },
-  rememberText: { color: dark ? '#e2e8f0' : colors.ink, fontSize: 15, fontWeight: '500' },
+  box: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: dark ? '#475569' : colors.borderControl, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  boxOn: { backgroundColor: dark ? '#2563eb' : colors.green, borderColor: dark ? '#2563eb' : colors.green },
+  rememberText: { color: dark ? '#e2e8f0' : colors.ink, fontSize: 14, fontWeight: '600' },
   rememberHint: { color: dark ? '#64748b' : colors.muted, fontSize: 12, lineHeight: 17, marginTop: 2 },
   resend: { gap: 8 },
   resendHint: { color: colors.muted, fontSize: 13, lineHeight: 19 },
-  ok: { color: colors.success, fontWeight: '700' },
+  ok: { color: colors.success, fontWeight: '700', fontSize: 13 },
   err: { color: colors.danger, fontWeight: '600' },
 })

@@ -11,12 +11,13 @@ import { useAuth } from '../../src/store/auth'
 import { Button, Card, ErrorState, SectionTitle } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors, fonts } from '../../src/theme'
+import { radius, shadow, spacing, type Colors, fonts } from '../../src/theme'
 import type { CartLineIssue, CartPreview } from '../../src/types'
 import { formatMoney } from '../../src/lib/money'
 import { idempotencyKey } from '../../src/lib/idempotency'
 import { CheckoutProgress } from '../../src/components/CheckoutProgress'
 import type { TranslationKey } from '../../src/locales/fr'
+import { BrandLogo } from '../../src/components/BrandLogo'
 
 const money = (value: number, currency?: string) => formatMoney(value, currency)
 
@@ -133,7 +134,7 @@ export default function CartScreen() {
   if (!lines.length) {
     return (
       <View style={styles.empty}>
-        <View style={themed.emptyMark}><Text style={themed.emptyMarkText}>TBK</Text></View>
+        <BrandLogo size={64} />
         <Text style={themed.emptyTitle}>{w('cart.empty.title')}</Text>
         <Text style={themed.emptyText}>{w('cart.empty.description')}</Text>
         <Button title={w('cart.empty.browse')} onPress={() => router.push('/(buyer)/search')} />
@@ -181,7 +182,7 @@ export default function CartScreen() {
                 <View key={key} style={[themed.row, index === group.lines.length - 1 && themed.rowLast]}>
                   <View style={styles.rowTop}>
                     <View style={themed.thumb}>
-                      {line.image ? <Image source={line.image} style={styles.thumbImg} contentFit="contain" /> : <Ionicons name="image-outline" size={22} color={colors.muted} />}
+                      {line.image ? <Image source={line.image} style={styles.thumbImg} contentFit="cover" /> : <Ionicons name="image-outline" size={22} color={colors.muted} />}
                     </View>
                     <View style={styles.info}>
                       <Text style={themed.name} numberOfLines={2}>{line.name}</Text>
@@ -190,23 +191,24 @@ export default function CartScreen() {
                       <Text style={themed.unitPrice}>{money(line.price, currency)}</Text>
                       {issue ? <Text style={themed.issue}>{issue.message || issue.code}</Text> : null}
                     </View>
-                  </View>
-                  <View style={styles.rowBottom}>
-                    <View style={styles.controls}>
+                    <View style={styles.stepCol}>
                       <Text style={themed.tiny}>{w('common.quantity')}</Text>
                       <View style={themed.stepper}>
-                        <Pressable accessibilityRole="button" accessibilityLabel="−" disabled={line.quantity <= 1} style={[styles.stepBtn, line.quantity <= 1 && styles.disabled]} onPress={() => setQuantity(key, line.quantity - 1)}>
-                          <Text style={themed.stepText}>−</Text>
+                        <Pressable accessibilityRole="button" accessibilityLabel="+" style={themed.stepPlus} onPress={() => setQuantity(key, line.quantity + 1)}>
+                          <Text style={themed.stepPlusText}>+</Text>
                         </Pressable>
                         <Text style={themed.qty}>{line.quantity}</Text>
-                        <Pressable accessibilityRole="button" accessibilityLabel="+" style={styles.stepBtn} onPress={() => setQuantity(key, line.quantity + 1)}>
-                          <Text style={themed.stepText}>+</Text>
+                        <Pressable accessibilityRole="button" accessibilityLabel="−" disabled={line.quantity <= 1} style={[themed.stepMinus, line.quantity <= 1 && styles.disabled]} onPress={() => setQuantity(key, line.quantity - 1)}>
+                          <Text style={themed.stepText}>−</Text>
                         </Pressable>
                       </View>
-                      <Pressable accessibilityRole="button" onPress={() => remove(key)} hitSlop={8}>
-                        <Text style={themed.remove}>{w('common.remove')}</Text>
-                      </Pressable>
                     </View>
+                  </View>
+                  <View style={styles.rowBottom}>
+                    <Pressable accessibilityRole="button" onPress={() => remove(key)} hitSlop={8} style={styles.removeBtn}>
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                      <Text style={themed.remove}>{w('common.remove')}</Text>
+                    </Pressable>
                     <View style={styles.lineTotal}>
                       <Text style={themed.tiny}>{w('common.subtotal')}</Text>
                       <Text style={themed.lineTotalValue}>{money(line.price * line.quantity, currency)}</Text>
@@ -243,9 +245,15 @@ export default function CartScreen() {
         </View>
       ) : null}
 
-      {/* web .checkout-summary */}
-      <View style={[themed.card, styles.summary]}>
-        <Text style={themed.eyebrow}>{w('cart.orderSummary')}</Text>
+      {profileIncomplete ? (
+        <View style={themed.inlineError}><Text style={themed.inlineErrorTitle}>{w('cart.addPhoneTitle')}</Text><Text style={themed.inlineErrorText}>{w('cart.addPhoneDescription')}</Text></View>
+      ) : null}
+      {blockedByIssues ? <ErrorState message={t('cart.needsAttention')} /> : null}
+      {preview.isError && !usePoints ? <ErrorState message={preview.error instanceof ApiError && preview.error.message ? preview.error.message : t('cart.verifyFailed')} retry={() => void preview.refetch()} /> : null}
+
+      {/* web .checkout-summary — navy totals panel */}
+      <View style={[themed.panel, styles.summary]}>
+        <Text style={themed.panelEyebrow}>{w('cart.orderSummary')}</Text>
         <View>
           <View style={themed.summaryLine}><Text style={themed.summaryLabel}>{w('cart.itemsSubtotal')}</Text><Text style={themed.summaryValue}>{money(preview.data?.subtotal ?? estimated, currency)}</Text></View>
           {preview.data && preview.data.points_discount_amount > 0 ? (
@@ -254,15 +262,12 @@ export default function CartScreen() {
           <View style={themed.summaryLine}><Text style={themed.summaryLabel}>{w('product.delivery')}</Text><Text style={themed.summaryValue}>{w('cart.calculatedNext')}</Text></View>
         </View>
         <View style={themed.total}>
-          <Text style={themed.totalLabel}>{w('cart.totalProducts')}</Text>
-          <Text style={themed.totalValue}>{money(preview.data ? preview.data.final_total : estimated, currency)}</Text>
-          <Text style={themed.small}>{preview.isFetching ? w('cart.updating') : w('cart.deliveryNextStep')}</Text>
+          <View style={styles.totalRow}>
+            <Text style={themed.totalLabel}>{w('cart.totalProducts')}</Text>
+            <Text style={themed.totalValue}>{money(preview.data ? preview.data.final_total : estimated, currency)}</Text>
+          </View>
+          <Text style={themed.panelSmall}>{preview.isFetching ? w('cart.updating') : w('cart.deliveryNextStep')}</Text>
         </View>
-        {profileIncomplete ? (
-          <View style={themed.inlineError}><Text style={themed.inlineErrorTitle}>{w('cart.addPhoneTitle')}</Text><Text style={themed.inlineErrorText}>{w('cart.addPhoneDescription')}</Text></View>
-        ) : null}
-        {blockedByIssues ? <ErrorState message={t('cart.needsAttention')} /> : null}
-        {preview.isError && !usePoints ? <ErrorState message={preview.error instanceof ApiError && preview.error.message ? preview.error.message : t('cart.verifyFailed')} retry={() => void preview.refetch()} /> : null}
         <Button
           variant="gold"
           title={!user ? w('cart.signInToCheckout') : profileIncomplete ? w('cart.completeProfile') : w('cart.continueToCheckout')}
@@ -282,65 +287,71 @@ export default function CartScreen() {
  *  in `styles` so they are created once. */
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
-    h1: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 29, letterSpacing: -0.4 },
-    headingSub: { color: c.muted, fontWeight: '700', marginTop: 5 },
-    countPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: c.surface2, color: c.muted, fontSize: 14, overflow: 'hidden' },
-    card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 16, padding: 17 },
-    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: c.border },
-    cardTitle: { flex: 1, color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 18 },
-    cardHeadMeta: { color: c.muted, fontSize: 14 },
-    row: { gap: 12, paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: c.border },
-    rowLast: { borderBottomWidth: 0, paddingBottom: 0 },
-    thumb: { width: 88, height: 88, borderRadius: 12, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    name: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 17 },
-    muted: { color: c.muted },
-    small: { color: c.muted, fontSize: 14 },
-    tiny: { color: c.muted, fontSize: 12 },
-    unitPrice: { marginTop: 7, color: c.ink, fontWeight: '700', fontSize: 17 },
-    issue: { color: c.danger, fontSize: 14, marginTop: 6 },
-    stepper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: c.border, borderRadius: 999 },
-    stepText: { color: c.ink, fontSize: 18 },
-    qty: { minWidth: 28, textAlign: 'center', fontWeight: '700', color: c.ink, fontSize: 16 },
+    h1: { color: c.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 22, letterSpacing: -0.3 },
+    headingSub: { color: c.muted, fontWeight: '600', fontSize: 13, marginTop: 4 },
+    countPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: c.navy, color: c.onNavy, fontSize: 11.5, fontWeight: '700', overflow: 'hidden', marginTop: 4 },
+    card: { backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: radius.md, padding: 14, ...shadow.card },
+    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border },
+    cardTitle: { flex: 1, color: c.ink, fontWeight: '700', fontSize: 15 },
+    cardHeadMeta: { color: c.muted, fontSize: 12.5, fontWeight: '600' },
+    row: { gap: 10, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.border },
+    rowLast: { borderBottomWidth: 0, paddingBottom: 2 },
+    thumb: { width: 76, height: 76, borderRadius: radius.sm, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    name: { color: c.ink, fontWeight: '700', fontSize: 14.5 },
+    muted: { color: c.muted, fontSize: 12.5 },
+    small: { color: c.muted, fontSize: 12 },
+    tiny: { color: c.muted, fontSize: 10.5, fontWeight: '600' },
+    unitPrice: { marginTop: 4, color: c.green, fontWeight: '800', fontSize: 15 },
+    issue: { color: c.danger, fontSize: 12.5, marginTop: 4 },
+    stepper: { alignItems: 'center', gap: 4, padding: 3, borderRadius: 12, backgroundColor: c.surface2 },
+    stepPlus: { width: 30, height: 30, borderRadius: 9, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center' },
+    stepPlusText: { color: c.onGreen, fontSize: 17, fontWeight: '700', lineHeight: 20 },
+    stepMinus: { width: 30, height: 30, borderRadius: 9, backgroundColor: c.white, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' },
+    stepText: { color: c.ink, fontSize: 17, lineHeight: 20 },
+    qty: { minWidth: 24, textAlign: 'center', fontWeight: '800', color: c.ink, fontSize: 14 },
     remove: { color: c.danger, fontSize: 12.5, fontWeight: '700' },
-    lineTotalValue: { color: c.ink, fontWeight: '700', fontSize: 17 },
-    rewards: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 18, borderRadius: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.goldSoft },
-    rewardsOn: { borderColor: c.gold },
-    eyebrow: { color: c.ink, fontSize: 11.5, fontWeight: '700', letterSpacing: 1.3 },
-    rewardsTitle: { color: c.ink, fontFamily: fonts.display, fontWeight: '500', fontSize: 17, marginTop: 5, marginBottom: 3 },
-    rewardsResult: { width: '100%', color: c.success, fontSize: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: c.border },
-    switch: { width: 50, height: 28, padding: 3, borderRadius: 999, backgroundColor: c.border },
+    lineTotalValue: { color: c.ink, fontWeight: '800', fontSize: 15 },
+    rewards: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: c.greenSoft, backgroundColor: c.greenSoft },
+    rewardsOn: { borderColor: c.green },
+    eyebrow: { color: c.green, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+    rewardsTitle: { color: c.ink, fontFamily: fonts.display, fontWeight: '700', fontSize: 15.5, marginTop: 4, marginBottom: 2 },
+    rewardsResult: { width: '100%', color: c.success, fontSize: 13, fontWeight: '600', paddingTop: 10, borderTopWidth: 1, borderTopColor: c.border },
+    switch: { width: 48, height: 28, padding: 3, borderRadius: radius.pill, backgroundColor: c.borderControl },
     switchOn: { backgroundColor: c.green },
-    summaryLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.border, borderStyle: 'dashed' },
-    summaryLabel: { color: c.muted, fontSize: 14 },
-    summaryValue: { color: c.ink, fontSize: 14, fontWeight: '700', textAlign: 'right' },
-    discount: { color: c.success },
-    total: { gap: 5, paddingTop: 14, borderTopWidth: 2, borderTopColor: c.green },
-    totalLabel: { color: c.ink, fontSize: 12, fontWeight: '700', letterSpacing: 0.8 },
-    totalValue: { color: c.ink, fontSize: 30, fontWeight: '700' },
-    secondary: { textAlign: 'center', color: c.ink, fontSize: 14, fontWeight: '700' },
-    inlineError: { gap: 4, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: c.danger, backgroundColor: c.dangerSoft },
+    // Navy totals panel (reference "Mon panier")
+    panel: { backgroundColor: c.navy, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: c.navyLine },
+    panelEyebrow: { color: c.onNavyMuted, fontSize: 10.5, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+    panelSmall: { color: c.onNavyMuted, fontSize: 12 },
+    summaryLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 8 },
+    summaryLabel: { color: c.onNavyMuted, fontSize: 13 },
+    summaryValue: { color: c.onNavy, fontSize: 13, fontWeight: '700', textAlign: 'right' },
+    discount: { color: c.cyan },
+    total: { gap: 4, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.navyLine },
+    totalLabel: { color: c.onNavy, fontSize: 14, fontWeight: '700' },
+    totalValue: { color: c.cyan, fontSize: 26, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.4, flexShrink: 1, textAlign: 'right' },
+    secondary: { textAlign: 'center', color: c.onNavy, fontSize: 13.5, fontWeight: '700' },
+    inlineError: { gap: 4, padding: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: c.danger, backgroundColor: c.dangerSoft },
     inlineErrorTitle: { color: c.danger, fontWeight: '700' },
-    inlineErrorText: { color: c.ink, fontSize: 14 },
-    emptyMark: { width: 72, height: 72, borderRadius: 20, backgroundColor: c.gold, alignItems: 'center', justifyContent: 'center' },
-    emptyMarkText: { color: c.onGold, fontWeight: '700' },
-    emptyTitle: { color: c.ink, fontSize: 28, fontFamily: fonts.display, fontWeight: '500', textAlign: 'center' },
+    inlineErrorText: { color: c.ink, fontSize: 13 },
+    emptyTitle: { color: c.ink, fontSize: 22, fontFamily: fonts.display, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3 },
     emptyText: { color: c.muted, textAlign: 'center' },
   })
 
 const styles = StyleSheet.create({
-  page: { padding: spacing.md, gap: 22, paddingBottom: spacing.xl },
+  page: { padding: spacing.md, gap: 14, paddingBottom: spacing.xl },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: 12 },
   flex: { flex: 1 },
-  heading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20 },
-  rowTop: { flexDirection: 'row', gap: 12 },
-  info: { flex: 1, gap: 4 },
+  heading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 },
+  rowTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  info: { flex: 1, gap: 2 },
   thumbImg: { width: '100%', height: '100%' },
+  stepCol: { alignItems: 'center', gap: 4 },
   rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  controls: { gap: 7, alignItems: 'flex-start' },
-  stepBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  removeBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   disabled: { opacity: 0.4 },
-  lineTotal: { alignItems: 'flex-end', gap: 5 },
+  lineTotal: { alignItems: 'flex-end', gap: 2 },
   knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF', elevation: 2 },
-  knobOn: { transform: [{ translateX: 22 }] },
-  summary: { gap: 16 },
+  knobOn: { transform: [{ translateX: 20 }] },
+  summary: { gap: 14 },
+  totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
 })

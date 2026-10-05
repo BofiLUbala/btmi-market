@@ -7,7 +7,7 @@ import { ApiError } from '../api/client'
 import { Button, Card, Field } from './ui'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
-import { radius, spacing, type Colors } from '../theme'
+import { fonts, radius, spacing, type Colors } from '../theme'
 import { formatMoney } from '../lib/money'
 import { CASH_ON_DELIVERY } from '../lib/paymentStatus'
 import type { BuyerPayment, HandoverLineAcknowledgement } from '../types'
@@ -134,7 +134,7 @@ function Check({ styles, colors, checked, label, onPress }: { styles: ReturnType
   return (
     <Pressable onPress={onPress} accessibilityRole="checkbox" accessibilityState={{ checked }} style={styles.check}>
       <View style={[styles.tick, checked && styles.tickOn]}>
-        {checked ? <Ionicons name="checkmark" size={14} color={colors.white} /> : null}
+        {checked ? <Ionicons name="checkmark" size={14} color={colors.onGreen} /> : null}
       </View>
       <Text style={styles.checkLabel}>{label}</Text>
     </Pressable>
@@ -189,19 +189,19 @@ export function MobilePaymentCard({ orderId, payment, onChanged }: { orderId: st
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  title: { fontSize: 17, fontWeight: '700', color: c.ink },
-  subtitle: { fontWeight: '800', color: c.ink },
-  row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, flexWrap: 'wrap' },
-  key: { color: c.muted },
-  value: { color: c.ink, fontWeight: '800', flexShrink: 1, textAlign: 'right' },
+  title: { fontSize: 16, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.2, color: c.ink, marginBottom: 2 },
+  subtitle: { fontWeight: '700', fontSize: 14, color: c.ink },
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, flexWrap: 'wrap', paddingVertical: 2 },
+  key: { color: c.muted, fontSize: 13 },
+  value: { color: c.ink, fontWeight: '700', fontSize: 13.5, flexShrink: 1, textAlign: 'right' },
   block: { gap: spacing.sm, marginTop: spacing.sm },
-  lineBox: { borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm, gap: 4 },
-  lineName: { color: c.ink, fontWeight: '700' },
+  lineBox: { borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: 12, gap: 2, backgroundColor: c.surface2 },
+  lineName: { color: c.ink, fontWeight: '700', fontSize: 13.5 },
   check: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 40 },
-  tick: { width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: c.muted, alignItems: 'center', justifyContent: 'center' },
-  tickOn: { backgroundColor: c.success, borderColor: c.success },
-  checkLabel: { color: c.ink, flex: 1 },
-  hint: { color: c.muted, fontSize: 13 },
-  error: { color: c.danger, fontWeight: '700' },
-  success: { color: c.success, fontWeight: '800', marginTop: spacing.sm },
+  tick: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: c.borderControl, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center' },
+  tickOn: { backgroundColor: c.green, borderColor: c.green },
+  checkLabel: { color: c.ink, flex: 1, fontSize: 13.5 },
+  hint: { color: c.muted, fontSize: 12.5 },
+  error: { color: c.danger, fontWeight: '700', fontSize: 13 },
+  success: { color: c.success, fontWeight: '700', marginTop: spacing.sm, backgroundColor: c.successSoft, borderRadius: radius.sm, paddingVertical: 8, paddingHorizontal: 12, overflow: 'hidden' },
 })

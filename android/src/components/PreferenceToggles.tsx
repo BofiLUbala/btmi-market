@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useI18n } from '../store/i18n'
 import { useTheme } from '../store/theme'
-import { radius, spacing } from '../theme'
+import { radius, shadow, spacing } from '../theme'
 
 /** Language + theme switches. Each control shows the state you would switch
  *  *to*, so it reads as an action rather than a status. */
@@ -15,11 +15,11 @@ export function PreferenceToggles() {
     <View style={[styles.row, { borderColor: colors.border, backgroundColor: colors.white }]}>
       <Pressable
         onPress={toggleLang}
-        style={styles.item}
+        style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.surface2 }]}
         accessibilityRole="button"
         accessibilityLabel={lang === 'fr' ? t('prefs.switchToEnglish') : t('prefs.switchToFrench')}
       >
-        <Ionicons name="language-outline" size={18} color={colors.muted} />
+        <View style={[styles.tile, { backgroundColor: colors.greenSoft }]}><Ionicons name="language-outline" size={17} color={colors.green} /></View>
         <Text style={[styles.label, { color: colors.ink }]}>{t('prefs.language')}</Text>
         <Text style={[styles.value, { color: colors.green }]}>{lang === 'fr' ? 'FR' : 'EN'}</Text>
       </Pressable>
@@ -28,11 +28,11 @@ export function PreferenceToggles() {
 
       <Pressable
         onPress={toggleTheme}
-        style={styles.item}
+        style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.surface2 }]}
         accessibilityRole="button"
         accessibilityLabel={goingDark ? t('prefs.switchToDark') : t('prefs.switchToLight')}
       >
-        <Ionicons name={goingDark ? 'moon-outline' : 'sunny-outline'} size={18} color={colors.muted} />
+        <View style={[styles.tile, { backgroundColor: colors.greenSoft }]}><Ionicons name={goingDark ? 'moon-outline' : 'sunny-outline'} size={17} color={colors.green} /></View>
         <Text style={[styles.label, { color: colors.ink }]}>{t('prefs.theme')}</Text>
         <Text style={[styles.value, { color: colors.green }]}>
           {theme === 'dark' ? t('prefs.themeDark') : t('prefs.themeLight')}
@@ -91,9 +91,11 @@ const compact = StyleSheet.create({
 })
 
 const styles = StyleSheet.create({
-  row: { borderWidth: 1, borderRadius: radius.md, overflow: 'hidden' },
-  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 14, paddingHorizontal: spacing.md },
-  label: { flex: 1, fontWeight: '700', fontSize: 15 },
-  value: { fontWeight: '700', fontSize: 14 },
-  divider: { height: 1, marginHorizontal: spacing.md },
+  // Grouped list card (reference "Mon compte"): tinted icon tile, label, value.
+  row: { borderWidth: 1, borderRadius: 18, overflow: 'hidden', ...shadow.card },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 12, paddingHorizontal: 14 },
+  tile: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  label: { flex: 1, fontWeight: '600', fontSize: 14 },
+  value: { fontWeight: '700', fontSize: 13 },
+  divider: { height: 1 },
 })

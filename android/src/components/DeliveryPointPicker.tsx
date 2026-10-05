@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import * as Location from 'expo-location'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { Button } from './ui'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
@@ -45,8 +46,13 @@ export function DeliveryPointPicker({ value, onChange }: { value: DeliveryPoint 
 
   return (
     <View style={styles.box}>
-      <Text style={styles.title}>{t('deliveryPoint.title')}</Text>
-      <Text style={styles.muted}>{t('deliveryPoint.hint')}</Text>
+      <View style={styles.head}>
+        <View style={styles.tile}><Ionicons name="navigate" size={17} color={colors.green} /></View>
+        <View style={styles.headText}>
+          <Text style={styles.title}>{t('deliveryPoint.title')}</Text>
+          <Text style={styles.muted}>{t('deliveryPoint.hint')}</Text>
+        </View>
+      </View>
       {value ? (
         <View style={styles.row}>
           <Text style={styles.ok}>📍 {value.accuracy != null ? t('deliveryPoint.addedWithAccuracy', { meters: Math.round(value.accuracy) }) : t('deliveryPoint.added')}</Text>
@@ -61,9 +67,12 @@ export function DeliveryPointPicker({ value, onChange }: { value: DeliveryPoint 
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  box: { borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: spacing.sm, gap: spacing.xs, marginVertical: spacing.sm },
-  title: { color: c.ink, fontWeight: '800' },
-  muted: { color: c.muted, fontSize: 13 },
-  ok: { color: c.ink, flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  box: { borderWidth: 1, borderColor: c.border, borderRadius: 14, backgroundColor: c.white, padding: 12, gap: spacing.sm, marginVertical: spacing.xs },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  tile: { width: 36, height: 36, borderRadius: 10, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  headText: { flex: 1, gap: 2 },
+  title: { color: c.ink, fontWeight: '700', fontSize: 14 },
+  muted: { color: c.muted, fontSize: 12.5, lineHeight: 17 },
+  ok: { color: c.ink, flex: 1, fontSize: 13, fontWeight: '600' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: 10, borderRadius: radius.sm, backgroundColor: c.successSoft },
 })

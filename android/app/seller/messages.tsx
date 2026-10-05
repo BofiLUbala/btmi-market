@@ -23,7 +23,7 @@ import { dateLocale } from '../../src/lib/format'
 import { useAuth } from '../../src/store/auth'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { radius, shadow, spacing, type Colors } from '../../src/theme'
 
 export default function SellerMessagesScreen() {
   const { t, lang } = useI18n()
@@ -140,7 +140,7 @@ export default function SellerMessagesScreen() {
         {/* Sellers talk to TBK and the courier, never to the buyer: the row is the order. */}
         <View style={styles.cardHeader}>
           <View style={styles.buyerRow}>
-            <Ionicons name="receipt-outline" size={20} color={colors.green} />
+            <View style={styles.iconTile}><Ionicons name="receipt-outline" size={19} color={colors.green} /></View>
             <Text style={styles.buyerName} numberOfLines={1}>#{item.order_number}</Text>
           </View>
           <Text style={styles.orderNumber} numberOfLines={1}>{item.shop_name}</Text>
@@ -229,10 +229,11 @@ export default function SellerMessagesScreen() {
 const makeStyles = (colors: Colors) =>
   StyleSheet.create({
     filterRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.sm },
-    filterChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+    filterChip: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 34, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
     filterChipOn: { backgroundColor: colors.green, borderColor: colors.green },
-    filterText: { fontSize: 13, fontWeight: '700', color: colors.ink },
-    filterTextOn: { color: colors.onGreen },
+    filterText: { fontSize: 12.5, fontWeight: '600', color: colors.ink },
+    iconTile: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
+    filterTextOn: { color: colors.onGreen, fontWeight: '700' },
     container: {
       flex: 1,
       backgroundColor: colors.cream,
@@ -243,10 +244,11 @@ const makeStyles = (colors: Colors) =>
       backgroundColor: colors.white,
       marginHorizontal: spacing.md,
       marginTop: spacing.md,
-      borderRadius: radius.md,
+      borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
       paddingHorizontal: spacing.xs,
+      minHeight: 46,
     },
     searchInput: {
       flex: 1,
@@ -262,13 +264,15 @@ const makeStyles = (colors: Colors) =>
     card: {
       backgroundColor: colors.white,
       borderRadius: radius.md,
-      padding: spacing.md,
+      padding: 14,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: 6,
+      gap: 8,
+      ...shadow.card,
     },
     cardUnread: {
       borderColor: colors.green,
+      borderWidth: 1.5,
     },
     cardHeader: {
       flexDirection: 'row',
@@ -278,12 +282,12 @@ const makeStyles = (colors: Colors) =>
     buyerRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 10,
       flex: 1,
     },
     buyerName: {
       fontSize: 14,
-      fontWeight: '800',
+      fontWeight: '700',
       color: colors.ink,
       flex: 1,
     },
@@ -309,16 +313,16 @@ const makeStyles = (colors: Colors) =>
     },
     timeText: {
       fontSize: 11,
-      color: colors.mutedLight,
+      color: colors.faint,
     },
     unreadBadge: {
       backgroundColor: colors.green,
-      borderRadius: 10,
+      borderRadius: radius.pill,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
     unreadCountText: {
-      color: '#FFFFFF',
+      color: colors.onGreen,
       fontSize: 11,
       fontWeight: '800',
     },
@@ -346,13 +350,13 @@ const makeStyles = (colors: Colors) =>
       maxWidth: 280,
     },
     errorBox: {
-      backgroundColor: '#FEE2E2',
+      backgroundColor: colors.dangerSoft,
       padding: 10,
       margin: spacing.md,
       borderRadius: radius.sm,
     },
     errorText: {
-      color: '#DC2626',
+      color: colors.danger,
       fontSize: 13,
       textAlign: 'center',
     },
