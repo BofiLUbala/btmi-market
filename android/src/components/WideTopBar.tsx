@@ -3,14 +3,13 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
-import { buyerApi } from '../api'
 import { fetchBuyerUnreadCounts } from '../api/communication'
 import { useAuth } from '../store/auth'
 import { useCart } from '../store/cart'
 import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
 import { canBuy, canSell } from '../types'
-import { kicker, shadow, spacing, type Colors } from '../theme'
+import { shadow, spacing, type Colors } from '../theme'
 import { BrandLogo } from './BrandLogo'
 import { BuyerMenu } from './BuyerMenu'
 
@@ -25,7 +24,7 @@ type Props = {
 
 /**
  * Large-screen storefront header: the logo, then ONE card holding everything
- * else (delivery place, search with photo search and filters, the main
+ * else (search with photo search and filters, the main
  * sections, account, notifications, menu). Large screens have no bottom tab
  * bar, so the sections it carried live here.
  */
@@ -38,12 +37,9 @@ export function WideTopBar({ search, onSearchChange, onSubmit, onCamera, onGalle
   const isBuyer = Boolean(user) && canBuy(user)
   const isSeller = canSell(user)
   const cartCount = useCart((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0))
-  // Same cache entries as the home and account screens.
-  const profile = useQuery({ queryKey: ['buyer', 'profile'], queryFn: buyerApi.profile, enabled: isBuyer })
+  // Same cache entry as the home and account screens.
   const unread = useQuery({ queryKey: ['buyer', 'unread-counts'], queryFn: fetchBuyerUnreadCounts, enabled: isBuyer, refetchInterval: 60_000 })
   const unreadNotifications = unread.data?.unread_notifications ?? 0
-  const commune = profile.data?.commune?.trim()
-  const deliveryPlace = commune ? [commune, profile.data?.city?.trim()].filter(Boolean).join(', ') : ''
 
   const openSell = () => {
     if (isSeller) router.push('/seller/products/create')
@@ -74,13 +70,6 @@ export function WideTopBar({ search, onSearchChange, onSubmit, onCamera, onGalle
           <BrandLogo size={44} />
         </Pressable>
         <View style={s.card}>
-          {deliveryPlace ? <Pressable onPress={() => router.push('/profile-edit')} accessibilityRole="button" style={s.deliver}>
-            <Text style={s.deliverKicker}>{t('browse.deliverTo')}</Text>
-            <View style={s.deliverRow}>
-              <Text style={s.deliverPlace} numberOfLines={1}>{deliveryPlace}</Text>
-              <Ionicons name="chevron-down" size={13} color={c.ink} />
-            </View>
-          </Pressable> : null}
           <View style={s.search}>
             <Ionicons name="search-outline" size={17} color={c.muted} />
             <View style={s.inputWrap}>
@@ -118,10 +107,6 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   wrap: { backgroundColor: c.white, borderBottomWidth: 1, borderBottomColor: c.border },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: spacing.lg, paddingVertical: 12, width: '100%', maxWidth: 1440, alignSelf: 'center' },
   card: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, ...shadow.card },
-  deliver: { maxWidth: 170, paddingRight: 6 },
-  deliverKicker: { ...kicker, fontSize: 9.5, color: c.muted },
-  deliverRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  deliverPlace: { flexShrink: 1, color: c.ink, fontSize: 13.5, fontWeight: '700' },
   search: { flex: 1, minWidth: 180, height: 44, borderRadius: 12, backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12, paddingRight: 4 },
   inputWrap: { flex: 1, minWidth: 60, justifyContent: 'center' },
   placeholder: { position: 'absolute', left: 0, right: 0, color: c.faint, fontSize: 14 },

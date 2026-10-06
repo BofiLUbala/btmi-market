@@ -113,7 +113,7 @@ export default function EditProfileScreen() {
         )}
       </View>
 
-      {(mutation.isError || validationError) && <ErrorState message={errorMessage} />}
+      {(mutation.isError || Boolean(validationError)) && <ErrorState message={errorMessage} />}
 
       <Button title={t('editProfile.save')} loading={mutation.isPending} disabled={!form.phone.trim()} onPress={() => mutation.mutate()} />
     </ScrollView>
