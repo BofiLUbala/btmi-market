@@ -66,7 +66,7 @@ export default function LoginScreen() {
       router.replace('/seller/employee')
       return
     }
-    router.replace('/(buyer)')
+    router.replace('/')
   }
 
   async function submit() {

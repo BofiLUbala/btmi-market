@@ -28,7 +28,7 @@ export function CheckoutHeader() {
   return (
     <View style={[s.shell, { paddingTop: insets.top }]}>
       <View style={s.shellRow}>
-        <Pressable style={s.shellBack} onPress={() => (router.canGoBack() ? router.back() : router.replace('/(buyer)'))} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+        <Pressable style={s.shellBack} onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Ionicons name="chevron-back" size={20} color={c.ink} />
         </Pressable>
         <Text style={s.shellTitle}>{t('checkout.shellTitle')}</Text>

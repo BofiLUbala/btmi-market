@@ -124,7 +124,7 @@ export default function SearchScreen() {
     if (searchId) void marketplaceApi.searchEvent({ search_id: searchId, event_type: 'ADD_TO_CART', result_type: 'PRODUCT', result_id: product.id, position, session: searchSession() })
   }
   const submit = () => setQ(draft.trim())
-  const goBack = () => (router.canGoBack() ? router.back() : router.push('/(buyer)'))
+  const goBack = () => (router.canGoBack() ? router.back() : router.navigate('/'))
   const priceAscOn = sort === 'price_asc'
 
   return (

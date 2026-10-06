@@ -20,6 +20,7 @@ import { categoryLabel } from '../../src/lib/categoryLabels'
 import { canBuy } from '../../src/types'
 import type { PublicProduct } from '../../src/types'
 import { BrandLogo } from '../../src/components/BrandLogo'
+import { WideTopBar } from '../../src/components/WideTopBar'
 import { CategoryFeed, Spotlights, WIDE_BREAKPOINT } from '../../src/components/WideHome'
 
 function ProductSkeleton() {
@@ -115,12 +116,13 @@ export default function HomeScreen() {
   }, [visual])
   const openSearchPage = () => router.push({ pathname: '/(buyer)/search', params: term ? { q: term } : {} })
 
-  // Reference header: logo tile, delivery commune, account + notifications,
-  // then a full-width search field with the blue filter button.
-  const stickyHeader = (
+  // Large screens: one bar, the logo then a single card with everything else.
+  // Phones: reference header (logo tile, delivery commune, account +
+  // notifications, then a full-width search field with the filter button).
+  const stickyHeader = wide ? <WideTopBar search={search} onSearchChange={(value) => { clearVisualSearch(); setSearch(value) }} onSubmit={openSearchPage} onCamera={takeProductPhoto} onGallery={chooseProductImage} onFilters={openSearchPage} /> : (
     <View style={styles.stickyHeader}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => router.push('/(buyer)')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt')}>
+        <Pressable onPress={() => router.navigate('/')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt')}>
           <BrandLogo size={40} />
         </Pressable>
         <View style={styles.deliver}>

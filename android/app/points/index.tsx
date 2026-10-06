@@ -38,7 +38,7 @@ export default function PointsScreen() {
     <View style={styles.card}>
       <Text style={styles.h2}>{t('points.redeem')}</Text>
       <Text style={styles.small}>{t('points.redeemNote')}</Text>
-      <Button title={t('points.startShopping')} onPress={() => router.push('/(buyer)')} style={{ marginTop: 12 }} />
+      <Button title={t('points.startShopping')} onPress={() => router.navigate('/')} style={{ marginTop: 12 }} />
     </View>
 
     <View style={styles.sectionHead}>

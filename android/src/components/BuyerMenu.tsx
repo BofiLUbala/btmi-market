@@ -28,7 +28,7 @@ export function BuyerMenu({ open, onClose }: { open: boolean; onClose: () => voi
   const isSeller = user?.account_type === 'SELLER' || user?.account_type === 'EMPLOYEE'
 
   const links: Array<{ icon: IconName; label: string; to: Href }> = [
-    { icon: 'home-outline', label: t('nav.marketplace' as TranslationKey), to: '/(buyer)' },
+    { icon: 'home-outline', label: t('nav.marketplace' as TranslationKey), to: '/' },
     { icon: 'grid-outline', label: t('nav.categories' as TranslationKey), to: '/(buyer)/categories' },
     { icon: 'heart-outline', label: t('nav.favorites' as TranslationKey), to: '/(buyer)/favorites' },
     { icon: 'bag-handle-outline', label: `${t('nav.cart' as TranslationKey)}${cartQty > 0 ? ` (${cartQty})` : ''}`, to: '/(buyer)/cart' },

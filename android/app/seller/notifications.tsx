@@ -81,7 +81,7 @@ export default function SellerNotificationsScreen() {
     async (silent = false) => {
       if (!silent) setLoading(true)
       try {
-        const res = await fetchNotifications({ limit: 50, offset: 0, audience: 'SELLER' })
+        const res = await fetchNotifications({ limit: 50, offset: 0, audience: 'SELLER', view: 'unread' })
         setItems(res.items || [])
         setError('')
       } catch (err) {
@@ -107,7 +107,7 @@ export default function SellerNotificationsScreen() {
     setMarkingAll(true)
     try {
       await markAllNotificationsRead('SELLER')
-      await load(true)
+      setItems([])
     } catch {
       // ignore
     } finally {
@@ -119,13 +119,12 @@ export default function SellerNotificationsScreen() {
     if (!item.is_read) {
       try {
         await markNotificationRead(item.id)
-        setItems((prev) =>
-          prev.map((n) => (n.id === item.id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
-        )
       } catch {
         // ignore
       }
     }
+    // Only unread notifications are listed: once read, it leaves the list.
+    setItems((prev) => prev.filter((n) => n.id !== item.id))
 
     // The server resolves the screen each notification opens.
     const appLink = safeAppPath(typeof item.metadata?.app_link === 'string' ? item.metadata.app_link : undefined)

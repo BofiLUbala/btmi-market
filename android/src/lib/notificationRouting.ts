@@ -6,7 +6,8 @@ import { useAdminAuth } from '../store/adminAuth'
 import { translate } from '../store/i18n'
 import { request } from '../api/client'
 import { adminApi } from '../api/admin'
-import { onNotificationTap, safeAppPath, type PushData } from './push'
+import { onNotificationTap, safeAppPath, syncPush, type PushData } from './push'
+import { onWebPushMessage } from './webPush'
 
 /**
  * Opens the screen of a tapped notification.
@@ -90,4 +91,9 @@ async function open(data: PushData) {
 /** Mounted once in the root layout. */
 export function useNotificationRouting() {
   useEffect(() => onNotificationTap((data) => { void open(data) }), [])
+  // Website: a clicked browser notification arrives from the service worker.
+  useEffect(() => onWebPushMessage({
+    open: (payload) => { void open(payload as PushData) },
+    resubscribe: () => { void syncPush('user') },
+  }), [])
 }

@@ -76,11 +76,11 @@ export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: 
         {(isEmployee ? EMPLOYEE_NAV : NAV).map(row)}
         {!isEmployee && PINNED.map(row)}
         <View style={styles.divider} />
-        <Pressable accessibilityRole="button" onPress={() => go('/(buyer)')} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+        <Pressable accessibilityRole="button" onPress={() => go('/')} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
           <View style={styles.rowIcon}><Ionicons name="bag-handle-outline" size={17} color={colors.green} /></View>
           <Text style={styles.rowText}>{t('nav.marketplace')}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => { onClose(); void logout(); router.replace('/(buyer)') }} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+        <Pressable accessibilityRole="button" onPress={() => { onClose(); void logout(); router.replace('/') }} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
           <View style={[styles.rowIcon, styles.rowIconDanger]}><Ionicons name="log-out-outline" size={17} color={colors.danger} /></View>
           <Text style={styles.rowTextDanger}>{t('common.signOut')}</Text>
         </Pressable>

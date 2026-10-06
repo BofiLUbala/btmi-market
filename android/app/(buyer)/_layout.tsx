@@ -1,6 +1,6 @@
 import { Tabs, router } from 'expo-router'
 import type { ReactNode } from 'react'
-import { Pressable, View, type GestureResponderEvent, type PressableProps } from 'react-native'
+import { Pressable, View, useWindowDimensions, type GestureResponderEvent, type PressableProps } from 'react-native'
 
 /** The props expo-router hands a custom `tabBarButton` that this file uses. */
 type BottomTabBarButtonProps = { children?: ReactNode; onPress?: ((e: GestureResponderEvent) => void) | null; onLongPress?: ((e: GestureResponderEvent) => void) | null; accessibilityState?: PressableProps['accessibilityState']; accessibilityLabel?: string; testID?: string }
@@ -38,6 +38,9 @@ function RaisedTabIcon({ focused }: { focused: boolean }) {
 export default function BuyerTabs() {
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
+  // Large screens navigate from the header bar: no bottom tab bar there.
+  const { width } = useWindowDimensions()
+  const wide = width >= 900
   const { t } = useI18n()
   // The server's capability flags decide who may publish (same rule as the
   // seller space), not the raw account type.
@@ -69,7 +72,7 @@ export default function BuyerTabs() {
         tabBarInactiveTintColor: colors.mutedLight,
         tabBarLabelStyle: withBrandFont({ fontSize: 10.5, fontWeight: '600', marginTop: 2 }),
         tabBarHideOnKeyboard: true,
-        tabBarStyle: {
+        tabBarStyle: wide ? { display: 'none' } : {
           height: 70 + insets.bottom,
           paddingTop: 6,
           paddingBottom: Math.max(insets.bottom, 6),

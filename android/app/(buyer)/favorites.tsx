@@ -40,7 +40,7 @@ export default function FavoritesScreen() {
     return groups
   }, [items])
 
-  const goBack = () => (router.canGoBack() ? router.back() : router.push('/(buyer)'))
+  const goBack = () => (router.canGoBack() ? router.back() : router.navigate('/'))
 
   const tile = (item: FavoritesItem) => (
     <Pressable key={item.productId} style={({ pressed }) => [styles.card, pressed && styles.pressed]} accessibilityRole="button" onPress={() => router.push(`/products/${item.productId}`)}>
@@ -93,7 +93,7 @@ export default function FavoritesScreen() {
           <View style={styles.icon}><Ionicons name="heart-outline" size={32} color={colors.green}/></View>
           <Text style={styles.title}>{t('favorites.title')}</Text>
           <Text style={styles.text}>{t('favorites.body')}</Text>
-          <Button variant="outline" title={t('cart.discover')} onPress={() => router.push('/(buyer)')}/>
+          <Button variant="outline" title={t('cart.discover')} onPress={() => router.navigate('/')}/>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>

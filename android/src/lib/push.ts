@@ -5,6 +5,7 @@ import { requireOptionalNativeModule } from 'expo-modules-core'
 import { API_URL, request } from '../api/client'
 import { adminApi } from '../api/admin'
 import { translate, type TranslationKey } from '../store/i18n'
+import { enableWebPush, releaseWebPush, syncWebPush, webPushState } from './webPush'
 
 /**
  * Mobile push for TBK, through Expo's push service (FCM on Android).
@@ -24,8 +25,6 @@ type NotificationsModule = typeof import('expo-notifications')
 
 const OWNER_KEY = 'btmi.push.owner'
 const TOKEN_KEY = 'btmi.push.token'
-/** Set once the app asked by itself: a later choice in the settings is never overridden. */
-const AUTO_ASKED_KEY = 'btmi.push.autoAsked'
 
 let mod: NotificationsModule | null | undefined
 function notifications(): NotificationsModule | null {
@@ -48,6 +47,10 @@ function notifications(): NotificationsModule | null {
 export function pushAvailable(): boolean {
   return notifications() !== null
 }
+
+// On the web (the website is this app), push goes through the browser's
+// service worker instead of expo-notifications: see webPush.ts.
+const isWeb = Platform.OS === 'web'
 
 /** Expo Go (since SDK 53) cannot receive remote push on Android. */
 export function isExpoGo(): boolean {
@@ -102,6 +105,7 @@ function call<T>(scope: PushScope, path: string, init?: RequestInit): Promise<T>
 }
 
 export async function pushState(scope: PushScope): Promise<PushState> {
+  if (isWeb) return webPushState(scope)
   const N = notifications()
   if (!N) return isExpoGo() ? 'expo-go' : 'unavailable'
   const perm = await N.getPermissionsAsync()
@@ -128,6 +132,7 @@ async function registerToken(scope: PushScope): Promise<boolean> {
 
 /** Asks for permission (from a tap) and turns push on for this account. */
 export async function enablePush(scope: PushScope): Promise<PushState> {
+  if (isWeb) return enableWebPush(scope)
   const N = notifications()
   if (!N) return isExpoGo() ? 'expo-go' : 'unavailable'
   await configurePush()
@@ -141,6 +146,7 @@ export async function enablePush(scope: PushScope): Promise<PushState> {
 
 /** At each session start: re-attach this phone when push was on for it. */
 export async function syncPush(scope: PushScope): Promise<void> {
+  if (isWeb) return syncWebPush(scope)
   const N = notifications()
   if (!N || (await owner()) !== scope) return
   try {
@@ -149,25 +155,10 @@ export async function syncPush(scope: PushScope): Promise<void> {
   } catch { /* retried at next start */ }
 }
 
-/**
- * At sign-in: push is on by default for order updates. The first time an
- * account signs in on this phone the app asks for permission itself and
- * attaches the phone; after that only syncPush runs, so turning push off in
- * the settings stays off.
- */
-export async function autoEnablePush(scope: PushScope): Promise<void> {
-  const N = notifications()
-  if (!N || (isExpoGo() && Platform.OS === 'android')) return
-  if ((await owner()) === scope) return syncPush(scope)
-  const asked = await AsyncStorage.getItem(AUTO_ASKED_KEY).catch(() => '1')
-  if (asked) return
-  await AsyncStorage.setItem(AUTO_ASKED_KEY, '1').catch(() => undefined)
-  try { await enablePush(scope) } catch { /* the settings screen still offers it */ }
-}
-
 /** Stops push to this phone for `scope` (sign-out or switched off). The
  * server is told with the token itself, which works without a session. */
 export async function releasePush(scope: PushScope): Promise<void> {
+  if (isWeb) return releaseWebPush(scope)
   if ((await owner()) !== scope) return
   const token = await AsyncStorage.getItem(TOKEN_KEY).catch(() => null)
   await AsyncStorage.multiRemove([OWNER_KEY, TOKEN_KEY]).catch(() => undefined)

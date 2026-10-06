@@ -203,7 +203,7 @@ export async function fetchSellerUnreadCounts(params?: {
 // notifications so seller alerts never open buyer screens (and vice versa).
 export type NotificationAudience = 'BUYER' | 'SELLER' | 'COURIER'
 
-export async function fetchNotifications(params?: { limit?: number; offset?: number; audience?: NotificationAudience }): Promise<{
+export async function fetchNotifications(params?: { limit?: number; offset?: number; audience?: NotificationAudience; view?: 'active' | 'unread' | 'archived' }): Promise<{
   items: NotificationItem[]
   total: number
   limit: number
@@ -213,6 +213,7 @@ export async function fetchNotifications(params?: { limit?: number; offset?: num
   if (params?.limit) qs.set('limit', String(params.limit))
   if (params?.offset) qs.set('offset', String(params.offset))
   if (params?.audience) qs.set('audience', params.audience)
+  if (params?.view) qs.set('view', params.view)
   const q = qs.toString()
   return get<{
     items: NotificationItem[]

@@ -92,7 +92,7 @@ export default function OrdersScreen() {
     <Ionicons name="cube-outline" size={40} color={colors.muted} />
     <Text style={styles.h2}>{t('orders.emptyTitle')}</Text>
     <Text style={[styles.muted, { textAlign: 'center' }]}>{t('orders.emptyDesc')}</Text>
-    <Button title={t('orders.browse')} onPress={() => router.replace('/(buyer)')} />
+    <Button title={t('orders.browse')} onPress={() => router.replace('/')} />
   </View>
 
   return <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={colors.green} />}>

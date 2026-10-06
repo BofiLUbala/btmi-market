@@ -444,12 +444,15 @@ func (h *Handler) GetUserNotifications(c *gin.Context) {
 	})
 }
 
-// notificationView reads ?view=active|archived (defaults to active) so a buyer
+// notificationView reads ?view=active|archived|unread (defaults to active) so a buyer
 // or seller can browse notifications they archived without them cluttering
 // the main list.
 func notificationView(c *gin.Context) string {
-	if strings.ToLower(c.Query("view")) == repository.NotificationViewArchived {
+	switch strings.ToLower(c.Query("view")) {
+	case repository.NotificationViewArchived:
 		return repository.NotificationViewArchived
+	case repository.NotificationViewUnread:
+		return repository.NotificationViewUnread
 	}
 	return repository.NotificationViewActive
 }

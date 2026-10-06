@@ -135,7 +135,7 @@ export default function OrderSuccessScreen() {
           <View style={styles.summaryLine}><Text style={styles.muted}>{t('common.status')}</Text><Text style={[styles.value, isPaid && { color: colors.success }]}>{isPaid ? t('orders.paymentPaid') : t('checkoutSuccess.toPay')}</Text></View>
         </View>
         <Button title={t('checkoutSuccess.trackDelivery')} onPress={() => router.replace({ pathname: '/orders/[id]', params: { id: orderId } })} />
-        <Button variant="outline" title={t('web.cart.continueShopping')} onPress={() => router.replace('/(buyer)')} />
+        <Button variant="outline" title={t('web.cart.continueShopping')} onPress={() => router.replace('/')} />
         <Button variant="outline" title={t('profile.myOrders')} onPress={() => router.replace('/orders')} />
       </CheckoutCard>
       </View>

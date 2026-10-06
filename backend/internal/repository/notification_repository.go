@@ -265,11 +265,17 @@ func audienceFilter(audience string) string {
 const (
 	NotificationViewActive   = "active"
 	NotificationViewArchived = "archived"
+	// Unread: active notifications not read yet. The apps list only these, so
+	// a notification disappears once it has been read.
+	NotificationViewUnread = "unread"
 )
 
 func notificationViewFilter(view string) string {
 	if view == NotificationViewArchived {
 		return ` AND n.deleted_at IS NULL AND n.archived_at IS NOT NULL`
+	}
+	if view == NotificationViewUnread {
+		return ` AND n.deleted_at IS NULL AND n.archived_at IS NULL AND n.read_at IS NULL`
 	}
 	return ` AND n.deleted_at IS NULL AND n.archived_at IS NULL`
 }

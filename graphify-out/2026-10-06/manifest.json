@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "android/app/(buyer)/favorites.tsx": {
-    "mtime": 1791223007.3529043,
-    "seen": 1791224834.5667503,
-    "ast_hash": "27fd5a28225e55264147f9ef7f047003",
+    "mtime": 1791294937.1869402,
+    "seen": 1791296367.3470209,
+    "ast_hash": "844ba16e5377fd2a4636f4710371c9c1",
     "semantic_hash": ""
   },
   "android/app/(buyer)/index.tsx": {
@@ -72,9 +72,9 @@
     "semantic_hash": ""
   },
   "android/app/(buyer)/search.tsx": {
-    "mtime": 1791227964.9630995,
-    "seen": 1791257527.6830268,
-    "ast_hash": "cbe50f47730578cfc10c1515a3757c78",
+    "mtime": 1791294937.3806689,
+    "seen": 1791296367.347487,
+    "ast_hash": "99d315595c0043eb0d2541cf717c361b",
     "semantic_hash": ""
   },
   "android/app/_layout.tsx": {
@@ -300,9 +300,9 @@
     "semantic_hash": "df8029c741d325a26f15e5063ec464fa"
   },
   "android/app/products/[id].tsx": {
-    "mtime": 1791260859.145053,
-    "seen": 1791261720.0705276,
-    "ast_hash": "630a7d980191f973d042b839ec0b93f3",
+    "mtime": 1791294888.1239638,
+    "seen": 1791296367.3555124,
+    "ast_hash": "e6b213f23bff21023e647c8de3c6c70c",
     "semantic_hash": ""
   },
   "android/app/profile-edit.tsx": {
@@ -636,9 +636,9 @@
     "semantic_hash": ""
   },
   "android/src/components/ProductCard.tsx": {
-    "mtime": 1791261513.858757,
-    "seen": 1791261720.0889623,
-    "ast_hash": "5009484013cee9717aa03f66a520a12d",
+    "mtime": 1791294937.719547,
+    "seen": 1791296367.3660939,
+    "ast_hash": "1c7e65166a9ddb6b3a7e1df74fa1b798",
     "semantic_hash": ""
   },
   "android/src/components/RegisterFlow.tsx": {
@@ -942,9 +942,9 @@
     "semantic_hash": "2d009b5bca52f3e6c7389dd0127bd3ca"
   },
   "backend/cmd/api/main.go": {
-    "mtime": 1791262004.4474363,
-    "seen": 1791263258.7009792,
-    "ast_hash": "e081a0712044e0c2f8865dc16e0105fd",
+    "mtime": 1791295357.7684703,
+    "seen": 1791296367.3769097,
+    "ast_hash": "81e2d5fdd8a2cc61e6d7da0e1ea87e7b",
     "semantic_hash": ""
   },
   "backend/cmd/create-superadmin/main.go": {
@@ -1422,9 +1422,9 @@
     "semantic_hash": "23ddd20bc2f0a9d0b325e454c0db8e73"
   },
   "backend/internal/models/communication.go": {
-    "mtime": 1790844269.2523994,
-    "seen": 1791224834.6181426,
-    "ast_hash": "2bcf1907f0e43ad4ad185b7e1a16f2c8",
+    "mtime": 1791294657.2744417,
+    "seen": 1791296367.3955722,
+    "ast_hash": "9dc52058eff54f6f0fec7b006afc24b8",
     "semantic_hash": ""
   },
   "backend/internal/models/courier.go": {
@@ -4698,9 +4698,9 @@
     "semantic_hash": ""
   },
   "backend/internal/notify/catalog.go": {
-    "mtime": 1790984439.1350193,
-    "seen": 1791224834.6285841,
-    "ast_hash": "e8e4b9ab84adba8fa834de19e5dac4aa",
+    "mtime": 1791294657.2744417,
+    "seen": 1791296367.4023678,
+    "ast_hash": "b072c219be443c1d495e1469a03ae5af",
     "semantic_hash": ""
   },
   "backend/internal/notify/catalog_test.go": {
@@ -5226,9 +5226,9 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy-aws.yml": {
-    "mtime": 1790807857.03801,
-    "seen": 1791224834.747686,
-    "ast_hash": "08fb62e6164143d3d44d27790e646c28",
+    "mtime": 1791294991.908911,
+    "seen": 1791296367.5299466,
+    "ast_hash": "ad8e38f42db68e304c25fc057e6edc5c",
     "semantic_hash": ""
   },
   ".github/workflows/eas-internal-update.yml": {
@@ -5304,9 +5304,9 @@
     "semantic_hash": ""
   },
   "backend/docker-compose.yml": {
-    "mtime": 1790846070.4391623,
-    "seen": 1791224834.7477212,
-    "ast_hash": "35666a4b9c041e23c3333870480b5b42",
+    "mtime": 1791294991.9079134,
+    "seen": 1791296367.533751,
+    "ast_hash": "ab29789abb3209a86937ebd577085bf2",
     "semantic_hash": ""
   },
   "backend/docs/BTMI_API_DOCUMENTATION.md": {
@@ -5994,15 +5994,15 @@
     "semantic_hash": ""
   },
   "android/src/components/WideHome.tsx": {
-    "mtime": 1791277296.3508198,
-    "seen": 1791279530.954164,
-    "ast_hash": "cad603ac09f05e90dd0900fb70355a43",
+    "mtime": 1791294938.2432067,
+    "seen": 1791296367.3671265,
+    "ast_hash": "dd845297aff28d339247d28a2f874190",
     "semantic_hash": ""
   },
   "backend/internal/service/spotlight_service.go": {
-    "mtime": 1791260528.5626357,
-    "seen": 1791261720.2437356,
-    "ast_hash": "5571f46562a212c68818e5df7cb762e3",
+    "mtime": 1791295997.2171187,
+    "seen": 1791296367.4313052,
+    "ast_hash": "b1063cfd93552da0d4220a461e263776",
     "semantic_hash": ""
   },
   "android/app/courier/(tabs)/_layout.tsx": {
@@ -6075,6 +6075,12 @@
     "mtime": 1791292717.5971653,
     "seen": 1791293738.8968792,
     "ast_hash": "a45b663b067a2312842f12f7133052b6",
+    "semantic_hash": ""
+  },
+  "android/src/components/ProductPhoto.tsx": {
+    "mtime": 1791294791.736357,
+    "seen": 1791296367.3660965,
+    "ast_hash": "c394e30e5b2825e7e8685efffc7c88dc",
     "semantic_hash": ""
   }
 }

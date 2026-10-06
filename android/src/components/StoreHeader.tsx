@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router } from 'expo-router'
@@ -9,6 +9,7 @@ import { BuyerMenu } from './BuyerMenu'
 import { fonts, spacing, type Colors } from '../theme'
 import type { TranslationKey } from '../locales/fr'
 import { BrandLogo } from './BrandLogo'
+import { WideTopBar } from './WideTopBar'
 
 /**
  * The storefront header the web shows on every buyer page at phone width:
@@ -27,6 +28,15 @@ export function StoreHeader({ back = false }: { back?: boolean }) {
     const q = query.trim()
     router.push({ pathname: '/(buyer)/search', params: q ? { q } : {} })
   }
+  const { width } = useWindowDimensions()
+
+  // Large screens: one bar (logo + a single card with everything else).
+  if (width >= 900) {
+    return <WideTopBar search={query} onSearchChange={setQuery} onSubmit={submit}
+      onCamera={() => router.navigate({ pathname: '/', params: { visual: 'camera' } })}
+      onGallery={() => router.navigate({ pathname: '/', params: { visual: 'gallery' } })}
+      onFilters={submit} />
+  }
 
   return (
     <View style={[s.wrap, { paddingTop: insets.top }]}>
@@ -36,7 +46,7 @@ export function StoreHeader({ back = false }: { back?: boolean }) {
             <Ionicons name="chevron-back" size={22} color={c.ink} />
           </Pressable>
         ) : null}
-        <Pressable onPress={() => router.push('/(buyer)')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt' as TranslationKey)}>
+        <Pressable onPress={() => router.navigate('/')} accessibilityRole="button" accessibilityLabel={t('home.logoAlt' as TranslationKey)}>
           <BrandLogo size={40} />
         </Pressable>
         <View style={s.search}>
@@ -52,10 +62,10 @@ export function StoreHeader({ back = false }: { back?: boolean }) {
               style={s.input}
             />
           </View>
-          <Pressable style={s.iconBtn} onPress={() => router.push({ pathname: '/(buyer)', params: { visual: 'camera' } })} accessibilityRole="button" accessibilityLabel={t('home.takePhotoSearch' as TranslationKey)}>
+          <Pressable style={s.iconBtn} onPress={() => router.navigate({ pathname: '/', params: { visual: 'camera' } })} accessibilityRole="button" accessibilityLabel={t('home.takePhotoSearch' as TranslationKey)}>
             <Ionicons name="camera-outline" size={19} color={c.muted} />
           </Pressable>
-          <Pressable style={s.iconBtn} onPress={() => router.push({ pathname: '/(buyer)', params: { visual: 'gallery' } })} accessibilityRole="button" accessibilityLabel={t('home.chooseImageSearch' as TranslationKey)}>
+          <Pressable style={s.iconBtn} onPress={() => router.navigate({ pathname: '/', params: { visual: 'gallery' } })} accessibilityRole="button" accessibilityLabel={t('home.chooseImageSearch' as TranslationKey)}>
             <Ionicons name="image-outline" size={19} color={c.muted} />
           </Pressable>
         </View>

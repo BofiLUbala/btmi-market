@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Keyboard, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { Stack, router, usePathname } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -63,7 +63,7 @@ function SellerTabBar() {
   )
 
   return <View style={[styles.bar, { height: 70 + insets.bottom, paddingBottom: Math.max(insets.bottom, 6) }]}>
-    {item('home-outline', t('nav.home'), () => router.navigate('/(buyer)'))}
+    {item('home-outline', t('nav.home'), () => router.navigate('/'))}
     {item('grid-outline', t('nav.categories'), () => router.navigate('/(buyer)/categories'))}
     <Pressable accessibilityRole="button" accessibilityState={{ selected: true }} accessibilityLabel={t('nav.sell')} onPress={() => router.push('/seller/products/create')} style={styles.item}>
       <View style={[styles.raised, shadow.raised]}><Ionicons name="add" size={26} color={colors.onGreen} /></View>
@@ -80,8 +80,10 @@ export default function SellerLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const pathname = usePathname()
   const keyboardVisible = useKeyboardVisible()
-  // The publish form (reference 10) carries its own bottom action bar instead.
-  const showTabBar = !keyboardVisible && pathname !== '/seller/products/create'
+  // Phones only: large screens navigate from the header. The publish form
+  // (reference 10) carries its own bottom action bar instead.
+  const { width } = useWindowDimensions()
+  const showTabBar = width < 900 && !keyboardVisible && pathname !== '/seller/products/create'
   return <View style={{ flex: 1, backgroundColor: colors.cream }}>
     {/* The seller header is navy in both themes, so the status bar icons are
      *  light here; the root's theme-driven style returns when this unmounts. */}

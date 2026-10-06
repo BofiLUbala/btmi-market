@@ -606,7 +606,7 @@ export default function ProductScreen() {
               {/* RIGHT: details */}
               <View style={styles.wideRight} onLayout={(e) => { contentY.current = e.nativeEvent.layout.y }}>
                 <View style={styles.crumbs}>
-                  <Text style={styles.crumbLink} accessibilityRole="link" onPress={() => router.push('/(buyer)')}>{t('tabs.home')}</Text>
+                  <Text style={styles.crumbLink} accessibilityRole="link" onPress={() => router.navigate('/')}>{t('tabs.home')}</Text>
                   {categoryName ? (
                     <>
                       <Ionicons name="chevron-forward" size={12} color={colors.muted} />

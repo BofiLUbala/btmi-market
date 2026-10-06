@@ -16,7 +16,8 @@ import { useLiveOrderQueries } from '../src/lib/orderEvents'
 import { useRememberRoute } from '../src/lib/lastRoute'
 import { usePresenceHeartbeat } from '../src/lib/presence'
 import { useNotificationRouting } from '../src/lib/notificationRouting'
-import { autoEnablePush, configurePush } from '../src/lib/push'
+import { configurePush, syncPush } from '../src/lib/push'
+import { PushPrompt } from '../src/components/PushPrompt'
 import { syncFavoritesToAccount } from '../src/store/favorites'
 import { ThemeProvider, useTheme } from '../src/store/theme'
 import { I18nProvider, useI18n, type TranslationKey } from '../src/store/i18n'
@@ -62,11 +63,11 @@ function RootNavigator() {
     Alert.alert(t('auth.sessionEndedTitle' as TranslationKey), t('auth.sessionEndedBody' as TranslationKey))
     router.replace('/auth/login')
   }, [sessionEnded, t])
-  // Each session start attaches this phone for push: asked once on the first
-  // sign-in, then kept in sync (and left off if turned off in the settings).
+  // Each session start keeps this device attached for push when it is on;
+  // the first sign-in of an account asks first (PushPrompt below).
   useEffect(() => {
     if (!userId) return
-    void autoEnablePush('user')
+    void syncPush('user')
     syncFavoritesToAccount()
   }, [userId])
 
@@ -74,6 +75,7 @@ function RootNavigator() {
     <>
       {/* On a dark header the status bar icons must be light, and vice versa. */}
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      {userId ? <PushPrompt userId={userId} /> : null}
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.white },

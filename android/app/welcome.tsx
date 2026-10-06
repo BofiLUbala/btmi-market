@@ -25,13 +25,13 @@ export default function WelcomeScreen() {
   async function leave(to: Href, replace = true) {
     await markWelcomeSeen()
     if (replace) router.replace(to)
-    else { router.replace('/(buyer)'); router.push(to) }
+    else { router.replace('/'); router.push(to) }
   }
 
   const body = <>
       <View style={styles.top}>
         <View style={styles.logoTile}><RNImage source={LOGO} style={styles.logo} resizeMode="contain" /></View>
-        <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void leave('/(buyer)')}>
+        <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void leave('/')}>
           <Text style={styles.skip}>{t('welcome.skip')}</Text>
         </Pressable>
       </View>
