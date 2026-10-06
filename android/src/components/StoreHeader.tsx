@@ -52,10 +52,10 @@ export function StoreHeader({ back = false }: { back?: boolean }) {
               style={s.input}
             />
           </View>
-          <Pressable style={s.iconBtn} onPress={() => router.push('/(buyer)')} accessibilityLabel={t('home.takePhotoSearch' as TranslationKey)}>
+          <Pressable style={s.iconBtn} onPress={() => router.push({ pathname: '/(buyer)', params: { visual: 'camera' } })} accessibilityRole="button" accessibilityLabel={t('home.takePhotoSearch' as TranslationKey)}>
             <Ionicons name="camera-outline" size={19} color={c.muted} />
           </Pressable>
-          <Pressable style={s.iconBtn} onPress={() => router.push('/(buyer)')} accessibilityLabel={t('home.chooseImageSearch' as TranslationKey)}>
+          <Pressable style={s.iconBtn} onPress={() => router.push({ pathname: '/(buyer)', params: { visual: 'gallery' } })} accessibilityRole="button" accessibilityLabel={t('home.chooseImageSearch' as TranslationKey)}>
             <Ionicons name="image-outline" size={19} color={c.muted} />
           </Pressable>
         </View>

@@ -52,11 +52,6 @@ export default function WelcomeScreen() {
           <Text style={styles.headlineAccent}>{t('welcome.headline2')}</Text>
         </Text>
         <Text style={styles.body}>{t('welcome.body')}</Text>
-        <View style={styles.dots}>
-          <View style={[styles.dot, styles.dotOn]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-        </View>
       </ScrollView>
 
       <View style={styles.actions}>
@@ -88,9 +83,6 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   headline: { color: c.onNavy, fontFamily: fonts.display, fontWeight: '700', fontSize: 28, lineHeight: 34, letterSpacing: -0.5 },
   headlineAccent: { color: c.cyan },
   body: { color: c.onNavyMuted, fontSize: 14, lineHeight: 21, marginTop: 12 },
-  dots: { flexDirection: 'row', gap: 6, marginTop: 20, marginBottom: 8 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: c.navyLine },
-  dotOn: { width: 20, backgroundColor: c.green },
   actions: { gap: 14, paddingTop: spacing.sm },
   signInLine: { color: c.onNavyMuted, fontSize: 13, textAlign: 'center' },
   signInLink: { color: c.onNavy, fontWeight: '700' },

@@ -539,7 +539,7 @@ function PurchasedLine({ line, orderId, eligibility, styles, reasonText }: { lin
       </View>
       <Text style={[styles.name, { fontSize: 15 }]}>{formatMoney(line.quantity * price)}</Text>
     </View>
-    {e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,productName:line.product_name}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name}})}/> : <Text style={styles.hint}>{e?.reason ? reasonText(e.reason) : t('orders.reviewUnavailable')}</Text>}
+    {e?.eligible ? <Button title={t('orders.rateProduct')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,productName:line.product_name,imageUrl:line.image_url ?? ''}})}/> : e?.existing_review_id ? <Button variant="outline" title={t('orders.editReview')} onPress={()=>router.push({pathname:'/reviews/write',params:{orderId,lineId:line.id,reviewId:e.existing_review_id,productName:line.product_name,imageUrl:line.image_url ?? ''}})}/> : <Text style={styles.hint}>{e?.reason ? reasonText(e.reason) : t('orders.reviewUnavailable')}</Text>}
   </Card>
 }
 

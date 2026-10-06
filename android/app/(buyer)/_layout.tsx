@@ -7,6 +7,7 @@ type BottomTabBarButtonProps = { children?: ReactNode; onPress?: ((e: GestureRes
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../../src/store/auth'
+import { canSell } from '../../src/types'
 import { useCart } from '../../src/store/cart'
 import { useTheme } from '../../src/store/theme'
 import { useI18n } from '../../src/store/i18n'
@@ -38,7 +39,9 @@ export default function BuyerTabs() {
   const insets = useSafeAreaInsets()
   const { colors } = useTheme()
   const { t } = useI18n()
-  const isSeller = useAuth((state) => state.user?.account_type === 'SELLER' || state.user?.account_type === 'EMPLOYEE')
+  // The server's capability flags decide who may publish (same rule as the
+  // seller space), not the raw account type.
+  const isSeller = useAuth((state) => canSell(state.user))
   const cartCount = useCart((state) => state.lines.reduce((sum, line) => sum + line.quantity, 0))
 
   const isSignedIn = useAuth((state) => Boolean(state.user))

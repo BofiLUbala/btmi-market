@@ -32,6 +32,9 @@ function notifications(): NotificationsModule | null {
   if (mod !== undefined) return mod
   mod = null
   if (Platform.OS === 'web') return mod
+  // Expo Go on Android has no remote push since SDK 53: merely requiring the
+  // module throws an uncaught error overlay there, so never load it.
+  if (Platform.OS === 'android' && isExpoGo()) return mod
   try {
     if (!requireOptionalNativeModule('ExpoPushTokenManager')) return mod
     // eslint-disable-next-line @typescript-eslint/no-require-imports

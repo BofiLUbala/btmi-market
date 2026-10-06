@@ -68,7 +68,7 @@ export default function CategoriesScreen() {
       <Image source={categoryImage(featured.slug, featured.name)} style={styles.featuredImage} contentFit="cover"/>
       <View style={styles.featuredShade} pointerEvents="none"/>
       <View style={styles.featuredCopy}>
-        <Text style={styles.featuredKicker} numberOfLines={1}>{t('browse.mostWanted')}</Text>
+        <Text style={styles.featuredKicker} numberOfLines={1}>{t('browse.featuredCategory')}</Text>
         <Text style={styles.featuredTitle} numberOfLines={2}>{categoryLabel(t, featured.slug, featured.name)}</Text>
         <Text style={styles.featuredSubs} numberOfLines={1}>{subsOf(featured) || t('cart.discover')}</Text>
       </View>

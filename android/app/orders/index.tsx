@@ -132,16 +132,16 @@ export default function OrdersScreen() {
             <View style={{ flex: 1, gap: 2 }}>
               <Pressable accessibilityRole="link" onPress={() => router.push(`/products/${line.product_id}`)}><Text style={styles.bold}>{line.product_name || t('orders.productWithId', { id: line.product_id.slice(0, 8) })}</Text></Pressable>
               <Text style={styles.small}>{t('orders.variantWithLabel', { variant: variantLabel(line, t) })}</Text>
-              <Text style={styles.small}>{t('orders.quantityUnitPrice', { quantity: line.quantity, price: formatMoney(price) })}</Text>
+              <Text style={styles.small}>{t('orders.quantityUnitPrice', { quantity: line.quantity, price: formatMoney(price, order.currency) })}</Text>
               {order.status === 'COMPLETED' ? <ReviewAction orderId={order.id} line={line} styles={styles} /> : null}
             </View>
-            <Text style={styles.bold}>{formatMoney(line.quantity * price)}</Text>
+            <Text style={styles.bold}>{formatMoney(line.quantity * price, order.currency)}</Text>
           </View>
         })}
         <View style={styles.footer}>
           <View style={styles.footerCell}><Text style={styles.small}>{t('orders.payment')}</Text><Text style={styles.bold}>{payment ? t(paymentStatusKey(payment)) : t('orders.notPrepared')}{actor ? ` · ${t(actor)}` : ''}</Text></View>
           <View style={styles.footerCell}><Text style={styles.small}>{t('orders.deliveryLabel')}</Text><Text style={styles.bold}>{order.delivery_method ? order.delivery_method.replace(/_/g, ' ') : t('orders.notSelected')}</Text></View>
-          <View style={styles.footerCell}><Text style={styles.small}>{t('common.total')}</Text><Text style={styles.bold}>{formatMoney(total)}</Text></View>
+          <View style={styles.footerCell}><Text style={styles.small}>{t('common.total')}</Text><Text style={styles.bold}>{formatMoney(total, payment?.currency || order.currency)}</Text></View>
         </View>
         {(order.delivery_method || '').startsWith('TBK') && order.delivery_status === 'IN_TRANSIT' ? (
           <Button title={`🛵 ${t('liveMap.follow')}`} variant="outline" onPress={() => router.push({ pathname: '/orders/live', params: { id: order.id } })} />
@@ -157,8 +157,8 @@ function ReviewAction({ orderId, line, styles }: { orderId: string; line: OrderL
   const { t } = useI18n()
   const eligibility = useQuery({ queryKey: ['review-eligibility', orderId, line.id], queryFn: () => buyerApi.reviewEligibility(orderId, line.id), retry: false })
   const e = eligibility.data
-  if (e?.existing_review_id) return <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/reviews/write', params: { orderId, lineId: line.id, reviewId: e.existing_review_id, productName: line.product_name } })}><Text style={styles.link}>✓ {t('reviews.reviewedEdit')}</Text></Pressable>
-  if (e?.eligible) return <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/reviews/write', params: { orderId, lineId: line.id, productName: line.product_name } })}><Text style={[styles.link, styles.linkAccent]}>★ {t('reviews.reviewProductLink')}</Text></Pressable>
+  if (e?.existing_review_id) return <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/reviews/write', params: { orderId, lineId: line.id, reviewId: e.existing_review_id, productName: line.product_name, imageUrl: line.image_url ?? '' } })}><Text style={styles.link}>✓ {t('reviews.reviewedEdit')}</Text></Pressable>
+  if (e?.eligible) return <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/reviews/write', params: { orderId, lineId: line.id, productName: line.product_name, imageUrl: line.image_url ?? '' } })}><Text style={[styles.link, styles.linkAccent]}>★ {t('reviews.reviewProductLink')}</Text></Pressable>
   return null
 }
 

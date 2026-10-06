@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Image } from 'expo-image'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -155,6 +155,11 @@ export default function ProductScreen() {
   const { t, lang } = useI18n()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
+  // "N reviews" next to the stars jumps to the reviews section below.
+  const scrollRef = useRef<ScrollView>(null)
+  const contentY = useRef(0)
+  const reviewsY = useRef(0)
+  const scrollToReviews = () => scrollRef.current?.scrollTo({ y: Math.max(0, contentY.current + reviewsY.current - 12), animated: true })
   const [photoIndex, setPhotoIndex] = useState(0)
 
   const query = useQuery({
@@ -320,7 +325,7 @@ export default function ProductScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
         {/* Full-bleed gallery: stock + favourite on top, reference + counter below */}
         <View style={[styles.gallery, { height: galleryHeight }]}>
           {photos.length > 1 ? (
@@ -405,7 +410,7 @@ export default function ProductScreen() {
           ) : null}
         </View>
 
-        <View style={styles.content}>
+        <View style={styles.content} onLayout={(e) => { contentY.current = e.nativeEvent.layout.y }}>
           {categoryName ? (
             <Text style={styles.categoryKicker} numberOfLines={1}>
               {categoryName}{subcategoryName ? ` / ${subcategoryName}` : ''}
@@ -419,7 +424,7 @@ export default function ProductScreen() {
                 <Text style={styles.ratingStars}>{stars(reviewData!.summary.average_rating)}</Text>
                 <Text style={styles.ratingValue}>{reviewData!.summary.average_rating.toFixed(1)}</Text>
                 <Text style={styles.ratingSep}>•</Text>
-                <Text style={styles.ratingLink}>{t('product.reviewsCount', { count: totalReviews })}</Text>
+                <Text style={styles.ratingLink} accessibilityRole="link" onPress={scrollToReviews}>{t('product.reviewsCount', { count: totalReviews })}</Text>
               </>
             ) : typeof product.self_rating === 'number' && product.self_rating > 0 ? (
               <>
@@ -434,7 +439,12 @@ export default function ProductScreen() {
           </View>
 
           {/* Seller + reference */}
-          <View style={styles.sellerRow}>
+          <Pressable
+            style={({ pressed }) => [styles.sellerRow, pressed && product.shop_id ? { opacity: 0.85 } : null]}
+            disabled={!product.shop_id}
+            onPress={() => product.shop_id && router.push(`/shops/${product.shop_id}`)}
+            accessibilityRole="link"
+          >
             <View style={styles.sellerTile}><Ionicons name="storefront-outline" size={18} color={colors.green} /></View>
             <View style={styles.sellerLeft}>
               <Text style={styles.metaLabel}>{t('product.soldByLabel')}</Text>
@@ -446,7 +456,8 @@ export default function ProductScreen() {
               </View>
             </View>
             {sku ? <Text style={styles.skuText} numberOfLines={1}>{t('product.skuLabel', { sku })}</Text> : null}
-          </View>
+            {product.shop_id ? <Ionicons name="chevron-forward" size={18} color={colors.muted} /> : null}
+          </Pressable>
 
           {/* Price card */}
           <View style={styles.priceCard}>
@@ -684,7 +695,7 @@ export default function ProductScreen() {
             ]}
           />
 
-          <View style={styles.block}>
+          <View style={styles.block} onLayout={(e) => { reviewsY.current = e.nativeEvent.layout.y }}>
             <SectionHeader
               title={`${t('product.customerReviews')}${totalReviews ? ` (${totalReviews})` : ''}`}
             />

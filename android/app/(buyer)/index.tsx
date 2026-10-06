@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Alert, ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { buyerApi, marketplaceApi } from '../../src/api'
 import { resolveMediaUrl } from '../../src/api/client'
@@ -96,6 +96,15 @@ export default function HomeScreen() {
     if (result.canceled || !result.assets[0]) return
     await analyzeProductImage(result.assets[0])
   }
+  // The store header's camera/gallery buttons (other screens) land here with
+  // `visual`, and start the same photo search as the buttons above.
+  const { visual } = useLocalSearchParams<{ visual?: string }>()
+  useEffect(() => {
+    if (visual !== 'camera' && visual !== 'gallery') return
+    router.setParams({ visual: undefined })
+    void (visual === 'camera' ? takeProductPhoto() : chooseProductImage())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visual])
   const openSearchPage = () => router.push({ pathname: '/(buyer)/search', params: term ? { q: term } : {} })
 
   // Reference header: logo tile, delivery commune, account + notifications,

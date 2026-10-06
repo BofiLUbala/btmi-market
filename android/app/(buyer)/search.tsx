@@ -100,6 +100,8 @@ export default function SearchScreen() {
 
 	const track = (event: Omit<SearchEvent, 'event_type' | 'session'>) => { void marketplaceApi.searchEvent({ ...event, event_type: 'CLICK', session: searchSession() }) }
 	const chooseProduct = (product: PublicProduct, position: number) => { track({ query: suggestionQuery, result_type: 'PRODUCT', result_id: product.id, position }); setSuggestionQuery(''); router.push(`/products/${product.id}`) }
+	// There is no public shop page in the app (no /shops route): a shop name as
+	// the query makes the search return that seller's catalogue.
 	const chooseShop = (shop: Shop, position: number) => { track({ query: suggestionQuery, result_type: 'SHOP', result_id: shop.id, position }); setSuggestionQuery(''); router.push(`/shops/${shop.id}`) }
 	const chooseCategory = (category: Category, subcategory: Category | undefined, position: number) => {
 		track({ query: suggestionQuery, result_type: subcategory ? 'SUBCATEGORY' : 'CATEGORY', result_id: (subcategory ?? category).id, position })
@@ -159,7 +161,9 @@ export default function SearchScreen() {
                 {draft ? <Pressable onPress={() => setDraft('')} hitSlop={8} accessibilityLabel={t('home.clearSearch')}><Ionicons name="close-circle" size={18} color={colors.faint} /></Pressable> : null}
               </View>
             </View>
-		  {suggestionQuery.length >= 2 && (suggestions.isFetching || suggestions.data) ? (
+		  {/* Suggestions only while the text differs from the search already shown,
+		      so arriving with ?q= (or after submitting) shows the results, not the menu. */}
+		  {suggestionQuery.length >= 2 && draft.trim() !== q && (suggestions.isFetching || suggestions.data) ? (
 			<View style={styles.suggestions} accessibilityRole="menu">
 			  {suggestions.isFetching ? <Text style={styles.suggestionStatus}>{t('search.searching' as TranslationKey)}</Text> : null}
 			  {(suggestions.data?.products ?? []).map((product, i) => <SuggestionRow key={`product-${product.id}`} icon="cube-outline" label={product.name} detail={product.shop_name} onPress={() => chooseProduct(product, i)} colors={colors} />)}

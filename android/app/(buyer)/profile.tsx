@@ -4,6 +4,8 @@ import { router } from 'expo-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi, authApi, courierApi } from '../../src/api'
+import { fetchBuyerUnreadCounts } from '../../src/api/communication'
+import { useFavorites } from '../../src/store/favorites'
 import { AvatarPicker } from '../../src/components/AvatarPicker'
 import { formatDate } from '../../src/lib/format'
 import { useAuth } from '../../src/store/auth'
@@ -23,6 +25,9 @@ import { canSell, canOnboardSeller } from '../../src/types'
 
 type IconName = keyof typeof Ionicons.glyphMap
 
+/** Orders that no longer move (same set as the order history's polling rule). */
+const TERMINAL_ORDER = ['COMPLETED', 'CANCELLED', 'REJECTED', 'RECEIVED']
+
 export default function ProfileScreen() {
   const user = useAuth((s) => s.user)
   const logout = useAuth((s) => s.logout)
@@ -34,6 +39,9 @@ export default function ProfileScreen() {
   const points = useQuery({ queryKey: ['buyer', 'points'], queryFn: buyerApi.points, enabled: isBuyer })
   const pending = useQuery({ queryKey: ['buyer', 'purchases', 'pending'], queryFn: buyerApi.pendingPurchases, enabled: isBuyer })
   const orders = useQuery({ queryKey: ['buyer', 'orders'], queryFn: buyerApi.orders, enabled: isBuyer })
+  // Same cache entry as the home header bell.
+  const unread = useQuery({ queryKey: ['buyer', 'unread-counts'], queryFn: fetchBuyerUnreadCounts, enabled: isBuyer })
+  const favoritesCount = useFavorites((state) => state.items.length)
   // Courier space is shown only when the backend recognises this account as a courier.
   const courierProfile = useQuery({ queryKey: ['courier', 'profile'], queryFn: courierApi.profile, enabled: Boolean(user), retry: false, staleTime: 5 * 60_000 })
   const becomeSeller = useMutation({ mutationFn: authApi.becomeSeller, onSuccess: async () => { await useAuth.getState().refresh(); router.push('/seller/onboarding') }, onError: () => Alert.alert(t('common.error'), t('seller.becomeFailed')) })
@@ -61,6 +69,9 @@ export default function ProfileScreen() {
   const fullName = `${p?.first_name ?? user.first_name ?? ''} ${p?.last_name ?? user.last_name ?? ''}`.trim()
   const hasStructuredAddress = Boolean(p?.commune || p?.city || p?.province)
   const available = pts?.available_points ?? 0
+  // The orders tile badge counts what is still in progress, not the whole history.
+  const activeOrders = orderList.filter((o) => !TERMINAL_ORDER.includes(o.status)).length
+  const unreadNotifications = unread.data?.unread_notifications ?? 0
 
   const initialsLabel = fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('')
   const addressLine = hasStructuredAddress
@@ -79,7 +90,7 @@ export default function ProfileScreen() {
         <View style={styles.heroRow}>
           <AvatarPicker size={52} name={fullName || initialsLabel} />
           <View style={styles.flex1}>
-            <Text style={themed.name} numberOfLines={1}>{p?.first_name} {p?.last_name}</Text>
+            <Text style={themed.name} numberOfLines={1}>{fullName}</Text>
             <Text style={themed.heroSub} numberOfLines={1}>{p?.phone || user.phone || (p?.email ?? user.email)}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={t('common.edit')} onPress={() => router.push('/profile-edit')} style={({ pressed }) => [themed.editButton, pressed && styles.pressed]} hitSlop={8}>
@@ -91,8 +102,8 @@ export default function ProfileScreen() {
       <View style={styles.body}>
         {/* ── Quick tiles, lifted over the header ── */}
         <View style={[styles.tiles, styles.overlap]}>
-          <QuickTile icon="cube-outline" label={t('account.tileOrders')} badge={orderList.length || undefined} onPress={() => router.push('/orders')} themed={themed} colors={colors} />
-          <QuickTile icon="heart-outline" label={t('account.tileFavorites')} onPress={() => router.push('/(buyer)/favorites')} themed={themed} colors={colors} />
+          <QuickTile icon="cube-outline" label={t('account.tileOrders')} badge={activeOrders || undefined} onPress={() => router.push('/orders')} themed={themed} colors={colors} />
+          <QuickTile icon="heart-outline" label={t('account.tileFavorites')} badge={favoritesCount || undefined} onPress={() => router.push('/(buyer)/favorites')} themed={themed} colors={colors} />
           <QuickTile active icon="storefront-outline" label={becomeSeller.isPending ? t('common.oneMoment') : t('account.tileShop')} onPress={openShop} themed={themed} colors={colors} />
         </View>
 
@@ -109,7 +120,7 @@ export default function ProfileScreen() {
             <PointsCell label={t('points.availableLabel')} value={available.toLocaleString()} themed={themed} />
             <PointsCell label={t('points.reserved')} value={(pts?.reserved_points ?? 0).toLocaleString()} themed={themed} />
             <PointsCell label={t('points.lifetimeEarned')} value={(pts?.lifetime_points ?? 0).toLocaleString()} themed={themed} />
-            <PointsCell label={t('points.level')} value={pts?.level ?? 'BRONZE'} themed={themed} />
+            <PointsCell label={t('points.level')} value={pts?.level ?? '—'} themed={themed} />
           </View>
           {available === 0 ? <Text style={themed.small}>{t('points.earnByPurchase')}</Text> : null}
         </View>
@@ -122,7 +133,7 @@ export default function ProfileScreen() {
             sub={[t('account.ordersCount', { count: orderList.length }), orderList[0] ? t('account.lastOrder', { date: formatDate(orderList[0].created_at) }) : ''].filter(Boolean).join(' · ')} themed={themed} colors={colors} />
           <LinkRow icon="star-outline" onPress={() => router.push('/reviews')} title={t('account.myReviews')} sub={t('account.reviewsSubtitle')} themed={themed} colors={colors} />
           {pendingList.length > 0 ? <LinkRow icon="time-outline" onPress={() => router.push('/purchases')} title={t('account.pendingPurchases')} sub={t('account.pendingToConfirm', { count: pendingList.length })} themed={themed} colors={colors} /> : null}
-          <LinkRow icon="mail-unread-outline" onPress={() => router.push('/notifications')} title={t('notifications.title')} themed={themed} colors={colors} />
+          <LinkRow icon="mail-unread-outline" onPress={() => router.push('/notifications')} title={t('notifications.title')} sub={unreadNotifications > 0 ? t('notifications.unreadCount', { count: unreadNotifications }) : undefined} themed={themed} colors={colors} />
           <LinkRow icon="notifications-outline" onPress={() => router.push('/notification-settings')} title={t('notifSettings.title')} themed={themed} colors={colors} />
           <LinkRow icon="storefront-outline" onPress={openShop} title={t('profile.sellerAccount')}
             sub={canSell(user) ? t('profile.openSellerSpace') : canOnboardSeller(user) ? t('seller.finishSetup') : becomeSeller.isPending ? t('common.oneMoment') : t('profile.createSellerAccount')} themed={themed} colors={colors} />

@@ -848,3 +848,23 @@ export interface ShopPurgeResult {
   deleted_images: number
   history_kept_shops: number
 }
+
+/** GET /marketplace/shops/:id/detail (same shape as the web PublicShopDetail). */
+export interface PublicShopDetail {
+  id: string
+  business_id: string
+  business_name: string
+  name: string
+  type: string
+  city: string
+  address: string
+  phone: string
+  status: string
+  seller_level: string
+  seller_trust: string
+  product_count: number
+  categories: Category[]
+  average_rating?: number
+  total_reviews?: number
+  created_at: string
+}

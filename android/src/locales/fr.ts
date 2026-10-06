@@ -2009,6 +2009,17 @@ export const fr = {
   'seller.reviews.recentShop': 'Évaluations boutique récentes',
   'seller.reviews.recentProduct': 'Avis produit récents',
   'shop.noReviewsYet': 'Pas encore d’avis',
+  'shop.loading': 'Chargement de la boutique…',
+  'shop.loadError': 'Impossible de charger cette boutique.',
+  'shop.notFound': 'Boutique introuvable',
+  'shop.noProductsListed': 'Aucun produit référencé pour le moment.',
+  'shop.productsTab': 'Produits',
+  'shop.reviewsTab': 'Avis',
+  'shop.verified': 'Vérifié',
+  'shop.reviewMetrics': 'Livraison {delivery}★ · Service boutique {service}★ · Expérience de commande {experience}★',
+  'shop.productsCount': '{count} produit',
+  'shop.productsCountPlural': '{count} produits',
+  'shop.kicker': 'Boutique',
   'orders.variantWithLabel': 'Variante : {variant}',
   'reviews.verifiedPurchase': 'Achat vérifié',
   /* ── Parity with web small-screen dashboards ── */
@@ -3550,6 +3561,8 @@ export const fr = {
   'addresses.hint': "Ajoutez un repère (église, école, boutique) : le livreur vous trouve plus vite.",
   'addresses.add': "Ajouter une adresse",
   'addresses.edit': "Modifier l'adresse",
+  'browse.featuredCategory': 'À la une',
+  'notifications.unreadCount': '{count} non lue(s)',
 } as const
 
 export type TranslationKey = keyof typeof fr

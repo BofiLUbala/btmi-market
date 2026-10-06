@@ -10,7 +10,7 @@ import type {
   EmployeeShopAssignment, InventoryItem, LoginResponse, OrderDetail, OrderLineInput, OrderWithLines,
   PointRedemptionPreview, Product, ProductDetail, ProductImageResponse, ProductReviewsResponse, ProductVariant,
   PublicationStatus, PublicProduct, SearchEvent, SearchPageResult, SearchSuggestions, RecordSaleRequest, RegisterInput, ReviewEligibility, SelectDeliveryRequest,
-  SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, StockMovement, StockReceipt, StockReceiptWithLines,
+  SellerGrowth, SellerOrder, SellerPointsHistory, Shop, ShopReviewsResponse, PublicShopDetail, StockMovement, StockReceipt, StockReceiptWithLines,
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
@@ -77,6 +77,12 @@ export const authApi = {
   uploadAvatar: (file: UploadFile) => uploadFile<{ avatar_url: string }>('/auth/me/avatar', file),
 }
 export const marketplaceApi = {
+  /** Public shop page: same three endpoints as the web ShopDetailPage. */
+  shopDetail: (id: string) => get<PublicShopDetail>(`/marketplace/shops/${id}/detail`),
+  // The product list filtered by shop carries category and photo fields that
+  // /marketplace/shops/:id/products leaves out, so cards look the same everywhere.
+  shopProducts: async (id: string) => list<PublicProduct>(await get<unknown>(`/marketplace/products?shop_id=${encodeURIComponent(id)}&page=1&limit=24`)),
+  shopReviews: (id: string) => get<ShopReviewsResponse>(`/marketplace/shops/${id}/reviews?page=1&per_page=10`),
   products: async () => list<PublicProduct>(await get<unknown>('/marketplace/products?page=1&limit=20')),
   categories: async () => list<Category>(await get<unknown>('/marketplace/categories')),
   shops: async (query = '') => list<Shop>(await get<unknown>(`/marketplace/shops?page=1&limit=5${query ? `&q=${encodeURIComponent(query)}` : ''}`)),

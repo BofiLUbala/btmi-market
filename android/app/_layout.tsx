@@ -95,6 +95,7 @@ function RootNavigator() {
         <Stack.Screen name="profile-edit" options={{ header: storeHeader, title: t('editProfile.title') }} />
         <Stack.Screen name="addresses" options={{ header: storeHeader, title: t('addresses.title') }} />
         <Stack.Screen name="products/[id]" options={{ header: storeHeader, title: t('product.title') }} />
+        <Stack.Screen name="shops/[id]" options={{ header: storeHeader, title: t('shop.kicker') }} />
         <Stack.Screen name="categories/[slug]" options={{ header: storeHeader, title: t('categories.pageTitle') }} />
         <Stack.Screen name="checkout/delivery" options={{ header: checkoutHeader, title: t('checkout.delivery') }} />
         <Stack.Screen name="checkout/payment" options={{ header: checkoutHeader, title: t('checkout.payment') }} />

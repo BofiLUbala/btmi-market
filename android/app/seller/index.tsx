@@ -132,6 +132,11 @@ export default function SellerHome() {
   const sellerPoints = growth.data?.points?.current_points || 0
   const trustStatus = growth.data?.trust?.trust_status || 'NORMAL'
   const recentOrders = (orders.data ?? []).slice(0, 5)
+  // "Orders to prepare": the business order list (the API returns every
+  // order; it ignores `limit`) narrowed to what the seller still has to act
+  // on, in the active shop. The finance dashboard's `pending_orders` counts
+  // unpaid orders instead, which is a different figure.
+  const toPrepare = (orders.data ?? []).filter((o) => ['PENDING', 'ACCEPTED', 'PREPARING'].includes(o.status) && (!activeShop || o.shop_id === activeShop)).length
   const currentShop = (shops.data ?? []).find((shop) => shop.id === activeShop)
   const latestProducts = (products.data ?? []).filter((p) => p.publication_status !== 'ARCHIVED').slice(0, 3)
   const hasData = all.some((q) => q.data !== undefined)
@@ -175,7 +180,7 @@ export default function SellerHome() {
       </Pressable>
       <Pressable accessibilityRole="link" onPress={() => router.push('/seller/orders')} style={({ pressed }) => [styles.kpi, pressed && styles.kpiPressed]}>
         <Text style={styles.kpiLabel} numberOfLines={1}>{t('sellerUi.ordersToPrepare')}</Text>
-        <Text style={styles.kpiValue} numberOfLines={1}>{month.isError ? '—' : month.data ? String(month.data.pending_orders ?? 0) : '…'}</Text>
+        <Text style={styles.kpiValue} numberOfLines={1}>{orders.isError ? '—' : orders.data ? String(toPrepare) : '…'}</Text>
       </Pressable>
     </View>
 

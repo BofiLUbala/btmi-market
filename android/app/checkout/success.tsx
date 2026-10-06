@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { Image } from 'expo-image'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
+import { resolveMediaUrl } from '../../src/api/client'
 import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { CheckoutProgress } from '../../src/components/CheckoutProgress'
 import { CardHead, CheckoutCard, Eyebrow, SmallText } from '../../src/components/CheckoutUI'
@@ -87,7 +89,7 @@ export default function OrderSuccessScreen() {
             </View>
             {d.lines.map((line) => (
               <View key={line.id} style={styles.reviewLine}>
-                <View style={styles.thumb}><Ionicons name="bag-handle-outline" size={20} color={colors.green} /></View>
+                <View style={styles.thumb}>{line.image_url ? <Image source={resolveMediaUrl(line.image_url)} style={styles.thumbImg} contentFit="cover" /> : <Ionicons name="bag-handle-outline" size={20} color={colors.green} />}</View>
                 <View style={{ flex: 1, gap: 3 }}>
                   <Text style={styles.bold}>{line.product_name}</Text>
                   <Text style={styles.muted}>{t('checkoutSuccess.variantQty', { variant: line.variant_name || t('checkoutSuccess.standard'), count: line.quantity })}</Text>
@@ -157,7 +159,8 @@ const makeStyles = (c: Colors) =>
     price: { color: c.green, fontWeight: '800', fontSize: 14 },
     muted: { color: c.muted, fontSize: 12.5 },
     reviewLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border },
-    thumb: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center' },
+    thumb: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    thumbImg: { width: '100%', height: '100%' },
     iconRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     iconTile: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
     address: { color: c.ink, fontSize: 14, fontWeight: '600', lineHeight: 20 },

@@ -20,7 +20,7 @@ export function OrderRatingCard({ orderId }: { orderId: string }) {
   const queryClient = useQueryClient()
   const eligibility = useQuery({ queryKey: ['review-eligibility', orderId, 'service'], queryFn: () => buyerApi.reviewEligibility(orderId) })
   const reviewId = eligibility.data?.reason !== 'REVIEW_WITHDRAWN' ? eligibility.data?.existing_review_id : undefined
-  const mine = useQuery({ queryKey: ['buyer-reviews'], queryFn: buyerApi.reviews, enabled: Boolean(reviewId) })
+  const mine = useQuery({ queryKey: ['buyer', 'reviews'], queryFn: buyerApi.reviews, enabled: Boolean(reviewId) })
   const existing = mine.data?.reviews.find((r) => r.id === reviewId)
 
   const [rating, setRating] = useState(0)

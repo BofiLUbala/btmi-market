@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { router } from 'expo-router'
+import { useAuth } from '../src/store/auth'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { buyerApi } from '../src/api'
 import { sendOrderMessage } from '../src/api/communication'
@@ -35,7 +37,9 @@ export default function HelpScreen() {
   const [details, setDetails] = useState('')
   const [sent, setSent] = useState(false)
 
-  const orders = useQuery({ queryKey: ['buyer', 'orders', 'help'], queryFn: buyerApi.orders })
+  // A complaint goes to TBK through one of the buyer's orders, so it needs an account.
+  const signedIn = useAuth((state) => Boolean(state.user))
+  const orders = useQuery({ queryKey: ['buyer', 'orders', 'help'], queryFn: buyerApi.orders, enabled: signedIn })
   const recent = useMemo(() => (Array.isArray(orders.data) ? [...orders.data] : [])
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .slice(0, 10), [orders.data])
@@ -75,7 +79,12 @@ export default function HelpScreen() {
         <Text style={styles.cardTitle}>{t('help.reportTitle')}</Text>
 
         <Text style={styles.label}>{t('help.reportOrder')}</Text>
-        {orders.isError ? <Text style={styles.error}>{orders.error instanceof Error ? orders.error.message : t('common.error')}</Text>
+        {!signedIn ? (
+          <View style={{ gap: 8 }}>
+            <Text style={styles.muted}>{t('profile.signInPrompt')}</Text>
+            <Button title={t('common.signIn')} onPress={() => router.push('/auth/login')} />
+          </View>
+        ) : orders.isError ? <Text style={styles.error}>{orders.error instanceof Error ? orders.error.message : t('common.error')}</Text>
           : orders.isLoading ? <Text style={styles.muted}>{t('common.loading')}</Text>
           : recent.length === 0 ? <Text style={styles.muted}>{t('help.reportNoOrders')}</Text>
           : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>

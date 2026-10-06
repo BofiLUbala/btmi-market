@@ -11,6 +11,8 @@ import { radius, shadow, spacing, type Colors, fonts } from '../../../src/theme'
 import type { Product, PublicationStatus } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { Image } from 'expo-image'
+import { resolveMediaUrl } from '../../../src/api/client'
 
 // Port of web-app/src/pages/seller/products/SellerProductsPage.tsx. The list is
 // scoped to the ACTIVE shop exactly like web: it is built from that shop's
@@ -169,7 +171,7 @@ export default function SellerProductsScreen() {
         return <View key={product.id} style={styles.card}>
           {/* Article row: rounded thumb tile, name + SKU, status pill */}
           <View style={styles.itemRow}>
-            <View style={styles.thumb}><Ionicons name="cube-outline" size={24} color={colors.green} /></View>
+            <ProductThumb businessId={activeBusiness.id} productId={product.id} colors={colors} styles={styles} />
             <View style={styles.itemMain}>
               <Text style={styles.name} numberOfLines={2}>{product.name}</Text>
               <Text style={styles.mono} numberOfLines={1}>{product.sku ? t('seller.productDetail.skuInfo', { sku: product.sku }) : t('seller.productList.noSku')}</Text>
@@ -226,7 +228,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   errorText: { color: c.danger },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  thumb: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  thumb: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: c.greenSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  thumbImg: { width: '100%', height: '100%' },
   itemMain: { flex: 1, minWidth: 0, gap: 3, alignItems: 'flex-start' },
   badge: { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', paddingVertical: 4, paddingHorizontal: 9, borderRadius: 999, overflow: 'hidden' },
   badgeOnline: { backgroundColor: c.successSoft, color: c.success },
@@ -243,3 +246,13 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   danger: { backgroundColor: c.danger, borderRadius: radius.sm, paddingVertical: 8, paddingHorizontal: 14 },
   dangerText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
 })
+
+/** The product's primary photo (same query and cache entry as the dashboard's
+ *  article rows); the cube icon only while there is none. */
+function ProductThumb({ businessId, productId, colors, styles }: { businessId: string; productId: string; colors: Colors; styles: ReturnType<typeof makeStyles> }) {
+  const images = useQuery({ queryKey: ['seller', 'productImages', productId], queryFn: () => sellerApi.productImages(businessId, productId).catch(() => []) })
+  const main = (images.data ?? []).find((img) => img.is_primary) ?? images.data?.[0]
+  return <View style={styles.thumb}>
+    {main ? <Image source={resolveMediaUrl(main.url)} style={styles.thumbImg} contentFit="cover" /> : <Ionicons name="cube-outline" size={24} color={colors.green} />}
+  </View>
+}

@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native'
 import { router } from 'expo-router'
+import { useQueryClient } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import {
   fetchNotifications,
@@ -70,6 +71,9 @@ export default function NotificationsScreen() {
   const { t, lang } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
+  const queryClient = useQueryClient()
+  // The home bell and the account row read this count; refresh it after a read.
+  const refreshUnread = () => void queryClient.invalidateQueries({ queryKey: ['buyer', 'unread-counts'] })
 
   const [items, setItems] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,6 +111,7 @@ export default function NotificationsScreen() {
     setMarkingAll(true)
     try {
       await markAllNotificationsRead('BUYER')
+      refreshUnread()
       await load(true)
     } catch {
       // ignore
@@ -119,6 +124,7 @@ export default function NotificationsScreen() {
     if (!item.is_read) {
       try {
         await markNotificationRead(item.id)
+        refreshUnread()
         setItems((prev) =>
           prev.map((n) => (n.id === item.id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
         )
