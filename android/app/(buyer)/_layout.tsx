@@ -70,9 +70,9 @@ export default function BuyerTabs() {
         tabBarLabelStyle: withBrandFont({ fontSize: 10.5, fontWeight: '600', marginTop: 2 }),
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          height: 62 + insets.bottom,
-          paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom, 8),
+          height: 70 + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 6),
           borderTopColor: colors.border,
           backgroundColor: colors.white,
           ...shadow.card,

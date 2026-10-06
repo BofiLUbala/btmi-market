@@ -1,4 +1,5 @@
-package main
+// Package tokenlib holds helpers shared by the local token dev tools.
+package tokenlib
 
 import (
 	"fmt"
@@ -6,7 +7,8 @@ import (
 	"strings"
 )
 
-func loadSecret() string {
+// LoadSecret returns JWT_SECRET from the environment, else from ./.env.
+func LoadSecret() string {
 	if env := os.Getenv("JWT_SECRET"); env != "" {
 		return env
 	}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -22,6 +22,7 @@ import { categoryImage } from '../../src/lib/categoryVisuals'
 import { canBuy } from '../../src/types'
 import type { PublicProduct } from '../../src/types'
 import { BrandLogo } from '../../src/components/BrandLogo'
+import { CategoryFeed, Spotlights, WIDE_BREAKPOINT } from '../../src/components/WideHome'
 
 function ProductSkeleton() {
   const colors = useColors()
@@ -61,6 +62,26 @@ export default function HomeScreen() {
   const deliveryPlace = commune ? [commune, profile.data?.city?.trim()].filter(Boolean).join(', ') : ''
 
   const visualMode = visualResults !== null || visualLoading || visualError
+  // Large screens (web, tablets): three rotating spotlights instead of the
+  // single blue strip, and an alternating category feed instead of the grid.
+  const { width } = useWindowDimensions()
+  const wide = width >= WIDE_BREAKPOINT
+  const feedColumns = width >= 1180 ? 4 : 3
+  // Category tiles: as many equal columns as the width allows (~110px each).
+  const chipColumns = Math.max(6, Math.floor((Math.min(width, 1480) - 32) / 110))
+  const feedMode = wide && !visualMode && term.length < 2
+  const newest = useQuery({ queryKey: ['marketplace', 'feed', 'newest'], queryFn: () => marketplaceApi.feed('newest'), enabled: wide })
+  // Spotlights are picked by the backend; ask again exactly when it rotates.
+  const spotlights = useQuery({
+    queryKey: ['marketplace', 'spotlights'],
+    queryFn: marketplaceApi.spotlights,
+    enabled: wide,
+    refetchInterval: (query) => {
+      const next = query.state.data?.next_rotation_at ? Date.parse(query.state.data.next_rotation_at) : NaN
+      return Number.isFinite(next) ? Math.max(1000, next - Date.now() + 300) : 30_000
+    },
+  })
+  const ranked = useQuery({ queryKey: ['marketplace', 'feed', 'relevance'], queryFn: () => marketplaceApi.feed('relevance'), enabled: wide })
   const data = visualMode ? (visualResults ?? []) : term.length >= 2 ? (searchQuery.data ?? []) : (products.data ?? [])
   const loading = visualMode ? visualLoading : products.isLoading || searchQuery.isFetching
   const failed = visualMode ? visualError : products.isError || searchQuery.isError
@@ -153,6 +174,7 @@ export default function HomeScreen() {
 
   const header = <>
     <View style={styles.sectionBlock}>
+      {wide ? <Spotlights data={spotlights.data} /> : (
       <View style={styles.hero}>
         <View style={styles.heroGlow} pointerEvents="none"/>
         <View style={styles.heroGlowSmall} pointerEvents="none"/>
@@ -165,7 +187,8 @@ export default function HomeScreen() {
         </View>
         {heroImage ? <Image source={heroImage} style={styles.heroImage} contentFit="cover"/> : null}
       </View>
-      {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><View style={[styles.categoryImage, index === 0 && styles.categoryImageFirst]}><Ionicons name={categoryIcon(category.slug, category.name)} size={22} color={index === 0 ? colors.onNavy : colors.green}/></View><Text style={styles.categoryText} numberOfLines={1}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</ScrollView>}
+      )}
+      {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : wide ? <View style={styles.chipsWide}>{categories.data?.map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={[styles.categoryChipWide, { width: `${100 / chipColumns}%` }]}><View style={[styles.categoryImage, index === 0 && styles.categoryImageFirst]}><Ionicons name={categoryIcon(category.slug, category.name)} size={22} color={index === 0 ? colors.onNavy : colors.green}/></View><Text style={styles.categoryText} numberOfLines={1}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><View style={[styles.categoryImage, index === 0 && styles.categoryImageFirst]}><Ionicons name={categoryIcon(category.slug, category.name)} size={22} color={index === 0 ? colors.onNavy : colors.green}/></View><Text style={styles.categoryText} numberOfLines={1}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</ScrollView>}
     </View>
 
     <View style={styles.productsHead}>
@@ -178,14 +201,35 @@ export default function HomeScreen() {
     </View>
   </>
 
+  if (feedMode) {
+    const feedLoading = ranked.isLoading || newest.isLoading
+    const feedFailed = ranked.isError && newest.isError
+    // Same listings whichever query answered; ranking order first.
+    const feedProducts = [...(ranked.data ?? []), ...(newest.data ?? [])]
+    return <SafeAreaView style={styles.safe} edges={['top']}>
+      {stickyHeader}
+      <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+        {header}
+        {feedLoading ? <View style={styles.compactState}><ActivityIndicator color={colors.green}/><Text style={styles.stateText}>{t('home.preparingSelection')}</Text></View>
+          : feedFailed ? <View style={styles.compactState}><Text style={styles.stateTitle}>{t('home.connectionFailed')}</Text><Text style={styles.stateText}>{t('home.connectionFailedBody')}</Text><Button title={t('common.retry')} onPress={() => { void ranked.refetch(); void newest.refetch() }}/></View>
+          : <CategoryFeed products={feedProducts} categories={categories.data ?? []} columns={feedColumns}/>}
+      </ScrollView>
+    </SafeAreaView>
+  }
+
+  const gridColumns = wide ? 4 : 2
   return <SafeAreaView style={styles.safe} edges={['top']}>
     {stickyHeader}
-    <FlatList data={failed || loading ? [] : data} numColumns={2} keyExtractor={(item) => item.id} columnWrapperStyle={styles.productRow} contentContainerStyle={styles.list} ListHeaderComponent={header} keyboardShouldPersistTaps="handled" renderItem={({item}) => <ProductCard product={item} onPress={() => router.push(`/products/${item.id}`)}/>} ListEmptyComponent={loading ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="scan-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? t('home.analyzingPhoto') : t('common.loading')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualAnalyzingHint') : t('home.preparingSelection')}</Text><ActivityIndicator color={colors.green}/></View> : failed ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="cloud-offline-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? t('home.imageNotAnalyzed') : t('home.connectionFailed')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualFailedBody') : t('home.connectionFailedBody')}</Text><Button title={visualMode ? t('home.chooseAnotherImage') : t('common.retry')} onPress={visualMode ? chooseProductImage : () => term ? searchQuery.refetch() : products.refetch()}/></View> : <View style={styles.compactState}><Ionicons name={visualMode ? 'images-outline' : 'search-outline'} size={30} color={colors.muted}/><Text style={styles.stateTitle}>{t('home.noProductsFound')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualNoProductsBody') : t('home.searchNoProductsBody')}</Text></View>}/>
+    <FlatList key={`grid-${gridColumns}`} data={failed || loading ? [] : data} numColumns={gridColumns} keyExtractor={(item) => item.id} columnWrapperStyle={styles.productRow} contentContainerStyle={styles.list} ListHeaderComponent={header} keyboardShouldPersistTaps="handled" renderItem={({item}) => <ProductCard product={item} style={wide ? styles.wideCard : undefined} onPress={() => router.push(`/products/${item.id}`)}/>} ListEmptyComponent={loading ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="scan-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? t('home.analyzingPhoto') : t('common.loading')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualAnalyzingHint') : t('home.preparingSelection')}</Text><ActivityIndicator color={colors.green}/></View> : failed ? <View style={styles.compactState}><View style={styles.stateIcon}><Ionicons name="cloud-offline-outline" size={27} color={colors.green}/></View><Text style={styles.stateTitle}>{visualMode ? t('home.imageNotAnalyzed') : t('home.connectionFailed')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualFailedBody') : t('home.connectionFailedBody')}</Text><Button title={visualMode ? t('home.chooseAnotherImage') : t('common.retry')} onPress={visualMode ? chooseProductImage : () => term ? searchQuery.refetch() : products.refetch()}/></View> : <View style={styles.compactState}><Ionicons name={visualMode ? 'images-outline' : 'search-outline'} size={30} color={colors.muted}/><Text style={styles.stateTitle}>{t('home.noProductsFound')}</Text><Text style={styles.stateText}>{visualMode ? t('home.visualNoProductsBody') : t('home.searchNoProductsBody')}</Text></View>}/>
   </SafeAreaView>
 }
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream }, list: { paddingBottom: 28 }, flex: { flex: 1, minWidth: 0 },
+  safe: { flex: 1, backgroundColor: colors.cream },
+  wideCard: { maxWidth: '24%' },
+  // Wide category row: tiles share the full width and wrap when many.
+  chipsWide: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, rowGap: 14, width: '100%', maxWidth: 1480, alignSelf: 'center' },
+  categoryChipWide: { alignItems: 'center', gap: 7, paddingHorizontal: 4 }, list: { paddingBottom: 28 }, flex: { flex: 1, minWidth: 0 },
   pressed: { opacity: 0.88 },
   stickyHeader: { backgroundColor: colors.white, paddingHorizontal: spacing.md, paddingTop: 10, paddingBottom: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

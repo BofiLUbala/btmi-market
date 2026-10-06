@@ -15,7 +15,6 @@ import (
 	"github.com/btmi-ai-market/backend/internal/email"
 	adminhandlers "github.com/btmi-ai-market/backend/internal/handlers/admin"
 	"github.com/btmi-ai-market/backend/internal/handlers/auth"
-	"github.com/btmi-ai-market/backend/internal/whatsapp"
 	"github.com/btmi-ai-market/backend/internal/handlers/businesses"
 	"github.com/btmi-ai-market/backend/internal/handlers/buyer"
 	"github.com/btmi-ai-market/backend/internal/handlers/cash"
@@ -28,23 +27,24 @@ import (
 	"github.com/btmi-ai-market/backend/internal/handlers/growth"
 	"github.com/btmi-ai-market/backend/internal/handlers/inventory"
 	"github.com/btmi-ai-market/backend/internal/handlers/locations"
-	"github.com/btmi-ai-market/backend/internal/maps"
 	"github.com/btmi-ai-market/backend/internal/handlers/marketplace"
 	notificationhandlers "github.com/btmi-ai-market/backend/internal/handlers/notifications"
 	"github.com/btmi-ai-market/backend/internal/handlers/orders"
-	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
 	presencehandlers "github.com/btmi-ai-market/backend/internal/handlers/presence"
+	qrhandlers "github.com/btmi-ai-market/backend/internal/handlers/qr"
 	sellerhandlers "github.com/btmi-ai-market/backend/internal/handlers/seller"
 	"github.com/btmi-ai-market/backend/internal/handlers/shops"
 	trackinghandlers "github.com/btmi-ai-market/backend/internal/handlers/tracking"
+	"github.com/btmi-ai-market/backend/internal/maps"
 	"github.com/btmi-ai-market/backend/internal/middleware"
-	"github.com/btmi-ai-market/backend/internal/realtime"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/notify"
 	"github.com/btmi-ai-market/backend/internal/push"
+	"github.com/btmi-ai-market/backend/internal/realtime"
 	redislib "github.com/btmi-ai-market/backend/internal/redis"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
+	"github.com/btmi-ai-market/backend/internal/whatsapp"
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
@@ -261,6 +261,10 @@ func main() {
 	cashHandler := cash.NewHandler(cashService)
 	buyerHandler := buyer.NewHandler(buyerProfileService, pointService, purchaseConfirmationService)
 	marketplaceHandler := marketplace.NewHandler(marketplaceService, categoryRankingService, similarityService, pointService, buyerProfileService, categoryService)
+	// Home spotlights: pools rebuilt in the background from the seller ranking.
+	spotlightService := service.NewSpotlightService(marketplaceRepo, categoryRankingService)
+	go spotlightService.Run(context.Background())
+	marketplaceHandler.SetSpotlights(spotlightService)
 	marketplaceReviewHandler := marketplace.NewReviewHandler(reviewService)
 	categoryHandler := categories.NewHandler(categoryService)
 	locationHandler := locations.NewHandler(locationRepo)
@@ -724,6 +728,7 @@ func main() {
 			marketplaceGroup.GET("/shops/:shop_id", marketplaceHandler.GetShop)
 			marketplaceGroup.GET("/shops/:shop_id/detail", marketplaceHandler.GetShopDetail)
 			marketplaceGroup.GET("/shops/:shop_id/products", marketplaceHandler.ListShopProducts)
+			marketplaceGroup.GET("/spotlights", marketplaceHandler.GetSpotlights)
 			marketplaceGroup.GET("/products", marketplaceHandler.ListProducts)
 			marketplaceGroup.GET("/products/:product_id", marketplaceHandler.GetProduct)
 			marketplaceGroup.GET("/products/:product_id/detail", marketplaceHandler.GetProductDetail)

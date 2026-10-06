@@ -1,37 +1,17 @@
-﻿package main
+package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/btmi-ai-market/backend/devtools/tokenlib"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func loadSecret() string {
-	f, err := os.Open(".env")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "open .env:", err)
-		os.Exit(1)
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if strings.HasPrefix(line, "JWT_SECRET=") {
-			return strings.Trim(line[len("JWT_SECRET="):], `"'`)
-		}
-	}
-	fmt.Fprintln(os.Stderr, "JWT_SECRET not found")
-	os.Exit(1)
-	return ""
-}
-
 func main() {
-	secret := []byte(loadSecret())
+	secret := []byte(tokenlib.LoadSecret())
 	mint := func(sub, email, typ string) string {
 		claims := jwt.MapClaims{
 			"sub":          sub,

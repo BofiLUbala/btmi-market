@@ -112,11 +112,13 @@ function RootNavigator() {
         <Stack.Screen name="reviews/index" options={{ header: storeHeader, title: t('profile.myReviews') }} />
         <Stack.Screen name="reviews/write" options={{ header: storeHeader, title: t('review.publish') }} />
         <Stack.Screen name="seller" options={{ headerShown: false }} />
-        <Stack.Screen name="courier/index" options={{ title: t('courier.spaceTitle') }} />
+        <Stack.Screen name="courier/(tabs)" options={{ headerShown: false, title: t('courier.spaceTitle') }} />
+        <Stack.Screen name="courier/assistance" options={{ headerShown: false }} />
         <Stack.Screen name="courier/[id]" options={{ title: t('courier.missionTitle') }} />
         <Stack.Screen name="courier/history" options={{ title: t('courier.history') }} />
         <Stack.Screen name="courier/delivered" options={{ title: t('courier.delivered.title') }} />
         <Stack.Screen name="courier/scan" options={{ headerShown: false }} />
+        <Stack.Screen name="courier/itinerary" options={{ headerShown: false }} />
       </Stack>
     </>
   )

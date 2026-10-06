@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Alert, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { router } from 'expo-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { courierApi } from '../api'
@@ -20,28 +20,35 @@ const FAILABLE_STATUSES = ['PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED']
 const FAIL_REASON_KEYS = ['courier.failReason.buyerUnreachable', 'courier.failReason.buyerAbsent', 'courier.failReason.wrongAddress', 'courier.failReason.buyerRefused', 'courier.failReason.packageDamaged'] as const
 const FAIL_REASON_MAX = 100
 
-/** Next mission step, offered only in the delivery stage where the backend accepts it. */
-export function MissionActions({ mission: m, compact = false }: { mission: CourierMission; compact?: boolean }) {
+type MissionAction = 'accept' | 'reject' | 'pickup' | 'start' | 'arrive' | 'fail'
+type ActionInput = { reason?: string; failReason?: string; failNotes?: string }
+
+/** Statuses where the parcel is at the buyer's door: the handover card takes over. */
+export const HANDOVER_STATUSES = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
+
+/** Pickup is open once the courier accepted and the seller has the parcel ready. */
+export function canScanPickupOf(m: CourierMission): boolean {
+  return ['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY', 'READY_FOR_PICKUP'].includes(m.status)
+}
+
+/**
+ * The one mutation every mission step goes through, shared by the full action
+ * list and the single primary button (itinerary, sticky footer): same
+ * endpoints, same GPS rules, same refetches.
+ */
+export function useMissionAction(m: CourierMission, onDone?: () => void) {
   const { t } = useI18n()
-  const colors = useColors()
-  const styles = useMemo(() => makeStyles(colors), [colors])
   const queryClient = useQueryClient()
   const [error, setError] = useState('')
-  const [rejecting, setRejecting] = useState(false)
-  const [reason, setReason] = useState('')
-  const [failing, setFailing] = useState(false)
-  const [failReason, setFailReason] = useState('')
-  const [failNotes, setFailNotes] = useState('')
-
   const act = useMutation({
-    mutationFn: (action: 'accept' | 'reject' | 'pickup' | 'start' | 'arrive' | 'fail') =>
+    mutationFn: ({ action, input = {} }: { action: MissionAction; input?: ActionInput }) =>
       action === 'accept' ? courierApi.acceptMission(m.order_id)
-        : action === 'reject' ? courierApi.rejectMission(m.order_id, reason.trim())
+        : action === 'reject' ? courierApi.rejectMission(m.order_id, (input.reason ?? '').trim())
           : action === 'pickup' ? courierApi.confirmPickup(m.order_id)
           : action === 'start' ? courierApi.startDelivery(m.order_id)
-            : action === 'fail' ? courierApi.failDelivery(m.order_id, failReason.trim(), failNotes.trim())
+            : action === 'fail' ? courierApi.failDelivery(m.order_id, (input.failReason ?? '').trim(), (input.failNotes ?? '').trim())
               : courierApi.arrive(m.order_id),
-    onSuccess: (_data, action) => {
+    onSuccess: (_data, { action }) => {
       // GPS follows the server's answer, never the other way round: sharing
       // starts once the acceptance is confirmed (the buyer follows the courier
       // to the shop) and stops on arrival. A refused permission never undoes
@@ -49,44 +56,132 @@ export function MissionActions({ mission: m, compact = false }: { mission: Couri
       if (action === 'accept') void startCourierTrackingIfIdle(m.order_id)
       if (action === 'pickup' || action === 'start') void startCourierTracking(m.order_id)
       if (action === 'arrive' || action === 'fail') void stopCourierTracking()
-      setError(''); setRejecting(false); setReason(''); setFailing(false); setFailReason(''); setFailNotes('')
+      setError('')
+      onDone?.()
       invalidateCourierMission(queryClient, m.order_id)
       void queryClient.invalidateQueries({ queryKey: ['courier', 'history'] })
       void queryClient.invalidateQueries({ queryKey: ['courier', 'profile'] })
+      void queryClient.invalidateQueries({ queryKey: ['courier', 'courierLocation', m.order_id] })
     },
     onError: (e) => { setError(e instanceof ApiError && e.message ? e.message : t('common.actionImpossible')); invalidateCourierMission(queryClient, m.order_id) },
   })
+  const run = (action: MissionAction, input?: ActionInput) => act.mutate({ action, input })
+  return { run, pending: act.isPending, error }
+}
+
+export type PrimaryStep = 'accept' | 'pickup' | 'wait' | 'start' | 'arrive' | 'handover' | null
+
+/** The mission's one next step, in MissionActions' own order; null when there is none. */
+export function primaryStepOf(m: CourierMission, withHandover = false): PrimaryStep {
+  const status = m.delivery_status
+  if (status === 'COURIER_ASSIGNED') return 'accept'
+  if (canScanPickupOf(m)) return 'pickup'
+  if (['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(status)) return 'wait'
+  if (status === 'PICKED_UP') return 'start'
+  if (status === 'IN_TRANSIT') return 'arrive'
+  if (withHandover && HANDOVER_STATUSES.includes(status) && status !== 'RECEIVED') return 'handover'
+  return null
+}
+
+/** "Je suis arrive" ends the buyer's live map: always asked first. */
+function confirmArrival(t: ReturnType<typeof useI18n>['t'], run: () => void) {
+  Alert.alert(t('courier.arrived'), t('courier.arrivedConfirm'), [
+    { text: t('common.cancel'), style: 'cancel' },
+    { text: t('courier.arrived'), onPress: run },
+  ])
+}
+
+/**
+ * The single next step of the mission, as one big button: the same transitions
+ * as MissionActions, nothing more. Refusing, failing and the delivery plan stay
+ * on the mission page. `onHandover` is offered at the door (the handover card
+ * lives on the mission page); without it nothing is shown there.
+ */
+export function MissionPrimaryAction({ mission: m, onHandover, onPlan, style }: {
+  mission: CourierMission
+  onHandover?: () => void
+  /** Where to set the delivery slot when leaving is blocked on it. */
+  onPlan?: () => void
+  style?: StyleProp<ViewStyle>
+}) {
+  const { t } = useI18n()
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
+  const { run, pending, error } = useMissionAction(m)
+  const step = primaryStepOf(m, !!onHandover)
+
+  let button: ReactNode = null
+  let note: string | null = null
+  if (step === 'accept') {
+    button = <Button title={t('courier.accept')} loading={pending} onPress={() => run('accept')} style={style} />
+  } else if (step === 'pickup') {
+    button = <Button title={t('courierMap.pickedUp')} loading={pending} onPress={() => run('pickup')} style={style} />
+  } else if (step === 'wait') {
+    note = t('courier.waitSeller')
+  } else if (step === 'start') {
+    button = <Button title={t('courier.startDelivery')} loading={pending} disabled={!m.expected_delivery_date} onPress={() => run('start')} style={style} />
+    if (!m.expected_delivery_date) note = t('courierPlan.required')
+  } else if (step === 'arrive') {
+    button = <Button title={t('courier.arrived')} loading={pending} onPress={() => confirmArrival(t, () => run('arrive'))} style={style} />
+  } else if (step === 'handover' && onHandover) {
+    button = <Button title={t('courierMap.handover')} onPress={onHandover} style={style} />
+  }
+  if (!button && !note && !error) return null
+  return (
+    <View style={styles.primaryWrap}>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {note ? (
+        onPlan && step === 'start'
+          ? <Pressable accessibilityRole="link" onPress={onPlan}><Text style={styles.link}>{note}</Text></Pressable>
+          : <Text style={styles.muted}>{note}</Text>
+      ) : null}
+      {button}
+    </View>
+  )
+}
+
+/**
+ * Next mission step, offered only in the delivery stage where the backend accepts it.
+ * hidePrimary: the screen already shows MissionPrimaryAction (sticky footer), so
+ * only the secondary steps (refuse, scan, delivery plan, failure) are listed here.
+ */
+export function MissionActions({ mission: m, compact = false, hidePrimary = false }: { mission: CourierMission; compact?: boolean; hidePrimary?: boolean }) {
+  const { t } = useI18n()
+  const colors = useColors()
+  const styles = useMemo(() => makeStyles(colors), [colors])
+  const [rejecting, setRejecting] = useState(false)
+  const [reason, setReason] = useState('')
+  const [failing, setFailing] = useState(false)
+  const [failReason, setFailReason] = useState('')
+  const [failNotes, setFailNotes] = useState('')
+  const { run, pending, error } = useMissionAction(m, () => {
+    setRejecting(false); setReason(''); setFailing(false); setFailReason(''); setFailNotes('')
+  })
+  const act = { isPending: pending, mutate: (action: MissionAction) => run(action, { reason, failReason, failNotes }) }
 
   const status = m.delivery_status
-  const canScanPickup = ['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(status) && ['READY', 'READY_FOR_PICKUP'].includes(m.status)
+  const canScanPickup = canScanPickupOf(m)
 
   return (
     <View style={styles.actions}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {status === 'COURIER_ASSIGNED' ? <>
-        <Button title={t('courier.accept')} loading={act.isPending} onPress={() => act.mutate('accept')} />
+        {!hidePrimary ? <Button title={t('courier.accept')} loading={act.isPending} onPress={() => act.mutate('accept')} /> : null}
         {rejecting ? <>
           <Field label={t('courier.rejectReason')} value={reason} onChangeText={setReason} />
           <Button variant="outline" title={t('courier.confirmReject')} disabled={!reason.trim()} loading={act.isPending} onPress={() => act.mutate('reject')} />
         </> : <Button variant="outline" title={t('courier.reject')} onPress={() => setRejecting(true)} />}
       </> : null}
-      {['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(status) && !canScanPickup ? <Text style={styles.muted}>{t('courier.waitSeller')}</Text> : null}
+      {['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(status) && !canScanPickup && !hidePrimary ? <Text style={styles.muted}>{t('courier.waitSeller')}</Text> : null}
       {canScanPickup ? <>
-        <Button title={t('courier.confirmPickup')} loading={act.isPending} onPress={() => act.mutate('pickup')} />
+        {!hidePrimary ? <Button title={t('courier.confirmPickup')} loading={act.isPending} onPress={() => act.mutate('pickup')} /> : null}
         <Button variant="outline" title={t('courier.scanPickup')} onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'PICKUP', order_id: m.order_id } })} />
       </> : null}
       <CourierPlanPanel mission={m} />
       {['IN_TRANSIT', 'COURIER_ARRIVED'].includes(status) ? <CourierTrackingBanner orderId={m.order_id} /> : null}
-      {status === 'PICKED_UP' ? <Button title={t('courier.startDelivery')} loading={act.isPending} disabled={!m.expected_delivery_date} onPress={() => act.mutate('start')} /> : null}
-      {status === 'IN_TRANSIT' ? (
-        <Button
-          title={t('courier.arrived')}
-          loading={act.isPending}
-          onPress={() => Alert.alert(t('courier.arrived'), t('courier.arrivedConfirm'), [
-            { text: t('common.cancel'), style: 'cancel' },
-            { text: t('courier.arrived'), onPress: () => act.mutate('arrive') },
-          ])}
-        />
+      {status === 'PICKED_UP' && !hidePrimary ? <Button title={t('courier.startDelivery')} loading={act.isPending} disabled={!m.expected_delivery_date} onPress={() => act.mutate('start')} /> : null}
+      {status === 'IN_TRANSIT' && !hidePrimary ? (
+        <Button title={t('courier.arrived')} loading={act.isPending} onPress={() => confirmArrival(t, () => act.mutate('arrive'))} />
       ) : null}
       {FAILABLE_STATUSES.includes(status) ? (failing ? (
         <View style={styles.failBox}>
@@ -126,6 +221,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   muted: { color: c.muted },
   error: { color: c.danger, fontWeight: '700' },
   actions: { gap: spacing.sm, marginTop: spacing.sm },
+  primaryWrap: { gap: spacing.xs },
+  link: { color: c.green, fontWeight: '700', textDecorationLine: 'underline' },
   failBox: { gap: spacing.sm, borderWidth: 1, borderColor: c.danger, borderRadius: radius.sm, padding: spacing.sm },
   failTitle: { color: c.danger, fontWeight: '900' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },

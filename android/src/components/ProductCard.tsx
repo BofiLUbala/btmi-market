@@ -38,8 +38,10 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
   const lowStock = product.availability === 'LOW_STOCK'
   const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(Math.max(0, 5 - Math.round(rating)))
 
+  // The card navigates to the product, so it is a link: as a button it would
+  // wrap the favourite button, an invalid nested <button> on the web.
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && staticStyles.pressed]} accessibilityRole="button">
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && staticStyles.pressed]} accessibilityRole="link">
       <View style={styles.media}>
         <Image
           source={image ?? categoryImage(product.category_slug, product.category_name)}

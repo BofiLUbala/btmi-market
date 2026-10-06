@@ -11,16 +11,24 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// HomeFeedSource is what the feed needs from storage (implemented by
+// repository.HomeRepository; tests pass an in-memory fake).
+type HomeFeedSource interface {
+	GetHomeFeed() (map[string][]*models.PublicProductResponse, error)
+}
+
+var _ HomeFeedSource = (*repository.HomeRepository)(nil)
+
 // HomeFeedService orchestrates the homepage feed with Redis caching.
 // Strategy: Try Redis → Fallback to PostgreSQL → Cache in Redis
 type HomeFeedService struct {
-	homeRepo    *repository.HomeRepository
+	homeRepo    HomeFeedSource
 	redisClient *redis.Client
 	cacheTTL    time.Duration
 }
 
 func NewHomeFeedService(
-	homeRepo *repository.HomeRepository,
+	homeRepo HomeFeedSource,
 	redisClient *redis.Client,
 ) *HomeFeedService {
 	return &HomeFeedService{

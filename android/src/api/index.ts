@@ -77,6 +77,18 @@ export const authApi = {
   uploadAvatar: (file: UploadFile) => uploadFile<{ avatar_url: string }>('/auth/me/avatar', file),
 }
 export const marketplaceApi = {
+  /** Home spotlights chosen by the backend (newest, running offer, best seller
+   *  performance), one product each; refetch at `next_rotation_at`. */
+  spotlights: () => get<{ new: PublicProduct | null; offer: PublicProduct | null; best: PublicProduct | null; rotate_seconds: number; next_rotation_at: string }>('/marketplace/spotlights'),
+  /** Large-screen home feed: up to 100 listings (the API caps a page at 50)
+   *  in the given order — `newest`, or `relevance` (seller-ranking boost first). */
+  feed: async (sort: 'newest' | 'relevance') => {
+    const page = async (n: number) => (await get<{ products?: PublicProduct[]; pagination?: { total?: number } }>(`/marketplace/products?sort=${sort}&page=${n}&limit=50`))
+    const first = await page(1)
+    const items = first?.products ?? []
+    if ((first?.pagination?.total ?? 0) > 50) items.push(...((await page(2))?.products ?? []))
+    return items
+  },
   /** Public shop page: same three endpoints as the web ShopDetailPage. */
   shopDetail: (id: string) => get<PublicShopDetail>(`/marketplace/shops/${id}/detail`),
   // The product list filtered by shop carries category and photo fields that

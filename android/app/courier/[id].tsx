@@ -1,28 +1,27 @@
-import { Suspense, lazy, useMemo, useState } from 'react'
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { router, useLocalSearchParams } from 'expo-router'
+import { Suspense, useMemo, useState } from 'react'
+import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { router, Stack, useLocalSearchParams } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { courierApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
-import { Button, Card, ErrorState, Field, Loading, SectionTitle } from '../../src/components/ui'
+import { Button, Card, ErrorState, Field, Loading } from '../../src/components/ui'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
-import { radius, spacing, type Colors } from '../../src/theme'
+import { fonts, radius, shadow, spacing, type Colors } from '../../src/theme'
 import { formatMoney } from '../../src/lib/money'
 import { CASH_ON_DELIVERY, MOBILE_PAY_NOW } from '../../src/lib/paymentStatus'
 import { idempotencyKey } from '../../src/lib/idempotency'
 import { courierStatusLabel, invalidateCourierMission, productVerificationBody } from '../../src/lib/courier'
 import type { ConfirmCashResponse, HandoverState, HandoverVerificationResult } from '../../src/types'
-import { MissionActions } from '../../src/components/CourierMissionActions'
+import { HANDOVER_STATUSES, MissionActions, MissionPrimaryAction, primaryStepOf } from '../../src/components/CourierMissionActions'
+import { CourierOrderSummary, CourierTopBar } from '../../src/components/CourierOrderHeader'
+import { LazyLiveCourierMap } from '../../src/components/LazyLiveCourierMap'
+import type { ChatParty } from '../../src/api/communication'
 import { lineLabel } from '../../src/lib/lineLabel'
 import { OrderChatFeed } from '../../src/components/OrderChatFeed'
 
-// MapLibre is native: loaded only on this screen (Expo Go lacks it).
-const LiveCourierMap = lazy(() => import('../../src/components/LiveCourierMap').then((m) => ({ default: m.LiveCourierMap })).catch(() => ({ default: (() => null) as never })))
-const CourierRoutePlanner = lazy(() => import('../../src/components/CourierRoutePlanner').then((m) => ({ default: m.CourierRoutePlanner })).catch(() => ({ default: (() => null) as never })))
-/** Delivery states in which the courier can plan or change the route. */
-const ROUTE_PLANNING = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT']
-const HANDOVER_STATUSES = ['COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED']
 const PROVIDER_LABELS: Record<string, string> = { MPESA: 'M-Pesa', AIRTEL_MONEY: 'Airtel Money', ORANGE_MONEY: 'Orange Money' }
 const VERDICT_KEYS: Record<string, TranslationKey> = {
   VALID: 'courier.verdict.VALID',
@@ -33,14 +32,17 @@ const VERDICT_KEYS: Record<string, TranslationKey> = {
   WRONG_SHOP: 'courier.verdict.WRONG_SHOP',
   INVALID_QR: 'courier.verdict.INVALID_QR',
 }
+/** How far the blue bar runs down behind the order card. */
+const OVERLAP = 44
 
+/** "Détail de la commande": everything about one mission, its next step pinned at the bottom. */
 export default function CourierMissionScreen() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
   const { t } = useI18n()
+  const insets = useSafeAreaInsets()
   const { id } = useLocalSearchParams<{ id: string }>()
-  const [showChat, setShowChat] = useState(false)
-  const [routeRefresh, setRouteRefresh] = useState(0)
+  const [chat, setChat] = useState<ChatParty | 'ALL' | null>(null)
   // A finger on the map moves the map, not the page.
   const [mapTouched, setMapTouched] = useState(false)
 
@@ -50,65 +52,145 @@ export default function CourierMissionScreen() {
     enabled: Boolean(id),
     refetchInterval: 15_000,
   })
+  // The order's lines (names, photos, quantities, prices) as the handover sees them.
+  const handover = useQuery({
+    queryKey: ['courier', 'handover', id],
+    queryFn: () => courierApi.handover(id!),
+    enabled: Boolean(id),
+    retry: false,
+  })
 
-  if (mission.isLoading) return <Loading label={t('common.loading')} />
-  if (mission.isError || !mission.data) return <ErrorState message={t('courier.missionsFailed')} retry={() => void mission.refetch()} />
+  const header = (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <CourierTopBar title={t('courierMap.detailTitle')} />
+    </>
+  )
+  if (mission.isLoading) return <View style={styles.screen}>{header}<Loading label={t('common.loading')} /></View>
+  if (mission.isError || !mission.data) return <View style={styles.screen}>{header}<ErrorState message={t('courier.missionsFailed')} retry={() => void mission.refetch()} /></View>
 
   const m = mission.data
   const atDoor = HANDOVER_STATUSES.includes(m.delivery_status)
+  const openMap = () => router.push({ pathname: '/courier/itinerary', params: { id: m.order_id } })
+  const call = () => { if (m.delivery_phone) void Linking.openURL(`tel:${m.delivery_phone.replace(/\s+/g, '')}`) }
+  const lines = handover.data?.lines ?? []
+  const hasPrimary = primaryStepOf(m) !== null
 
-  if (showChat) {
+  if (chat) {
     return (
       <View style={StyleSheet.absoluteFill}>
-        <OrderChatFeed orderId={m.order_id} role="COURIER" onClose={() => setShowChat(false)} />
+        <Stack.Screen options={{ headerShown: false }} />
+        <OrderChatFeed orderId={m.order_id} role="COURIER" initialParty={chat === 'ALL' ? undefined : chat} onClose={() => setChat(null)} />
       </View>
     )
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.page}
-      scrollEnabled={!mapTouched}
-      keyboardShouldPersistTaps="handled"
-      refreshControl={<RefreshControl refreshing={mission.isRefetching} onRefresh={() => void mission.refetch()} />}
-    >
-      <SectionTitle title={`#${m.order_number}`} />
-      <Card>
-        <Text style={styles.status}>{courierStatusLabel(t, m.delivery_status)}</Text>
-        <Text style={styles.muted}>{t('courier.pickupAt')} : {m.shop_name}{m.shop_address ? ` · ${m.shop_address}` : ''}</Text>
-        <Text style={styles.muted}>{t('courier.deliverTo')} : {m.delivery_contact}{m.delivery_address ? ` · ${m.delivery_address}` : ''}</Text>
-        {m.delivery_phone ? <Text style={styles.muted}>{t('editProfile.phone')} : {m.delivery_phone}</Text> : null}
-        {m.delivery_notes ? <Text style={styles.muted}>{t('checkout.instructions')} : {m.delivery_notes}</Text> : null}
-        {m.total_amount != null ? (
-          <View style={{ gap: 2 }}>
-            <Text style={styles.muted}>{t('courier.amount.products' as TranslationKey, { amount: formatMoney(m.products_total ?? 0, m.currency) })}</Text>
-            <Text style={styles.muted}>{t('courier.amount.delivery' as TranslationKey, { amount: formatMoney(m.delivery_fee ?? 0, m.currency) })}</Text>
-            {(m.payment_markup ?? 0) > 0 ? <Text style={styles.muted}>{t('courier.amount.markup' as TranslationKey, { amount: formatMoney(m.payment_markup ?? 0, m.currency) })}</Text> : null}
-            <Text style={styles.status}>{t('courier.amount.total' as TranslationKey, { amount: formatMoney(m.total_amount, m.currency) })}</Text>
+    <View style={styles.screen}>
+      {header}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.page, { paddingBottom: (hasPrimary ? 120 : spacing.xl) + insets.bottom }]}
+        scrollEnabled={!mapTouched}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={mission.isRefetching} onRefresh={() => { void mission.refetch(); void handover.refetch() }} />}
+      >
+        <View style={styles.band} />
+        <View>
+          <CourierOrderSummary mission={m} showDelivery>
+            {m.total_amount != null ? (
+              <View style={styles.amounts}>
+                <Text style={styles.muted}>{t('courier.amount.products' as TranslationKey, { amount: formatMoney(m.products_total ?? 0, m.currency) })}</Text>
+                <Text style={styles.muted}>{t('courier.amount.delivery' as TranslationKey, { amount: formatMoney(m.delivery_fee ?? 0, m.currency) })}</Text>
+                {(m.payment_markup ?? 0) > 0 ? <Text style={styles.muted}>{t('courier.amount.markup' as TranslationKey, { amount: formatMoney(m.payment_markup ?? 0, m.currency) })}</Text> : null}
+                <Text style={styles.status}>{t('courier.amount.total' as TranslationKey, { amount: formatMoney(m.total_amount, m.currency) })}</Text>
+              </View>
+            ) : null}
+          </CourierOrderSummary>
+        </View>
+
+        {/* Articles: the lines of the order, as the handover will check them. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('courierMap.items')}</Text>
+          {lines.length ? lines.map((line) => (
+            <View key={line.order_line_id} style={styles.item}>
+              {line.image_url
+                ? <Image source={{ uri: line.image_url }} style={styles.thumb} accessibilityIgnoresInvertColors />
+                : <View style={[styles.thumb, styles.thumbEmpty]}><Ionicons name="cube-outline" size={22} color={colors.muted} /></View>}
+              <View style={styles.itemBody}>
+                <Text style={styles.itemName} numberOfLines={2}>{lineLabel(line.product_name, line.variant_name)}</Text>
+                <Text style={styles.muted}>{line.quantity} × {formatMoney(line.unit_price, handover.data?.currency)}</Text>
+              </View>
+              <Text style={styles.itemPrice}>{formatMoney(line.line_total, handover.data?.currency)}</Text>
+            </View>
+          )) : handover.isLoading ? <Text style={styles.muted}>{t('common.loading')}</Text>
+            : <Text style={styles.muted}>{t('courierMap.packages', { count: m.package_count })}</Text>}
+        </View>
+
+        {/* Where to go: the address, the shop to pick up from, the map. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('courierMap.deliveryAddress')}</Text>
+          <View style={styles.addressBox}>
+            <Ionicons name="location" size={20} color={colors.green} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.addressText}>{m.delivery_address || '—'}</Text>
+              {m.service_zone ? <Text style={styles.muted}>{m.service_zone}</Text> : null}
+              {m.delivery_notes ? <Text style={styles.muted}>{t('checkout.instructions')} : {m.delivery_notes}</Text> : null}
+              <Text style={styles.muted}>{t('courierMap.pickupAt', { shop: [m.shop_name, m.shop_address].filter(Boolean).join(' · ') })}</Text>
+            </View>
           </View>
-        ) : null}
-        <MissionActions mission={m} compact />
-        <Button variant="outline" title={t('courier.messagesAll' as TranslationKey)} onPress={() => setShowChat(true)} />
-        {/* Identifying one ordered item. A read: it resolves what this courier may
-            see about that line and moves no handover step, so it stays available
-            at every stage of the mission, not only at the door. */}
-        <Button
-          variant="outline"
-          title={t('courier.scanItem')}
-          onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'ITEM', order_id: m.order_id } })}
-        />
-      </Card>
-      {/* Route: the trace, its direction, the distances and the next turn; the
-          planner sets or changes its two ends until the courier arrives. */}
-      <Suspense fallback={<Loading label={t('common.loading')} />}>
-        <LiveCourierMap orderId={m.order_id} audience="courier" refreshKey={routeRefresh} onGesture={setMapTouched} />
-        {ROUTE_PLANNING.includes(m.delivery_status) ? (
-          <CourierRoutePlanner orderId={m.order_id} deliveryAddress={m.delivery_address} pickupAddress={m.shop_address}
-            onSaved={() => setRouteRefresh((n) => n + 1)} />
-        ) : null}
-      </Suspense>
-      {atDoor ? <CourierHandover orderId={m.order_id} /> : null}
-    </ScrollView>
+          <Pressable accessibilityRole="button" onPress={openMap} style={({ pressed }) => [styles.mapBtn, pressed && { opacity: 0.85 }]}>
+            <Ionicons name="map-outline" size={18} color={colors.onGreen} />
+            <Text style={styles.mapBtnText}>{t('courierMap.seeOnMap')}</Text>
+          </Pressable>
+          <Suspense fallback={null}>
+            <LazyLiveCourierMap orderId={m.order_id} audience="courier" preview mapHeight={200} onExpand={openMap} onGesture={setMapTouched} />
+          </Suspense>
+        </View>
+
+        {/* The customer: call, write, or the full order conversation. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('courierMap.clientInfo')}</Text>
+          {m.delivery_contact ? (
+            <View style={styles.infoRow}>
+              <Ionicons name="person-outline" size={18} color={colors.green} />
+              <Text style={styles.infoText}>{m.delivery_contact}</Text>
+            </View>
+          ) : null}
+          {m.delivery_phone ? (
+            <Pressable accessibilityRole="link" accessibilityLabel={t('courierMap.callClient')} onPress={call} style={styles.infoRow}>
+              <Ionicons name="call-outline" size={18} color={colors.green} />
+              <Text style={[styles.infoText, styles.infoLink]}>{m.delivery_phone}</Text>
+            </Pressable>
+          ) : null}
+          <Pressable accessibilityRole="button" onPress={() => setChat('BUYER')} style={styles.infoRow}>
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.green} />
+            <Text style={[styles.infoText, styles.infoLink]}>{t('courierMap.writeClient')}</Text>
+          </Pressable>
+          <Button variant="outline" dense title={t('courier.messagesAll' as TranslationKey)} onPress={() => setChat('ALL')} />
+        </View>
+
+        {/* The other steps: refuse, scan at the shop, delivery plan, failure. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{courierStatusLabel(t, m.delivery_status)}</Text>
+          <MissionActions mission={m} compact hidePrimary />
+          {/* Identifying one ordered item. A read: it resolves what this courier may
+              see about that line and moves no handover step, so it stays available
+              at every stage of the mission, not only at the door. */}
+          <Button
+            variant="outline"
+            title={t('courier.scanItem')}
+            onPress={() => router.push({ pathname: '/courier/scan', params: { type: 'ITEM', order_id: m.order_id } })}
+          />
+        </View>
+        {atDoor ? <CourierHandover orderId={m.order_id} /> : null}
+      </ScrollView>
+      {hasPrimary ? (
+        <View style={[styles.footer, { paddingBottom: spacing.md + insets.bottom }]}>
+          <MissionPrimaryAction mission={m} style={styles.footerBtn} />
+        </View>
+      ) : null}
+    </View>
   )
 }
 
@@ -245,7 +327,29 @@ function CourierHandover({ orderId }: { orderId: string }) {
 }
 
 const makeStyles = (c: Colors) => StyleSheet.create({
-  page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+  screen: { flex: 1, backgroundColor: c.cream },
+  scroll: { flex: 1 },
+  /** The blue bar continues behind the top of the order card. */
+  band: { position: 'absolute', top: 0, left: 0, right: 0, height: OVERLAP + spacing.md, backgroundColor: c.green },
+  page: { padding: spacing.md, gap: spacing.md },
+  amounts: { gap: 2, marginTop: 4, paddingTop: spacing.xs, borderTopWidth: 1, borderColor: c.border },
+  section: { backgroundColor: c.white, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm, borderWidth: 1, borderColor: c.border, ...shadow.card },
+  sectionTitle: { color: c.ink, fontSize: 16, fontWeight: '800', fontFamily: fonts.display },
+  item: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  thumb: { width: 56, height: 56, borderRadius: radius.sm, backgroundColor: c.surfaceAlt },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  itemBody: { flex: 1, gap: 2 },
+  itemName: { color: c.ink, fontWeight: '700' },
+  itemPrice: { color: c.ink, fontWeight: '900' },
+  addressBox: { flexDirection: 'row', gap: spacing.sm, backgroundColor: c.greenSoft, borderRadius: radius.sm, padding: spacing.sm },
+  addressText: { color: c.ink, fontWeight: '700' },
+  mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, borderRadius: 14, backgroundColor: c.green, ...shadow.raised },
+  mapBtnText: { color: c.onGreen, fontWeight: '800', fontSize: 15 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 36 },
+  infoText: { color: c.ink, fontSize: 14, flex: 1 },
+  infoLink: { color: c.green, fontWeight: '700' },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.md, paddingTop: spacing.sm, backgroundColor: c.cream },
+  footerBtn: { minHeight: 56, borderRadius: radius.md, ...shadow.raised },
   title: { color: c.ink, fontWeight: '900', fontSize: 17 },
   subtitle: { color: c.ink, fontWeight: '800', marginTop: spacing.sm },
   status: { color: c.green, fontWeight: '900' },

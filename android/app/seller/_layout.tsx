@@ -62,7 +62,7 @@ function SellerTabBar() {
     </Pressable>
   )
 
-  return <View style={[styles.bar, { height: 62 + insets.bottom, paddingBottom: Math.max(insets.bottom, 8) }]}>
+  return <View style={[styles.bar, { height: 70 + insets.bottom, paddingBottom: Math.max(insets.bottom, 6) }]}>
     {item('home-outline', t('nav.home'), () => router.navigate('/(buyer)'))}
     {item('grid-outline', t('nav.categories'), () => router.navigate('/(buyer)/categories'))}
     <Pressable accessibilityRole="button" accessibilityState={{ selected: true }} accessibilityLabel={t('nav.sell')} onPress={() => router.push('/seller/products/create')} style={styles.item}>

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -19,6 +20,7 @@ type Handler struct {
 	pointService           *service.PointService
 	buyerService           *service.BuyerProfileService
 	categoryService        *service.CategoryService
+	spotlights             *service.SpotlightService
 }
 
 func NewHandler(
@@ -113,6 +115,24 @@ func (h *Handler) GetShop(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "Shop retrieved successfully",
 		Data:    shop,
+	})
+}
+
+// SetSpotlights plugs in the background-built home spotlights.
+func (h *Handler) SetSpotlights(s *service.SpotlightService) { h.spotlights = s }
+
+// GET /api/v1/marketplace/spotlights
+// One product each for "new", "offer" and "best" (seller performance), the
+// same for every visitor during a 30-second slot; clients refetch on
+// next_rotation_at to get the next one.
+func (h *Handler) GetSpotlights(c *gin.Context) {
+	if h.spotlights == nil {
+		h.errResponse(c, http.StatusServiceUnavailable, "UNAVAILABLE", "Spotlights are not available")
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Spotlights retrieved successfully",
+		Data:    h.spotlights.Current(time.Now()),
 	})
 }
 

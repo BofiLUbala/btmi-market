@@ -3,13 +3,10 @@ package marketplace
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/btmi-ai-market/backend/internal/models"
-	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
