@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { router } from 'expo-router'
-import { ActivityIndicator, View } from 'react-native'
+import { ActivityIndicator, Platform, View } from 'react-native'
 import { useAuth } from '../src/store/auth'
 import { useColors } from '../src/store/theme'
 import { loadLastRoute } from '../src/lib/lastRoute'
@@ -10,6 +10,12 @@ import { hasSeenWelcome } from '../src/lib/welcome'
 // ("/" itself is this screen, so it is left to the default redirect below.)
 const HOME_TABS = new Set(['/categories', '/my-orders', '/cart', '/favorites', '/profile'])
 
+/** The last screen is reopened once, when the app starts. After that "/" is
+ *  the marketplace home: the logo, "Marketplace" and every home link land
+ *  there instead of bouncing back to the screen just left. On the web the
+ *  address bar already says which page to open, so "/" is always home. */
+let restoredThisSession = Platform.OS === 'web'
+
 export default function Index() {
   const colors = useColors()
   const ready = useAuth((state) => state.ready)
@@ -18,7 +24,9 @@ export default function Index() {
     if (!ready) return
     let cancelled = false
     // First launch, signed out: the "Bienvenue" onboarding is shown once.
-    Promise.all([hasSeenWelcome(), loadLastRoute()]).then(([seen, saved]) => {
+    const restore = !restoredThisSession
+    restoredThisSession = true
+    Promise.all([hasSeenWelcome(), restore ? loadLastRoute() : Promise.resolve(null)]).then(([seen, saved]) => {
       if (cancelled) return
       if (!seen && !useAuth.getState().user) {
         router.replace('/welcome')
