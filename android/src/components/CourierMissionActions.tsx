@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Alert, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import { router } from 'expo-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -40,6 +40,9 @@ export function useMissionAction(m: CourierMission, onDone?: () => void) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const [error, setError] = useState('')
+  // An error belongs to the step it was raised on: once the mission moved on
+  // (refetch after success, or another device advanced it) it no longer applies.
+  useEffect(() => { setError('') }, [m.delivery_status])
   const act = useMutation({
     mutationFn: ({ action, input = {} }: { action: MissionAction; input?: ActionInput }) =>
       action === 'accept' ? courierApi.acceptMission(m.order_id)

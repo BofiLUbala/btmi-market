@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AccessibilityInfo, ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -52,15 +52,39 @@ type IconName = keyof typeof Ionicons.glyphMap
  * ranking score) and serves one product per card for a fixed slot. A card
  * shows that single product and cross-fades when the backend moves on.
  */
-export function Spotlights({ data }: { data?: { new: PublicProduct | null; offer: PublicProduct | null; best: PublicProduct | null } }) {
+type SpotlightData = { new: PublicProduct | null; offer: PublicProduct | null; best: PublicProduct | null }
+type SpotCard = { key: string; title: string; icon: IconName; item: PublicProduct | null | undefined }
+
+/** Auto-advance period of the phone pager. */
+const PAGE_MS = 6_000
+
+function useReduceMotion() {
+  const [reduceMotion, setReduceMotion] = useState(false)
+  useEffect(() => {
+    let alive = true
+    AccessibilityInfo.isReduceMotionEnabled().then((v) => { if (alive) setReduceMotion(v) }).catch(() => {})
+    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', (v: boolean) => setReduceMotion(v))
+    return () => { alive = false; sub?.remove?.() }
+  }, [])
+  return reduceMotion
+}
+
+/**
+ * compact (phones): the same three backend spotlights, one full-width card at
+ * a time, swipeable, advancing every few seconds unless the user is touching
+ * it or asked the system to reduce motion. `failed`: the request failed, so an
+ * empty slot must not claim that there is no offer.
+ */
+export function Spotlights({ data, compact = false, failed = false, onRetry }: { data?: SpotlightData; compact?: boolean; failed?: boolean; onRetry?: () => void }) {
   const { t } = useI18n()
   const c = useColors()
   const s = useMemo(() => makeStyles(c), [c])
-  const cards: { key: string; title: string; icon: IconName; item: PublicProduct | null | undefined }[] = [
+  const cards: SpotCard[] = [
     { key: 'new', title: t('home.spot.new'), icon: 'sparkles-outline', item: data?.new },
     { key: 'offers', title: t('home.spot.offers'), icon: 'pricetag-outline', item: data?.offer },
     { key: 'best', title: t('home.spot.best'), icon: 'trophy-outline', item: data?.best },
   ]
+  if (compact) return <SpotlightPager cards={cards} pending={!data} failed={failed && !data} onRetry={onRetry} />
   return (
     <View style={s.spotRow}>
       {cards.map((card, index) => <SpotlightCard key={card.key} title={card.title} icon={card.icon} item={card.item} tone={index} />)}
@@ -68,19 +92,122 @@ export function Spotlights({ data }: { data?: { new: PublicProduct | null; offer
   )
 }
 
-function SpotlightCard({ title, icon, item, tone }: { title: string; icon: IconName; item: PublicProduct | null | undefined; tone: number }) {
+function SpotlightPager({ cards, pending, failed, onRetry }: { cards: SpotCard[]; pending: boolean; failed: boolean; onRetry?: () => void }) {
+  const { t } = useI18n()
+  const c = useColors()
+  const s = useMemo(() => makeStyles(c), [c])
+  const reduceMotion = useReduceMotion()
+  const scrollRef = useRef<ScrollView>(null)
+  // Full-width pager: the window width until the wrapper has measured itself.
+  const { width: windowWidth } = useWindowDimensions()
+  const [measured, setMeasured] = useState(0)
+  const width = measured || Math.round(windowWidth)
+  const [page, setPage] = useState(0)
+  const pageRef = useRef(0)
+  const touching = useRef(false)
+
+  const goTo = useCallback((next: number) => {
+    if (!width) return
+    pageRef.current = next
+    setPage(next)
+    scrollRef.current?.scrollTo({ x: next * width, animated: !reduceMotion })
+  }, [width, reduceMotion])
+
+  // Next slot every PAGE_MS; restarted by every page change (a swipe or a dot
+  // tap gives the new card its full time) and held while a finger is down.
+  useEffect(() => {
+    if (reduceMotion || !width || pending || failed) return
+    const id = setInterval(() => {
+      if (!touching.current) goTo((pageRef.current + 1) % cards.length)
+    }, PAGE_MS)
+    return () => clearInterval(id)
+  }, [reduceMotion, width, pending, failed, page, cards.length, goTo])
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const w = Math.round(e.nativeEvent.layout.width)
+    if (w && w !== measured) setMeasured(w)
+  }
+  // Keep the shown page after a resize / rotation.
+  useEffect(() => {
+    if (width) scrollRef.current?.scrollTo({ x: pageRef.current * width, animated: false })
+  }, [width])
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!width) return
+    const p = Math.max(0, Math.min(cards.length - 1, Math.round(e.nativeEvent.contentOffset.x / width)))
+    if (p !== pageRef.current) { pageRef.current = p; setPage(p) }
+  }
+  const hold = () => { touching.current = true }
+  const release = () => { touching.current = false }
+
+  if (pending || failed) {
+    return (
+      <View style={s.pagerWrap} onLayout={onLayout}>
+        <View style={[s.spot, s.spotCompact, s.spotPending, { backgroundColor: c.green }]}>
+          <View style={s.spotGlow} pointerEvents="none" />
+          {failed ? <>
+            <Text style={s.spotEmptyTitle}>{t('homeSpot.failed')}</Text>
+            {onRetry ? <Pressable onPress={onRetry} style={({ pressed }) => [s.spotRetry, pressed && s.pressed]} accessibilityRole="button"><Text style={s.spotRetryText}>{t('common.retry')}</Text></Pressable> : null}
+          </> : <>
+            <ActivityIndicator color={c.onNavy} />
+            <Text style={s.spotEmptyText}>{t('homeSpot.loading')}</Text>
+          </>}
+        </View>
+      </View>
+    )
+  }
+
+  return (
+    <View style={s.pagerWrap} onLayout={onLayout}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={32}
+        onTouchStart={hold}
+        onTouchEnd={release}
+        onTouchCancel={release}
+        onScrollBeginDrag={hold}
+        onMomentumScrollEnd={release}
+        accessibilityLabel={t('homeSpot.carousel')}
+      >
+        {cards.map((card, index) => (
+          <View key={card.key} style={[s.pagerPage, { width }]}>
+            <SpotlightCard title={card.title} icon={card.icon} item={card.item} tone={index} compact />
+          </View>
+        ))}
+      </ScrollView>
+      <View style={s.pagerFoot}>
+        <View style={s.dots}>
+          {cards.map((card, index) => (
+            <Pressable
+              key={card.key}
+              onPress={() => goTo(index)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityState={{ selected: index === page }}
+              accessibilityLabel={t('homeSpot.goTo', { title: card.title, index: index + 1, count: cards.length })}
+              style={[s.dot, index === page && s.dotOn]}
+            />
+          ))}
+        </View>
+        <Pressable onPress={() => router.push('/(buyer)/categories')} hitSlop={8} accessibilityRole="link">
+          <Text style={s.more}>{t('browse.discover')} →</Text>
+        </Pressable>
+      </View>
+    </View>
+  )
+}
+
+function SpotlightCard({ title, icon, item, tone, compact = false }: { title: string; icon: IconName; item: PublicProduct | null | undefined; tone: number; compact?: boolean }) {
   const { t } = useI18n()
   const c = useColors()
   const s = useMemo(() => makeStyles(c), [c])
   const fade = useRef(new Animated.Value(1)).current
   const [shown, setShown] = useState(item)
-  const [reduceMotion, setReduceMotion] = useState(false)
-
-  useEffect(() => {
-    let alive = true
-    AccessibilityInfo.isReduceMotionEnabled().then((v) => { if (alive) setReduceMotion(v) }).catch(() => {})
-    return () => { alive = false }
-  }, [])
+  const reduceMotion = useReduceMotion()
 
   // Cross-fade only when the backend hands over a different product.
   useEffect(() => {
@@ -97,7 +224,7 @@ function SpotlightCard({ title, icon, item, tone }: { title: string; icon: IconN
   if (!shown) {
     // Nothing qualifies right now (e.g. no running offer): say so plainly.
     return (
-      <View style={[s.spot, { backgroundColor: bg }]}>
+      <View style={[s.spot, compact && s.spotCompact, { backgroundColor: bg }]}>
         <View style={s.spotGlow} pointerEvents="none" />
         <View style={s.spotHead}><Ionicons name={icon} size={16} color={c.onNavy} /><Text style={s.spotKicker}>{title}</Text></View>
         <Text style={s.spotEmptyTitle}>{t('browse.heroTitle')}</Text>
@@ -110,7 +237,7 @@ function SpotlightCard({ title, icon, item, tone }: { title: string; icon: IconN
   return (
     <Pressable
       onPress={() => openProduct(shown)}
-      style={({ pressed }) => [s.spot, { backgroundColor: bg }, pressed && s.pressed]}
+      style={({ pressed }) => [s.spot, compact && s.spotCompact, { backgroundColor: bg }, pressed && s.pressed]}
       accessibilityRole="link"
       accessibilityLabel={`${title}: ${shown.name}`}
     >
@@ -127,7 +254,7 @@ function SpotlightCard({ title, icon, item, tone }: { title: string; icon: IconN
             {onSale ? <View style={s.spotBadge}><Text style={s.spotBadgeText}>-{promo.discountPercent}%</Text></View> : null}
           </View>
         </View>
-        <Image source={photo(shown)} style={s.spotImage} contentFit="cover" transition={200} />
+        <Image source={photo(shown)} style={[s.spotImage, compact && s.spotImageCompact]} contentFit="cover" transition={200} />
       </Animated.View>
     </Pressable>
   )
@@ -294,6 +421,18 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   spotImage: { width: 118, height: 118, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)' },
   spotEmptyTitle: { color: c.onNavy, fontFamily: fonts.display, fontWeight: '700', fontSize: 18, lineHeight: 22 },
   spotEmptyText: { color: c.onNavyMuted, fontSize: 13, lineHeight: 18 },
+  // Phone pager: one card per page, page indicator + "Discover" underneath.
+  pagerWrap: { marginBottom: 18 },
+  pagerPage: { paddingHorizontal: spacing.md, paddingBottom: 6 },
+  spotCompact: { minWidth: 0, minHeight: 168, padding: 16, borderRadius: 18 },
+  spotPending: { marginHorizontal: spacing.md, alignItems: 'center', justifyContent: 'center' },
+  spotImageCompact: { width: 104, height: 104 },
+  spotRetry: { marginTop: 4, height: 32, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: c.onNavy, alignItems: 'center', justifyContent: 'center' },
+  spotRetryText: { color: c.navy, fontSize: 12.5, fontWeight: '700' },
+  pagerFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, marginTop: 6 },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: c.border },
+  dotOn: { width: 20, backgroundColor: c.green },
   // Feed
   feed: { paddingHorizontal: spacing.md, gap: 20, paddingBottom: 28, width: '100%', maxWidth: 1480, alignSelf: 'center' },
   quadRow: { flexDirection: 'row', gap: 16, alignItems: 'stretch' },

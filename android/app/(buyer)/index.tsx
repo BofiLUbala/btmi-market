@@ -7,7 +7,6 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { buyerApi, marketplaceApi } from '../../src/api'
-import { resolveMediaUrl } from '../../src/api/client'
 import { fetchBuyerUnreadCounts } from '../../src/api/communication'
 import { ProductCard } from '../../src/components/ProductCard'
 import { Button } from '../../src/components/ui'
@@ -18,7 +17,6 @@ import { useColors } from '../../src/store/theme'
 import { kicker, radius, shadow, spacing, type Colors, fonts } from '../../src/theme'
 import { categoryIcon } from '../../src/lib/categoryIcons'
 import { categoryLabel } from '../../src/lib/categoryLabels'
-import { categoryImage } from '../../src/lib/categoryVisuals'
 import { canBuy } from '../../src/types'
 import type { PublicProduct } from '../../src/types'
 import { BrandLogo } from '../../src/components/BrandLogo'
@@ -28,13 +26,6 @@ function ProductSkeleton() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
   return <View style={styles.skeletonCard}><View style={styles.skeletonMedia}/><View style={styles.skeletonLine}/><View style={styles.skeletonLineShort}/></View>
-}
-
-/** First photo the listing API sends for a product (same order as ProductCard). */
-function productPhoto(product?: PublicProduct) {
-  if (!product) return undefined
-  const first = product.images?.[0]
-  return resolveMediaUrl(product.primary_image_url || product.image_url || (typeof first === 'string' ? first : first?.url || first?.image_url))
 }
 
 export default function HomeScreen() {
@@ -71,11 +62,11 @@ export default function HomeScreen() {
   const chipColumns = Math.max(6, Math.floor((Math.min(width, 1480) - 32) / 110))
   const feedMode = wide && !visualMode && term.length < 2
   const newest = useQuery({ queryKey: ['marketplace', 'feed', 'newest'], queryFn: () => marketplaceApi.feed('newest'), enabled: wide })
-  // Spotlights are picked by the backend; ask again exactly when it rotates.
+  // Spotlights are picked by the backend (phones and wide screens alike); ask
+  // again exactly when it rotates.
   const spotlights = useQuery({
     queryKey: ['marketplace', 'spotlights'],
     queryFn: marketplaceApi.spotlights,
-    enabled: wide,
     refetchInterval: (query) => {
       const next = query.state.data?.next_rotation_at ? Date.parse(query.state.data.next_rotation_at) : NaN
       return Number.isFinite(next) ? Math.max(1000, next - Date.now() + 300) : 30_000
@@ -85,10 +76,6 @@ export default function HomeScreen() {
   const data = visualMode ? (visualResults ?? []) : term.length >= 2 ? (searchQuery.data ?? []) : (products.data ?? [])
   const loading = visualMode ? visualLoading : products.isLoading || searchQuery.isFetching
   const failed = visualMode ? visualError : products.isError || searchQuery.isError
-
-  // Hero artwork: a real listing photo from the current selection.
-  const heroProduct = products.data?.find((product) => productPhoto(product)) ?? products.data?.[0]
-  const heroImage = productPhoto(heroProduct) ?? (heroProduct ? categoryImage(heroProduct.category_slug, heroProduct.category_name) : undefined)
 
   const clearVisualSearch = () => { setVisualResults(null); setVisualImage(null); setVisualError(false) }
   const analyzeProductImage = async (asset: ImagePicker.ImagePickerAsset) => {
@@ -174,20 +161,9 @@ export default function HomeScreen() {
 
   const header = <>
     <View style={styles.sectionBlock}>
-      {wide ? <Spotlights data={spotlights.data} /> : (
-      <View style={styles.hero}>
-        <View style={styles.heroGlow} pointerEvents="none"/>
-        <View style={styles.heroGlowSmall} pointerEvents="none"/>
-        <View style={styles.heroCopy}>
-          <Text style={styles.heroKicker}>{t('home.trustBanner')}</Text>
-          <Text style={styles.heroTitle}>{t('browse.heroTitle')}</Text>
-          <Pressable style={({ pressed }) => [styles.heroButton, pressed && styles.pressed]} onPress={() => router.push('/(buyer)/categories')} accessibilityRole="button">
-            <Text style={styles.heroButtonText}>{t('browse.discover')}</Text>
-          </Pressable>
-        </View>
-        {heroImage ? <Image source={heroImage} style={styles.heroImage} contentFit="cover"/> : null}
-      </View>
-      )}
+      {/* Backend spotlights on every width: three cards side by side when
+          wide, one swipeable card at a time on phones. */}
+      {wide ? <Spotlights data={spotlights.data} /> : <Spotlights compact data={spotlights.data} failed={spotlights.isError} onRetry={() => void spotlights.refetch()} />}
       {categories.isLoading ? <View style={styles.chipLoading}><ActivityIndicator color={colors.green}/></View> : wide ? <View style={styles.chipsWide}>{categories.data?.map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={[styles.categoryChipWide, { width: `${100 / chipColumns}%` }]}><View style={[styles.categoryImage, index === 0 && styles.categoryImageFirst]}><Ionicons name={categoryIcon(category.slug, category.name)} size={22} color={index === 0 ? colors.onNavy : colors.green}/></View><Text style={styles.categoryText} numberOfLines={1}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{categories.data?.slice(0, 8).map((category, index) => <Pressable key={category.id} onPress={() => router.push(`/categories/${category.slug}`)} style={styles.categoryChip}><View style={[styles.categoryImage, index === 0 && styles.categoryImageFirst]}><Ionicons name={categoryIcon(category.slug, category.name)} size={22} color={index === 0 ? colors.onNavy : colors.green}/></View><Text style={styles.categoryText} numberOfLines={1}>{categoryLabel(t, category.slug, category.name)}</Text></Pressable>)}</ScrollView>}
     </View>
 
@@ -243,17 +219,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   searchBox: { flex: 1, height: 44, borderRadius: radius.sm, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12, paddingRight: 4 }, inputWrap: { flex: 1, minWidth: 60, justifyContent: 'center' }, placeholder: { position: 'absolute', left: 0, right: 0, color: colors.faint, fontSize: 14 }, searchInput: { color: colors.ink, fontSize: 14, paddingVertical: 0, paddingHorizontal: 0 }, cameraButton: { width: 32, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   filterButton: { width: 44, height: 44, borderRadius: radius.sm, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', ...shadow.raised },
-  // Reference hero: blue rounded-18 banner, eyebrow + headline + white pill, photo right
   sectionBlock: { paddingTop: 16 },
-  hero: { marginHorizontal: spacing.md, marginBottom: 18, minHeight: 150, borderRadius: 18, backgroundColor: colors.green, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 10, overflow: 'hidden', ...shadow.raised },
-  heroGlow: { position: 'absolute', right: -50, top: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.12)' },
-  heroGlowSmall: { position: 'absolute', left: -30, bottom: -50, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.08)' },
-  heroCopy: { flex: 1, minWidth: 0, gap: 6 },
-  heroKicker: { ...kicker, fontSize: 9, color: colors.onGreen, opacity: 0.85 },
-  heroTitle: { color: colors.onGreen, fontFamily: fonts.display, fontWeight: '700', fontSize: 19, lineHeight: 23, letterSpacing: -0.3 },
-  heroButton: { alignSelf: 'flex-start', marginTop: 6, height: 32, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.onNavy, alignItems: 'center', justifyContent: 'center' },
-  heroButtonText: { color: colors.navy, fontSize: 12.5, fontWeight: '700' },
-  heroImage: { width: 108, height: 108, borderRadius: 16, transform: [{ rotate: '-6deg' }] },
   sectionTitle: { color: colors.ink, fontSize: 18, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 }, sectionSubtitle: { color: colors.muted, fontSize: 12.5, marginTop: 2 }, link: { color: colors.green, fontWeight: '700', fontSize: 13 },
   // Reference category shortcuts: 56px rounded-16 tiles, first one navy
   chips: { paddingHorizontal: spacing.md, gap: 10 }, categoryChip: { width: 68, alignItems: 'center', gap: 7 }, categoryImage: { width: 56, height: 56, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', ...shadow.card }, categoryImageFirst: { backgroundColor: colors.navy, borderColor: colors.navy }, categoryText: { color: colors.ink, fontSize: 11.5, fontWeight: '600', textAlign: 'center' }, chipLoading: { height: 72, justifyContent: 'center' },

@@ -28,6 +28,8 @@ interface OrderHistoryItem { detail: OrderDetail; payment: BuyerPayment | null }
 
 const POLL_INTERVAL = 60_000
 const TERMINAL = ['COMPLETED', 'CANCELLED', 'REJECTED', 'RECEIVED']
+// Courier steps of a TBK delivery while the parcel is not yet handed over.
+const IN_DELIVERY = ['COURIER_ASSIGNED', 'COURIER_ACCEPTED', 'READY_FOR_PICKUP', 'PICKED_UP', 'IN_TRANSIT', 'COURIER_ARRIVED', 'DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION']
 const FILTERS: Array<{ key: OrderFilter; label: TranslationKey }> = [
   { key: 'toutes', label: 'orders.filterAll' },
   { key: 'a_payer', label: 'orders.filterToPay' },
@@ -143,8 +145,9 @@ export default function OrdersScreen() {
           <View style={styles.footerCell}><Text style={styles.small}>{t('orders.deliveryLabel')}</Text><Text style={styles.bold}>{order.delivery_method ? order.delivery_method.replace(/_/g, ' ') : t('orders.notSelected')}</Text></View>
           <View style={styles.footerCell}><Text style={styles.small}>{t('common.total')}</Text><Text style={styles.bold}>{formatMoney(total, payment?.currency || order.currency)}</Text></View>
         </View>
-        {(order.delivery_method || '').startsWith('TBK') && order.delivery_status === 'IN_TRANSIT' ? (
-          <Button title={`🛵 ${t('liveMap.follow')}`} variant="outline" onPress={() => router.push({ pathname: '/orders/live', params: { id: order.id } })} />
+        {/* A TBK courier holds the order (from assignment until arrival): open its tracking page. */}
+        {(order.delivery_method || '').startsWith('TBK') && IN_DELIVERY.includes(order.delivery_status || '') && !TERMINAL.includes(order.status) ? (
+          <Button title={`🛵 ${t('track.follow')}`} variant="outline" onPress={() => router.push({ pathname: '/tracking', params: { id: order.id } })} />
         ) : null}
         <Button title={t('orders.viewOrder')} onPress={() => router.push(`/orders/${order.id}`)} />
       </View>

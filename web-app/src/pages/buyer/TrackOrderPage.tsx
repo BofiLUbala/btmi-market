@@ -171,7 +171,10 @@ function TrackInner() {
         const idx = list.indexOf(currentStatus)
         return list.map((status, i) => ({ status, done: i <= idx }))
       })()
-  const currentIdx = steps.findIndex((s) => !s.done)
+  // "Current" is where the delivery stands now: the last step reached, not the
+  // next one (otherwise "Courier arrived" reads as happening while on the way).
+  const nextIdx = steps.findIndex((s) => !s.done)
+  const currentIdx = nextIdx === -1 ? steps.length - 1 : nextIdx - 1
 
   return (
     <div className="fade-in">

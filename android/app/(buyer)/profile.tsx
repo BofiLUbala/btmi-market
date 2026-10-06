@@ -131,6 +131,7 @@ export default function ProfileScreen() {
           <LinkRow first icon="location-outline" onPress={() => router.push('/addresses')} title={t('account.myAddresses')} sub={addressLine} themed={themed} colors={colors} />
           <LinkRow icon="receipt-outline" onPress={() => router.push('/orders')} title={t('account.myOrders')}
             sub={[t('account.ordersCount', { count: orderList.length }), orderList[0] ? t('account.lastOrder', { date: formatDate(orderList[0].created_at) }) : ''].filter(Boolean).join(' · ')} themed={themed} colors={colors} />
+          <LinkRow icon="navigate-outline" onPress={() => router.push('/tracking')} title={t('track.title')} sub={t('track.profileSub')} themed={themed} colors={colors} />
           <LinkRow icon="star-outline" onPress={() => router.push('/reviews')} title={t('account.myReviews')} sub={t('account.reviewsSubtitle')} themed={themed} colors={colors} />
           {pendingList.length > 0 ? <LinkRow icon="time-outline" onPress={() => router.push('/purchases')} title={t('account.pendingPurchases')} sub={t('account.pendingToConfirm', { count: pendingList.length })} themed={themed} colors={colors} /> : null}
           <LinkRow icon="mail-unread-outline" onPress={() => router.push('/notifications')} title={t('notifications.title')} sub={unreadNotifications > 0 ? t('notifications.unreadCount', { count: unreadNotifications }) : undefined} themed={themed} colors={colors} />

@@ -22,7 +22,8 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading,
       accessibilityRole="button"
       style={({ pressed }) => [s.button, dense && s.buttonDense, variant === 'outline' && s.outline, variant === 'gold' && s.gold, (disabled || loading) && styles.disabled, pressed && !disabled && styles.pressed, style]}
     >
-      <Text numberOfLines={1} style={[s.buttonText, dense && s.buttonTextDense, variant === 'outline' && s.outlineText, variant === 'gold' && s.goldText]}>
+      {/* Long labels in narrow spots shrink a little instead of being cut. */}
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[s.buttonText, dense && s.buttonTextDense, variant === 'outline' && s.outlineText, variant === 'gold' && s.goldText]}>
         {loading ? t('common.oneMoment') : title}
       </Text>
     </Pressable>
