@@ -12,12 +12,16 @@ export default function MobileProductsScreen() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
 
   const fetchProducts = useCallback(async () => {
-    setLoading(true)
+    if (page === 0) setLoading(true)
     try {
       const res = await adminCommerceApi.listProducts({ search: search || undefined, limit: 20, offset: page })
-      setProducts(res.products)
+      // Later pages are appended; a short page means the end of the list.
+      const rows = res.products ?? []
+      setProducts((prev) => (page === 0 ? rows : [...prev, ...rows]))
+      setHasMore(rows.length >= 20)
     } catch (err) {
       console.error(err)
     } finally {
@@ -78,7 +82,7 @@ export default function MobileProductsScreen() {
               </View>
             </TouchableOpacity>
           )}
-          onEndReached={() => setPage(p => p + 20)}
+          onEndReached={() => { if (hasMore) setPage(products.length) }}
           onEndReachedThreshold={0.5}
           contentContainerStyle={{ paddingBottom: 20 }}
         />

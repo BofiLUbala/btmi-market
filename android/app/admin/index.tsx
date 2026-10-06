@@ -10,7 +10,7 @@ import {
   Alert,
   Modal,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { Redirect, useRouter } from 'expo-router'
 import { useAdminAuth } from '../../src/store/adminAuth'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
 import { dateLocale } from '../../src/lib/format'
@@ -31,7 +31,7 @@ import {
 
 export default function MobileDirectionScreen() {
   const router = useRouter()
-  const { admin, role, logout, canAccessDashboard, bootstrap } = useAdminAuth()
+  const { admin, role, logout, canAccessDashboard } = useAdminAuth()
   const { t } = useI18n()
 
   const [stats, setStats] = useState<DirectionOverviewStats | null>(null)
@@ -66,21 +66,16 @@ export default function MobileDirectionScreen() {
     }
   }, [])
 
+  // The admin layout restores the session; the Direction figures are only
+  // loaded for the roles allowed to read them (others are sent to their own
+  // dashboard below), then refreshed quietly every 30 s.
+  const directionAllowed = Boolean(admin) && canAccessDashboard('direction')
   useEffect(() => {
-    void bootstrap().then(() => {
-      if (!admin) {
-        router.replace('/admin/login')
-      } else {
-        void loadData()
-      }
-    })
-  }, [admin, bootstrap, loadData, router])
-
-  useEffect(() => {
-    if (!admin) return
+    if (!directionAllowed) return
+    void loadData()
     const timer = setInterval(() => { void loadData(true) }, 30_000)
     return () => clearInterval(timer)
-  }, [admin, loadData])
+  }, [directionAllowed, loadData])
 
   const handleSearchUser = async () => {
     if (!userQuery.trim()) return
@@ -136,6 +131,13 @@ export default function MobileDirectionScreen() {
         <Text style={{ color: '#94a3b8', marginTop: 12 }}>{t('admin.direction.checkingPrivileges')}</Text>
       </View>
     )
+  }
+
+  // Commerce, finance and technical admins have no Direction rights: open
+  // their own dashboard instead of a page whose data the API refuses them.
+  if (!canAccessDashboard('direction')) {
+    const own = canAccessDashboard('commerce') ? '/admin/commerce' : canAccessDashboard('finance') ? '/admin/finance' : canAccessDashboard('technical') ? '/admin/technical' : '/admin/advanced'
+    return <Redirect href={own} />
   }
 
   return (

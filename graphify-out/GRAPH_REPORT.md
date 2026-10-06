@@ -1,17 +1,17 @@
 # Graph Report - btmi-ai-market  (2026-10-06)
 
 ## Corpus Check
-- 1046 files · ~1,413,154 words
+- 1046 files · ~1,413,456 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 33 file(s) not represented in the graph (top: (none) 13, .css 9, .example 3)
 
 ## Summary
-- 8775 nodes · 47549 edges · 240 communities (182 shown, 58 thin omitted)
+- 8775 nodes · 47551 edges · 239 communities (181 shown, 58 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 345 edges (avg confidence: 0.88)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bb1c68ad`
+- Built from commit: `7a479e53`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -45,7 +45,6 @@
 - context.Context
 - CourierDashboardPage.tsx
 - FinanceReportFilter
-- SellerPolicyContent.tsx
 - web-app/package.json
 - finance_live_simulation.py
 - AdminUser
@@ -245,7 +244,7 @@
 4. `DB` - 172 edges
 5. `useI18n()` - 159 edges
 6. `main()` - 158 edges
-7. `react-native` - 136 edges
+7. `react-native` - 137 edges
 8. `App()` - 130 edges
 9. `ErrorBox()` - 124 edges
 10. `Button()` - 122 edges
@@ -265,7 +264,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (240 total, 58 thin omitted)
+## Communities (239 total, 58 thin omitted)
 
 ### Community 0 - "marketplace_search_integration_test.go"
 Cohesion: 0.27
@@ -293,7 +292,7 @@ Nodes (150): PASS / FAIL Checklist (Req 38–60), 5.5 P1 — Palette admin codé
 
 ### Community 6 - "formatMoney"
 Cohesion: 0.04
-Nodes (102): AdminOrderDetailScreen(), Badge(), Field(), Section(), STATUS_COLORS, STATUS_KEYS, statusLabel(), styles (+94 more)
+Nodes (108): AdminOrderDetailScreen(), Badge(), Field(), Section(), STATUS_COLORS, STATUS_KEYS, statusLabel(), styles (+100 more)
 
 ### Community 7 - "Icons.tsx"
 Cohesion: 0.04
@@ -356,8 +355,8 @@ Cohesion: 0.15
 Nodes (6): SaleCommission, SaleFinanceLine, SaleHistoryItem, CommissionRepository, database/sql.Row, CommissionStatus
 
 ### Community 22 - "android/src/store/i18n.tsx"
-Cohesion: 0.02
-Nodes (157): AdvancedManagement(), s, MobileEmployeesScreen(), ROLE_COLORS, styles, MobileCommerceScreen(), NAV_ITEMS, styles (+149 more)
+Cohesion: 0.03
+Nodes (155): AdvancedManagement(), s, MobileEmployeesScreen(), ROLE_COLORS, styles, MobileCommerceScreen(), NAV_ITEMS, styles (+147 more)
 
 ### Community 23 - "auth.tsx"
 Cohesion: 0.03
@@ -369,7 +368,7 @@ Nodes (96): NewHandler(), MarshalShopCategoryRanking(), AdminMarketplaceVisibili
 
 ### Community 25 - "useI18n"
 Cohesion: 0.05
-Nodes (168): AddressesScreen(), AddressesScreenRoute(), makeStyles(), AdminLayout(), EmployeeInviteAccept(), makeStyles(), ForgotPassword(), makeStyles() (+160 more)
+Nodes (167): AddressesScreen(), AddressesScreenRoute(), makeStyles(), EmployeeInviteAccept(), makeStyles(), ForgotPassword(), makeStyles(), requestReset() (+159 more)
 
 ### Community 26 - "context.Context"
 Cohesion: 0.02
@@ -382,10 +381,6 @@ Nodes (38): CourierDeliveredProduct, CourierEarnings, CourierProfile, cashLabel(
 ### Community 28 - "FinanceReportFilter"
 Cohesion: 0.23
 Nodes (10): FinanceCurrencyTotal, FinanceDashboardReport, FinanceReportFilter, FinanceTimeseriesInterval, FinanceTimeseriesPoint, businessScopeClause(), commissionReportWhere(), orderScopeQuery() (+2 more)
-
-### Community 29 - "SellerPolicyContent.tsx"
-Cohesion: 0.29
-Nodes (8): SellerPolicyScreen(), styles, makeStyles(), SellerPolicyContent(), SELLER_POLICY_ARTICLES, SELLER_POLICY_UPDATED_AT, SELLER_POLICY_VERSION, SellerPolicyArticle
 
 ### Community 30 - "web-app/package.json"
 Cohesion: 0.04
@@ -637,7 +632,7 @@ Nodes (14): a, b, call(), cases, cid, clear(), lineCodes(), login() (+6 more)
 
 ### Community 136 - "expo-router"
 Cohesion: 0.04
-Nodes (100): CartScreen(), groupByShop(), makeStyles(), money(), ShopGroup, styles, HomeScreen(), makeStyles() (+92 more)
+Nodes (99): CartScreen(), groupByShop(), makeStyles(), money(), ShopGroup, styles, HomeScreen(), makeStyles() (+91 more)
 
 ### Community 137 - "e2e_product_sync.ps1"
 Cohesion: 0.23
@@ -648,8 +643,8 @@ Cohesion: 0.42
 Nodes (4): DeliveryFeeHandler, deliveryFeeActor(), deliveryFeeFail(), parseDayRange()
 
 ### Community 140 - "auth/login.tsx"
-Cohesion: 0.08
-Nodes (37): AdminLoginScreen(), styles, LoginScreen(), routeAfterLogin(), submit(), LOGO, makeStyles(), BuyerRegistrationScreen() (+29 more)
+Cohesion: 0.07
+Nodes (43): AdminLoginScreen(), styles, LoginScreen(), routeAfterLogin(), submit(), LOGO, makeStyles(), BuyerRegistrationScreen() (+35 more)
 
 ### Community 144 - "ref_http"
 Cohesion: 0.22

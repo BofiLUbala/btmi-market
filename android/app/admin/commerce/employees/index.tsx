@@ -16,12 +16,16 @@ export default function MobileEmployeesScreen() {
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
+  const [total, setTotal] = useState(0)
 
   const fetchEmployees = useCallback(async () => {
-    setLoading(true)
+    if (page === 0) setLoading(true)
     try {
       const res = await adminCommerceApi.listEmployees({ limit: 20, offset: page })
-      setEmployees(res.employees)
+      // Next pages are appended (they used to replace the list, so the empty
+      // page fetched on reaching the end wiped what was shown).
+      setEmployees((prev) => (page === 0 ? res.employees : [...prev, ...res.employees]))
+      setTotal(res.total ?? 0)
     } catch (err) {
       console.error(err)
     } finally {
@@ -58,7 +62,7 @@ export default function MobileEmployeesScreen() {
               </View>
             </View>
           )}
-          onEndReached={() => setPage(p => p + 20)}
+          onEndReached={() => { if (employees.length < total) setPage(employees.length) }}
           onEndReachedThreshold={0.5}
           contentContainerStyle={{ paddingBottom: 20 }}
         />

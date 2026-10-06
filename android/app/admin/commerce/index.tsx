@@ -5,21 +5,14 @@ import { useAdminAuth } from '../../../src/store/adminAuth'
 import { useI18n, type TranslationKey } from '../../../src/store/i18n'
 import { adminCommerceApi, type CommerceOverviewStats } from '../../../src/api/admin'
 
+// Only screens that exist in the app: a link to a missing route opened
+// expo-router's "unmatched route" page.
 const NAV_ITEMS: { key: TranslationKey; icon: string; route: string }[] = [
   { key: 'admin.commerce.nav.productCatalog', icon: '📦', route: '/admin/commerce/products' },
-  { key: 'admin.commerce.nav.categories', icon: '🏷️', route: '/admin/commerce/categories' },
   { key: 'admin.commerce.nav.inventoryControl', icon: '📊', route: '/admin/commerce/inventory' },
-  { key: 'admin.commerce.nav.stockHistory', icon: '📋', route: '/admin/commerce/inventory/history' },
   { key: 'admin.commerce.nav.orders', icon: '🛒', route: '/admin/commerce/orders' },
-  { key: 'admin.commerce.nav.marketplaceVisibility', icon: '👁️', route: '/admin/commerce/marketplace/visibility' },
-  { key: 'admin.commerce.nav.searchAdmin', icon: '🔍', route: '/admin/commerce/marketplace/search' },
-  { key: 'admin.commerce.nav.marketplaceRanking', icon: '🏆', route: '/admin/commerce/marketplace/ranking' },
-  { key: 'admin.commerce.nav.productQuality', icon: '✅', route: '/admin/commerce/marketplace/quality' },
-  { key: 'admin.commerce.nav.promotions', icon: '🎁', route: '/admin/commerce/marketplace/promotions' },
+  { key: 'admin.commerce.nav.marketplaceVisibility', icon: '👁️', route: '/admin/commerce/marketplace' },
   { key: 'admin.commerce.nav.employees', icon: '👥', route: '/admin/commerce/employees' },
-  { key: 'admin.commerce.nav.sellerPerformance', icon: '📈', route: '/admin/commerce/performance/sellers' },
-  { key: 'admin.commerce.nav.categoryPerformance', icon: '📊', route: '/admin/commerce/performance/categories' },
-  { key: 'admin.commerce.nav.shopPerformance', icon: '🏪', route: '/admin/commerce/performance/shops' },
 ]
 
 export default function MobileCommerceScreen() {

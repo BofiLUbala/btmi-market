@@ -10,9 +10,10 @@ export default function MobileInventoryScreen() {
   const [search, setSearch] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(false)
   const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
 
   const fetchInventory = useCallback(async () => {
-    setLoading(true)
+    if (page === 0) setLoading(true)
     try {
       const res = await adminCommerceApi.listInventory({
         search: search || undefined,
@@ -20,7 +21,10 @@ export default function MobileInventoryScreen() {
         limit: 20,
         offset: page,
       })
-      setItems(res.items)
+      // Later pages are appended; a short page means the end of the list.
+      const rows = res.items ?? []
+      setItems((prev) => (page === 0 ? rows : [...prev, ...rows]))
+      setHasMore(rows.length >= 20)
     } catch (err) {
       console.error(err)
     } finally {
@@ -71,7 +75,7 @@ export default function MobileInventoryScreen() {
                 <Text style={styles.productName} numberOfLines={1}>{item.product_name || item.variant_name || item.sku}</Text>
                 <View style={[styles.statusDot, { backgroundColor: statusColor(item.available, item.status === 'LOW_STOCK') }]} />
               </View>
-              <Text style={styles.shopText}>{t('admin.inventory.shop', { shop: item.shop_id })}</Text>
+              <Text style={styles.shopText}>{t('admin.inventory.shop', { shop: item.shop_name || item.shop_id })}</Text>
               <View style={styles.row}>
                 <View style={styles.stat}>
                   <Text style={styles.statLabel}>{t('admin.inventory.onHand')}</Text>
@@ -88,7 +92,7 @@ export default function MobileInventoryScreen() {
               </View>
             </View>
           )}
-          onEndReached={() => setPage(p => p + 20)}
+          onEndReached={() => { if (hasMore) setPage(items.length) }}
           onEndReachedThreshold={0.5}
           contentContainerStyle={{ paddingBottom: 20 }}
         />

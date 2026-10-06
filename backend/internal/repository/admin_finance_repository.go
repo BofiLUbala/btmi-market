@@ -1244,12 +1244,13 @@ func (r *AdminFinanceRepository) ListRiskEvents(page, limit int, status string) 
 	query := fmt.Sprintf(`
 		SELECT 
 			re.id, re.event_type, re.severity, re.target_type, re.target_id,
-			COALESCE(u.first_name || ' ' || u.last_name, b.name, 'Target') as target_name,
+			COALESCE(u.first_name || ' ' || u.last_name, b.name, o.order_number, re.details->>'order_number', re.target_type) as target_name,
 			re.rule_code, COALESCE(re.details, '{}'::jsonb), re.status,
 			re.created_at, re.resolved_at, re.resolved_by
 		FROM risk_events re
 		LEFT JOIN users u ON re.target_id = u.id AND re.target_type IN ('USER', 'SELLER')
 		LEFT JOIN businesses b ON re.target_id = b.id AND re.target_type = 'BUSINESS'
+		LEFT JOIN orders o ON re.target_id = o.id AND re.target_type = 'ORDER'
 		%s
 		ORDER BY re.created_at DESC
 		LIMIT $%d OFFSET $%d

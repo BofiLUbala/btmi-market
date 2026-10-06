@@ -50,9 +50,10 @@ export default function MobileOrdersScreen() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
 
   const fetchOrders = useCallback(async () => {
-    setLoading(true)
+    if (page === 0) setLoading(true)
     try {
       const res = await adminCommerceApi.listOrders({
         search: search || undefined,
@@ -60,7 +61,10 @@ export default function MobileOrdersScreen() {
         limit: 20,
         offset: page,
       })
-      setOrders(res.orders)
+      // Later pages are appended; a short page means the end of the list.
+      const rows = res.orders ?? []
+      setOrders((prev) => (page === 0 ? rows : [...prev, ...rows]))
+      setHasMore(rows.length >= 20)
     } catch (err) {
       console.error(err)
     } finally {
@@ -144,7 +148,7 @@ export default function MobileOrdersScreen() {
               {item.is_stuck ? <Text style={styles.stuck}>{t('admin.orders.stuckFlag')}</Text> : null}
             </TouchableOpacity>
           )}
-          onEndReached={() => setPage(p => p + 20)}
+          onEndReached={() => { if (hasMore) setPage(orders.length) }}
           onEndReachedThreshold={0.5}
           contentContainerStyle={{ paddingBottom: 20 }}
         />
