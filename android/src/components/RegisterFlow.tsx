@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { AuthWideShell, useAuthWide } from './AuthWideShell'
 import { Alert, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import { Image } from 'expo-image'
@@ -72,6 +73,7 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   const [challengeError, setChallengeError] = useState('')
   const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
   const automaticLoginRunning = useRef(false)
+  const wide = useAuthWide()
 
   async function pickPhoto(fromCamera: boolean) {
     const permission = fromCamera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -241,12 +243,13 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
     return () => subscription.remove()
   }, [accountType, email, password, register.isSuccess, challenge, photo])
 
+  // Large screens: every state sits in the shared centred card; the inner
+  // phone cards become plain groups so there is no card inside the card.
+  const Box = wide ? FlatBox : Card
+
   if (challenge) {
-    return (
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-          <SectionTitle title={t('auth.whatsapp.created')} />
-          <Card>
+    const codeForm = (
+          <Box>
             <WhatsAppCodeForm
               challenge={challenge}
               initialError={challengeError}
@@ -257,17 +260,22 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
                 router.replace(user.account_type === 'SELLER' ? '/seller/onboarding' : '/(buyer)/profile')
               }}
             />
-          </Card>
+          </Box>
+    )
+    if (wide) return <AuthWideShell title={t('auth.whatsapp.created')}>{codeForm}</AuthWideShell>
+    return (
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+          <SectionTitle title={t('auth.whatsapp.created')} />
+          {codeForm}
         </ScrollView>
       </KeyboardAvoidingView>
     )
   }
 
   if (register.isSuccess) {
-    return (
-      <ScrollView contentContainerStyle={styles.page}>
-        <SectionTitle title={t('auth.register.created')} />
-        <Card>
+    const created = (
+        <Box>
           <Text style={styles.success}>{t('auth.register.checkEmail')}</Text>
           <Text style={styles.muted}>{t('auth.register.sentLinkToEmail', { email: email.trim().toLowerCase() })}</Text>
           <Text style={styles.muted}>{t('auth.register.linkValidity')}</Text>
@@ -276,18 +284,21 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
             label={t('auth.register.resendActivation')}
             onResend={() => authApi.resendActivation(email.trim().toLowerCase())}
           />
-        </Card>
+        </Box>
+    )
+    if (wide) return <AuthWideShell title={t('auth.register.created')}>{created}</AuthWideShell>
+    return (
+      <ScrollView contentContainerStyle={styles.page}>
+        <SectionTitle title={t('auth.register.created')} />
+        {created}
       </ScrollView>
     )
   }
 
-  return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-        <SectionTitle title={accountType === 'SELLER' ? t('auth.register.sellerTitle') : t('auth.register.title')} />
-        <Text style={styles.muted}>{accountType === 'SELLER' ? t('auth.register.sellerSubtitle') : t('auth.register.subtitle')}</Text>
-
-        <View style={[styles.flowBanner, accountType === 'SELLER' ? styles.sellerBanner : styles.buyerBanner]}>
+  const title = accountType === 'SELLER' ? t('auth.register.sellerTitle') : t('auth.register.title')
+  const subtitle = accountType === 'SELLER' ? t('auth.register.sellerSubtitle') : t('auth.register.subtitle')
+  const steps = <>
+        <View style={[styles.flowBanner, wide && styles.flowBannerWide, accountType === 'SELLER' ? styles.sellerBanner : styles.buyerBanner]}>
           <Text style={styles.flowBannerText}>
             {accountType === 'SELLER' ? t('auth.register.sellerFlowLabel') : t('auth.register.buyerFlowLabel')}
           </Text>
@@ -336,7 +347,7 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
 
         {/* Step 1: Account Credentials */}
         {step === 1 && (
-          <Card>
+          <Box>
             <Field label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholder={t('auth.emailPlaceholder')} />
             {whatsappEnabled ? (
               <View style={{ gap: 6 }}>
@@ -355,12 +366,12 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
               <Text style={matches ? styles.success : styles.error}>{matches ? t('auth.passwordsMatch') : t('auth.passwordsMismatch')}</Text>
             ) : null}
             <Button title={`${t('auth.register.next')} →`} onPress={nextStep} />
-          </Card>
+          </Box>
         )}
 
         {/* Step 2: Personal Information */}
         {step === 2 && (
-          <Card>
+          <Box>
             <Pressable style={styles.photoCard} onPress={choosePhoto} accessibilityRole="button" accessibilityLabel={t('auth.register.photoTitle')}>
               <View style={styles.photoCircle}>
                 {photo ? <Image source={{ uri: photo.uri }} style={styles.photoImg} contentFit="cover" /> : <Ionicons name="camera-outline" size={22} color={colors.green} />}
@@ -399,12 +410,12 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
                 <Button title={`${t('auth.register.next')} →`} onPress={nextStep} />
               </View>
             </View>
-          </Card>
+          </Box>
         )}
 
         {/* Step 3: Address & Location */}
         {step === 3 && (
-          <Card>
+          <Box>
             <StructuredAddressFields value={address} onChange={setAddress} />
             <View style={styles.btnRow}>
               <View style={styles.btnCol}>
@@ -414,12 +425,12 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
                 <Button title={`${t('auth.register.next')} →`} onPress={nextStep} />
               </View>
             </View>
-          </Card>
+          </Box>
         )}
 
         {/* Step 4: Review / Confirmation */}
         {step === 4 && (
-          <Card>
+          <Box>
             <Text style={styles.reviewHeading}>{t('auth.register.reviewTitle')}</Text>
             <Text style={styles.muted}>{t('auth.register.reviewSubtitle')}</Text>
 
@@ -475,14 +486,15 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
                 />
               </View>
             </View>
-          </Card>
+          </Box>
         )}
 
         <Pressable accessibilityRole="link" onPress={() => router.replace('/auth/login')}>
           <Text style={styles.link}>{t('auth.register.alreadyRegistered')} {t('common.signIn')}</Text>
         </Pressable>
-      </ScrollView>
+  </>
 
+  const policyModal = (
       <Modal visible={policyModalVisible} animationType="slide" onRequestClose={() => setPolicyModalVisible(false)}>
         <SafeAreaView style={[styles.modalRoot, { backgroundColor: colors.cream }]}>
           <View style={styles.modalHeader}>
@@ -494,9 +506,34 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
           </ScrollView>
         </SafeAreaView>
       </Modal>
+  )
+
+  if (wide) {
+    return <>
+      <AuthWideShell title={title} subtitle={subtitle} width={520}>{steps}</AuthWideShell>
+      {policyModal}
+    </>
+  }
+
+  return (
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+        <SectionTitle title={title} />
+        <Text style={styles.muted}>{subtitle}</Text>
+
+        {steps}
+      </ScrollView>
+
+      {policyModal}
     </KeyboardAvoidingView>
   )
 }
+
+function FlatBox({ children }: { children?: ReactNode }) {
+  return <View style={flatBoxStyle.box}>{children}</View>
+}
+
+const flatBoxStyle = StyleSheet.create({ box: { gap: 12 } })
 
 const makeStyles = (colors: Colors) => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.cream },
@@ -509,6 +546,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   link: { color: colors.green, fontWeight: '700', fontSize: 13, textAlign: 'center', marginVertical: spacing.sm },
   // Kicker-style pill naming the flow (buyer / seller).
   flowBanner: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingVertical: 6, paddingHorizontal: 12 },
+  flowBannerWide: { alignSelf: 'center' },
   buyerBanner: { backgroundColor: colors.greenSoft },
   sellerBanner: { backgroundColor: colors.goldSoft },
   flowBannerText: { ...kicker, color: colors.green },

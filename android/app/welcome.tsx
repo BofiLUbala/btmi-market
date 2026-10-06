@@ -5,6 +5,7 @@ import { router, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Button } from '../src/components/ui'
+import { useAuthWide } from '../src/components/AuthWideShell'
 import { categoryImage } from '../src/lib/categoryVisuals'
 import { markWelcomeSeen } from '../src/lib/welcome'
 import { useI18n } from '../src/store/i18n'
@@ -19,6 +20,7 @@ export default function WelcomeScreen() {
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
   const insets = useSafeAreaInsets()
+  const wide = useAuthWide()
 
   async function leave(to: Href, replace = true) {
     await markWelcomeSeen()
@@ -26,8 +28,7 @@ export default function WelcomeScreen() {
     else { router.replace('/(buyer)'); router.push(to) }
   }
 
-  return (
-    <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
+  const body = <>
       <View style={styles.top}>
         <View style={styles.logoTile}><RNImage source={LOGO} style={styles.logo} resizeMode="contain" /></View>
         <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void leave('/(buyer)')}>
@@ -61,6 +62,12 @@ export default function WelcomeScreen() {
           <Text style={styles.signInLink} accessibilityRole="link" onPress={() => void leave('/auth/login', false)}>{t('common.signIn')}</Text>
         </Text>
       </View>
+  </>
+
+  return (
+    <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
+      {/* Large screens: the same design, centred in a narrow column. */}
+      {wide ? <View style={styles.wideColumn}>{body}</View> : body}
     </View>
   )
 }
@@ -86,4 +93,5 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   actions: { gap: 14, paddingTop: spacing.sm },
   signInLine: { color: c.onNavyMuted, fontSize: 13, textAlign: 'center' },
   signInLink: { color: c.onNavy, fontWeight: '700' },
+  wideColumn: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center' },
 })

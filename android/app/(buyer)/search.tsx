@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { Image } from 'expo-image'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, Tabs, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -8,7 +7,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { marketplaceApi } from '../../src/api'
 import { resolveMediaUrl } from '../../src/api/client'
 import { categoryLabel, subcategoryLabel } from '../../src/lib/categoryLabels'
-import { categoryImage } from '../../src/lib/categoryVisuals'
 import { normalizeSearch, searchSession } from '../../src/lib/search'
 import { resolvePromotion } from '../../src/lib/promotion'
 import { formatMoney } from '../../src/lib/money'
@@ -19,6 +17,7 @@ import { useColors } from '../../src/store/theme'
 import { kicker, radius, shadow, spacing, type Colors, fonts } from '../../src/theme'
 import type { TranslationKey } from '../../src/locales/fr'
 import type { Category, PublicProduct, SearchEvent, Shop } from '../../src/types'
+import { ProductPhoto } from '../../src/components/ProductPhoto'
 
 /** Same sorts and rating facets as web-app/src/pages/marketplace/SearchPage.tsx. */
 const SORTS: Array<{ value: string; key: TranslationKey }> = [
@@ -313,7 +312,7 @@ function SearchResultCard({ product, onOpen, onAdded }: { product: PublicProduct
 
   return (
     <Pressable onPress={onOpen} style={({ pressed }) => [s.card, pressed && s.pressed]} accessibilityRole="button">
-      <Image source={image ?? categoryImage(product.category_slug, product.category_name)} style={[s.thumb, outOfStock && s.thumbOut]} contentFit="cover" transition={150} />
+      <ProductPhoto uri={image} categorySlug={product.category_slug} categoryName={product.category_name} style={[s.thumb, outOfStock && s.thumbOut]} transition={150} />
       <View style={s.body}>
         {product.category_name ? <Text numberOfLines={1} style={s.kicker}>{categoryLabel(t, product.category_slug, product.category_name)}</Text> : null}
         <Text numberOfLines={2} style={[s.name, outOfStock && s.muted]}>{product.name}</Text>

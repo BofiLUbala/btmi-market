@@ -24,7 +24,6 @@ import { useCart } from '../../src/store/cart'
 import { Button, Card, ErrorState, Loading } from '../../src/components/ui'
 import { useColors } from '../../src/store/theme'
 import { fonts, kicker, radius, shadow, spacing, type Colors } from '../../src/theme'
-import { categoryImage } from '../../src/lib/categoryVisuals'
 import { categoryLabel } from '../../src/lib/categoryLabels'
 import { colorSwatch, isColorAttribute } from '../../src/lib/colorSwatch'
 import { DescriptionText, descriptionItems } from '../../src/components/Accordion'
@@ -38,6 +37,7 @@ import { useI18n } from '../../src/store/i18n'
 import type { ProductReview, ProductReviewSummary } from '../../src/types'
 import { formatMoney } from '../../src/lib/money'
 import { dateLocale } from '../../src/lib/format'
+import { ProductPhoto } from '../../src/components/ProductPhoto'
 import {
   buildAttributeGroups,
   resolveVariant,
@@ -549,8 +549,10 @@ export default function ProductScreen() {
                     </View>
                   ) : null}
                   <View style={styles.wideImageBox}>
-                    <Image
-                      source={mainPhoto ?? categoryImage(category.slug, category.name)}
+                    <ProductPhoto
+                      uri={mainPhoto}
+                      categorySlug={category.slug}
+                      categoryName={category.name}
                       contentFit="contain"
                       accessibilityLabel={product.name}
                       style={styles.wideImage}
@@ -901,9 +903,10 @@ export default function ProductScreen() {
               ))}
             </ScrollView>
           ) : (
-            <Image
-              source={image ?? categoryImage(category.slug, category.name)}
-              contentFit="cover"
+            <ProductPhoto
+              uri={image}
+              categorySlug={category.slug}
+              categoryName={category.name}
               style={{ width: galleryWidth, height: galleryHeight }}
             />
           )}

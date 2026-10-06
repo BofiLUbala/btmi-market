@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { Image } from 'expo-image'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, Tabs } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -9,10 +8,10 @@ import { useI18n } from '../../src/store/i18n'
 import { useAuth } from '../../src/store/auth'
 import { useColors } from '../../src/store/theme'
 import { useFavorites, type FavoritesItem } from '../../src/store/favorites'
-import { categoryImage } from '../../src/lib/categoryVisuals'
 import { categoryLabel } from '../../src/lib/categoryLabels'
 import { formatMoney } from '../../src/lib/money'
 import { kicker, radius, shadow, spacing, type Colors, fonts } from '../../src/theme'
+import { ProductPhoto } from '../../src/components/ProductPhoto'
 
 type Segment = 'all' | 'items' | 'shops'
 
@@ -46,7 +45,7 @@ export default function FavoritesScreen() {
   const tile = (item: FavoritesItem) => (
     <Pressable key={item.productId} style={({ pressed }) => [styles.card, pressed && styles.pressed]} accessibilityRole="button" onPress={() => router.push(`/products/${item.productId}`)}>
       <View style={styles.media}>
-        <Image source={item.image ?? categoryImage(item.categorySlug, item.categoryName)} style={styles.image} contentFit="cover" />
+        <ProductPhoto uri={item.image} categorySlug={item.categorySlug} categoryName={item.categoryName} style={styles.image} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('product.removeFromFavorites')}

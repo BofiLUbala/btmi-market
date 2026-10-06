@@ -1,13 +1,12 @@
 import { useMemo } from 'react'
-import { Image } from 'expo-image'
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import type { PublicProduct } from '../types'
 import { fonts, kicker, radius, shadow, spacing, type Colors } from '../theme'
-import { categoryImage } from '../lib/categoryVisuals'
 import { categoryLabel } from '../lib/categoryLabels'
 import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
 import { resolveMediaUrl } from '../api/client'
+import { ProductPhoto } from './ProductPhoto'
 import { resolvePromotion } from '../lib/promotion'
 import { formatMoney } from '../lib/money'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -43,10 +42,11 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && staticStyles.pressed]} accessibilityRole="link">
       <View style={styles.media}>
-        <Image
-          source={image ?? categoryImage(product.category_slug, product.category_name)}
+        <ProductPhoto
+          uri={image}
+          categorySlug={product.category_slug}
+          categoryName={product.category_name}
           style={[staticStyles.image, outOfStock && staticStyles.imageOut]}
-          contentFit="cover"
           transition={180}
         />
         {outOfStock && (

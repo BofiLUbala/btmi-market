@@ -125,14 +125,18 @@ const (
 	NotificationTypeCourierJoined          NotificationType = "COURIER_JOINED"
 
 	// Shop, catalogue and team (seller space).
-	NotificationTypeShopSuspended        NotificationType = "SHOP_SUSPENDED"
-	NotificationTypeShopReactivated      NotificationType = "SHOP_REACTIVATED"
-	NotificationTypeBusinessSuspended    NotificationType = "BUSINESS_SUSPENDED"
-	NotificationTypeBusinessReactivated  NotificationType = "BUSINESS_REACTIVATED"
-	NotificationTypeProductUnpublished   NotificationType = "PRODUCT_UNPUBLISHED"
-	NotificationTypeProductArchived      NotificationType = "PRODUCT_ARCHIVED"
-	NotificationTypeStockOut             NotificationType = "STOCK_OUT"
-	NotificationTypeEmployeeJoined       NotificationType = "EMPLOYEE_JOINED"
+	NotificationTypeShopSuspended       NotificationType = "SHOP_SUSPENDED"
+	NotificationTypeShopReactivated     NotificationType = "SHOP_REACTIVATED"
+	NotificationTypeBusinessSuspended   NotificationType = "BUSINESS_SUSPENDED"
+	NotificationTypeBusinessReactivated NotificationType = "BUSINESS_REACTIVATED"
+	NotificationTypeProductUnpublished  NotificationType = "PRODUCT_UNPUBLISHED"
+	NotificationTypeProductArchived     NotificationType = "PRODUCT_ARCHIVED"
+	NotificationTypeStockOut            NotificationType = "STOCK_OUT"
+	// Home spotlights (re-evaluated every two minutes from seller performance).
+	NotificationTypeProductSpotlighted    NotificationType = "PRODUCT_SPOTLIGHTED"
+	NotificationTypeProductSpotlightEnded NotificationType = "PRODUCT_SPOTLIGHT_ENDED"
+	NotificationTypeSpotlightPriceUpdated NotificationType = "SPOTLIGHT_PRICE_UPDATED"
+	NotificationTypeEmployeeJoined        NotificationType = "EMPLOYEE_JOINED"
 
 	// Admin operations.
 	NotificationTypeCaseAssigned     NotificationType = "CASE_ASSIGNED"
@@ -266,8 +270,8 @@ type ConversationListItemResponse struct {
 	LastSenderParty    Party     `json:"last_sender_party,omitempty"`
 	LastRecipientParty Party     `json:"last_recipient_party,omitempty"`
 	LastMessageAt      time.Time `json:"last_message_at"`
-	UnreadCount    int        `json:"unread_count"`
-	CreatedAt      time.Time  `json:"created_at"`
+	UnreadCount        int       `json:"unread_count"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 type NotificationResponse struct {

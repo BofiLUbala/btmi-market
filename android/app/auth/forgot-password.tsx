@@ -7,6 +7,7 @@ import { authApi } from '../../src/api'
 import { Button, Card, ErrorState, Field, SectionTitle } from '../../src/components/ui'
 import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrollView'
 import { ResendEmailButton } from '../../src/components/AuthFormParts'
+import { AuthWideShell, useAuthWide } from '../../src/components/AuthWideShell'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { radius, spacing, type Colors } from '../../src/theme'
@@ -33,7 +34,37 @@ export default function ForgotPassword() {
     mutationFn: (value: string) => requestReset(value),
     onSuccess: (_data, value) => setSentTo(value),
   })
+  const wide = useAuthWide()
   const send = () => { if (identifier.trim() && !request.isPending) request.mutate(identifier.trim()) }
+
+  if (wide) {
+    // Large screens: same content in the shared navy + card frame (see login).
+    if (sentTo) {
+      return <AuthWideShell title={t('auth.forgotSentTitle')} subtitle={t('auth.forgotSentTo', { identifier: sentTo })}>
+        <View style={styles.icon}><Ionicons name="mail-outline" size={26} color={colors.onGreen} /></View>
+        <Button title={t('auth.backToSignIn')} onPress={() => router.replace('/auth/login')} />
+        <ResendEmailButton label={t('auth.forgotResend')} onResend={() => requestReset(sentTo)} />
+        <Text style={[styles.link, styles.center]} onPress={() => { request.reset(); setSentTo(null) }}>{t('auth.useAnotherIdentifier')}</Text>
+      </AuthWideShell>
+    }
+    return <AuthWideShell title={t('auth.recoverAccount')} subtitle={t('auth.recoverAccountBody')}>
+      <Field
+        label={t('auth.identifier')}
+        value={identifier}
+        onChangeText={setIdentifier}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="username"
+        autoFocus={!identifier}
+        returnKeyType="send"
+        onSubmitEditing={send}
+        placeholder={t('auth.identifierPlaceholder')}
+      />
+      <Button title={t('auth.sendLink')} loading={request.isPending} disabled={!identifier.trim()} onPress={send} />
+      {request.isError && <ErrorState message={t('auth.forgotFailed')} />}
+      <Text style={[styles.link, styles.center]} onPress={() => router.canGoBack() ? router.back() : router.replace('/auth/login')}>{t('auth.backToSignIn')}</Text>
+    </AuthWideShell>
+  }
 
   if (sentTo) {
     return <KeyboardAwareScrollView contentContainerStyle={styles.page}>

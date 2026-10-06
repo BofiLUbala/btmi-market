@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { takePendingNotificationLink } from '../../src/lib/notificationRouting'
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import type { TranslationKey } from '../../src/locales/fr'
 import { router } from 'expo-router'
@@ -15,6 +15,7 @@ import { spacing, type Colors, fonts, kicker, radius, shadow } from '../../src/t
 import { sellerIntent } from '../../src/store/sellerIntent'
 import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrollView'
 import { RememberMe, useRememberedEmail } from '../../src/components/AuthFormParts'
+import { AuthWideShell } from '../../src/components/AuthWideShell'
 import { ChannelSwitch, WhatsAppCodeForm, challengeFromError, useWhatsAppEnabled, whatsappErrorMessage } from '../../src/components/WhatsAppAuth'
 import type { VerificationChannel, WhatsAppChallenge } from '../../src/api'
 
@@ -35,6 +36,8 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const whatsappEnabled = useWhatsAppEnabled()
+  const { width } = useWindowDimensions()
+  const wide = width >= 900
   const [channel, setChannel] = useState<VerificationChannel>('email')
   const [phone, setPhone] = useState('')
   const [challenge, setChallenge] = useState<WhatsAppChallenge | null>(null)
@@ -103,25 +106,28 @@ export default function LoginScreen() {
   // Buyer, seller, employee and courier accounts all sign in here and are
   // routed by account type; administration has its own space.
   if (challenge) {
+    const codeForm = <WhatsAppCodeForm
+      challenge={challenge}
+      initialError={challengeError}
+      onVerify={async (id, code) => { const user = await verifyWhatsApp(id, code); await routeAfterLogin(user.email) }}
+      onBack={() => setChallenge(null)}
+    />
+    // Large screens: the code entry in the shared centred card.
+    if (wide) return <AuthWideShell onBack={() => setChallenge(null)}>{codeForm}</AuthWideShell>
     // Reference 14 "Code SMS": plain white page, back chevron, code entry.
     return <View style={[styles.codeRoot, { paddingTop: insets.top }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={t('auth.whatsapp.back')} onPress={() => setChallenge(null)} hitSlop={10} style={styles.codeBack}>
         <Ionicons name="chevron-back" size={24} color={colors.ink} />
       </Pressable>
       <KeyboardAwareScrollView contentContainerStyle={styles.codePage} keyboardShouldPersistTaps="handled">
-        <WhatsAppCodeForm
-          challenge={challenge}
-          initialError={challengeError}
-          onVerify={async (id, code) => { const user = await verifyWhatsApp(id, code); await routeAfterLogin(user.email) }}
-          onBack={() => setChallenge(null)}
-        />
+        {codeForm}
       </KeyboardAwareScrollView>
     </View>
   }
 
-  return <View style={styles.root}>
-    <KeyboardAwareScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-      <View style={[styles.hero, { paddingTop: insets.top + 12 }]}>
+  // The brand block (logo, eyebrow, title) and the form are the same on every
+  // screen size; only the frame around them changes.
+  const brand = <>
         {router.canGoBack() ? (
           <Pressable accessibilityRole="button" accessibilityLabel={t('auth.whatsapp.back')} onPress={() => router.back()} hitSlop={10} style={styles.heroBack}>
             <Ionicons name="chevron-back" size={22} color={colors.onNavy} />
@@ -133,8 +139,8 @@ export default function LoginScreen() {
         <Text style={styles.kicker}>{t('auth.login.kicker')}</Text>
         <Text style={styles.title}>{w('auth.login.title')}</Text>
         <Text style={styles.subtitle}>{w('auth.login.subtitle')}</Text>
-      </View>
-      <View style={styles.card}>
+  </>
+  const form = <>
         {whatsappEnabled ? <ChannelSwitch value={channel} onChange={(c) => { setChannel(c); setError('') }} label={t('auth.whatsapp.loginWith')} /> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {notActivated ? (
@@ -219,6 +225,21 @@ export default function LoginScreen() {
           <Ionicons name="shield-checkmark-outline" size={16} color={colors.muted} />
           <Text style={styles.adminLinkText}>{t('auth.adminSpace')}</Text>
         </Pressable>
+  </>
+
+  if (wide) {
+    // Large screens (web, tablets): the form in the shared centred card
+    // instead of a phone layout stretched edge to edge.
+    return <AuthWideShell title={w('auth.login.title')} subtitle={w('auth.login.subtitle')}>{form}</AuthWideShell>
+  }
+
+  return <View style={styles.root}>
+    <KeyboardAwareScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+      <View style={[styles.hero, { paddingTop: insets.top + 12 }]}>
+        {brand}
+      </View>
+      <View style={styles.card}>
+        {form}
       </View>
     </KeyboardAwareScrollView>
   </View>

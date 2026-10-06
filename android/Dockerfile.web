@@ -1,0 +1,29 @@
+# The website: the same Expo app as Android/iOS, exported for the web, so the
+# phone, the small-screen web and the large-screen web share one code base
+# and one design. Nginx serves the static export and proxies /api to the API.
+FROM node:22-bookworm-slim AS build
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+# Same origin as the site: nginx below proxies /api/v1 to the api container.
+ARG EXPO_PUBLIC_API_URL=/api/v1
+ENV EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}
+ARG EXPO_PUBLIC_TOMTOM_API_KEY=
+ENV EXPO_PUBLIC_TOMTOM_API_KEY=${EXPO_PUBLIC_TOMTOM_API_KEY}
+ENV NODE_OPTIONS=--max-old-space-size=3072
+ARG CACHE_BUST=1
+RUN echo "Cache bust: ${CACHE_BUST}" && npx expo export --platform web --output-dir web-dist
+
+FROM nginx:1.27-alpine
+
+COPY nginx.web.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/web-dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

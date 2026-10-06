@@ -1,128 +1,127 @@
 # Graph Report - btmi-ai-market  (2026-10-06)
 
 ## Corpus Check
-- 1029 files · ~1,393,494 words
+- 1040 files · ~1,408,606 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 30 file(s) not represented in the graph (top: (none) 12, .css 9, .example 3)
 
 ## Summary
-- 8625 nodes · 46645 edges · 238 communities (181 shown, 57 thin omitted)
+- 8721 nodes · 47286 edges · 239 communities (183 shown, 56 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 343 edges (avg confidence: 0.88)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5306a1ac`
+- Built from commit: `157350d9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - marketplace_search_integration_test.go
-- ref_react
+- src/App.tsx
 - api/types.ts
-- ErrorBox
+- ref_react
 - src/types.ts
-- buyer/OrderDetailPage.tsx
+- formatMoney
 - useI18n
 - Icons.tsx
-- react-native
-- app/orders/[id].tsx
+- payment.tsx
+- useColors
 - SellerProductCreatePage.tsx
-- web-app/src/lib/format.ts
+- useI18n
 - github.com/gin-gonic/gin.Context
 - seller/products/[id].tsx
+- android/src/api/admin.ts
+- app/products/[id].tsx
 - CourierMissionPage.tsx
-- theme.ts
-- CourierDashboardPage.tsx
-- android/src/api/client.ts
+- components/OrderChatFeed.tsx
 - testing.T
 - e2e_realtime_marketplace_simulation.mjs
-- useAuth
-- QRService
 - android/src/store/i18n.tsx
+- QRService
+- android/src/api/client.ts
 - web-app/src/api/client.ts
 - github.com/google/uuid.UUID
 - components/LiveCourierMap.tsx
 - types.go
-- NewAdminPlatformService
-- buildPayload
-- ShopRepository
+- CourierDashboardPage.tsx
+- job
+- EmployeeService
 - web-app/package.json
 - finance_live_simulation.py
 - NewAdminBootstrapService
 - Handler
 - CashRepository
 - expo
-- courierTracking.ts
+- DB
 - CourierLocationService
-- setup
+- SellerPolicyPage.tsx
 - Handler
 - fail
-- rt_stock_stream.mjs
-- ProductImageRepository
+- Handler
+- validateConfigValue
 - Handler
 - web-app/src/api/communication.ts
 - dependencies
 - context.Context
 - searchEnv
-- database/sql.DB
-- AdminPhase5Handler
-- analyzer.go
+- BusinessService
+- AdminRole
+- NewAdminPlatformService
 - Handler
-- prefs.go
+- Principal
 - MonitoringHandler
-- UserRepository
+- LocationRepository
 - normalize_test.go
-- CommunicationService
 - Handler
-- query.go
+- Query
 - AdminCommerceRepository
-- video_move.mjs
-- Handler
-- go_pkg_github_com_golang_jwt_jwt_v5
-- AdminRepository
 - Handler
 - CommissionService
 - InventoryService
-- Client
 - CourierService
 - e2e_cancel_stages.mjs
 - e2e_full_flow.mjs
 - e2e_item_qr.mjs
 - main
 - geo.go
-- generate-icons.mjs
+- courier21-runtime.mjs
 - go_pkg_bufio
-- dateLocale
 - Handler
 - seller21-runtime.mjs
-- PaymentService
+- CommunicationService
+- AdminCommissionHandler
 - Handler
 - compilerOptions
 - e2e_visual_actors.mjs
 - e2e_category_variants.mjs
 - e2e_admin_lib.mjs
 - feature_flags.go
-- android/package.json
+- AdminCommerceService
 - e2e_push_notifications.mjs
 - test_orders.sh
 - AuthService
 - AdminAuditLog
 - BTMI Market — E-Commerce Gap Audit (Amazon-Benchmarked)
+- e2e_order_code.mjs
 - run
 - AdminManagementHandler
-- post
+- video_move.mjs
+- database/sql.DB
 - BTMI API Endpoint Matrix
-- ExpoSender
+- Client
 - MarketplaceRepository
 - Hub
 - ShopPurgeService
 - BTMI vs Flipkart — Comparaison UI section par section
+- AdminPhase5Handler
 - TBK Market — Administrative Control Center Architecture
 - 1. Pages auditées en détail
 - courier21-evidence.mjs
-- time.Time
+- e2e_product_codes.mjs
+- Service
+- store/auth.ts
 - e2e_product_sync.ps1
-- CartPage.tsx
+- store/cart.tsx
 - DeliveryFeeHandler
 - RegisterFlow.tsx
 - Handler
@@ -133,6 +132,8 @@
 - e2e_full_lifecycle.mjs
 - Business Module Documentation
 - BUYER PRODUCT UX IMPLEMENTATION REPORT
+- Category
+- App
 - 🎯 Admin Monitoring Implementation Report
 - ref_node_child_process
 - run
@@ -143,6 +144,7 @@
 - BTMI AI Market - Backend API Documentation
 - ReviewHandler
 - Notification
+- time.Time
 - Dispatcher
 - e2e_order_sync.ps1
 - Handler
@@ -151,7 +153,8 @@
 - test_buyer_payment_runtime.sh
 - Handler
 - main
-- AdminCommerceService
+- scripts
+- prefs.go
 - test_checkout_address_payment.sh
 - ref_child_process
 - parity.test.ts
@@ -160,7 +163,6 @@
 - e2e_verify.ps1
 - test_payment_webhook.sh
 - main
-- SellerPolicyPage.tsx
 - android/tsconfig.json
 - webpush.go
 - PresenceService
@@ -168,6 +170,7 @@
 - test_point3.sh
 - test_seller_ready.cjs
 - drcLocations.ts
+- PaymentWebhookRepository
 - BTMI Market — Buyer Frontend API Integration Matrix
 - test_growth.sh script
 - finance_runtime_verify.mjs
@@ -197,7 +200,7 @@
 - Notifier
 - 3. Catalogue des événements
 - Diagnostic — Email de confirmation de compte (preuves réelles)
-- DB
+- adminActor
 - TBK Market — Real-browser category test report
 - TBK Market Admin Control Center — Phase 3 (Finance, Support, Trust) Architecture
 - .LoginWhatsApp
@@ -206,14 +209,12 @@
 - TBK — private Android beta
 - BTMI Market Android
 - Points & Levels Domain
-- useI18n
 - BTMI Market — Complete Database Schema
 - BUYER PRODUCT MEDIA GAP ANALYSIS
 - SELLER WEB — Verification Report
 - Private beta tunnel (Cloudflare)
 - TBK Market real-time E2E report
 - Audit Findings
-- Handler
 - Saved-Address Checkout — Real UI/E2E Validation Report
 - TBK Buyer Checkout & Payment Tracking — Test Report (Req 38–60)
 - Part 2 — Firebase App Distribution setup
@@ -238,16 +239,16 @@
 - ErrInvalidRoutePoint
 
 ## God Nodes (most connected - your core abstractions)
-1. `useI18n()` - 237 edges
-2. `useColors()` - 213 edges
+1. `useI18n()` - 265 edges
+2. `useColors()` - 240 edges
 3. `useT()` - 210 edges
 4. `DB` - 172 edges
 5. `useI18n()` - 159 edges
 6. `main()` - 158 edges
-7. `App()` - 130 edges
-8. `ErrorBox()` - 124 edges
-9. `react-native` - 122 edges
-10. `Button()` - 118 edges
+7. `react-native` - 132 edges
+8. `App()` - 130 edges
+9. `ErrorBox()` - 124 edges
+10. `Button()` - 120 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Page : Connexion acheteur` --references--> `Button()`  [INFERRED]
@@ -264,127 +265,127 @@
 ## Import Cycles
 - None detected.
 
-## Communities (238 total, 57 thin omitted)
+## Communities (239 total, 56 thin omitted)
 
 ### Community 0 - "marketplace_search_integration_test.go"
-Cohesion: 0.26
-Nodes (106): getenv(), main(), go_pkg_bytes, go_pkg_context, go_pkg_crypto_hmac, go_pkg_crypto_sha256, go_pkg_crypto_subtle, go_pkg_database_sql (+98 more)
+Cohesion: 0.27
+Nodes (107): getenv(), main(), go_pkg_bytes, go_pkg_context, go_pkg_crypto_hmac, go_pkg_crypto_rand, go_pkg_crypto_sha256, go_pkg_crypto_subtle (+99 more)
 
-### Community 1 - "ref_react"
-Cohesion: 0.02
-Nodes (287): ref_react, react-router-dom, 3. Pages couvertes par héritage de design system (non auditées individuellement), 5.8 Liste consolidée des corrections, par priorité, ActiveSession, ADMIN_ROLE_STALE_EVENT, ADMIN_SESSION_EXPIRED_EVENT, adminAdvancedApi (+279 more)
+### Community 1 - "src/App.tsx"
+Cohesion: 0.01
+Nodes (317): 3. Pages couvertes par héritage de design system (non auditées individuellement), 5.5 P1 — Palette admin codée en dur (Web), 5.8 Liste consolidée des corrections, par priorité, Page : Dashboard admin — Technique, ActiveSession, ADMIN_ROLE_STALE_EVENT, ADMIN_SESSION_EXPIRED_EVENT, adminAdvancedApi (+309 more)
 
 ### Community 2 - "api/types.ts"
 Cohesion: 0.02
-Nodes (206): 2. Response-shape mismatches fixed in `web-app/src/api/types.ts`, 5. Seller Audit, C. Marketplace browsing, G. Reviews, onSessionInvalidated(), cashApi, customerApi, employeeAuthApi (+198 more)
+Nodes (195): 5. Seller Audit, C. Marketplace browsing, G. Reviews, authenticatedBlob(), adminQrApi, qrApi, cashApi, customerApi (+187 more)
 
-### Community 3 - "ErrorBox"
+### Community 3 - "ref_react"
 Cohesion: 0.04
-Nodes (114): 3.1 Buyer (Web), 3.2 Seller (Web), 3.3 Android, 3. Current Feature Map, authApi, CityOption, CommuneOption, locationsApi (+106 more)
+Nodes (136): ref_react, react-router-dom, authApi, buyerApi, onSessionInvalidated(), tokenStore, CityOption, CommuneOption (+128 more)
 
 ### Community 4 - "src/types.ts"
 Cohesion: 0.02
-Nodes (188): MobileProductsScreen(), styles, CourierDeliveredScreen(), makeStyles(), CourierRoutePlanner, HANDOVER_STATUSES, LiveCourierMap, PROVIDER_LABELS (+180 more)
+Nodes (155): Chip(), FinanceTrendChart(), GROUP_TABS, KNOWN_METHODS, makeStyles(), money(), PAYMENT_STATUSES, Row() (+147 more)
 
-### Community 5 - "buyer/OrderDetailPage.tsx"
+### Community 5 - "formatMoney"
 Cohesion: 0.03
-Nodes (145): PASS / FAIL Checklist (Req 38–60), buyerApi, authenticatedBlob(), orderApi, BuyerPayment, HandoverState, OrderItemQR, OrderStatus (+137 more)
+Nodes (148): PASS / FAIL Checklist (Req 38–60), BuyerPayment, OrderLine, OrderWithLines, Answer, BuyerHandoverPanel(), confirmReceipt(), HANDOVER_STATUSES (+140 more)
 
 ### Community 6 - "useI18n"
-Cohesion: 0.06
-Nodes (121): AddressesScreen(), EmployeeInviteAccept(), makeStyles(), ForgotPassword(), makeStyles(), requestReset(), makeStyles(), RegistrationRecoveryScreen() (+113 more)
+Cohesion: 0.04
+Nodes (122): CourierAssistanceScreen(), FAQ, makeStyles(), Row(), CourierMissionScreen(), makeStyles(), PROVIDER_LABELS, VERDICT_KEYS (+114 more)
 
 ### Community 7 - "Icons.tsx"
-Cohesion: 0.04
-Nodes (116): post(), archiveNotification(), deleteNotification(), fetchBuyerUnreadCounts(), fetchNotifications(), fetchSellerUnreadCounts(), markAllNotificationsRead(), markNotificationRead() (+108 more)
-
-### Community 8 - "react-native"
 Cohesion: 0.05
-Nodes (79): CartScreen(), groupByShop(), makeStyles(), money(), ShopGroup, styles, BottomTabBarButtonProps, BuyerTabs() (+71 more)
+Nodes (104): fetchBuyerUnreadCounts(), fetchSellerUnreadCounts(), UnreadCounts, NotFound(), CheckoutProgress(), Header(), getNavLink(), HeaderAvatar() (+96 more)
 
-### Community 9 - "app/orders/[id].tsx"
+### Community 8 - "payment.tsx"
+Cohesion: 0.07
+Nodes (57): DeliveryScreen(), makeStyles(), money(), savedAddressFromProfile(), savedPointOf(), Choice(), isMobile(), makeStyles() (+49 more)
+
+### Community 9 - "useColors"
 Cohesion: 0.03
-Nodes (111): AdminOrderDetailScreen(), Badge(), Field(), Section(), STATUS_COLORS, STATUS_KEYS, statusLabel(), styles (+103 more)
+Nodes (197): AddressesScreen(), makeStyles(), EmployeeInviteAccept(), makeStyles(), makeStyles(), ResetPassword(), makeStyles(), MyOrdersTab() (+189 more)
 
 ### Community 10 - "SellerProductCreatePage.tsx"
 Cohesion: 0.03
-Nodes (108): 1. Route-level findings (web → API), 3. Page-level wiring defects found & fixed, 4. Backend defects discovered during verification (fixed), SELLER WEB — API Audit, vitest, AdminCategoryAttribute, AdminCategoryItem, categoryApi (+100 more)
+Nodes (104): 3. Page-level wiring defects found & fixed, vitest, categoryApi, inventoryApi, productApi, productImageApi, CategoryAttributeDefinition, AttributeValueField() (+96 more)
 
-### Community 11 - "web-app/src/lib/format.ts"
+### Community 11 - "useI18n"
 Cohesion: 0.03
-Nodes (144): Product Configuration (ProductDetailPage), 8. Favorites (Local-Only), qty(), marketplaceApi, MarketplaceQuery, CategoryResponse, ProductReviewsResponse, PublicProduct (+136 more)
+Nodes (143): marketplaceApi, MarketplaceQuery, CategoryResponse, PaginatedProducts, PaginatedShops, ProductReviewsResponse, PublicProduct, PublicProductDetail (+135 more)
 
 ### Community 12 - "github.com/gin-gonic/gin.Context"
 Cohesion: 0.03
-Nodes (18): AdminFinanceHandler, AdminPlatformHandler, AdminTechnicalHandler, AuthHandler, DirectionHandler, CommerceHandler, NewDirectionHandler(), mutationStatus() (+10 more)
+Nodes (21): AdminFinanceHandler, AdminPlatformHandler, AdminTechnicalHandler, AuthHandler, DirectionHandler, CommerceHandler, mutationStatus(), NewAdminFinanceHandler() (+13 more)
 
 ### Community 13 - "seller/products/[id].tsx"
 Cohesion: 0.03
-Nodes (103): FAQ, HelpScreen(), ISSUES, makeStyles(), cartesian(), CharacteristicRow, ComboRow, makeStyles() (+95 more)
+Nodes (100): cartesian(), CharacteristicRow, ComboRow, makeStyles(), newRowId(), PipelineProgress, SellerProductCreateScreen(), addCustomCharacteristic() (+92 more)
 
-### Community 14 - "CourierMissionPage.tsx"
+### Community 14 - "android/src/api/admin.ts"
+Cohesion: 0.03
+Nodes (85): AdvancedManagement(), s, MobileEmployeesScreen(), ROLE_COLORS, styles, MobileCommerceScreen(), NAV_ITEMS, styles (+77 more)
+
+### Community 15 - "app/products/[id].tsx"
 Cohesion: 0.06
-Nodes (53): maplibre-gl, courierApi, DeliveryRoute, LocationFreshness, arrowElement(), EMPTY, KINSHASA, line() (+45 more)
+Nodes (58): HelpScreen(), makeStyles(), imageUrl(), InfoCardItem, InfoCards(), makeStyles(), ProductScreen(), RatingBreakdown() (+50 more)
 
-### Community 15 - "theme.ts"
-Cohesion: 0.04
-Nodes (136): makeStyles(), AdminLayout(), makeStyles(), RegisterScreen(), CategoriesScreen(), makeStyles(), Tone, TONES (+128 more)
+### Community 16 - "CourierMissionPage.tsx"
+Cohesion: 0.05
+Nodes (60): maplibre-gl, courierApi, CourierMission, DeliveryRoute, LocationFreshness, CourierPlanPanel(), REASONS, arrowElement() (+52 more)
 
-### Community 16 - "CourierDashboardPage.tsx"
-Cohesion: 0.12
-Nodes (37): CourierDeliveredProduct, CourierEarnings, cashLabel(), CourierDeliveredPanel(), kinshasaToday(), Availability, COURIER_STATUS_LABEL, CourierDashboardPage() (+29 more)
-
-### Community 17 - "android/src/api/client.ts"
-Cohesion: 0.04
-Nodes (92): getNotificationIcon(), makeStyles(), NotificationsScreen(), makeStyles(), SellerMessagesScreen(), getNotificationIcon(), makeStyles(), SellerNotificationsScreen() (+84 more)
+### Community 17 - "components/OrderChatFeed.tsx"
+Cohesion: 0.06
+Nodes (62): getNotificationIcon(), makeStyles(), NotificationsScreen(), makeStyles(), SellerMessagesScreen(), getNotificationIcon(), makeStyles(), SellerNotificationsScreen() (+54 more)
 
 ### Community 18 - "testing.T"
-Cohesion: 0.04
-Nodes (84): TestRegistrationReinitializationRateLimit(), TestGetHomeFeed_ExcludesInactiveProducts(), TestGetHomeFeed_ExcludesInactiveShops(), TestGetHomeFeed_NewestSectionLast30Days(), TestGetHomeFeed_NoGlobalCount(), TestGetHomeFeed_NoNoPagination(), TestGetHomeFeed_NoPrimaryImageDuplication(), TestGetHomeFeed_OnlyWithStock() (+76 more)
+Cohesion: 0.03
+Nodes (105): TestRegistrationReinitializationRateLimit(), mustParseUUID(), TestGetHomeFeed_ExcludesInactiveProducts(), TestGetHomeFeed_ExcludesInactiveShops(), TestGetHomeFeed_NewestSectionLast30Days(), TestGetHomeFeed_NoGlobalCount(), TestGetHomeFeed_NoNoPagination(), TestGetHomeFeed_NoPrimaryImageDuplication() (+97 more)
 
 ### Community 19 - "e2e_realtime_marketplace_simulation.mjs"
 Cohesion: 0.07
-Nodes (49): call(), check(), del(), errText(), get(), patch(), sleep(), ADDR (+41 more)
+Nodes (50): call(), check(), del(), errText(), get(), patch(), section(), sleep() (+42 more)
 
-### Community 20 - "useAuth"
-Cohesion: 0.05
-Nodes (76): IconName, InfoRow(), LinkRow(), makeStyles(), PointsCell(), ProfileScreen(), QuickTile(), styles (+68 more)
+### Community 20 - "android/src/store/i18n.tsx"
+Cohesion: 0.04
+Nodes (145): AdminLayout(), CartScreen(), groupByShop(), makeStyles(), money(), ShopGroup, styles, CategoriesScreen() (+137 more)
 
 ### Community 21 - "QRService"
-Cohesion: 0.07
-Nodes (28): BuyerPaymentStatus, PaymentSettled(), AcknowledgeHandoverRequest, ConfirmCashRequest, ConfirmCashResponse, HandoverState, AdminDeliveryOverview, DeliveryPackageQR (+20 more)
+Cohesion: 0.04
+Nodes (41): NewHandler(), MarshalPaymentVerified(), BuyerPayment, BuyerPaymentStatus, PaymentSettled(), CurrencySnapshot(), FormatMoneyFR(), OrderItemQR (+33 more)
 
-### Community 22 - "android/src/store/i18n.tsx"
+### Community 22 - "android/src/api/client.ts"
 Cohesion: 0.03
-Nodes (113): AdvancedManagement(), s, MobileEmployeesScreen(), ROLE_COLORS, styles, MobileCommerceScreen(), NAV_ITEMS, styles (+105 more)
+Nodes (122): App(), checkoutHeader(), queryClient, RootLayout(), RootNavigator(), storeHeader(), AUDIENCE, CATEGORIES (+114 more)
 
 ### Community 23 - "web-app/src/api/client.ts"
 Cohesion: 0.05
-Nodes (73): api(), API_BASE, del(), invalidateSession(), patch(), put(), refreshTokens(), sessionListeners (+65 more)
+Nodes (75): 1. Route-level findings (web → API), 2. Response-shape mismatches fixed in `web-app/src/api/types.ts`, 4. Backend defects discovered during verification (fixed), SELLER WEB — API Audit, api(), API_BASE, del(), invalidateSession() (+67 more)
 
 ### Community 24 - "github.com/google/uuid.UUID"
 Cohesion: 0.02
-Nodes (97): MarshalShopCategoryRanking(), SavedDeliveryAddress, CashSessionResponse, CashSummaryResponse, CashSummaryShop, CourierDashboardResponse, CourierDeliveredProduct, CourierHistoryResponse (+89 more)
+Nodes (86): NewHandler(), MarshalReviewAggregate(), AdminEmployeeShopAuth, AdminMarketplaceVisibility, AdminProductCardQuality, AdminPointTransaction, AdminPointUser, BuyerProfile (+78 more)
 
 ### Community 25 - "components/LiveCourierMap.tsx"
-Cohesion: 0.10
-Nodes (31): CourierRoutePlanner(), forSearch(), KINSHASA, makeStyles(), Method, METHOD_KEYS, Target, accuracyRing() (+23 more)
+Cohesion: 0.09
+Nodes (37): CourierItineraryScreen(), CourierRoutePlanner, makeStyles(), ROUTE_PLANNING, CourierRoutePlanner(), forSearch(), KINSHASA, makeStyles() (+29 more)
 
 ### Community 26 - "types.go"
+Cohesion: 0.11
+Nodes (22): MarshalCategoryRebuild(), MarshalProductSimilarity(), MarshalProductSimilarityRebuild(), MarshalProductSimilarityRebuildAll(), Now(), UnmarshalCategoryRebuild(), UnmarshalConsistencyCheck(), UnmarshalPaymentVerified() (+14 more)
+
+### Community 27 - "CourierDashboardPage.tsx"
+Cohesion: 0.12
+Nodes (38): CourierDeliveredProduct, CourierEarnings, cashLabel(), CourierDeliveredPanel(), kinshasaToday(), isTerminalDeliveryStatus(), Availability, COURIER_STATUS_LABEL (+30 more)
+
+### Community 28 - "job"
+Cohesion: 0.19
+Nodes (11): Maintenance(), TestSafeInternalPath(), SafeInternalPath(), buildPayload(), database/sql.NullString, database/sql.NullTime, github.com/google/uuid.NullUUID, maintenanceSnapshot (+3 more)
+
+### Community 29 - "EmployeeService"
 Cohesion: 0.06
-Nodes (40): consistencyCheckJobHandler(), getAllPublishedProducts(), paymentVerifiedJobHandler(), productSimilarityJobHandler(), rankingJobHandler(), rebuildAllProductSimilarities(), rebuildAllProductSimilarityJobHandler(), rebuildCategoryJobHandler() (+32 more)
-
-### Community 27 - "NewAdminPlatformService"
-Cohesion: 0.29
-Nodes (14): NewAdminPlatformService(), newFakePlatformRepo(), TestUpdateFeatureFlag_DirectionCannotWriteHighRisk(), TestUpdateFeatureFlag_DirectionCanWriteGeneralLowRisk(), TestUpdateFeatureFlag_HighRiskConfirmBothDirections(), TestUpdateFeatureFlag_HighRiskRequiresConfirm(), TestUpdateFeatureFlag_LowRiskSucceeds(), TestUpdateFeatureFlag_WrongCategoryForbidden() (+6 more)
-
-### Community 28 - "buildPayload"
-Cohesion: 0.40
-Nodes (5): TestSafeInternalPath(), SafeInternalPath(), buildPayload(), topicFor(), Payload
-
-### Community 29 - "ShopRepository"
-Cohesion: 0.03
-Nodes (58): NewHandler(), CreateCustomerRequest, Customer, CustomerListResponse, CustomerResponse, CustomerSummaryResponse, PaginatedCustomerOrders, UpdateCustomerRequest (+50 more)
+Nodes (18): NewHandler(), CreateEmployeeRequest, Employee, EmployeeActivationToken, UpdateEmployeeRequest, CreateShopRequest, Shop, UpdateShopRequest (+10 more)
 
 ### Community 30 - "web-app/package.json"
 Cohesion: 0.04
@@ -403,128 +404,108 @@ Cohesion: 0.19
 Nodes (3): Handler, TestToOrderResponseIncludesCourierDeliveryState(), toOrderResponse()
 
 ### Community 34 - "CashRepository"
-Cohesion: 0.09
-Nodes (9): CashPayment, CashSession, CloseCashSessionRequest, OpenCashSessionRequest, CashRepository, CashService, CashPaymentStatus, CashReferenceType (+1 more)
+Cohesion: 0.07
+Nodes (18): NewHandler(), CashPayment, CashSession, CashSummaryResponse, CashSummaryShop, CloseCashSessionRequest, OpenCashSessionRequest, CheckoutQuote (+10 more)
 
 ### Community 35 - "expo"
 Cohesion: 0.06
 Nodes (33): backgroundImage, foregroundImage, monochromeImage, adaptiveIcon, googleServicesFile, icon, package, permissions (+25 more)
 
-### Community 36 - "courierTracking.ts"
-Cohesion: 0.12
-Nodes (34): courierApi, FAIL_REASON_KEYS, FAILABLE_STATUSES, makeStyles(), MissionActions(), CourierPlanPanel(), makeStyles(), REASONS (+26 more)
+### Community 36 - "DB"
+Cohesion: 0.02
+Nodes (175): getDocsDir(), getMigrationsDir(), main(), getMigrationsDir(), main(), main(), main(), runPeriodicConsistency() (+167 more)
 
 ### Community 37 - "CourierLocationService"
-Cohesion: 0.16
-Nodes (11): runDeliveryLocationRetention(), CourierLocationResponse, CourierLocationService, NewCourierLocationService(), point(), TestCourierLocationReadAccess(), TestLocationRetentionIsThirtyDays(), TestReportLocationOutcomes() (+3 more)
+Cohesion: 0.10
+Nodes (19): runDeliveryLocationRetention(), newBuyerProfile(), newUser(), pt(), setup(), TestCourierLiveLocationRealDB(), TestDeliveryLocationRetentionRealDB(), CourierLocationResponse (+11 more)
 
-### Community 38 - "setup"
-Cohesion: 0.23
-Nodes (9): newBuyerProfile(), newUser(), pt(), setup(), TestCourierLiveLocationRealDB(), TestDeliveryLocationRetentionRealDB(), NewDeliveryLocationRepository(), github.com/gin-gonic/gin.Engine (+1 more)
+### Community 38 - "SellerPolicyPage.tsx"
+Cohesion: 0.43
+Nodes (5): SELLER_POLICY_ARTICLES, SELLER_POLICY_UPDATED_AT, SELLER_POLICY_VERSION, SellerPolicyArticle, SellerPolicyPage()
 
 ### Community 40 - "fail"
-Cohesion: 0.15
-Nodes (6): fail(), Handler, NewHandler(), user(), Handler, Handler
+Cohesion: 0.16
+Nodes (5): fail(), Handler, user(), Handler, Handler
 
-### Community 41 - "rt_stock_stream.mjs"
-Cohesion: 0.17
-Nodes (10): a, b, burst, cashEv, login(), s, stockEv, t0 (+2 more)
-
-### Community 42 - "ProductImageRepository"
-Cohesion: 0.12
-Nodes (9): NewHandler(), ProductImage, ProductImageResponse, ProductImageRepository, NewProductImageRepository(), ProductImageService, NewProductImageService(), MarketplaceService (+1 more)
+### Community 42 - "validateConfigValue"
+Cohesion: 0.67
+Nodes (3): errWithDetail(), isSemverLike(), validateConfigValue()
 
 ### Community 44 - "web-app/src/api/communication.ts"
 Cohesion: 0.05
-Nodes (86): 5.5 P1 — Palette admin codée en dur (Web), Page : Dashboard admin — Technique, adminApi(), adminProfileApi, notifyAdminRoleStale(), notifyAdminSessionExpired(), refreshAdminTokens(), get() (+78 more)
+Nodes (81): adminApi(), adminProfileApi, notifyAdminRoleStale(), notifyAdminSessionExpired(), refreshAdminTokens(), get(), post(), adminInterveneOrder() (+73 more)
 
 ### Community 45 - "dependencies"
-Cohesion: 0.04
-Nodes (44): dependencies, expo, expo-camera, expo-constants, expo-file-system, expo-font, @expo-google-fonts/fraunces, @expo-google-fonts/inter (+36 more)
+Cohesion: 0.06
+Nodes (34): dependencies, expo, expo-camera, expo-constants, expo-file-system, expo-font, @expo-google-fonts/fraunces, @expo-google-fonts/inter (+26 more)
 
 ### Community 46 - "context.Context"
 Cohesion: 0.02
-Nodes (103): NewAdminPhase5Handler(), NewAdminPlatformHandler(), NewHandler(), AdjustStockRequest, AdminCaseMessageRequest, AdminCaseResolveRequest, AdminPointAdjustmentRequest, AdminPointAdjustmentResult (+95 more)
+Nodes (89): consistencyCheckJobHandler(), getAllPublishedProducts(), paymentVerifiedJobHandler(), productSimilarityJobHandler(), rankingJobHandler(), rebuildAllProductSimilarities(), rebuildAllProductSimilarityJobHandler(), rebuildCategoryJobHandler() (+81 more)
 
 ### Community 47 - "searchEnv"
-Cohesion: 0.18
-Nodes (24): NewSEOHandler(), MarketplaceSearchResult, buildSearchFixture(), names(), searchEnv(), TestAdminSearchAnalyticsAndSynonyms(), TestSearchAccentsAndCase(), TestSearchAndRankingWithoutRedis() (+16 more)
+Cohesion: 0.19
+Nodes (23): MarketplaceSearchResult, buildSearchFixture(), names(), searchEnv(), TestSearchAccentsAndCase(), TestSearchAndRankingWithoutRedis(), TestSearchCoversAllProductsPresentAndFuture(), TestSearchDocumentTriggers() (+15 more)
 
-### Community 48 - "database/sql.DB"
-Cohesion: 0.05
-Nodes (39): Maintenance(), ArchiveBusinessResponse, Business, BusinessLifecycleSummary, CreateBusinessRequest, UpdateBusinessRequest, SaleCommission, SaleFinanceDetail (+31 more)
+### Community 48 - "BusinessService"
+Cohesion: 0.17
+Nodes (11): NewHandler(), ArchiveBusinessResponse, Business, BusinessLifecycleSummary, UpdateBusinessRequest, BusinessRepository, BusinessService, BusinessResponse (+3 more)
 
-### Community 49 - "AdminPhase5Handler"
-Cohesion: 0.25
-Nodes (3): AdminPhase5Handler, phase5Actor(), phase5Fail()
+### Community 49 - "AdminRole"
+Cohesion: 0.02
+Nodes (62): NewAdminManagementHandler(), NewDirectionHandler(), AdjustStockRequest, AdminBuyerPointsItem, AdminCaseDetail, AdminCaseFilter, AdminCaseListItem, AdminCaseMessage (+54 more)
 
-### Community 50 - "analyzer.go"
-Cohesion: 0.28
-Nodes (4): hasDigit(), RegisterAnalyzer(), Analyzer, frenchAnalyzer
+### Community 50 - "NewAdminPlatformService"
+Cohesion: 0.29
+Nodes (14): NewAdminPlatformService(), newFakePlatformRepo(), TestUpdateFeatureFlag_DirectionCannotWriteHighRisk(), TestUpdateFeatureFlag_DirectionCanWriteGeneralLowRisk(), TestUpdateFeatureFlag_HighRiskConfirmBothDirections(), TestUpdateFeatureFlag_HighRiskRequiresConfirm(), TestUpdateFeatureFlag_LowRiskSucceeds(), TestUpdateFeatureFlag_WrongCategoryForbidden() (+6 more)
 
 ### Community 51 - "Handler"
 Cohesion: 0.21
 Nodes (4): notificationAudience(), notificationView(), writeChannelError(), Handler
 
-### Community 52 - "prefs.go"
-Cohesion: 0.18
-Nodes (11): applyRow(), defaultPreference(), Prefs, Principal, NewPrefs(), PrincipalFor(), label(), Category (+3 more)
+### Community 52 - "Principal"
+Cohesion: 0.35
+Nodes (3): Principal, label(), Store
 
 ### Community 53 - "MonitoringHandler"
-Cohesion: 0.46
-Nodes (4): MonitoringHandler, monitoringError(), monitoringQuery(), NewMonitoringHandler()
+Cohesion: 0.57
+Nodes (3): MonitoringHandler, monitoringError(), monitoringQuery()
 
-### Community 54 - "UserRepository"
-Cohesion: 0.05
-Nodes (24): NewHandler(), LevelBenefitInfo, BuyerProfile, BuyerProfileResponse, BuyerProfileViewResponse, CreateBuyerProfileRequest, UpdateBuyerProfileRequest, City (+16 more)
+### Community 54 - "LocationRepository"
+Cohesion: 0.06
+Nodes (23): LevelBenefitInfo, BuyerProfileResponse, BuyerProfileViewResponse, CreateBuyerProfileRequest, UpdateBuyerProfileRequest, City, Commune, Province (+15 more)
 
 ### Community 55 - "normalize_test.go"
-Cohesion: 0.11
-Nodes (25): SearchEventRequest, AnalyzerFor(), Normalize(), TestFrenchStem(), TestNormalize(), TestParseCanonicalOnlyGroup(), TestParseEdgeCases(), TestParseTermsStemsAndSynonyms() (+17 more)
+Cohesion: 0.09
+Nodes (24): AnalyzerFor(), hasDigit(), RegisterAnalyzer(), TestFrenchStem(), TestParseCanonicalOnlyGroup(), TestParseEdgeCases(), TestParseTermsStemsAndSynonyms(), TestSynonymCacheKeepsLastGoodSetOnError() (+16 more)
 
-### Community 56 - "CommunicationService"
-Cohesion: 0.04
-Nodes (31): NewHandler(), AllowedRecipients(), CanMessage(), ChannelContact, ConversationListItemResponse, NotificationResponse, OrderConversation, OrderConversationDetailResponse (+23 more)
-
-### Community 58 - "query.go"
-Cohesion: 0.11
-Nodes (24): MarketplaceSearchParams, TaxonomySuggestion, buildProductSearchSQL(), containsPatterns(), exactWordPatterns(), MarketplaceRepository, productTermSQL(), round2() (+16 more)
+### Community 58 - "Query"
+Cohesion: 0.08
+Nodes (31): AdminMarketplaceRanking, AdminSearchRankingRule, MarketplaceSearchParams, SearchEventRequest, TaxonomySuggestion, buildProductSearchSQL(), containsPatterns(), exactWordPatterns() (+23 more)
 
 ### Community 59 - "AdminCommerceRepository"
-Cohesion: 0.13
-Nodes (11): AdminSearchQueryStat, AdminSearchAnalytics, AdminSearchProductExposure, AdminSearchQueryLog, AdminSearchQueryStat, AdminSearchReformulation, AdminSearchSynonym, UpsertSearchSynonymRequest (+3 more)
-
-### Community 60 - "video_move.mjs"
-Cohesion: 0.29
-Nodes (3): j(), pts, s
+Cohesion: 0.12
+Nodes (13): AdminSearchQueryStat, AdminSearchAnalytics, AdminSearchProductExposure, AdminSearchQueryLog, AdminSearchQueryStat, AdminSearchReformulation, AdminSearchSynonym, UpsertSearchSynonymRequest (+5 more)
 
 ### Community 61 - "Handler"
 Cohesion: 0.09
 Nodes (7): FeatureFlagChecker, LoginFailureRecorder, Handler, NewHandler(), registeredWithChallenge(), sync.Mutex, SEOHandler
 
-### Community 62 - "go_pkg_github_com_golang_jwt_jwt_v5"
-Cohesion: 0.40
-Nodes (5): main(), mint(), main(), LoadSecret(), go_pkg_github_com_golang_jwt_jwt_v5
-
-### Community 63 - "AdminRepository"
-Cohesion: 0.06
-Nodes (15): AdminClaims, AdminLoginResponse, AdminRefreshToken, AdminStatus, AdminUser, AdminRepository, generateAdminSecureToken(), AdminAuthService (+7 more)
-
 ### Community 65 - "CommissionService"
-Cohesion: 0.07
-Nodes (25): AdminCommissionHandler, NewAdminCommissionHandler(), reportError(), reportFilter(), NewSellerFinanceHandler(), sellerReportFilter(), FinanceCurrencyTotal, CommissionFilter (+17 more)
+Cohesion: 0.06
+Nodes (27): FinanceCurrencyTotal, CommissionConfig, CommissionFilter, CommissionHistory, CommissionSummary, SaleCommission, SaleFinanceDetail, SaleFinanceLine (+19 more)
 
 ### Community 66 - "InventoryService"
 Cohesion: 0.03
-Nodes (58): PublicationStatus, CartLineInput, CartLineIssue, CartPreviewRequest, CartPreviewResponse, CartShopGroup, CheckoutCreateRequest, CheckoutCreateResponse (+50 more)
+Nodes (39): PublicationStatus, AddStockRequest, Inventory, InventoryResponse, InventoryWithVariantResponse, RecordSaleRequest, ReleaseStockRequest, ReserveStockRequest (+31 more)
 
 ### Community 68 - "CourierService"
 Cohesion: 0.03
-Nodes (29): Service, NewService(), NewHandler(), Courier, CourierAvailability, CourierEarningsResponse, CourierInvitation, CourierResponse (+21 more)
+Nodes (25): NewHandler(), Courier, CourierAvailability, CourierDashboardResponse, CourierEarningsResponse, CourierInvitation, CourierMissionResponse, CourierResponse (+17 more)
 
 ### Community 69 - "e2e_cancel_stages.mjs"
-Cohesion: 0.06
-Nodes (51): ADMIN, assign(), call(), check(), courier(), courierAvail(), day(), events (+43 more)
+Cohesion: 0.20
+Nodes (21): ADMIN, assign(), call(), check(), courier(), courierAvail(), day(), events (+13 more)
 
 ### Community 70 - "e2e_full_flow.mjs"
 Cohesion: 0.12
@@ -539,24 +520,24 @@ Cohesion: 0.19
 Nodes (9): apiRequest(), CDPClient, courierLogin(), getCDPTarget(), getCourierToken(), login(), main(), sleep() (+1 more)
 
 ### Community 73 - "geo.go"
-Cohesion: 0.06
-Nodes (49): Arrows(), BearingDeg(), deg(), DistanceM(), Arrow, LngLat, LengthM(), Project() (+41 more)
-
-### Community 74 - "generate-icons.mjs"
-Cohesion: 0.29
-Nodes (7): assets, BRAND_BG, here, main(), out(), ref_node_path, ref_sharp
-
-### Community 78 - "dateLocale"
 Cohesion: 0.05
-Nodes (72): adminMonitoringApi, AdminSearchAnalytics, AdminSearchQueryLog, AdminSearchSynonym, Card(), CardGrid(), CardProps, dateLocale() (+64 more)
+Nodes (54): Arrows(), BearingDeg(), deg(), DistanceM(), Arrow, LngLat, LengthM(), Project() (+46 more)
+
+### Community 74 - "courier21-runtime.mjs"
+Cohesion: 0.15
+Nodes (18): assets, BRAND_BG, here, main(), out(), ref_c, ref_node_module, ref_node_path (+10 more)
 
 ### Community 82 - "seller21-runtime.mjs"
 Cohesion: 0.17
 Nodes (20): apiLogin(), clickInRow(), COURIER_PASS, inject(), logLine(), logLines, newPage(), psql() (+12 more)
 
-### Community 83 - "PaymentService"
-Cohesion: 0.03
-Nodes (51): MarshalPaymentVerified(), BuyerPayment, BuyerPaymentResponse, CurrencySnapshot(), FormatMoneyFR(), PercentOf(), RoundMoney(), OrderItemQR (+43 more)
+### Community 84 - "CommunicationService"
+Cohesion: 0.04
+Nodes (28): NewHandler(), AllowedRecipients(), CanMessage(), ChannelContact, ConversationListItemResponse, OrderConversation, OrderConversationDetailResponse, OrderConversationParticipant (+20 more)
+
+### Community 86 - "AdminCommissionHandler"
+Cohesion: 0.23
+Nodes (4): AdminCommissionHandler, NewAdminCommissionHandler(), reportError(), reportFilter()
 
 ### Community 89 - "compilerOptions"
 Cohesion: 0.10
@@ -571,16 +552,16 @@ Cohesion: 0.13
 Nodes (16): activate(), ADDR, biz, categories, created, failures, log(), login() (+8 more)
 
 ### Community 93 - "e2e_admin_lib.mjs"
-Cohesion: 0.06
-Nodes (31): rows, total(), adminRow, stamp, unknownRow, a, anon, find() (+23 more)
+Cohesion: 0.04
+Nodes (61): ref_node_fs, a, [pid, vid], a, a, a, a, open (+53 more)
 
 ### Community 94 - "feature_flags.go"
-Cohesion: 0.36
-Nodes (9): disabled(), featureDisabled(), RejectBodyFlagWhenDisabled(), RequireFeature(), usesFlag(), runFlag(), TestRejectBodyFlagWhenDisabled(), TestRequireFeature() (+1 more)
+Cohesion: 0.16
+Nodes (18): AdminAuthMiddleware(), RequireAdminRoles(), AuthMiddleware(), OptionalAuthMiddleware(), RequireCourier(), disabled(), featureDisabled(), RejectBodyFlagWhenDisabled() (+10 more)
 
-### Community 96 - "android/package.json"
-Cohesion: 0.05
-Nodes (40): App(), styles, devDependencies, @expo/ngrok, @types/react, typescript, react, react-dom (+32 more)
+### Community 97 - "AdminCommerceService"
+Cohesion: 0.02
+Nodes (48): AccountType, NewHandler(), AdminCategoryAttribute, AdminCategoryPerformance, AdminEmployeeItem, AdminInventoryItem, AdminOrderDetail, AdminOrderItem (+40 more)
 
 ### Community 99 - "e2e_push_notifications.mjs"
 Cohesion: 0.06
@@ -592,51 +573,63 @@ Nodes (15): accept_order(), add_stock(), cancel_order(), complete_order(), creat
 
 ### Community 101 - "AuthService"
 Cohesion: 0.06
-Nodes (26): ActivateAdminRequest, AcceptEmployeeInvitationRequest, AccountType, CompleteRegistrationReinitializationRequest, LoginResponse, RefreshResponse, RegisterRequest, User (+18 more)
+Nodes (25): ActivateAdminRequest, AcceptEmployeeInvitationRequest, AccountType, CompleteRegistrationReinitializationRequest, LoginResponse, RefreshResponse, RegisterRequest, User (+17 more)
 
 ### Community 102 - "AdminAuditLog"
-Cohesion: 0.21
+Cohesion: 0.19
 Nodes (7): AdminRole, AdminAuditLog, AuditListFilter, auditRecorder, fakeAuditRecorder, mockAuditRecorder, recordingAudit
 
 ### Community 106 - "BTMI Market — E-Commerce Gap Audit (Amazon-Benchmarked)"
 Cohesion: 0.06
 Nodes (34): 10. Inventory Audit, 11. Pricing / Discount Audit, 12. Cart Audit, 13. Checkout Audit, 14. Orders / Tracking Audit, 15. Payment Audit, 16. Reviews Audit, 17. Profile Audit (+26 more)
 
+### Community 110 - "e2e_order_code.mjs"
+Cohesion: 0.14
+Nodes (16): a, b, body8, call(), cases, cid, clear(), codes() (+8 more)
+
 ### Community 111 - "run"
 Cohesion: 0.24
 Nodes (10): assert(), CDPClient, dockerLogs(), getCDPTarget(), request(), results, run(), sleep() (+2 more)
 
 ### Community 113 - "AdminManagementHandler"
-Cohesion: 0.23
-Nodes (4): AdminManagementHandler, errResp(), NewAdminManagementHandler(), ErrorResponse
+Cohesion: 0.25
+Nodes (3): AdminManagementHandler, errResp(), ErrorResponse
 
-### Community 116 - "post"
-Cohesion: 0.08
-Nodes (20): ref_node_fs, a, [pid, vid], a, a, a, a, open (+12 more)
+### Community 116 - "video_move.mjs"
+Cohesion: 0.29
+Nodes (3): j(), pts, s
+
+### Community 117 - "database/sql.DB"
+Cohesion: 0.05
+Nodes (44): BuyerPaymentResponse, CartLineInput, CartLineIssue, CartPreviewRequest, CartPreviewResponse, CartShopGroup, CheckoutCreateRequest, CheckoutCreateResponse (+36 more)
 
 ### Community 119 - "BTMI API Endpoint Matrix"
 Cohesion: 0.06
 Nodes (31): Auth, BTMI API Endpoint Matrix, Businesses (Auth required), Buyer Orders (Auth required), Buyer Points (Auth required), Buyer Profile (Auth required), Buyer Purchases (Auth required), Buyer Reviews (Auth required) (+23 more)
 
-### Community 120 - "ExpoSender"
-Cohesion: 0.33
-Nodes (5): ticketResult(), ExpoMessage, ExpoSender, expoTicket, Result
+### Community 120 - "Client"
+Cohesion: 0.20
+Nodes (7): ticketResult(), Client, net/http.Client, ExpoMessage, ExpoSender, expoTicket, Result
 
 ### Community 121 - "MarketplaceRepository"
-Cohesion: 0.04
-Nodes (38): keepSearchDocumentsInSync(), NewHomeHandler(), mustParseUUID(), TestGetHomeFeed_ReturnsLimitedProducts(), BuyerPriceResponse, CategorySummary, PublicProductDetailResponse, PublicProductResponse (+30 more)
+Cohesion: 0.05
+Nodes (34): keepSearchDocumentsInSync(), NewSEOHandler(), BuyerPriceResponse, CategorySummary, PublicProductDetailResponse, PublicProductResponse, PublicShopDetailResponse, PublicShopResponse (+26 more)
 
 ### Community 122 - "Hub"
-Cohesion: 0.23
-Nodes (8): Hub, NewHub(), send(), received(), TestLocationEventsReachOnlyTheBuyerAndCommerceAdmin(), TestStockAndCashEventsReachOnlyTheBusinessMembers(), Event, Subscriber
+Cohesion: 0.21
+Nodes (9): Hub, NewHub(), send(), received(), TestLocationEventsReachOnlyTheBuyerAndCommerceAdmin(), TestStockAndCashEventsReachOnlyTheBusinessMembers(), sync.RWMutex, Event (+1 more)
 
 ### Community 123 - "ShopPurgeService"
 Cohesion: 0.16
-Nodes (18): ShopPurgePreview, ShopPurgeRequest, ShopPurgeResult, copyFile(), exclusiveProducts(), ShopPurgeActor, ShopPurgeService, NewShopPurgeService() (+10 more)
+Nodes (17): ShopPurgePreview, ShopPurgeRequest, ShopPurgeResult, copyFile(), exclusiveProducts(), ShopPurgeActor, ShopPurgeService, normalizeShopIDs() (+9 more)
 
 ### Community 124 - "BTMI vs Flipkart — Comparaison UI section par section"
 Cohesion: 0.07
 Nodes (27): 1. Page d'accueil, 2. Page de résultats — l'écart le plus grave, 3. La carte produit, 4. Header et navigation, 5. Ce que BTMI fait **mieux** que Flipkart, 6. Ce qu'il ne faut **pas** reprendre, 7. Priorisation proposée, 8. Ordre d'implémentation recommandé (+19 more)
+
+### Community 125 - "AdminPhase5Handler"
+Cohesion: 0.23
+Nodes (4): AdminPhase5Handler, NewAdminPhase5Handler(), phase5Actor(), phase5Fail()
 
 ### Community 126 - "TBK Market — Administrative Control Center Architecture"
 Cohesion: 0.07
@@ -647,28 +640,36 @@ Cohesion: 0.07
 Nodes (26): 0.1 Corrections apportées à la V1 (auto-critique), 0. Niveau de preuve — légende obligatoire, 1. Pages auditées en détail, 2. Compatibilité mode sombre JS vs `userInterfaceStyle: "light"` (Android), 4. Synthèse — dix problèmes les plus graves (mise à jour V2), 5.1 P0 — `<select>` de tri des avis sans nom accessible, 5.2 P0 — Dashboard admin Direction : échecs API silencieux, 5.3 P1 — Hint de mot de passe stylé comme une erreur (+18 more)
 
 ### Community 128 - "courier21-evidence.mjs"
-Cohesion: 0.15
-Nodes (23): ref_c, ref_node_module, BACKUP_SQL(), capture(), evidence(), join2(), lines, login() (+15 more)
+Cohesion: 0.31
+Nodes (12): BACKUP_SQL(), capture(), evidence(), join2(), lines, login(), psql(), puppeteer (+4 more)
 
-### Community 131 - "time.Time"
-Cohesion: 0.03
-Nodes (58): AdminBuyerPointsItem, AdminCaseDetail, AdminCaseFilter, AdminCaseListItem, AdminCaseMessage, AdminCreateCaseRequest, AdminFinancialSummary, AdminPaymentDetail (+50 more)
+### Community 129 - "e2e_product_codes.mjs"
+Cohesion: 0.16
+Nodes (14): a, b, call(), cases, cid, clear(), lineCodes(), login() (+6 more)
+
+### Community 130 - "Service"
+Cohesion: 0.08
+Nodes (6): Service, AccountActivationToken, PasswordResetToken, ActivationTokenRepository, PasswordResetTokenRepository, NewAuthService()
+
+### Community 136 - "store/auth.ts"
+Cohesion: 0.05
+Nodes (56): BuyerTabs(), RaisedTabButton(), RaisedTabIcon(), IconName, InfoRow(), LinkRow(), makeStyles(), PointsCell() (+48 more)
 
 ### Community 137 - "e2e_product_sync.ps1"
 Cohesion: 0.23
 Nodes (5): Add-Variant(), Invoke-Api(), MarketplaceDetail(), New-Product(), Publish()
 
-### Community 138 - "CartPage.tsx"
-Cohesion: 0.09
-Nodes (29): Authentication & Session, BUYER FRONTEND — API INTEGRATION MATRIX, Cart & Checkout, Error Handling, Legend, Marketplace — Product Discovery, Protected Buyer Pages (Auth Gates), Return-To Mechanism (+21 more)
+### Community 138 - "store/cart.tsx"
+Cohesion: 0.10
+Nodes (21): Authentication & Session, BUYER FRONTEND — API INTEGRATION MATRIX, Cart & Checkout, Error Handling, Legend, Marketplace — Product Discovery, Product Configuration (ProductDetailPage), Protected Buyer Pages (Auth Gates) (+13 more)
 
 ### Community 139 - "DeliveryFeeHandler"
 Cohesion: 0.36
 Nodes (5): DeliveryFeeHandler, deliveryFeeActor(), deliveryFeeFail(), NewDeliveryFeeHandler(), parseDayRange()
 
 ### Community 140 - "RegisterFlow.tsx"
-Cohesion: 0.07
-Nodes (51): AdminLoginScreen(), styles, LoginScreen(), routeAfterLogin(), submit(), LOGO, makeStyles(), BuyerRegistrationScreen() (+43 more)
+Cohesion: 0.06
+Nodes (62): AdminLoginScreen(), styles, ForgotPassword(), makeStyles(), requestReset(), LoginScreen(), routeAfterLogin(), submit() (+54 more)
 
 ### Community 144 - "ref_http"
 Cohesion: 0.22
@@ -693,6 +694,14 @@ Nodes (26): 10. Orders (Buyer-Created), 12. Cash Management, 13. Buyer Profile, 
 ### Community 151 - "BUYER PRODUCT UX IMPLEMENTATION REPORT"
 Cohesion: 0.08
 Nodes (25): 10. Regressions Verified, 11. Build & Deployment, 12. Files Changed / Created, 13. Completion Checklist (Part 59), 14. Known Limitations / Future Work, 15. Evidence, 1. Variant Engine (Generic Attribute System), 2. Stock Logic (+17 more)
+
+### Community 152 - "Category"
+Cohesion: 0.21
+Nodes (7): Category, ParseCategory(), parsePriority(), spec(), lifetime(), Priority, typeSpec
+
+### Community 157 - "App"
+Cohesion: 0.03
+Nodes (105): 401 vs 403 Handling (`src/api/client.ts`), 6. Cart UX, 7. Authentication Gates & Return-To, 8. Favorites (Local-Only), Anonymous Cart, CartPage (`/cart`), Checkout Flow, Guard System (`src/components/auth/Guards.tsx`) (+97 more)
 
 ### Community 158 - "🎯 Admin Monitoring Implementation Report"
 Cohesion: 0.09
@@ -719,28 +728,32 @@ Cohesion: 0.38
 Nodes (4): CDPClient, getCDPTarget(), main(), waitForPort()
 
 ### Community 164 - "Handler"
-Cohesion: 0.42
-Nodes (4): businessError(), businessServiceError(), NewHandler(), Handler
+Cohesion: 0.50
+Nodes (3): businessError(), businessServiceError(), Handler
 
 ### Community 165 - "BTMI AI Market - Backend API Documentation"
 Cohesion: 0.09
 Nodes (21): Architecture, Asynq Worker, Background Working, BTMI AI Market - Backend API Documentation, Common Error Codes, Concurrency Protection, E2E Test Scripts, Environment Variables (+13 more)
 
 ### Community 167 - "Notification"
-Cohesion: 0.08
-Nodes (25): Notification, MetadataToJSON(), Category, Spec, parsePriority(), spec(), SpecFor(), TestLinks() (+17 more)
+Cohesion: 0.14
+Nodes (17): Notification, Spec, SpecFor(), TestLinks(), TestResolveFillsMetadata(), TestSpecPerAudience(), Links, LinksFor() (+9 more)
+
+### Community 174 - "time.Time"
+Cohesion: 0.02
+Nodes (71): NewHandler(), CashSessionResponse, CheckoutGroup, CreateCustomerRequest, Customer, CustomerListResponse, CustomerOrderResponse, CustomerResponse (+63 more)
 
 ### Community 175 - "Dispatcher"
-Cohesion: 0.12
-Nodes (14): audienceOf(), Dispatcher, New(), truncate(), NewStore(), TestEndpointAllowlist(), database/sql.NullString, database/sql.NullTime (+6 more)
+Cohesion: 0.14
+Nodes (7): audienceOf(), coalesceKey(), Dispatcher, truncate(), Config, PublicConfig, Stats
 
 ### Community 176 - "e2e_order_sync.ps1"
 Cohesion: 0.42
 Nodes (7): Assert-Synced(), Buyer-Tracking(), Invoke-Api(), New-DeliveryOrder(), New-PickupOrder(), Record(), Seller-SeesStatus()
 
 ### Community 181 - "Handler"
-Cohesion: 0.23
-Nodes (4): fail(), principal(), ParseCategory(), Handler
+Cohesion: 0.25
+Nodes (3): fail(), principal(), Handler
 
 ### Community 186 - "test_finance_payment_markup.sh"
 Cohesion: 0.54
@@ -750,9 +763,13 @@ Nodes (6): api(), check(), jq_(), mk_order(), set_markup(), test_finance_payment
 Cohesion: 0.46
 Nodes (7): api(), check(), jbool(), jnum(), jorder(), jstr(), test_buyer_payment_runtime.sh script
 
-### Community 190 - "AdminCommerceService"
-Cohesion: 0.02
-Nodes (58): AccountType, NewCommerceHandler(), NewHandler(), AdminCategoryAttribute, AdminCategoryPerformance, AdminEmployeeItem, AdminEmployeeShopAuth, AdminInventoryItem (+50 more)
+### Community 191 - "scripts"
+Cohesion: 0.20
+Nodes (10): scripts, android, ios, start, start:lan, start:phone, start:tunnel, tunnel:api (+2 more)
+
+### Community 195 - "prefs.go"
+Cohesion: 0.45
+Nodes (6): applyRow(), defaultPreference(), Prefs, NewPrefs(), Category, Preference
 
 ### Community 196 - "test_checkout_address_payment.sh"
 Cohesion: 0.67
@@ -778,21 +795,17 @@ Nodes (6): errResponse(), NewLocationHandler(), orderParam(), userID(), buyerPro
 Cohesion: 0.60
 Nodes (5): api(), check(), jq_(), test_payment_webhook.sh script, signed_post()
 
-### Community 213 - "SellerPolicyPage.tsx"
-Cohesion: 0.53
-Nodes (4): SELLER_POLICY_ARTICLES, SELLER_POLICY_UPDATED_AT, SELLER_POLICY_VERSION, SellerPolicyArticle
-
 ### Community 214 - "android/tsconfig.json"
 Cohesion: 0.40
 Nodes (4): compilerOptions, strict, extends, expo/tsconfig.base
 
 ### Community 215 - "webpush.go"
-Cohesion: 0.11
-Nodes (32): loadVAPID(), decodeB64(), Encrypt(), encryptWith(), GenerateVAPID(), NewVAPID(), retryAfter(), browserKeys() (+24 more)
+Cohesion: 0.08
+Nodes (37): main(), mint(), main(), LoadSecret(), loadVAPID(), decodeB64(), Encrypt(), encryptWith() (+29 more)
 
 ### Community 216 - "PresenceService"
-Cohesion: 0.17
-Nodes (12): cleanPath(), redis.Client, PresenceService, knownKey(), NewPresenceService(), pageGroup(), TestPresencePageGroups(), TestPresencePathDropsQueryAndFragment() (+4 more)
+Cohesion: 0.16
+Nodes (13): NewHandler(), cleanPath(), redis.Client, PresenceService, knownKey(), NewPresenceService(), pageGroup(), TestPresencePageGroups() (+5 more)
 
 ### Community 218 - "TBK Admin Phase 5 — Advanced Management"
 Cohesion: 0.12
@@ -805,6 +818,10 @@ Nodes (4): print_error(), print_step(), print_success(), test_point3.sh script
 ### Community 222 - "test_seller_ready.cjs"
 Cohesion: 0.70
 Nodes (4): ref_node_fetch, login(), main(), fetch
+
+### Community 225 - "PaymentWebhookRepository"
+Cohesion: 0.12
+Nodes (10): InitiatePaymentRequest, PaymentInitiation, PaymentPayability, PaymentWebhookEvent, PaymentWebhookRepository, NewPendingProviderDriver(), providerInstruction(), PaymentService (+2 more)
 
 ### Community 226 - "BTMI Market — Buyer Frontend API Integration Matrix"
 Cohesion: 0.14
@@ -839,8 +856,8 @@ Cohesion: 0.17
 Nodes (12): Activation, Authentication & Authorization, Authorization Model, JWT Details, Login, Logout, Middleware, Refresh Token (+4 more)
 
 ### Community 274 - "Notifier"
-Cohesion: 0.06
-Nodes (21): NotificationType, TestDeviceSignatureIgnoresVersions(), Notifier, DeviceSignature(), Security, NewSecurity(), NewSweeper(), MonitoringService (+13 more)
+Cohesion: 0.04
+Nodes (34): NewMonitoringHandler(), NewHomeHandler(), NotificationResponse, NotificationType, JSONToMetadata(), MetadataToJSON(), Notifier, Security (+26 more)
 
 ### Community 275 - "3. Catalogue des événements"
 Cohesion: 0.17
@@ -850,9 +867,9 @@ Nodes (11): 1. Existant avant ce chantier, 2. Catégories, priorités, canaux, 3
 Cohesion: 0.17
 Nodes (11): 1. Lien d'activation acheteur pointait vers la page vendeur — CONFIRMÉ, DÉJÀ CORRIGÉ (par les deux côtés en parallèle), 2. Envoi SMTP synchrone et lent — CONFIRMÉ PAR MESURE RÉELLE, 3. Aucune limite de fréquence sur le renvoi — CONFIRMÉ PAR TEST RÉEL, 4. Énumération de comptes via `/auth/resend-activation` — CONFIRMÉ PAR TEST RÉEL, 5. Registration échoue en 500 si l'email échoue, sans rollback — CONFIRMÉ PAR LECTURE DE CODE, Autre constat, mineur, Ce qui reste hors de portée depuis cet environnement, Diagnostic — Email de confirmation de compte (preuves réelles) (+3 more)
 
-### Community 279 - "DB"
-Cohesion: 0.02
-Nodes (158): getDocsDir(), getMigrationsDir(), main(), getMigrationsDir(), main(), main(), main(), runPeriodicConsistency() (+150 more)
+### Community 281 - "adminActor"
+Cohesion: 0.53
+Nodes (3): adminActor(), CommerceHandler, searchAdminError()
 
 ### Community 282 - "TBK Market — Real-browser category test report"
 Cohesion: 0.18
@@ -886,10 +903,6 @@ Nodes (7): API configuration, BTMI Market Android, Implemented, Requirements, Ru
 Cohesion: 0.25
 Nodes (8): 21. `buyer_profiles`, 22. `seller_levels`, 23. `buyer_levels`, 24. `level_benefits`, 25. `point_accounts`, 26. `point_transactions`, 27. `point_config`, Points & Levels Domain
 
-### Community 296 - "useI18n"
-Cohesion: 0.06
-Nodes (59): 401 vs 403 Handling (`src/api/client.ts`), 6. Cart UX, 7. Authentication Gates & Return-To, Anonymous Cart, CartPage (`/cart`), Checkout Flow, Guard System (`src/components/auth/Guards.tsx`), Header Links Consistency (+51 more)
-
 ### Community 298 - "BTMI Market — Complete Database Schema"
 Cohesion: 0.29
 Nodes (6): BTMI Market — Complete Database Schema, Custom Types (Enums), ERD Diagram, Migration Timeline, Summary Statistics, Table of Contents
@@ -913,10 +926,6 @@ Nodes (6): Acceptance summary, Actors and fixture, Final persisted state, Findin
 ### Community 305 - "Audit Findings"
 Cohesion: 0.33
 Nodes (6): Audit Findings, CRITICAL, HIGH, INFO, LOW, MEDIUM
-
-### Community 306 - "Handler"
-Cohesion: 0.47
-Nodes (3): fail(), NewHandler(), Handler
 
 ### Community 309 - "Saved-Address Checkout — Real UI/E2E Validation Report"
 Cohesion: 0.33
@@ -991,24 +1000,24 @@ Cohesion: 0.67
 Nodes (3): encoding/xml.Name, sitemapURL, sitemapURLSet
 
 ## Knowledge Gaps
-- **1432 isolated node(s):** `type`, `styles`, `name`, `slug`, `scheme` (+1427 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1886 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **57 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1454 isolated node(s):** `type`, `styles`, `name`, `slug`, `scheme` (+1449 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1910 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **56 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `qty()` connect `web-app/src/lib/format.ts` to `e2e_realtime_marketplace_simulation.mjs`, `post`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
-- **Why does `ProductDetailPage()` connect `web-app/src/lib/format.ts` to `ref_react`, `ErrorBox`, `Icons.tsx`, `useI18n`, `SellerProductCreatePage.tsx`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
-- **Why does `get()` connect `e2e_realtime_marketplace_simulation.mjs` to `e2e_push_notifications.mjs`, `web-app/src/lib/format.ts`, `post`, `e2e_visual_actors.mjs`, `e2e_category_variants.mjs`, `e2e_admin_lib.mjs`?**
-  _High betweenness centrality (0.019) - this node is a cross-community bridge._
+- **Why does `qty()` connect `e2e_admin_lib.mjs` to `useI18n`, `e2e_realtime_marketplace_simulation.mjs`?**
+  _High betweenness centrality (0.043) - this node is a cross-community bridge._
+- **Why does `ProductDetailPage()` connect `useI18n` to `src/App.tsx`, `ref_react`, `formatMoney`, `Icons.tsx`, `App`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `get()` connect `e2e_realtime_marketplace_simulation.mjs` to `e2e_visual_actors.mjs`, `e2e_push_notifications.mjs`, `e2e_category_variants.mjs`, `e2e_admin_lib.mjs`?**
+  _High betweenness centrality (0.027) - this node is a cross-community bridge._
 - **What connects `type`, `styles`, `name` to the rest of the system?**
-  _1432 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `ref_react` be split into smaller, more focused modules?**
-  _Cohesion score 0.017776660802546702 - nodes in this community are weakly interconnected._
+  _1454 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `src/App.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.014291407291366066 - nodes in this community are weakly interconnected._
 - **Should `api/types.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.016135490070467648 - nodes in this community are weakly interconnected._
-- **Should `ErrorBox` be split into smaller, more focused modules?**
-  _Cohesion score 0.03954022988505747 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.015719207579672698 - nodes in this community are weakly interconnected._
+- **Should `ref_react` be split into smaller, more focused modules?**
+  _Cohesion score 0.0380952380952381 - nodes in this community are weakly interconnected._

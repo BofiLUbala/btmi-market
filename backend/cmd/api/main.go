@@ -263,6 +263,8 @@ func main() {
 	marketplaceHandler := marketplace.NewHandler(marketplaceService, categoryRankingService, similarityService, pointService, buyerProfileService, categoryService)
 	// Home spotlights: pools rebuilt in the background from the seller ranking.
 	spotlightService := service.NewSpotlightService(marketplaceRepo, categoryRankingService)
+	spotlightService.SetNotifier(notifier)
+	spotlightService.SetImageRepo(productImageRepo)
 	go spotlightService.Run(context.Background())
 	marketplaceHandler.SetSpotlights(spotlightService)
 	marketplaceReviewHandler := marketplace.NewReviewHandler(reviewService)

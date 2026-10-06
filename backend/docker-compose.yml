@@ -152,13 +152,16 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # The website is the Expo app (android/) exported for the web: the same
+  # screens and design as the mobile app, on large and small screens.
+  # web-app/ (the former Vite site) is no longer served.
   web:
     build:
-      context: ../web-app
-      dockerfile: Dockerfile
+      context: ../android
+      dockerfile: Dockerfile.web
       args:
-        VITE_API_BASE: /api/v1
-        VITE_TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
+        EXPO_PUBLIC_API_URL: /api/v1
+        EXPO_PUBLIC_TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
     ports:
       - "${WEB_PORT:-5173}:80"
     depends_on:

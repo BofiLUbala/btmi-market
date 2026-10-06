@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AccessibilityInfo, ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native'
-import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import type { Category, PublicProduct } from '../types'
 import { resolveMediaUrl } from '../api/client'
-import { categoryImage } from '../lib/categoryVisuals'
 import { categoryLabel } from '../lib/categoryLabels'
 import { formatMoney } from '../lib/money'
 import { resolvePromotion } from '../lib/promotion'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { fonts, kicker, radius, shadow, spacing, type Colors } from '../theme'
+import { ProductPhoto } from './ProductPhoto'
 
 /**
  * Large-screen home (web / tablets, width >= WIDE_BREAKPOINT):
@@ -28,7 +27,7 @@ const UNSORTED = '__unsorted'
 function photo(p: PublicProduct) {
   const first = p.images?.[0]
   const raw = p.primary_image_url || p.image_url || (typeof first === 'string' ? first : first?.url || first?.image_url)
-  return resolveMediaUrl(raw) ?? categoryImage(p.category_slug, p.category_name)
+  return resolveMediaUrl(raw)
 }
 
 function priceOf(p: PublicProduct) {
@@ -254,7 +253,7 @@ function SpotlightCard({ title, icon, item, tone, compact = false }: { title: st
             {onSale ? <View style={s.spotBadge}><Text style={s.spotBadgeText}>-{promo.discountPercent}%</Text></View> : null}
           </View>
         </View>
-        <Image source={photo(shown)} style={[s.spotImage, compact && s.spotImageCompact]} contentFit="cover" transition={200} />
+        <ProductPhoto uri={photo(shown)} categorySlug={shown.category_slug} categoryName={shown.category_name} style={[s.spotImage, compact && s.spotImageCompact]} transition={200} />
       </Animated.View>
     </Pressable>
   )
@@ -355,7 +354,7 @@ function StripRow({ items, size }: { items: PublicProduct[]; size: number }) {
         return (
           <Pressable key={p.id} onPress={() => openProduct(p)} style={({ pressed }) => [s.stripItem, pressed && s.pressed]} accessibilityRole="link" accessibilityLabel={p.name}>
             <View>
-              <Image source={photo(p)} style={s.stripImage} contentFit="cover" transition={150} />
+              <ProductPhoto uri={photo(p)} categorySlug={p.category_slug} categoryName={p.category_name} style={s.stripImage} transition={150} />
               {onSale ? <View style={s.stripBadge}><Text style={s.spotBadgeText}>-{promo.discountPercent}%</Text></View> : null}
             </View>
             {p.category_name ? <Text style={s.stripCat} numberOfLines={1}>{categoryLabel(t, p.category_slug, p.category_name)}</Text> : null}
@@ -383,7 +382,7 @@ function QuadCard({ group }: { group: Group }) {
           const { price } = priceOf(p)
           return (
             <Pressable key={p.id} onPress={() => openProduct(p)} style={({ pressed }) => [s.quadItem, pressed && s.pressed]} accessibilityRole="link" accessibilityLabel={p.name}>
-              <Image source={photo(p)} style={s.quadImage} contentFit="cover" transition={150} />
+              <ProductPhoto uri={photo(p)} categorySlug={p.category_slug} categoryName={p.category_name} style={s.quadImage} transition={150} />
               <Text style={s.quadName} numberOfLines={1}>{p.name}</Text>
               <Text style={s.quadPrice}>{formatMoney(price, p.currency)}</Text>
             </Pressable>

@@ -23,6 +23,7 @@ import { I18nProvider, useI18n, type TranslationKey } from '../src/store/i18n'
 import { PreferenceToggleButtons } from '../src/components/PreferenceToggles'
 import { fonts } from '../src/theme'
 import { StoreHeader } from '../src/components/StoreHeader'
+import { useAuthWide } from '../src/components/AuthWideShell'
 import { CheckoutHeader } from '../src/components/CheckoutUI'
 import { withBrandFont } from '../src/typography'
 
@@ -32,6 +33,10 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 0,
  *  screen titles and header colours both have to follow them. */
 /** Buyer/auth screens use the storefront header, like every web page. */
 const storeHeader = () => <StoreHeader />
+/** Auth pages: the storefront header on phones; none on large screens, where
+ *  the page is a single centred card with the logo above it. */
+function AuthHeader() { return useAuthWide() ? null : <StoreHeader /> }
+const authHeader = () => <AuthHeader />
 /** Delivery and payment use the web's focused checkout header. */
 const checkoutHeader = () => <CheckoutHeader />
 
@@ -84,13 +89,13 @@ function RootNavigator() {
         <Stack.Screen name="(buyer)" options={{ headerShown: false }} />
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ headerShown: false, title: t('common.signIn') }} />
-        <Stack.Screen name="auth/register" options={{ header: storeHeader, title: t('auth.createAccount') }} />
-        <Stack.Screen name="auth/register-choice" options={{ header: storeHeader, title: t('auth.createAccount') }} />
-        <Stack.Screen name="auth/register-buyer" options={{ header: storeHeader, title: t('auth.register.buyerFlowLabel') }} />
-        <Stack.Screen name="auth/register-seller" options={{ header: storeHeader, title: t('auth.register.sellerFlowLabel') }} />
-        <Stack.Screen name="auth/forgot-password" options={{ header: storeHeader, title: t('auth.forgotPassword') }} />
-        <Stack.Screen name="auth/reset-password" options={{ header: storeHeader, title: t('auth.newPassword') }} />
-        <Stack.Screen name="auth/registration-recovery" options={{ header: storeHeader, title: t('auth.reinitialize.title') }} />
+        <Stack.Screen name="auth/register" options={{ header: authHeader, title: t('auth.createAccount') }} />
+        <Stack.Screen name="auth/register-choice" options={{ header: authHeader, title: t('auth.createAccount') }} />
+        <Stack.Screen name="auth/register-buyer" options={{ header: authHeader, title: t('auth.register.buyerFlowLabel') }} />
+        <Stack.Screen name="auth/register-seller" options={{ header: authHeader, title: t('auth.register.sellerFlowLabel') }} />
+        <Stack.Screen name="auth/forgot-password" options={{ header: authHeader, title: t('auth.forgotPassword') }} />
+        <Stack.Screen name="auth/reset-password" options={{ header: authHeader, title: t('auth.newPassword') }} />
+        <Stack.Screen name="auth/registration-recovery" options={{ header: authHeader, title: t('auth.reinitialize.title') }} />
         <Stack.Screen name="auth/employee-invite" options={{ title: t('seller.employeeInvite.title') }} />
         <Stack.Screen name="profile-edit" options={{ header: storeHeader, title: t('editProfile.title') }} />
         <Stack.Screen name="addresses" options={{ header: storeHeader, title: t('addresses.title') }} />
