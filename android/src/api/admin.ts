@@ -263,6 +263,8 @@ export interface AdminOrderItem extends DeliveryPlan {
   points_discount: number
   delivery_fee: number
   final_total: number
+  /** What the buyer pays: products + delivery + the payment method's fee. */
+  amount_due?: number
   currency?: string
   delivery_method: string
   delivery_status?: string

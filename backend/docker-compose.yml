@@ -152,6 +152,20 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # The full admin console (web-app/, the former site): the website's nginx
+  # forwards /admin to it; its files are served under /admin-console/.
+  admin-web:
+    build:
+      context: ../web-app
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: /api/v1
+        VITE_TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
+        VITE_BASE: /admin-console/
+    depends_on:
+      - api
+    restart: unless-stopped
+
   # The website is the Expo app (android/) exported for the web: the same
   # screens and design as the mobile app, on large and small screens.
   # web-app/ (the former Vite site) is no longer served.
@@ -166,6 +180,7 @@ services:
       - "${WEB_PORT:-5173}:80"
     depends_on:
       - api
+      - admin-web
     restart: unless-stopped
 
   # OpenWA WhatsApp gateway (github.com/rmyndharis/OpenWA), only started with

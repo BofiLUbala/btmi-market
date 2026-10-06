@@ -139,7 +139,7 @@ export default function MobileOrdersScreen() {
               <Text style={styles.customer}>{item.buyer_name}</Text>
               <View style={styles.cardMeta}>
                 <Text style={styles.metaText}>{item.shop_name}</Text>
-                <Text style={styles.price}>{formatMoney(item.final_total, item.currency || 'USD')}</Text>
+                <Text style={styles.price}>{formatMoney(item.amount_due ?? item.final_total + item.delivery_fee, item.currency || 'USD')}</Text>
               </View>
               <View style={styles.cardMeta}>
                 <Text style={styles.metaText}>{t('admin.orders.items', { count: item.total_items })}</Text>

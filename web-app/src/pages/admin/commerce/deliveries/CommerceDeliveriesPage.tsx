@@ -203,7 +203,7 @@ export default function CommerceDeliveriesPage() {
                       <StatusBadge status={o.status} />
                     </td>
                     <td style={{ textAlign: 'right', padding: '12px 14px', fontWeight: 700, color: 'var(--admin-text)' }}>
-                      {formatMoney(o.final_total || 0, 'USD')}
+                      {formatMoney(o.amount_due ?? o.final_total ?? 0, o.currency || 'USD')}
                     </td>
                     <td style={{ textAlign: 'right', padding: '12px 14px' }}>
                       <Link

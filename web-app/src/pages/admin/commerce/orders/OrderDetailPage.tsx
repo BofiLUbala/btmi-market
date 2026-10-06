@@ -119,9 +119,14 @@ export default function OrderDetailPage() {
         <div>
           <Section title={t('admin.orders.summaryTitle')}>
             <Field label={t('admin.orders.fieldOrderNumber')} value={order.order.order_number} />
-            <Field label={t('common.total')} value={formatMoney(order.order.final_total)} />
+            {/* What the buyer pays (products + delivery + payment fee), the
+                amount Finance lists; final_total alone is the products. */}
+            <Field label={t('common.total')} value={formatMoney(order.order.amount_due ?? order.order.final_total + order.order.delivery_fee)} />
             <Field label={t('admin.orders.fieldBaseTotal')} value={formatMoney(order.order.base_total)} />
             <Field label={t('admin.orders.fieldDeliveryFee')} value={formatMoney(order.order.delivery_fee)} />
+            {order.order.amount_due != null && order.order.amount_due - order.order.final_total - order.order.delivery_fee > 0.004 && (
+              <Field label={t('orders.paymentMarkup')} value={formatMoney(order.order.amount_due - order.order.final_total - order.order.delivery_fee)} />
+            )}
             <Field label={t('admin.orders.fieldPointsDiscount')} value={order.order.points_discount > 0 ? `-${formatMoney(order.order.points_discount)}` : formatMoney(0)} />
             <Field label={t('admin.orders.fieldPaymentMethod')} value={adminLabel(order.order.payment_method || order.payment?.payment_method, '-')} />
             {order.order.payment_provider && <Field label={t('adminCommerceOrdersOrderDetailPage.fieldProvider')} value={order.order.payment_provider.replace(/_/g, ' ')} />}

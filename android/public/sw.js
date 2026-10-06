@@ -42,16 +42,21 @@ function safePath(p) {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const p = event.notification.data || {}
+  // Admin alerts open in the web admin console (/admin, web-app/), which
+  // reads its own web link and listens for "tbk:navigate".
+  const admin = p.kind === 'ADMIN'
+  const target = safePath(admin ? p.link : p.app_link)
   event.waitUntil((async () => {
     const tabs = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const tab of tabs) {
-      if (new URL(tab.url).origin === self.location.origin && 'focus' in tab) {
-        await tab.focus()
-        tab.postMessage({ type: 'tbk:open', payload: p })
-        return
-      }
+      const url = new URL(tab.url)
+      if (url.origin !== self.location.origin || !('focus' in tab)) continue
+      if (admin !== url.pathname.startsWith('/admin')) continue
+      await tab.focus()
+      tab.postMessage(admin ? { type: 'tbk:navigate', url: target } : { type: 'tbk:open', payload: p })
+      return
     }
-    await self.clients.openWindow(safePath(p.app_link))
+    await self.clients.openWindow(target)
   })())
 })
 

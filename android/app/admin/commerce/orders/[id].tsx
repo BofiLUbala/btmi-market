@@ -204,9 +204,12 @@ export default function AdminOrderDetailScreen() {
 
       <Section title={t('admin.orders.summaryTitle')}>
         <Field label={t('admin.orders.fieldOrderNumber')} value={o.order_number} />
-        <Field label={t('common.total')} value={formatMoney(o.final_total, o.currency || 'USD')} />
+        {/* "Total" is what the buyer pays (products + delivery + payment fee),
+            the same amount Finance lists; final_total alone is the products. */}
+        <Field label={t('orders.totalDue')} value={formatMoney(o.amount_due ?? o.final_total + o.delivery_fee, o.currency || 'USD')} />
         <Field label={t('admin.orders.fieldBaseTotal')} value={formatMoney(o.base_total, o.currency || 'USD')} />
         <Field label={t('admin.orders.fieldDeliveryFee')} value={formatMoney(o.delivery_fee, o.currency || 'USD')} />
+        {o.amount_due != null && o.amount_due - o.final_total - o.delivery_fee > 0.004 ? <Field label={t('orders.paymentMarkup')} value={formatMoney(o.amount_due - o.final_total - o.delivery_fee, o.currency || 'USD')} /> : null}
         <Field label={t('admin.orders.fieldPointsDiscount')} value={o.points_discount > 0 ? `-${formatMoney(o.points_discount, o.currency || 'USD')}` : formatMoney(0, o.currency || 'USD')} />
         <Field label={t('admin.orders.fieldPaymentMethod')} value={o.payment_method || detail.payment?.payment_method || '—'} />
         {o.payment_provider ? <Field label={t('admin.orders.fieldProvider')} value={o.payment_provider.replace(/_/g, ' ')} /> : null}
