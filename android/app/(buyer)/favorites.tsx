@@ -12,13 +12,14 @@ import { categoryLabel } from '../../src/lib/categoryLabels'
 import { formatMoney } from '../../src/lib/money'
 import { kicker, radius, shadow, spacing, type Colors, fonts } from '../../src/theme'
 import { ProductPhoto } from '../../src/components/ProductPhoto'
+import { AccountShell } from '../../src/components/AccountShell'
 
 type Segment = 'all' | 'items' | 'shops'
 
 /** Pairs items into rows of two for the photo grid. */
 const pairs = <T,>(list: T[]) => list.reduce<T[][]>((rows, item, i) => (i % 2 ? rows[rows.length - 1].push(item) : rows.push([item]), rows), [])
 
-export default function FavoritesScreen() {
+function FavoritesScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -173,3 +174,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   shop: { color: colors.muted, fontSize: 12 },
   price: { color: colors.green, fontFamily: fonts.display, fontWeight: '700', fontSize: 16, marginTop: 2 },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function FavoritesScreenRoute() {
+  return <AccountShell><FavoritesScreen /></AccountShell>
+}

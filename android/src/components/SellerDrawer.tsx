@@ -8,6 +8,9 @@ import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { fonts, radius, type Colors } from '../theme'
 
+/** Sign-out red readable on navy (4.5:1). */
+const DOCKED_DANGER = '#FF9A92'
+
 type NavItem = { key: TranslationKey; path: string; icon: keyof typeof Ionicons.glyphMap }
 
 /** Mirrors web's SELLER_NAV in components/seller/SellerLayout.tsx: same items,
@@ -37,7 +40,9 @@ const PINNED: NavItem[] = [
   { key: 'seller.policy.navLabel', path: '/seller/policy', icon: 'shield-checkmark-outline' },
 ]
 
-export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+/** `docked`: large screens, where the same navigation stays open as the left
+ *  sidebar of the seller space (web's `.seller-sidebar`), content on the right. */
+export function SellerDrawer({ visible, onClose, docked = false }: { visible: boolean; onClose: () => void; docked?: boolean }) {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -53,38 +58,43 @@ export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: 
   // (confirmed live -- onPress fires and state updates, the portal just
   // stays on screen), and since it's the same component that risk carries
   // over to the native build too. This overlay unmounts outright instead.
-  if (!visible) return null
+  if (!visible && !docked) return null
   const row = (item: NavItem) => {
     const active = item.path === '/seller' ? pathname === '/seller' : pathname.startsWith(item.path)
-    return <Pressable key={item.path} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => go(item.path)} style={({ pressed }) => [styles.row, pressed && styles.rowPressed, active && styles.rowActive]}>
-      <View style={[styles.rowIcon, active && styles.rowIconActive]}><Ionicons name={item.icon} size={17} color={active ? colors.onGreen : colors.green} /></View>
-      <Text style={[styles.rowText, active && styles.rowTextActive]}>{t(item.key)}</Text>
+    // Docked (large screens): light text on the navy sidebar, the open page in blue.
+    return <Pressable key={item.path} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => go(item.path)} style={({ pressed }) => [styles.row, pressed && (docked ? styles.dRowPressed : styles.rowPressed), active && (docked ? styles.dRowActive : styles.rowActive)]}>
+      <View style={[styles.rowIcon, docked && styles.dRowIcon, active && (docked ? styles.dRowIconActive : styles.rowIconActive)]}><Ionicons name={item.icon} size={17} color={active ? colors.onGreen : docked ? colors.cyan : colors.green} /></View>
+      <Text style={[styles.rowText, docked && styles.dRowText, active && (docked ? styles.dRowTextActive : styles.rowTextActive)]}>{t(item.key)}</Text>
     </Pressable>
   }
-  return <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('nav.closeMenu')}>
-    <Pressable style={styles.panel} onPress={(e) => e.stopPropagation()} accessibilityLabel={t('seller.menu')}>
+  const panel = <>
       <View style={[styles.head, { paddingTop: insets.top + 16 }]}>
         <View style={styles.brandRow}>
           <View style={styles.brandTile}><Ionicons name="storefront-outline" size={18} color={colors.onGreen} /></View>
           <Text style={styles.brand}>{isEmployee ? t('sellerDrawer.brandEmployee') : 'TBK Seller'}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('nav.closeMenu')} onPress={onClose} hitSlop={8} style={styles.close}>
+        {docked ? null : <Pressable accessibilityRole="button" accessibilityLabel={t('nav.closeMenu')} onPress={onClose} hitSlop={8} style={styles.close}>
           <Ionicons name="close" size={20} color={colors.onNavy} />
-        </Pressable>
+        </Pressable>}
       </View>
       <ScrollView contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 12 }]}>
         {(isEmployee ? EMPLOYEE_NAV : NAV).map(row)}
         {!isEmployee && PINNED.map(row)}
-        <View style={styles.divider} />
-        <Pressable accessibilityRole="button" onPress={() => go('/')} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-          <View style={styles.rowIcon}><Ionicons name="bag-handle-outline" size={17} color={colors.green} /></View>
-          <Text style={styles.rowText}>{t('nav.marketplace')}</Text>
+        <View style={[styles.divider, docked && styles.dDivider]} />
+        <Pressable accessibilityRole="button" onPress={() => go('/')} style={({ pressed }) => [styles.row, pressed && (docked ? styles.dRowPressed : styles.rowPressed)]}>
+          <View style={[styles.rowIcon, docked && styles.dRowIcon]}><Ionicons name="bag-handle-outline" size={17} color={docked ? colors.cyan : colors.green} /></View>
+          <Text style={[styles.rowText, docked && styles.dRowText]}>{t('nav.marketplace')}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => { onClose(); void logout(); router.replace('/') }} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-          <View style={[styles.rowIcon, styles.rowIconDanger]}><Ionicons name="log-out-outline" size={17} color={colors.danger} /></View>
-          <Text style={styles.rowTextDanger}>{t('common.signOut')}</Text>
+        <Pressable accessibilityRole="button" onPress={() => { onClose(); void logout(); router.replace('/') }} style={({ pressed }) => [styles.row, pressed && (docked ? styles.dRowPressed : styles.rowPressed)]}>
+          <View style={[styles.rowIcon, docked ? styles.dRowIcon : styles.rowIconDanger]}><Ionicons name="log-out-outline" size={17} color={docked ? DOCKED_DANGER : colors.danger} /></View>
+          <Text style={[styles.rowTextDanger, docked && styles.dRowTextDanger]}>{t('common.signOut')}</Text>
         </Pressable>
       </ScrollView>
+  </>
+  if (docked) return <View style={styles.sidebar} accessibilityLabel={t('seller.menu')}>{panel}</View>
+  return <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('nav.closeMenu')}>
+    <Pressable style={styles.panel} onPress={(e) => e.stopPropagation()} accessibilityLabel={t('seller.menu')}>
+      {panel}
     </Pressable>
   </Pressable>
 }
@@ -94,6 +104,16 @@ export function SellerDrawer({ visible, onClose }: { visible: boolean; onClose: 
 // .drawer-logout-btn (danger colour).
 const makeStyles = (colors: Colors) => StyleSheet.create({
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', flexDirection: 'row', zIndex: 70 },
+  // Docked sidebar: navy ("bleu de nuit") in both themes, like the seller header.
+  sidebar: { width: 258, height: '100%', backgroundColor: colors.navy, borderRightWidth: 1, borderRightColor: colors.navyLine },
+  dRowPressed: { backgroundColor: colors.navySoft },
+  dRowActive: { backgroundColor: colors.green },
+  dRowIcon: { backgroundColor: colors.navySoft },
+  dRowIconActive: { backgroundColor: 'rgba(255,255,255,0.18)' },
+  dRowText: { color: colors.onNavyMuted },
+  dRowTextActive: { color: colors.onGreen, fontWeight: '700' },
+  dRowTextDanger: { color: DOCKED_DANGER },
+  dDivider: { backgroundColor: colors.navyLine },
   panel: { width: '86%', maxWidth: 320, backgroundColor: colors.white, height: '100%', boxShadow: '0px 10px 30px rgba(0,0,0,0.18)' },
   // Navy hero band like the seller header (reference 6).
   head: { paddingHorizontal: 16, paddingBottom: 18, backgroundColor: colors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

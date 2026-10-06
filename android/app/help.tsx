@@ -12,6 +12,7 @@ import { statusLabel } from '../src/lib/statusLabels'
 import { useI18n, type TranslationKey } from '../src/store/i18n'
 import { useColors } from '../src/store/theme'
 import { fonts, kicker, radius, shadow, spacing, type Colors } from '../src/theme'
+import { AccountShell } from '../src/components/AccountShell'
 
 const FAQ: Array<{ id: string; q: TranslationKey; a: TranslationKey }> = [
   { id: 'delivery', q: 'help.faqDeliveryQ', a: 'help.faqDeliveryA' },
@@ -26,7 +27,7 @@ const ISSUES: TranslationKey[] = ['help.issueNotReceived', 'help.issueWrongItem'
  * report goes to TBK support through the order's existing private channel
  * (buyer -> ADMIN), so the answer arrives in that order's conversation.
  */
-export default function HelpScreen() {
+function HelpScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -153,3 +154,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   success: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: c.successSoft, borderRadius: radius.sm, padding: 10 },
   successText: { flex: 1, color: c.success, fontSize: 13, fontWeight: '600' },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function HelpScreenRoute() {
+  return <AccountShell><HelpScreen /></AccountShell>
+}

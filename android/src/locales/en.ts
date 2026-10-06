@@ -1881,6 +1881,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'account.noLocation': 'No location provided',
   'common.memberSince': 'Member since',
   'points.myPoints': 'MY POINTS',
+  'accountNav.points': 'Points and level',
+  'accountNav.pending': 'Purchases to confirm',
   'points.available': '{count} points available',
   'points.viewHistory': 'View history',
   'points.availableLabel': 'Available',

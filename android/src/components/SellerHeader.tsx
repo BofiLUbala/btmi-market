@@ -19,7 +19,9 @@ import type { Business } from '../types'
  *  the right, then the business and shop switchers as two equal pills beneath.
  *  It replaces the stack's own dark app bar so every seller screen carries the
  *  same chrome the web workspace does. */
-export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
+/** `docked`: large screens, where the navigation is a fixed sidebar and the
+ *  menu button is not needed. */
+export function SellerHeader({ onOpenMenu, docked = false }: { onOpenMenu: () => void; docked?: boolean }) {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -48,9 +50,9 @@ export function SellerHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   return <>
     <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
       <View style={styles.topRow}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('nav.openMenu')} onPress={onOpenMenu} style={styles.toggle}>
+        {docked ? <View /> : <Pressable accessibilityRole="button" accessibilityLabel={t('nav.openMenu')} onPress={onOpenMenu} style={styles.toggle}>
           <Ionicons name="menu" size={22} color={colors.onNavy} />
-        </Pressable>
+        </Pressable>}
         <View style={styles.headerRight}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('seller.notifications')} onPress={() => router.push('/seller/notifications')} style={styles.bell}>
             <Ionicons name="notifications-outline" size={20} color={colors.onNavy} />

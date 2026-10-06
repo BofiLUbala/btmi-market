@@ -9,11 +9,12 @@ import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { kicker, radius, shadow, type Colors, fonts } from '../../src/theme'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { AccountShell } from '../../src/components/AccountShell'
 
 // Port of web-app/src/pages/buyer/MyReviewsPage.tsx: product / shop tabs with
 // counts, each review with its stars, verified badge, date, service breakdown,
 // comment, a link to what was reviewed and "Withdraw" (DELETE /buyer/reviews/:id).
-export default function MyReviews() {
+function MyReviews() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -102,3 +103,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   stars: { color: c.star, fontSize: 16, letterSpacing: 1 },
   badge: { fontSize: 11, fontWeight: '700', color: c.success, backgroundColor: c.successSoft, paddingVertical: 3, paddingHorizontal: 8, borderRadius: radius.pill, overflow: 'hidden' },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function MyReviewsRoute() {
+  return <AccountShell><MyReviews /></AccountShell>
+}

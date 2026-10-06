@@ -10,11 +10,12 @@ import { useColors } from '../src/store/theme'
 import { type Colors, fonts } from '../src/theme'
 import type { PendingPurchase } from '../src/types'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { AccountShell } from '../src/components/AccountShell'
 
 // Port of web-app/src/pages/buyer/PendingPurchasesPage.tsx (/account/purchases):
 // in-store sales a shop employee recorded against this buyer, each confirmed
 // with POST /buyer/purchases/:id/confirm exactly as web does.
-export default function PendingPurchasesScreen() {
+function PendingPurchasesScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -72,3 +73,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   emptyIcon: { fontSize: 40 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: c.ink },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function PendingPurchasesScreenRoute() {
+  return <AccountShell><PendingPurchasesScreen /></AccountShell>
+}

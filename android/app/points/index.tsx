@@ -7,10 +7,11 @@ import { Button, ErrorState, Loading } from '../../src/components/ui'
 import { useI18n } from '../../src/store/i18n'
 import { useColors } from '../../src/store/theme'
 import { fonts, type Colors } from '../../src/theme'
+import { AccountShell } from '../../src/components/AccountShell'
 
 // Port of web-app/src/pages/buyer/PointsPage.tsx (/points): balance banner,
 // "how it works" and "redeem" cards, then the link to the full history.
-export default function PointsScreen() {
+function PointsScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -64,3 +65,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   sectionTitle: { fontSize: 22, fontWeight: '700', color: c.ink },
   sectionLink: { fontSize: 14, fontWeight: '600', color: c.green },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function PointsScreenRoute() {
+  return <AccountShell><PointsScreen /></AccountShell>
+}

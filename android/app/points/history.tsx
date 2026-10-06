@@ -10,11 +10,12 @@ import { useColors } from '../../src/store/theme'
 import { type Colors, fonts } from '../../src/theme'
 import type { PointTransaction } from '../../src/types'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { AccountShell } from '../../src/components/AccountShell'
 
 // Port of web-app/src/pages/buyer/PointsHistoryPage.tsx (/points/history):
 // level / balance / lifetime card with progress to the next level, then every
 // point transaction, credits in green and debits in red.
-export default function PointsHistoryScreen() {
+function PointsHistoryScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -90,3 +91,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   emptyIcon: { fontSize: 40 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: c.ink },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function PointsHistoryScreenRoute() {
+  return <AccountShell><PointsHistoryScreen /></AccountShell>
+}

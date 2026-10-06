@@ -10,6 +10,7 @@ import { Button, ErrorState, Loading } from '../src/components/ui'
 import { useI18n } from '../src/store/i18n'
 import { useColors } from '../src/store/theme'
 import { fonts, radius, shadow, spacing, type Colors } from '../src/theme'
+import { AccountShell } from '../src/components/AccountShell'
 
 /**
  * Reference 21 "Mes adresses". The backend stores one delivery address per
@@ -17,7 +18,7 @@ import { fonts, radius, shadow, spacing, type Colors } from '../src/theme'
  * one; adding or changing it goes through the profile editor, and "Utiliser
  * ma position" saves the phone's GPS fix on the same profile.
  */
-export default function AddressesScreen() {
+function AddressesScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -118,3 +119,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   hintText: { color: c.warning, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   footer: { paddingHorizontal: spacing.md, paddingTop: 12, backgroundColor: c.white, borderTopWidth: 1, borderTopColor: c.border },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function AddressesScreenRoute() {
+  return <AccountShell><AddressesScreen /></AccountShell>
+}

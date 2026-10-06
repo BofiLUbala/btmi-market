@@ -14,6 +14,7 @@ import { Button, Loading } from '../../src/components/ui'
 import { PreferenceToggles } from '../../src/components/PreferenceToggles'
 import { spacing, type Colors, fonts } from '../../src/theme'
 import { canSell, canOnboardSeller } from '../../src/types'
+import { AccountShell } from '../../src/components/AccountShell'
 
 // The account page in its original layout, in the blue TBK palette.
 // Port of web-app/src/pages/buyer/AccountPage.tsx at phone width, where its
@@ -22,7 +23,7 @@ import { canSell, canOnboardSeller } from '../../src/types'
 // orders / favorites / reviews / pending-purchases cards and Sign out. Same
 // three requests as web: /buyer/points, /buyer/purchases/pending, /buyer/orders.
 
-export default function ProfileScreen() {
+function ProfileScreen() {
   const user = useAuth((s) => s.user)
   const logout = useAuth((s) => s.logout)
   const { t } = useI18n()
@@ -67,6 +68,10 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]}>
+      {/* Large screens: two columns like the web account page (identity
+          card on the left, points and links on the right). */}
+      <View style={wide ? styles.columns : styles.col}>
+      <View style={wide ? styles.colLeft : styles.col}>
       {/* ── Identity card ── */}
       <View style={themed.card}>
         <View style={styles.rowBetween}>
@@ -97,6 +102,9 @@ export default function ProfileScreen() {
         <InfoRow k={t('common.memberSince')} v={formatDate(user.created_at)} themed={themed} />
       </View>
 
+      </View>
+      {/* Right column (large screens): points, then every link. */}
+      <View style={wide ? styles.colRight : styles.col}>
       {/* ── Points ── */}
       <View style={themed.card}>
         <View style={styles.rowBetween}>
@@ -143,6 +151,8 @@ export default function ProfileScreen() {
       <Pressable accessibilityRole="button" style={({ pressed }) => [themed.dangerButton, pressed && { opacity: 0.85 }]} onPress={async () => { await logout(); router.replace('/auth/login') }}>
         <Text style={themed.dangerButtonText}>{t('common.signOut')}</Text>
       </Pressable>
+      </View>
+      </View>
     </ScrollView>
   )
 }
@@ -199,10 +209,19 @@ const makeStyles = (c: Colors) =>
 // web: .page (24px top) inside .container (16px sides); .stack gap 16
 const styles = StyleSheet.create({
   page: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 48, gap: 16 },
-  pageWide: { width: '100%', maxWidth: 820, alignSelf: 'center', paddingTop: 32 },
+  pageWide: { width: '100%', maxWidth: 1200, alignSelf: 'center', paddingTop: 32, paddingHorizontal: 24 },
+  col: { gap: 16 },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
+  colLeft: { flex: 1.2, minWidth: 0, gap: 16 },
+  colRight: { flex: 1, minWidth: 0, gap: 16 },
   center: { flex: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   flex1: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   linkCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   pointsGrid: { flexDirection: 'row', gap: 10 },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function ProfileScreenRoute() {
+  return <AccountShell><ProfileScreen /></AccountShell>
+}

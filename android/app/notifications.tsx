@@ -22,6 +22,7 @@ import { useI18n } from '../src/store/i18n'
 import { dateLocale } from '../src/lib/format'
 import { useColors } from '../src/store/theme'
 import { fonts, kicker, radius, shadow, spacing, type Colors } from '../src/theme'
+import { AccountShell } from '../src/components/AccountShell'
 
 function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
   switch (type) {
@@ -67,7 +68,7 @@ function getNotificationIcon(type: string): keyof typeof Ionicons.glyphMap {
   }
 }
 
-export default function NotificationsScreen() {
+function NotificationsScreen() {
   const { t, lang } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -424,3 +425,8 @@ const makeStyles = (colors: Colors) =>
       textAlign: 'center',
     },
   })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function NotificationsScreenRoute() {
+  return <AccountShell><NotificationsScreen /></AccountShell>
+}

@@ -27,6 +27,7 @@ import { useI18n, type TranslationKey } from '../src/store/i18n'
 import { useColors } from '../src/store/theme'
 import { fonts, kicker, radius, shadow, spacing, type Colors } from '../src/theme'
 import type { BuyerOrder, HandoverState, OrderDetail, TrackingResponse } from '../src/types'
+import { AccountShell } from '../src/components/AccountShell'
 
 /**
  * "Suivre mes livraisons": the buyer's own tracking page (port of the web
@@ -114,7 +115,7 @@ function ago(date: number, t: (key: TranslationKey, vars?: Record<string, string
   return t('time.minutesAgo', { count: Math.floor(seconds / 60) })
 }
 
-export default function TrackingScreen() {
+function TrackingScreen() {
   const signedIn = useAuth((state) => Boolean(state.user))
   const { t } = useI18n()
   const c = useColors()
@@ -496,3 +497,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   itemThumbImg: { width: 48, height: 48 },
   kv: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function TrackingScreenRoute() {
+  return <AccountShell><TrackingScreen /></AccountShell>
+}

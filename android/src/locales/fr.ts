@@ -1891,6 +1891,8 @@ export const fr = {
   'account.noLocation': 'Localisation non renseignée',
   'common.memberSince': 'Membre depuis',
   'points.myPoints': 'MES POINTS',
+  'accountNav.points': 'Points et niveau',
+  'accountNav.pending': 'Achats à confirmer',
   'points.available': '{count} points disponibles',
   'points.viewHistory': 'Voir l’historique',
   'points.availableLabel': 'Disponibles',

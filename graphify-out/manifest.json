@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "android/app/(buyer)/favorites.tsx": {
-    "mtime": 1791297888.4588506,
-    "seen": 1791299166.97867,
-    "ast_hash": "435971c648c19c912834da8269300183",
+    "mtime": 1791302020.3743877,
+    "seen": 1791303655.901161,
+    "ast_hash": "93d18639cd610feeb35a4e8e96ed8dff",
     "semantic_hash": ""
   },
   "android/app/(buyer)/index.tsx": {
@@ -66,9 +66,9 @@
     "semantic_hash": ""
   },
   "android/app/(buyer)/profile.tsx": {
-    "mtime": 1791297699.0425274,
-    "seen": 1791299166.9788573,
-    "ast_hash": "f3f48c218857c503cd54a6efae370256",
+    "mtime": 1791302020.370806,
+    "seen": 1791303655.9025056,
+    "ast_hash": "a5798ddbd76aaaa30e48c85eb431e275",
     "semantic_hash": ""
   },
   "android/app/(buyer)/search.tsx": {
@@ -264,15 +264,15 @@
     "semantic_hash": ""
   },
   "android/app/index.tsx": {
-    "mtime": 1791297888.7612534,
-    "seen": 1791299166.9869075,
-    "ast_hash": "b877323e34e0120cd27d3f59af6d9d62",
+    "mtime": 1791299200.220191,
+    "seen": 1791303655.9473298,
+    "ast_hash": "b419f95bebf15d9c1909f62c676f7354",
     "semantic_hash": ""
   },
   "android/app/notifications.tsx": {
-    "mtime": 1791298047.6238976,
-    "seen": 1791299166.9871068,
-    "ast_hash": "050e83ad970415f72a1135af8e16c061",
+    "mtime": 1791302020.3945782,
+    "seen": 1791303655.947343,
+    "ast_hash": "7aa7f3c8f8d36a0de12470cb54f1565d",
     "semantic_hash": ""
   },
   "android/app/orders/[id].tsx": {
@@ -282,21 +282,21 @@
     "semantic_hash": ""
   },
   "android/app/orders/index.tsx": {
-    "mtime": 1791297889.0754628,
-    "seen": 1791299166.987296,
-    "ast_hash": "441ee56b217950320eeb7bff9dd28eb7",
+    "mtime": 1791302020.3763874,
+    "seen": 1791303655.9481313,
+    "ast_hash": "39732b3d46cf4382710d572d01597714",
     "semantic_hash": ""
   },
   "android/app/points/history.tsx": {
-    "mtime": 1790449234.1917772,
-    "seen": 1790564997.6995258,
-    "ast_hash": "256e6d6d3ff944c1ee15e775e942cbd4",
-    "semantic_hash": "256e6d6d3ff944c1ee15e775e942cbd4"
+    "mtime": 1791302020.3915448,
+    "seen": 1791303655.9486082,
+    "ast_hash": "ab4454b0cc7260a1b917c69df9b7e152",
+    "semantic_hash": ""
   },
   "android/app/points/index.tsx": {
-    "mtime": 1791297889.2277093,
-    "seen": 1791299166.987665,
-    "ast_hash": "bc2400f27b3d85f0306f123624553436",
+    "mtime": 1791302020.3884692,
+    "seen": 1791303655.948613,
+    "ast_hash": "928db178356e8d5186d409a760499bc5",
     "semantic_hash": ""
   },
   "android/app/products/[id].tsx": {
@@ -312,15 +312,15 @@
     "semantic_hash": ""
   },
   "android/app/purchases.tsx": {
-    "mtime": 1790449234.1697695,
-    "seen": 1790564997.6995387,
-    "ast_hash": "49f686034a22bb5099f83fd3f0965b6f",
-    "semantic_hash": "49f686034a22bb5099f83fd3f0965b6f"
+    "mtime": 1791302020.4051082,
+    "seen": 1791303655.9497635,
+    "ast_hash": "5956b30d5cde0918abe991ce35bf8782",
+    "semantic_hash": ""
   },
   "android/app/reviews/index.tsx": {
-    "mtime": 1791222363.4228203,
-    "seen": 1791224834.578254,
-    "ast_hash": "dc54c5346114c6cd175b13b6e9899229",
+    "mtime": 1791302020.3869364,
+    "seen": 1791303655.9497678,
+    "ast_hash": "7136d496e956e9d559fa89f4cbceb548",
     "semantic_hash": ""
   },
   "android/app/reviews/write.tsx": {
@@ -330,9 +330,9 @@
     "semantic_hash": ""
   },
   "android/app/seller/_layout.tsx": {
-    "mtime": 1791297889.5596862,
-    "seen": 1791299166.9884493,
-    "ast_hash": "801def62b6b665056d9397f588080ca5",
+    "mtime": 1791300706.678063,
+    "seen": 1791303655.9502513,
+    "ast_hash": "cbf2023af25641f0af7264a053d8d91c",
     "semantic_hash": ""
   },
   "android/app/seller/business.tsx": {
@@ -648,15 +648,15 @@
     "semantic_hash": ""
   },
   "android/src/components/SellerDrawer.tsx": {
-    "mtime": 1791297923.9756935,
-    "seen": 1791299167.0016813,
-    "ast_hash": "f9df3247ceb8f44e71a92fadc57ca0cc",
+    "mtime": 1791301857.3560793,
+    "seen": 1791303655.9910245,
+    "ast_hash": "9779c7d2d62c5aa4527469219ef981a8",
     "semantic_hash": ""
   },
   "android/src/components/SellerHeader.tsx": {
-    "mtime": 1791222312.3866055,
-    "seen": 1791224834.5849783,
-    "ast_hash": "bfbb415fd72762f04bc5199761726b80",
+    "mtime": 1791300706.6709983,
+    "seen": 1791303655.9910285,
+    "ast_hash": "e7180b4c5b204a483a37443f982fc62c",
     "semantic_hash": ""
   },
   "android/src/components/SellerPolicyContent.tsx": {
@@ -852,15 +852,15 @@
     "semantic_hash": "9f18b84f659d6ef58bc998943a335ea4"
   },
   "android/src/locales/en.ts": {
-    "mtime": 1791298260.7455418,
-    "seen": 1791299167.01273,
-    "ast_hash": "bc8471324ea52224091667f8115f32a7",
+    "mtime": 1791302205.2632673,
+    "seen": 1791303656.0165281,
+    "ast_hash": "90853291db3358e95075018a79988138",
     "semantic_hash": ""
   },
   "android/src/locales/fr.ts": {
-    "mtime": 1791298260.738412,
-    "seen": 1791299167.0127342,
-    "ast_hash": "425610cafa2723ca221cf2bf2b6c9ad9",
+    "mtime": 1791302205.249986,
+    "seen": 1791303656.016536,
+    "ast_hash": "2f547091ed2e081b9b124f03c9547992",
     "semantic_hash": ""
   },
   "android/src/store/adminAuth.ts": {
@@ -4452,9 +4452,9 @@
     "semantic_hash": ""
   },
   "android/app/addresses.tsx": {
-    "mtime": 1791223747.5243044,
-    "seen": 1791224834.5667832,
-    "ast_hash": "0486744aea5b0b874e0ffbde78b7ab68",
+    "mtime": 1791302020.384938,
+    "seen": 1791303655.908334,
+    "ast_hash": "93b6d1cd920ea839ab06c32c61893d76",
     "semantic_hash": ""
   },
   "android/app/courier/delivered.tsx": {
@@ -4464,15 +4464,15 @@
     "semantic_hash": ""
   },
   "android/app/help.tsx": {
-    "mtime": 1791224974.095616,
-    "seen": 1791257527.6930602,
-    "ast_hash": "8b85d473698aaf12b6cd7c88aed7f6fe",
+    "mtime": 1791302020.4010885,
+    "seen": 1791303655.9473205,
+    "ast_hash": "d21490f42b5435629b8f9cc0f8f7385e",
     "semantic_hash": ""
   },
   "android/app/notification-settings.tsx": {
-    "mtime": 1791209569.66215,
-    "seen": 1791224834.5743954,
-    "ast_hash": "6716b48e1d4db79b55e48c8645791979",
+    "mtime": 1791302057.443801,
+    "seen": 1791303655.947337,
+    "ast_hash": "db825b19bdbd21206fa532da14dc54d1",
     "semantic_hash": ""
   },
   "android/app/orders/live.tsx": {
@@ -6066,9 +6066,9 @@
     "semantic_hash": ""
   },
   "android/app/tracking.tsx": {
-    "mtime": 1791278370.21137,
-    "seen": 1791279530.931632,
-    "ast_hash": "0c22616e5e6bde1c2a4f0c32a1a4d724",
+    "mtime": 1791302020.381921,
+    "seen": 1791303655.968404,
+    "ast_hash": "ba9e02571533e4df41b32af58aa8992f",
     "semantic_hash": ""
   },
   "android/src/components/AuthWideShell.tsx": {
@@ -6117,6 +6117,12 @@
     "mtime": 1791298210.6261463,
     "seen": 1791299167.3255348,
     "ast_hash": "83311f4db9397a3088c6f21ff4e5ab92",
+    "semantic_hash": ""
+  },
+  "android/src/components/AccountShell.tsx": {
+    "mtime": 1791302205.2728548,
+    "seen": 1791303655.9765902,
+    "ast_hash": "c35fdbae68c73a1bfed127af6b4aaf14",
     "semantic_hash": ""
   }
 }

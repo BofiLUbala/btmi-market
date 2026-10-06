@@ -84,6 +84,18 @@ export default function SellerLayout() {
   // (reference 10) carries its own bottom action bar instead.
   const { width } = useWindowDimensions()
   const showTabBar = width < 900 && !keyboardVisible && pathname !== '/seller/products/create'
+  // Large screens: web's two-part seller workspace, the navigation as a fixed
+  // sidebar on the left and the header + page on the right.
+  if (width >= 900) {
+    return <View style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.cream }}>
+      <StatusBar style="light" />
+      <SellerDrawer docked visible onClose={() => undefined} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <SellerHeader docked onOpenMenu={() => undefined} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream } }} />
+      </View>
+    </View>
+  }
   return <View style={{ flex: 1, backgroundColor: colors.cream }}>
     {/* The seller header is navy in both themes, so the status bar icons are
      *  light here; the root's theme-driven style returns when this unmounts. */}

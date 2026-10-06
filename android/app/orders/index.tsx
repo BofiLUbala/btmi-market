@@ -15,6 +15,7 @@ import { formatDateTime } from '../../src/lib/format'
 import { confirmationActorKey, paymentStatusKey } from '../../src/lib/paymentStatus'
 import type { BuyerPayment, OrderDetail, OrderLine } from '../../src/types'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { AccountShell } from '../../src/components/AccountShell'
 
 // Port of web-app/src/pages/buyer/OrdersPage.tsx: every order is loaded with
 // its detail and payment (as web does), filtered by the same seven tabs, with
@@ -63,7 +64,7 @@ function timeAgo(date: Date, t: Translate): string {
 const variantLabel = (line: OrderLine, t: Translate) => Object.values(line.variant_attributes ?? {}).filter(Boolean).join(' / ') || line.variant_name || line.variant_sku || t('orders.standardVariant')
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 
-export default function OrdersScreen() {
+function OrdersScreen() {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
@@ -205,3 +206,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   footer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 12, borderRadius: radius.sm, backgroundColor: c.surface2 },
   footerCell: { minWidth: '28%', flexGrow: 1, gap: 2 },
 })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function OrdersScreenRoute() {
+  return <AccountShell><OrdersScreen /></AccountShell>
+}

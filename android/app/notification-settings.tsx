@@ -1,3 +1,4 @@
+import { AccountShell } from '../src/components/AccountShell'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
@@ -31,7 +32,7 @@ const AUDIENCE: Record<Space, string> = { buyer: 'BUYER', seller: 'SELLER', cour
 const HOME: Record<Space, string> = { buyer: '/notifications', seller: '/seller/notifications', courier: '/courier', admin: '/admin' }
 
 /** Notification settings for every space: /notification-settings?space=seller */
-export default function NotificationSettingsScreen() {
+function NotificationSettingsScreen() {
   const { t } = useI18n()
   const tk = (key: string, vars?: Record<string, string | number>) => t(key as TranslationKey, vars)
   const colors = useColors()
@@ -229,3 +230,8 @@ const makeStyles = (colors: Colors) =>
     boxOn: { backgroundColor: colors.ink, borderColor: colors.ink },
     tick: { color: colors.white, fontSize: 13, fontWeight: '800' },
   })
+
+/** Large screens: the account column on the left (AccountShell). */
+export default function NotificationSettingsScreenRoute() {
+  return <AccountShell><NotificationSettingsScreen /></AccountShell>
+}
