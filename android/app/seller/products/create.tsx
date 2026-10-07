@@ -2,9 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'expo-image'
-import {
-  Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
-} from 'react-native'
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { confirmAction } from '../../../src/lib/confirmAction'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -261,12 +260,12 @@ export default function SellerProductCreateScreen() {
 
   /* ── Images ── */
   async function addImageFrom(source: 'camera' | 'library') {
-    if (images.length >= MAX_IMAGES) { Alert.alert(t('seller.productForm.maxPhotos')); return }
+    if (images.length >= MAX_IMAGES) { confirmAction(t('seller.productForm.maxPhotos')); return }
     const permission = source === 'camera'
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert(
+      confirmAction(
         t(source === 'camera' ? 'profile.cameraNeeded' : 'profile.photosNeeded'),
         t(source === 'camera' ? 'profile.cameraNeededBody' : 'profile.photosNeededBody'),
       )
@@ -284,14 +283,14 @@ export default function SellerProductCreateScreen() {
       const prepared = await Promise.all(result.assets.slice(0, MAX_IMAGES - images.length).map((a) => prepareProductImageUpload(a)))
       setImages((prev) => [...prev, ...prepared].slice(0, MAX_IMAGES))
     } catch {
-      Alert.alert(t('common.error'), t('seller.productForm.photoPrepareFailed'))
+      confirmAction(t('common.error'), t('seller.productForm.photoPrepareFailed'))
     } finally {
       setPickingImage(false)
     }
   }
 
   function pickImage() {
-    Alert.alert(t('seller.productForm.addPhoto'), undefined, [
+    confirmAction(t('seller.productForm.addPhoto'), undefined, [
       { text: t('profile.takePhoto'), onPress: () => void addImageFrom('camera') },
       { text: t('profile.chooseFromGallery'), onPress: () => void addImageFrom('library') },
       { text: t('common.cancel'), style: 'cancel' },

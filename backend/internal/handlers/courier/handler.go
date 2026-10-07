@@ -524,6 +524,12 @@ func (h *Handler) GetHistory(c *gin.Context) {
 		h.errResponse(c, http.StatusNotFound, "COURIER_NOT_FOUND", err.Error())
 		return
 	}
+	// A courier with no deliveries yet has a nil slice, which serialises as
+	// `null` where every other courier list answers `[]`. Send the empty list so
+	// a client can map over the result without a null check of its own.
+	if history == nil {
+		history = []*models.CourierHistoryResponse{}
+	}
 
 	c.JSON(http.StatusOK, models.SuccessResponse{
 		Message: "History retrieved",

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { router } from 'expo-router'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { confirmAction } from '../../../src/lib/confirmAction'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../../src/api'
 import { useAuth } from '../../../src/store/auth'
@@ -112,7 +113,7 @@ export default function SellerProductsScreen() {
 
   function archiveProduct(product: Product) {
     if (!activeBusiness) return
-    Alert.alert(t('seller.productList.delete'), t('seller.productList.archiveConfirm', { name: product.name }), [
+    confirmAction(t('seller.productList.delete'), t('seller.productList.archiveConfirm', { name: product.name }), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('seller.productList.delete'), style: 'destructive', onPress: async () => {
         setBusyId(product.id); setError('')

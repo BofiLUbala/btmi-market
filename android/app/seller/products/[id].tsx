@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'expo-image'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { confirmAction } from '../../../src/lib/confirmAction'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../../src/api'
 import { resolveMediaUrl } from '../../../src/api/client'
@@ -296,7 +297,7 @@ export default function SellerProductDetailScreen() {
 
   async function addImage(source: 'camera' | 'library') {
     const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!permission.granted) { Alert.alert(t(source === 'camera' ? 'profile.cameraNeeded' : 'profile.photosNeeded'), t(source === 'camera' ? 'profile.cameraNeededBody' : 'profile.photosNeededBody')); return }
+    if (!permission.granted) { confirmAction(t(source === 'camera' ? 'profile.cameraNeeded' : 'profile.photosNeeded'), t(source === 'camera' ? 'profile.cameraNeededBody' : 'profile.photosNeededBody')); return }
     const result = source === 'camera' ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9 }) : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, selectionLimit: 1 })
     if (result.canceled || !result.assets[0]) return
     const asset = result.assets[0]
@@ -304,7 +305,7 @@ export default function SellerProductDetailScreen() {
   }
 
   function pickImage() {
-    Alert.alert(t('seller.productForm.addPhoto'), undefined, [
+    confirmAction(t('seller.productForm.addPhoto'), undefined, [
       { text: t('profile.takePhoto'), onPress: () => void addImage('camera') },
       { text: t('profile.chooseFromGallery'), onPress: () => void addImage('library') },
       { text: t('common.cancel'), style: 'cancel' },
@@ -312,7 +313,7 @@ export default function SellerProductDetailScreen() {
   }
 
   function removeImage(imageId: string) {
-    Alert.alert(t('seller.productDetail.removePhotoConfirm'), undefined, [
+    confirmAction(t('seller.productDetail.removePhotoConfirm'), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.remove'), style: 'destructive', onPress: () => void run(() => sellerApi.deleteProductImage(activeBusiness!.id, productId, imageId), 'seller.productDetail.removePhotoFailed', t('seller.productDetail.photoRemoved')) },
     ])

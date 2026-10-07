@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { confirmAction } from '../lib/confirmAction'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { courierApi } from '../api'
 import { ApiError } from '../api/client'
@@ -105,7 +106,7 @@ export function CourierPlanPanel({ mission: m }: { mission: CourierMission }) {
             title={t(lastAttempt ? 'courierPlan.notFoundLastSubmit' : 'courierPlan.notFoundSubmit')}
             loading={report.isPending}
             onPress={() => lastAttempt
-              ? Alert.alert(t('courierPlan.notFound'), t('courierPlan.notFoundLast'), [
+              ? confirmAction(t('courierPlan.notFound'), t('courierPlan.notFoundLast'), [
                   { text: t('common.cancel'), style: 'cancel' },
                   { text: t('courierPlan.notFoundLastSubmit'), style: 'destructive', onPress: () => report.mutate() },
                 ])

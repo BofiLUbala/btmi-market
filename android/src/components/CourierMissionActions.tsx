@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Alert, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { confirmAction } from '../lib/confirmAction'
 import { router } from 'expo-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { courierApi } from '../api'
@@ -88,7 +89,7 @@ export function primaryStepOf(m: CourierMission, withHandover = false): PrimaryS
 
 /** "Je suis arrive" ends the buyer's live map: always asked first. */
 function confirmArrival(t: ReturnType<typeof useI18n>['t'], run: () => void) {
-  Alert.alert(t('courier.arrived'), t('courier.arrivedConfirm'), [
+  confirmAction(t('courier.arrived'), t('courier.arrivedConfirm'), [
     { text: t('common.cancel'), style: 'cancel' },
     { text: t('courier.arrived'), onPress: run },
   ])
@@ -206,7 +207,7 @@ export function MissionActions({ mission: m, compact = false, hidePrimary = fals
             title={t('courier.failConfirm')}
             disabled={!failReason.trim()}
             loading={act.isPending}
-            onPress={() => Alert.alert(t('courier.failTitle'), t('courier.failConfirmBody'), [
+            onPress={() => confirmAction(t('courier.failTitle'), t('courier.failConfirmBody'), [
               { text: t('common.cancel'), style: 'cancel' },
               { text: t('courier.failConfirm'), style: 'destructive', onPress: () => act.mutate('fail') },
             ])}

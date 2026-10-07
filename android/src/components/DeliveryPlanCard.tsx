@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Alert, StyleSheet, Text } from 'react-native'
+import { StyleSheet, Text } from 'react-native'
+import { confirmAction } from '../lib/confirmAction'
 import type { DeliveryPlan } from '../types'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
@@ -41,7 +42,7 @@ export function DeliveryPlanCard({ plan, status, deliveryStatus, deliveryMethod,
   if (cancelled && !stage && !returning && !returned) return null
   if (status === 'COMPLETED' && !when) return null
 
-  const confirmReturn = () => Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
+  const confirmReturn = () => confirmAction(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
     { text: t('common.cancel'), style: 'cancel' },
     {
       text: t('deliveryPlan.confirmReturn'),

@@ -1,15 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  StyleSheet,
-  Alert,
-  Modal,
-} from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Modal } from 'react-native'
+import { confirmAction } from '../../src/lib/confirmAction'
 import { Redirect, useRouter } from 'expo-router'
 import { useAdminAuth } from '../../src/store/adminAuth'
 import { useI18n, type TranslationKey } from '../../src/store/i18n'
@@ -84,7 +75,7 @@ export default function MobileDirectionScreen() {
       const res = await mobileAdminDirectionApi.listUsers({ search: userQuery.trim(), limit: 5 })
       setSearchResults(res.users)
     } catch (err) {
-      Alert.alert(t('admin.direction.searchFailedTitle'), t('admin.direction.searchFailedBody'))
+      confirmAction(t('admin.direction.searchFailedTitle'), t('admin.direction.searchFailedBody'))
     } finally {
       setSearching(false)
     }
@@ -93,7 +84,7 @@ export default function MobileDirectionScreen() {
   const handleToggleUserStatus = async () => {
     if (!selectedUser) return
     if (!actionReason.trim() || actionReason.trim().length < 5) {
-      Alert.alert(t('admin.direction.reasonRequiredTitle'), t('admin.direction.reasonRequiredBody'))
+      confirmAction(t('admin.direction.reasonRequiredTitle'), t('admin.direction.reasonRequiredBody'))
       return
     }
 
@@ -101,10 +92,10 @@ export default function MobileDirectionScreen() {
     try {
       if (selectedUser.status === 'ACTIVE') {
         await mobileAdminDirectionApi.suspendUser(selectedUser.id, actionReason.trim())
-        Alert.alert(t('admin.direction.successTitle'), t('admin.direction.suspendedMsg', { email: selectedUser.email }))
+        confirmAction(t('admin.direction.successTitle'), t('admin.direction.suspendedMsg', { email: selectedUser.email }))
       } else {
         await mobileAdminDirectionApi.reactivateUser(selectedUser.id, actionReason.trim())
-        Alert.alert(t('admin.direction.successTitle'), t('admin.direction.reactivatedMsg', { email: selectedUser.email }))
+        confirmAction(t('admin.direction.successTitle'), t('admin.direction.reactivatedMsg', { email: selectedUser.email }))
       }
       setSelectedUser(null)
       setActionReason('')
@@ -113,7 +104,7 @@ export default function MobileDirectionScreen() {
       void loadData()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t('admin.direction.actionFailed')
-      Alert.alert(t('admin.direction.errorTitle'), msg)
+      confirmAction(t('admin.direction.errorTitle'), msg)
     } finally {
       setActionSubmitting(false)
     }

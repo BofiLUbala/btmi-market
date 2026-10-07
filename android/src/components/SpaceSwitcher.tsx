@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { confirmAction } from '../lib/confirmAction'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router } from 'expo-router'
 import { authApi } from '../api'
@@ -45,7 +46,7 @@ export function SpaceSwitcher({ current, dark = false }: { current: 'buyer' | 's
         router.navigate('/(buyer)/profile')
       }
     } catch (e) {
-      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('common.actionImpossible'))
+      confirmAction(t('common.error'), e instanceof Error ? e.message : t('common.actionImpossible'))
     } finally {
       setBusy(null)
     }

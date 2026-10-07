@@ -1,5 +1,6 @@
 import { Suspense, useMemo, useState } from 'react'
-import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { confirmAction } from '../../src/lib/confirmAction'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -252,7 +253,7 @@ function CourierHandover({ orderId }: { orderId: string }) {
     ? isCash ? t('courier.cashReceived') : t('courier.mobileConfirmed')
     : isCash ? t('courier.cashToCollect', { amount }) : t('courier.mobileAwaiting')
 
-  const askConfirmCash = () => Alert.alert(
+  const askConfirmCash = () => confirmAction(
     t('courier.confirmCash'),
     t('courier.confirmCashQuestion', { amount })
       + '\n\n' + t('courier.confirmCashRecap', {

@@ -1,4 +1,5 @@
-import { Alert, Platform } from 'react-native'
+import { Platform } from 'react-native'
+import { confirmAction } from './confirmAction'
 import * as Location from 'expo-location'
 import * as TaskManager from 'expo-task-manager'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -189,7 +190,10 @@ export async function startCourierTracking(orderId: string): Promise<StartResult
  */
 function showLocationDisclosure(): Promise<boolean> {
   return new Promise((resolve) => {
-    Alert.alert(
+    // confirmAction, not Alert.alert: on web the latter never draws and never
+    // calls a button, so this promise would never settle and starting the
+    // tracking would hang for ever.
+    confirmAction(
       translate('libCourierTracking.disclosureTitle'),
       translate('libCourierTracking.disclosureBody'),
       [

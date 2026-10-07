@@ -5,7 +5,8 @@ import '../src/lib/courierTracking'
 import { useEffect } from 'react'
 import { useFonts } from 'expo-font'
 import { fontAssets } from '../src/typography'
-import { Alert, AppState } from 'react-native'
+import { AppState } from 'react-native'
+import { confirmAction } from '../src/lib/confirmAction'
 import { Stack, router } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import NetInfo from '@react-native-community/netinfo'
@@ -60,7 +61,7 @@ function RootNavigator() {
   useEffect(() => {
     if (!sessionEnded) return
     useAuth.setState({ sessionEnded: false })
-    Alert.alert(t('auth.sessionEndedTitle' as TranslationKey), t('auth.sessionEndedBody' as TranslationKey))
+    confirmAction(t('auth.sessionEndedTitle' as TranslationKey), t('auth.sessionEndedBody' as TranslationKey))
     router.replace('/auth/login')
   }, [sessionEnded, t])
   // Each session start keeps this device attached for push when it is on;

@@ -1,7 +1,8 @@
 import { CancelReasonSheet } from '../../src/components/CancelReasonSheet'
 import { CancellationCard } from '../../src/components/CancellationCard'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native'
+import { ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native'
+import { confirmAction } from '../../src/lib/confirmAction'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
@@ -223,7 +224,7 @@ export default function SellerOrders() {
               return sellerApi.sellerTransition(order.id, a.status!)
               })
             }}
-            onConfirmReturn={() => Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
+            onConfirmReturn={() => confirmAction(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
               { text: t('common.cancel'), style: 'cancel' },
               { text: t('deliveryPlan.confirmReturn'), onPress: () => void runAction(order, () => sellerApi.confirmReturn(order.id)) },
             ])}

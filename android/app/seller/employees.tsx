@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { confirmAction } from '../../src/lib/confirmAction'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../src/api'
 import { ApiError } from '../../src/api/client'
@@ -44,28 +45,28 @@ export default function SellerEmployeesScreen() {
   const loadAssignments = useMutation({
     mutationFn: (employeeId: string) => sellerApi.employeeShops(employeeId),
     onSuccess: (shopList) => setAssignedShopIds(shopList.map((s) => s.id)),
-    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.assignmentsLoadFailed')),
+    onError: (e) => confirmAction(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.assignmentsLoadFailed')),
   })
 
   const assign = useMutation({
     mutationFn: ({ employeeId, shopId }: { employeeId: string; shopId: string }) => sellerApi.assignEmployeeShop(employeeId, { shop_id: shopId }),
     onSuccess: (_r, vars) => setAssignedShopIds((prev) => [...prev, vars.shopId]),
-    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.assignFailed')),
+    onError: (e) => confirmAction(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.assignFailed')),
   })
 
   const unassign = useMutation({
     mutationFn: ({ employeeId, shopId }: { employeeId: string; shopId: string }) => sellerApi.removeEmployeeShop(employeeId, shopId),
     onSuccess: (_r, vars) => setAssignedShopIds((prev) => prev.filter((id) => id !== vars.shopId)),
-    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.unassignFailed')),
+    onError: (e) => confirmAction(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.unassignFailed')),
   })
 
   const invite = useMutation({
     mutationFn: (employeeId: string) => sellerApi.createEmployeeInvitation(employeeId, { employee_id: employeeId }),
     onSuccess: (res, employeeId) => {
       if (res.invitation_url) setInviteUrl({ employeeId, url: res.invitation_url })
-      else Alert.alert(t('common.error'), t('seller.employees.invitationNoUrl'))
+      else confirmAction(t('common.error'), t('seller.employees.invitationNoUrl'))
     },
-    onError: (e) => Alert.alert(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.invitationFailed')),
+    onError: (e) => confirmAction(t('common.error'), e instanceof ApiError ? e.message : t('seller.employees.invitationFailed')),
   })
 
   const toggleManage = (employee: Employee) => {

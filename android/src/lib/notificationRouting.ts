@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Alert } from 'react-native'
+import { confirmAction } from './confirmAction'
 import { router } from 'expo-router'
 import { useAuth } from '../store/auth'
 import { useAdminAuth } from '../store/adminAuth'
@@ -61,7 +61,7 @@ async function open(data: PushData) {
     return
   }
   if (data.uid && data.uid !== currentId) {
-    Alert.alert(
+    confirmAction(
       translate('libNotificationRouting.otherAccountTitle'),
       translate('libNotificationRouting.otherAccountBody'),
       [

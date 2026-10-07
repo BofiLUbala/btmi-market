@@ -1,6 +1,7 @@
 import { CancellationCard } from '../../../../src/components/CancellationCard'
 import { useMemo, useState, useEffect, useCallback } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { confirmAction } from '../../../../src/lib/confirmAction'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { adminCommerceApi, type AdminCourierListItem, type AdminOrderDetail, type AdminOrderItem } from '../../../../src/api/admin'
 import { useI18n, type TranslationKey } from '../../../../src/store/i18n'
@@ -126,14 +127,14 @@ export default function AdminOrderDetailScreen() {
   const [returnBusy, setReturnBusy] = useState(false)
   const confirmReturn = () => {
     if (!id) return
-    Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
+    confirmAction(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('deliveryPlan.confirmReturn'),
         onPress: async () => {
           setReturnBusy(true)
           try { await adminCommerceApi.confirmReturn(id); load(true) }
-          catch (e) { Alert.alert(t('deliveryPlan.confirmReturnFailed'), e instanceof Error ? e.message : '') }
+          catch (e) { confirmAction(t('deliveryPlan.confirmReturnFailed'), e instanceof Error ? e.message : '') }
           finally { setReturnBusy(false) }
         },
       },

@@ -1,6 +1,7 @@
 import { SpaceSwitcher } from '../../src/components/SpaceSwitcher'
 import { useMemo } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { confirmAction } from '../../src/lib/confirmAction'
 import { router } from 'expo-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -41,7 +42,7 @@ function ProfileScreen() {
   const unread = useQuery({ queryKey: ['buyer', 'unread-counts'], queryFn: fetchBuyerUnreadCounts, enabled: isBuyer })
   // Courier space is shown only when the backend recognises this account as a courier.
   const courierProfile = useQuery({ queryKey: ['courier', 'profile'], queryFn: courierApi.profile, enabled: Boolean(user), retry: false, staleTime: 5 * 60_000 })
-  const becomeSeller = useMutation({ mutationFn: authApi.becomeSeller, onSuccess: async () => { await useAuth.getState().refresh(); router.push('/seller/onboarding') }, onError: () => Alert.alert(t('common.error'), t('seller.becomeFailed')) })
+  const becomeSeller = useMutation({ mutationFn: authApi.becomeSeller, onSuccess: async () => { await useAuth.getState().refresh(); router.push('/seller/onboarding') }, onError: () => confirmAction(t('common.error'), t('seller.becomeFailed')) })
 
   if (!user) {
     return (

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { confirmAction } from '../../src/lib/confirmAction'
 import { router } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
@@ -24,7 +25,7 @@ function MyReviews() {
   const [withdrawing, setWithdrawing] = useState<string | null>(null)
 
   function withdraw(id: string) {
-    Alert.alert(t('reviews.withdraw'), t('reviews.withdrawConfirm'), [
+    confirmAction(t('reviews.withdraw'), t('reviews.withdrawConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('reviews.withdraw'), style: 'destructive', onPress: async () => {
         setWithdrawing(id)

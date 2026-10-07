@@ -129,9 +129,12 @@ type UpdateCourierProfileRequest struct {
 	Phone          *string `json:"phone"`
 }
 
-// UpdateCourierAvailabilityRequest is the request body for updating availability
+// UpdateCourierAvailabilityRequest is the request body for updating availability.
+// The column carries a CHECK constraint, so an unlisted value (or the right word
+// in the wrong case, like "available") reached Postgres and came back as a 500
+// with the raw constraint text. Reject it here instead, as a 400.
 type UpdateCourierAvailabilityRequest struct {
-	Availability CourierAvailability `json:"availability" binding:"required"`
+	Availability CourierAvailability `json:"availability" binding:"required,oneof=AVAILABLE UNAVAILABLE BUSY"`
 }
 
 // AcceptMissionRequest is the request body for accepting a mission

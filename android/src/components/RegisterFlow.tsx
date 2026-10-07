@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AuthWideShell, useAuthWide } from './AuthWideShell'
-import { Alert, AppState, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { confirmAction } from '../lib/confirmAction'
 import { router } from 'expo-router'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
@@ -78,7 +79,7 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   async function pickPhoto(fromCamera: boolean) {
     const permission = fromCamera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert(t(fromCamera ? 'profile.cameraNeeded' : 'profile.photosNeeded'), t(fromCamera ? 'profile.cameraNeededBody' : 'profile.photosNeededBody'))
+      confirmAction(t(fromCamera ? 'profile.cameraNeeded' : 'profile.photosNeeded'), t(fromCamera ? 'profile.cameraNeededBody' : 'profile.photosNeededBody'))
       return
     }
     const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 }
@@ -87,7 +88,7 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   }
 
   function choosePhoto() {
-    Alert.alert(t('profile.photoTitle'), undefined, [
+    confirmAction(t('profile.photoTitle'), undefined, [
       { text: t('profile.takePhoto'), onPress: () => void pickPhoto(true) },
       { text: t('profile.chooseFromGallery'), onPress: () => void pickPhoto(false) },
       { text: t('common.cancel'), style: 'cancel' },

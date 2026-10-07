@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
+import { confirmAction } from '../../src/lib/confirmAction'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -88,7 +89,7 @@ export default function HomeScreen() {
   const takeProductPhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert(t('profile.cameraNeeded'), t('home.cameraNeededBody'))
+      confirmAction(t('profile.cameraNeeded'), t('home.cameraNeededBody'))
       return
     }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: .72 })
@@ -98,7 +99,7 @@ export default function HomeScreen() {
   const chooseProductImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert(t('profile.photosNeeded'), t('home.photosNeededBody'))
+      confirmAction(t('profile.photosNeeded'), t('home.photosNeededBody'))
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: .72, selectionLimit: 1 })

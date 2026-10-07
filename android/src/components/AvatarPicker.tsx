@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { confirmAction } from '../lib/confirmAction'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
 import Ionicons from '@expo/vector-icons/Ionicons'
@@ -44,7 +45,7 @@ export function AvatarPicker({ size, name }: { size: number; name: string }) {
         ? [String(apiError.status), apiError.code, apiError.detail].filter(Boolean).join(' ')
         : error instanceof Error ? `${error.name}: ${error.message}` : String(error)
       if (__DEV__) console.warn('[TBK] avatar upload failed', debugDetail)
-      Alert.alert(t('profile.uploadFailed'), `${t(avatarErrorKey(apiError))}\n\n[debug] ${debugDetail}`)
+      confirmAction(t('profile.uploadFailed'), `${t(avatarErrorKey(apiError))}\n\n[debug] ${debugDetail}`)
     } finally {
       setUploading(false)
     }
@@ -53,7 +54,7 @@ export function AvatarPicker({ size, name }: { size: number; name: string }) {
   async function takePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert(t('profile.cameraNeeded'), t('profile.cameraNeededBody'))
+      confirmAction(t('profile.cameraNeeded'), t('profile.cameraNeededBody'))
       return
     }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 })
@@ -64,7 +65,7 @@ export function AvatarPicker({ size, name }: { size: number; name: string }) {
   async function pickFromLibrary() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert(t('profile.photosNeeded'), t('profile.photosNeededBody'))
+      confirmAction(t('profile.photosNeeded'), t('profile.photosNeededBody'))
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8, selectionLimit: 1 })
@@ -73,7 +74,7 @@ export function AvatarPicker({ size, name }: { size: number; name: string }) {
   }
 
   function onPress() {
-    Alert.alert(t('profile.photoTitle'), undefined, [
+    confirmAction(t('profile.photoTitle'), undefined, [
       { text: t('profile.takePhoto'), onPress: takePhoto },
       { text: t('profile.chooseFromGallery'), onPress: pickFromLibrary },
       { text: t('common.cancel'), style: 'cancel' },
