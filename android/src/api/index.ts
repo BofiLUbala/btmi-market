@@ -370,6 +370,9 @@ export const courierApi = {
   history: async (limit = 50) => list<CourierHistoryItem>(await get<unknown>(`/courier/history?limit=${limit}`)),
   /** Cash collected and deliveries on one day (YYYY-MM-DD, Kinshasa); today when omitted. */
   earnings: (date?: string) => get<CourierEarnings>(`/courier/earnings${date ? `?date=${date}` : ''}`),
+  /** The same totals over a span of days, both ends included: one request for a
+   *  week or a month, where asking day by day meant up to 31 at once. */
+  earningsRange: (from: string, to: string) => get<CourierEarnings>(`/courier/earnings?from=${from}&to=${to}`),
   /** Every product delivered, newest first; date narrows it to one day. */
   deliveredProducts: async (date?: string) =>
     list<CourierDeliveredProduct>(await get<unknown>(`/courier/delivered-products?limit=200${date ? `&date=${date}` : ''}`)),

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router } from 'expo-router'
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { courierApi } from '../../../src/api'
 import { CourierHeader, IconDisc, openMission } from '../../../src/components/CourierUI'
 import { useI18n } from '../../../src/store/i18n'
@@ -15,31 +15,16 @@ import type { CourierDeliveredProduct, CourierEarnings } from '../../../src/type
 
 type Period = 'today' | 'week' | 'month'
 
-/** Every Kinshasa day of the period, up to today (week starts on Monday). */
-function periodDays(period: Period, today: string): string[] {
-  if (period === 'today') return [today]
+/** First Kinshasa day of the period (the week starts on Monday). */
+function periodStart(period: Period, today: string): string {
+  if (period === 'today') return today
   const d = new Date(`${today}T12:00:00Z`)
   const back = period === 'week' ? (d.getUTCDay() + 6) % 7 : d.getUTCDate() - 1
-  return Array.from({ length: back + 1 }, (_, i) => shiftDay(today, i - back))
+  return shiftDay(today, -back)
 }
 
 /** Kinshasa calendar day (UTC+1, no DST) of a timestamp. */
 const kinshasaDay = (iso: string) => new Date(Date.parse(iso) + 3600_000).toISOString().slice(0, 10)
-
-/** Sum of several GET /courier/earnings days, cash kept per currency. */
-function sumEarnings(days: Array<CourierEarnings | undefined>): CourierEarnings {
-  const cash = new Map<string, number>()
-  const total = { date: '', cash_collected: [] as CourierEarnings['cash_collected'], cash_orders: 0, orders_delivered: 0, items_delivered: 0 }
-  for (const e of days) {
-    if (!e) continue
-    total.cash_orders += e.cash_orders
-    total.orders_delivered += e.orders_delivered
-    total.items_delivered += e.items_delivered
-    for (const c of e.cash_collected ?? []) cash.set(c.currency, (cash.get(c.currency) ?? 0) + c.amount)
-  }
-  total.cash_collected = [...cash].map(([currency, amount]) => ({ currency, amount }))
-  return total
-}
 
 /**
  * "Mes gains". The backend reports cash taken at the door (GET /courier/earnings),
@@ -52,25 +37,28 @@ export default function CourierEarningsScreen() {
   const { t, lang } = useI18n()
   const [period, setPeriod] = useState<Period>('today')
   const today = kinshasaToday()
-  const days = useMemo(() => periodDays(period, today), [period, today])
+  const from = useMemo(() => periodStart(period, today), [period, today])
 
   const todayEarnings = useQuery({ queryKey: ['courier', 'earnings', today], queryFn: () => courierApi.earnings(today), refetchInterval: 30_000 })
-  const perDay = useQueries({
-    queries: days.map((day) => ({
-      queryKey: ['courier', 'earnings', day],
-      queryFn: () => courierApi.earnings(day),
-      // A finished day hardly moves: no need to ask again on every visit.
-      staleTime: day === today ? 0 : 10 * 60_000,
-      refetchOnMount: true,
-    })),
+  // One request for the whole span. Asking day by day meant up to 31 at once,
+  // and a phone on a slow link timed out on most of them, so the figures came
+  // up empty with no way to tell that apart from a day with no delivery.
+  const span = useQuery({
+    queryKey: ['courier', 'earnings', 'range', from, today],
+    queryFn: () => (period === 'today' ? courierApi.earnings(today) : courierApi.earningsRange(from, today)),
+    refetchInterval: 30_000,
   })
   const products = useQuery({ queryKey: ['courier', 'delivered', 'all'], queryFn: () => courierApi.deliveredProducts() })
 
-  const loading = perDay.some((q) => q.isLoading)
-  const failed = perDay.some((q) => q.isError)
-  const total = sumEarnings(perDay.map((q) => q.data))
+  const loading = span.isLoading
+  const failed = span.isError
+  const total = span.data ?? { date: today, cash_collected: [], cash_orders: 0, orders_delivered: 0, items_delivered: 0 }
 
-  const daySet = useMemo(() => new Set(days), [days])
+  const daySet = useMemo(() => {
+    const out = new Set<string>()
+    for (let day = from; day <= today; day = shiftDay(day, 1)) out.add(day)
+    return out
+  }, [from, today])
   const orders = useMemo(() => {
     const byOrder = new Map<string, CourierDeliveredProduct[]>()
     for (const it of products.data ?? []) {
@@ -96,7 +84,7 @@ export default function CourierEarningsScreen() {
   return (
     <ScrollView
       contentContainerStyle={styles.page}
-      refreshControl={<RefreshControl refreshing={todayEarnings.isRefetching || products.isRefetching} onRefresh={() => { void todayEarnings.refetch(); perDay.forEach((q) => void q.refetch()); void products.refetch() }} />}
+      refreshControl={<RefreshControl refreshing={todayEarnings.isRefetching || products.isRefetching} onRefresh={() => { void todayEarnings.refetch(); void span.refetch(); void products.refetch() }} />}
     >
       <CourierHeader title={t('courierUi.earnings.title')} overlap={56} />
       <View style={styles.body}>

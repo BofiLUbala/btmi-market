@@ -874,6 +874,26 @@ func (s *CourierService) GetEarnings(userID uuid.UUID, day string) (*models.Cour
 	return s.courierRepo.GetEarnings(userID, day)
 }
 
+// GetEarningsRange totals a span of Kinshasa days, both ends included, so the
+// apps can show a week or a month in one request. An empty end means today.
+func (s *CourierService) GetEarningsRange(userID uuid.UUID, from, to string) (*models.CourierEarningsResponse, error) {
+	courier, err := s.courierRepo.GetByUserID(userID)
+	if err != nil || courier == nil {
+		return nil, ErrCourierNotFound
+	}
+	if to == "" {
+		to = deliveryDay(time.Now()).Format("2006-01-02")
+	}
+	if from == "" {
+		from = to
+	}
+	// A span given back to front still reads as that span.
+	if from > to {
+		from, to = to, from
+	}
+	return s.courierRepo.GetEarningsRange(userID, from, to)
+}
+
 // GetDeliveredProducts lists the products the courier delivered, optionally on one day.
 func (s *CourierService) GetDeliveredProducts(userID uuid.UUID, day string, limit, offset int) ([]*models.CourierDeliveredProduct, error) {
 	courier, err := s.courierRepo.GetByUserID(userID)

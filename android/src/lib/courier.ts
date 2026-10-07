@@ -16,6 +16,13 @@ export function courierStatusLabel(t: Translate, status?: string | null): string
 /** Everything a courier action can change, refetched from the backend. */
 export function invalidateCourierMission(queryClient: QueryClient, orderId?: string) {
   void queryClient.invalidateQueries({ queryKey: ['courier', 'missions'] })
+  // Delivering an order, and taking the cash at the door, is what moves the
+  // figures on "Mes gains" and adds a line to the delivered history. Without
+  // these the courier finished the delivery and both screens still showed the
+  // state from before it.
+  void queryClient.invalidateQueries({ queryKey: ['courier', 'earnings'] })
+  void queryClient.invalidateQueries({ queryKey: ['courier', 'delivered'] })
+  void queryClient.invalidateQueries({ queryKey: ['courier', 'history'] })
   if (orderId) {
     void queryClient.invalidateQueries({ queryKey: ['courier', 'mission', orderId] })
     void queryClient.invalidateQueries({ queryKey: ['courier', 'handover', orderId] })

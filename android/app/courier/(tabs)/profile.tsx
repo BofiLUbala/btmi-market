@@ -10,7 +10,7 @@ import { useAuth } from '../../../src/store/auth'
 import { useI18n, type TranslationKey } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { fonts, radius, shadow, spacing, type Colors } from '../../../src/theme'
-import { cashLabel } from '../../../src/lib/courier'
+import { cashLabel, kinshasaToday } from '../../../src/lib/courier'
 
 /** Known transport types in the courier's words; anything else is shown as stored. */
 const TRANSPORT_KEYS: Record<string, TranslationKey> = {
@@ -33,7 +33,7 @@ export default function CourierProfileScreen() {
   const user = useAuth((s) => s.user)
   const logout = useAuth((s) => s.logout)
   const profile = useQuery({ queryKey: ['courier', 'profile'], queryFn: courierApi.profile, retry: false })
-  const earnings = useQuery({ queryKey: ['courier', 'earnings', 'today'], queryFn: () => courierApi.earnings() })
+  const earnings = useQuery({ queryKey: ['courier', 'earnings', kinshasaToday()], queryFn: () => courierApi.earnings(kinshasaToday()) })
 
   const p = profile.data
   const name = [p?.first_name || user?.first_name, p?.last_name || user?.last_name].filter(Boolean).join(' ')

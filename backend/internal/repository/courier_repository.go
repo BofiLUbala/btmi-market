@@ -409,20 +409,28 @@ const courierDeliveredOrders = `
 	  AND (o.delivery_status IN ('DELIVERY_SCAN_SUCCESS', 'AWAITING_BUYER_CONFIRMATION', 'RECEIVED')
 	       OR o.status IN ('DELIVERED', 'RECEIVED', 'COMPLETED'))`
 
-// kinshasaDay compares a timestamp with a calendar day in Kinshasa.
-const kinshasaDay = `(%s AT TIME ZONE 'Africa/Kinshasa')::date = $2::date`
+// kinshasaRange keeps a timestamp inside a span of calendar days in Kinshasa,
+// both ends included. A single day is the span from that day to itself.
+const kinshasaRange = `(%s AT TIME ZONE 'Africa/Kinshasa')::date BETWEEN $2::date AND $3::date`
 
 // GetEarnings sums what a courier handled on one Kinshasa day: the cash they
 // confirmed at the door (per currency) and the orders and items they delivered.
 func (r *CourierRepository) GetEarnings(courierUserID uuid.UUID, day string) (*models.CourierEarningsResponse, error) {
-	res := &models.CourierEarningsResponse{Date: day, CashCollected: []models.CourierAmount{}}
+	return r.GetEarningsRange(courierUserID, day, day)
+}
+
+// GetEarningsRange is GetEarnings over a span of days, both ends included. The
+// apps show a week and a month this way: one query, where asking day by day
+// meant up to 31 requests at once from a phone.
+func (r *CourierRepository) GetEarningsRange(courierUserID uuid.UUID, from, to string) (*models.CourierEarningsResponse, error) {
+	res := &models.CourierEarningsResponse{Date: to, CashCollected: []models.CourierAmount{}}
 
 	rows, err := r.db.Query(`
 		SELECT COALESCE(bp.currency, 'USD'), COALESCE(SUM(bp.final_total), 0), COUNT(*)
 		FROM buyer_payments bp
 		WHERE bp.cash_received_by = $1
-		  AND `+fmt.Sprintf(kinshasaDay, "bp.cash_received_at")+`
-		GROUP BY 1 ORDER BY 1`, courierUserID, day)
+		  AND `+fmt.Sprintf(kinshasaRange, "bp.cash_received_at")+`
+		GROUP BY 1 ORDER BY 1`, courierUserID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +451,7 @@ func (r *CourierRepository) GetEarnings(courierUserID uuid.UUID, day string) (*m
 	err = r.db.QueryRow(`
 		WITH d AS (`+courierDeliveredOrders+`)
 		SELECT COUNT(*), COALESCE(SUM((SELECT COALESCE(SUM(ol.quantity), 0) FROM order_lines ol WHERE ol.order_id = d.id)), 0)
-		FROM d WHERE `+fmt.Sprintf(kinshasaDay, "d.delivered_at"), courierUserID, day).Scan(&res.OrdersDelivered, &res.ItemsDelivered)
+		FROM d WHERE `+fmt.Sprintf(kinshasaRange, "d.delivered_at"), courierUserID, from, to).Scan(&res.OrdersDelivered, &res.ItemsDelivered)
 	if err != nil {
 		return nil, err
 	}

@@ -544,10 +544,46 @@ func (h *Handler) courierDay(c *gin.Context) (string, bool) {
 	return day, true
 }
 
-// GET /api/v1/courier/earnings?date=YYYY-MM-DD - cash collected and deliveries on one day
+// courierDayParam reads one YYYY-MM-DD query parameter; empty is allowed.
+func (h *Handler) courierDayParam(c *gin.Context, name string) (string, bool) {
+	day := strings.TrimSpace(c.Query(name))
+	if day == "" {
+		return "", true
+	}
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		h.errResponse(c, http.StatusBadRequest, "INVALID_DATE", "La date doit être au format AAAA-MM-JJ.")
+		return "", false
+	}
+	return day, true
+}
+
+// GET /api/v1/courier/earnings?date=YYYY-MM-DD - cash collected and deliveries
+// on one day, or over ?from=&to= (ends included) for a week or a month, which
+// the apps ask for in one request instead of one per day.
 func (h *Handler) GetEarnings(c *gin.Context) {
 	userID, ok := h.extractUserID(c)
 	if !ok {
+		return
+	}
+	from, ok := h.courierDayParam(c, "from")
+	if !ok {
+		return
+	}
+	to, ok := h.courierDayParam(c, "to")
+	if !ok {
+		return
+	}
+	if from != "" || to != "" {
+		earnings, err := h.courierService.GetEarningsRange(userID, from, to)
+		if err != nil {
+			if err == service.ErrCourierNotFound {
+				h.errResponse(c, http.StatusNotFound, "COURIER_NOT_FOUND", err.Error())
+				return
+			}
+			h.errResponse(c, http.StatusInternalServerError, "EARNINGS_FAILED", err.Error())
+			return
+		}
+		c.JSON(http.StatusOK, models.SuccessResponse{Message: "Earnings retrieved", Data: earnings})
 		return
 	}
 	day, ok := h.courierDay(c)

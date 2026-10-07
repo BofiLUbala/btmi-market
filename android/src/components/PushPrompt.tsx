@@ -1,21 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { enablePush, pushState } from '../lib/push'
 import { useColors } from '../store/theme'
 import { useI18n } from '../store/i18n'
 import { radius, shadow, spacing, type Colors } from '../theme'
 import { Button } from './ui'
 
-const promptedKey = (userId: string) => `btmi.push.prompted.${userId}`
+/**
+ * Accounts already asked since this launch. Deliberately in memory and not on
+ * disk: the ask comes back on the next sign-in, for as long as notifications
+ * are off.
+ */
+const askedThisSession = new Set<string>()
 
 /**
- * The first time an account signs in on this device (phone or browser), TBK
- * asks whether to turn on push notifications. "Turn on" then shows the
- * system/browser permission (a click is required for it on the web) and
- * attaches this device; "Not now" leaves it to the notification settings.
- * Asked once per account and device.
+ * Every time an account signs in on this device (phone or browser), TBK asks
+ * to turn on push notifications. "Turn on" shows the system/browser permission
+ * (a click is required for it on the web) and attaches this device. There is
+ * no "Not now": closing the window only puts the ask off until the next
+ * sign-in, so an account that never turns them on is asked every time.
+ *
+ * A browser that blocked notifications for good reports "denied", and is not
+ * asked again: the only way back is the browser's own site settings.
  */
 export function PushPrompt({ userId }: { userId: string }) {
   const c = useColors()
@@ -28,18 +35,17 @@ export function PushPrompt({ userId }: { userId: string }) {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const asked = await AsyncStorage.getItem(promptedKey(userId)).catch(() => '1')
-      if (asked || cancelled) return
+      if (askedThisSession.has(userId)) return
       const state = await pushState('user').catch(() => 'unavailable' as const)
       if (cancelled) return
       if (state === 'off') setVisible(true)
-      else if (state === 'on') void AsyncStorage.setItem(promptedKey(userId), '1').catch(() => undefined)
+      else askedThisSession.add(userId)
     })()
     return () => { cancelled = true }
   }, [userId])
 
   const close = () => {
-    void AsyncStorage.setItem(promptedKey(userId), '1').catch(() => undefined)
+    askedThisSession.add(userId)
     setVisible(false)
   }
 
@@ -61,15 +67,17 @@ export function PushPrompt({ userId }: { userId: string }) {
     <Modal transparent animationType="fade" visible onRequestClose={close}>
       <View style={s.backdrop}>
         <View style={s.card} accessibilityRole="alert">
+          {/* No "Not now": only this corner closes the window, and the ask
+              comes back on the next sign-in. */}
+          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={10} style={s.close} disabled={busy}>
+            <Ionicons name="close" size={20} color={c.muted} />
+          </Pressable>
           <View style={s.icon}><Ionicons name="notifications" size={28} color={c.onGreen} /></View>
           <Text style={s.title}>{t('pushPrompt.title')}</Text>
           <Text style={s.body}>{blocked ? t('pushPrompt.denied') : t('pushPrompt.body')}</Text>
-          {blocked ? <Button title="OK" onPress={close} /> : <>
-            <Button title={t('pushPrompt.accept')} onPress={() => void accept()} loading={busy} />
-            <Pressable onPress={close} accessibilityRole="button" style={s.later} disabled={busy}>
-              <Text style={s.laterText}>{t('pushPrompt.later')}</Text>
-            </Pressable>
-          </>}
+          {blocked
+            ? <Button title="OK" onPress={close} />
+            : <Button title={t('pushPrompt.accept')} onPress={() => void accept()} loading={busy} />}
         </View>
       </View>
     </Modal>
@@ -82,6 +90,5 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   icon: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.green, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
   title: { color: c.ink, fontSize: 20, fontWeight: '800', textAlign: 'center' },
   body: { color: c.muted, fontSize: 14.5, lineHeight: 21, textAlign: 'center', marginBottom: 4 },
-  later: { alignItems: 'center', paddingVertical: 10 },
-  laterText: { color: c.muted, fontSize: 15, fontWeight: '600' },
+  close: { position: 'absolute', top: 8, right: 8, padding: 6, zIndex: 1 },
 })

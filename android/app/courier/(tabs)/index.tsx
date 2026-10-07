@@ -14,7 +14,7 @@ import { useAuth } from '../../../src/store/auth'
 import { useI18n } from '../../../src/store/i18n'
 import { useColors } from '../../../src/store/theme'
 import { fonts, radius, shadow, spacing, type Colors } from '../../../src/theme'
-import { cashLabel } from '../../../src/lib/courier'
+import { cashLabel, kinshasaToday } from '../../../src/lib/courier'
 import { resumeCourierTrackingIfNeeded } from '../../../src/lib/courierTracking'
 import type { CourierAvailability, CourierMission } from '../../../src/types'
 
@@ -36,7 +36,9 @@ export default function CourierHomeScreen() {
 
   const missions = useQuery({ queryKey: ['courier', 'missions'], queryFn: courierApi.missions, refetchInterval: 15_000 })
   const profile = useQuery({ queryKey: ['courier', 'profile'], queryFn: courierApi.profile, retry: false })
-  const earnings = useQuery({ queryKey: ['courier', 'earnings', 'today'], queryFn: () => courierApi.earnings(), refetchInterval: 30_000 })
+  // Same key as "Mes gains" (a Kinshasa day, not the word "today"), so the
+  // two tabs share one cached answer instead of drifting apart.
+  const earnings = useQuery({ queryKey: ['courier', 'earnings', kinshasaToday()], queryFn: () => courierApi.earnings(kinshasaToday()), refetchInterval: 30_000 })
   // After a restart or a force-close: an accepted mission is tracked again,
   // and tracking of any other state is stopped.
   useEffect(() => { void resumeCourierTrackingIfNeeded(missions.data) }, [missions.data])
