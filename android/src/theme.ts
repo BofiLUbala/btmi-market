@@ -135,6 +135,23 @@ export const shadow = {
   raised: { shadowColor: '#1E5EF3', shadowOpacity: 0.32, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
 } as const
 
+/**
+ * A listing tile's lift, per theme. The navy shadow above is all but invisible
+ * on the dark page it sits on, which left the grid looking like flat patches;
+ * dark mode needs a near-black one to read as depth at all. Light mode gets a
+ * wider, slightly deeper version of the same soft drop.
+ */
+export const cardLift = {
+  light: { shadowColor: '#0B1530', shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  dark: { shadowColor: '#000000', shadowOpacity: 0.55, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+} as const
+
+/** The same tile under the pointer (web): it rises towards the reader. */
+export const cardLiftHover = {
+  light: { shadowColor: '#0B1530', shadowOpacity: 0.18, shadowRadius: 28, shadowOffset: { width: 0, height: 12 }, elevation: 9 },
+  dark: { shadowColor: '#000000', shadowOpacity: 0.72, shadowRadius: 30, shadowOffset: { width: 0, height: 14 }, elevation: 13 },
+} as const
+
 /** Titles and prices use the display face: a heavy geometric sans (Inter
  *  bold weights, see src/typography.ts), matching the reference design. */
 export const fonts = {

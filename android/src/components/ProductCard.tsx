@@ -1,9 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import type { PublicProduct } from '../types'
-import { fonts, kicker, radius, shadow, spacing, type Colors } from '../theme'
+import { cardLift, cardLiftHover, fonts, kicker, radius, spacing, type Colors } from '../theme'
 import { categoryLabel } from '../lib/categoryLabels'
-import { useColors } from '../store/theme'
+import { useTheme } from '../store/theme'
 import { useI18n } from '../store/i18n'
 import { resolveMediaUrl } from '../api/client'
 import { ProductPhoto } from './ProductPhoto'
@@ -15,9 +15,11 @@ import { useFavorites, useIsFavorite } from '../store/favorites'
 const money = (value = 0, currency?: string) => formatMoney(value, currency)
 
 export function ProductCard({ product, onPress, style }: { product: PublicProduct; onPress: () => void; style?: StyleProp<ViewStyle> }) {
-  const c = useColors()
+  const { colors: c, theme } = useTheme()
   const { t } = useI18n()
-  const styles = useMemo(() => makeStyles(c), [c])
+  const styles = useMemo(() => makeStyles(c, theme), [c, theme])
+  // Web only: a pointer over the tile raises it. Touch never reports hover.
+  const [hovered, setHovered] = useState(false)
 
   const firstImage = product.images?.[0]
   const rawImage = product.primary_image_url || product.image_url || (typeof firstImage === 'string' ? firstImage : firstImage?.url || firstImage?.image_url)
@@ -40,7 +42,13 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
   // The card navigates to the product, so it is a link: as a button it would
   // wrap the favourite button, an invalid nested <button> on the web.
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, style, pressed && staticStyles.pressed]} accessibilityRole="link">
+    <Pressable
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => [styles.card, style, hovered && styles.cardHover, hovered && staticStyles.hoverRise, pressed && staticStyles.pressed]}
+      accessibilityRole="link"
+    >
       <View style={styles.media}>
         <ProductPhoto
           uri={image}
@@ -106,10 +114,13 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
 }
 
 /** Colour-bearing styles are rebuilt per theme; layout-only rules stay static. */
-const makeStyles = (c: Colors) =>
+const makeStyles = (c: Colors, theme: 'light' | 'dark') =>
   StyleSheet.create({
-    // Reference card: white tile, photo on top, blue price underneath.
-    card: { flex: 1, maxWidth: '48.5%', backgroundColor: c.white, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: c.border, ...shadow.card },
+    // Reference card: white tile, photo on top, blue price underneath. The
+    // caller caps the width (see useProductGrid); 48.5% is the two-column
+    // default a grid overrides.
+    card: { flex: 1, maxWidth: '48.5%', backgroundColor: c.white, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: c.border, ...cardLift[theme] },
+    cardHover: { borderColor: c.green, ...cardLiftHover[theme] },
     // Square crop so every listing photo lines up across the grid.
     media: { aspectRatio: 1, backgroundColor: c.surfaceAlt, overflow: 'hidden' },
     kicker: { ...kicker, fontSize: 9.5, color: c.green },
@@ -133,6 +144,7 @@ const makeStyles = (c: Colors) =>
 
 const staticStyles = StyleSheet.create({
   pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
+  hoverRise: { transform: [{ translateY: -3 }] },
   image: { width: '100%', height: '100%' },
   imageOut: { opacity: 0.5 },
   fav: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center' },
