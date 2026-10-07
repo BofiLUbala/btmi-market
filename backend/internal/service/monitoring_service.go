@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -52,6 +53,26 @@ type MonitoringService struct {
 	// onlineWindow is how recent a token rotation must be for the account to
 	// count as online right now: an open app refreshes once per access-token TTL.
 	onlineWindow time.Duration
+	// presence gives each account's last heartbeat: real activity, where
+	// the token rotation only moves once per access-token lifetime.
+	presence *PresenceService
+}
+
+// SetPresence lets the sessions view use the apps' live heartbeats.
+func (m *MonitoringService) SetPresence(p *PresenceService) { m.presence = p }
+
+// lastActive overlays the accounts' last heartbeat on their last token use.
+func (m *MonitoringService) lastActive(ctx context.Context, ids []uuid.UUID, token map[uuid.UUID]time.Time) map[uuid.UUID]time.Time {
+	out := make(map[uuid.UUID]time.Time, len(token))
+	for id, at := range token {
+		out[id] = at
+	}
+	for id, seen := range m.presence.UsersLastSeen(ctx, ids) {
+		if seen.After(out[id]) {
+			out[id] = seen
+		}
+	}
+	return out
 }
 
 func NewMonitoringService(db *sql.DB, accessTokenTTLMinutes int) *MonitoringService {
@@ -163,7 +184,21 @@ func (m *MonitoringService) ListActiveSessions(ctx context.Context, role string,
 		}
 		sessions = append(sessions, s)
 	}
-	return sessions, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(sessions))
+	token := make(map[uuid.UUID]time.Time, len(sessions))
+	for i, s := range sessions {
+		ids[i] = s.UserID
+		token[s.UserID] = s.LastActiveAt
+	}
+	last := m.lastActive(ctx, ids, token)
+	for i := range sessions {
+		sessions[i].LastActiveAt = last[sessions[i].UserID]
+	}
+	sort.SliceStable(sessions, func(i, j int) bool { return sessions[i].LastActiveAt.After(sessions[j].LastActiveAt) })
+	return sessions, nil
 }
 
 // SignedOutAccount is an account the Direction signed out everywhere: when,
@@ -251,27 +286,41 @@ func (m *MonitoringService) Summary(ctx context.Context) (*MonitoringSummary, er
 	}
 	rows.Close()
 
+	// Online = active within the window, by heartbeat or token use.
 	rows, err = m.db.QueryContext(ctx, `
-		SELECT LOWER(u.account_type::text), COUNT(*), COUNT(*) FILTER (WHERE t.last_active > NOW() - $1::interval)
+		SELECT t.user_id, LOWER(u.account_type::text), t.last_active
 		FROM (SELECT user_id, MAX(created_at) AS last_active FROM refresh_tokens
 		      WHERE revoked_at IS NULL AND expires_at > NOW() GROUP BY user_id) t
-		JOIN users u ON u.id = t.user_id
-		GROUP BY 1`, m.onlineWindow.String())
+		JOIN users u ON u.id = t.user_id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	roles := map[uuid.UUID]string{}
+	token := map[uuid.UUID]time.Time{}
+	ids := []uuid.UUID{}
 	for rows.Next() {
+		var id uuid.UUID
 		var role string
-		var active, online int
-		if err := rows.Scan(&role, &active, &online); err != nil {
+		var at time.Time
+		if err := rows.Scan(&id, &role, &at); err != nil {
 			return nil, err
 		}
-		out.ActiveByRole[role] = active
-		out.ActiveAccounts += active
-		out.OnlineNow += online
+		roles[id], token[id] = role, at
+		ids = append(ids, id)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	cutoff := time.Now().Add(-m.onlineWindow)
+	for id, at := range m.lastActive(ctx, ids, token) {
+		out.ActiveByRole[roles[id]]++
+		out.ActiveAccounts++
+		if at.After(cutoff) {
+			out.OnlineNow++
+		}
+	}
+	return out, nil
 }
 
 // OnlineWindow is exposed so the UI can say what "online" means.

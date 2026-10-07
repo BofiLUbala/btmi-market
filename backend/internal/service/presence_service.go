@@ -28,7 +28,11 @@ const (
 	presenceIPPerMin   = 600 // generous: mobile carriers share one IP among many phones
 
 	presenceIndexKey = "presence:seen"
+	// An account's last heartbeat (any device), read by the sessions view.
+	presenceUserTTL = 7 * 24 * time.Hour
 )
+
+func userSeenKey(id string) string { return "presence:user:" + id }
 
 var (
 	ErrPresenceInvalid     = errors.New("PRESENCE_INVALID")
@@ -160,6 +164,9 @@ func (s *PresenceService) Heartbeat(ctx context.Context, hb PresenceHeartbeat, u
 	}
 	if userID != nil {
 		fields["user_id"] = userID.String()
+		// The account is active right now: the Direction's sessions view
+		// reads this instead of the last token rotation.
+		s.redis.Set(ctx, userSeenKey(userID.String()), now.UnixMilli(), presenceUserTTL)
 		// Remember which account last used this device, to recognise it later
 		// while signed out.
 		s.redis.Set(ctx, knownKey(id), userID.String(), presenceKnownTTL)
@@ -299,4 +306,37 @@ func pageGroup(p string) string {
 	default:
 		return "other"
 	}
+}
+
+// UsersLastSeen returns, for each account that sent a heartbeat in the last
+// week, when it last did (from any device).
+func (s *PresenceService) UsersLastSeen(ctx context.Context, ids []uuid.UUID) map[uuid.UUID]time.Time {
+	out := map[uuid.UUID]time.Time{}
+	if s == nil || s.redis == nil || len(ids) == 0 {
+		return out
+	}
+	for start := 0; start < len(ids); start += 500 {
+		end := start + 500
+		if end > len(ids) {
+			end = len(ids)
+		}
+		keys := make([]string, 0, end-start)
+		for _, id := range ids[start:end] {
+			keys = append(keys, userSeenKey(id.String()))
+		}
+		vals, err := s.redis.MGet(ctx, keys...).Result()
+		if err != nil {
+			continue
+		}
+		for i, v := range vals {
+			str, ok := v.(string)
+			if !ok {
+				continue
+			}
+			if ms, err := strconv.ParseInt(str, 10, 64); err == nil {
+				out[ids[start+i]] = time.UnixMilli(ms)
+			}
+		}
+	}
+	return out
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { AppState } from 'react-native'
+import { AppState, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { usePathname } from 'expo-router'
 import { API_URL } from '../api/client'
@@ -50,7 +50,8 @@ async function send(path: string, action: 'heartbeat' | 'leave') {
     if (action === 'heartbeat') {
       const [access, refresh] = await Promise.all([tokenStore.getAccess(), tokenStore.getRefresh()])
       if (access) headers.Authorization = `Bearer ${access}`
-      body = { visitor_id: id, path, platform: 'android', has_session: !!refresh }
+      // The website is this same app: a browser reports itself as web.
+      body = { visitor_id: id, path, platform: Platform.OS === 'web' ? 'web' : Platform.OS, has_session: !!refresh }
     }
     await fetch(`${API_URL}/presence/${action}`, { method: 'POST', headers, body: JSON.stringify(body) })
   } catch {

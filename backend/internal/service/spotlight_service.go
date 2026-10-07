@@ -379,15 +379,15 @@ func discountSignature(p *models.PublicProductResponse) string {
 // Current returns the product each slot shows right now.
 func (s *SpotlightService) Current(now time.Time) Spotlights {
 	s.mu.RLock()
-	built := s.built
-	s.mu.RUnlock()
-	if built.IsZero() {
-		s.refresh() // first request before the background build finished
-	}
-
-	s.mu.RLock()
 	defer s.mu.RUnlock()
 	slot := int(now.Unix() / SpotlightRotateSeconds)
+	// Right after a start the background build (Run) is still going: answer
+	// at once with nothing and a short retry instead of making every request
+	// rebuild the pools itself (that took longer than the apps wait, so they
+	// showed an error). The apps hide empty spotlights.
+	if s.built.IsZero() {
+		return Spotlights{RotateSeconds: SpotlightRotateSeconds, NextRotationAt: now.Add(5 * time.Second).UTC()}
+	}
 	out := Spotlights{
 		RotateSeconds:  SpotlightRotateSeconds,
 		NextRotationAt: time.Unix(int64(slot+1)*SpotlightRotateSeconds, 0).UTC(),
