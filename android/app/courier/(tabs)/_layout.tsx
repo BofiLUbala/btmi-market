@@ -1,10 +1,11 @@
-import { Tabs, router } from 'expo-router'
+import { Redirect, Tabs, router } from 'expo-router'
 import type { ReactNode } from 'react'
-import { Pressable, View, type GestureResponderEvent, type PressableProps } from 'react-native'
+import { ActivityIndicator, Pressable, View, type GestureResponderEvent, type PressableProps } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '../../../src/store/theme'
 import { useI18n } from '../../../src/store/i18n'
+import { useAuth } from '../../../src/store/auth'
 import { shadow } from '../../../src/theme'
 import { withBrandFont } from '../../../src/typography'
 import { useCourierHeaderColors } from '../../../src/components/CourierUI'
@@ -36,6 +37,16 @@ export default function CourierTabs() {
   const header = useCourierHeaderColors()
   const { colors } = useTheme()
   const { t } = useI18n()
+  // The courier space is private. Without this, opening /courier directly (a
+  // link, a reload, a signed-out browser) rendered the whole shell and every
+  // request 401'd behind a bare "could not load missions" -- same guard as the
+  // admin space (app/admin/_layout.tsx) and the web's RequireCourier.
+  const ready = useAuth((s) => s.ready)
+  const signedIn = useAuth((s) => Boolean(s.user))
+  if (!ready) {
+    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream }}><ActivityIndicator size="large" color={colors.green} /></View>
+  }
+  if (!signedIn) return <Redirect href="/auth/login" />
 
   return (
     <View style={{ flex: 1 }}>

@@ -43,12 +43,56 @@ func (h *DirectionHandler) Overview(c *gin.Context) {
 	})
 }
 
+// account_type and status land in the SQL as Postgres enums, so a value that is
+// not an exact enum member makes the driver fail the whole query. The Users tab
+// mirrors both filters into the URL, so a hand-typed or shared link (say
+// ?status=active) must answer 400 rather than surfacing a database error.
+var (
+	listUsersAccountTypes = map[string]bool{
+		string(models.AccountTypeBuyer):    true,
+		string(models.AccountTypeSeller):   true,
+		string(models.AccountTypeEmployee): true,
+		string(models.AccountTypeCourier):  true,
+	}
+	listUsersStatuses = map[string]bool{
+		string(models.UserStatusPendingVerification): true,
+		string(models.UserStatusActive):              true,
+		string(models.UserStatusSuspended):           true,
+		string(models.UserStatusDeactivated):         true,
+	}
+)
+
 func (h *DirectionHandler) ListUsers(c *gin.Context) {
 	search := c.Query("search")
 	accountType := c.Query("account_type")
 	status := c.Query("status")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	if accountType != "" && !listUsersAccountTypes[accountType] {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_ACCOUNT_TYPE",
+				Message: "account_type must be one of BUYER, SELLER, EMPLOYEE, COURIER",
+			},
+		})
+		return
+	}
+	if status != "" && !listUsersStatuses[status] {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error: struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}{
+				Code:    "INVALID_STATUS",
+				Message: "status must be one of PENDING_VERIFICATION, ACTIVE, SUSPENDED, DEACTIVATED",
+			},
+		})
+		return
+	}
 
 	users, total, err := h.directionService.ListUsers(search, accountType, status, limit, offset)
 	if err != nil {

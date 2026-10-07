@@ -46,8 +46,11 @@ export default function CourierHomeScreen() {
   // Tabs have no header: keep full-screen states clear of the status bar.
   if (missions.isLoading) return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><Loading label={t('common.loading')} /></SafeAreaView>
   if (missions.isError) {
-    const notCourier = missions.error instanceof ApiError && [403, 404].includes(missions.error.status)
-    return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><ErrorState message={notCourier ? t('courier.notCourier') : t('courier.missionsFailed')} retry={() => void missions.refetch()} /></SafeAreaView>
+    const status = missions.error instanceof ApiError ? missions.error.status : 0
+    // A 401 is not a loading failure: the session ended. Say so instead of the
+    // generic line, which read as a broken screen with nothing to act on.
+    const message = status === 401 ? t('auth.sessionEndedBody') : [403, 404].includes(status) ? t('courier.notCourier') : t('courier.missionsFailed')
+    return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><ErrorState message={message} retry={status === 401 ? () => router.replace('/auth/login') : () => void missions.refetch()} /></SafeAreaView>
   }
 
   const active = (missions.data ?? []).filter((m) => !FINISHED_STATUSES.includes(m.delivery_status))

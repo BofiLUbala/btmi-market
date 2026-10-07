@@ -26,6 +26,10 @@ type DirectionFeature =
   | 'auth-failures'
   | 'sessions'
 
+/** Features backed by the user list: they share one fetch, so they must also
+ *  share — and show — one filter bar. Merchants reads only the overview stats. */
+const USER_LIST_FEATURES: DirectionFeature[] = ['users', 'accounts']
+
 const VALID_FEATURES: DirectionFeature[] = [
   'overview',
   'kpis',
@@ -171,19 +175,21 @@ export default function DirectionDashboardPage() {
     void loadOverviewStats()
   }, [loadOverviewStats])
 
+  const usesUserList = USER_LIST_FEATURES.includes(activeTab)
+
   useEffect(() => {
-    if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') {
+    if (usesUserList) {
       void loadUsers()
     } else if (activeTab === 'audit') {
       void loadAuditLogs()
     }
-  }, [activeTab, loadUsers, loadAuditLogs])
+  }, [activeTab, usesUserList, loadUsers, loadAuditLogs])
 
   useEffect(() => {
     const refreshActiveData = () => {
       if (document.visibilityState !== 'visible') return
       void loadOverviewStats(true)
-      if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') void loadUsers(true)
+      if (usesUserList) void loadUsers(true)
       if (activeTab === 'audit') void loadAuditLogs(true)
     }
     document.addEventListener('visibilitychange', refreshActiveData)
@@ -192,18 +198,18 @@ export default function DirectionDashboardPage() {
       document.removeEventListener('visibilitychange', refreshActiveData)
       window.clearInterval(timer)
     }
-  }, [activeTab, loadAuditLogs, loadOverviewStats, loadUsers])
+  }, [activeTab, usesUserList, loadAuditLogs, loadOverviewStats, loadUsers])
 
   // Keep server-side user filters in the URL so refresh/back/forward preserve
   // the current supervision view and links can be shared between admins.
   useEffect(() => {
-    if (activeTab !== 'users') return
+    if (!usesUserList) return
     const next = new URLSearchParams()
     if (userSearch) next.set('search', userSearch)
     if (accountTypeFilter) next.set('account_type', accountTypeFilter)
     if (userStatusFilter) next.set('status', userStatusFilter)
     setSearchParams(next, { replace: true })
-  }, [activeTab, userSearch, accountTypeFilter, userStatusFilter, setSearchParams])
+  }, [usesUserList, userSearch, accountTypeFilter, userStatusFilter, setSearchParams])
 
   const handleExecuteUserAction = async () => {
     if (!actionTargetUser || !actionType) return
@@ -261,6 +267,70 @@ export default function DirectionDashboardPage() {
   const formatCurrency = (val: number) => {
     return formatMoney(val, 'USD')
   }
+
+  const selectStyle: CSSProperties = {
+    padding: '9px 14px',
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
+    border: '1px solid #334155',
+    color: '#ffffff',
+    fontSize: 13
+  }
+
+  /* One filter bar for every feature that reads the user list. Account
+     Supervision renders it too: it shares this filter state, so without the bar
+     a filter set on User Management would narrow that list invisibly. */
+  const userFilterBar = (
+    <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b', flexWrap: 'wrap' }}>
+      <input
+        type="text"
+        aria-label={t('admin.direction.searchUsersPlaceholder')}
+        placeholder={t('admin.direction.searchUsersPlaceholder')}
+        value={userSearch}
+        onChange={(e) => setUserSearch(e.target.value)}
+        style={{ ...selectStyle, flex: '1 1 200px' }}
+      />
+      <select
+        aria-label={t('admin.direction.accountTypeFilterLabel')}
+        value={accountTypeFilter}
+        onChange={(e) => setAccountTypeFilter(e.target.value)}
+        style={selectStyle}
+      >
+        <option value="">{t('admin.direction.allAccountTypes')}</option>
+        <option value="BUYER">{t('admin.direction.accountTypeBuyer')}</option>
+        <option value="SELLER">{t('admin.direction.accountTypeSeller')}</option>
+        <option value="EMPLOYEE">{t('admin.direction.accountTypeEmployee')}</option>
+        <option value="COURIER">{t('admin.direction.accountTypeCourier')}</option>
+      </select>
+      <select
+        aria-label={t('admin.direction.statusFilterLabel')}
+        value={userStatusFilter}
+        onChange={(e) => setUserStatusFilter(e.target.value)}
+        style={selectStyle}
+      >
+        <option value="">{t('admin.direction.allStatuses')}</option>
+        <option value="ACTIVE">{t('admin.direction.statusActive')}</option>
+        <option value="SUSPENDED">{t('admin.direction.statusSuspended')}</option>
+        <option value="PENDING_VERIFICATION">{t('admin.direction.statusPendingVerification')}</option>
+        <option value="DEACTIVATED">{t('admin.direction.statusDeactivated')}</option>
+      </select>
+      <button
+        onClick={() => void loadUsers()}
+        style={{
+          backgroundColor: '#2563eb',
+          color: '#ffffff',
+          border: 'none',
+          borderRadius: 8,
+          padding: '9px 16px',
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: 'pointer'
+        }}
+      >
+        {t('admin.direction.filter')}
+      </button>
+    </div>
+  )
 
   const featureTitle = (() => {
     switch (activeTab) {
@@ -322,7 +392,7 @@ export default function DirectionDashboardPage() {
             className="admin-button"
             onClick={() => {
               void loadOverviewStats()
-              if (activeTab === 'users' || activeTab === 'accounts' || activeTab === 'merchants') void loadUsers()
+              if (usesUserList) void loadUsers()
               if (activeTab === 'audit') void loadAuditLogs()
             }}
           >
@@ -519,73 +589,7 @@ export default function DirectionDashboardPage() {
             </div>
           )}
 
-          {/* Filter Bar */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, backgroundColor: '#0f172a', padding: 14, borderRadius: 10, border: '1px solid #1e293b', flexWrap: 'wrap' }}>
-            <input
-              type="text"
-              placeholder={t('admin.direction.searchUsersPlaceholder')}
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              style={{
-                flex: '1 1 200px',
-                padding: '9px 14px',
-                borderRadius: 8,
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                color: '#ffffff',
-                fontSize: 13
-              }}
-            />
-            <select
-              value={accountTypeFilter}
-              onChange={(e) => setAccountTypeFilter(e.target.value)}
-              style={{
-                padding: '9px 14px',
-                borderRadius: 8,
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                color: '#ffffff',
-                fontSize: 13
-              }}
-            >
-              <option value="">{t('admin.direction.allAccountTypes')}</option>
-              <option value="BUYER">{t('admin.direction.accountTypeBuyer')}</option>
-              <option value="SELLER">{t('admin.direction.accountTypeSeller')}</option>
-              <option value="EMPLOYEE">{t('admin.direction.accountTypeEmployee')}</option>
-            </select>
-            <select
-              value={userStatusFilter}
-              onChange={(e) => setUserStatusFilter(e.target.value)}
-              style={{
-                padding: '9px 14px',
-                borderRadius: 8,
-                backgroundColor: '#1e293b',
-                border: '1px solid #334155',
-                color: '#ffffff',
-                fontSize: 13
-              }}
-            >
-              <option value="">{t('admin.direction.allStatuses')}</option>
-              <option value="ACTIVE">{t('admin.direction.statusActive')}</option>
-              <option value="SUSPENDED">{t('admin.direction.statusSuspended')}</option>
-              <option value="PENDING_VERIFICATION">{t('admin.direction.statusPendingVerification')}</option>
-            </select>
-            <button
-              onClick={() => void loadUsers()}
-              style={{
-                backgroundColor: '#2563eb',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: 8,
-                padding: '9px 16px',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              {t('admin.direction.filter')}
-            </button>
-          </div>
+          {userFilterBar}
 
           {/* User Table */}
           <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', overflowX: 'auto' }}>
@@ -799,6 +803,8 @@ export default function DirectionDashboardPage() {
             </p>
           </div>
 
+          {userFilterBar}
+
           <div style={{ backgroundColor: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
@@ -815,6 +821,8 @@ export default function DirectionDashboardPage() {
               <tbody>
                 {loadingUsers ? (
                   <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>{t('common.loading')}</td></tr>
+                ) : users.length === 0 ? (
+                  <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#64748b' }}>{t('admin.direction.noUsersFound')}</td></tr>
                 ) : users.map((u) => (
                   <tr key={u.id} style={{ borderBottom: '1px solid #1e293b' }}>
                     <td style={{ padding: '12px 16px' }}>

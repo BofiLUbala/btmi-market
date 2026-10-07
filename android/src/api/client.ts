@@ -106,7 +106,11 @@ async function invalidateSession() {
 
 async function refreshSession() {
   const refreshToken = await tokenStore.getRefresh()
-  if (!refreshToken) return false
+  // No refresh token at all: the session is gone (never signed in on this
+  // device, or storage was cleared). Returning early without invalidating left
+  // the app showing a signed-in shell whose every call 401s, with nothing to
+  // send the person to sign-in -- the listeners below do that.
+  if (!refreshToken) { await invalidateSession(); return false }
   const response = await fetch(`${API_URL}/auth/refresh`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
