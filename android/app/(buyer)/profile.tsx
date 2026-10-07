@@ -1,3 +1,4 @@
+import { SpaceSwitcher } from '../../src/components/SpaceSwitcher'
 import { useMemo } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { router } from 'expo-router'
@@ -68,6 +69,9 @@ function ProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]}>
+      {/* One account, two spaces: switch to the seller space, or create it
+          (large screens have it in the account column). */}
+      {wide ? null : <SpaceSwitcher current="buyer" />}
       {/* Large screens: two columns like the web account page (identity
           card on the left, points and links on the right). */}
       <View style={wide ? styles.columns : styles.col}>

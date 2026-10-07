@@ -108,8 +108,9 @@ export function AdminLayout() {
     fetchAdminUnreadNotificationsCount()
       .then((res) => setNotifCount(res.unread_count))
       .catch(() => null)
-    fetchAdminNotifications({ limit: 15 })
-      .then((res) => setNotifs(res.items || []))
+    // Unread only: a notification disappears once it has been read.
+    fetchAdminNotifications({ limit: 50 })
+      .then((res) => setNotifs((res.items || []).filter((n) => !n.is_read).slice(0, 15)))
       .catch(() => null)
   }, [])
 
@@ -147,11 +148,13 @@ export function AdminLayout() {
   }, [])
 
   const handleMarkAllRead = async () => {
+    setNotifs([])
     await markAllAdminNotificationsRead().catch(() => null)
     loadNotifications()
   }
 
   const handleNotificationClick = async (notif: NotificationItem) => {
+    setNotifs((prev) => prev.filter((n) => n.id !== notif.id))
     if (!notif.is_read) {
       await markAdminNotificationRead(notif.id).catch(() => null)
       loadNotifications()

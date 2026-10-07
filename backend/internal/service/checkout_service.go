@@ -361,7 +361,7 @@ func (s *CheckoutService) CreateCheckout(buyerProfileID uuid.UUID, req *models.C
 	created := []uuid.UUID{}
 	rollback := func() {
 		for _, orderID := range created {
-			_, _ = s.orderService.CancelBuyerOrder(buyerProfileID, orderID)
+			s.orderService.CancelUnfinishedCheckout(buyerProfileID, orderID)
 		}
 	}
 

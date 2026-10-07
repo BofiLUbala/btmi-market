@@ -228,6 +228,45 @@ func (s *AuthService) BecomeSeller(userID uuid.UUID) (*models.User, error) {
 	return s.GetUserByID(userID)
 }
 
+// BecomeBuyer gives an account (a seller, typically) its buyer space: the same
+// e-mail / WhatsApp number then signs in to both and the app switches between
+// them. It creates the buyer profile from the account's identity, or reopens
+// an inactive one; a blocked buyer profile stays blocked.
+func (s *AuthService) BecomeBuyer(userID uuid.UUID) (*models.User, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, errors.New("USER_NOT_FOUND")
+	}
+	if user.Status == models.UserStatusSuspended || user.Status == models.UserStatusDeactivated {
+		return nil, errors.New("ACCOUNT_SUSPENDED")
+	}
+	if user.Status != models.UserStatusActive || !user.IsVerified() {
+		return nil, errors.New("ACCOUNT_NOT_ACTIVATED")
+	}
+	if s.buyerProfileRepo == nil {
+		return nil, errors.New("BUYER_UNAVAILABLE")
+	}
+	profile, err := s.buyerProfileRepo.GetByUserID(userID)
+	switch {
+	case err == nil && profile != nil && profile.Status == models.BuyerProfileStatusBlocked:
+		return nil, errors.New("BUYER_BLOCKED")
+	case err == nil && profile != nil && profile.Status != models.BuyerProfileStatusActive:
+		profile.Status = models.BuyerProfileStatusActive
+		if err := s.buyerProfileRepo.Update(profile); err != nil {
+			return nil, err
+		}
+	case err != nil || profile == nil:
+		if err := s.buyerProfileRepo.Create(&models.BuyerProfile{
+			UserID: user.ID, FirstName: user.FirstName, LastName: user.LastName,
+			Phone: user.Phone, Email: user.Email, Country: "DRC",
+			Status: models.BuyerProfileStatusActive,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return s.GetUserByID(userID)
+}
+
 func (s *AuthService) registerWithAccountType(req *models.RegisterRequest, accountType models.AccountType) (*models.User, *models.WhatsAppChallenge, error) {
 	channel, err := normalizeChannel(req.VerificationChannel)
 	if err != nil {

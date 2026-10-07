@@ -319,6 +319,12 @@ func (h *Handler) SellerTransitionOrder(c *gin.Context) {
 	}
 
 	newStatus := models.OrderStatus(req.Status)
+	// A seller cancels through POST /orders/:id/cancel, which asks for the
+	// reason and records who cancelled; never through a bare status change.
+	if newStatus == models.OrderStatusCancelled {
+		h.errResponse(c, http.StatusBadRequest, "CANCEL_REASON_REQUIRED", "Cancel the order with its reason")
+		return
+	}
 	updated, err := h.orderService.TransitionOrder(orderID, userID.(uuid.UUID), newStatus, "", "SELLER")
 	if err != nil {
 		statusCode := http.StatusBadRequest
@@ -396,7 +402,11 @@ func (h *Handler) RejectOrder(c *gin.Context) {
 		return
 	}
 
-	order, err := h.orderService.RejectOrder(userID, orderID)
+	reason, ok := h.cancelReason(c)
+	if !ok {
+		return
+	}
+	order, err := h.orderService.RejectOrder(userID, orderID, reason)
 	if err != nil {
 		h.sellerActionError(c, userID, orderID, "REJECT", err)
 		return
@@ -495,7 +505,11 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 		return
 	}
 
-	order, err := h.orderService.CancelOrder(userID, orderID)
+	reason, ok := h.cancelReason(c)
+	if !ok {
+		return
+	}
+	order, err := h.orderService.CancelOrder(userID, orderID, reason)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"
@@ -1102,6 +1116,24 @@ func (h *Handler) GetSellerOrderPayment(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Payment retrieved successfully", Data: result})
 }
 
+// cancelReason reads the {"reason": "..."} a buyer or seller must give to
+// cancel an order: everyone involved then sees who cancelled and why.
+func (h *Handler) cancelReason(c *gin.Context) (string, bool) {
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&body)
+	reason := strings.TrimSpace(body.Reason)
+	if len([]rune(reason)) < 3 {
+		h.errResponse(c, http.StatusBadRequest, "CANCEL_REASON_REQUIRED", "Give the reason for the cancellation")
+		return "", false
+	}
+	if len([]rune(reason)) > 500 {
+		reason = string([]rune(reason)[:500])
+	}
+	return reason, true
+}
+
 // POST /api/v1/buyer/orders/:order_id/cancel
 func (h *Handler) CancelBuyerOrder(c *gin.Context) {
 	buyerProfileID, ok := h.extractBuyerProfileID(c)
@@ -1113,7 +1145,11 @@ func (h *Handler) CancelBuyerOrder(c *gin.Context) {
 		return
 	}
 
-	order, err := h.orderService.CancelBuyerOrder(buyerProfileID, orderID)
+	reason, ok := h.cancelReason(c)
+	if !ok {
+		return
+	}
+	order, err := h.orderService.CancelBuyerOrder(buyerProfileID, orderID, reason)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
 		errorCode := "INTERNAL_ERROR"

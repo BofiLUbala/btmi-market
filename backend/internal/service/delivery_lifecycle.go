@@ -58,16 +58,36 @@ func releaseCourierIfIdleTx(tx *sql.Tx, courierUserID uuid.UUID) error {
 // handover. Before pickup the reservation, points and courier are released at
 // once. Once the courier holds the parcel it travels back to the seller, and
 // the stock returns only when the seller confirms it is back.
-func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID) (*models.Order, error) {
+// The buyer's reason is kept with the order (order_cancellations).
+func (s *OrderService) CancelBuyerOrder(buyerProfileID, orderID uuid.UUID, reason string) (*models.Order, error) {
 	if _, err := s.getBuyerOrder(buyerProfileID, orderID); err != nil {
 		return nil, err
 	}
-	return s.cancelWithStage(orderID, "", "Order cancelled by buyer")
+	notes := "Order cancelled by buyer"
+	if reason != "" {
+		notes += ": " + reason
+	}
+	var by *uuid.UUID
+	var buyerUser uuid.UUID
+	if err := s.db.QueryRow(`SELECT user_id FROM buyer_profiles WHERE id = $1`, buyerProfileID).Scan(&buyerUser); err == nil {
+		by = &buyerUser
+	}
+	return s.cancelWithStage(orderID, "", notes, models.CancelledByBuyer, by, reason)
+}
+
+// CancelUnfinishedCheckout cancels an order the checkout itself could not
+// complete (another shop's order failed): no buyer decision, so SYSTEM.
+func (s *OrderService) CancelUnfinishedCheckout(buyerProfileID, orderID uuid.UUID) {
+	if _, err := s.getBuyerOrder(buyerProfileID, orderID); err != nil {
+		return
+	}
+	_, _ = s.cancelWithStage(orderID, "", "Checkout not completed", models.CancelledBySystem, nil, "Commande non finalisée")
 }
 
 // cancelWithStage performs the buyer-side cancellation. forcedStage is set only
-// by the courier's second "buyer not found".
-func (s *OrderService) cancelWithStage(orderID uuid.UUID, forcedStage, notes string) (*models.Order, error) {
+// by the courier's second "buyer not found". role, by and reason say who
+// cancelled and why (order_cancellations).
+func (s *OrderService) cancelWithStage(orderID uuid.UUID, forcedStage, notes, role string, by *uuid.UUID, reason string) (*models.Order, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -176,8 +196,11 @@ func (s *OrderService) cancelWithStage(orderID uuid.UUID, forcedStage, notes str
 		return nil, err
 	}
 	if err := orderRepo.CreateStatusHistory(&models.OrderStatusHistory{
-		OrderID: orderID, Status: models.OrderStatusCancelled, Notes: notes,
+		OrderID: orderID, Status: models.OrderStatusCancelled, ChangedBy: by, Notes: notes,
 	}); err != nil {
+		return nil, err
+	}
+	if err := orderRepo.RecordCancellation(orderID, role, by, reason, stage); err != nil {
 		return nil, err
 	}
 	if order.AssignedCourierID != nil && !withCourier {

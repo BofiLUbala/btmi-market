@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
 )
 
@@ -80,8 +81,10 @@ func (s *CourierService) ReportBuyerNotFound(userID, orderID uuid.UUID, req Buye
 		if s.orderSvc == nil {
 			return nil, ErrInvalidStatusTransition
 		}
+		courier := userID
 		if _, err := s.orderSvc.cancelWithStage(orderID, CancelStageBuyerNotFound,
-			"Buyer not found twice: parcel returning to the seller"); err != nil {
+			"Buyer not found twice: parcel returning to the seller", models.CancelledByCourier, &courier,
+			"Acheteur introuvable à deux reprises : "+reason); err != nil {
 			return nil, err
 		}
 		s.recordBuyerNotFound(orderID, userID, "Buyer not found again, parcel returning to the seller: "+reason)

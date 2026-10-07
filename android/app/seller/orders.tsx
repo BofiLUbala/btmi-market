@@ -1,3 +1,5 @@
+import { CancelReasonSheet } from '../../src/components/CancelReasonSheet'
+import { CancellationCard } from '../../src/components/CancellationCard'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View, Pressable, RefreshControl } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -45,11 +47,11 @@ function sharedCurrency(orders: SellerOrder[]): string | null {
   return codes.size === 1 ? [...codes][0] : null
 }
 
-type SellerAction = { label: string; status?: string; action?: 'accept' | 'reject' | 'prepare' }
+type SellerAction = { label: string; status?: string; action?: 'accept' | 'reject' | 'prepare' | 'cancel' }
 
 function nextActions(order: SellerOrder, t: Translate): SellerAction[] {
   if (order.status === 'PENDING') return [{ label: t('seller.orders.accept'), action: 'accept' }, { label: t('seller.orders.reject'), action: 'reject' }]
-  if (order.status === 'ACCEPTED') return [{ label: t('seller.orders.startPreparing'), action: 'prepare' }]
+  if (order.status === 'ACCEPTED') return [{ label: t('seller.orders.startPreparing'), action: 'prepare' }, { label: t('orders.cancel'), action: 'cancel' }]
   if (order.status === 'PREPARING') {
     return order.delivery_method === 'PICKUP'
       ? [{ label: t('seller.orders.readyForPickup'), status: 'READY_FOR_PICKUP' }]
@@ -92,6 +94,8 @@ export default function SellerOrders() {
   const [shopFilter, setShopFilter] = useState('ALL')
   const [expandedId, setExpandedId] = useState<string | null>(typeof params.orderId === 'string' ? params.orderId : null)
   const [actionError, setActionError] = useState('')
+  // Refusing or cancelling asks for the reason first (CancelReasonSheet).
+  const [reasonAsk, setReasonAsk] = useState<{ order: SellerOrder; kind: 'reject' | 'cancel' } | null>(null)
   const [actingId, setActingId] = useState<string | null>(null)
   const [, setTick] = useState(0)
 
@@ -192,6 +196,13 @@ export default function SellerOrders() {
       </View>
       : <>
         {actionError ? <View style={styles.errorBox}><Text style={styles.errorText}>{actionError}</Text></View> : null}
+        <CancelReasonSheet visible={Boolean(reasonAsk)} side="seller" kind={reasonAsk?.kind} busy={Boolean(reasonAsk && actingId === reasonAsk.order.id)}
+          onClose={() => setReasonAsk(null)}
+          onConfirm={(reason) => {
+            const ask = reasonAsk
+            if (!ask) return
+            void runAction(ask.order, () => ask.kind === 'reject' ? sellerApi.rejectOrder(ask.order.id, reason) : sellerApi.cancelOrder(ask.order.id, reason)).finally(() => setReasonAsk(null))
+          }} />
         {orderGroups.map((group) => <View key={group.shopId} style={styles.group}>
           <View style={styles.groupHeader}>
             <Text style={[styles.flex1, styles.text]}><Text style={styles.bold}>{group.shopName}</Text><Text style={styles.muted}> · {group.orders.length === 1 ? t('seller.orders.count', { count: group.orders.length }) : t('seller.orders.count_plural', { count: group.orders.length })}</Text></Text>
@@ -204,12 +215,14 @@ export default function SellerOrders() {
             acting={actingId === order.id}
             businessName={activeBusiness.name}
             onToggle={() => { setActionError(''); setExpandedId(expandedId === order.id ? null : order.id) }}
-            onAction={(a) => void runAction(order, () => {
+            onAction={(a) => {
+              if (a.action === 'reject' || a.action === 'cancel') { setActionError(''); setReasonAsk({ order, kind: a.action }); return }
+              void runAction(order, () => {
               if (a.action === 'accept') return sellerApi.acceptOrder(order.id)
-              if (a.action === 'reject') return sellerApi.rejectOrder(order.id)
               if (a.action === 'prepare') return sellerApi.prepareOrder(order.id)
               return sellerApi.sellerTransition(order.id, a.status!)
-            })}
+              })
+            }}
             onConfirmReturn={() => Alert.alert(t('deliveryPlan.confirmReturn'), t('deliveryPlan.confirmReturnAsk'), [
               { text: t('common.cancel'), style: 'cancel' },
               { text: t('deliveryPlan.confirmReturn'), onPress: () => void runAction(order, () => sellerApi.confirmReturn(order.id)) },
@@ -268,6 +281,7 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
     </View>
 
     {expanded && <View style={styles.details}>
+      {['CANCELLED', 'REJECTED'].includes(order.status) ? <CancellationCard cancellation={order.cancellation} rejected={order.status === 'REJECTED'} /> : null}
       <Text style={styles.small}><Text style={styles.strong}>{t('orders.deliveryLabel')}:</Text> {deliveryLabel(t, order.delivery_method) || '—'}</Text>
       <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.baseTotal')}:</Text> {formatMoney(order.base_total ?? order.final_total, currency)}</Text>
       {order.notes ? <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.notesLabel')}:</Text> {order.notes}</Text> : null}

@@ -404,6 +404,7 @@ func main() {
 			authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
 			authGroup.POST("/me/avatar", middleware.AuthMiddleware(authService), authHandler.UploadAvatar)
 			authGroup.POST("/become-seller", middleware.AuthMiddleware(authService), authHandler.BecomeSeller)
+			authGroup.POST("/become-buyer", middleware.AuthMiddleware(authService), authHandler.BecomeBuyer)
 		}
 
 		businessesGroup := api.Group("/businesses")

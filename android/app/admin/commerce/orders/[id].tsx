@@ -1,3 +1,4 @@
+import { CancellationCard } from '../../../../src/components/CancellationCard'
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -202,6 +203,7 @@ export default function AdminOrderDetailScreen() {
         </View>
       </View>
 
+      {['CANCELLED', 'REJECTED'].includes(o.status) ? <View style={{ marginBottom: 12 }}><CancellationCard cancellation={o.cancellation} rejected={o.status === 'REJECTED'} /></View> : null}
       <Section title={t('admin.orders.summaryTitle')}>
         <Field label={t('admin.orders.fieldOrderNumber')} value={o.order_number} />
         {/* "Total" is what the buyer pays (products + delivery + payment fee),

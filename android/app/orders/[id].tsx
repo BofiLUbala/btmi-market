@@ -1,3 +1,5 @@
+import { CancelReasonSheet } from '../../src/components/CancelReasonSheet'
+import { CancellationCard } from '../../src/components/CancellationCard'
 import { Suspense, useMemo, useState } from 'react'
 import { LazyLiveCourierMap } from '../../src/components/LazyLiveCourierMap'
 import { isLiveTracked } from '../../src/lib/liveTracking'
@@ -9,7 +11,7 @@ import { timelineNote } from '../../src/lib/timelineNote'
 import { OrderRatingCard } from '../../src/components/OrderRatingCard'
 import { DeliveryPlanCard } from '../../src/components/DeliveryPlanCard'
 import { buyerCanCancel, isPaidBeforeHandover, PARCEL_WITH_COURIER } from '../../src/lib/deliveryPlan'
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { buyerApi } from '../../src/api'
@@ -276,7 +278,9 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
   }
 
   const receiveMutation = useMutation({ mutationFn: () => buyerApi.confirmReceived(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
-  const cancelMutation = useMutation({ mutationFn: () => buyerApi.cancelOrder(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
+  // Cancelling asks for the reason first (CancelReasonSheet): everyone sees it.
+  const [cancelAsk, setCancelAsk] = useState(false)
+  const cancelMutation = useMutation({ mutationFn: (reason: string) => buyerApi.cancelOrder(id!, reason), onSuccess: () => { setCancelAsk(false); invalidate() }, onError: (e) => { setCancelAsk(false); setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) } })
   const createPaymentMutation = useMutation({ mutationFn: () => buyerApi.createPayment(id!), onSuccess: invalidate, onError: (e) => setActionError(e instanceof ApiError ? e.message : t('common.actionImpossible')) })
   // There is no "I have paid" mutation. Cash is settled by the assigned courier at the
   // door and mobile money by the operator's callback, so the buyer can only read the
@@ -321,12 +325,9 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       })
     : history.map((h) => ({ status: h.status, event: h, done: true }))
 
-  const confirmCancel = () => {
-    Alert.alert(t('orders.cancel'), t(PARCEL_WITH_COURIER.includes(o.delivery_status || '') ? 'orders.cancelAskInDelivery' : 'orders.cancelAskBeforePickup'),[
-      { text: t('orders.back'), style: 'cancel' },
-      { text: t('orders.cancel'), style: 'destructive', onPress:()=>{ setActionError(''); cancelMutation.mutate() } },
-    ])
-  }
+  // The reason sheet is the confirmation (an Alert with buttons never shows
+  // on the web): it explains what happens next and asks why.
+  const confirmCancel = () => { setActionError(''); setCancelAsk(true) }
 
   return <View style={{ flex: 1, backgroundColor: colors.cream }}>
     <KeyboardAwareScrollView contentContainerStyle={styles.page}>
@@ -423,6 +424,8 @@ export default function OrderScreen(){const colors=useColors();const styles=useM
       </Card>
 
       {actionError ? <Card><Text style={styles.error}>{actionError}</Text></Card> : null}
+      {['CANCELLED', 'REJECTED'].includes(o.status) ? <CancellationCard cancellation={o.cancellation} rejected={o.status === 'REJECTED'} /> : null}
+      <CancelReasonSheet visible={cancelAsk} side="buyer" note={t(PARCEL_WITH_COURIER.includes(o.delivery_status || '') ? 'orders.cancelAskInDelivery' : 'orders.cancelAskBeforePickup')} busy={cancelMutation.isPending} onConfirm={(reason) => cancelMutation.mutate(reason)} onClose={() => setCancelAsk(false)} />
 
       {canVerify && <Card>
         <Text style={styles.name}>{t('handover.orderCode')} : {o.order_number}</Text>

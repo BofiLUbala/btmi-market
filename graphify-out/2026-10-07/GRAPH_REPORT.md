@@ -1,7 +1,7 @@
-# Graph Report - btmi-ai-market  (2026-10-06)
+# Graph Report - btmi-ai-market  (2026-10-07)
 
 ## Corpus Check
-- 1046 files · ~1,413,456 words
+- 1046 files · ~1,413,680 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 33 file(s) not represented in the graph (top: (none) 13, .css 9, .example 3)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7a479e53`
+- Built from commit: `ac2b027b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

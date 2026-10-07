@@ -241,8 +241,19 @@ export interface BusinessLifecycleSummary {
   shop_summaries: Array<{ id: string; name: string; status: string; product_count: number }>
 }
 export interface ArchiveBusinessResponse { action: 'archived'; summary: BusinessLifecycleSummary }
+/** Who cancelled (or refused) an order, and why. */
+export interface OrderCancellation {
+  cancelled_by_role: 'BUYER' | 'SELLER' | 'COURIER' | 'ADMIN' | 'SYSTEM'
+  cancelled_by?: string
+  cancelled_by_name?: string
+  reason: string
+  stage?: 'NOT_ASSIGNED' | 'COURIER_ASSIGNED' | 'IN_DELIVERY' | 'BUYER_NOT_FOUND' | ''
+  cancelled_at: string
+}
 /** Delivery commitment and outcome carried by every view of an order. */
 export interface DeliveryPlan {
+  /** Cancelled or refused orders: who did it and why. */
+  cancellation?: OrderCancellation | null
   expected_delivery_date?: string | null
   expected_delivery_slot?: 'MORNING' | 'AFTERNOON' | 'EVENING' | ''
   delivery_attempts?: number

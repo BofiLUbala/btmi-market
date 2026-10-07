@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { safeAppPath } from '../src/lib/push'
+import { dismissDelivered, safeAppPath } from '../src/lib/push'
 import {
   ActivityIndicator,
   FlatList,
@@ -114,6 +114,7 @@ function NotificationsScreen() {
       await markAllNotificationsRead('BUYER')
       refreshUnread()
       setItems([])
+      void dismissDelivered('all')
     } catch {
       // ignore
     } finally {
@@ -132,6 +133,7 @@ function NotificationsScreen() {
     }
     // Only unread notifications are listed: once read, it leaves the list.
     setItems((prev) => prev.filter((n) => n.id !== item.id))
+    void dismissDelivered([item.id])
 
     // The server resolves the screen each notification opens.
     const appLink = safeAppPath(typeof item.metadata?.app_link === 'string' ? item.metadata.app_link : undefined)

@@ -1,3 +1,4 @@
+import { SpaceSwitcher } from '../../src/components/SpaceSwitcher'
 import { useMemo } from 'react'
 import { Redirect, router } from 'expo-router'
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
@@ -133,6 +134,8 @@ export default function SellerHome() {
 
   return <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]}>
     {/* ── Page header (web: .dashboard-page-header, column below 640px) ── */}
+    {/* One account, two spaces: back to the buyer space, or create it. */}
+    {wide ? null : <SpaceSwitcher current="seller" />}
     <View style={styles.pageHeader}>
       <View>
         <Text style={styles.h1}>{t('seller.dashboard')}</Text>

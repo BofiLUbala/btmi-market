@@ -544,6 +544,14 @@ export interface AdminOrderItem extends DeliveryPlan {
   /** What the buyer actually owes (products, delivery, payment fee), in `currency`. */
   currency?: string
   amount_due?: number
+  /** Cancelled or refused orders: who did it and why. */
+  cancellation?: {
+    cancelled_by_role: 'BUYER' | 'SELLER' | 'COURIER' | 'ADMIN' | 'SYSTEM'
+    cancelled_by_name?: string
+    reason: string
+    stage?: string
+    cancelled_at: string
+  } | null
 }
 
 /** One persisted scan attempt, successful or not. */

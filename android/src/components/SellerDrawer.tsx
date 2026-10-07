@@ -7,6 +7,7 @@ import { useAuth } from '../store/auth'
 import { useI18n, type TranslationKey } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { fonts, radius, type Colors } from '../theme'
+import { SpaceSwitcher } from './SpaceSwitcher'
 
 /** Sign-out red readable on navy (4.5:1). */
 const DOCKED_DANGER = '#FF9A92'
@@ -77,6 +78,7 @@ export function SellerDrawer({ visible, onClose, docked = false }: { visible: bo
           <Ionicons name="close" size={20} color={colors.onNavy} />
         </Pressable>}
       </View>
+      {isEmployee ? null : <View style={{ paddingHorizontal: 12, paddingTop: 12 }}><SpaceSwitcher current="seller" dark={docked} /></View>}
       <ScrollView contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 12 }]}>
         {(isEmployee ? EMPLOYEE_NAV : NAV).map(row)}
         {!isEmployee && PINNED.map(row)}

@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@/store/i18n'
 import { useState, useEffect, useCallback } from 'react'
 import { adminLabel } from '@/lib/adminLabels'
 import { formatMoney, dateLocale } from '@/lib/format'
@@ -117,6 +118,18 @@ export default function OrderDetailPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div>
+          {order.order.cancellation && (() => {
+            const cx = order.order.cancellation
+            const rejected = order.order.status === 'REJECTED'
+            return (
+              <Section title={t(rejected ? 'cancellation.titleRejected' : 'cancellation.title')}>
+                <Field label={t('cancellation.who')} value={<span style={{ color: '#fca5a5', fontWeight: 700 }}>{rejected && cx.cancelled_by_role === 'SELLER' ? t('cancellation.rejectedBySeller') : t(`cancellation.by.${cx.cancelled_by_role}` as TranslationKey)}{cx.cancelled_by_name ? ` · ${cx.cancelled_by_name}` : ''}</span>} />
+                <Field label={t('cancellation.when')} value={new Date(cx.cancelled_at).toLocaleString()} />
+                {cx.stage && <Field label={t('cancellation.stageLabel')} value={t(`cancellation.stage.${cx.stage}` as TranslationKey)} />}
+                <Field label={t('cancellation.reason')} value={cx.reason || t('cancellation.noReason')} />
+              </Section>
+            )
+          })()}
           <Section title={t('admin.orders.summaryTitle')}>
             <Field label={t('admin.orders.fieldOrderNumber')} value={order.order.order_number} />
             {/* What the buyer pays (products + delivery + payment fee), the

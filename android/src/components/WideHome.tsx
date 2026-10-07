@@ -83,10 +83,14 @@ export function Spotlights({ data, compact = false, failed = false, onRetry }: {
     { key: 'offers', title: t('home.spot.offers'), icon: 'pricetag-outline', item: data?.offer },
     { key: 'best', title: t('home.spot.best'), icon: 'trophy-outline', item: data?.best },
   ]
-  if (compact) return <SpotlightPager cards={cards} pending={!data} failed={failed && !data} onRetry={onRetry} />
+  // Only spotlights the backend filled: an empty one is not shown at all (no
+  // placeholder card). While loading, the three frames stand in.
+  const shown = data ? cards.filter((card) => card.item) : cards
+  if (data && shown.length === 0) return null
+  if (compact) return <SpotlightPager key={shown.map((card) => card.key).join('-')} cards={shown} pending={!data} failed={failed && !data} onRetry={onRetry} />
   return (
     <View style={s.spotRow}>
-      {cards.map((card, index) => <SpotlightCard key={card.key} title={card.title} icon={card.icon} item={card.item} tone={index} />)}
+      {shown.map((card) => <SpotlightCard key={card.key} title={card.title} icon={card.icon} item={card.item} tone={cards.indexOf(card)} />)}
     </View>
   )
 }

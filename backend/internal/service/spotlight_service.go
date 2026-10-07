@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -18,9 +19,16 @@ import (
 const SpotlightRotateSeconds = 30
 
 const (
-	spotlightPoolSize    = 20
-	spotlightRefresh     = 2 * time.Minute
-	spotlightMaxProducts = 500
+	spotlightPoolSize = 20
+	// "Nouveautés" keeps the 30 newest listings: each new one pushes the
+	// oldest out (first in, first out) and the slot loops through them.
+	spotlightNewestSize = 30
+	// "Offres" shows every running discount (up to this many).
+	spotlightOffersMax = 200
+	// A product published within this window counts as a recent push.
+	spotlightRecentWindow = 14 * 24 * time.Hour
+	spotlightRefresh      = 2 * time.Minute
+	spotlightMaxProducts  = 500
 )
 
 // Spotlights is what GET /marketplace/spotlights returns: one product per
@@ -34,17 +42,17 @@ type Spotlights struct {
 }
 
 // SpotlightService keeps three candidate pools in memory, rebuilt in the
-// background: the newest listings, listings with a running discount, and the
-// listings of the best-performing sellers. "Best" uses the same seller score
-// as the category ranking (CategoryRankingService.CalculateShopScore: points
-// boosted by level, halved for LOW/SUSPENDED trust), so the home spotlight
-// follows the marketplace's own performance algorithm.
+// background every two minutes from the whole catalogue:
+//   - new: the 30 newest listings, first in first out, looped through;
+//   - offer: every running discount, the deepest first;
+//   - best: the products of the best-performing seller, scored from the
+//     marketplace ranking (points, level, trust), the buyers' stars and
+//     review count, and the products pushed recently. It stays that seller's
+//     until another one overtakes them.
 //
-// Only listings with a real seller photo qualify: the home never shows a stock
-// picture in place of the product. The pools are re-evaluated every two
-// minutes, so a seller whose performance rises or falls, or who changes a
-// discount, moves in or out of the spotlights on the next pass, and the
-// seller is told about each change (see notifyChanges).
+// Listings with the seller's own photo come first; there is no stock picture
+// and no placeholder: an empty pool is simply not shown. Sellers are told
+// when their products enter or leave a spotlight (see notifyChanges).
 //
 // Every caller in the same 30-second slot gets the same product, and the
 // slot index walks through each pool, so the spotlights change on their own.
@@ -122,51 +130,97 @@ func (s *SpotlightService) refresh() {
 	now := time.Now()
 	inStock := make([]*models.PublicProductResponse, 0, len(all))
 	for _, p := range all {
-		if p.Availability != "OUT_OF_STOCK" && hasPhoto(p) {
+		if p.Availability != "OUT_OF_STOCK" {
 			inStock = append(inStock, p)
 		}
 	}
+	// The seller's own photo first: a listing without one only fills in
+	// when nothing else qualifies (it shows its category icon, never a
+	// stock picture).
+	photosFirst := func(list []*models.PublicProductResponse) {
+		sort.SliceStable(list, func(i, j int) bool { return hasPhoto(list[i]) && !hasPhoto(list[j]) })
+	}
 
-	// Seller performance score, computed once per business.
-	scores := map[uuid.UUID]float64{}
+	// Seller performance across the whole system, per business: the
+	// ranking score (points boosted by level, halved for low trust), the
+	// buyers' stars weighted by how many reviews back them, and how many
+	// products the seller pushed to the market recently.
+	type perf struct {
+		shop, stars, reviews float64
+		recent               int
+		trust                string
+	}
+	perfs := map[uuid.UUID]*perf{}
 	for _, p := range inStock {
-		if _, ok := scores[p.BusinessID]; ok {
+		pf := perfs[p.BusinessID]
+		if pf == nil {
+			shop, err := s.ranking.CalculateShopScore(p.BusinessID)
+			if err != nil {
+				shop = 0
+			}
+			pf = &perf{shop: shop, trust: p.SellerTrust}
+			perfs[p.BusinessID] = pf
+		}
+		if p.TotalReviews > 0 {
+			pf.stars += p.AverageRating * float64(p.TotalReviews)
+			pf.reviews += float64(p.TotalReviews)
+		}
+		if now.Sub(p.CreatedAt) <= spotlightRecentWindow {
+			pf.recent++
+		}
+	}
+	scores := map[uuid.UUID]float64{}
+	for id, pf := range perfs {
+		if pf.trust == "LOW" || pf.trust == "SUSPENDED" {
 			continue
 		}
-		score, err := s.ranking.CalculateShopScore(p.BusinessID)
-		if err != nil {
-			score = 0
+		score := pf.shop
+		if pf.reviews > 0 {
+			score += (pf.stars / pf.reviews) * 20 * math.Log1p(pf.reviews)
 		}
-		scores[p.BusinessID] = score
+		score += float64(pf.recent) * 10
+		if score > 0 {
+			scores[id] = score
+		}
 	}
-	byPerformance := func(list []*models.PublicProductResponse) {
-		sort.SliceStable(list, func(i, j int) bool {
-			return scores[list[i].BusinessID] > scores[list[j].BusinessID]
-		})
-	}
+	// Nouveautés: the 30 newest (the list is newest first), FIFO.
+	newest := append([]*models.PublicProductResponse(nil), take(inStock, spotlightNewestSize)...)
+	photosFirst(newest)
 
-	newest := take(inStock, spotlightPoolSize) // already newest first
-
+	// Offres: every running discount, the deepest first.
 	var offers []*models.PublicProductResponse
 	for _, p := range inStock {
 		if discountRunning(p, now) {
 			offers = append(offers, p)
 		}
 	}
-	byPerformance(offers)
-	offers = take(offers, spotlightPoolSize)
+	sort.SliceStable(offers, func(i, j int) bool { return discountDepth(offers[i]) > discountDepth(offers[j]) })
+	photosFirst(offers)
+	offers = take(offers, spotlightOffersMax)
 
-	// "Best" is earned: a seller with no performance score yet, or whose
-	// trust is LOW/SUSPENDED, is never featured there.
+	// Meilleures ventes: the products of the best-performing seller only. The
+	// slot stays theirs until another seller's score overtakes it.
+	var top uuid.UUID
+	topScore := 0.0
+	for id, score := range scores {
+		if score > topScore {
+			top, topScore = id, score
+		}
+	}
 	var best []*models.PublicProductResponse
 	for _, p := range inStock {
-		if scores[p.BusinessID] > 0 && p.SellerTrust != "LOW" && p.SellerTrust != "SUSPENDED" {
+		if top != uuid.Nil && p.BusinessID == top {
 			best = append(best, p)
 		}
 	}
-	byPerformance(best)
+	sort.SliceStable(best, func(i, j int) bool {
+		if best[i].AverageRating != best[j].AverageRating {
+			return best[i].AverageRating > best[j].AverageRating
+		}
+		return best[i].TotalReviews > best[j].TotalReviews
+	})
+	photosFirst(best)
 	best = take(best, spotlightPoolSize)
-
 	s.mu.Lock()
 	s.newest, s.offers, s.best, s.built = newest, offers, best, now
 	s.mu.Unlock()
@@ -306,6 +360,15 @@ func hasPhoto(p *models.PublicProductResponse) bool {
 	return false
 }
 
+// discountDepth is a discount's size as a share of the regular price, so a
+// percentage and a fixed amount compare.
+func discountDepth(p *models.PublicProductResponse) float64 {
+	if p.BasePrice <= 0 {
+		return 0
+	}
+	return (p.BasePrice - p.SellerSalePrice) / p.BasePrice
+}
+
 func discountSignature(p *models.PublicProductResponse) string {
 	if !p.DiscountActive {
 		return ""
@@ -326,20 +389,21 @@ func (s *SpotlightService) Current(now time.Time) Spotlights {
 	defer s.mu.RUnlock()
 	slot := int(now.Unix() / SpotlightRotateSeconds)
 	out := Spotlights{
-		New:            pick(s.newest, slot, nil),
-		Offer:          pick(s.offers, slot, nil),
 		RotateSeconds:  SpotlightRotateSeconds,
 		NextRotationAt: time.Unix(int64(slot+1)*SpotlightRotateSeconds, 0).UTC(),
 	}
-	// Never the same product in two spotlights at once.
+	// Never the same product in two spotlights at once: the offer and the
+	// best seller's product first, "Nouveautés" takes another new listing.
 	avoid := map[uuid.UUID]bool{}
-	if out.New != nil {
-		avoid[out.New.ID] = true
-	}
+	out.Offer = pick(s.offers, slot, avoid)
 	if out.Offer != nil {
 		avoid[out.Offer.ID] = true
 	}
 	out.Best = pick(s.best, slot, avoid)
+	if out.Best != nil {
+		avoid[out.Best.ID] = true
+	}
+	out.New = pick(s.newest, slot, avoid)
 	return out
 }
 

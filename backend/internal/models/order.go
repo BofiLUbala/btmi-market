@@ -138,62 +138,64 @@ type BuyerCreateOrderRequest struct {
 }
 
 type OrderResponse struct {
-	ID                     uuid.UUID           `json:"id"`
-	BusinessID             uuid.UUID           `json:"business_id"`
-	ShopID                 uuid.UUID           `json:"shop_id"`
-	CustomerID             *uuid.UUID          `json:"customer_id"`
-	BuyerProfileID         *uuid.UUID          `json:"buyer_profile_id"`
-	Status                 string              `json:"status"`
-	TotalItems             int                 `json:"total_items"`
-	Notes                  string              `json:"notes"`
-	CreatedBy              *uuid.UUID          `json:"created_by"`
-	BaseTotal              float64             `json:"base_total"`
-	PointsUsed             int                 `json:"points_used"`
-	PointsDiscountAmount   float64             `json:"points_discount_amount"`
-	FinalTotal             float64             `json:"final_total"`
-	IdempotencyKey         *string             `json:"idempotency_key"`
-	OrderNumber            string              `json:"order_number"`
-	Currency               string              `json:"currency"`
-	DeliveryMethod         string              `json:"delivery_method"`
-	DeliveryFeeBase        float64             `json:"delivery_fee_base"`
-	DeliveryPointsUsed     int                 `json:"delivery_points_used"`
-	DeliveryPointsDiscount float64             `json:"delivery_points_discount"`
-	DeliveryFeeFinal       float64             `json:"delivery_fee_final"`
-	DeliveryContactName    string              `json:"delivery_contact_name"`
-	DeliveryPhone          string              `json:"delivery_phone"`
-	DeliveryAddress        string              `json:"delivery_address"`
-	DeliveryProvince       string              `json:"delivery_province"`
-	DeliveryCity           string              `json:"delivery_city"`
-	DeliveryCommune        string              `json:"delivery_commune"`
-	DeliveryStreet         string              `json:"delivery_street"`
-	DeliveryBuildingNumber string              `json:"delivery_building_number"`
-	DeliveryLandmark       string              `json:"delivery_landmark"`
-	DeliveryProvinceID     *uuid.UUID          `json:"delivery_province_id,omitempty"`
-	DeliveryCityID         *uuid.UUID          `json:"delivery_city_id,omitempty"`
-	DeliveryCommuneID      *uuid.UUID          `json:"delivery_commune_id,omitempty"`
-	DeliveryNotes          string              `json:"delivery_notes"`
-	DeliveryStatus         string              `json:"delivery_status"`
-	AssignedCourierID      *uuid.UUID          `json:"assigned_courier_id,omitempty"`
-	DeliveryLatitude       *float64            `json:"delivery_latitude,omitempty"`
-	DeliveryLongitude      *float64            `json:"delivery_longitude,omitempty"`
-	CourierAssignedAt      *time.Time          `json:"courier_assigned_at,omitempty"`
-	CourierNotes           string              `json:"courier_notes,omitempty"`
-	ExpectedDeliveryDate   *string             `json:"expected_delivery_date"`
-	ExpectedDeliverySlot   string              `json:"expected_delivery_slot,omitempty"`
-	DeliveryAttempts       int                 `json:"delivery_attempts"`
-	CancelledStage         string              `json:"cancelled_stage,omitempty"`
-	ReturnedToSellerAt     *time.Time          `json:"returned_to_seller_at,omitempty"`
-	PointsFinalized        bool                `json:"points_finalized"`
-	AcceptedAt             *time.Time          `json:"accepted_at,omitempty"`
-	PreparingAt            *time.Time          `json:"preparing_at,omitempty"`
-	ReadyAt                *time.Time          `json:"ready_at,omitempty"`
-	OutForDeliveryAt       *time.Time          `json:"out_for_delivery_at,omitempty"`
-	DeliveredAt            *time.Time          `json:"delivered_at,omitempty"`
-	ReceivedAt             *time.Time          `json:"received_at,omitempty"`
-	CompletedAt            *time.Time          `json:"completed_at,omitempty"`
-	CreatedAt              time.Time           `json:"created_at"`
-	UpdatedAt              time.Time           `json:"updated_at"`
-	Lines                  []OrderLineResponse `json:"lines,omitempty"`
+	ID                     uuid.UUID  `json:"id"`
+	BusinessID             uuid.UUID  `json:"business_id"`
+	ShopID                 uuid.UUID  `json:"shop_id"`
+	CustomerID             *uuid.UUID `json:"customer_id"`
+	BuyerProfileID         *uuid.UUID `json:"buyer_profile_id"`
+	Status                 string     `json:"status"`
+	TotalItems             int        `json:"total_items"`
+	Notes                  string     `json:"notes"`
+	CreatedBy              *uuid.UUID `json:"created_by"`
+	BaseTotal              float64    `json:"base_total"`
+	PointsUsed             int        `json:"points_used"`
+	PointsDiscountAmount   float64    `json:"points_discount_amount"`
+	FinalTotal             float64    `json:"final_total"`
+	IdempotencyKey         *string    `json:"idempotency_key"`
+	OrderNumber            string     `json:"order_number"`
+	Currency               string     `json:"currency"`
+	DeliveryMethod         string     `json:"delivery_method"`
+	DeliveryFeeBase        float64    `json:"delivery_fee_base"`
+	DeliveryPointsUsed     int        `json:"delivery_points_used"`
+	DeliveryPointsDiscount float64    `json:"delivery_points_discount"`
+	DeliveryFeeFinal       float64    `json:"delivery_fee_final"`
+	DeliveryContactName    string     `json:"delivery_contact_name"`
+	DeliveryPhone          string     `json:"delivery_phone"`
+	DeliveryAddress        string     `json:"delivery_address"`
+	DeliveryProvince       string     `json:"delivery_province"`
+	DeliveryCity           string     `json:"delivery_city"`
+	DeliveryCommune        string     `json:"delivery_commune"`
+	DeliveryStreet         string     `json:"delivery_street"`
+	DeliveryBuildingNumber string     `json:"delivery_building_number"`
+	DeliveryLandmark       string     `json:"delivery_landmark"`
+	DeliveryProvinceID     *uuid.UUID `json:"delivery_province_id,omitempty"`
+	DeliveryCityID         *uuid.UUID `json:"delivery_city_id,omitempty"`
+	DeliveryCommuneID      *uuid.UUID `json:"delivery_commune_id,omitempty"`
+	DeliveryNotes          string     `json:"delivery_notes"`
+	DeliveryStatus         string     `json:"delivery_status"`
+	AssignedCourierID      *uuid.UUID `json:"assigned_courier_id,omitempty"`
+	DeliveryLatitude       *float64   `json:"delivery_latitude,omitempty"`
+	DeliveryLongitude      *float64   `json:"delivery_longitude,omitempty"`
+	CourierAssignedAt      *time.Time `json:"courier_assigned_at,omitempty"`
+	CourierNotes           string     `json:"courier_notes,omitempty"`
+	ExpectedDeliveryDate   *string    `json:"expected_delivery_date"`
+	ExpectedDeliverySlot   string     `json:"expected_delivery_slot,omitempty"`
+	DeliveryAttempts       int        `json:"delivery_attempts"`
+	CancelledStage         string     `json:"cancelled_stage,omitempty"`
+	// Who cancelled the order and why (cancelled orders only).
+	Cancellation       *OrderCancellation  `json:"cancellation,omitempty"`
+	ReturnedToSellerAt *time.Time          `json:"returned_to_seller_at,omitempty"`
+	PointsFinalized    bool                `json:"points_finalized"`
+	AcceptedAt         *time.Time          `json:"accepted_at,omitempty"`
+	PreparingAt        *time.Time          `json:"preparing_at,omitempty"`
+	ReadyAt            *time.Time          `json:"ready_at,omitempty"`
+	OutForDeliveryAt   *time.Time          `json:"out_for_delivery_at,omitempty"`
+	DeliveredAt        *time.Time          `json:"delivered_at,omitempty"`
+	ReceivedAt         *time.Time          `json:"received_at,omitempty"`
+	CompletedAt        *time.Time          `json:"completed_at,omitempty"`
+	CreatedAt          time.Time           `json:"created_at"`
+	UpdatedAt          time.Time           `json:"updated_at"`
+	Lines              []OrderLineResponse `json:"lines,omitempty"`
 
 	// Dated courier steps; see CourierMilestones.
 	CourierMilestones
@@ -419,3 +421,23 @@ type TrackingSummary struct {
 	PaymentStatus  string `json:"payment_status"`
 	OrderNumber    string `json:"order_number"`
 }
+
+// OrderCancellation says who cancelled an order and why (order_cancellations).
+type OrderCancellation struct {
+	// BUYER, SELLER, COURIER, ADMIN or SYSTEM.
+	CancelledByRole string     `json:"cancelled_by_role"`
+	CancelledBy     *uuid.UUID `json:"cancelled_by,omitempty"`
+	CancelledByName string     `json:"cancelled_by_name,omitempty"`
+	Reason          string     `json:"reason"`
+	Stage           string     `json:"stage,omitempty"`
+	CancelledAt     time.Time  `json:"cancelled_at"`
+}
+
+// Cancellation actors.
+const (
+	CancelledByBuyer   = "BUYER"
+	CancelledBySeller  = "SELLER"
+	CancelledByCourier = "COURIER"
+	CancelledByAdmin   = "ADMIN"
+	CancelledBySystem  = "SYSTEM"
+)

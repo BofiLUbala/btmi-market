@@ -74,6 +74,8 @@ export const authApi = {
   me: () => get<User>('/auth/me'),
   logout: (refresh_token: string) => post('/auth/logout', { refresh_token }),
   becomeSeller: () => post<User>('/auth/become-seller'),
+  /** Opens the buyer space of this account (same e-mail / WhatsApp number). */
+  becomeBuyer: () => post<User>('/auth/become-buyer'),
   uploadAvatar: (file: UploadFile) => uploadFile<{ avatar_url: string }>('/auth/me/avatar', file),
 }
 export const marketplaceApi = {
@@ -168,7 +170,7 @@ export const buyerApi = {
   /** The buyer's own view of one line's ORDER_ITEM QR. */
   orderItemQR: (orderId: string, itemId: string) => get<OrderItemQR>(`/buyer/orders/${orderId}/items/${itemId}/qr`),
   orderItemQRImagePath: (orderId: string, itemId: string) => `/buyer/orders/${orderId}/items/${itemId}/qr/image`,
-  cancelOrder: (id: string) => post(`/buyer/orders/${id}/cancel`),
+  cancelOrder: (id: string, reason: string) => post(`/buyer/orders/${id}/cancel`, { reason }),
   // The server prices the selected method; the client never adds a markup.
   checkoutQuote: (id: string, paymentMethod?: string) =>
     get<CheckoutQuote>(`/buyer/orders/${id}/checkout-quote${paymentMethod ? `?payment_method=${encodeURIComponent(paymentMethod)}` : ''}`),
@@ -280,11 +282,11 @@ export const sellerApi = {
   shopOrders: async (shopId: string) => list<SellerOrder>(await get<unknown>(`/shops/${shopId}/orders`)),
   order: (id: string) => get<OrderDetail>(`/orders/${id}`),
   acceptOrder: (id: string) => post<SellerOrder>(`/orders/${id}/accept`, {}),
-  rejectOrder: (id: string) => post<SellerOrder>(`/orders/${id}/reject`, {}),
+  rejectOrder: (id: string, reason: string) => post<SellerOrder>(`/orders/${id}/reject`, { reason }),
   prepareOrder: (id: string) => post<SellerOrder>(`/orders/${id}/prepare`, {}),
   /** The parcel of a cancelled order is back at the shop; its stock goes back on sale. */
   confirmReturn: (id: string) => post(`/orders/${id}/confirm-return`, {}),
-  cancelOrder: (id: string) => post<SellerOrder>(`/orders/${id}/cancel`, {}),
+  cancelOrder: (id: string, reason: string) => post<SellerOrder>(`/orders/${id}/cancel`, { reason }),
   sellerTransition: (id: string, status: string, notes?: string) => post(`/orders/${id}/tracking/status`, { status, notes }),
   getOrderPayment: (id: string) => get<BuyerPayment>(`/orders/${id}/payment`),
   /** Package label metadata; the PNG itself is /orders/:id/package-qr/label. */

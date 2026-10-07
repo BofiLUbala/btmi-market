@@ -10,6 +10,7 @@ import { useColors } from '../store/theme'
 import { useI18n, type TranslationKey } from '../store/i18n'
 import { canBuy, canSell } from '../types'
 import { radius, type Colors } from '../theme'
+import { SpaceSwitcher } from './SpaceSwitcher'
 
 type Item = { key: TranslationKey; path: string; match: string; icon: keyof typeof Ionicons.glyphMap }
 
@@ -82,6 +83,7 @@ function AccountSidebar() {
       <Text style={[s.chip, s.chipLevel]}>{points.data?.level ?? 'BRONZE'}</Text>
       <Text style={s.chip}>{`${(points.data?.available_points ?? 0).toLocaleString()} pts`}</Text>
     </View>
+    <View style={{ paddingHorizontal: 12, paddingTop: 12 }}><SpaceSwitcher current="buyer" dark /></View>
     <ScrollView contentContainerStyle={s.list}>
       {ITEMS.map(row)}
       {canSell(user) ? row({ key: 'profile.openSellerSpace', path: '/seller', match: '/seller', icon: 'storefront-outline' }) : null}

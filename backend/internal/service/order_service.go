@@ -491,8 +491,8 @@ func (s *OrderService) GetOrderTracking(orderID, buyerProfileID uuid.UUID) (*mod
 		DeliveryMethod: order.DeliveryMethod,
 		PaymentStatus:  "PENDING",
 		// The courier steps, each dated when it happened.
-		CourierMilestones: order.CourierMilestones,
-		CourierAssignedAt: order.CourierAssignedAt,
+		CourierMilestones:  order.CourierMilestones,
+		CourierAssignedAt:  order.CourierAssignedAt,
 		LiveTrackingActive: order.DeliveryStatus == models.DeliveryStatusInTransit,
 		DeliveryLatitude:   order.DeliveryLatitude,
 		DeliveryLongitude:  order.DeliveryLongitude,
@@ -1771,7 +1771,9 @@ func (s *OrderService) AcceptOrder(userID, orderID uuid.UUID) (*models.Order, er
 	return updatedOrder, nil
 }
 
-func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, error) {
+// RejectOrder is the seller refusing a new order; the reason is kept with the
+// order (order_cancellations) like a cancellation's.
+func (s *OrderService) RejectOrder(userID, orderID uuid.UUID, reason string) (*models.Order, error) {
 	// Authorization is settled before the row is locked: it reads other tables
 	// and must not hold a write lock while it does.
 	order, err := s.orderRepo.GetByID(orderID)
@@ -1832,8 +1834,12 @@ func (s *OrderService) RejectOrder(userID, orderID uuid.UUID) (*models.Order, er
 		OrderID:   orderID,
 		Status:    models.OrderStatusRejected,
 		ChangedBy: changedBy,
-		Notes:     "Order rejected",
+		Notes:     strings.TrimSuffix("Order rejected: "+reason, ": "),
 	}); err != nil {
+		return nil, err
+	}
+	actor := userID
+	if err := txOrderRepo.RecordCancellation(orderID, models.CancelledBySeller, &actor, reason, CancelStageNotAssigned); err != nil {
 		return nil, err
 	}
 
@@ -2084,7 +2090,7 @@ func (s *OrderService) voidCommission(orderID uuid.UUID, reason string) {
 // cancelOrderAtomic is the single mutation path shared by buyer and seller
 // cancellation. The order row, payment row, inventory reservations, points,
 // status and audit history change in one transaction or not at all.
-func (s *OrderService) cancelOrderAtomic(orderID uuid.UUID, changedBy *uuid.UUID, notes string) (*models.Order, error) {
+func (s *OrderService) cancelOrderAtomic(orderID uuid.UUID, changedBy *uuid.UUID, notes, role string, by *uuid.UUID, reason string) (*models.Order, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
@@ -2157,6 +2163,9 @@ func (s *OrderService) cancelOrderAtomic(orderID uuid.UUID, changedBy *uuid.UUID
 	}); err != nil {
 		return nil, err
 	}
+	if err := orderRepo.RecordCancellation(orderID, role, by, reason, CancelStageNotAssigned); err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -2169,7 +2178,8 @@ func (s *OrderService) cancelOrderAtomic(orderID uuid.UUID, changedBy *uuid.UUID
 	return updatedOrder, nil
 }
 
-func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, error) {
+// CancelOrder is the seller's cancellation; the reason is kept with the order.
+func (s *OrderService) CancelOrder(userID, orderID uuid.UUID, reason string) (*models.Order, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
 		return nil, mapOrderNotFoundErr(err)
@@ -2189,9 +2199,25 @@ func (s *OrderService) CancelOrder(userID, orderID uuid.UUID) (*models.Order, er
 		changedBy = &employee.ID
 	}
 
-	return s.cancelOrderAtomic(orderID, changedBy, "Order cancelled by seller")
+	notes := "Order cancelled by seller"
+	if reason != "" {
+		notes += ": " + reason
+	}
+	actor := userID
+	return s.cancelOrderAtomic(orderID, changedBy, notes, models.CancelledBySeller, &actor, reason)
 }
 
+// cancellationOf reads who cancelled a cancelled order, and why.
+func (s *OrderService) cancellationOf(order *models.Order) *models.OrderCancellation {
+	if order.Status != models.OrderStatusCancelled && order.Status != models.OrderStatusRejected {
+		return nil
+	}
+	c, err := s.orderRepo.GetCancellation(order.ID)
+	if err != nil {
+		return nil
+	}
+	return c
+}
 
 func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse {
 	return models.OrderResponse{
@@ -2236,17 +2262,18 @@ func (s *OrderService) toOrderResponse(order *models.Order) models.OrderResponse
 		ExpectedDeliverySlot: order.ExpectedDeliverySlot,
 		DeliveryAttempts:     order.DeliveryAttempts,
 		CancelledStage:       order.CancelledStage,
+		Cancellation:         s.cancellationOf(order),
 		ReturnedToSellerAt:   order.ReturnedToSellerAt,
 		PointsFinalized:      order.PointsFinalized,
-		AcceptedAt:       order.AcceptedAt,
-		PreparingAt:      order.PreparingAt,
-		ReadyAt:          order.ReadyAt,
-		OutForDeliveryAt: order.OutForDeliveryAt,
-		DeliveredAt:      order.DeliveredAt,
-		ReceivedAt:       order.ReceivedAt,
-		CompletedAt:      order.CompletedAt,
-		CreatedAt:        order.CreatedAt,
-		UpdatedAt:        order.UpdatedAt,
+		AcceptedAt:           order.AcceptedAt,
+		PreparingAt:          order.PreparingAt,
+		ReadyAt:              order.ReadyAt,
+		OutForDeliveryAt:     order.OutForDeliveryAt,
+		DeliveredAt:          order.DeliveredAt,
+		ReceivedAt:           order.ReceivedAt,
+		CompletedAt:          order.CompletedAt,
+		CreatedAt:            order.CreatedAt,
+		UpdatedAt:            order.UpdatedAt,
 
 		CourierAssignedAt: order.CourierAssignedAt,
 		CourierMilestones: order.CourierMilestones,

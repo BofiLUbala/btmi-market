@@ -369,11 +369,33 @@ func (s *AdminCommerceService) AdjustStock(adminID uuid.UUID, adminRole models.A
 
 // 5. Orders & Stuck Orders
 func (s *AdminCommerceService) ListOrders(status, deliveryMethod, shopID, businessID, search, period string, limit, offset int) ([]*models.AdminOrderItem, int, error) {
-	return s.commerceRepo.ListOrders(status, deliveryMethod, shopID, businessID, search, period, limit, offset)
+	items, total, err := s.commerceRepo.ListOrders(status, deliveryMethod, shopID, businessID, search, period, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, item := range items {
+		s.attachCancellation(item)
+	}
+	return items, total, nil
 }
 
 func (s *AdminCommerceService) GetOrderDetail(id uuid.UUID) (*models.AdminOrderDetail, error) {
-	return s.commerceRepo.GetOrderDetail(id)
+	detail, err := s.commerceRepo.GetOrderDetail(id)
+	if err != nil || detail == nil {
+		return detail, err
+	}
+	s.attachCancellation(&detail.Order)
+	return detail, nil
+}
+
+// attachCancellation adds who cancelled a cancelled order, and why.
+func (s *AdminCommerceService) attachCancellation(item *models.AdminOrderItem) {
+	if item == nil || (item.Status != string(models.OrderStatusCancelled) && item.Status != string(models.OrderStatusRejected)) {
+		return
+	}
+	if c, err := repository.NewOrderRepository(s.db).GetCancellation(item.ID); err == nil {
+		item.Cancellation = c
+	}
 }
 
 func (s *AdminCommerceService) AssignCourier(adminID uuid.UUID, adminRole models.AdminRole, orderID uuid.UUID, courierID uuid.UUID, notes, ip, userAgent string) error {

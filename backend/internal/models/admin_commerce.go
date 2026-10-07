@@ -161,6 +161,9 @@ type AdminOrderItem struct {
 	// (products, delivery and the payment method's fee) once one exists.
 	Currency  string  `json:"currency"`
 	AmountDue float64 `json:"amount_due"`
+
+	// Who cancelled the order and why (cancelled orders only).
+	Cancellation *OrderCancellation `json:"cancellation,omitempty"`
 }
 
 type AdminOrderDetail struct {

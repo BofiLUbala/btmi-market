@@ -309,6 +309,29 @@ func (h *Handler) BecomeSeller(c *gin.Context) {
 	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Seller onboarding enabled", Data: user})
 }
 
+// BecomeBuyer handles POST /auth/become-buyer: the signed-in account gets its
+// buyer space (same identity as its seller space).
+func (h *Handler) BecomeBuyer(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.authError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		return
+	}
+	user, err := h.authService.BecomeBuyer(userID.(uuid.UUID))
+	if err != nil {
+		status, code := http.StatusInternalServerError, "INTERNAL_ERROR"
+		switch err.Error() {
+		case "USER_NOT_FOUND":
+			status, code = http.StatusNotFound, "USER_NOT_FOUND"
+		case "ACCOUNT_NOT_ACTIVATED", "ACCOUNT_SUSPENDED", "BUYER_BLOCKED":
+			status, code = http.StatusForbidden, err.Error()
+		}
+		h.authError(c, status, code, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Buyer space enabled", Data: user})
+}
+
 func (h *Handler) Activate(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {

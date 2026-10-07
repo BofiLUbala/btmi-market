@@ -236,6 +236,22 @@ export function onNotificationTap(handler: (data: PushData) => void): () => void
   return () => sub.remove()
 }
 
+/** A notification read in the app also leaves the phone's notification tray:
+ *  the alerts carrying these TBK notification ids are dismissed (all of them
+ *  when `ids` is 'all', after "mark all as read"). */
+export async function dismissDelivered(ids: string[] | 'all'): Promise<void> {
+  const N = notifications()
+  if (!N) return
+  try {
+    if (ids === 'all') { await N.dismissAllNotificationsAsync(); return }
+    const wanted = new Set(ids)
+    const shown = await N.getPresentedNotificationsAsync()
+    await Promise.all(shown
+      .filter((n) => wanted.has(String((n.request.content.data as PushData | undefined)?.id ?? '')))
+      .map((n) => N.dismissNotificationAsync(n.request.identifier)))
+  } catch { /* the tray is best effort */ }
+}
+
 /** Shows a local notification with a push payload: used by the settings
  * screen's test in Expo Go, where remote push is unavailable. */
 export async function presentLocal(title: string, body: string, data: PushData): Promise<boolean> {
