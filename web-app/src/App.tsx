@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import PushSessionSync from '@/components/notifications/PushSessionSync'
 import NotificationOpenPage from '@/pages/notifications/NotificationOpenPage'
 import NotificationSettingsPage from '@/pages/notifications/NotificationSettingsPage'
@@ -134,9 +134,16 @@ function NotFound() {
     <div className="empty-state" style={{ padding: '64px 0' }}>
       <div className="empty-icon"><CompassIcon className="empty-svg" /></div>
       <h3>{t('notFound.title')}</h3>
-      <Link to="/">
+      {/* A plain anchor, not a Link. web-app is no longer the site: it is
+          served under /admin and a few token screens, while the marketplace
+          at / is the Expo app. A client-side Link changed the URL to / but
+          stayed inside web-app, so "Back to marketplace" landed the visitor
+          on web-app's own home in the old palette. A real navigation asks
+          the server, which serves whatever the marketplace root actually is
+          — the site here, and web-app's own home when it runs standalone. */}
+      <a href="/">
         <Button>{t('notFound.backToMarketplace')}</Button>
-      </Link>
+      </a>
     </div>
   )
 }
