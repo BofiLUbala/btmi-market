@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { API_BASE } from '@/api/client'
 import { localizeApiError } from '@/api/errorMessages'
 import { useT } from '@/store/i18n'
 import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete, type StructuredAddressValue } from '@/components/address/StructuredAddressFields'
+// The TBK charter the rest of the courier space uses. Every rule in it is
+// scoped to a courier class, so importing it affects no other screen.
+import './courier.css'
 
 export default function CourierActivationPage() {
   const [searchParams] = useSearchParams()
@@ -111,7 +114,7 @@ export default function CourierActivationPage() {
 
   if (!token) {
     return (
-      <div style={{
+      <div className="courier-auth" style={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -119,16 +122,13 @@ export default function CourierActivationPage() {
         backgroundColor: 'var(--background)',
         padding: 24
       }}>
-        <div style={{
-          backgroundColor: 'var(--surface)',
-          borderRadius: 12,
+        <div className="card" style={{
           padding: 40,
           maxWidth: 400,
           width: '100%',
-          textAlign: 'center',
-          border: '1px solid var(--border)'
+          textAlign: 'center'
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>❌</div>
+          <div className="courier-auth-mark" aria-hidden="true">❌</div>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>
             {t('courierActivation.invalidLinkTitle')}
           </h2>
@@ -142,19 +142,26 @@ export default function CourierActivationPage() {
 
   if (success) {
     return (
-      <div className="auth-wrap">
+      <div className="auth-wrap courier-auth">
         <div className="card auth-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48 }} aria-hidden="true">✅</div>
+          <div className="courier-auth-mark" aria-hidden="true">✅</div>
           <h1>{t('courierActivation.successTitle')}</h1>
           <p className="muted">{t('courierActivation.successBody')}</p>
-          <Link to="/livreur/login" className="btn btn-primary btn-block">{t('courierActivation.goToSpace')}</Link>
+          {/* A plain anchor, not a Link: this screen is served by web-app but
+              the rest of the site is the Expo app, and courier sign-in lives
+              there at /auth/login (which sends a COURIER account on to
+              /courier). A client-side Link to web-app's own /livreur/login
+              rendered fine on click but 404'd the moment the courier
+              refreshed or reopened that URL, because the server hands
+              /livreur/* to Expo, which has no such route. */}
+          <a href="/auth/login" className="btn btn-primary btn-block">{t('courierActivation.goToSpace')}</a>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{
+    <div className="courier-auth" style={{
       minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
@@ -162,16 +169,13 @@ export default function CourierActivationPage() {
       backgroundColor: 'var(--background)',
       padding: 24
     }}>
-      <div style={{
-        backgroundColor: 'var(--surface)',
-        borderRadius: 12,
+      <div className="card" style={{
         padding: 40,
         maxWidth: 500,
-        width: '100%',
-        border: '1px solid var(--border)'
+        width: '100%'
       }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🛵</div>
+          <div className="courier-auth-mark" aria-hidden="true">🛵</div>
           <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: 'var(--text)' }}>
             {t('courierActivation.title')}
           </h1>
@@ -323,9 +327,11 @@ export default function CourierActivationPage() {
             style={{
               width: '100%',
               padding: '12px 24px',
-              borderRadius: 8,
+              borderRadius: 14,
               backgroundColor: 'var(--primary)',
-              color: '#ffffff',
+              // Dark mode's primary is a light blue, so white text on it would
+              // fall under AA; the charter carries the readable ink for each.
+              color: 'var(--c-on-primary, #ffffff)',
               border: 'none',
               fontSize: 16,
               fontWeight: 700,

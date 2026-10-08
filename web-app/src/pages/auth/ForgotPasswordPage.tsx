@@ -8,6 +8,9 @@ import { ErrorBox } from '@/components/ui/Feedback'
 import { ResendEmailButton } from '@/components/auth/AuthFormParts'
 import { getRememberedEmail, type LoginSpace } from '@/lib/rememberedLogin'
 import { useT } from '@/store/i18n'
+// Supplies the `.courier-auth` charter used when a courier reaches this screen.
+// Every rule in it is scoped to a courier class, so no other space is affected.
+import '@/pages/courier/courier.css'
 
 const LOGIN_PATHS: Record<string, { path: string; space: LoginSpace }> = {
   seller: { path: '/seller/login', space: 'seller' },
@@ -56,9 +59,14 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  // A courier arriving from their own sign-in or profile keeps the courier
+  // charter here, instead of dropping into the older warm theme mid-flow.
+  // `.courier-auth` only carries style, and only when that class is present.
+  const spaceClass = account.space === 'courier' ? ' courier-auth' : ''
+
   if (sentTo) {
     return (
-      <div className="auth-wrap">
+      <div className={`auth-wrap${spaceClass}`}>
         <div className="card auth-card" data-testid="forgot-password-sent">
           <div className="auth-sent-icon" aria-hidden="true">✉️</div>
           <h1 style={{ textAlign: 'center' }}>{t('auth.forgot.sentTitle')}</h1>
@@ -78,7 +86,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="auth-wrap">
+    <div className={`auth-wrap${spaceClass}`}>
       <form className="card auth-card" onSubmit={onSubmit}>
         <h1>{t('auth.login.forgotPassword')}</h1>
         <p className="muted small">{t('auth.forgot.hint')}</p>

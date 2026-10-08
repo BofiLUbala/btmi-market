@@ -791,6 +791,29 @@ html, body, #root {
   --c-navy: #050B1A;
 }
 
+/* The courier activation screen styles itself inline with --background,
+   --surface, --text, --text-muted, --error and --error-bg. None of those are
+   defined anywhere in web-app (tokens.css aliases only --border and
+   --primary), so every declaration naming them was invalid and dropped: the
+   card rendered with no surface colour of its own and the error box with no
+   background at all. Mapping them onto the charter here both fixes that and
+   puts the screen on the TBK palette. They point at the --c-* tokens above,
+   which already swap per theme, so one block covers light and dark. */
+.courier-auth {
+  --background: var(--c-page);
+  --surface: var(--c-card);
+  --text: var(--c-ink);
+  --text-muted: var(--c-ink-soft);
+  --border: var(--c-line);
+  --primary: var(--c-primary);
+  --error: #B42318;
+  --error-bg: #FEF3F2;
+}
+:root[data-theme='dark'] .courier-auth {
+  --error: #FFB4AB;
+  --error-bg: #3B1512;
+}
+
 .courier-auth .card,
 .courier-auth .auth-card {
   background: var(--c-card);
@@ -838,6 +861,20 @@ html, body, #root {
 .courier-auth .section-link { color: var(--c-primary); font-weight: 650; }
 .courier-auth label { color: var(--c-ink); font-weight: 650; }
 .courier-auth input {
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  color: var(--c-ink);
+}
+
+/* StructuredAddressFields is shared with the buyer and seller screens, so it
+   keeps its own styling there. Its text inputs already follow the rule above,
+   but its selects were still painting the old warm palette (#f2f0ea text on
+   #1e1e23) beside charter-blue fields. `.courier-auth select` is one class
+   plus a type, so it outranks the component's global `.select` without
+   touching that component or any other screen. The card colour is what its
+   sibling inputs use, so the address block reads as one set. */
+.courier-auth select {
   background: var(--c-card);
   border: 1px solid var(--c-line);
   border-radius: 12px;

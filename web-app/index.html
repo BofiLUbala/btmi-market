@@ -18,7 +18,10 @@
     <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>TBK — Buyer</title>
+    <!-- The fallback shown until a screen sets its own title through pageMeta.
+         It used to read "TBK — Buyer", which is what the browser tab said on
+         every courier, seller and admin page that does not call pageMeta. -->
+    <title>TBK</title>
     <script>
       // Applies the saved theme and language before the first paint. Without
       // this the page renders light, then React swaps to dark a frame later —

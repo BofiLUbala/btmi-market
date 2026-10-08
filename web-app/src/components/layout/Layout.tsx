@@ -45,18 +45,29 @@ function Footer() {
 
 export function Layout() {
   const { t } = useI18n()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const focusedCheckout = pathname.startsWith('/checkout/')
+  /**
+   * A courier signing in or recovering a password is not shopping: the buyer
+   * footer and tab bar (Marketplace, Favourites, Cart) do not belong on their
+   * screens. Those screens sit under the shared Layout, so the chrome is
+   * dropped here rather than repainted.
+   */
+  const courierSpace =
+    pathname.startsWith('/courier') ||
+    pathname.startsWith('/livreur') ||
+    new URLSearchParams(search).get('account') === 'courier'
   useEffect(() => {
     window.scrollTo({ top: 0 })
-    document.body.classList.toggle('has-mobile-nav', !focusedCheckout)
+    // No tab bar on courier screens, so no space reserved for one either.
+    document.body.classList.toggle('has-mobile-nav', !focusedCheckout && !courierSpace)
     document.body.classList.toggle('checkout-focused', focusedCheckout)
     return () => {
       document.body.classList.remove('has-mobile-nav')
       document.body.classList.remove('checkout-focused')
     }
-  }, [pathname, focusedCheckout])
+  }, [pathname, focusedCheckout, courierSpace])
 
   if (focusedCheckout) {
     return (
@@ -80,8 +91,8 @@ export function Layout() {
           <Outlet />
         </div>
       </main>
-      <Footer />
-      <MobileNav />
+      {!courierSpace && <Footer />}
+      {!courierSpace && <MobileNav />}
     </>
   )
 }
