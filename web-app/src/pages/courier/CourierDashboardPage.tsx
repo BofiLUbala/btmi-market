@@ -206,22 +206,6 @@ export default function CourierDashboardPage() {
     if (reason?.trim()) void runAction(`/courier/missions/${m.order_id}/reject`, () => courierApi.reject(m.order_id, reason.trim()), t('courier.dashboard.rejected'))
   }
 
-  /**
-   * How the courier's availability reads on screen.
-   *
-   * The backend sets BUSY by itself while a delivery is under way, but the UI
-   * only knew AVAILABLE and UNAVAILABLE, so a courier in the middle of a run
-   * was told "You are unavailable" with neither toggle selected — as if they
-   * had gone offline. BUSY now says what it is: a mission is active.
-   */
-  const availabilityLabel = (): string => {
-    if (profile?.status === 'SUSPENDED') return t('courierCourierDashboardPage.statusSuspended')
-    if (profile?.availability === 'AVAILABLE') return t('courier.availability.AVAILABLE')
-    if (profile?.availability === 'BUSY') return t('courierCourierDashboardPage.navActive')
-    return t('courier.availability.UNAVAILABLE')
-  }
-  const isOnDuty = profile?.availability === 'AVAILABLE' || profile?.availability === 'BUSY'
-
   const availability = async (v: Availability) => {
     setBusy('availability')
     try {
@@ -264,7 +248,9 @@ export default function CourierDashboardPage() {
         {/* LEFT NAVIGATION SIDEBAR */}
         <aside className="courier-glass courier-sidebar">
           <div className="courier-brand">
-            <div className="courier-brand-mark">TB</div>
+            <div className="courier-brand-mark">
+              <img src="/logo.png" alt="TBK" className="courier-brand-logo-img" />
+            </div>
             <div>
               <strong>{t('courier.dashboard.brand')}</strong>
               <span>{t('courierCourierDashboardPage.brandSubtitle')}</span>
@@ -290,7 +276,9 @@ export default function CourierDashboardPage() {
             <div className="courier-avatar">{initials || 'TB'}</div>
             <div className="courier-user-info">
               <strong>{profile?.first_name} {profile?.last_name}</strong>
-              <span className={isOnDuty ? 'is-online' : ''}>{availabilityLabel()}</span>
+              <span className={profile?.availability === 'AVAILABLE' ? 'is-online' : ''}>
+                {profile?.availability === 'AVAILABLE' ? t('courier.availability.AVAILABLE') : t('courier.availability.UNAVAILABLE')}
+              </span>
             </div>
           </div>
           <button className="courier-logout" onClick={() => void logout().then(() => navigate('/livreur/login'))}>
@@ -306,9 +294,9 @@ export default function CourierDashboardPage() {
               <p className="courier-eyebrow">{t('courier.dashboard.brand')}</p>
               <h1>{title}</h1>
             </div>
-            <div className={`courier-presence ${isOnDuty ? 'is-online' : ''}`}>
+            <div className={`courier-presence ${profile?.availability === 'AVAILABLE' ? 'is-online' : ''}`}>
               <span />
-              {availabilityLabel()}
+              {profile?.status === 'SUSPENDED' ? t('courierCourierDashboardPage.statusSuspended') : profile?.availability === 'AVAILABLE' ? t('courier.availability.AVAILABLE') : t('courier.availability.UNAVAILABLE')}
             </div>
           </header>
 
@@ -449,7 +437,8 @@ export default function CourierDashboardPage() {
     )
   }
 
-  function MissionCard({ mission: m, assignedMode = false, hideStepAction = false }: { mission: Mission; assignedMode?: boolean; hideStepAction?: boolean }) {
+  function MissionCard({ mission: m, assignedMode = false }: { mission: Mission; assignedMode?: boolean }) {
+    const isAccepting = busy.includes(`/missions/${m.order_id}/accept`)
     const isRejecting = busy.includes(`/missions/${m.order_id}/reject`)
     const isSelected = selected?.order_id === m.order_id
 
@@ -468,12 +457,12 @@ export default function CourierDashboardPage() {
           </span>
         </div>
 
-        {/* Enough to recognise this mission in a list and know what it is worth.
-            The seller, the pickup address, the buyer's name and phone and the
-            delivery notes all appear in the right-hand panel for the selected
-            mission, so repeating all nine here only crowded the card. */}
         <div className="courier-mission-facts">
           <Fact label={t('courier.dashboard.shop')} value={m.shop_name} />
+          <Fact label={t('courierCourierDashboardPage.sellerBusiness')} value={m.business_name} />
+          <Fact label={t('courier.dashboard.pickupAddress')} value={m.shop_address} />
+          <Fact label={t('courier.handover.buyer')} value={m.delivery_contact} />
+          <Fact label={t('courier.dashboard.phone')} value={m.delivery_phone} />
           <Fact label={t('courier.dashboard.deliveryAddress')} value={m.delivery_address} />
           <Fact
             label={t('courierCourierDashboardPage.totalToCollect')}
@@ -483,22 +472,27 @@ export default function CourierDashboardPage() {
             })}
           />
           <Fact label={t('courierCourierDashboardPage.dateTime')} value={m.assigned_at ? new Date(m.assigned_at).toLocaleString(dateLocale()) : '—'} />
+          {m.delivery_notes && <Fact label={t('courierCourierDashboardPage.instructions')} value={m.delivery_notes} />}
         </div>
 
-        {/* One action leads. Declining and opening the detail stay reachable but
-            quiet, so the eye lands on the step to perform. In the Active mission
-            view the step button lives under its own "Next action" heading, so
-            the card does not repeat it. */}
         <div className="courier-actions" onClick={e => e.stopPropagation()}>
-          {!hideStepAction && <StepAction mission={m} />}
           {(assignedMode || m.delivery_status === 'COURIER_ASSIGNED') && (
-            <button
-              disabled={!!busy}
-              className="courier-btn courier-btn-quiet courier-btn-decline"
-              onClick={() => reject(m)}
-            >
-              {isRejecting ? t('courierCourierDashboardPage.rejecting') : t('courierCourierDashboardPage.rejectMission')}
-            </button>
+            <>
+              <button
+                disabled={!!busy}
+                className="courier-btn courier-btn-primary"
+                onClick={() => void runAction(`/courier/missions/${m.order_id}/accept`, () => courierApi.accept(m.order_id), t('courier.dashboard.accepted'), true)}
+              >
+                {isAccepting ? t('courierCourierDashboardPage.accepting') : t('courier.dashboard.accept')}
+              </button>
+              <button
+                disabled={!!busy}
+                className="courier-btn courier-btn-danger"
+                onClick={() => reject(m)}
+              >
+                {isRejecting ? t('courierCourierDashboardPage.rejecting') : t('courierCourierDashboardPage.rejectMission')}
+              </button>
+            </>
           )}
           <button
             className="courier-btn courier-btn-quiet"
@@ -520,7 +514,7 @@ export default function CourierDashboardPage() {
     return (
       <section className="courier-glass courier-section">
         <Heading title={t('courierCourierDashboardPage.orderNumber', { number: m.order_number })} eyebrow={t('courierCourierDashboardPage.navActive')} />
-        <MissionCard mission={m} hideStepAction />
+        <MissionCard mission={m} />
         <div className="courier-timeline">
           <Timeline m={m} />
         </div>
@@ -584,22 +578,11 @@ export default function CourierDashboardPage() {
     return (
       <section className="courier-glass courier-section courier-centered">
         <Heading title={t('courierCourierDashboardPage.yourAvailability')} eyebrow={t('courier.dashboard.status')} />
-        <div className={`courier-availability-orb ${isOnDuty ? 'is-online' : ''}`}>
+        <div className={`courier-availability-orb ${profile?.availability === 'AVAILABLE' ? 'is-online' : ''}`}>
           <span />
         </div>
-        <h3>
-          {profile?.status === 'SUSPENDED'
-            ? t('courier.dashboard.suspended')
-            : profile?.availability === 'AVAILABLE'
-              ? t('courierCourierDashboardPage.youAreAvailable')
-              : profile?.availability === 'BUSY'
-                ? t('courierCourierDashboardPage.navActive')
-                : t('courierCourierDashboardPage.youAreUnavailable')}
-        </h3>
+        <h3>{profile?.status === 'SUSPENDED' ? t('courier.dashboard.suspended') : profile?.availability === 'AVAILABLE' ? t('courierCourierDashboardPage.youAreAvailable') : t('courierCourierDashboardPage.youAreUnavailable')}</h3>
         <p>{profile?.status === 'SUSPENDED' ? t('courier.dashboard.suspendedBody') : t('courierCourierDashboardPage.availabilityExplain')}</p>
-        {/* While a delivery is running the backend holds the courier at BUSY, so
-            the two choices are shown unselected rather than pretending one of
-            them is the current state. */}
         <div className="courier-segmented">
           {(['AVAILABLE', 'UNAVAILABLE'] as Availability[]).map(v => (
             <button key={v} className={profile?.availability === v ? 'is-selected' : ''} disabled={busy === 'availability' || profile?.status === 'SUSPENDED'} onClick={() => void availability(v)}>
@@ -685,93 +668,51 @@ export default function CourierDashboardPage() {
           {profile?.landmark && <Fact label={t('courierCourierDashboardPage.landmark')} value={profile?.landmark} />}
           <Fact label={t('common.status')} value={COURIER_STATUS_LABEL[profile?.status ?? ''] ? t(COURIER_STATUS_LABEL[profile?.status ?? '']) : profile?.status} />
         </div>
-        {/* A courier had no way to change their password: the profile offered
-            none, and the "forgot password" link on the sign-in page sits behind
-            PublicOnly, so a signed-in courier tapping it was bounced straight
-            back here — no request was ever made, so no mail could arrive.
-            Signing out first is what that screen requires, so do it here. */}
-        <div className="courier-profile-actions">
-          <button
-            className="courier-btn courier-btn-quiet"
-            onClick={() => void logout().then(() => navigate('/forgot-password?account=courier'))}
-          >
-            {t('auth.login.forgotPassword')}
-          </button>
-          <button className="courier-logout courier-logout-inline" onClick={() => void logout().then(() => navigate('/livreur/login'))}>
-            <Icon name="logout" />
-            {t('courier.dashboard.logout')}
-          </button>
-        </div>
+        <button className="courier-logout courier-logout-inline" onClick={() => void logout().then(() => navigate('/livreur/login'))}>
+          <Icon name="logout" />
+          {t('courier.dashboard.logout')}
+        </button>
       </section>
     )
   }
 
-  /**
-   * The one thing the courier does next, for the step the mission is on.
-   *
-   * Every transition the dashboard offers is decided here, so a mission shows a
-   * single primary button instead of a row of competing ones. The workflow is
-   * unchanged: the same endpoints, in the same order, with the same guards
-   * (a start still needs an agreed delivery slot, a pickup still needs the
-   * parcel marked ready).
-   */
-  function stepAction(m: Mission): { label: string; onClick: () => void; disabled?: boolean; title?: string } | null {
-    const running = (path: string) => busy.includes(`/missions/${m.order_id}/${path}`)
-
-    if (m.delivery_status === 'COURIER_ASSIGNED') {
-      return {
-        label: running('accept') ? t('courierCourierDashboardPage.accepting') : t('courier.dashboard.accept'),
-        onClick: () => void runAction(`/courier/missions/${m.order_id}/accept`, () => courierApi.accept(m.order_id), t('courier.dashboard.accepted'), true),
-        disabled: !!busy
-      }
-    }
-    if (['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY', 'READY_FOR_PICKUP'].includes(m.status)) {
-      return {
-        label: running('pickup') ? t('courierCourierDashboardPage.confirming') : t('courierCourierDashboardPage.confirmPickup'),
-        onClick: () => void runAction(`/courier/missions/${m.order_id}/pickup`, () => courierApi.pickup(m.order_id), t('courierCourierDashboardPage.pickupConfirmed')),
-        disabled: !!busy
-      }
-    }
-    if (m.delivery_status === 'PICKED_UP') {
-      return {
-        label: running('start') ? t('courierCourierDashboardPage.starting') : t('courierCourierDashboardPage.startDelivery'),
-        onClick: () => void runAction(`/courier/missions/${m.order_id}/start`, () => courierApi.start(m.order_id), t('courier.dashboard.started')),
-        disabled: !!busy || !m.expected_delivery_date,
-        title: m.expected_delivery_date ? undefined : t('courierPlan.required')
-      }
-    }
-    if (m.delivery_status === 'IN_TRANSIT') {
-      return {
-        label: running('arrive') ? t('courierCourierDashboardPage.confirmingArrival') : t('courier.dashboard.arrive'),
-        onClick: () => void runAction(`/courier/missions/${m.order_id}/arrive`, () => courierApi.arrive(m.order_id), t('courier.dashboard.arrived')),
-        disabled: !!busy
-      }
-    }
-    return null
-  }
-
-  /** The step's primary button, alone. */
-  function StepAction({ mission: m }: { mission: Mission }) {
-    const action = stepAction(m)
-    if (!action) return null
-    return (
-      <button className="courier-btn courier-btn-primary" disabled={action.disabled} title={action.title} onClick={action.onClick}>
-        {action.label}
-      </button>
-    )
-  }
-
   function ActionButtons({ mission: m }: { mission: Mission }) {
-    const canScanPickup = ['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY', 'READY_FOR_PICKUP'].includes(m.status)
+    const isPickingUp = busy.includes(`/missions/${m.order_id}/pickup`)
+    const isArriving = busy.includes(`/missions/${m.order_id}/arrive`)
     return (
       <div className="courier-actions">
-        <StepAction mission={m} />
-        {/* Scanning the seller's QR reaches the same pickup; it stays available
-            but steps back so one action leads. */}
-        {canScanPickup && (
-          <button className="courier-btn courier-btn-quiet courier-btn-scan" onClick={() => scan('PICKUP', m)}>
-            <Icon name="scanner" />
-            {t('courierCourierDashboardPage.scanSellerQr')}
+        {['COURIER_ACCEPTED', 'READY_FOR_PICKUP'].includes(m.delivery_status) && ['READY', 'READY_FOR_PICKUP'].includes(m.status) && (
+          <>
+            <button
+              disabled={!!busy}
+              className="courier-btn courier-btn-primary"
+              onClick={() => void runAction(`/courier/missions/${m.order_id}/pickup`, () => courierApi.pickup(m.order_id), t('courierCourierDashboardPage.pickupConfirmed'))}
+            >
+              {isPickingUp ? t('courierCourierDashboardPage.confirming') : t('courierCourierDashboardPage.confirmPickup')}
+            </button>
+            <button className="courier-btn courier-btn-scan" onClick={() => scan('PICKUP', m)}>
+              <Icon name="scanner" />
+              {t('courierCourierDashboardPage.scanSellerQr')}
+            </button>
+          </>
+        )}
+        {m.delivery_status === 'PICKED_UP' && (
+          <button
+            disabled={!!busy || !m.expected_delivery_date}
+            title={m.expected_delivery_date ? undefined : t('courierPlan.required')}
+            className="courier-btn courier-btn-primary"
+            onClick={() => void runAction(`/courier/missions/${m.order_id}/start`, () => courierApi.start(m.order_id), t('courier.dashboard.started'))}
+          >
+            {busy.includes(`/missions/${m.order_id}/start`) ? t('courierCourierDashboardPage.starting') : t('courierCourierDashboardPage.startDelivery')}
+          </button>
+        )}
+        {m.delivery_status === 'IN_TRANSIT' && (
+          <button
+            disabled={!!busy}
+            className="courier-btn courier-btn-primary"
+            onClick={() => void runAction(`/courier/missions/${m.order_id}/arrive`, () => courierApi.arrive(m.order_id), t('courier.dashboard.arrived'))}
+          >
+            {isArriving ? t('courierCourierDashboardPage.confirmingArrival') : t('courier.dashboard.arrive')}
           </button>
         )}
         {m.delivery_status === 'COURIER_ARRIVED' && (
