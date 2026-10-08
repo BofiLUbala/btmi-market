@@ -88,8 +88,13 @@ func (s *Service) BuildActivationURL(token string, accountType models.AccountTyp
 	return fmt.Sprintf("%s%s?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), path, token)
 }
 
+// The site is the Expo app (android/), whose routes come from its file tree:
+// the screen that accepts an invitation token is android/app/auth/
+// employee-invite.tsx, so the path is /auth/employee-invite. The former
+// /employee/invite/accept is a web-app path, and web-app is no longer served
+// at the site root, so that link reached "Unmatched Route".
 func (s *Service) BuildEmployeeInvitationURL(token string) string {
-	return fmt.Sprintf("%s/employee/invite/accept?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+	return fmt.Sprintf("%s/auth/employee-invite?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
 }
 
 func (s *Service) BuildCourierInvitationURL(token string) string {
@@ -104,8 +109,11 @@ func (s *Service) BuildCourierInvitationURLForBase(baseURL, token string) string
 	return fmt.Sprintf("%s/courier/activate?token=%s", strings.TrimRight(baseURL, "/"), url.QueryEscape(token))
 }
 
+// The courier signs in on the site's own sign-in screen, android/app/auth/
+// login.tsx. /livreur/login only exists in web-app, which the site no longer
+// serves at its root.
 func (s *Service) BuildCourierLoginURL() string {
-	return fmt.Sprintf("%s/livreur/login", strings.TrimRight(s.config.FrontendURL, "/"))
+	return fmt.Sprintf("%s/auth/login", strings.TrimRight(s.config.FrontendURL, "/"))
 }
 
 func (s *Service) SendCourierInvitationEmail(to, firstName, invitationURL, loginURL string) error {
@@ -125,8 +133,13 @@ func (s *Service) SendCourierInvitationEmail(to, firstName, invitationURL, login
 	return s.sendEmail(to, subject, body)
 }
 
+// android/app/auth/reset-password.tsx reads the token from the query string
+// and calls the reset endpoint, so the link must point at /auth/reset-password.
+// The bare /reset-password is a web-app path: couriers (and everyone else)
+// received the mail but landed on "Unmatched Route" and could never set a new
+// password from the link.
 func (s *Service) BuildPasswordResetURL(token string) string {
-	return fmt.Sprintf("%s/reset-password?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+	return fmt.Sprintf("%s/auth/reset-password?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
 }
 
 func (s *Service) BuildRegistrationReinitializationURL(token string) string {
