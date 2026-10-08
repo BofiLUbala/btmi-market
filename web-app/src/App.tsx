@@ -251,18 +251,32 @@ export default function App() {
                 </Route>
               </Route>
 
-              {/* Courier Routes */}
+              {/* Courier & Livreur Routes (Unified Role) */}
               <Route path="/courier/activate" element={<CourierActivationPage />} />
+              <Route path="/livreur/activate" element={<CourierActivationPage />} />
               <Route path="/courier" element={<Navigate to="/livreur/login" replace />} />
               <Route path="/livreur" element={<Navigate to="/livreur/login" replace />} />
               <Route element={<PublicOnly />}>
                 <Route path="/livreur/login" element={<CourierLoginPage />} />
+                <Route path="/courier/login" element={<CourierLoginPage />} />
               </Route>
               <Route element={<RequireCourier />}>
                 <Route path="/courier/dashboard" element={<CourierDashboardPage />} />
+                <Route path="/livreur/dashboard" element={<CourierDashboardPage />} />
+                <Route path="/courier/deliveries" element={<Navigate to="/courier/dashboard" replace />} />
+                <Route path="/livreur/deliveries" element={<Navigate to="/livreur/dashboard" replace />} />
+                <Route path="/courier/earnings" element={<Navigate to="/courier/dashboard" replace />} />
+                <Route path="/livreur/earnings" element={<Navigate to="/livreur/dashboard" replace />} />
+                <Route path="/courier/history" element={<Navigate to="/courier/dashboard" replace />} />
+                <Route path="/livreur/history" element={<Navigate to="/courier/dashboard" replace />} />
+                <Route path="/courier/profile" element={<Navigate to="/courier/dashboard" replace />} />
+                <Route path="/livreur/profile" element={<Navigate to="/courier/dashboard" replace />} />
                 <Route path="/courier/scan" element={<CourierScanPage />} />
+                <Route path="/livreur/scan" element={<CourierScanPage />} />
                 <Route path="/courier/missions/:id" element={<CourierMissionPage />} />
+                <Route path="/livreur/missions/:id" element={<CourierMissionPage />} />
                 <Route path="/courier/notifications/settings" element={<NotificationSettingsPage space="courier" />} />
+                <Route path="/livreur/notifications/settings" element={<NotificationSettingsPage space="courier" />} />
               </Route>
 
               {/* Admin Control Center Routes */}
