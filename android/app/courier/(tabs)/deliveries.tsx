@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useQuery } from '@tanstack/react-query'
+import { router } from 'expo-router'
 import { courierApi } from '../../../src/api'
 import { ApiError } from '../../../src/api/client'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -42,8 +43,19 @@ export default function CourierDeliveriesScreen() {
   // Tabs have no header: keep full-screen states clear of the status bar.
   if (missions.isLoading) return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><Loading label={t('common.loading')} /></SafeAreaView>
   if (missions.isError) {
-    const notCourier = missions.error instanceof ApiError && [403, 404].includes(missions.error.status)
-    return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><ErrorState message={notCourier ? t('courier.notCourier') : t('courier.missionsFailed')} retry={() => void missions.refetch()} /></SafeAreaView>
+    // Only a genuine loading failure is worth retrying. A 401 means the session
+    // ended and a 403/404 means this account is not a courier: refetching
+    // reruns the same refused call, so the screen offered a button that could
+    // never work. Send them where they can actually go instead.
+    const status = missions.error instanceof ApiError ? missions.error.status : 0
+    const notCourier = [403, 404].includes(status)
+    const message = status === 401 ? t('auth.sessionEndedBody') : notCourier ? t('courier.notCourier') : t('courier.missionsFailed')
+    const action = status === 401
+      ? { label: t('common.signIn'), run: () => router.replace('/auth/login') }
+      : notCourier
+        ? { label: t('nav.home'), run: () => router.replace('/') }
+        : { label: undefined, run: () => void missions.refetch() }
+    return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><ErrorState message={message} retry={action.run} actionLabel={action.label} /></SafeAreaView>
   }
 
   const tabs: Array<{ key: Segment; label: string; count?: number }> = [

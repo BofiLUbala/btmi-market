@@ -49,8 +49,17 @@ export default function CourierHomeScreen() {
     const status = missions.error instanceof ApiError ? missions.error.status : 0
     // A 401 is not a loading failure: the session ended. Say so instead of the
     // generic line, which read as a broken screen with nothing to act on.
-    const message = status === 401 ? t('auth.sessionEndedBody') : [403, 404].includes(status) ? t('courier.notCourier') : t('courier.missionsFailed')
-    return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><ErrorState message={message} retry={status === 401 ? () => router.replace('/auth/login') : () => void missions.refetch()} /></SafeAreaView>
+    // A 403/404 is not a loading failure either: this account is not a courier,
+    // so refetching reruns the same refused call. Both of those get a button
+    // that leads somewhere; only a real failure keeps "Retry".
+    const notCourier = [403, 404].includes(status)
+    const message = status === 401 ? t('auth.sessionEndedBody') : notCourier ? t('courier.notCourier') : t('courier.missionsFailed')
+    const action = status === 401
+      ? { label: t('common.signIn'), run: () => router.replace('/auth/login') }
+      : notCourier
+        ? { label: t('nav.home'), run: () => router.replace('/') }
+        : { label: undefined, run: () => void missions.refetch() }
+    return <SafeAreaView style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.cream }} edges={['top']}><ErrorState message={message} retry={action.run} actionLabel={action.label} /></SafeAreaView>
   }
 
   const active = (missions.data ?? []).filter((m) => !FINISHED_STATUSES.includes(m.delivery_status))

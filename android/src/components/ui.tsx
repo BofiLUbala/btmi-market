@@ -55,7 +55,11 @@ export function Loading({ label }: { label?: string }) {
   return <View style={styles.center}><ActivityIndicator color={c.green} size="large"/><Text style={s.muted}>{label ?? t('common.loading')}</Text></View>
 }
 
-export function ErrorState({ message, retry }: { message: string; retry?: () => void }) {
+/** `actionLabel` names the button when the way out is not to try again — a
+ *  session that ended, or a space this account cannot enter. "Retry" on those
+ *  reruns the same refused call and can never succeed. Left out, the button
+ *  keeps saying Retry, so existing callers are unchanged. */
+export function ErrorState({ message, retry, actionLabel }: { message: string; retry?: () => void; actionLabel?: string }) {
   const c = useColors()
   const { t } = useI18n()
   const s = useMemo(() => makeStyles(c), [c])
@@ -63,7 +67,7 @@ export function ErrorState({ message, retry }: { message: string; retry?: () => 
     <View style={styles.center}>
       <Text style={s.errorTitle}>{t('common.cannotLoad')}</Text>
       <Text style={s.muted}>{message}</Text>
-      {retry && <Button title={t('common.retry')} onPress={retry}/>}
+      {retry && <Button title={actionLabel ?? t('common.retry')} onPress={retry}/>}
     </View>
   )
 }
