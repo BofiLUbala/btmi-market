@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
@@ -57,8 +57,19 @@ export default function CourierItineraryScreen() {
   const scrollRef = useRef<ScrollView>(null)
   const openDetail = () => router.push({ pathname: '/courier/[id]', params: { id: id! } })
 
+  // `id` comes from the query string, so it can simply be absent — a courier
+  // opening /courier/itinerary from a bookmark or a typed URL. Both queries are
+  // then disabled, which leaves isLoading false and data undefined: the screen
+  // fell through to "Could not load missions" with a Retry that refetched a
+  // disabled query and so could never resolve. Send them to their deliveries
+  // list instead, the same fallback the dashboard's Map tile already uses when
+  // there is no mission to show.
+  useEffect(() => {
+    if (!id) router.replace('/courier/deliveries')
+  }, [id])
+
   const body = (() => {
-    if (mission.isLoading) return <Loading label={t('common.loading')} />
+    if (!id || mission.isLoading) return <Loading label={t('common.loading')} />
     if (mission.isError || !mission.data) return <ErrorState message={t('courier.missionsFailed')} retry={() => void mission.refetch()} />
     const m = mission.data
     const route = live.data?.route ?? null
