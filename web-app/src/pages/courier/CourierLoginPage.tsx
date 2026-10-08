@@ -9,6 +9,7 @@ import { ErrorBox } from '@/components/ui/Feedback'
 import { useAuth } from '@/store/auth'
 import { useT } from '@/store/i18n'
 import { CapsLockHint, RememberMe, forgotPasswordLink, useCapsLock, useRememberedEmail } from '@/components/auth/AuthFormParts'
+import './courier.css'
 
 export default function CourierLoginPage() {
   const { login, logout } = useAuth()
@@ -49,9 +50,12 @@ export default function CourierLoginPage() {
   }
 
   return (
-    <div className="auth-wrap">
+    // `courier-auth` scopes the TBK courier charter to this page: .auth-wrap and
+    // .card are shared with eleven other auth screens, so the palette is applied
+    // under this class rather than on them.
+    <div className="auth-wrap courier-auth">
       <form className="card auth-card" onSubmit={onSubmit}>
-        <div style={{ textAlign: 'center', fontSize: 44 }} aria-hidden="true">🛵</div>
+        <div className="courier-auth-mark" aria-hidden="true">🛵</div>
         <h1>{t('courierCourierLoginPage.title')}</h1>
         <p className="muted small">{t('courierCourierLoginPage.subtitle')}</p>
         {error && <ErrorBox error={error} />}

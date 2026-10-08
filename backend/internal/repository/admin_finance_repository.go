@@ -327,6 +327,7 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 			p.id as payment_id, p.order_id, o.order_number, bp.user_id as buyer_id,
 			COALESCE(NULLIF(TRIM(bp.first_name || ' ' || bp.last_name), ''), bp.email, '') as buyer_name,
 			COALESCE(bp.email, '') as buyer_email,
+			COALESCE(NULLIF(TRIM(su.first_name || ' ' || su.last_name), ''), su.email, '') as seller_name,
 			o.business_id, COALESCE(b.name, '') as business_name,
 			o.shop_id, COALESCE(s.name, '') as shop_name,
 			p.products_base_total, 0::numeric as discount_amount,
@@ -349,6 +350,15 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
+		-- The shop owner, named the same way the sale detail names them. LATERAL
+		-- with LIMIT 1 keeps one row per payment even when a business has several
+		-- memberships, so totals and paging are unaffected.
+		LEFT JOIN LATERAL (
+			SELECT user_id FROM business_memberships
+			WHERE business_id = o.business_id
+			ORDER BY created_at ASC LIMIT 1
+		) bm ON TRUE
+		LEFT JOIN users su ON su.id = bm.user_id
 		LEFT JOIN users cu ON cu.id = o.assigned_courier_id
 		%s
 		ORDER BY p.created_at DESC
@@ -367,7 +377,7 @@ func (r *AdminFinanceRepository) ListPayments(filter *models.AdminPaymentFilter)
 		var item models.AdminPaymentListItem
 		err := rows.Scan(
 			&item.PaymentID, &item.OrderID, &item.OrderNumber, &item.BuyerID,
-			&item.BuyerName, &item.BuyerEmail,
+			&item.BuyerName, &item.BuyerEmail, &item.SellerName,
 			&item.BusinessID, &item.BusinessName,
 			&item.ShopID, &item.ShopName,
 			&item.SubtotalAmount, &item.DiscountAmount, &item.PointsDiscountAmount, &item.DeliveryFee, &item.PaymentMarkup, &item.TotalAmount,
@@ -426,6 +436,7 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 			p.id as payment_id, p.order_id, o.order_number, bp.user_id as buyer_id,
 			COALESCE(NULLIF(TRIM(bp.first_name || ' ' || bp.last_name), ''), bp.email, '') as buyer_name,
 			COALESCE(bp.email, '') as buyer_email,
+			COALESCE(NULLIF(TRIM(su.first_name || ' ' || su.last_name), ''), su.email, '') as seller_name,
 			o.business_id, COALESCE(b.name, '') as business_name,
 			o.shop_id, COALESCE(s.name, '') as shop_name,
 			p.products_base_total, 0::numeric as discount_amount,
@@ -448,6 +459,15 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 		LEFT JOIN buyer_profiles bp ON p.buyer_profile_id = bp.id
 		LEFT JOIN businesses b ON o.business_id = b.id
 		LEFT JOIN shops s ON o.shop_id = s.id
+		-- The shop owner, named the same way the sale detail names them. LATERAL
+		-- with LIMIT 1 keeps one row per payment even when a business has several
+		-- memberships, so totals and paging are unaffected.
+		LEFT JOIN LATERAL (
+			SELECT user_id FROM business_memberships
+			WHERE business_id = o.business_id
+			ORDER BY created_at ASC LIMIT 1
+		) bm ON TRUE
+		LEFT JOIN users su ON su.id = bm.user_id
 		LEFT JOIN users cu ON cu.id = o.assigned_courier_id
 		%s
 	`, where)
@@ -455,7 +475,7 @@ func (r *AdminFinanceRepository) GetPaymentDetail(id uuid.UUID) (*models.AdminPa
 	detail := &models.AdminPaymentDetail{}
 	err := r.db.QueryRow(query, id).Scan(
 		&detail.PaymentID, &detail.OrderID, &detail.OrderNumber, &detail.BuyerID,
-		&detail.BuyerName, &detail.BuyerEmail,
+		&detail.BuyerName, &detail.BuyerEmail, &detail.SellerName,
 		&detail.BusinessID, &detail.BusinessName,
 		&detail.ShopID, &detail.ShopName,
 		&detail.SubtotalAmount, &detail.DiscountAmount, &detail.PointsDiscountAmount, &detail.DeliveryFee, &detail.PaymentMarkup, &detail.TotalAmount,
