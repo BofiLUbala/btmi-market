@@ -69,6 +69,14 @@ export const authApi = {
   whatsappResend: (challenge_id: string) => post<WhatsAppChallenge>('/auth/whatsapp/resend', { challenge_id }),
   resendActivation: (email: string) => post('/auth/resend-activation', { email }),
   reinitializeRegistration: (email: string) => post('/auth/reinitialize-registration', { email }),
+  /** The link in the activation email. Answers with a session, so the account
+   *  is signed in the moment it is activated. */
+  activate: (email: string, token: string) =>
+    get<LoginResponse>(`/auth/activate?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`),
+  /** Second half of a registration reinitialization: the emailed token plus
+   *  the password that replaces the one chosen at signup. */
+  completeReinitialization: (body: { token: string; email: string; password: string; password_confirmation: string }) =>
+    post('/auth/reinitialize-registration/complete', body),
   forgotPassword: (identifier: string) => post('/auth/forgot-password', { identifier }),
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),
@@ -362,6 +370,23 @@ export const employeeAuthApi = {
  */
 export const courierApi = {
   scanPickup: (payload: QRScanRequest) => post<QRScanResponse>('/courier/scans/pickup', payload),
+
+  /** Courier accounts exist by invitation only. These two are the only courier
+   *  calls made before the account exists, so they carry no session: the
+   *  emailed token is the credential. */
+  verifyInvitation: (token: string) =>
+    get<{ email: string; first_name: string; last_name: string; expires_at: string }>(`/courier/verify/${encodeURIComponent(token)}`),
+  activateInvitation: (body: {
+    token: string
+    password: string
+    password_confirmation: string
+    province?: string
+    city?: string
+    commune?: string
+    street?: string
+    building_number?: string
+    landmark?: string
+  }) => post('/courier/activate', body),
 
   /** 404 for accounts that are not couriers; used to show the courier space. */
   profile: () => get<CourierProfile>('/courier/profile'),

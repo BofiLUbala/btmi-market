@@ -99,6 +99,11 @@ function RootNavigator() {
         <Stack.Screen name="auth/forgot-password" options={{ header: authHeader, title: t('auth.forgotPassword') }} />
         <Stack.Screen name="auth/reset-password" options={{ header: authHeader, title: t('auth.newPassword') }} />
         <Stack.Screen name="auth/registration-recovery" options={{ header: authHeader, title: t('auth.reinitialize.title') }} />
+        {/* Reached from an emailed link, so they are declared here or the
+            header falls back to the raw path ("courier/activate"). */}
+        <Stack.Screen name="auth/registration-recovery-confirm" options={{ header: authHeader, title: t('auth.reinitialize.confirmTitle') }} />
+        <Stack.Screen name="auth/activate" options={{ header: authHeader, title: t('auth.activate.title') }} />
+        <Stack.Screen name="courier/activate" options={{ header: authHeader, title: t('courierActivation.title') }} />
         <Stack.Screen name="auth/employee-invite" options={{ title: t('seller.employeeInvite.title') }} />
         <Stack.Screen name="profile-edit" options={{ header: storeHeader, title: t('editProfile.title') }} />
         <Stack.Screen name="addresses" options={{ header: storeHeader, title: t('addresses.title') }} />

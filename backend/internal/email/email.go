@@ -80,12 +80,14 @@ func (s *Service) sendEmail(to, subject, htmlBody string) error {
 // account-type-agnostic), but the buyer landed on the seller page and was
 // redirected into seller onboarding after clicking their own confirmation
 // link.
+// android/app/auth/activate.tsx spends the token and, because the endpoint
+// answers with a session, signs the account in: it then sends a seller to
+// onboarding and everyone else to the marketplace. That collapses the two
+// web-app paths into one route. The accountType argument is kept so callers
+// need not change, and so the routing rule stays visible here.
 func (s *Service) BuildActivationURL(token string, accountType models.AccountType) string {
-	path := "/activate-account"
-	if accountType == models.AccountTypeBuyer {
-		path = "/activate"
-	}
-	return fmt.Sprintf("%s%s?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), path, token)
+	_ = accountType
+	return fmt.Sprintf("%s/auth/activate?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
 }
 
 // The site is the Expo app (android/), whose routes come from its file tree:
@@ -143,7 +145,7 @@ func (s *Service) BuildPasswordResetURL(token string) string {
 }
 
 func (s *Service) BuildRegistrationReinitializationURL(token string) string {
-	return fmt.Sprintf("%s/reinitialize-registration/confirm?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+	return fmt.Sprintf("%s/auth/registration-recovery-confirm?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
 }
 
 func (s *Service) SendRegistrationReinitializationEmail(to, reinitializationURL string) error {

@@ -3769,6 +3769,39 @@ export const fr = {
   'track.address': "Adresse de livraison",
   'track.follow': "Suivre",
   'track.profileSub': "Carte en direct, trajet et étapes",
+
+  // Token screens ported from web-app: account activation, registration
+  // reinitialization and courier invitation now live in this app, so the
+  // emailed links land on the site instead of the old console.
+  'auth.reinitialize.confirmTitle': 'Confirmer votre inscription',
+  'auth.reinitialize.confirmExplanation': 'Saisissez l’e-mail du compte et choisissez un nouveau mot de passe. L’ancien mot de passe d’inscription sera remplacé ; vos informations de profil resteront inchangées.',
+  'auth.reinitialize.newPassword': 'Nouveau mot de passe',
+  'auth.reinitialize.confirmSubmit': 'Définir le mot de passe et confirmer',
+  'auth.reinitialize.invalidLink': 'Ce lien de réinitialisation est absent ou invalide.',
+  'auth.activate.loading': 'Activation de votre compte…',
+  'auth.activate.title': '🎉 Compte activé',
+  'auth.activate.success': 'Compte activé',
+  'auth.activate.failed': 'Échec de l’activation',
+  'auth.activate.active': 'Votre compte est maintenant actif. Vous pouvez vous connecter.',
+  'courierActivation.invalidLinkCheckEmail': "Lien d'activation invalide. Vérifiez votre e-mail pour retrouver le bon lien.",
+  'courierActivation.invalidInvitation': "Invitation invalide ou expirée",
+  'courierActivation.passwordsMismatch': "Les mots de passe ne correspondent pas",
+  'courierActivation.passwordTooShort': "Le mot de passe doit contenir au moins 8 caractères",
+  'courierActivation.passwordTooLong': "Le mot de passe ne doit pas dépasser 64 caractères",
+  'courierActivation.addressIncomplete': "Veuillez compléter la province, la ville, la commune, la rue et le numéro de parcelle.",
+  'courierActivation.failed': "Échec de l'activation du compte",
+  'courierActivation.successTitle': "Votre compte Livreur est activé.",
+  'courierActivation.successBody': "Vous pouvez maintenant vous connecter avec votre email et le mot de passe que vous venez de créer.",
+  'courierActivation.goToSpace': "Accéder à mon espace Livreur",
+  'courierActivation.invalidLinkTitle': "Lien invalide",
+  'courierActivation.invalidLinkBody': "Ce lien d'activation est invalide ou a expiré. Contactez votre administrateur pour recevoir une nouvelle invitation.",
+  'courierActivation.title': "Activez votre compte Livreur",
+  'courierActivation.subtitle': "Complétez votre profil pour commencer à accepter des livraisons",
+  'courierActivation.confirmPassword': "Confirmer le mot de passe",
+  'courierActivation.addressTitle': "Adresse du profil",
+  'courierActivation.addressHint': "Où êtes-vous basé pour récupérer les colis ?",
+  'courierActivation.activating': "Activation…",
+  'courierActivation.submit': "Activer le compte",
 } as const
 
 export type TranslationKey = keyof typeof fr
