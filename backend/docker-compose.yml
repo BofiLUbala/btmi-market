@@ -162,6 +162,7 @@ services:
         VITE_API_BASE: /api/v1
         VITE_TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
         VITE_BASE: /admin-console/
+        CACHE_BUST: ${CACHE_BUST:-1}
     depends_on:
       - api
     restart: unless-stopped
@@ -176,6 +177,7 @@ services:
       args:
         EXPO_PUBLIC_API_URL: /api/v1
         EXPO_PUBLIC_TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
+        CACHE_BUST: ${CACHE_BUST:-1}
     ports:
       - "${WEB_PORT:-5173}:80"
     depends_on:
