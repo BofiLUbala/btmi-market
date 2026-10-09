@@ -115,13 +115,15 @@ export default function PaymentScreen() {
   const goToOrder = () => orderIds.length > 1
     ? router.replace('/orders')
     : router.replace({ pathname: '/orders/[id]', params: { id: orderId! } })
+  const openOrder = () => orderIds.length > 1
+    ? router.push('/(buyer)/my-orders' as never)
+    : router.push({ pathname: '/orders/[id]', params: { id: orderId! } } as never)
 
   // Done only when EVERY child order is paid - never on the first one alone.
   const allPaid = started && payments.length > 0 && payments.every((q) => isPaymentPaid(q.data))
   useEffect(() => {
     if (allPaid) {
       invalidate()
-      goToOrder()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allPaid])
@@ -212,12 +214,12 @@ export default function PaymentScreen() {
 
   const lines = orders.flatMap((o) => (o.data ? o.data.lines.map((line) => ({ line, shop: o.data!.shop_name, currency: o.data!.order.currency })) : []))
   const statusText = (p?: BuyerPayment) => {
-    if (!p) return t('common.loading')
-    if (isPaymentPaid(p)) return t('orders.paymentPaid')
+    if (!p) return t('payment.statusUnknown')
+    if (isPaymentPaid(p)) return t('payment.statusConfirmed')
     if (p.status === 'FAILED') return t('orders.paymentFailed')
     if (p.status === 'PROCESSING' || p.status === 'PENDING') return t('payment.processing')
-    if (p.status === 'CANCELLED' || p.status === 'REFUNDED') return t('orders.paymentCancelled')
-    return t('orders.paymentDue')
+    if (p.status === 'CANCELLED' || p.status === 'REFUNDED') return t('payment.statusCancelled')
+    return t('payment.statusUnknown')
   }
   const paidCount = payments.filter((q) => isPaymentPaid(q.data)).length
 
@@ -227,7 +229,8 @@ export default function PaymentScreen() {
       <ScrollView contentContainerStyle={styles.page}>
         <SectionTitle title={t('payment.awaitingTitle')} />
         <Card>
-          <Text style={styles.muted}>{instructions || t('payment.approveOnPhone')}</Text>
+          <Text style={styles.blockTitle}>{allPaid ? t('payment.statusConfirmed') : t('payment.approveOnPhone')}</Text>
+          <Text style={styles.muted}>{allPaid ? t('payment.statusConfirmedHelp') : instructions || t('payment.awaitingPrompt')}</Text>
           {orderIds.length > 1 ? <Text style={styles.blockTitle}>{t('payment.groupProgress', { paid: paidCount, total: orderIds.length })}</Text> : null}
           <Text style={styles.muted}>{t('payment.onlyOperatorConfirms')}</Text>
         </Card>
@@ -236,7 +239,9 @@ export default function PaymentScreen() {
           const detail = orders[index]?.data
           const paid = isPaymentPaid(p)
           const failed = p?.status === 'FAILED'
-          const retryable = Boolean(p) && !paid && !['PROCESSING', 'PENDING', 'CANCELLED', 'REFUNDED'].includes(p!.status)
+          // A timeout or missing status is not proof the provider did not charge.
+          // Retry only after an authoritative FAILED state from the backend.
+          const retryable = p?.status === 'FAILED' && !paid
           return (
             <Card key={id}>
               <View style={styles.row}>
@@ -263,9 +268,11 @@ export default function PaymentScreen() {
                   onPress={() => retryInitiate.mutate(id)}
                 />
               ) : null}
+              <Button title={t('checkout.viewOrder')} variant="outline" onPress={openOrder} />
             </Card>
           )
         })}
+        <Button title={t('payment.getHelp')} variant="outline" onPress={() => router.push('/help' as never)} />
         <Button title={orderIds.length > 1 ? t('profile.myOrders') : t('checkout.viewOrder')} variant="outline" onPress={goToOrder} />
       </ScrollView>
     )
@@ -354,9 +361,13 @@ export default function PaymentScreen() {
                 value={payerPhone}
                 keyboardType="phone-pad"
                 placeholder="+243 ..."
+                accessibilityLabel={needsPhoneNow ? t('checkoutPayment.phoneNowLabel') : t('checkoutPayment.phoneDeliveryLabel')}
+                accessibilityHint={t('payment.phoneHint')}
+                textContentType="telephoneNumber"
+                error={needsPhoneNow && payerPhone.length > 0 && !phoneReady ? t('checkoutPayment.phoneWarn') : undefined}
                 onChangeText={setPayerPhone}
               />
-              {needsPhoneNow && !phoneReady ? <Text style={styles.warn}>{t('checkoutPayment.phoneWarn')}</Text> : null}
+              {needsPhoneNow ? <Text style={styles.muted}>{t('payment.currencyNote', { currency })}</Text> : null}
               {paymentMethod === MOBILE_AT_DELIVERY ? <SmallText>{t('checkoutPayment.mobileAtDeliveryNote')}</SmallText> : null}
             </View>
           ) : null}
@@ -364,7 +375,8 @@ export default function PaymentScreen() {
 
         {/* Products recap */}
         <CheckoutCard>
-          <CardHead title={w('cart.products')} meta={`${totalItems} ${totalItems === 1 ? w('cart.item') : w('cart.items')}`} />
+          <CardHead title={t('payment.orderSummary')} meta={`${totalItems} ${totalItems === 1 ? w('cart.item') : w('cart.items')}`} />
+          {firstOrder?.order_number ? <Text style={styles.muted}>{t('payment.orderNumber', { number: firstOrder.order_number })}</Text> : null}
           {lines.map(({ line, shop, currency: lineCurrency }) => (
             <View key={line.id} style={styles.reviewLine}>
               <View style={styles.lineInfo}>
@@ -424,6 +436,14 @@ export default function PaymentScreen() {
             {!timing ? t('checkoutPayment.noteChooseTiming') : selectedMethod?.timing === 'NOW' ? t('checkoutPayment.noteNow') : t('checkoutPayment.noteDelivery')}
           </Text>
         </CheckoutCard>
+        <Pressable accessibilityRole="link" onPress={() => router.push('/help' as never)} style={styles.helpLink}>
+          <Ionicons name="help-circle-outline" size={19} color={colors.green} />
+          <Text style={styles.helpText}>{t('payment.getHelp')}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="link" onPress={openOrder} style={styles.helpLink}>
+          <Ionicons name="receipt-outline" size={19} color={colors.green} />
+          <Text style={styles.helpText}>{t('checkout.viewOrder')}</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Fixed pay bar: amount due + secure CTA (reference "Paiement Mobile Money") */}
@@ -489,6 +509,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   totalLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   totalValue: { color: colors.ink, fontSize: 22, fontFamily: fonts.display, fontWeight: '700', letterSpacing: -0.3 },
   payNote: { color: colors.muted, fontSize: 12.5, lineHeight: 18, padding: 12, borderRadius: 12, backgroundColor: colors.greenSoft },
+  helpLink: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  helpText: { color: colors.green, fontSize: 14, fontWeight: '700' },
   providers: { gap: 10 },
   provider: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
   phoneBlock: { gap: 8, marginTop: 6, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border },

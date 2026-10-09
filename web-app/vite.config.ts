@@ -15,8 +15,14 @@ export default defineConfig({
     // free port, so `npm run dev` landed on a different number each run and the
     // UI appeared to change with the port. Own a port nothing else claims, and
     // fail loudly rather than drift if it is ever taken.
-    port: 5180,
+    port: 5181,
     strictPort: true,
+    hmr: {
+      // Browser access goes through scripts/dev-gateway.mjs. Keep Vite's HMR
+      // websocket on that same visible origin and let the gateway route it.
+      clientPort: 5180,
+      path: '/admin-hmr'
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

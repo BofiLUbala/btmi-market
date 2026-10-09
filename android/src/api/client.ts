@@ -57,6 +57,20 @@ function developmentApiUrl() {
 }
 
 function resolveApiUrl() {
+  // The local dev gateway mirrors the single-origin production setup: Expo
+  // serves marketplace, seller and courier routes; /admin goes to the admin
+  // console; and /api is forwarded to Go, all under localhost:5180. Keep the
+  // native app's direct API address unchanged because localhost on a phone is
+  // the phone itself, not the developer machine.
+  if (
+    Platform.OS === 'web' &&
+    __DEV__ &&
+    typeof window !== 'undefined' &&
+    window.location.port === '5180'
+  ) {
+    return `${window.location.origin}/api/v1`
+  }
+
   // An explicit build-time URL always wins. Preview and production APKs are
   // built with EXPO_PUBLIC_API_URL pointing at the public HTTPS API; Metro
   // host discovery is a development-only convenience.

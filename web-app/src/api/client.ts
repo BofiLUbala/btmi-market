@@ -2,8 +2,15 @@ import { ApiError } from './types'
 import { localizeApiError } from './errorMessages'
 import { getLang, translate } from '@/store/i18n'
 
+const configuredApiBase = import.meta.env.VITE_API_BASE as string | undefined
+
+// The local gateway mirrors production's single-origin routing and forwards
+// /api to Go. Ignore a machine-specific absolute API URL only on that origin;
+// standalone Vite runs and deployed builds keep their configured API base.
 export const API_BASE: string =
-  (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:8080/api/v1'
+  typeof window !== 'undefined' && window.location.port === '5180'
+    ? '/api/v1'
+    : configuredApiBase ?? '/api/v1'
 
 const ACCESS_KEY = 'btmi.access'
 const REFRESH_KEY = 'btmi.refresh'
