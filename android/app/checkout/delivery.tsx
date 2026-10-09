@@ -70,6 +70,8 @@ export default function DeliveryScreen() {
   // Optional exact point: the saved address keeps its own; another address
   // starts without one (the old point would be wrong).
   const [point, setPoint] = useState<DeliveryPoint | null>(() => (savedAddress ? savedPointOf(profileQuery.data) : null))
+  // A finger panning the map must not scroll the page under it.
+  const [scrollEnabled, setScrollEnabled] = useState(true)
 
   useEffect(() => {
     if (!profileQuery.data && !user) return
@@ -179,7 +181,7 @@ export default function DeliveryScreen() {
   // Same sections, order and wording as web-app/src/pages/checkout/DeliveryPage.tsx.
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <KeyboardAwareScrollView contentContainerStyle={checkoutPage} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={checkoutPage} keyboardShouldPersistTaps="handled" scrollEnabled={scrollEnabled}>
         <CheckoutProgress current="delivery" />
         <CheckoutHeading title={w('delivery.title')} subtitle={w('delivery.subtitle')} />
 
@@ -220,7 +222,7 @@ export default function DeliveryScreen() {
             <>
               <SmallText>{w('delivery.savedAddress')}</SmallText>
               <AddressSummary value={savedAddress} />
-              <DeliveryPointPicker value={point} onChange={setPoint} />
+              <DeliveryPointPicker value={point} onChange={setPoint} onGesture={(active) => setScrollEnabled(!active)} />
               <Button title={w('delivery.useSavedAddress')} onPress={submit} loading={selectMutation.isPending} />
               <UnderlineLink title={w('delivery.useAnotherAddress')} onPress={() => { setError(''); setPoint(null); setMode('custom') }} />
             </>
@@ -230,7 +232,7 @@ export default function DeliveryScreen() {
             <>
               <StructuredAddressFields value={address} onChange={setAddress} />
               {isStructuredAddressComplete(address) ? <AddressSummary value={address} /> : <SmallText>{w('delivery.addressIncomplete')}</SmallText>}
-              <DeliveryPointPicker value={point} onChange={setPoint} />
+              <DeliveryPointPicker value={point} onChange={setPoint} onGesture={(active) => setScrollEnabled(!active)} />
               <TouchableOpacity style={styles.checkbox} onPress={() => setSavePrimary(!savePrimary)} accessibilityRole="checkbox" accessibilityState={{ checked: savePrimary }}>
                 <View style={[styles.checkboxTick, savePrimary && styles.checkboxTickOn]}>
                   {savePrimary ? <Ionicons name="checkmark" size={14} color={colors.onGreen} /> : null}

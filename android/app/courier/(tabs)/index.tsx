@@ -16,6 +16,7 @@ import { useColors } from '../../../src/store/theme'
 import { fonts, radius, shadow, spacing, type Colors } from '../../../src/theme'
 import { cashLabel, kinshasaToday } from '../../../src/lib/courier'
 import { resumeCourierTrackingIfNeeded } from '../../../src/lib/courierTracking'
+import { fetchUnreadNotificationsCount } from '../../../src/api/communication'
 import type { CourierAvailability, CourierMission } from '../../../src/types'
 
 /** Missions picked up and on their way: the "Carte" tile opens the first one's route. */
@@ -36,6 +37,14 @@ export default function CourierHomeScreen() {
 
   const missions = useQuery({ queryKey: ['courier', 'missions'], queryFn: courierApi.missions, refetchInterval: 15_000 })
   const profile = useQuery({ queryKey: ['courier', 'profile'], queryFn: courierApi.profile, retry: false })
+  // The bell's badge: the courier's own unread notifications, never the buyer's.
+  const unread = useQuery({
+    queryKey: ['courier', 'unread-notifications'],
+    queryFn: () => fetchUnreadNotificationsCount('COURIER'),
+    enabled: Boolean(user),
+    refetchInterval: 60_000,
+  })
+  const unreadNotifications = unread.data?.unread_count ?? 0
   // Same key as "Mes gains" (a Kinshasa day, not the word "today"), so the
   // two tabs share one cached answer instead of drifting apart.
   const earnings = useQuery({ queryKey: ['courier', 'earnings', kinshasaToday()], queryFn: () => courierApi.earnings(kinshasaToday()), refetchInterval: 30_000 })
@@ -87,8 +96,9 @@ export default function CourierHomeScreen() {
               <Text style={[styles.zoneText, { color: header.ink }]} numberOfLines={1}>{p?.service_zone || t('courierUi.home.noZone')}</Text>
             </View>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('courierUi.home.notifications')} hitSlop={8} onPress={() => router.push('/notifications')} style={[styles.headerBtn, { backgroundColor: header.chip }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('courierUi.home.notifications')} hitSlop={8} onPress={() => router.push({ pathname: '/notifications', params: { space: 'courier' } })} style={[styles.headerBtn, { backgroundColor: header.chip }]}>
             <Ionicons name="notifications-outline" size={21} color={header.ink} />
+            {unreadNotifications > 0 ? <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text></View> : null}
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={t('courierUi.home.profile')} onPress={() => router.navigate('/courier/profile')} style={[styles.avatar, { borderColor: header.ink }]}>
             {avatarUrl ? <Image source={resolveMediaUrl(avatarUrl)} style={styles.avatarImg} contentFit="cover" /> : <Text style={styles.avatarText}>{initials || '?'}</Text>}
@@ -229,6 +239,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   zoneKicker: { fontSize: 12, fontWeight: '600' },
   zoneText: { fontSize: 15, fontWeight: '800' },
   headerBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: 2, right: 2, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.danger, borderWidth: 2, borderColor: c.white, alignItems: 'center', justifyContent: 'center' },
+  bellBadgeText: { color: c.white, fontSize: 9, fontWeight: '800' },
   avatar: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: c.navy },
   avatarImg: { width: '100%', height: '100%' },
   avatarText: { color: c.onNavy, fontWeight: '800', fontSize: 15 },

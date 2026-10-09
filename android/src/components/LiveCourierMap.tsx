@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
-import { Camera, GeoJSONSource, Layer, Map, Marker, type CameraRef, type MapRef } from '@maplibre/maplibre-react-native'
+import { Camera, GeoJSONSource, Layer, Map, Marker, UserLocation, type CameraRef, type MapRef } from '@maplibre/maplibre-react-native'
 import { buyerApi, courierApi } from '../api'
 import { subscribeOrderEvents } from '../lib/orderEvents'
 import { isHeadingToShop } from '../lib/liveTracking'
@@ -11,6 +11,7 @@ import { radius, spacing, type Colors } from '../theme'
 import type { CourierLocation } from '../types'
 import { MAP_STYLES, styleUrl, useMapStyle } from '../lib/mapStyle'
 import { ROUTE_SOURCE_KEYS, formatClock, formatDistance, formatDuration } from '../lib/routeFormat'
+import { useDevicePosition } from '../lib/useDevicePosition'
 
 const KINSHASA: [number, number] = [15.3136, -4.3217]
 /** Fallback when the event stream is down. */
@@ -48,8 +49,10 @@ const lineFeature = (coords: [number, number][]) => ({ type: 'Feature' as const,
  * The delivery map: the planned road route (blue) with arrows for the
  * direction, the path really driven (green), the start, the destination and
  * the courier's latest real point, with the distances and the arrival time.
- * 'user': the buyer's own order, from acceptance to arrival; viewing it asks for no
- * permission. 'courier': the assigned courier, with the next instruction.
+ * 'user': the buyer's own order, from acceptance to arrival. 'courier': the
+ * assigned courier, with the next instruction. Both are asked for the
+ * foreground location permission when the map opens, so it can land on the
+ * viewer; refusing it only costs the blue dot - the delivery is still drawn.
  *
  * The map is framed once, then left to the viewer: drag, pinch, rotate like
  * any map app, with zoom, "recentre" and "courier" buttons and a style picker.
@@ -93,6 +96,10 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0, pre
   const cameraRef = useRef<CameraRef>(null)
   const mapRef = useRef<MapRef>(null)
   const [styleId, setStyleId] = useMapStyle()
+  // The map loads itself on the viewer's own position - buyer or courier -
+  // instead of sitting on a default city until the server has a courier fix.
+  const { position: me } = useDevicePosition()
+  const framedOnMe = useRef(false)
 
   const data = query.data
   const route = data?.route ?? null
@@ -106,21 +113,29 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0, pre
     ? [data.delivery_longitude, data.delivery_latitude] : null
   const courier: [number, number] | null = loc ? [loc.longitude, loc.latitude] : null
 
-  if (data && !live && !(audience === 'courier' && route)) {
-    return audience === 'user' ? <View style={styles.card}><Text style={styles.muted}>{t('liveMap.ended')}</Text></View> : null
-  }
+  // Nothing live yet, or the delivery is over: the map still shows - a ride
+  // app always has one on screen - with the viewer on it and a line saying so.
+  const idle = !!data && !live && !(audience === 'courier' && route)
 
   // The first framing: the whole route with the courier on it; without a route,
   // courier and destination. Later updates never move the map under the finger.
   const pts: [number, number][] = [...(route?.geometry ?? []), ...(courier ? [courier] : []), ...(dest ? [dest] : [])]
   const bounds = boundsOf(pts)
+  const mine: [number, number] | null = me ? [me.longitude, me.latitude] : null
+  const anchor = courier ?? dest ?? mine
   const initialView = bounds
     ? { bounds, padding: FIT_PADDING }
-    : { center: courier ?? dest ?? KINSHASA, zoom: courier || dest ? 15 : 11 }
+    : { center: anchor ?? KINSHASA, zoom: anchor ? 15 : 11 }
   const recentre = () => {
     if (bounds) cameraRef.current?.fitBounds(bounds, { padding: FIT_PADDING, duration: 500 })
-    else cameraRef.current?.easeTo({ center: courier ?? dest ?? KINSHASA, zoom: 15, duration: 500 })
+    else cameraRef.current?.easeTo({ center: anchor ?? KINSHASA, zoom: 15, duration: 500 })
   }
+  useEffect(() => {
+    if (!mine || framedOnMe.current || bounds || courier || dest) return
+    framedOnMe.current = true
+    cameraRef.current?.easeTo({ center: mine, zoom: 15, duration: 500 })
+  }, [mine?.[0], mine?.[1], bounds, courier, dest]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const zoomBy = async (delta: number) => {
     const z = await mapRef.current?.getZoom().catch(() => null)
     if (z != null) cameraRef.current?.zoomTo(Math.max(3, Math.min(19, z + delta)), { duration: 200 })
@@ -169,7 +184,6 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0, pre
         onTouchEnd={() => onGesture?.(false)}
         onTouchCancel={() => onGesture?.(false)}
       >
-      {data ? (
       <Map
         ref={mapRef}
         style={styles.map}
@@ -216,13 +230,13 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0, pre
             <Text style={styles.pin}>📍</Text>
           </Marker>
         ) : null}
+        <UserLocation accuracy animated minDisplacement={10} />
         {courier ? (
           <Marker id="courier" lngLat={courier}>
             <View style={[styles.courier, freshness === 'STALE' && styles.stale]}><Text style={styles.courierIcon}>🛵</Text></View>
           </Marker>
         ) : null}
       </Map>
-      ) : null}
       {preview ? (
         <Pressable accessibilityRole="button" accessibilityLabel={tk('liveMap.tapToExpand')} style={styles.previewOverlay} onPress={onExpand}>
           <View style={styles.previewBadge}><Text style={styles.previewText}>⤢ {tk('liveMap.tapToExpand')}</Text></View>
@@ -242,6 +256,9 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0, pre
             <Pressable accessibilityRole="button" accessibilityLabel={tk('liveMap.zoomIn')} style={styles.ctrl} onPress={() => void zoomBy(1)}><Text style={styles.ctrlText}>+</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={tk('liveMap.zoomOut')} style={styles.ctrl} onPress={() => void zoomBy(-1)}><Text style={styles.ctrlText}>−</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={tk('liveMap.recenter')} style={styles.ctrl} onPress={recentre}><Text style={styles.ctrlText}>⌖</Text></Pressable>
+            {mine ? (
+              <Pressable accessibilityRole="button" accessibilityLabel={tk('deliveryPoint.myLocation')} style={styles.ctrl} onPress={() => cameraRef.current?.easeTo({ center: mine, zoom: 16, duration: 500 })}><Text style={styles.ctrlText}>◉</Text></Pressable>
+            ) : null}
             {courier ? (
               <Pressable accessibilityRole="button" accessibilityLabel={tk('liveMap.showCourier')} style={styles.ctrl} onPress={() => cameraRef.current?.easeTo({ center: courier, zoom: 16, duration: 500 })}><Text style={styles.ctrlText}>🛵</Text></Pressable>
             ) : null}
@@ -260,7 +277,8 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0, pre
           ? <Text style={styles.muted}>📍 {route.destination.label || data?.delivery_address} ({tk(ROUTE_SOURCE_KEYS[route.destination.source])})</Text>
           : data?.delivery_address ? <Text style={styles.muted}>📍 {data.delivery_address}</Text> : null}
         {!dest ? <Text style={styles.muted}>{t('liveMap.noDestinationPoint')}</Text> : null}
-        {!route && audience === 'user' ? <Text style={styles.muted}>{tk('liveMap.noRoute')}</Text> : null}
+        {idle && audience === 'user' ? <Text style={styles.muted}>{t('liveMap.ended')}</Text> : null}
+        {!route && !idle && audience === 'user' ? <Text style={styles.muted}>{tk('liveMap.noRoute')}</Text> : null}
       </View>
     </View>
   )

@@ -43,7 +43,7 @@ function waitFor(ready: () => boolean): Promise<void> {
 
 async function open(data: PushData) {
   const isAdmin = data.kind === 'ADMIN'
-  const fallback = isAdmin ? '/admin' : data.audience === 'SELLER' ? '/seller/notifications' : data.audience === 'COURIER' ? '/courier' : '/notifications'
+  const fallback = isAdmin ? '/admin' : data.audience === 'SELLER' ? '/seller/notifications' : data.audience === 'COURIER' ? '/notifications?space=courier' : '/notifications'
   const link = safeAppPath(data.app_link) ?? fallback
 
   if (isAdmin) {

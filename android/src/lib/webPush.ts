@@ -28,13 +28,39 @@ function read(key: string): string | null {
   try { return localStorage.getItem(key) } catch { return null }
 }
 
+/**
+ * Every browser step below can hang instead of failing: `serviceWorker.ready`
+ * never settles while no worker activates, and `pushManager.subscribe` waits
+ * on the push service, which a restricted network never answers. Unbounded,
+ * they leave the opt-in button spinning for ever, so each one gets a deadline
+ * and a plain failure instead.
+ */
+const SW_READY_MS = 10_000
+const SUBSCRIBE_MS = 20_000
+const CONFIG_MS = 8_000
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    p.catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ])
+}
+
 let registration: Promise<ServiceWorkerRegistration | null> | null = null
 function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!webPushSupported()) return Promise.resolve(null)
   if (!registration) {
-    registration = navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(() => navigator.serviceWorker.ready)
+    const attempt = navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      // An already-active worker needs no wait; otherwise wait for one, but
+      // not for ever.
+      .then((reg) => (reg.active ? reg : withTimeout(navigator.serviceWorker.ready, SW_READY_MS)))
       .catch(() => null)
+    // Only a success is remembered: a one-off failure must not leave push
+    // switched off for the rest of the session.
+    registration = attempt.then((reg) => {
+      if (!reg) registration = null
+      return reg
+    })
   }
   return registration
 }
@@ -42,10 +68,15 @@ function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
 let config: Promise<Config> | null = null
 function pushConfig(): Promise<Config> {
   if (!config) {
-    config = fetch(`${API_URL}/push/config`).then((r) => r.json()).then((j) => (j?.data ?? j) as Config).catch(() => {
-      config = null
-      return { web_enabled: false }
-    })
+    config = withTimeout(fetch(`${API_URL}/push/config`).then((r) => r.json()), CONFIG_MS)
+      .then((j) => {
+        if (!j) { config = null; return { web_enabled: false } }
+        return ((j as { data?: Config }).data ?? j) as Config
+      })
+      .catch(() => {
+        config = null
+        return { web_enabled: false }
+      })
   }
   return config
 }
@@ -91,7 +122,14 @@ async function subscribeAndRegister(scope: string): Promise<boolean> {
     await sub.unsubscribe().catch(() => undefined)
     sub = null
   }
-  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(cfg.vapid_public_key) as BufferSource })
+  if (!sub) {
+    sub = await withTimeout(
+      reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(cfg.vapid_public_key) as BufferSource }),
+      SUBSCRIBE_MS,
+    )
+  }
+  // No subscription: the browser could not reach its push service.
+  if (!sub) return false
   const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } }
   await request('/push/subscriptions', {
     method: 'POST',

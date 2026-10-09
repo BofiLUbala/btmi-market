@@ -231,6 +231,6 @@ export async function markAllNotificationsRead(audience?: NotificationAudience):
   return post<{ status: string }>(audience ? `/notifications/read-all?audience=${audience}` : '/notifications/read-all')
 }
 
-export async function fetchUnreadNotificationsCount(): Promise<{ unread_count: number }> {
-  return get<{ unread_count: number }>('/notifications/unread-count')
+export async function fetchUnreadNotificationsCount(audience?: NotificationAudience): Promise<{ unread_count: number }> {
+  return get<{ unread_count: number }>(audience ? `/notifications/unread-count?audience=${audience}` : '/notifications/unread-count')
 }

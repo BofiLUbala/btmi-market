@@ -31,6 +31,9 @@ export function PushPrompt({ userId }: { userId: string }) {
   const [visible, setVisible] = useState(false)
   const [busy, setBusy] = useState(false)
   const [blocked, setBlocked] = useState(false)
+  // The browser or its push service did not answer: say so instead of
+  // closing as if it had worked.
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -54,9 +57,10 @@ export function PushPrompt({ userId }: { userId: string }) {
     try {
       const state = await enablePush('user')
       if (state === 'denied') { setBlocked(true); return }
+      if (state === 'unavailable') { setFailed(true); return }
       close()
     } catch {
-      close()
+      setFailed(true)
     } finally {
       setBusy(false)
     }
@@ -74,10 +78,10 @@ export function PushPrompt({ userId }: { userId: string }) {
           </Pressable>
           <View style={s.icon}><Ionicons name="notifications" size={28} color={c.onGreen} /></View>
           <Text style={s.title}>{t('pushPrompt.title')}</Text>
-          <Text style={s.body}>{blocked ? t('pushPrompt.denied') : t('pushPrompt.body')}</Text>
+          <Text style={s.body}>{blocked ? t('pushPrompt.denied') : failed ? t('pushPrompt.unavailable') : t('pushPrompt.body')}</Text>
           {blocked
             ? <Button title="OK" onPress={close} />
-            : <Button title={t('pushPrompt.accept')} onPress={() => void accept()} loading={busy} />}
+            : <Button title={t(failed ? 'pushPrompt.retry' : 'pushPrompt.accept')} onPress={() => void accept()} loading={busy} />}
         </View>
       </View>
     </Modal>
