@@ -1150,6 +1150,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'seller.productForm.stepUploadingImages': 'Uploading images…',
   'product.video.title': 'Product video',
   'product.video.watch': 'Watch the video',
+  'product.video.tapToWatch': 'Tap to watch with sound',
   'seller.productForm.video.title': 'Product video (optional)',
   'seller.productForm.video.desc': 'A short video explaining the product. Filmed here: {record} s. From the gallery: up to {seconds} s and {size} MB.',
   'seller.productForm.video.add': 'Add a video',

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'expo-image'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { confirmAction } from '../../../src/lib/confirmAction'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sellerApi } from '../../../src/api'
@@ -308,6 +308,9 @@ export default function SellerProductDetailScreen() {
   }
 
   function pickImage() {
+    // In a browser the file dialog already offers the camera where one exists;
+    // a chain of confirm() prompts in front of it only gets in the way.
+    if (Platform.OS === 'web') { void addImage('library'); return }
     confirmAction(t('seller.productForm.addPhoto'), undefined, [
       { text: t('profile.takePhoto'), onPress: () => void addImage('camera') },
       { text: t('profile.chooseFromGallery'), onPress: () => void addImage('library') },

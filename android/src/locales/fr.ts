@@ -1159,6 +1159,7 @@ export const fr = {
   'seller.productForm.stepUploadingImages': 'Envoi des images…',
   'product.video.title': 'Vidéo du produit',
   'product.video.watch': 'Regarder la vidéo',
+  'product.video.tapToWatch': 'Touchez pour regarder avec le son',
   'seller.productForm.video.title': 'Vidéo du produit (facultatif)',
   'seller.productForm.video.desc': 'Une courte vidéo qui explique le produit. À filmer : {record} s. Depuis la galerie : {seconds} s et {size} Mo au maximum.',
   'seller.productForm.video.add': 'Ajouter une vidéo',

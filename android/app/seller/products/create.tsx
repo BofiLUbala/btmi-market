@@ -293,6 +293,9 @@ export default function SellerProductCreateScreen() {
   }
 
   function pickImage() {
+    // In a browser the file dialog already offers the camera where one exists;
+    // a chain of confirm() prompts in front of it only gets in the way.
+    if (Platform.OS === 'web') { void addImageFrom('library'); return }
     confirmAction(t('seller.productForm.addPhoto'), undefined, [
       { text: t('profile.takePhoto'), onPress: () => void addImageFrom('camera') },
       { text: t('profile.chooseFromGallery'), onPress: () => void addImageFrom('library') },

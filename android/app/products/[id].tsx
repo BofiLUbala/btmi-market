@@ -175,6 +175,8 @@ export default function ProductScreen() {
   const reviewsY = useRef(0)
   const scrollToReviews = () => scrollRef.current?.scrollTo({ y: Math.max(0, contentY.current + reviewsY.current - 12), animated: true })
   const [photoIndex, setPhotoIndex] = useState(0)
+  // The seller's video leads the gallery; picking a photo thumbnail swaps it out.
+  const [showVideo, setShowVideo] = useState(true)
 
   const query = useQuery({
     queryKey: ['marketplace', 'product', id],
@@ -517,6 +519,7 @@ export default function ProductScreen() {
       ? summary.average_rating
       : typeof product.self_rating === 'number' && product.self_rating > 0 ? product.self_rating : 0
     const mainPhoto = photos[Math.min(photoIndex, Math.max(0, photos.length - 1))] ?? image
+    const videoOn = Boolean(product.video) && showVideo
     const highlights = specRows.filter((row) => row.key !== 'category' && row.key !== 'subcategory').slice(0, 6)
     const perRow = pageWidth >= 1200 ? 6 : 5
     const gridInner = pageWidth - 32 - 48
@@ -532,32 +535,47 @@ export default function ProductScreen() {
               {/* LEFT: thumbnails + image + big buttons */}
               <View style={[styles.wideLeft, stickyLeft]}>
                 <View style={styles.wideGalleryRow}>
-                  {photos.length > 1 ? (
+                  {photos.length > 1 || (videoOn && photos.length > 0) ? (
                     <View style={styles.wideThumbs}>
+                      {product.video ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t('product.video.title')}
+                          accessibilityState={{ selected: videoOn }}
+                          onPress={() => setShowVideo(true)}
+                          style={[styles.wideThumb, styles.wideVideoThumb, videoOn && styles.wideThumbActive]}
+                        >
+                          <Ionicons name="play-circle" size={28} color={colors.green} />
+                        </Pressable>
+                      ) : null}
                       {photos.map((url, i) => (
                         <Pressable
                           key={url + i}
                           accessibilityRole="button"
                           accessibilityLabel={t('product.photo', { index: i + 1, count: photos.length })}
-                          accessibilityState={{ selected: i === photoIndex }}
-                          onPress={() => setPhotoIndex(i)}
-                          onHoverIn={() => setPhotoIndex(i)}
-                          style={[styles.wideThumb, i === photoIndex && styles.wideThumbActive]}
+                          accessibilityState={{ selected: !videoOn && i === photoIndex }}
+                          onPress={() => { setShowVideo(false); setPhotoIndex(i) }}
+                          onHoverIn={() => { if (!videoOn) setPhotoIndex(i) }}
+                          style={[styles.wideThumb, !videoOn && i === photoIndex && styles.wideThumbActive]}
                         >
                           <Image source={url} contentFit="contain" style={styles.wideThumbImg} />
                         </Pressable>
                       ))}
                     </View>
                   ) : null}
-                  <View style={styles.wideImageBox}>
-                    <ProductPhoto
-                      uri={mainPhoto}
-                      categorySlug={category.slug}
-                      categoryName={category.name}
-                      contentFit="contain"
-                      accessibilityLabel={product.name}
-                      style={styles.wideImage}
-                    />
+                  <View style={[styles.wideImageBox, videoOn && styles.wideVideoBox]}>
+                    {videoOn ? (
+                      <ProductVideoPlayer url={product.video!.url} />
+                    ) : (
+                      <ProductPhoto
+                        uri={mainPhoto}
+                        categorySlug={category.slug}
+                        categoryName={category.name}
+                        contentFit="contain"
+                        accessibilityLabel={product.name}
+                        style={styles.wideImage}
+                      />
+                    )}
                     <View style={styles.wideImageActions}>
                       <Pressable
                         accessibilityRole="button"
@@ -745,8 +763,6 @@ export default function ProductScreen() {
                   </View>
                 ) : null}
 
-                {product.video ? <View style={styles.wideBox}><ProductVideoPlayer url={product.video.url} /></View> : null}
-
                 {description.intro || description.items.length > 0 ? (
                   <View style={styles.wideBox}>
                     <Text style={styles.wideBoxTitle}>{t('product.description')}</Text>
@@ -888,7 +904,9 @@ export default function ProductScreen() {
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
         {/* Full-bleed gallery: stock + favourite on top, reference + counter below */}
         <View style={[styles.gallery, { height: galleryHeight }]}>
-          {photos.length > 1 ? (
+          {product.video ? (
+            <ProductVideoPlayer url={product.video.url} style={{ width: galleryWidth, height: galleryHeight }} />
+          ) : photos.length > 1 ? (
             <ScrollView
               horizontal
               pagingEnabled
@@ -1081,8 +1099,6 @@ export default function ProductScreen() {
               </View>
             </View>
           ) : null}
-
-          {product.video ? <View style={styles.block}><ProductVideoPlayer url={product.video.url} /></View> : null}
 
           <InfoCards
             items={[
@@ -1435,6 +1451,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   wideThumb: { width: 64, height: 64, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: '#FFFFFF', overflow: 'hidden', padding: 4 },
   wideThumbActive: { borderColor: colors.green, borderWidth: 2 },
   wideThumbImg: { width: '100%', height: '100%' },
+  wideVideoThumb: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.greenSoft },
+  wideVideoBox: { padding: 0, backgroundColor: '#000' },
   wideImageBox: { flex: 1, height: 400, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, backgroundColor: '#FFFFFF', overflow: 'hidden', padding: 16 },
   wideImage: { width: '100%', height: '100%' },
   wideImageActions: { position: 'absolute', top: 10, right: 10, gap: 8 },

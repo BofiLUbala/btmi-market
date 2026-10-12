@@ -75,7 +75,8 @@
           "color": "#091223",
           "defaultChannel": "orders"
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "router": {},

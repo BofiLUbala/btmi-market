@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import * as ImagePicker from 'expo-image-picker'
 import { File } from 'expo-file-system'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { confirmAction } from '../lib/confirmAction'
 import { useI18n } from '../store/i18n'
@@ -81,6 +81,7 @@ export function ProductVideoField({ current, busy, onPicked, onRemove }: {
   }
 
   function chooseSource() {
+    if (Platform.OS === 'web') { void pick('library'); return }
     confirmAction(t('seller.productForm.video.add'), undefined, [
       { text: t('seller.productForm.video.record'), onPress: () => void pick('camera') },
       { text: t('seller.productForm.video.choose'), onPress: () => void pick('library') },
