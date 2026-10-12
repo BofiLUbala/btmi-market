@@ -1,4 +1,4 @@
-import { createElement, useEffect, useRef, useState } from 'react'
+import { createElement, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Linking, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { requireOptionalNativeModule } from 'expo-modules-core'
@@ -138,6 +138,71 @@ function NativeHero({ source, mod, style }: { source: string; mod: VideoModule; 
           <TapHint />
         </Pressable>
       ) : null}
+    </View>
+  )
+}
+
+/** A silent cover for marketplace cards: the video's first seconds on a loop,
+ *  its first frame standing in as the cover while it loads. It never takes
+ *  touches, so the card around it still opens the product. Without the native
+ *  video module (older installed app) it renders `fallback` instead. */
+export function VideoLoopPreview({ url, style, fallback }: { url?: string | null; style?: StyleProp<ViewStyle>; fallback: ReactNode }) {
+  const source = resolveMediaUrl(url ?? undefined)
+  if (!source) return <>{fallback}</>
+  if (Platform.OS === 'web') return <WebLoop source={source} style={style} />
+  const mod = expoVideo()
+  return mod ? <NativeLoop source={source} mod={mod} style={style} /> : <>{fallback}</>
+}
+
+function WebLoop({ source, style }: { source: string; style?: StyleProp<ViewStyle> }) {
+  const ref = useRef<HTMLVideoElement | null>(null)
+  useEffect(() => {
+    const video = ref.current
+    if (!video) return
+    video.muted = true
+    video.defaultMuted = true
+    void video.play().catch(() => undefined)
+    const resume = () => { if (document.visibilityState === 'visible') void video.play().catch(() => undefined) }
+    document.addEventListener('visibilitychange', resume)
+    return () => document.removeEventListener('visibilitychange', resume)
+  }, [])
+  return (
+    <View style={[styles.box, style]} pointerEvents="none">
+      {createElement('video', {
+        ref,
+        // #t=0.1 makes the browser paint the first frame as the cover before playback.
+        src: `${source}#t=0.1`,
+        autoPlay: true,
+        muted: true,
+        playsInline: true,
+        preload: 'metadata',
+        onTimeUpdate: (e: { currentTarget: HTMLVideoElement }) => {
+          if (e.currentTarget.currentTime >= PREVIEW_SECONDS) e.currentTarget.currentTime = 0
+        },
+        onEnded: (e: { currentTarget: HTMLVideoElement }) => { e.currentTarget.currentTime = 0; void e.currentTarget.play().catch(() => undefined) },
+        style: { width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' },
+      })}
+    </View>
+  )
+}
+
+function NativeLoop({ source, mod, style }: { source: string; mod: VideoModule; style?: StyleProp<ViewStyle> }) {
+  const player = mod.useVideoPlayer(source, (p) => {
+    p.muted = true
+    p.loop = false
+    p.timeUpdateEventInterval = 0.5
+    p.play()
+  })
+  useEffect(() => {
+    const time = player.addListener('timeUpdate', ({ currentTime }) => {
+      if (currentTime >= PREVIEW_SECONDS) player.currentTime = 0
+    })
+    const end = player.addListener('playToEnd', () => { player.currentTime = 0; player.play() })
+    return () => { time.remove(); end.remove() }
+  }, [player])
+  return (
+    <View style={[styles.box, style]} pointerEvents="none">
+      <mod.VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
     </View>
   )
 }

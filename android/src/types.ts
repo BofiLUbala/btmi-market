@@ -137,6 +137,8 @@ export interface PublicProduct {
   images?: Array<PublicImage | string>
   /** The seller's optional explainer video (product page only). */
   video?: { id: string; url: string; mime_type?: string }
+  /** Same video's URL on listing cards, which loop its first seconds. */
+  video_url?: string
 }
 export interface ProductDetail extends PublicProduct {
   description?: string

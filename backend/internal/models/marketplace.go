@@ -26,6 +26,8 @@ type PublicProductResponse struct {
 	SubcategorySlug string                  `json:"subcategory_slug,omitempty"`
 	Variants        []PublicVariantResponse `json:"variants"`
 	Images          []ProductImageResponse  `json:"images,omitempty"`
+	// VideoURL is the seller's explainer video; marketplace cards loop its start.
+	VideoURL        string                  `json:"video_url,omitempty"`
 	SellerLevel     string                  `json:"seller_level"`
 	SellerTrust     string                  `json:"seller_trust"`
 	Availability    string                  `json:"availability,omitempty"`

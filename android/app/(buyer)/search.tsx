@@ -312,7 +312,7 @@ function SearchResultCard({ product, onOpen, onAdded }: { product: PublicProduct
 
   return (
     <Pressable onPress={onOpen} style={({ pressed }) => [s.card, pressed && s.pressed]} accessibilityRole="button">
-      <ProductPhoto uri={image} categorySlug={product.category_slug} categoryName={product.category_name} style={[s.thumb, outOfStock && s.thumbOut]} transition={150} />
+      <ProductPhoto uri={image} video={product.video_url} categorySlug={product.category_slug} categoryName={product.category_name} style={[s.thumb, outOfStock && s.thumbOut]} transition={150} />
       <View style={s.body}>
         {product.category_name ? <Text numberOfLines={1} style={s.kicker}>{categoryLabel(t, product.category_slug, product.category_name)}</Text> : null}
         <Text numberOfLines={2} style={[s.name, outOfStock && s.muted]}>{product.name}</Text>

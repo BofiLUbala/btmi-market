@@ -43,6 +43,7 @@ func (s *MarketplaceService) SetVisualSearchURL(url string) { s.visualSearchURL 
 // attachImages fills the Images field of each product with its persisted
 // media, ordered primary-first. Failures are non-fatal.
 func (s *MarketplaceService) attachImages(products []*models.PublicProductResponse) {
+	attachVideoURLs(s.productVideoRepo, products)
 	if s.productImageRepo == nil || len(products) == 0 {
 		return
 	}

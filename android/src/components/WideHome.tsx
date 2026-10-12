@@ -257,7 +257,7 @@ function SpotlightCard({ title, icon, item, tone, compact = false }: { title: st
             {onSale ? <View style={s.spotBadge}><Text style={s.spotBadgeText}>-{promo.discountPercent}%</Text></View> : null}
           </View>
         </View>
-        <ProductPhoto uri={photo(shown)} categorySlug={shown.category_slug} categoryName={shown.category_name} style={[s.spotImage, compact && s.spotImageCompact]} transition={200} />
+        <ProductPhoto uri={photo(shown)} video={shown.video_url} categorySlug={shown.category_slug} categoryName={shown.category_name} style={[s.spotImage, compact && s.spotImageCompact]} transition={200} />
       </Animated.View>
     </Pressable>
   )
@@ -358,7 +358,7 @@ function StripRow({ items, size }: { items: PublicProduct[]; size: number }) {
         return (
           <Pressable key={p.id} onPress={() => openProduct(p)} style={({ pressed }) => [s.stripItem, pressed && s.pressed]} accessibilityRole="link" accessibilityLabel={p.name}>
             <View>
-              <ProductPhoto uri={photo(p)} categorySlug={p.category_slug} categoryName={p.category_name} style={s.stripImage} transition={150} />
+              <ProductPhoto uri={photo(p)} video={p.video_url} categorySlug={p.category_slug} categoryName={p.category_name} style={s.stripImage} transition={150} />
               {onSale ? <View style={s.stripBadge}><Text style={s.spotBadgeText}>-{promo.discountPercent}%</Text></View> : null}
             </View>
             {p.category_name ? <Text style={s.stripCat} numberOfLines={1}>{categoryLabel(t, p.category_slug, p.category_name)}</Text> : null}
@@ -386,7 +386,7 @@ function QuadCard({ group }: { group: Group }) {
           const { price } = priceOf(p)
           return (
             <Pressable key={p.id} onPress={() => openProduct(p)} style={({ pressed }) => [s.quadItem, pressed && s.pressed]} accessibilityRole="link" accessibilityLabel={p.name}>
-              <ProductPhoto uri={photo(p)} categorySlug={p.category_slug} categoryName={p.category_name} style={s.quadImage} transition={150} />
+              <ProductPhoto uri={photo(p)} video={p.video_url} categorySlug={p.category_slug} categoryName={p.category_name} style={s.quadImage} transition={150} />
               <Text style={s.quadName} numberOfLines={1}>{p.name}</Text>
               <Text style={s.quadPrice}>{formatMoney(price, p.currency)}</Text>
             </Pressable>

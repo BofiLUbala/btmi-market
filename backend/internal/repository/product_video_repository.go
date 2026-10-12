@@ -6,6 +6,7 @@ import (
 	"github.com/btmi-ai-market/backend/internal/database"
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type ProductVideoRepository struct {
@@ -48,6 +49,29 @@ func (r *ProductVideoRepository) Upsert(v *models.ProductVideo) (*models.Product
 		RETURNING `+productVideoColumns,
 		v.BusinessID, v.ProductID, v.URL, v.FileName, v.MimeType, v.SizeBytes)
 	return scanProductVideo(row)
+}
+
+// URLsByProductIDs maps each product that has a video to its video URL, in one
+// query, so product lists can carry it without a lookup per card.
+func (r *ProductVideoRepository) URLsByProductIDs(ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := r.db.Query(`SELECT product_id, url FROM product_videos WHERE product_id = ANY($1)`, pq.Array(ids))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var url string
+		if err := rows.Scan(&id, &url); err != nil {
+			return nil, err
+		}
+		out[id] = url
+	}
+	return out, rows.Err()
 }
 
 func (r *ProductVideoRepository) DeleteByProduct(productID uuid.UUID) error {

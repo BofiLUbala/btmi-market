@@ -40,6 +40,33 @@ func NewProductVideoService(
 	return &ProductVideoService{videoRepo: videoRepo, productRepo: productRepo, membershipRepo: membershipRepo, uploadDir: uploadDir}
 }
 
+// attachVideoURLs sets VideoURL on every listed product that has a video.
+// Failures are non-fatal: the card just shows its photo instead.
+func attachVideoURLs(repo *repository.ProductVideoRepository, lists ...[]*models.PublicProductResponse) {
+	if repo == nil {
+		return
+	}
+	var ids []uuid.UUID
+	for _, list := range lists {
+		for _, p := range list {
+			if p != nil {
+				ids = append(ids, p.ID)
+			}
+		}
+	}
+	urls, err := repo.URLsByProductIDs(ids)
+	if err != nil {
+		return
+	}
+	for _, list := range lists {
+		for _, p := range list {
+			if p != nil {
+				p.VideoURL = urls[p.ID]
+			}
+		}
+	}
+}
+
 func toVideoResponse(v *models.ProductVideo) *models.ProductVideoResponse {
 	return &models.ProductVideoResponse{
 		ID: v.ID, ProductID: v.ProductID, URL: v.URL, FileName: v.FileName,

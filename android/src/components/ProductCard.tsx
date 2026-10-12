@@ -52,6 +52,7 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
       <View style={styles.media}>
         <ProductPhoto
           uri={image}
+          video={product.video_url}
           categorySlug={product.category_slug}
           categoryName={product.category_name}
           style={[staticStyles.image, outOfStock && staticStyles.imageOut]}
