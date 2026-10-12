@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { requireOptionalNativeModule } from 'expo-modules-core'
 import { resolveMediaUrl } from '../api/client'
 import { useI18n } from '../store/i18n'
+import { ShareSheet } from './ShareSheet'
 
 /** The muted teaser replays this many first seconds until the buyer taps. */
 const PREVIEW_SECONDS = 10
@@ -31,13 +32,67 @@ function expoVideo(): VideoModule | null {
 
 /** The seller's explainer video at the top of the product page: a muted loop of
  *  its first seconds, then the whole video with sound once the buyer taps it. */
-export function ProductVideoPlayer({ url, style }: { url?: string; style?: StyleProp<ViewStyle> }) {
+export function ProductVideoPlayer({ url, style, share }: { url?: string; style?: StyleProp<ViewStyle>; share?: ShareTarget }) {
   const source = resolveMediaUrl(url)
   if (!source) return null
-  if (Platform.OS === 'web') return <WebHero source={source} style={style} />
+  if (Platform.OS === 'web') return <WebHero source={source} style={style} share={share} />
   const mod = expoVideo()
-  return mod ? <NativeHero source={source} mod={mod} style={style} /> : <ExternalHero source={source} style={style} />
+  return mod ? <NativeHero source={source} mod={mod} style={style} share={share} /> : <ExternalHero source={source} style={style} />
 }
+
+/** What the share button sends: the product page link and a line of text. */
+export type ShareTarget = { url: string; text: string }
+
+const SPEEDS = [1, 1.25, 1.5, 2, 0.5]
+const VOLUME_STEP = 0.2
+
+type ToolbarProps = {
+  rate: number
+  muted: boolean
+  volume: number
+  onRate: () => void
+  onMute: () => void
+  onVolume: (delta: number) => void
+  onFullscreen: () => void
+  onShare?: () => void
+}
+
+/** The reader's controls once the full video plays: speed, volume, mute,
+ *  fullscreen and share. Seek and pause stay on the player's own controls. */
+function VideoToolbar({ rate, muted, volume, onRate, onMute, onVolume, onFullscreen, onShare }: ToolbarProps) {
+  const { t } = useI18n()
+  const level = muted ? 0 : Math.round(volume * 100)
+  return (
+    <View style={styles.toolbar} pointerEvents="box-none">
+      <View style={styles.toolbarRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('product.video.speed', { rate: String(rate) })} onPress={onRate} style={styles.toolBtn}>
+          <Text style={styles.toolText}>{rate}x</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('product.video.volumeDown')} onPress={() => onVolume(-VOLUME_STEP)} style={styles.toolBtn}>
+          <Ionicons name="volume-low" size={18} color="#FFFFFF" />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={muted ? t('product.video.unmute') : t('product.video.mute')} onPress={onMute} style={styles.toolBtn}>
+          <Ionicons name={muted || level === 0 ? 'volume-mute' : 'volume-medium'} size={18} color="#FFFFFF" />
+          <Text style={styles.toolSmall}>{level}%</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('product.video.volumeUp')} onPress={() => onVolume(VOLUME_STEP)} style={styles.toolBtn}>
+          <Ionicons name="volume-high" size={18} color="#FFFFFF" />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('product.video.fullscreen')} onPress={onFullscreen} style={styles.toolBtn}>
+          <Ionicons name="expand" size={18} color="#FFFFFF" />
+        </Pressable>
+        {onShare ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={t('product.video.share')} onPress={onShare} style={styles.toolBtn}>
+            <Ionicons name="share-social" size={18} color="#FFFFFF" />
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  )
+}
+
+const nextRate = (rate: number) => SPEEDS[(SPEEDS.indexOf(rate) + 1) % SPEEDS.length]
+const clampVolume = (v: number) => Math.max(0, Math.min(1, Math.round(v * 10) / 10))
 
 function TapHint() {
   const { t } = useI18n()
@@ -49,10 +104,34 @@ function TapHint() {
   )
 }
 
-function WebHero({ source, style }: { source: string; style?: StyleProp<ViewStyle> }) {
+function WebHero({ source, style, share }: { source: string; style?: StyleProp<ViewStyle>; share?: ShareTarget }) {
   const { t } = useI18n()
   const ref = useRef<HTMLVideoElement | null>(null)
   const [full, setFull] = useState(false)
+  const [rate, setRate] = useState(1)
+  const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const [sharing, setSharing] = useState(false)
+
+  // Keep the toolbar in step when the browser's own controls change volume.
+  const syncVolume = (e: { currentTarget: HTMLVideoElement }) => {
+    if (!full) return
+    setMuted(e.currentTarget.muted)
+    setVolume(e.currentTarget.volume)
+  }
+  const toolbar = {
+    // Read the current values off the element, not React state, so quick
+    // repeated taps each take effect.
+    onRate: () => { const r = nextRate(ref.current?.playbackRate ?? rate); setRate(r); if (ref.current) ref.current.playbackRate = r },
+    onMute: () => { const m = !(ref.current?.muted ?? muted); setMuted(m); if (ref.current) ref.current.muted = m },
+    onVolume: (delta: number) => {
+      const video = ref.current
+      const v = clampVolume((video ? (video.muted ? 0 : video.volume) : muted ? 0 : volume) + delta)
+      setVolume(v); setMuted(v === 0)
+      if (ref.current) { ref.current.volume = v; ref.current.muted = v === 0 }
+    },
+    onFullscreen: () => { void ref.current?.requestFullscreen?.().catch(() => undefined) },
+  }
 
   useEffect(() => {
     const video = ref.current
@@ -94,17 +173,26 @@ function WebHero({ source, style }: { source: string; style?: StyleProp<ViewStyl
           if (!full) { e.currentTarget.currentTime = 0; void e.currentTarget.play().catch(() => undefined) }
         },
         onClick: watch,
+        onVolumeChange: syncVolume,
         style: { width: '100%', height: '100%', objectFit: full ? 'contain' : 'cover', backgroundColor: '#000', cursor: full ? 'default' : 'pointer', display: 'block' },
       })}
-      {!full ? <TapHint /> : null}
+      {!full ? <TapHint /> : (
+        <VideoToolbar rate={rate} muted={muted} volume={volume} {...toolbar} onShare={share ? () => setSharing(true) : undefined} />
+      )}
+      {share ? <ShareSheet visible={sharing} onClose={() => setSharing(false)} url={share.url} text={share.text} /> : null}
     </View>
   )
 }
 
-function NativeHero({ source, mod, style }: { source: string; mod: VideoModule; style?: StyleProp<ViewStyle> }) {
+function NativeHero({ source, mod, style, share }: { source: string; mod: VideoModule; style?: StyleProp<ViewStyle>; share?: ShareTarget }) {
   const { t } = useI18n()
   const [full, setFull] = useState(false)
   const fullRef = useRef(false)
+  const viewRef = useRef<InstanceType<VideoModule['VideoView']> | null>(null)
+  const [rate, setRate] = useState(1)
+  const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const [sharing, setSharing] = useState(false)
   const player = mod.useVideoPlayer(source, (p) => {
     p.muted = true
     p.loop = false
@@ -130,14 +218,29 @@ function NativeHero({ source, mod, style }: { source: string; mod: VideoModule; 
     player.play()
   }
 
+  const toolbar = {
+    onRate: () => { const r = nextRate(player.playbackRate); setRate(r); player.playbackRate = r },
+    onMute: () => { const m = !player.muted; setMuted(m); player.muted = m },
+    onVolume: (delta: number) => {
+      const v = clampVolume((player.muted ? 0 : player.volume) + delta)
+      setVolume(v); setMuted(v === 0)
+      player.volume = v
+      player.muted = v === 0
+    },
+    onFullscreen: () => { void viewRef.current?.enterFullscreen().catch(() => undefined) },
+  }
+
   return (
     <View style={[styles.box, style]} accessibilityLabel={t('product.video.title')}>
-      <mod.VideoView player={player} style={StyleSheet.absoluteFill} contentFit={full ? 'contain' : 'cover'} nativeControls={full} />
+      <mod.VideoView ref={viewRef} player={player} style={StyleSheet.absoluteFill} contentFit={full ? 'contain' : 'cover'} nativeControls={full} />
       {!full ? (
         <Pressable accessibilityRole="button" accessibilityLabel={t('product.video.watch')} onPress={watch} style={StyleSheet.absoluteFill}>
           <TapHint />
         </Pressable>
-      ) : null}
+      ) : (
+        <VideoToolbar rate={rate} muted={muted} volume={volume} {...toolbar} onShare={share ? () => setSharing(true) : undefined} />
+      )}
+      {share ? <ShareSheet visible={sharing} onClose={() => setSharing(false)} url={share.url} text={share.text} /> : null}
     </View>
   )
 }
@@ -226,4 +329,10 @@ const styles = StyleSheet.create({
   // Raised clear of the details sheet, which overlaps the bottom of the phone gallery.
   hint: { position: 'absolute', left: 12, bottom: 52, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.6)' },
   hintText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
+  // Below the stock chip and share/favourite buttons that sit on the gallery's top edge.
+  toolbar: { position: 'absolute', top: 72, left: 0, right: 0, alignItems: 'center' },
+  toolbarRow: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.6)' },
+  toolBtn: { minWidth: 40, height: 40, paddingHorizontal: 8, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 },
+  toolText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
+  toolSmall: { color: '#FFFFFF', fontWeight: '700', fontSize: 11 },
 })

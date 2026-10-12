@@ -7,7 +7,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -29,6 +28,7 @@ import { colorSwatch, isColorAttribute } from '../../src/lib/colorSwatch'
 import { DescriptionText, descriptionItems } from '../../src/components/Accordion'
 import { ProductCard } from '../../src/components/ProductCard'
 import { ProductVideoPlayer } from '../../src/components/ProductVideoPlayer'
+import { ShareSheet, productShareUrl } from '../../src/components/ShareSheet'
 import { useFavorites, useIsFavorite } from '../../src/store/favorites'
 import { get } from '../../src/api/client'
 import type { PublicImage, PublicProduct, PublicVariant } from '../../src/types'
@@ -177,6 +177,7 @@ export default function ProductScreen() {
   const [photoIndex, setPhotoIndex] = useState(0)
   // The seller's video leads the gallery; picking a photo thumbnail swaps it out.
   const [showVideo, setShowVideo] = useState(true)
+  const [sharing, setSharing] = useState(false)
 
   const query = useQuery({
     queryKey: ['marketplace', 'product', id],
@@ -333,9 +334,10 @@ export default function ProductScreen() {
       image,
     })
   const canBuy = optionsComplete && Boolean(selected) && stock > 0
-  const shareProduct = () => {
-    void Share.share({ message: `${product.name} · ${formatMoney(price, product.currency)}` }).catch(() => undefined)
-  }
+  // The product link goes out with the name and price, to WhatsApp, Facebook…
+  const share = { url: productShareUrl(product.id), text: `${product.name} · ${formatMoney(price, product.currency)}` }
+  const shareProduct = () => setSharing(true)
+  const shareSheet = <ShareSheet visible={sharing} onClose={() => setSharing(false)} url={share.url} text={share.text} />
   const toggleFavoriteProduct = () =>
     toggleFavorite({
       productId: product.id,
@@ -529,6 +531,7 @@ export default function ProductScreen() {
 
     return (
       <View style={[styles.screen, styles.wideScreen]}>
+        {shareSheet}
         <ScrollView ref={scrollRef} contentContainerStyle={styles.wideScroll}>
           <View style={[styles.widePage, { width: pageWidth }]}>
             <View style={styles.wideMain}>
@@ -565,7 +568,7 @@ export default function ProductScreen() {
                   ) : null}
                   <View style={[styles.wideImageBox, videoOn && styles.wideVideoBox]}>
                     {videoOn ? (
-                      <ProductVideoPlayer url={product.video!.url} />
+                      <ProductVideoPlayer url={product.video!.url} share={share} />
                     ) : (
                       <ProductPhoto
                         uri={mainPhoto}
@@ -901,11 +904,12 @@ export default function ProductScreen() {
 
   return (
     <View style={styles.screen}>
+      {shareSheet}
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
         {/* Full-bleed gallery: stock + favourite on top, reference + counter below */}
         <View style={[styles.gallery, { height: galleryHeight }]}>
           {product.video ? (
-            <ProductVideoPlayer url={product.video.url} style={{ width: galleryWidth, height: galleryHeight }} />
+            <ProductVideoPlayer url={product.video.url} share={share} style={{ width: galleryWidth, height: galleryHeight }} />
           ) : photos.length > 1 ? (
             <ScrollView
               horizontal
