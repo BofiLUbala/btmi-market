@@ -158,6 +158,7 @@ const styles = StyleSheet.create({
   box: { width: '100%', height: '100%', backgroundColor: '#000', overflow: 'hidden' },
   poster: { alignItems: 'center', justifyContent: 'center', gap: 8 },
   posterText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
-  hint: { position: 'absolute', left: 12, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.6)' },
+  // Raised clear of the details sheet, which overlaps the bottom of the phone gallery.
+  hint: { position: 'absolute', left: 12, bottom: 52, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.6)' },
   hintText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
 })
