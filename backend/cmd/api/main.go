@@ -248,6 +248,7 @@ func main() {
 	shopHandler.SetPurgeService(shopPurgeService)
 	employeeHandler := employees.NewHandler(employeeService)
 	inventoryHandler := inventory.NewHandler(inventoryService, productImageService)
+	inventoryHandler.SetProductVideoService(service.NewProductVideoService(repository.NewProductVideoRepository(db), productRepo, membershipRepo, cfg.UploadDir))
 	orderHandler := orders.NewHandler(orderService, pointRedemptionService, buyerProfileService, paymentService)
 	// The cart spans shops, so checkout validates each line against its own shop
 	// and fans the cart out to one order per shop.
@@ -441,6 +442,10 @@ func main() {
 			businessesGroup.GET("/:business_id/products/:product_id/images", inventoryHandler.ListProductImages)
 			businessesGroup.DELETE("/:business_id/products/:product_id/images/:image_id", inventoryHandler.DeleteProductImage)
 			businessesGroup.PATCH("/:business_id/products/:product_id/images/:image_id/variant", inventoryHandler.AssignProductImageVariant)
+
+			businessesGroup.POST("/:business_id/products/:product_id/video", inventoryHandler.UploadProductVideo)
+			businessesGroup.GET("/:business_id/products/:product_id/video", inventoryHandler.GetProductVideo)
+			businessesGroup.DELETE("/:business_id/products/:product_id/video", inventoryHandler.DeleteProductVideo)
 
 			businessesGroup.POST("/:business_id/receipts", inventoryHandler.ReceiveStock)
 			businessesGroup.GET("/:business_id/receipts", inventoryHandler.ListReceipts)

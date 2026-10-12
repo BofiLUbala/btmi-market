@@ -25,6 +25,7 @@ import type { Category, Shop } from '../../../src/types'
 import { formatMoney } from '../../../src/lib/money'
 import { DescriptionEditor } from '../../../src/components/DescriptionEditor'
 import { OptionPicker } from '../../../src/components/OptionPicker'
+import { ProductVideoField, type PickedVideo } from '../../../src/components/ProductVideoField'
 import { attributeOptions, sameAttribute, splitValues, VARIANT_TYPE_NAMES } from '../../../src/lib/attributeOptions'
 
 /* ── Types ──────────────────────────────────────────────── */
@@ -55,6 +56,7 @@ interface PipelineProgress {
   productId?: string
   resolvedVariants: Array<{ variantId: string; stock: number }>
   uploadedImages: number
+  videoUploaded: boolean
   stockDone: boolean
   published: boolean
 }
@@ -110,6 +112,7 @@ export default function SellerProductCreateScreen() {
   const [selfRating, setSelfRating] = useState(0)
   const [images, setImages] = useState<UploadFile[]>([])
   const [pickingImage, setPickingImage] = useState(false)
+  const [video, setVideo] = useState<PickedVideo | null>(null)
   const [categoryOpen, setCategoryOpen] = useState(false)
   const insets = useSafeAreaInsets()
   const [characteristics, setCharacteristics] = useState<CharacteristicRow[]>([])
@@ -120,7 +123,7 @@ export default function SellerProductCreateScreen() {
   const [stepLabel, setStepLabel] = useState('')
   const [error, setError] = useState('')
   const publishIntentRef = useRef<'DRAFT' | 'PUBLISHED'>('PUBLISHED')
-  const progressRef = useRef<PipelineProgress>({ resolvedVariants: [], uploadedImages: 0, stockDone: false, published: false })
+  const progressRef = useRef<PipelineProgress>({ resolvedVariants: [], uploadedImages: 0, videoUploaded: false, stockDone: false, published: false })
   /* One key per visit to this screen. The JSON timeout is short enough that a
      slow create can abort after the server committed it; replaying the same
      key returns that product instead of making a second one. */
@@ -431,6 +434,14 @@ export default function SellerProductCreateScreen() {
         }
       }
 
+      /* Step 3b — Optional explainer video, after the photos so a slow video
+         never delays them. Resumable like the photos via the progress ref. */
+      if (video && !progress.videoUploaded) {
+        setStepLabel(t('seller.productForm.video.stepUploading'))
+        await sellerApi.uploadProductVideo(activeBusiness.id, productId!, video)
+        progress.videoUploaded = true
+      }
+
       /* Step 4 — Shop-scoped stock. The offer row is always written, even at
          zero: the marketplace only lists a Product that has inventory in one
          of its business's shops, so skipping this publishes a Product nobody
@@ -553,6 +564,16 @@ export default function SellerProductCreateScreen() {
           </> : null}
         </ScrollView>
         {atMax ? <Text style={styles.hint}>{t('seller.productForm.maxPhotos')}</Text> : <Text style={styles.hint}>{t('seller.productForm.photosDescMobile')}</Text>}
+      </View>
+
+      {/* ── Optional explainer video: filmed now or picked from the gallery ── */}
+      <View style={styles.block}>
+        <ProductVideoField
+          current={video ? { name: video.name, sizeBytes: video.sizeBytes } : null}
+          busy={busy}
+          onPicked={setVideo}
+          onRemove={() => setVideo(null)}
+        />
       </View>
 
       {/* ── Name, price ($) + category select ── */}

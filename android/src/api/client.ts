@@ -97,6 +97,8 @@ export const resolveMediaUrl = (value?: string) => !value ? undefined : value.st
 
 const REQUEST_TIMEOUT_MS = 10_000
 const UPLOAD_TIMEOUT_MS = 60_000
+/** A product video is up to 60 MB, so it gets a longer window than a photo. */
+export const VIDEO_UPLOAD_TIMEOUT_MS = 300_000
 
 export class ApiError extends Error {
   /** `detail` carries the raw underlying failure (an OkHttp message, an
@@ -220,7 +222,7 @@ async function unwrap<T>(status: number, text: string): Promise<T> {
 export async function uploadFile<T>(
   path: string,
   file: { uri: string; type: string },
-  options: { fieldName?: string; parameters?: Record<string, string> } = {},
+  options: { fieldName?: string; parameters?: Record<string, string>; timeoutMs?: number } = {},
   retry = true,
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
@@ -228,7 +230,7 @@ export async function uploadFile<T>(
   if (token) headers.Authorization = `Bearer ${token}`
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? UPLOAD_TIMEOUT_MS)
   let result: { status: number; body: string }
   try {
     result = await new File(file.uri).upload(`${API_URL}${path}`, {

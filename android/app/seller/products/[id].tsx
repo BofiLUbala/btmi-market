@@ -24,6 +24,7 @@ import { OptionPicker } from '../../../src/components/OptionPicker'
 import { attributeOptions, sameAttribute, VARIANT_TYPE_NAMES } from '../../../src/lib/attributeOptions'
 import { DescriptionPreview } from '../../../src/components/Accordion'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { ProductVideoField } from '../../../src/components/ProductVideoField'
 
 // Port of web-app/src/pages/seller/products/SellerProductDetailPage.tsx at its
 // narrow layout (the `.mobile-card-list` variant cards). Same loads (product,
@@ -60,6 +61,7 @@ export default function SellerProductDetailScreen() {
   const shopsQ = useQuery({ queryKey: ['seller', 'shops', activeBusiness?.id], queryFn: () => sellerApi.shops(activeBusiness!.id), enabled: Boolean(activeBusiness) })
   const categoriesQ = useQuery({ queryKey: ['seller', 'categories'], queryFn: () => sellerApi.categories().catch(() => []) })
   const imagesQ = useQuery({ queryKey: ['seller', 'productImages', productId], queryFn: () => sellerApi.productImages(activeBusiness!.id, productId).catch(() => []), enabled })
+  const videoQ = useQuery({ queryKey: ['seller', 'productVideo', productId], queryFn: () => sellerApi.productVideo(activeBusiness!.id, productId).catch(() => null), enabled })
   const qr = useQuery({ queryKey: ['seller', 'productQR', productId], queryFn: () => sellerApi.productQR(activeBusiness!.id, productId), enabled, retry: false })
   const variants = variantsQ.data ?? []
   const shops = shopsQ.data ?? []
@@ -167,6 +169,7 @@ export default function SellerProductDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ['seller', 'product', productId] }),
       queryClient.invalidateQueries({ queryKey: ['seller', 'variants', productId] }),
       queryClient.invalidateQueries({ queryKey: ['seller', 'productImages', productId] }),
+      queryClient.invalidateQueries({ queryKey: ['seller', 'productVideo', productId] }),
       queryClient.invalidateQueries({ queryKey: ['seller', 'variantInventories', productId] }),
       queryClient.invalidateQueries({ queryKey: ['seller', 'inventory'] }),
       queryClient.invalidateQueries({ queryKey: ['seller', 'products'] }),
@@ -309,6 +312,13 @@ export default function SellerProductDetailScreen() {
       { text: t('profile.takePhoto'), onPress: () => void addImage('camera') },
       { text: t('profile.chooseFromGallery'), onPress: () => void addImage('library') },
       { text: t('common.cancel'), style: 'cancel' },
+    ])
+  }
+
+  function removeVideo() {
+    confirmAction(t('seller.productForm.video.removeConfirm'), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.remove'), style: 'destructive', onPress: () => void run(() => sellerApi.deleteProductVideo(activeBusiness!.id, productId), 'seller.productForm.video.removeFailed', t('seller.productForm.video.removed')) },
     ])
   }
 
@@ -486,6 +496,16 @@ export default function SellerProductDetailScreen() {
               <Pressable accessibilityRole="button" disabled={busy} onPress={() => removeImage(img.id)}><Text style={styles.removeText}>{t('common.remove')}</Text></Pressable>
             </View>
           </View>)}
+      </View>
+
+      {/* ── Explainer video (optional, one per product) ── */}
+      <View style={styles.card}>
+        <ProductVideoField
+          current={videoQ.data ? { name: videoQ.data.file_name || 'video', sizeBytes: videoQ.data.size_bytes } : null}
+          busy={busy}
+          onPicked={(picked) => void run(() => sellerApi.uploadProductVideo(activeBusiness.id, p.id, picked), 'seller.productForm.video.uploadFailed', t('seller.productForm.video.uploaded'))}
+          onRemove={removeVideo}
+        />
       </View>
 
       {/* ── Variants & Inventory ── */}

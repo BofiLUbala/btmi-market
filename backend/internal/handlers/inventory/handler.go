@@ -13,7 +13,11 @@ import (
 type Handler struct {
 	inventoryService    *service.InventoryService
 	productImageService *service.ProductImageService
+	productVideoService *service.ProductVideoService
 }
+
+// SetProductVideoService enables the explainer-video endpoints.
+func (h *Handler) SetProductVideoService(s *service.ProductVideoService) { h.productVideoService = s }
 
 func NewHandler(inventoryService *service.InventoryService, productImageService *service.ProductImageService) *Handler {
 	return &Handler{inventoryService: inventoryService, productImageService: productImageService}

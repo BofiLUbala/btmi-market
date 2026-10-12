@@ -558,6 +558,8 @@ export interface VariantInventoryRow { id: string; shop_id: string; product_id?:
 export interface CreateVariantRequest { sku?: string; name?: string; attributes?: Record<string, string>; sale_price: number; purchase_price?: number; barcode?: string; unit?: string }
 export interface UpdateVariantRequest { sku?: string; name?: string; attributes?: Record<string, string>; sale_price?: number; purchase_price?: number; barcode?: string; unit?: string; status?: string }
 export interface ProductImageResponse { id: string; product_id: string; variant_id?: string; url: string; file_name?: string; sort_order?: number; is_primary: boolean; created_at: string }
+/** The optional explainer video of a product (at most one). */
+export interface ProductVideoResponse { id: string; product_id: string; url: string; file_name?: string; mime_type?: string; size_bytes?: number; created_at: string }
 
 /* ---------- Seller: Inventory & Stock ---------- */
 // GET /shops/:id/inventory nests the row under `inventory` (unlike stock

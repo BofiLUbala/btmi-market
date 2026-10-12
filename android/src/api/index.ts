@@ -1,4 +1,4 @@
-import { del, get, patch, post, postForm, put, uploadFile } from './client'
+import { del, get, patch, post, postForm, put, uploadFile, VIDEO_UPLOAD_TIMEOUT_MS } from './client'
 import type { UploadFile } from '../lib/imageUpload'
 import type {
   AcceptEmployeeInvitationRequest, AddStockRequest, ArchiveBusinessResponse, AssignEmployeeRequest,
@@ -15,7 +15,7 @@ import type {
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
   TrackingResponse, CourierLocation, CourierLocationPoint, GeocodeCandidate, RoutePointInput, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
-  CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
+  ProductVideoResponse, CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
   HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct, ShopPurgePreview, ShopPurgeResult } from '../types'
 
 /** Query string from defined params only, in the web client's style. */
@@ -276,6 +276,11 @@ export const sellerApi = {
       { fieldName: 'file', ...(isPrimary ? { parameters: { is_primary: 'true' } } : {}) },
     ),
   deleteProductImage: (businessId: string, productId: string, imageId: string) => del<void>(`/businesses/${businessId}/products/${productId}/images/${imageId}`),
+  /** Optional explainer video: one per product, uploading again replaces it. */
+  productVideo: async (businessId: string, productId: string) => (await get<ProductVideoResponse | null>(`/businesses/${businessId}/products/${productId}/video`)) ?? null,
+  uploadProductVideo: (businessId: string, productId: string, file: UploadFile) =>
+    uploadFile<ProductVideoResponse>(`/businesses/${businessId}/products/${productId}/video`, file, { fieldName: 'file', timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS }),
+  deleteProductVideo: (businessId: string, productId: string) => del<void>(`/businesses/${businessId}/products/${productId}/video`),
 
   /* Inventory & stock */
   shopInventory: async (shopId: string, params?: { limit?: number }) => list<InventoryItem>(await get<unknown>(`/shops/${shopId}/inventory${qs(params)}`)),
