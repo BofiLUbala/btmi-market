@@ -191,10 +191,24 @@ func main() {
 		log.Printf("payment providers unavailable, mobile money disabled: %v", err)
 		enabledProviders = nil
 	}
+	// Moko Afrika raises real charges once its merchant credentials are set;
+	// until then the pending driver only records attempts.
+	mokoConfig := service.MokoConfig{
+		BaseURL: cfg.MokoBaseURL, MerchantID: cfg.MokoMerchantID, MerchantSecret: cfg.MokoMerchantSecret,
+		CallbackURL: cfg.MokoCallbackURL, CallbackSecret: cfg.MokoCallbackSecret, PayerEmail: cfg.MokoPayerEmail,
+	}
+	var mokoClient *service.MokoClient
+	var chargeDriver service.PaymentProviderDriver = service.NewPendingProviderDriver(enabledProviders)
+	if mokoConfig.Enabled() {
+		mokoClient = service.NewMokoClient(mokoConfig)
+		chargeDriver = service.NewMokoChargeDriver(mokoClient, enabledProviders)
+		paymentService.SetMokoClient(mokoClient)
+		log.Println("Moko Afrika mobile money: enabled")
+	}
 	paymentService.SetProviderDependencies(
 		paymentProviderRepo,
 		paymentAuditRepo,
-		service.NewPendingProviderDriver(enabledProviders),
+		chargeDriver,
 	)
 	marketplaceService := service.NewMarketplaceService(marketplaceRepo, pointService)
 	productImageRepo := repository.NewProductImageRepository(db)
@@ -218,6 +232,9 @@ func main() {
 	payoutService := service.NewPayoutService(repository.NewPayoutRepository(db), buyerPaymentRepo, commissionRepo, membershipRepo)
 	paymentService.SetPayoutService(payoutService)
 	purchaseConfirmationService.SetPayoutService(payoutService)
+	if mokoClient != nil {
+		payoutService.SetDriver(service.NewMokoPayoutDriver(mokoClient))
+	}
 
 	// The handover needs to read the payment it is settling and to write an audit row for
 	// every step, so it gets those after PaymentService exists.
@@ -788,6 +805,7 @@ func main() {
 		// the HMAC signature over the raw body is the credential, and this is the
 		// only path that may mark an online payment paid.
 		api.POST("/webhooks/payments/:provider", orderHandler.HandlePaymentWebhook)
+		api.POST("/webhooks/moko", orderHandler.HandleMokoCallback)
 
 		// RDC administrative hierarchy, read-only and public: every address form
 		// (checkout, buyer profile, shop onboarding) selects from these.

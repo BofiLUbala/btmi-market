@@ -201,7 +201,21 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 		})
 		return errors.New("INVALID_WEBHOOK_SIGNATURE")
 	}
-	if parseErr != nil || strings.TrimSpace(event.EventID) == "" || strings.TrimSpace(event.PaymentID) == "" {
+	if parseErr != nil {
+		return errors.New("INVALID_WEBHOOK_PAYLOAD")
+	}
+	return s.applyProviderEvent(provider, event, rawBody)
+}
+
+// applyProviderEvent settles a payment from an operator event whose origin has
+// already been authenticated - our own signed webhook or Moko's signed,
+// encrypted callback. Every check below (one claim per event, the payment's
+// operator, the exact amount) applies to both.
+func (s *PaymentService) applyProviderEvent(provider string, event models.ProviderPaymentEvent, rawBody []byte) error {
+	if s.webhookRepo == nil {
+		return errors.New("PAYMENT_WEBHOOK_NOT_CONFIGURED")
+	}
+	if strings.TrimSpace(event.EventID) == "" || strings.TrimSpace(event.PaymentID) == "" {
 		return errors.New("INVALID_WEBHOOK_PAYLOAD")
 	}
 

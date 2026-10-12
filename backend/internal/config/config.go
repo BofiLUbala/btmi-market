@@ -32,6 +32,13 @@ type Config struct {
 	// provider is wired up: the webhook then refuses every call rather than
 	// trusting an unsigned one.
 	PaymentWebhookSecret string
+	// Moko Afrika mobile money; leaving MOKO_MERCHANT_ID empty keeps it off.
+	MokoBaseURL        string
+	MokoMerchantID     string
+	MokoMerchantSecret string
+	MokoCallbackURL    string
+	MokoCallbackSecret string
+	MokoPayerEmail     string
 	// TomTom key for address search and road routes. Empty: points are placed
 	// by hand or by coordinates only, and no route is computed.
 	TomTomAPIKey string
@@ -56,51 +63,57 @@ type Config struct {
 	ExpoAccessToken string
 	// Extra browser push hosts allowed as subscription endpoints (comma
 	// separated), for a self-hosted push service or local tests.
-	PushExtraHosts       string
-	AppCommitSHA         string
-	BuildTime            string
+	PushExtraHosts string
+	AppCommitSHA   string
+	BuildTime      string
 }
 
 func Load() *Config {
 	return &Config{
-		AppEnv:               getEnv("APP_ENV", "development"),
-		APIPort:              getEnv("API_PORT", "8080"),
-		WorkerEnabled:        getEnvBool("BACKGROUND_WORKER_ENABLED", false),
-		DBHost:               getEnv("DB_HOST", "localhost"),
-		DBPort:               getEnv("DB_PORT", "5432"),
-		DBName:               getEnv("DB_NAME", "btmi_market"),
-		DBUser:               getEnv("DB_USER", "btmi_user"),
-		DBPassword:           getEnv("DB_PASSWORD", "btmi_secret_password"),
-		RedisAddr:            getEnv("REDIS_ADDR", "redis:6379"),
-		RedisPassword:        getEnv("REDIS_PASSWORD", ""),
-		RedisDB:              getEnvInt("REDIS_DB", 0),
-		JWTSecret:            getEnv("JWT_SECRET", "dev-secret-key-change-in-production"),
-		AccessTokenTTL:       getEnvInt("ACCESS_TOKEN_TTL", 15),
-		RefreshTokenTTL:      getEnvInt("REFRESH_TOKEN_TTL", 10080),
-		FrontendURL:          getEnv("FRONTEND_URL", "http://localhost:3000"),
-		SMTPHost:             getEnv("SMTP_HOST", ""),
-		SMTPPort:             getEnv("SMTP_PORT", ""),
-		SMTPUser:             getEnv("SMTP_USER", ""),
-		SMTPPassword:         getEnv("SMTP_PASSWORD", ""),
-		SMTPFrom:             getEnv("SMTP_FROM", "noreply@btmi-market.com"),
-		UploadDir:            getEnv("UPLOAD_DIR", "./uploads"),
-		VisualSearchURL:      getEnv("VISUAL_SEARCH_URL", "http://visual-search:8090"),
-		PaymentWebhookSecret: getEnv("PAYMENT_WEBHOOK_SECRET", ""),
-		TomTomAPIKey:         getEnv("TOMTOM_API_KEY", ""),
-		OpenWAURL:            getEnv("OPENWA_URL", ""),
-		OpenWAAPIKey:         getEnv("OPENWA_API_KEY", ""),
-		OpenWASessionID:      getEnv("OPENWA_SESSION_ID", ""),
+		AppEnv:                     getEnv("APP_ENV", "development"),
+		APIPort:                    getEnv("API_PORT", "8080"),
+		WorkerEnabled:              getEnvBool("BACKGROUND_WORKER_ENABLED", false),
+		DBHost:                     getEnv("DB_HOST", "localhost"),
+		DBPort:                     getEnv("DB_PORT", "5432"),
+		DBName:                     getEnv("DB_NAME", "btmi_market"),
+		DBUser:                     getEnv("DB_USER", "btmi_user"),
+		DBPassword:                 getEnv("DB_PASSWORD", "btmi_secret_password"),
+		RedisAddr:                  getEnv("REDIS_ADDR", "redis:6379"),
+		RedisPassword:              getEnv("REDIS_PASSWORD", ""),
+		RedisDB:                    getEnvInt("REDIS_DB", 0),
+		JWTSecret:                  getEnv("JWT_SECRET", "dev-secret-key-change-in-production"),
+		AccessTokenTTL:             getEnvInt("ACCESS_TOKEN_TTL", 15),
+		RefreshTokenTTL:            getEnvInt("REFRESH_TOKEN_TTL", 10080),
+		FrontendURL:                getEnv("FRONTEND_URL", "http://localhost:3000"),
+		SMTPHost:                   getEnv("SMTP_HOST", ""),
+		SMTPPort:                   getEnv("SMTP_PORT", ""),
+		SMTPUser:                   getEnv("SMTP_USER", ""),
+		SMTPPassword:               getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:                   getEnv("SMTP_FROM", "noreply@btmi-market.com"),
+		UploadDir:                  getEnv("UPLOAD_DIR", "./uploads"),
+		VisualSearchURL:            getEnv("VISUAL_SEARCH_URL", "http://visual-search:8090"),
+		PaymentWebhookSecret:       getEnv("PAYMENT_WEBHOOK_SECRET", ""),
+		MokoBaseURL:                getEnv("MOKO_BASE_URL", ""),
+		MokoMerchantID:             getEnv("MOKO_MERCHANT_ID", ""),
+		MokoMerchantSecret:         getEnv("MOKO_MERCHANT_SECRET", ""),
+		MokoCallbackURL:            getEnv("MOKO_CALLBACK_URL", ""),
+		MokoCallbackSecret:         getEnv("MOKO_CALLBACK_SECRET", ""),
+		MokoPayerEmail:             getEnv("MOKO_PAYER_EMAIL", ""),
+		TomTomAPIKey:               getEnv("TOMTOM_API_KEY", ""),
+		OpenWAURL:                  getEnv("OPENWA_URL", ""),
+		OpenWAAPIKey:               getEnv("OPENWA_API_KEY", ""),
+		OpenWASessionID:            getEnv("OPENWA_SESSION_ID", ""),
 		WhatsAppDefaultCountryCode: getEnv("WHATSAPP_DEFAULT_COUNTRY_CODE", "243"),
-		PushEnabled:          getEnvBool("PUSH_ENABLED", true),
-		PushWebEnabled:       getEnvBool("PUSH_WEB_ENABLED", true),
-		PushExpoEnabled:      getEnvBool("PUSH_EXPO_ENABLED", true),
-		VAPIDPrivateKey:      getEnv("VAPID_PRIVATE_KEY", ""),
-		VAPIDSubject:         getEnv("VAPID_SUBJECT", "mailto:support@tbkmarket.com"),
-		ExpoPushURL:          getEnv("EXPO_PUSH_URL", ""),
-		ExpoAccessToken:      getEnv("EXPO_ACCESS_TOKEN", ""),
-		PushExtraHosts:       getEnv("PUSH_EXTRA_HOSTS", ""),
-		AppCommitSHA:         getEnv("APP_COMMIT_SHA", "unknown"),
-		BuildTime:            getEnv("BUILD_TIME", "unknown"),
+		PushEnabled:                getEnvBool("PUSH_ENABLED", true),
+		PushWebEnabled:             getEnvBool("PUSH_WEB_ENABLED", true),
+		PushExpoEnabled:            getEnvBool("PUSH_EXPO_ENABLED", true),
+		VAPIDPrivateKey:            getEnv("VAPID_PRIVATE_KEY", ""),
+		VAPIDSubject:               getEnv("VAPID_SUBJECT", "mailto:support@tbkmarket.com"),
+		ExpoPushURL:                getEnv("EXPO_PUSH_URL", ""),
+		ExpoAccessToken:            getEnv("EXPO_ACCESS_TOKEN", ""),
+		PushExtraHosts:             getEnv("PUSH_EXTRA_HOSTS", ""),
+		AppCommitSHA:               getEnv("APP_COMMIT_SHA", "unknown"),
+		BuildTime:                  getEnv("BUILD_TIME", "unknown"),
 	}
 }
 

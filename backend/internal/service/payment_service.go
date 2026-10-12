@@ -32,6 +32,7 @@ type PaymentService struct {
 	assignmentRepo     *repository.AssignmentRepository
 	commService        *CommissionService
 	payoutService      *PayoutService
+	mokoClient         *MokoClient
 	webhookRepo        *repository.PaymentWebhookRepository
 	webhookSecret      string
 	providerRepo       *repository.PaymentProviderRepository

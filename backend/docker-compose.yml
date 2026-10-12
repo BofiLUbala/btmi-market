@@ -35,6 +35,13 @@ services:
       - MIGRATIONS_DIR=/migrations
       - VISUAL_SEARCH_URL=http://visual-search:8090
       - PAYMENT_WEBHOOK_SECRET=${PAYMENT_WEBHOOK_SECRET:-}
+      # Moko Afrika mobile money (off while MOKO_MERCHANT_ID is empty)
+      - MOKO_BASE_URL=${MOKO_BASE_URL:-}
+      - MOKO_MERCHANT_ID=${MOKO_MERCHANT_ID:-}
+      - MOKO_MERCHANT_SECRET=${MOKO_MERCHANT_SECRET:-}
+      - MOKO_CALLBACK_URL=${MOKO_CALLBACK_URL:-}
+      - MOKO_CALLBACK_SECRET=${MOKO_CALLBACK_SECRET:-}
+      - MOKO_PAYER_EMAIL=${MOKO_PAYER_EMAIL:-}
       - TOMTOM_API_KEY=${TOMTOM_API_KEY:-}
       # WhatsApp one-time codes through OpenWA (service `openwa` below).
       - OPENWA_URL=${OPENWA_URL:-}
