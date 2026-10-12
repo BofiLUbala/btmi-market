@@ -219,6 +219,26 @@ async function unwrap<T>(status: number, text: string): Promise<T> {
  *  Note that the multipart `filename` is the name of the file on disk -- the
  *  native uploader has no way to override it -- so the caller controls it by
  *  choosing where it writes the temporary copy. */
+/** The browser has no native uploader (`File.upload` is native-only), so on the
+ *  web the picked file -- a `blob:` or `data:` URI -- is read back and sent as
+ *  an ordinary multipart `fetch`, which the browser sizes itself. */
+async function uploadFromBrowser(
+  url: string,
+  file: { uri: string; type: string },
+  options: { fieldName?: string; parameters?: Record<string, string> },
+  headers: Record<string, string>,
+  signal: AbortSignal,
+): Promise<{ status: number; body: string }> {
+  const blob = await (await fetch(file.uri)).blob()
+  const extension = (file.type.split('/')[1] || 'bin').replace('quicktime', 'mov').replace('jpeg', 'jpg')
+  const form = new FormData()
+  const name = (file as { name?: string }).name || `upload.${extension}`
+  form.append(options.fieldName ?? 'file', new Blob([blob], { type: file.type }), name)
+  for (const [key, value] of Object.entries(options.parameters ?? {})) form.append(key, value)
+  const response = await fetch(url, { method: 'POST', headers, body: form, signal })
+  return { status: response.status, body: await response.text() }
+}
+
 export async function uploadFile<T>(
   path: string,
   file: { uri: string; type: string },
@@ -233,7 +253,9 @@ export async function uploadFile<T>(
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? UPLOAD_TIMEOUT_MS)
   let result: { status: number; body: string }
   try {
-    result = await new File(file.uri).upload(`${API_URL}${path}`, {
+    result = Platform.OS === 'web'
+      ? await uploadFromBrowser(`${API_URL}${path}`, file, options, headers, controller.signal)
+      : await new File(file.uri).upload(`${API_URL}${path}`, {
       httpMethod: 'POST',
       uploadType: UploadType.MULTIPART,
       fieldName: options.fieldName ?? 'file',

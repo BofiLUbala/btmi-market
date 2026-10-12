@@ -20,12 +20,11 @@ describe('who embeds the live map', () => {
   }
   walk(join(src, 'pages'))
 
-  it('is the buyer order and tracking pages, the courier mission and the Commerce Admin delivery drawer only', () => {
+  // The buyer and courier pages left web-app with the marketplace UI (they live in
+  // the Expo app now), so the admin delivery drawer is the only embedder left.
+  it('is the Commerce Admin delivery drawer only', () => {
     expect(embedders.sort()).toEqual([
       'pages/admin/commerce/deliveries/CommerceDeliveryAssignmentsPage.tsx',
-      'pages/buyer/OrderDetailPage.tsx',
-      'pages/buyer/TrackOrderPage.tsx',
-      'pages/courier/CourierMissionPage.tsx',
     ])
   })
 

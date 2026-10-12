@@ -135,6 +135,8 @@ export interface PublicProduct {
   image_url?: string
   primary_image_url?: string
   images?: Array<PublicImage | string>
+  /** The seller's optional explainer video (product page only). */
+  video?: { id: string; url: string; mime_type?: string }
 }
 export interface ProductDetail extends PublicProduct {
   description?: string

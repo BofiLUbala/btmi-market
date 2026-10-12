@@ -68,3 +68,10 @@ func (r *PaymentWebhookRepository) Record(event *models.PaymentWebhookEvent) err
 		event.ReportedAmount, event.SignatureValid, event.Accepted, event.RejectionReason, payload)
 	return err
 }
+
+// Release forgets a claimed event whose processing failed for a reason on our
+// side, so the provider's retry is handled instead of being dropped as a repeat.
+func (r *PaymentWebhookRepository) Release(id uuid.UUID) error {
+	_, err := r.db.Exec(`DELETE FROM payment_webhook_events WHERE id=$1`, id)
+	return err
+}

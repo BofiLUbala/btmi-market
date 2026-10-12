@@ -223,6 +223,14 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 		return err
 	}
 
+	// A failure that is ours (database hiccup) must not leave the event claimed:
+	// the provider's retry would be dropped as "already seen" and the payment
+	// would never settle. Releasing the claim lets the retry run again.
+	release := func(err error) error {
+		_ = s.webhookRepo.Release(record.ID)
+		return err
+	}
+
 	reject := func(reason string) error {
 		_ = s.webhookRepo.Settle(record.ID, false, reason)
 		return errors.New(reason)
@@ -230,7 +238,7 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 
 	payment, err := s.paymentRepo.GetByID(paymentID)
 	if err != nil {
-		return err
+		return release(err)
 	}
 	if payment == nil {
 		return reject("PAYMENT_NOT_FOUND")
@@ -252,7 +260,7 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 		now := time.Now()
 		changed, err := s.paymentRepo.MarkProviderOutcome(paymentID, models.BuyerPaymentStatusPaid, event.Reference, "", &now)
 		if err != nil {
-			return err
+			return release(err)
 		}
 		if !changed {
 			// Already settled by an earlier event; treat as handled.
@@ -304,7 +312,7 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 			reason = "PROVIDER_REPORTED_FAILURE"
 		}
 		if _, err := s.paymentRepo.MarkProviderOutcome(paymentID, models.BuyerPaymentStatusFailed, event.Reference, reason, nil); err != nil {
-			return err
+			return release(err)
 		}
 		_ = s.webhookRepo.Settle(record.ID, true, "")
 		s.audit(&models.PaymentAuditEvent{

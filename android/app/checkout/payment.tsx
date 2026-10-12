@@ -241,7 +241,9 @@ export default function PaymentScreen() {
           const failed = p?.status === 'FAILED'
           // A timeout or missing status is not proof the provider did not charge.
           // Retry only after an authoritative FAILED state from the backend.
-          const retryable = p?.status === 'FAILED' && !paid
+          // A DUE payment whose initiation was refused before any charge started
+          // is equally safe to retry: nothing reached the operator.
+          const retryable = !paid && (p?.status === 'FAILED' || (p?.status === 'DUE' && Boolean(initErrors[id])))
           return (
             <Card key={id}>
               <View style={styles.row}>

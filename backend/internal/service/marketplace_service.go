@@ -12,6 +12,7 @@ import (
 type MarketplaceService struct {
 	marketplaceRepo  *repository.MarketplaceRepository
 	productImageRepo *repository.ProductImageRepository
+	productVideoRepo *repository.ProductVideoRepository
 	visualSearchURL  string
 	pointService     *PointService
 	synonyms         *searchutil.SynonymCache
@@ -30,6 +31,11 @@ func NewMarketplaceService(
 
 func (s *MarketplaceService) SetProductImageRepo(repo *repository.ProductImageRepository) {
 	s.productImageRepo = repo
+}
+
+// SetProductVideoRepo lets the public product page carry the explainer video.
+func (s *MarketplaceService) SetProductVideoRepo(repo *repository.ProductVideoRepository) {
+	s.productVideoRepo = repo
 }
 
 func (s *MarketplaceService) SetVisualSearchURL(url string) { s.visualSearchURL = url }
@@ -168,6 +174,11 @@ func (s *MarketplaceService) GetProductDetail(productID uuid.UUID, buyerProfileI
 					CreatedAt: img.CreatedAt,
 				})
 			}
+		}
+	}
+	if detail != nil && s.productVideoRepo != nil {
+		if video, vErr := s.productVideoRepo.GetByProduct(productID); vErr == nil && video != nil {
+			detail.Video = toVideoResponse(video)
 		}
 	}
 	return detail, nil

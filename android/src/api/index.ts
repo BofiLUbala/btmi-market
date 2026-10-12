@@ -277,7 +277,12 @@ export const sellerApi = {
     ),
   deleteProductImage: (businessId: string, productId: string, imageId: string) => del<void>(`/businesses/${businessId}/products/${productId}/images/${imageId}`),
   /** Optional explainer video: one per product, uploading again replaces it. */
-  productVideo: async (businessId: string, productId: string) => (await get<ProductVideoResponse | null>(`/businesses/${businessId}/products/${productId}/video`)) ?? null,
+  productVideo: async (businessId: string, productId: string) => {
+    // No video answers `data: null`, which unwrap turns into the whole envelope;
+    // only a real video row carries a url.
+    const video = await get<unknown>(`/businesses/${businessId}/products/${productId}/video`)
+    return video && typeof video === 'object' && 'url' in video ? video as ProductVideoResponse : null
+  },
   uploadProductVideo: (businessId: string, productId: string, file: UploadFile) =>
     uploadFile<ProductVideoResponse>(`/businesses/${businessId}/products/${productId}/video`, file, { fieldName: 'file', timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS }),
   deleteProductVideo: (businessId: string, productId: string) => del<void>(`/businesses/${businessId}/products/${productId}/video`),

@@ -121,7 +121,8 @@ func (r *BuyerPaymentRepository) CancelUnsettled(id uuid.UUID) (bool, error) {
 // MarkProviderOutcome moves an online payment between provider-driven states.
 // It is guarded on the statuses a provider may still act on, so a late or
 // replayed webhook cannot resurrect a settled payment; it reports whether the
-// row actually changed.
+// row actually changed. A success may still land on a FAILED payment: the
+// operator's word that money moved outranks an earlier failure report.
 func (r *BuyerPaymentRepository) MarkProviderOutcome(id uuid.UUID, status models.BuyerPaymentStatus, reference, failureReason string, verifiedAt *time.Time) (bool, error) {
 	result, err := r.db.Exec(`
 		UPDATE buyer_payments
@@ -130,7 +131,8 @@ func (r *BuyerPaymentRepository) MarkProviderOutcome(id uuid.UUID, status models
 		    paid_at=CASE WHEN $2::varchar IN ('PAID','VERIFIED') THEN COALESCE($5, NOW()) ELSE paid_at END,
 		    confirmation_actor=CASE WHEN $2::varchar IN ('PAID','VERIFIED') THEN 'PROVIDER' ELSE confirmation_actor END,
 		    updated_at=NOW()
-		WHERE id=$1 AND status IN ('DUE','PROCESSING','PENDING')
+		WHERE id=$1 AND (status IN ('DUE','PROCESSING','PENDING')
+		       OR ($2::varchar = 'PAID' AND status = 'FAILED'))
 	`, id, status, reference, failureReason, verifiedAt)
 	if err != nil {
 		return false, err

@@ -199,6 +199,7 @@ func main() {
 	marketplaceService := service.NewMarketplaceService(marketplaceRepo, pointService)
 	productImageRepo := repository.NewProductImageRepository(db)
 	marketplaceService.SetProductImageRepo(productImageRepo)
+	marketplaceService.SetProductVideoRepo(repository.NewProductVideoRepository(db))
 	marketplaceService.SetVisualSearchURL(cfg.VisualSearchURL)
 	productImageService := service.NewProductImageService(productImageRepo, productRepo, variantRepo, membershipRepo, cfg.UploadDir)
 	categoryService := service.NewCategoryService(categoryRepo)

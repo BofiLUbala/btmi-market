@@ -434,14 +434,6 @@ export default function SellerProductCreateScreen() {
         }
       }
 
-      /* Step 3b — Optional explainer video, after the photos so a slow video
-         never delays them. Resumable like the photos via the progress ref. */
-      if (video && !progress.videoUploaded) {
-        setStepLabel(t('seller.productForm.video.stepUploading'))
-        await sellerApi.uploadProductVideo(activeBusiness.id, productId!, video)
-        progress.videoUploaded = true
-      }
-
       /* Step 4 — Shop-scoped stock. The offer row is always written, even at
          zero: the marketplace only lists a Product that has inventory in one
          of its business's shops, so skipping this publishes a Product nobody
@@ -462,6 +454,21 @@ export default function SellerProductCreateScreen() {
         progress.published = true
       }
 
+      /* Step 6 — Optional explainer video, last and non-blocking: the product is
+         already complete (and published), so a failed or slow video upload must
+         never keep it off the marketplace. The seller can retry it from the
+         product page. */
+      let videoFailed = false
+      if (video && !progress.videoUploaded) {
+        setStepLabel(t('seller.productForm.video.stepUploading'))
+        try {
+          await sellerApi.uploadProductVideo(activeBusiness.id, productId!, video)
+          progress.videoUploaded = true
+        } catch {
+          videoFailed = true
+        }
+      }
+
       await queryClient.invalidateQueries({ queryKey: ['seller', 'products'] })
       if (progress.published) {
         // The buyer tab remains mounted while the seller creates a product.
@@ -470,7 +477,10 @@ export default function SellerProductCreateScreen() {
       }
 
       setActiveShop(shopId)
-      router.replace(`/seller/products/${productId}`)
+      // Published: back to the dashboard. A draft opens its product page so it can be completed.
+      // If only the video failed, land on the product page where it can be retried.
+      router.replace(progress.published && !videoFailed ? '/seller' : `/seller/products/${productId}`)
+      if (videoFailed) confirmAction(t('seller.productForm.video.savedWithoutVideo'))
     } catch (err) {
       const message = err instanceof ApiError ? err.message : err instanceof Error ? err.message : t('seller.productForm.genericError')
       setPartialFailure({ stage: stepLabel || t('seller.productForm.processing'), message })

@@ -199,32 +199,34 @@ type CategorySummary struct {
 }
 
 type PublicProductDetailResponse struct {
-	ID              uuid.UUID                     `json:"id"`
-	ShopID          uuid.UUID                     `json:"shop_id"`
-	ShopName        string                        `json:"shop_name"`
-	BusinessID      uuid.UUID                     `json:"business_id"`
-	BusinessName    string                        `json:"business_name"`
-	Name            string                        `json:"name"`
-	SKU             string                        `json:"sku"`
-	Description     string                        `json:"description"`
-	Unit            string                        `json:"unit"`
-	BasePrice       float64                       `json:"base_price"` // Regular unit_price
-	Currency        string                        `json:"currency"`
-	CategoryID      *uuid.UUID                    `json:"category_id,omitempty"`
-	SubcategoryID   *uuid.UUID                    `json:"subcategory_id,omitempty"`
-	Category        *CategorySummary              `json:"category,omitempty"`
-	Subcategory     *CategorySummary              `json:"subcategory,omitempty"`
-	Variants        []PublicVariantDetailResponse `json:"variants"`
-	Images          []ProductImageResponse        `json:"images,omitempty"`
-	SellerLevel     string                        `json:"seller_level"`
-	SellerTrust     string                        `json:"seller_trust"`
-	Availability    string                        `json:"availability"`
-	DiscountActive  bool                          `json:"discount_active"`
-	DiscountType    string                        `json:"discount_type"`
-	DiscountValue   float64                       `json:"discount_value"`
-	DiscountStart   *time.Time                    `json:"discount_start,omitempty"`
-	DiscountEnd     *time.Time                    `json:"discount_end,omitempty"`
-	SellerSalePrice float64                       `json:"seller_sale_price"` // Calculated sale price
+	ID            uuid.UUID                     `json:"id"`
+	ShopID        uuid.UUID                     `json:"shop_id"`
+	ShopName      string                        `json:"shop_name"`
+	BusinessID    uuid.UUID                     `json:"business_id"`
+	BusinessName  string                        `json:"business_name"`
+	Name          string                        `json:"name"`
+	SKU           string                        `json:"sku"`
+	Description   string                        `json:"description"`
+	Unit          string                        `json:"unit"`
+	BasePrice     float64                       `json:"base_price"` // Regular unit_price
+	Currency      string                        `json:"currency"`
+	CategoryID    *uuid.UUID                    `json:"category_id,omitempty"`
+	SubcategoryID *uuid.UUID                    `json:"subcategory_id,omitempty"`
+	Category      *CategorySummary              `json:"category,omitempty"`
+	Subcategory   *CategorySummary              `json:"subcategory,omitempty"`
+	Variants      []PublicVariantDetailResponse `json:"variants"`
+	Images        []ProductImageResponse        `json:"images,omitempty"`
+	// Video is the seller's optional explainer video; absent when there is none.
+	Video           *ProductVideoResponse `json:"video,omitempty"`
+	SellerLevel     string                `json:"seller_level"`
+	SellerTrust     string                `json:"seller_trust"`
+	Availability    string                `json:"availability"`
+	DiscountActive  bool                  `json:"discount_active"`
+	DiscountType    string                `json:"discount_type"`
+	DiscountValue   float64               `json:"discount_value"`
+	DiscountStart   *time.Time            `json:"discount_start,omitempty"`
+	DiscountEnd     *time.Time            `json:"discount_end,omitempty"`
+	SellerSalePrice float64               `json:"seller_sale_price"` // Calculated sale price
 	// SelfRating is the seller's own 1-5 star claim, set at creation. It is
 	// never mixed into AverageRating/TotalReviews (the verified buyer-review
 	// aggregate) — the frontend must label it separately.

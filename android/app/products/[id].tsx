@@ -28,6 +28,7 @@ import { categoryLabel } from '../../src/lib/categoryLabels'
 import { colorSwatch, isColorAttribute } from '../../src/lib/colorSwatch'
 import { DescriptionText, descriptionItems } from '../../src/components/Accordion'
 import { ProductCard } from '../../src/components/ProductCard'
+import { ProductVideoPlayer } from '../../src/components/ProductVideoPlayer'
 import { useFavorites, useIsFavorite } from '../../src/store/favorites'
 import { get } from '../../src/api/client'
 import type { PublicImage, PublicProduct, PublicVariant } from '../../src/types'
@@ -744,6 +745,8 @@ export default function ProductScreen() {
                   </View>
                 ) : null}
 
+                {product.video ? <View style={styles.wideBox}><ProductVideoPlayer url={product.video.url} /></View> : null}
+
                 {description.intro || description.items.length > 0 ? (
                   <View style={styles.wideBox}>
                     <Text style={styles.wideBoxTitle}>{t('product.description')}</Text>
@@ -1078,6 +1081,8 @@ export default function ProductScreen() {
               </View>
             </View>
           ) : null}
+
+          {product.video ? <View style={styles.block}><ProductVideoPlayer url={product.video.url} /></View> : null}
 
           <InfoCards
             items={[
