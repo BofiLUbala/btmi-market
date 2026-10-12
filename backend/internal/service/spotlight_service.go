@@ -61,8 +61,9 @@ type SpotlightService struct {
 	ranking  *CategoryRankingService
 	notifier *notify.Notifier
 	images   *repository.ProductImageRepository
+	videos   *repository.ProductVideoRepository
 
-	mu     sync.RWMutex
+	mu    sync.RWMutex
 	newest []*models.PublicProductResponse
 	offers []*models.PublicProductResponse
 	best   []*models.PublicProductResponse
@@ -89,6 +90,10 @@ func NewSpotlightService(repo *repository.MarketplaceRepository, ranking *Catego
 // SetImageRepo gives the spotlights the sellers' photos (the product list
 // query does not carry them).
 func (s *SpotlightService) SetImageRepo(r *repository.ProductImageRepository) { s.images = r }
+
+// SetVideoRepo gives the spotlights the sellers' explainer videos, which the
+// cards loop in place of the photo.
+func (s *SpotlightService) SetVideoRepo(r *repository.ProductVideoRepository) { s.videos = r }
 
 // SetNotifier tells sellers when their products enter or leave a spotlight.
 func (s *SpotlightService) SetNotifier(n *notify.Notifier) { s.notifier = n }
@@ -126,6 +131,7 @@ func (s *SpotlightService) refresh() {
 		log.Printf("spotlights: product photos: %v", err)
 		return
 	}
+	attachVideoURLs(s.videos, all)
 
 	now := time.Now()
 	inStock := make([]*models.PublicProductResponse, 0, len(all))
@@ -351,7 +357,11 @@ func (s *SpotlightService) attachPhotos(products []*models.PublicProductResponse
 	return nil
 }
 
+// hasPhoto reports whether the product has its own media (photo or video).
 func hasPhoto(p *models.PublicProductResponse) bool {
+	if p.VideoURL != "" {
+		return true
+	}
 	for _, img := range p.Images {
 		if img.URL != "" {
 			return true
