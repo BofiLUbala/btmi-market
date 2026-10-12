@@ -15,7 +15,7 @@ import type {
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
   TrackingResponse, CourierLocation, CourierLocationPoint, GeocodeCandidate, RoutePointInput, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
-  ProductVideoResponse, CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
+  ProductVideoResponse, SellerPayout, SellerPayoutAccount, CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
   HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct, ShopPurgePreview, ShopPurgeResult } from '../types'
 
 /** Query string from defined params only, in the web client's style. */
@@ -286,6 +286,12 @@ export const sellerApi = {
   uploadProductVideo: (businessId: string, productId: string, file: UploadFile) =>
     uploadFile<ProductVideoResponse>(`/businesses/${businessId}/products/${productId}/video`, file, { fieldName: 'file', timeoutMs: VIDEO_UPLOAD_TIMEOUT_MS }),
   deleteProductVideo: (businessId: string, productId: string) => del<void>(`/businesses/${businessId}/products/${productId}/video`),
+
+  /* Mobile money payouts: the seller's number on each of the four networks,
+     and the payouts TBK made from each settled sale. */
+  payoutAccounts: async (businessId: string) => list<SellerPayoutAccount>(await get<unknown>(`/businesses/${businessId}/payout-accounts`)),
+  savePayoutAccounts: async (businessId: string, accounts: Record<string, string>) => list<SellerPayoutAccount>(await put<unknown>(`/businesses/${businessId}/payout-accounts`, { accounts })),
+  payouts: async (businessId: string) => list<SellerPayout>(await get<unknown>(`/businesses/${businessId}/payouts?limit=100`)),
 
   /* Inventory & stock */
   shopInventory: async (shopId: string, params?: { limit?: number }) => list<InventoryItem>(await get<unknown>(`/shops/${shopId}/inventory${qs(params)}`)),

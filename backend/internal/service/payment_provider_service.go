@@ -301,6 +301,11 @@ func (s *PaymentService) HandleProviderWebhook(provider string, rawBody []byte, 
 				})
 			}
 		}
+		// The seller's share leaves TBK's account at once, on the network the
+		// buyer paid with; TBK keeps the commission and the delivery fee.
+		if s.payoutService != nil {
+			s.payoutService.OnPaymentSettled(payment.OrderID)
+		}
 		if s.onSettled != nil {
 			s.onSettled(payment.OrderID)
 		}

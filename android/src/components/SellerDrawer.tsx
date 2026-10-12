@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { key: 'seller.notifications', path: '/seller/notifications', icon: 'notifications-outline' },
   { key: 'seller.customers', path: '/seller/customers', icon: 'person-circle-outline' },
   { key: 'seller.cash', path: '/seller/cash', icon: 'cash-outline' },
+  { key: 'seller.payouts', path: '/seller/payouts', icon: 'wallet-outline' },
   { key: 'seller.growth', path: '/seller/growth', icon: 'trending-up-outline' },
   { key: 'seller.reviews', path: '/seller/reviews', icon: 'star-outline' },
 ]

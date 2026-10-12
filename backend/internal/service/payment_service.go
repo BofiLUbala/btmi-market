@@ -31,6 +31,7 @@ type PaymentService struct {
 	employeeRepo       *repository.EmployeeRepository
 	assignmentRepo     *repository.AssignmentRepository
 	commService        *CommissionService
+	payoutService      *PayoutService
 	webhookRepo        *repository.PaymentWebhookRepository
 	webhookSecret      string
 	providerRepo       *repository.PaymentProviderRepository
@@ -452,6 +453,11 @@ func (s *PaymentService) GetPaymentByOrderForSeller(userID, orderID uuid.UUID) (
 
 func (s *PaymentService) SetCommissionService(cs *CommissionService) {
 	s.commService = cs
+}
+
+// SetPayoutService splits each settled mobile money payment to its seller.
+func (s *PaymentService) SetPayoutService(ps *PayoutService) {
+	s.payoutService = ps
 }
 
 func (s *PaymentService) enqueueVerified(payment *models.BuyerPayment) {

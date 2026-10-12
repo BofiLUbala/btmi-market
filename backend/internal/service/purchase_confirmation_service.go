@@ -12,20 +12,23 @@ import (
 )
 
 type PurchaseConfirmationService struct {
-	confirmRepo  *repository.PurchaseConfirmationRepository
-	vtRepo       *repository.VerifiedTransactionRepository
-	orderRepo    *repository.OrderRepository
-	shopRepo     *repository.ShopRepository
-	cashRepo     *repository.CashRepository
-	pointService *PointService
-	trustRepo    *repository.SellerTrustRepository
-	commService  *CommissionService
-	asynqClient  *asynq.Client
-	orderEvents  *CommunicationService
+	confirmRepo   *repository.PurchaseConfirmationRepository
+	vtRepo        *repository.VerifiedTransactionRepository
+	orderRepo     *repository.OrderRepository
+	shopRepo      *repository.ShopRepository
+	cashRepo      *repository.CashRepository
+	pointService  *PointService
+	trustRepo     *repository.SellerTrustRepository
+	commService   *CommissionService
+	payoutService *PayoutService
+	asynqClient   *asynq.Client
+	orderEvents   *CommunicationService
 }
 
 // SetCommunicationService enables refund notifications.
-func (s *PurchaseConfirmationService) SetCommunicationService(cs *CommunicationService) { s.orderEvents = cs }
+func (s *PurchaseConfirmationService) SetCommunicationService(cs *CommunicationService) {
+	s.orderEvents = cs
+}
 
 func NewPurchaseConfirmationService(
 	confirmRepo *repository.PurchaseConfirmationRepository,
@@ -54,6 +57,12 @@ func NewPurchaseConfirmationService(
 // when unset, they simply leave the historical snapshot untouched.
 func (s *PurchaseConfirmationService) SetCommissionService(cs *CommissionService) {
 	s.commService = cs
+}
+
+// SetPayoutService lets a refund return the buyer's mobile money from TBK's
+// account and claw back a seller payout already made.
+func (s *PurchaseConfirmationService) SetPayoutService(ps *PayoutService) {
+	s.payoutService = ps
 }
 
 func (s *PurchaseConfirmationService) GetPendingPurchases(buyerProfileID uuid.UUID) ([]*models.PendingPurchaseResponse, error) {
@@ -194,6 +203,9 @@ func (s *PurchaseConfirmationService) RefundTransaction(buyerProfileID, orderID 
 	if s.commService != nil {
 		_ = s.commService.VoidForRefund(orderID, "Refunded by buyer")
 	}
+	if s.payoutService != nil {
+		s.payoutService.OnOrderRefunded(orderID)
+	}
 
 	// Debit seller points
 	_ = s.pointService.DebitPoints(
@@ -228,7 +240,9 @@ func (s *PurchaseConfirmationService) RefundTransaction(buyerProfileID, orderID 
 	_, _ = s.trustRepo.RecalculateTrust(vt.BusinessID)
 
 	if s.orderEvents != nil {
-		go func() { _ = s.orderEvents.TriggerOrderEventNotification(orderID, models.NotificationTypeRefundIssued, nil) }()
+		go func() {
+			_ = s.orderEvents.TriggerOrderEventNotification(orderID, models.NotificationTypeRefundIssued, nil)
+		}()
 	}
 	return nil
 }

@@ -215,6 +215,9 @@ func main() {
 	employeeService.SetNotifier(notifier)
 	orderService.SetCommissionService(commissionService)
 	purchaseConfirmationService.SetCommissionService(commissionService)
+	payoutService := service.NewPayoutService(repository.NewPayoutRepository(db), buyerPaymentRepo, commissionRepo, membershipRepo)
+	paymentService.SetPayoutService(payoutService)
+	purchaseConfirmationService.SetPayoutService(payoutService)
 
 	// The handover needs to read the payment it is settling and to write an audit row for
 	// every step, so it gets those after PaymentService exists.
@@ -231,6 +234,7 @@ func main() {
 
 	adminCommissionHandler := adminhandlers.NewAdminCommissionHandler(commissionService)
 	sellerFinanceHandler := sellerhandlers.NewSellerFinanceHandler(commissionService)
+	sellerPayoutHandler := sellerhandlers.NewSellerPayoutHandler(payoutService)
 
 	// Start background job to rebuild rankings on startup
 	go func() {
@@ -267,6 +271,7 @@ func main() {
 	spotlightService := service.NewSpotlightService(marketplaceRepo, categoryRankingService)
 	spotlightService.SetNotifier(notifier)
 	spotlightService.SetImageRepo(productImageRepo)
+	spotlightService.SetVideoRepo(repository.NewProductVideoRepository(db))
 	go spotlightService.Run(context.Background())
 	marketplaceHandler.SetSpotlights(spotlightService)
 	marketplaceReviewHandler := marketplace.NewReviewHandler(reviewService)
@@ -443,6 +448,10 @@ func main() {
 			businessesGroup.GET("/:business_id/products/:product_id/images", inventoryHandler.ListProductImages)
 			businessesGroup.DELETE("/:business_id/products/:product_id/images/:image_id", inventoryHandler.DeleteProductImage)
 			businessesGroup.PATCH("/:business_id/products/:product_id/images/:image_id/variant", inventoryHandler.AssignProductImageVariant)
+
+			businessesGroup.GET("/:business_id/payout-accounts", sellerPayoutHandler.ListAccounts)
+			businessesGroup.PUT("/:business_id/payout-accounts", sellerPayoutHandler.SaveAccounts)
+			businessesGroup.GET("/:business_id/payouts", sellerPayoutHandler.ListPayouts)
 
 			businessesGroup.POST("/:business_id/products/:product_id/video", inventoryHandler.UploadProductVideo)
 			businessesGroup.GET("/:business_id/products/:product_id/video", inventoryHandler.GetProductVideo)
