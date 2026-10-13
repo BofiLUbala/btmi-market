@@ -47,6 +47,9 @@ export function useMapStyle(): [MapStyleId, (id: MapStyleId) => void] {
 
 export const styleUrl = (id: MapStyleId) => (MAP_STYLES.find((s) => s.id === id) ?? MAP_STYLES[0]).url
 
+/** Browser-only (mapStyle.web.ts); the phone adds the TomTom key through TransformRequestManager below. */
+export const transformMapRequest: ((url: string) => { url: string }) | undefined = undefined
+
 // Adds the key to any TomTom resource the style references without it.
 if (TOMTOM_KEY) {
   TransformRequestManager.addUrlSearchParam({

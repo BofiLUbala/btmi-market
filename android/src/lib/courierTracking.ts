@@ -48,8 +48,8 @@ export function missionToTrack(missions: CourierMission[] | undefined): CourierM
   return best
 }
 
-/** active: sharing; pending: a point waits for the network; denied: no permission; ended: stopped after the delivery. */
-export type TrackingState = 'idle' | 'active' | 'pending' | 'denied' | 'ended'
+/** active: sharing; pending: a point waits for the network; denied: no permission; weak: the server refuses the points (GPS signal too imprecise); ended: stopped after the delivery. */
+export type TrackingState = 'idle' | 'active' | 'pending' | 'denied' | 'weak' | 'ended'
 
 export const useCourierTracking = create<{ state: TrackingState; orderId: string | null }>(() => ({ state: 'idle', orderId: null }))
 const setState = (state: TrackingState, orderId?: string | null) =>
@@ -102,7 +102,10 @@ async function upload(orderId: string, point: CourierLocationPoint): Promise<voi
       setState('pending', orderId)
       return
     }
-    // A point the server refused (inaccurate, too old) is simply dropped.
+    // A point the server refused (inaccurate, too old) is dropped, but the
+    // courier is told: a green "sharing" banner while the buyer sees nothing
+    // is exactly what a weak indoor GPS signal looks like.
+    if (e instanceof ApiError && e.code === 'INVALID_LOCATION') setState('weak', orderId)
   }
 }
 
@@ -135,6 +138,51 @@ if (Platform.OS !== 'web') NetInfo.addEventListener((net) => { if (net.isConnect
 
 export type StartResult = 'active' | 'denied' | 'unavailable'
 
+/** Browser only: the position watch lives as long as the page is open. */
+let webWatch: Location.LocationSubscription | null = null
+
+/**
+ * The website is the same app, and a browser has no background task or
+ * foreground service: the courier's position is shared while the delivery
+ * page stays open, through the browser's own geolocation permission prompt.
+ */
+async function startWebTracking(orderId: string): Promise<StartResult> {
+  const fg = await Location.requestForegroundPermissionsAsync()
+  if (!fg.granted) {
+    setState('denied', orderId)
+    return 'denied'
+  }
+  webWatch?.remove()
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    setState('denied', orderId)
+    return 'unavailable'
+  }
+  // The browser API directly: expo-location's web watch emits events under the
+  // browser's watch id, not its own, so its callback is never called.
+  const id = navigator.geolocation.watchPosition(
+    (pos) => {
+      const loc = {
+        coords: {
+          latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy,
+          altitude: pos.coords.altitude, altitudeAccuracy: pos.coords.altitudeAccuracy,
+          heading: pos.coords.heading, speed: pos.coords.speed,
+        },
+        timestamp: pos.timestamp,
+      } as Location.LocationObject
+      void (async () => {
+        if (sending) return
+        sending = true
+        try { await upload(orderId, toLocationPoint(loc)) } finally { sending = false }
+      })()
+    },
+    () => setState('denied', orderId),
+    { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 },
+  )
+  webWatch = { remove: () => navigator.geolocation.clearWatch(id) }
+  setState('active', orderId)
+  return 'active'
+}
+
 /**
  * Called once the server confirmed the courier accepted, picked up or started
  * the mission. Never throws: the delivery step is done whatever happens here.
@@ -146,6 +194,7 @@ export async function startCourierTracking(orderId: string): Promise<StartResult
   try {
     await AsyncStorage.setItem(ORDER_KEY, orderId)
     await AsyncStorage.removeItem(PENDING_KEY)
+    if (Platform.OS === 'web') return await startWebTracking(orderId)
     const current = await Location.getForegroundPermissionsAsync()
     if (!current.granted && !(await showLocationDisclosure())) {
       setState('denied', orderId)
@@ -221,6 +270,8 @@ async function askBackgroundOnce() {
 
 export async function stopCourierTracking(): Promise<void> {
   startedThisProcess = false
+  webWatch?.remove()
+  webWatch = null
   const orderId = await AsyncStorage.getItem(ORDER_KEY)
   await AsyncStorage.multiRemove([ORDER_KEY, PENDING_KEY]).catch(() => undefined)
   try {
@@ -246,6 +297,14 @@ export async function startCourierTrackingIfIdle(orderId: string): Promise<Start
 export async function resumeCourierTrackingIfNeeded(missions: CourierMission[] | undefined): Promise<void> {
   if (!missions) return
   const inTransit = missionToTrack(missions)
+  if (Platform.OS === 'web') {
+    if (!inTransit) { if (webWatch || (await AsyncStorage.getItem(ORDER_KEY))) await stopCourierTracking(); return }
+    if (webWatch) return
+    const perm = await Location.getForegroundPermissionsAsync().catch(() => null)
+    if (perm?.granted) await startCourierTracking(inTransit.order_id)
+    else setState('denied', inTransit.order_id)
+    return
+  }
   const running = await Location.hasStartedLocationUpdatesAsync(COURIER_LOCATION_TASK).catch(() => false)
   const tracked = await AsyncStorage.getItem(ORDER_KEY)
   if (!inTransit) {
@@ -271,3 +330,5 @@ export async function resumeCourierTrackingIfNeeded(missions: CourierMission[] |
   }
   await startCourierTracking(inTransit.order_id)
 }
+
+

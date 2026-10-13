@@ -28,6 +28,7 @@
     "expo-task-manager": "~57.0.21",
     "expo-updates": "~57.0.22",
     "expo-video": "~57.0.5",
+    "maplibre-gl": "^5.24.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",

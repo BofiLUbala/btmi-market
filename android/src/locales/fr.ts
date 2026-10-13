@@ -2826,6 +2826,7 @@ export const fr = {
   'courierGps.ended': 'Partage de position terminé',
   'courierGps.denied': 'Autorisez la localisation pour partager votre position avec l’acheteur.',
   'courierGps.openSettings': 'Ouvrir les réglages',
+  'courierGps.weak': "Signal GPS trop faible : votre position n'est pas envoyée à l'acheteur. Sortez à l'air libre et activez la localisation précise.",
   'deliveryPoint.title': 'Point exact de livraison (facultatif)',
   'deliveryPoint.hint': 'Aide le livreur à vous trouver. L’adresse écrite suffit.',
   'deliveryPoint.useMyLocation': 'Utiliser ma position',

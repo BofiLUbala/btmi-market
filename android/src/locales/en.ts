@@ -2816,6 +2816,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'courierGps.ended': 'Location sharing ended',
   'courierGps.denied': 'Allow location to share your position with the buyer.',
   'courierGps.openSettings': 'Open settings',
+  'courierGps.weak': "GPS signal too weak: your position is not reaching the buyer. Move outdoors and turn on precise location.",
   'deliveryPoint.title': 'Exact delivery point (optional)',
   'deliveryPoint.hint': 'Helps the courier find you. The written address is enough.',
   'deliveryPoint.useMyLocation': 'Use my location',

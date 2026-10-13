@@ -22,6 +22,7 @@ export function CourierTrackingBanner({ orderId }: { orderId: string }) {
   if (tracked !== orderId) return null
   if (state === 'active') return <View style={[styles.box, styles.ok]}><Text style={styles.okText}>🟢 {t('courierGps.active')}</Text></View>
   if (state === 'pending') return <View style={[styles.box, styles.warn]}><Text style={styles.warnText}>⏳ {t('courierGps.pending')}</Text></View>
+  if (state === 'weak') return <View style={[styles.box, styles.warn]}><Text style={styles.warnText}>📡 {t('courierGps.weak')}</Text></View>
   if (state === 'denied') {
     return (
       <View style={[styles.box, styles.warn]}>
