@@ -26,6 +26,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
 
+      - name: Check the server answers on SSM
+        run: |
+          # SendCommand only says "InvalidInstanceId" when the server is stopped,
+          # recreated or its SSM agent is offline; say which one before deploying.
+          if ! PING=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=${{ secrets.AWS_INSTANCE_ID }}" \
+            --query 'InstanceInformationList[0].PingStatus' --output text); then
+            echo "::warning::Could not read the SSM status; trying the deploy anyway"
+            exit 0
+          fi
+          echo "SSM ping status: $PING"
+          if [ "$PING" != "Online" ]; then
+            echo "::error::The server is not Online on SSM (status: $PING). Start the EC2 instance, check the AWS_INSTANCE_ID secret and the eu-west-1 region, then re-run."
+            exit 1
+          fi
+
       - name: Deploy to EC2 via SSM
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
