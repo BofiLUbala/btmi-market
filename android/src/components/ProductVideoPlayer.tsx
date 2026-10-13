@@ -9,6 +9,41 @@ import { ShareSheet } from './ShareSheet'
 /** The muted teaser replays this many first seconds until the buyer taps. */
 const PREVIEW_SECONDS = 10
 
+/** Keeps a muted teaser looping its first seconds for as long as it is shown.
+ *  Events alone are not enough: a browser may suspend a video, and a finished
+ *  native player does not always restart on play(). So the element loops
+ *  natively (covers videos shorter than the preview) and a one-second check
+ *  rewinds and restarts it whenever it has passed the preview or stopped. */
+function useWebTeaserLoop(ref: { current: HTMLVideoElement | null }, active: boolean) {
+  useEffect(() => {
+    const video = ref.current
+    if (!video || !active) return
+    video.loop = true
+    const keep = () => {
+      if (video.currentTime >= PREVIEW_SECONDS) video.currentTime = 0
+      if (video.paused && document.visibilityState === 'visible') void video.play().catch(() => undefined)
+    }
+    const timer = setInterval(keep, 1000)
+    return () => { clearInterval(timer); video.loop = false }
+  }, [ref, active])
+}
+
+type LoopPlayer = { currentTime: number; playing: boolean; play: () => void; replay?: () => void }
+
+function useNativeTeaserLoop(player: LoopPlayer, active: () => boolean) {
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!active()) return
+      if (player.currentTime >= PREVIEW_SECONDS) player.currentTime = 0
+      if (!player.playing) {
+        if (player.replay) player.replay()
+        else { player.currentTime = 0; player.play() }
+      }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [player, active])
+}
+
 type VideoModule = typeof import('expo-video')
 
 let videoModule: VideoModule | null | undefined
@@ -147,9 +182,12 @@ function WebHero({ source, style, share }: { source: string; style?: StyleProp<V
     return () => document.removeEventListener('visibilitychange', resume)
   }, [full])
 
+  useWebTeaserLoop(ref, !full)
+
   const watch = () => {
     const video = ref.current
     if (!video || full) return
+    video.loop = false
     setFull(true)
     video.currentTime = 0
     video.muted = false
@@ -195,7 +233,7 @@ function NativeHero({ source, mod, style, share }: { source: string; mod: VideoM
   const [sharing, setSharing] = useState(false)
   const player = mod.useVideoPlayer(source, (p) => {
     p.muted = true
-    p.loop = false
+    p.loop = true
     p.timeUpdateEventInterval = 0.5
     p.play()
   })
@@ -204,14 +242,14 @@ function NativeHero({ source, mod, style, share }: { source: string; mod: VideoM
     const time = player.addListener('timeUpdate', ({ currentTime }) => {
       if (!fullRef.current && currentTime >= PREVIEW_SECONDS) player.currentTime = 0
     })
-    const end = player.addListener('playToEnd', () => {
-      if (!fullRef.current) { player.currentTime = 0; player.play() }
-    })
-    return () => { time.remove(); end.remove() }
+    return () => { time.remove() }
   }, [player])
+  const teaserActive = useRef(() => !fullRef.current).current
+  useNativeTeaserLoop(player, teaserActive)
 
   const watch = () => {
     fullRef.current = true
+    player.loop = false
     setFull(true)
     player.currentTime = 0
     player.muted = false
@@ -259,6 +297,7 @@ export function VideoLoopPreview({ url, style, fallback }: { url?: string | null
 
 function WebLoop({ source, style }: { source: string; style?: StyleProp<ViewStyle> }) {
   const ref = useRef<HTMLVideoElement | null>(null)
+  useWebTeaserLoop(ref, true)
   useEffect(() => {
     const video = ref.current
     if (!video) return
@@ -289,10 +328,12 @@ function WebLoop({ source, style }: { source: string; style?: StyleProp<ViewStyl
   )
 }
 
+const alwaysOn = () => true
+
 function NativeLoop({ source, mod, style }: { source: string; mod: VideoModule; style?: StyleProp<ViewStyle> }) {
   const player = mod.useVideoPlayer(source, (p) => {
     p.muted = true
-    p.loop = false
+    p.loop = true
     p.timeUpdateEventInterval = 0.5
     p.play()
   })
@@ -300,9 +341,9 @@ function NativeLoop({ source, mod, style }: { source: string; mod: VideoModule; 
     const time = player.addListener('timeUpdate', ({ currentTime }) => {
       if (currentTime >= PREVIEW_SECONDS) player.currentTime = 0
     })
-    const end = player.addListener('playToEnd', () => { player.currentTime = 0; player.play() })
-    return () => { time.remove(); end.remove() }
+    return () => { time.remove() }
   }, [player])
+  useNativeTeaserLoop(player, alwaysOn)
   return (
     <View style={[styles.box, style]} pointerEvents="none">
       <mod.VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
