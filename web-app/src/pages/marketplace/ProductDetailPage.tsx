@@ -345,11 +345,6 @@ export default function ProductDetailPage() {
                 <span className="pdx-dot-sep">•</span>
                 <a href="#customer-reviews">{reviewSummary.total_reviews} {reviewSummary.total_reviews === 1 ? t('reviews.rating') : t('reviews.ratingsPlural')}</a>
               </>
-            ) : typeof p.self_rating === 'number' && p.self_rating > 0 ? (
-              <span title={t('product.selfRatingHint')}>
-                <span className="pdx-stars" aria-hidden="true">{stars(p.self_rating)}</span>{' '}
-                <span className="pdx-muted">{t('product.selfRatingLabel')}</span>
-              </span>
             ) : (
               <a href="#customer-reviews" className="pdx-muted">{t('reviews.noneYet')}</a>
             )}

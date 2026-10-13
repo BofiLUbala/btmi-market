@@ -154,7 +154,7 @@
       ],
       "port": 19007,
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:5173/api/v1"
+        "EXPO_PUBLIC_API_URL": "http://localhost:5200/api/v1"
       }
     },
     {

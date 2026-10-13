@@ -34,8 +34,6 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
 
   const reviews = product.total_reviews ?? 0
   const rating = reviews > 0 ? (product.average_rating ?? 0) : (product.self_rating ?? 0)
-  const favorite = useIsFavorite(product.id)
-  const toggleFavorite = useFavorites((state) => state.toggle)
   const lowStock = product.availability === 'LOW_STOCK'
   const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(Math.max(0, 5 - Math.round(rating)))
 
@@ -63,39 +61,13 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
             <Text style={styles.outBadgeText}>{t('stock.outOfStock')}</Text>
           </View>
         )}
-        {!outOfStock && onSale && (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountBadgeText}>-{promotion.discountPercent}%</Text>
-          </View>
-        )}
+        {!outOfStock && onSale && <DiscountBadge percent={promotion.discountPercent} />}
         {!outOfStock && promotion.phase === 'upcoming' && (
           <View style={styles.upcomingBadge}>
             <Text style={styles.upcomingBadgeText}>{t('product.promotionUpcoming')}</Text>
           </View>
         )}
-        {/* Same round heart as the web card; favourites stay on the device. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={favorite ? t('product.removeFromFavorites') : t('product.addToFavorites')}
-          accessibilityState={{ selected: favorite }}
-          hitSlop={8}
-          onPress={() => toggleFavorite({
-            productId: product.id,
-            name: product.name,
-            shopId: product.shop_id || '',
-            shopName: product.shop_name || '',
-            price,
-            currency: product.currency || 'USD',
-            unit: product.unit || '',
-            image: typeof image === 'string' ? image : undefined,
-            categorySlug: product.category_slug,
-            categoryName: product.category_name,
-            addedAt: new Date().toISOString(),
-          })}
-          style={staticStyles.fav}
-        >
-          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={19} color={favorite ? '#1E5EF3' : '#0B1530'} />
-        </Pressable>
+        <FavoriteHeart product={product} price={price} image={image} />
       </View>
       <View style={staticStyles.body}>
         {product.category_name ? <Text numberOfLines={1} style={styles.kicker}>{categoryLabel(t, product.category_slug, product.category_name)}</Text> : null}
@@ -110,6 +82,49 @@ export function ProductCard({ product, onPress, style }: { product: PublicProduc
           {onSale && <Text style={styles.strikePrice}>{money(promotion.originalPrice, product.currency)}</Text>}
         </View>
       </View>
+    </Pressable>
+  )
+}
+
+/** The blue "-25%" tag on a product photo's top-left corner. Every product
+ *  tile uses it so an offer looks the same on phones and on the web. */
+export function DiscountBadge({ percent }: { percent: number }) {
+  const { colors: c } = useTheme()
+  return (
+    <View style={[staticStyles.discountBadge, { backgroundColor: c.green }]}>
+      <Text style={staticStyles.discountBadgeText}>-{percent}%</Text>
+    </View>
+  )
+}
+
+/** The round favourite heart on a product photo's top-right corner;
+ *  favourites stay on the device. */
+export function FavoriteHeart({ product, price, image }: { product: PublicProduct; price: number; image?: string | null }) {
+  const { t } = useI18n()
+  const favorite = useIsFavorite(product.id)
+  const toggleFavorite = useFavorites((state) => state.toggle)
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={favorite ? t('product.removeFromFavorites') : t('product.addToFavorites')}
+      accessibilityState={{ selected: favorite }}
+      hitSlop={8}
+      onPress={() => toggleFavorite({
+        productId: product.id,
+        name: product.name,
+        shopId: product.shop_id || '',
+        shopName: product.shop_name || '',
+        price,
+        currency: product.currency || 'USD',
+        unit: product.unit || '',
+        image: typeof image === 'string' ? image : undefined,
+        categorySlug: product.category_slug,
+        categoryName: product.category_name,
+        addedAt: new Date().toISOString(),
+      })}
+      style={staticStyles.fav}
+    >
+      <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={19} color={favorite ? '#1E5EF3' : '#0B1530'} />
     </Pressable>
   )
 }
@@ -135,8 +150,6 @@ const makeStyles = (c: Colors, theme: 'light' | 'dark') =>
     price: { color: c.green, fontFamily: fonts.display, fontWeight: '700', fontSize: 16, marginTop: 2 },
     salePrice: { color: c.danger },
     strikePrice: { color: c.muted, fontSize: 12, textDecorationLine: 'line-through' },
-    discountBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: c.green, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-    discountBadgeText: { color: '#FFFFFF', fontWeight: '700', fontSize: 11 },
     upcomingBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: c.warningSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
     upcomingBadgeText: { color: c.ink, fontWeight: '600', fontSize: 10 },
     outBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
@@ -148,6 +161,8 @@ const staticStyles = StyleSheet.create({
   hoverRise: { transform: [{ translateY: -3 }] },
   image: { width: '100%', height: '100%' },
   imageOut: { opacity: 0.5 },
+  discountBadge: { position: 'absolute', top: 8, left: 8, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  discountBadgeText: { color: '#FFFFFF', fontWeight: '700', fontSize: 11 },
   fav: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center' },
   body: { paddingTop: 10, paddingHorizontal: 10, paddingBottom: 12, gap: 3 },
   rating: { fontSize: 12 },

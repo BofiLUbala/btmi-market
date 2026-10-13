@@ -11,6 +11,7 @@ import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
 import { fonts, kicker, radius, shadow, spacing, type Colors } from '../theme'
 import { ProductPhoto } from './ProductPhoto'
+import { DiscountBadge, FavoriteHeart } from './ProductCard'
 
 /**
  * Large-screen home (web / tablets, width >= WIDE_BREAKPOINT):
@@ -359,15 +360,29 @@ function StripRow({ items, size }: { items: PublicProduct[]; size: number }) {
           <Pressable key={p.id} onPress={() => openProduct(p)} style={({ pressed }) => [s.stripItem, pressed && s.pressed]} accessibilityRole="link" accessibilityLabel={p.name}>
             <View>
               <ProductPhoto uri={photo(p)} video={p.video_url} categorySlug={p.category_slug} categoryName={p.category_name} style={s.stripImage} transition={150} />
-              {onSale ? <View style={s.stripBadge}><Text style={s.spotBadgeText}>-{promo.discountPercent}%</Text></View> : null}
+              {onSale ? <DiscountBadge percent={promo.discountPercent} /> : null}
+              <FavoriteHeart product={p} price={price} image={photo(p)} />
             </View>
             {p.category_name ? <Text style={s.stripCat} numberOfLines={1}>{categoryLabel(t, p.category_slug, p.category_name)}</Text> : null}
             <Text style={s.stripName} numberOfLines={2}>{p.name}</Text>
-            <Text style={s.quadPrice}>{formatMoney(price, p.currency)}</Text>
+            <TilePrice price={price} original={onSale ? promo.originalPrice : 0} currency={p.currency} />
           </Pressable>
         )
       })}
       {fillers(size - items.length, s.stripItem)}
+    </View>
+  )
+}
+
+/** A tile's price as on the phone card: the sale price in red with the
+ *  regular price struck through next to it while an offer runs. */
+function TilePrice({ price, original, currency }: { price: number; original: number; currency?: string }) {
+  const c = useColors()
+  const s = useMemo(() => makeStyles(c), [c])
+  return (
+    <View style={s.tilePriceRow}>
+      <Text style={[s.quadPrice, original > 0 && s.tileSalePrice]}>{formatMoney(price, currency)}</Text>
+      {original > 0 ? <Text style={s.tileStrike}>{formatMoney(original, currency)}</Text> : null}
     </View>
   )
 }
@@ -383,12 +398,16 @@ function QuadCard({ group }: { group: Group }) {
       <Text style={s.quadTitle} numberOfLines={1}>{label}</Text>
       <View style={s.quadGrid}>
         {four.map((p) => {
-          const { price } = priceOf(p)
+          const { price, onSale, promo } = priceOf(p)
           return (
             <Pressable key={p.id} onPress={() => openProduct(p)} style={({ pressed }) => [s.quadItem, pressed && s.pressed]} accessibilityRole="link" accessibilityLabel={p.name}>
-              <ProductPhoto uri={photo(p)} video={p.video_url} categorySlug={p.category_slug} categoryName={p.category_name} style={s.quadImage} transition={150} />
+              <View>
+                <ProductPhoto uri={photo(p)} video={p.video_url} categorySlug={p.category_slug} categoryName={p.category_name} style={s.quadImage} transition={150} />
+                {onSale ? <DiscountBadge percent={promo.discountPercent} /> : null}
+                <FavoriteHeart product={p} price={price} image={photo(p)} />
+              </View>
               <Text style={s.quadName} numberOfLines={1}>{p.name}</Text>
-              <Text style={s.quadPrice}>{formatMoney(price, p.currency)}</Text>
+              <TilePrice price={price} original={onSale ? promo.originalPrice : 0} currency={p.currency} />
             </Pressable>
           )
         })}
@@ -443,7 +462,9 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   strip: { flexDirection: 'row', gap: 14, backgroundColor: c.white, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: 16, ...shadow.card },
   stripItem: { flex: 1, minWidth: 0, gap: 4 },
   stripImage: { width: '100%', aspectRatio: 1, borderRadius: radius.sm, backgroundColor: c.surfaceAlt },
-  stripBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: c.white, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  tilePriceRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 6 },
+  tileSalePrice: { color: c.danger },
+  tileStrike: { color: c.muted, fontSize: 12, textDecorationLine: 'line-through' },
   stripCat: { ...kicker, fontSize: 9.5, color: c.green, marginTop: 4 },
   stripName: { color: c.ink, fontSize: 13, fontWeight: '600', lineHeight: 17, minHeight: 34 },
   quad: { flex: 1, minWidth: 0, backgroundColor: c.white, borderRadius: radius.md, borderWidth: 1, borderColor: c.border, padding: 16, gap: 12, ...shadow.card },

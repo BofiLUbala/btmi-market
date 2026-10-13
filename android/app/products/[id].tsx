@@ -517,9 +517,8 @@ export default function ProductScreen() {
     const reviews = reviewData?.reviews ?? []
     const counts = ratingCounts(summary, reviews)
     const countTotal = counts.reduce((sum, n) => sum + n, 0)
-    const average = totalReviews > 0 && summary
-      ? summary.average_rating
-      : typeof product.self_rating === 'number' && product.self_rating > 0 ? product.self_rating : 0
+    // Only buyers' reviews rate a product publicly; the seller's self-rating stays off the page.
+    const average = totalReviews > 0 && summary ? summary.average_rating : 0
     const mainPhoto = photos[Math.min(photoIndex, Math.max(0, photos.length - 1))] ?? image
     const videoOn = Boolean(product.video) && showVideo
     const highlights = specRows.filter((row) => row.key !== 'category' && row.key !== 'subcategory').slice(0, 6)
@@ -664,8 +663,6 @@ export default function ProductScreen() {
                     <Text style={styles.wideRatingMeta} accessibilityRole="link" onPress={scrollToReviews}>
                       {t('product.wide.ratingsReviews', { count: totalReviews })}
                     </Text>
-                  ) : average > 0 ? (
-                    <Text style={styles.wideRatingMeta}>{t('product.selfRatingLabel')}</Text>
                   ) : (
                     <Text style={styles.wideRatingMeta}>{reviewQuery.isLoading ? t('product.loadingReviews') : t('reviews.noneYet')}</Text>
                   )}
@@ -996,11 +993,6 @@ export default function ProductScreen() {
                 <Text style={styles.ratingValue}>{reviewData!.summary.average_rating.toFixed(1)}</Text>
                 <Text style={styles.ratingSep}>•</Text>
                 <Text style={styles.ratingLink} accessibilityRole="link" onPress={scrollToReviews}>{t('product.reviewsCount', { count: totalReviews })}</Text>
-              </>
-            ) : typeof product.self_rating === 'number' && product.self_rating > 0 ? (
-              <>
-                <Text style={styles.ratingStars}>{stars(product.self_rating)}</Text>
-                <Text style={styles.ratingMuted}>{t('product.selfRatingLabel')}</Text>
               </>
             ) : (
               <Text style={styles.ratingMuted}>
