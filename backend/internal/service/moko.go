@@ -120,6 +120,27 @@ func (c *MokoClient) bearer() string {
 	return c.token
 }
 
+// CheckCredentials asks the token endpoint whether Moko accepts the merchant
+// credentials. It never changes state and is meant for a startup log line.
+func (c *MokoClient) CheckCredentials() error {
+	body, _ := json.Marshal(map[string]string{"merchant_id": c.cfg.MerchantID, "merchant_secrete": c.cfg.MerchantSecret})
+	resp, err := c.http.Post(c.cfg.BaseURL+"/token", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("MOKO_UNREACHABLE: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+	var out map[string]interface{}
+	_ = json.Unmarshal(raw, &out)
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("MOKO_HTTP_%d: credentials refused: %s", resp.StatusCode, truncate(string(raw), 200))
+	}
+	if tok, _ := out["token"].(string); tok == "" {
+		return fmt.Errorf("MOKO_NO_TOKEN: %s", truncate(string(raw), 200))
+	}
+	return nil
+}
+
 // call posts one action and returns the decoded answer.
 func (c *MokoClient) call(payload map[string]string) (map[string]interface{}, error) {
 	payload["merchant_id"] = c.cfg.MerchantID

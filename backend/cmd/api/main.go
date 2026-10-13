@@ -204,6 +204,16 @@ func main() {
 		chargeDriver = service.NewMokoChargeDriver(mokoClient, enabledProviders)
 		paymentService.SetMokoClient(mokoClient)
 		log.Println("Moko Afrika mobile money: enabled")
+		if strings.TrimSpace(mokoConfig.CallbackSecret) == "" || strings.TrimSpace(mokoConfig.CallbackURL) == "" {
+			log.Println("Moko WARNING: MOKO_CALLBACK_URL / MOKO_CALLBACK_SECRET empty, payment outcomes cannot be received")
+		}
+		go func() {
+			if err := mokoClient.CheckCredentials(); err != nil {
+				log.Printf("Moko WARNING: credential check failed: %v", err)
+			} else {
+				log.Println("Moko credentials accepted by the token endpoint")
+			}
+		}()
 	}
 	paymentService.SetProviderDependencies(
 		paymentProviderRepo,
