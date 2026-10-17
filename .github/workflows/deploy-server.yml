@@ -1,0 +1,86 @@
+name: Deploy TBK to the server
+
+# The production server is an Oracle Cloud Always Free VM set up once with
+# backend/deploy/setup-server.sh (see backend/deploy/README.md). Each push
+# pulls main there over SSH and rebuilds the Docker Compose stack.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - web-app/**
+      - android/**
+      - .github/workflows/deploy-server.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-tbk-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+
+    steps:
+      - name: Skip until the server secrets exist
+        if: env.SERVER_HOST == ''
+        run: echo "::warning::SERVER_HOST is not set; add the server secrets (backend/deploy/README.md) to enable deploys."
+
+      - name: Load the SSH key
+        if: env.SERVER_HOST != ''
+        env:
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if ! ssh-keyscan -T 15 -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "::error::Cannot reach $SERVER_HOST on port 22. Check the server is running and SERVER_HOST is its public IP."
+            exit 1
+          fi
+
+      - name: Deploy over SSH
+        if: env.SERVER_HOST != ''
+        env:
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+        run: |
+          REMOTE_SCRIPT=$(cat <<'SCRIPT'
+          set -e
+          cd /opt/btmi-market
+          git fetch origin main
+          git reset --hard origin/main
+          export APP_COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Deploying commit $APP_COMMIT_SHA"
+          cd backend
+          docker compose --profile edge up -d --build --remove-orphans
+          docker image prune -f >/dev/null
+
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 5 http://localhost:8080/health >/dev/null; then
+              echo "API is healthy"
+              docker compose --profile edge ps
+              exit 0
+            fi
+            echo "Attempt $i/60 - API not ready, waiting 2s"
+            sleep 2
+          done
+
+          echo "API health check timed out after 120s"
+          docker compose --profile edge ps
+          docker compose logs --tail=200 api
+          exit 1
+          SCRIPT
+          )
+
+          # docker compose prefers the shell environment over backend/.env, so the
+          # web build gets the TomTom key without it living on the server.
+          REMOTE_SCRIPT=$(printf 'export TOMTOM_API_KEY=%q\n%s' "$TOMTOM_API_KEY" "$REMOTE_SCRIPT")
+
+          ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 \
+            "$SERVER_USER@$SERVER_HOST" 'bash -s' <<< "$REMOTE_SCRIPT"

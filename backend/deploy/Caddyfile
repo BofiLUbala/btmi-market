@@ -1,0 +1,11 @@
+# Public HTTPS entry point on the production server (compose profile "edge").
+# Caddy gets and renews the Let's Encrypt certificate for SITE_DOMAIN by itself;
+# with no domain of our own, SITE_DOMAIN is <public-ip-with-dashes>.sslip.io,
+# a free hostname that always resolves to that IP.
+#
+# Everything goes to the website's nginx, which already forwards /api, /uploads
+# and /admin to the right containers, so this file stays one route.
+{$SITE_DOMAIN} {
+	encode gzip
+	reverse_proxy web:80
+}

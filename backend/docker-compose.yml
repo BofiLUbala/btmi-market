@@ -192,6 +192,24 @@ services:
       - admin-web
     restart: unless-stopped
 
+  # Public HTTPS in front of `web`, only on the production server:
+  # `docker compose --profile edge up -d`. See deploy/README.md.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["edge"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - SITE_DOMAIN=${SITE_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
   # OpenWA WhatsApp gateway (github.com/rmyndharis/OpenWA), only started with
   # `docker compose --profile whatsapp up -d`. Setup once:
   #   1. docker exec openwa-api cat /app/data/.api-key   -> OPENWA_API_KEY
@@ -219,6 +237,8 @@ services:
 
 volumes:
   backups_data:
+  caddy_config:
+  caddy_data:
   exports_data:
   openwa_data:
   postgres_data:
