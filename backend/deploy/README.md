@@ -5,13 +5,16 @@ Caddy for HTTPS. Pushing to `main` redeploys it (`.github/workflows/deploy-serve
 
 | | |
 |---|---|
-| Server | Linode `tbk-prod`, Linode 8 GB (4 CPU, 8 GB RAM), Frankfurt |
-| IP | `139.162.131.34` (SSH as `root`, key only) |
+| Server | Linode `tbk-prod-milan`, Linode 8 GB (4 CPU, 8 GB RAM), Milan (it-mil) |
+| IP | `104.105.64.89` (SSH as `root`, key only) |
 | Website | <https://tbk-z.duckdns.org> |
 | API | <https://tbk-z.duckdns.org/api/v1> |
 | Admin | <https://tbk-z.duckdns.org/admin> |
-| Backup address | <https://139-162-131-34.sslip.io> (same server, always works) |
+| Backup address | <https://104-105-64-89.sslip.io> (same server, always works) |
 | Code on the server | `/opt/btmi-market` (settings in `backend/.env`) |
+
+The server is in Milan because the route from Kinshasa to Frankfurt was
+~40x slower (11 KB/s against 433 KB/s).
 
 `tbk-z.duckdns.org` is a free DuckDNS name (account bofibendedji@gmail.com on
 duckdns.org) pointing at the IP; `<ip-with-dashes>.sslip.io` always resolves
@@ -22,7 +25,7 @@ update it on duckdns.org too.
 ## Day to day
 
 ```bash
-ssh root@139.162.131.34
+ssh root@104.105.64.89
 cd /opt/btmi-market/backend
 docker compose --profile edge ps          # what is running
 docker compose logs -f api                # API logs
