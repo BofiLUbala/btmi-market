@@ -48,7 +48,7 @@ if [ ! -d "$APP_DIR/.git" ]; then
   git clone "$REPO_URL" "$APP_DIR"
 fi
 
-PUBLIC_IP=$(curl -fsS https://ifconfig.me)
+PUBLIC_IP=$(curl -4 -fsS https://ifconfig.me)
 
 echo "==> backend/.env"
 set_env() { # key value: replace the line, or append it
