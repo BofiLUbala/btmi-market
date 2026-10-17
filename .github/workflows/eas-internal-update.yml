@@ -7,6 +7,7 @@ on:
       # Preview APKs installed directly on test phones listen to the internal
       # channel. Production fixes merged to main must reach those devices too.
       - main
+  workflow_dispatch:
 
 jobs:
   update:
