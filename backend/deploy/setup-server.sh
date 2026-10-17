@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-time setup of a fresh Ubuntu server (Oracle Cloud Always Free, ARM or
-# x86) for TBK. Run it as the default `ubuntu` user:
+# One-time setup of a fresh Ubuntu 24.04 server (ARM or x86) for TBK. Run it
+# as the server's default admin user (root on Akamai/Linode):
 #
 #   curl -fsSL https://raw.githubusercontent.com/BofiLUbala/btmi-market/main/backend/deploy/setup-server.sh | bash
 #
@@ -33,8 +33,8 @@ if ! swapon --show | grep -q /swapfile; then
 fi
 
 echo "==> Firewall: allow HTTP and HTTPS"
-# Oracle's Ubuntu images reject every inbound port but 22 in iptables, on top
-# of the VCN security list (open 80 and 443 there too, see README.md).
+# Some providers' Ubuntu images reject every inbound port but 22 in iptables;
+# a provider-side firewall, if any, must allow 80 and 443 too.
 for port in 80 443; do
   sudo iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null ||
     sudo iptables -I INPUT 1 -p tcp --dport "$port" -j ACCEPT

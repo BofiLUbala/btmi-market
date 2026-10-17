@@ -15,55 +15,22 @@ So a remote beta needs two independent things:
 | Need | Solved by |
 |---|---|
 | Getting the APK onto the tester's phone | Firebase App Distribution |
-| The app being able to reach the backend | A public HTTPS API — **still open** |
+| The app being able to reach the backend | The production server (Part 1) |
 
 ---
 
-## Part 1 — Public API (blocker, decision required)
+## Part 1 — Public API
 
-The Docker stack currently listens only on the development machine:
-
-```
-api        0.0.0.0:8080        (LAN only)
-postgres   127.0.0.1:5433      (loopback)
-redis      127.0.0.1:6379      (loopback)
-```
-
-Only the API may ever be exposed. PostgreSQL, Redis and visual-search stay
-private in every option below.
-
-### Option A — Deploy the stack to a small VPS (recommended)
-
-Matches the target architecture already agreed:
+The whole Docker stack runs on the production server, behind Caddy for HTTPS
+(see `backend/deploy/README.md`):
 
 ```
-Android Beta → HTTPS API (VPS) → Docker API → Postgres / Redis / Worker
+https://139-162-131-34.sslip.io/api/v1
 ```
 
-- The same `docker-compose.yml` runs on the server, so no architecture change.
-- Stable URL, real beta conditions, development machine can be switched off.
-- Needs a host (Hetzner, DigitalOcean, Render, Railway, Fly.io), a domain and
-  TLS (Caddy or nginx + Let's Encrypt in front of the API).
-- Costs money — roughly the price of a coffee per month at the small end.
-
-### Option B — Tailscale Funnel (free, no third-party proxy account)
-
-Publishes one local port over HTTPS on a stable `*.ts.net` address.
-
-```bash
-tailscale funnel 8080
-```
-
-- Free, stable URL, no card required.
-- The development machine must stay on and online for the whole beta.
-
-### Option C — ngrok
-
-Functionally the same category as Cloudflare Tunnel: a temporary public URL in
-front of `localhost:8080`. Free tier URLs rotate on restart.
-
-**Nothing below can be completed until one of these is chosen and its
-`/health` endpoint has been verified over HTTPS.**
+Only ports 80/443 are public. PostgreSQL, Redis and visual-search stay on the
+server's internal Docker network. This address is `EXPO_PUBLIC_API_URL` in the
+EAS `production` and `preview` environments.
 
 ---
 

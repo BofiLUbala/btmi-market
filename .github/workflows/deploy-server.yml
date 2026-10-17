@@ -1,6 +1,6 @@
 name: Deploy TBK to the server
 
-# The production server is an Oracle Cloud Always Free VM set up once with
+# The production server is an Akamai (Linode) VM set up once with
 # backend/deploy/setup-server.sh (see backend/deploy/README.md). Each push
 # pulls main there over SSH and rebuilds the Docker Compose stack.
 
