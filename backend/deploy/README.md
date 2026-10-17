@@ -7,13 +7,17 @@ Caddy for HTTPS. Pushing to `main` redeploys it (`.github/workflows/deploy-serve
 |---|---|
 | Server | Linode `tbk-prod`, Linode 8 GB (4 CPU, 8 GB RAM), Frankfurt |
 | IP | `139.162.131.34` (SSH as `root`, key only) |
-| Website | <https://139-162-131-34.sslip.io> |
-| API | <https://139-162-131-34.sslip.io/api/v1> |
-| Admin | <https://139-162-131-34.sslip.io/admin> |
+| Website | <https://tbk-z.duckdns.org> |
+| API | <https://tbk-z.duckdns.org/api/v1> |
+| Admin | <https://tbk-z.duckdns.org/admin> |
+| Backup address | <https://139-162-131-34.sslip.io> (same server, always works) |
 | Code on the server | `/opt/btmi-market` (settings in `backend/.env`) |
 
-`<ip-with-dashes>.sslip.io` is a free hostname that always resolves to the IP,
-so Caddy can get a Let's Encrypt certificate without a domain of our own.
+`tbk-z.duckdns.org` is a free DuckDNS name (account bofibendedji@gmail.com on
+duckdns.org) pointing at the IP; `<ip-with-dashes>.sslip.io` always resolves
+to the IP by itself. Caddy gets a Let's Encrypt certificate for both: they are
+listed in `SITE_DOMAIN` in the server's `.env`. If the server IP changes,
+update it on duckdns.org too.
 
 ## Day to day
 
@@ -48,7 +52,8 @@ docker compose exec postgres pg_dump -U btmi_user btmi_market > backup.sql
 
 4. Update the GitHub secrets `SERVER_HOST`, `SERVER_USER` and `SERVER_SSH_KEY`
    (`cat ~/.ssh/github_deploy` on the server).
-5. Set `EXPO_PUBLIC_API_URL=https://<ip-with-dashes>.sslip.io/api/v1` in the
+5. Point tbk-z on duckdns.org at the new IP, put both names in `SITE_DOMAIN`,
+   and keep `EXPO_PUBLIC_API_URL=https://tbk-z.duckdns.org/api/v1` in the
    EAS `production` and `preview` environments, run both OTA update workflows,
    and update the address in this file.
 

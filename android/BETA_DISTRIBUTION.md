@@ -25,7 +25,7 @@ The whole Docker stack runs on the production server, behind Caddy for HTTPS
 (see `backend/deploy/README.md`):
 
 ```
-https://139-162-131-34.sslip.io/api/v1
+https://tbk-z.duckdns.org/api/v1
 ```
 
 Only ports 80/443 are public. PostgreSQL, Redis and visual-search stay on the
