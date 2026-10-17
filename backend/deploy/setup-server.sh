@@ -66,6 +66,10 @@ if [ ! -f "$ENV_FILE" ]; then
   set_env JWT_SECRET "$(openssl rand -hex 48)"
   set_env SITE_DOMAIN "$SITE_DOMAIN"
   set_env FRONTEND_URL "https://$SITE_DOMAIN"
+  # Only Caddy (80/443) is public; Docker would otherwise publish these on
+  # every interface, past the firewall.
+  set_env API_PORT 127.0.0.1:8080
+  set_env WEB_PORT 127.0.0.1:5173
   chmod 600 "$ENV_FILE"
 fi
 
