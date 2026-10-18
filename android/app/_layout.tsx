@@ -120,6 +120,8 @@ function RootNavigator() {
         <Stack.Screen name="notifications" options={{ header: storeHeader, title: t('notifications.title') }} />
         <Stack.Screen name="notification-settings" options={{ title: t('notifSettings.title') }} />
         <Stack.Screen name="help" options={{ header: storeHeader, title: t('help.title') }} />
+        <Stack.Screen name="privacy" options={{ header: storeHeader, title: t('account.privacyPolicy') }} />
+        <Stack.Screen name="delete-account" options={{ header: storeHeader, title: t('account.deleteTitle') }} />
         <Stack.Screen name="points/index" options={{ header: storeHeader, title: t('points.link') }} />
         <Stack.Screen name="points/history" options={{ header: storeHeader, title: t('points.history') }} />
         <Stack.Screen name="purchases" options={{ header: storeHeader, title: t('account.pendingPurchases') }} />

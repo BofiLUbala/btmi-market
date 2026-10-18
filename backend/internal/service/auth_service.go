@@ -715,6 +715,33 @@ func (s *AuthService) Logout(refreshTokenStr string) error {
 	return s.refreshTokenRepo.Revoke(refreshToken.ID)
 }
 
+// DeleteAccount lets a signed-in user erase their own account after confirming
+// their password. It refuses while orders are in progress or an active business
+// is still owned, so nobody is left waiting on a delivery or a shop.
+func (s *AuthService) DeleteAccount(userID uuid.UUID, password string) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return errors.New("USER_NOT_FOUND")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return errors.New("INVALID_PASSWORD")
+	}
+	openOrders, ownedBusinesses, err := s.userRepo.AccountDeletionBlockers(userID)
+	if err != nil {
+		return err
+	}
+	if openOrders > 0 {
+		return errors.New("OPEN_ORDERS")
+	}
+	if ownedBusinesses > 0 {
+		return errors.New("OWNS_BUSINESS")
+	}
+	if err := s.userRepo.AnonymizeAccount(userID); err != nil {
+		return err
+	}
+	return s.refreshTokenRepo.RevokeAllForUser(userID)
+}
+
 // ErrSessionRevoked: the token predates a sign-out of the account everywhere.
 var ErrSessionRevoked = errors.New("SESSION_REVOKED")
 

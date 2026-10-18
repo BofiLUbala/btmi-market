@@ -9,7 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tbk.market"
+      "bundleIdentifier": "com.tbk.market",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.tbk.market",
@@ -63,6 +66,7 @@
         {
           "locationWhenInUsePermission": "TBK utilise votre position pour partager le trajet du livreur avec l'acheteur pendant une livraison, ou pour indiquer votre point de livraison si vous le demandez.",
           "locationAlwaysAndWhenInUsePermission": "Pendant une livraison en cours, TBK partage la position du livreur avec l'acheteur, même écran éteint. Le partage s'arrête à l'arrivée.",
+          "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }

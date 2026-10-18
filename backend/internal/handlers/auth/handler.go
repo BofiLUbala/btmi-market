@@ -694,6 +694,38 @@ func (h *Handler) Logout(c *gin.Context) {
 	})
 }
 
+// DeleteAccount erases the signed-in user's account after a password check.
+func (h *Handler) DeleteAccount(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.authError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		return
+	}
+	var req struct {
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "Password is required")
+		return
+	}
+	if err := h.authService.DeleteAccount(userID.(uuid.UUID), req.Password); err != nil {
+		status, code := http.StatusInternalServerError, "INTERNAL_ERROR"
+		switch err.Error() {
+		case "USER_NOT_FOUND":
+			status, code = http.StatusNotFound, "USER_NOT_FOUND"
+		case "INVALID_PASSWORD":
+			status, code = http.StatusForbidden, "INVALID_PASSWORD"
+		case "OPEN_ORDERS", "OWNS_BUSINESS":
+			status, code = http.StatusConflict, err.Error()
+		default:
+			log.Printf("delete account %s: %v", userID.(uuid.UUID), err)
+		}
+		h.authError(c, status, code, code)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Account deleted"})
+}
+
 func (h *Handler) Me(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {

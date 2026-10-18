@@ -429,6 +429,7 @@ func main() {
 			authGroup.POST("/reinitialize-registration/complete", authHandler.CompleteRegistrationReinitialization)
 			authGroup.POST("/login", authHandler.Login)
 			authGroup.GET("/whatsapp/status", authHandler.WhatsAppStatus)
+			authGroup.POST("/phone/start", authHandler.StartPhoneAuth)
 			authGroup.POST("/whatsapp/login", authHandler.LoginWhatsApp)
 			authGroup.POST("/whatsapp/verify", authHandler.VerifyWhatsApp)
 			authGroup.POST("/whatsapp/resend", authHandler.ResendWhatsApp)
@@ -439,6 +440,7 @@ func main() {
 			authGroup.POST("/employee/invite/accept", authHandler.AcceptEmployeeInvitation)
 			authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
 			authGroup.POST("/me/avatar", middleware.AuthMiddleware(authService), authHandler.UploadAvatar)
+			authGroup.POST("/me/delete", middleware.AuthMiddleware(authService), authHandler.DeleteAccount)
 			authGroup.POST("/become-seller", middleware.AuthMiddleware(authService), authHandler.BecomeSeller)
 			authGroup.POST("/become-buyer", middleware.AuthMiddleware(authService), authHandler.BecomeBuyer)
 		}

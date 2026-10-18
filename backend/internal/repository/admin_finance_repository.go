@@ -26,7 +26,7 @@ func (r *AdminFinanceRepository) ListPointUsers(page, limit int, search string) 
 	if err := r.db.QueryRow(`SELECT COUNT(*) FROM users WHERE ($1 = '%%' OR email ILIKE $1 OR first_name ILIKE $1 OR last_name ILIKE $1)`, pattern).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := r.db.Query(`SELECT id, COALESCE(NULLIF(TRIM(first_name || ' ' || last_name), ''), email), email, status::text
+	rows, err := r.db.Query(`SELECT id, COALESCE(NULLIF(TRIM(first_name || ' ' || last_name), ''), email, phone), COALESCE(email, ''), status::text
 		FROM users WHERE ($1 = '%%' OR email ILIKE $1 OR first_name ILIKE $1 OR last_name ILIKE $1)
 		ORDER BY first_name, last_name, email LIMIT $2 OFFSET $3`, pattern, limit, (page-1)*limit)
 	if err != nil {
@@ -733,8 +733,8 @@ func (r *AdminFinanceRepository) ListSellerGrowth(page, limit int, search string
 	query := fmt.Sprintf(`
 		SELECT
 			u.id as seller_id,
-			COALESCE(u.first_name || ' ' || u.last_name, u.email) as seller_name,
-			u.email as seller_email,
+			COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email, u.phone) as seller_name,
+			COALESCE(u.email, '') as seller_email,
 			b.id as business_id, COALESCE(b.name, '') as business_name,
 			COALESCE(sh.shop_count, 0) as shop_count,
 			COALESCE(od.total_orders, 0) as total_orders,

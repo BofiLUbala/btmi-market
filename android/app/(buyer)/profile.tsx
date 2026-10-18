@@ -52,6 +52,7 @@ function ProfileScreen() {
         <Button title={t('common.signIn')} onPress={() => router.push('/auth/login')} />
         <Button title={t('auth.createAccount')} variant="outline" onPress={() => router.push('/auth/register-choice')} />
         <PreferenceToggles />
+        <Button title={t('account.privacyPolicy')} variant="outline" onPress={() => router.push('/privacy' as never)} />
       </View>
     )
   }
@@ -152,6 +153,8 @@ function ProfileScreen() {
       {courierProfile.data ? <LinkCard onPress={() => router.push('/courier')} label={t('courier.spaceTitle')} title={t('courier.spaceTitle')} cta="→" themed={themed} /> : null}
       <PreferenceToggles />
       <LinkCard onPress={() => router.push('/help' as never)} label={t('account.kickerHelp')} title={t('account.help')} cta="→" themed={themed} />
+      <LinkCard onPress={() => router.push('/privacy' as never)} label={t('account.privacyPolicy')} title={t('account.privacyPolicy')} cta="→" themed={themed} />
+      <LinkCard onPress={() => router.push('/delete-account' as never)} label={t('account.deleteAccount')} title={t('account.deleteAccount')} cta="→" themed={themed} />
 
       <Pressable accessibilityRole="button" style={({ pressed }) => [themed.dangerButton, pressed && { opacity: 0.85 }]} onPress={async () => { await logout(); router.replace('/auth/login') }}>
         <Text style={themed.dangerButtonText}>{t('common.signOut')}</Text>

@@ -70,7 +70,7 @@ func (r *AdminCommerceRepository) ListOperationalUsers(search, accountType, stat
 	if err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM users u WHERE %s", where), args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	q := fmt.Sprintf(`SELECT u.id,u.first_name,u.middle_name,u.last_name,u.phone,u.email,u.status,u.email_verified,u.account_type,u.created_at,
+	q := fmt.Sprintf(`SELECT u.id,u.first_name,u.middle_name,u.last_name,u.phone,COALESCE(u.email,''),u.status,u.email_verified,u.account_type,u.created_at,
 		COUNT(DISTINCT bm.business_id),COUNT(DISTINCT s.id),COUNT(DISTINCT o.id),COALESCE(MAX(pa.current_points),0)
 		FROM users u LEFT JOIN business_memberships bm ON bm.user_id=u.id AND bm.status='ACTIVE'
 		LEFT JOIN shops s ON s.business_id=bm.business_id LEFT JOIN buyer_profiles bp ON bp.user_id=u.id

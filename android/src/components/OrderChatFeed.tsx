@@ -17,6 +17,7 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { resolveMediaUrl } from '../api/client'
+import { confirmAction } from '../lib/confirmAction'
 import { formatMoney } from '../lib/money'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -183,8 +184,25 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
     void deliver({ ...p, failed: false })
   }
 
+  // Report a message to TBK support through the order's existing support channel.
+  const reportMessage = (m: { sender_name?: string | null; sender_party: ChatParty; body: string }) => {
+    confirmAction(t('chat.reportTitle'), t('chat.reportBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('chat.report'),
+        style: 'destructive',
+        onPress: () => {
+          const who = m.sender_name || m.sender_party
+          sendOrderMessage(orderId, `[${t('chat.report')}] ${who}: "${m.body}"`, 'ADMIN', role)
+            .then(() => confirmAction(t('chat.reportSent')))
+            .catch(() => confirmAction(t('common.actionImpossible')))
+        },
+      },
+    ])
+  }
+
   const locale = dateLocale(lang)
-  const time = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  const time =(iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   const dayLabel = (day: string) => {
     const d = new Date(`${day}T12:00:00`)
     const today = new Date()
@@ -225,6 +243,11 @@ export function OrderChatFeed({ orderId, role = 'BUYER', onClose, showHeader = t
         <Text style={styles.meta}>
           {time(m.created_at)}{mine ? ` · ${m.recipient_read_at ? t('chat.read') : t('chat.sent')}` : ''}
         </Text>
+        {!mine && !tbk ? (
+          <TouchableOpacity onPress={() => reportMessage(m)} accessibilityRole="button" accessibilityLabel={t('chat.report')}>
+            <Text style={styles.meta}>{t('chat.report')}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     )
   }

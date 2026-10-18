@@ -44,6 +44,8 @@ func whatsappErrorStatus(code string) int {
 		return http.StatusUnauthorized
 	case "ACCOUNT_SUSPENDED":
 		return http.StatusForbidden
+	case "INVALID_PHONE":
+		return http.StatusBadRequest
 	case "OTP_INVALID", "USER_NOT_FOUND":
 		return http.StatusNotFound
 	case "OTP_EXPIRED":
@@ -96,6 +98,40 @@ func (h *Handler) LoginWhatsApp(c *gin.Context) {
 				go h.loginFailures.RecordLoginFailure("user", phone, code, c.ClientIP(), c.Request.UserAgent())
 			}
 		}
+		if code == "WHATSAPP_DELIVERY_FAILED" && challenge != nil {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error": gin.H{"code": code, "message": "The WhatsApp code could not be delivered. Try resending it."},
+				"data":  challenge,
+			})
+			return
+		}
+		h.authError(c, whatsappErrorStatus(code), code, code)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "A code was sent to your WhatsApp.", Data: challenge})
+}
+
+// StartPhoneAuth sends a code to a phone number, registering the number if no
+// account holds it. Sign-in and sign-up are the same request here, so the
+// reply says nothing about whether the account already existed.
+func (h *Handler) StartPhoneAuth(c *gin.Context) {
+	var req models.PhoneAuthStartRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "A phone number is required")
+		return
+	}
+	phone := strings.TrimSpace(req.Phone)
+	// Shares the send budget with the password sign-in: both spend a message
+	// on the same gateway number.
+	if !h.allowWhatsApp("send|"+c.ClientIP(), whatsappSendLimit*2, whatsappSendWindow) ||
+		!h.allowWhatsApp("send-phone|"+phone, whatsappSendLimit, whatsappSendWindow) {
+		h.tooManyRequests(c)
+		return
+	}
+
+	challenge, err := h.authService.StartPhoneAuth(phone, req.FirstName, req.LastName)
+	if err != nil {
+		code := whatsappErrorCode(err)
 		if code == "WHATSAPP_DELIVERY_FAILED" && challenge != nil {
 			c.JSON(http.StatusBadGateway, gin.H{
 				"error": gin.H{"code": code, "message": "The WhatsApp code could not be delivered. Try resending it."},

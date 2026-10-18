@@ -58,20 +58,20 @@ type UserCapabilities struct {
 }
 
 type RegisterRequest struct {
-	FirstName            string   `json:"first_name" binding:"required"`
-	MiddleName           string   `json:"middle_name"`
-	LastName             string   `json:"last_name" binding:"required"`
-	Phone                string   `json:"phone" binding:"required"`
-	Email                string   `json:"email" binding:"required,email"`
-	Password             string   `json:"password" binding:"required,min=8,max=64"`
-	PasswordConfirmation string   `json:"password_confirmation" binding:"required"`
-	BackupPhone          string   `json:"backup_phone"`
-	Address              string   `json:"address"`
-	Province             string   `json:"province"`
-	Street               string   `json:"street"`
-	BuildingNumber       string   `json:"building_number"`
-	Landmark             string   `json:"landmark"`
-	City                 string   `json:"city"`
+	FirstName            string     `json:"first_name" binding:"required"`
+	MiddleName           string     `json:"middle_name"`
+	LastName             string     `json:"last_name" binding:"required"`
+	Phone                string     `json:"phone" binding:"required"`
+	Email                string     `json:"email" binding:"required,email"`
+	Password             string     `json:"password" binding:"required,min=8,max=64"`
+	PasswordConfirmation string     `json:"password_confirmation" binding:"required"`
+	BackupPhone          string     `json:"backup_phone"`
+	Address              string     `json:"address"`
+	Province             string     `json:"province"`
+	Street               string     `json:"street"`
+	BuildingNumber       string     `json:"building_number"`
+	Landmark             string     `json:"landmark"`
+	City                 string     `json:"city"`
 	Commune              string     `json:"commune"`
 	Country              string     `json:"country"`
 	Latitude             *float64   `json:"latitude"`
@@ -100,6 +100,15 @@ type LoginRequest struct {
 type WhatsAppLoginRequest struct {
 	Phone    string `json:"phone" binding:"required"`
 	Password string `json:"password" binding:"required"`
+}
+
+// PhoneAuthStartRequest begins sign-in from a phone number on its own. The
+// names are optional and only read when the number turns out to be new, so a
+// returning user sends nothing but their number.
+type PhoneAuthStartRequest struct {
+	Phone     string `json:"phone" binding:"required"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 // WhatsAppVerifyRequest completes a sign-up or sign-in with the code received.

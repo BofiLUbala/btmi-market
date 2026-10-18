@@ -81,6 +81,8 @@ export const authApi = {
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),
   logout: (refresh_token: string) => post('/auth/logout', { refresh_token }),
+  /** Erases the account after a password check (App Store rule 5.1.1(v)). */
+  deleteAccount: (password: string) => post('/auth/me/delete', { password }),
   becomeSeller: () => post<User>('/auth/become-seller'),
   /** Opens the buyer space of this account (same e-mail / WhatsApp number). */
   becomeBuyer: () => post<User>('/auth/become-buyer'),

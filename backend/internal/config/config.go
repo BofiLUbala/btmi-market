@@ -49,6 +49,12 @@ type Config struct {
 	OpenWAAPIKey               string
 	OpenWASessionID            string
 	WhatsAppDefaultCountryCode string
+	// WhatsApp Business Cloud API (Meta), for notification templates. Empty
+	// token or phone number id keeps it off; no message is ever sent then.
+	WhatsAppCloudToken       string
+	WhatsAppPhoneNumberID    string
+	WhatsAppCloudAPIVersion  string
+	WhatsAppTemplateLanguage string
 	// Push notifications. Web push needs a VAPID key pair: when
 	// VAPID_PRIVATE_KEY is empty one is generated once and kept in the
 	// database. Mobile push goes through Expo's push service, which needs the
@@ -104,6 +110,10 @@ func Load() *Config {
 		OpenWAAPIKey:               getEnv("OPENWA_API_KEY", ""),
 		OpenWASessionID:            getEnv("OPENWA_SESSION_ID", ""),
 		WhatsAppDefaultCountryCode: getEnv("WHATSAPP_DEFAULT_COUNTRY_CODE", "243"),
+		WhatsAppCloudToken:         getEnv("WHATSAPP_CLOUD_TOKEN", ""),
+		WhatsAppPhoneNumberID:      getEnv("WHATSAPP_PHONE_NUMBER_ID", ""),
+		WhatsAppCloudAPIVersion:    getEnv("WHATSAPP_CLOUD_API_VERSION", "v21.0"),
+		WhatsAppTemplateLanguage:   getEnv("WHATSAPP_TEMPLATE_LANGUAGE", "fr"),
 		PushEnabled:                getEnvBool("PUSH_ENABLED", true),
 		PushWebEnabled:             getEnvBool("PUSH_WEB_ENABLED", true),
 		PushExpoEnabled:            getEnvBool("PUSH_EXPO_ENABLED", true),

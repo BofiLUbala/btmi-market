@@ -2,7 +2,8 @@ package repository
 
 import (
 	"database/sql"
-	"fmt"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/btmi-ai-market/backend/internal/database"
@@ -10,6 +11,11 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// ErrUserNotFound is returned when no row matches. Callers that must tell
+// "nobody has this number" apart from "the database is down" test for it;
+// phone sign-in does, because it registers the number in the first case.
+var ErrUserNotFound = errors.New("user not found")
 
 type UserRepository struct {
 	db *database.DB
@@ -36,14 +42,24 @@ func (r *UserRepository) Create(user *models.User) error {
 
 	return r.db.QueryRow(query,
 		user.ID, user.FirstName, user.MiddleName, user.LastName,
-		user.Phone, user.Email, user.PasswordHash,
+		user.Phone, nullableEmail(user.Email), user.PasswordHash,
 		user.Status, user.EmailVerified, user.AccountType,
 	).Scan(&user.CreatedAt, &user.UpdatedAt)
 }
 
+// nullableEmail keeps a phone-only account out of the e-mail unique index.
+// The column holds NULL, which Postgres allows any number of times, whereas
+// '' is a value and the second such account would collide (migration 118).
+func nullableEmail(email string) interface{} {
+	if strings.TrimSpace(email) == "" {
+		return nil
+	}
+	return email
+}
+
 func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
 		FROM users WHERE id = $1
 	`
 
@@ -55,7 +71,7 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("user not found")
+		return nil, ErrUserNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -66,7 +82,7 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
 		FROM users WHERE LOWER(email) = LOWER($1)
 	`
 
@@ -78,7 +94,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("user not found")
+		return nil, ErrUserNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -89,7 +105,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 
 func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
 		FROM users
 		WHERE phone = $1
 		   OR RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 9) =
@@ -106,7 +122,7 @@ func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("user not found")
+		return nil, ErrUserNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -177,6 +193,54 @@ func (r *UserRepository) CreateWithPassword(user *models.User, password string) 
 	}
 	user.PasswordHash = string(hash)
 	return r.Create(user)
+}
+
+// AccountDeletionBlockers counts what must be settled before an account can be
+// deleted: orders still in progress as buyer or courier, and active businesses
+// the user owns.
+func (r *UserRepository) AccountDeletionBlockers(id uuid.UUID) (openOrders, ownedBusinesses int, err error) {
+	err = r.db.QueryRow(`
+		SELECT COUNT(*) FROM orders o
+		WHERE o.status::text NOT IN ('COMPLETED', 'CANCELLED', 'REJECTED', 'DELIVERED')
+		  AND (o.assigned_courier_id = $1
+		       OR o.buyer_profile_id IN (SELECT bp.id FROM buyer_profiles bp WHERE bp.user_id = $1))`,
+		id).Scan(&openOrders)
+	if err != nil {
+		return 0, 0, err
+	}
+	err = r.db.QueryRow(`
+		SELECT COUNT(*) FROM business_memberships m
+		JOIN businesses b ON b.id = m.business_id
+		WHERE m.user_id = $1 AND m.role = 'OWNER' AND m.status::text = 'ACTIVE'
+		  AND b.status::text = 'ACTIVE'`,
+		id).Scan(&ownedBusinesses)
+	return openOrders, ownedBusinesses, err
+}
+
+// AnonymizeAccount overwrites a user's personal data and blocks sign-in. The
+// row stays because orders, payments and audit records point at it.
+func (r *UserRepository) AnonymizeAccount(id uuid.UUID) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	short := id.String()[:8]
+	if _, err := tx.Exec(`
+		UPDATE users SET
+			first_name = 'Deleted', middle_name = '', last_name = 'account',
+			email = $2, phone = $3, password_hash = '!', avatar_url = NULL,
+			status = 'DEACTIVATED', email_verified = FALSE, phone_verified = FALSE,
+			deleted_at = NOW(), updated_at = NOW()
+		WHERE id = $1`,
+		id, "deleted+"+id.String()+"@deleted.invalid", "del"+short); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM push_subscriptions WHERE principal_kind = 'USER' AND principal_id = $1`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // SetPassword sets a new password for an existing user (bcrypt)
