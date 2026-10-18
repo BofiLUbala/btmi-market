@@ -17,6 +17,9 @@ import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrol
 import { RememberMe, useRememberedEmail } from '../../src/components/AuthFormParts'
 import { AuthWideShell } from '../../src/components/AuthWideShell'
 import { ChannelSwitch, WhatsAppCodeForm, challengeFromError, useWhatsAppEnabled, whatsappErrorMessage } from '../../src/components/WhatsAppAuth'
+import { SmsCodeForm, smsErrorMessage, useSmsEnabled } from '../../src/components/SmsAuth'
+import { PhoneInput } from '../../src/components/PhoneInput'
+import { sendSmsCode, type SmsChallenge } from '../../src/lib/firebasePhone'
 import type { VerificationChannel, WhatsAppChallenge } from '../../src/api'
 
 export default function LoginScreen() {
@@ -36,14 +39,25 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const whatsappEnabled = useWhatsAppEnabled()
+  const smsEnabled = useSmsEnabled()
   const { width } = useWindowDimensions()
   const wide = width >= 900
   const [channel, setChannel] = useState<VerificationChannel>('email')
   const [phone, setPhone] = useState('')
   const [challenge, setChallenge] = useState<WhatsAppChallenge | null>(null)
   const [challengeError, setChallengeError] = useState('')
+  const [smsChallenge, setSmsChallenge] = useState<SmsChallenge | null>(null)
+  const signInWithSms = useAuth((state) => state.signInWithSms)
   const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
-  const identifier = useWhatsApp ? phone : email
+  // SMS asks for the number alone: the code is what proves the account, so
+  // there is no password to type and none to forget.
+  const useSms = smsEnabled && channel === 'sms'
+  const channels = useMemo<VerificationChannel[]>(
+    () => ['email', ...(whatsappEnabled ? ['whatsapp' as const] : []), ...(smsEnabled ? ['sms' as const] : [])],
+    [whatsappEnabled, smsEnabled]
+  )
+  const identifier = useWhatsApp || useSms ? phone : email
+  const canSubmit = useSms ? !!phone : !!identifier.trim() && !!password
 
   async function routeAfterLogin(accountEmail: string) {
     // Signing in from a tapped notification: open it now.
@@ -70,9 +84,14 @@ export default function LoginScreen() {
   }
 
   async function submit() {
-    if (busy || !identifier.trim() || !password) return
+    if (busy || !canSubmit) return
     setError(''); setNotActivated(false); setBusy(true)
     try {
+      if (useSms) {
+        setSmsChallenge(await sendSmsCode(phone))
+        setChallengeError('')
+        return
+      }
       if (useWhatsApp) {
         try {
           setChallenge(await authApi.whatsappLogin(phone.trim(), password))
@@ -89,7 +108,8 @@ export default function LoginScreen() {
       await persist(email, password)
       await routeAfterLogin(email)
     } catch (cause) {
-      if (useWhatsApp) setError(whatsappErrorMessage(cause, t))
+      if (useSms) setError(smsErrorMessage(cause, t))
+      else if (useWhatsApp) setError(whatsappErrorMessage(cause, t))
       else if (cause instanceof ApiError) {
         if (cause.code === 'INVALID_CREDENTIALS') { setError(t('auth.invalidCredentials')); if (passwordPrefilled) { setPassword(''); void forgetPassword() } }
         else if (cause.code === 'ACCOUNT_NOT_ACTIVATED') { setNotActivated(true); setError(t('auth.accountNotActivated')) }
@@ -105,6 +125,24 @@ export default function LoginScreen() {
   // ("Mot de passe oublié ?") under the password, remember me, submit.
   // Buyer, seller, employee and courier accounts all sign in here and are
   // routed by account type; administration has its own space.
+  if (smsChallenge) {
+    const codeForm = <SmsCodeForm
+      challenge={smsChallenge}
+      initialError={challengeError}
+      onToken={async (idToken) => { const user = await signInWithSms(idToken); await routeAfterLogin(user.email) }}
+      onBack={() => setSmsChallenge(null)}
+    />
+    if (wide) return <AuthWideShell onBack={() => setSmsChallenge(null)}>{codeForm}</AuthWideShell>
+    return <View style={[styles.codeRoot, { paddingTop: insets.top }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('auth.whatsapp.back')} onPress={() => setSmsChallenge(null)} hitSlop={10} style={styles.codeBack}>
+        <Ionicons name="chevron-back" size={24} color={colors.ink} />
+      </Pressable>
+      <KeyboardAwareScrollView contentContainerStyle={styles.codePage} keyboardShouldPersistTaps="handled">
+        {codeForm}
+      </KeyboardAwareScrollView>
+    </View>
+  }
+
   if (challenge) {
     const codeForm = <WhatsAppCodeForm
       challenge={challenge}
@@ -141,7 +179,7 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>{w('auth.login.subtitle')}</Text>
   </>
   const form = <>
-        {whatsappEnabled ? <ChannelSwitch value={channel} onChange={(c) => { setChannel(c); setError('') }} label={t('auth.whatsapp.loginWith')} /> : null}
+        <ChannelSwitch value={channel} onChange={(c) => { setChannel(c); setError('') }} options={channels} label={t('auth.whatsapp.loginWith')} />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {notActivated ? (
           <Text style={styles.linkLine}>
@@ -149,7 +187,15 @@ export default function LoginScreen() {
             <Text style={styles.link} onPress={() => router.push({ pathname: '/auth/registration-recovery', params: { mode: 'resend' } })}>{w('auth.reinitialize.resend')}</Text>
           </Text>
         ) : null}
-        {useWhatsApp ? (
+        {useSms ? (
+          <PhoneInput
+            label={t('auth.sms.phoneLabel')}
+            value={phone}
+            onChange={setPhone}
+            onSubmitEditing={submit}
+            testID="login-phone"
+          />
+        ) : useWhatsApp ? (
           <View style={styles.field}>
             <Text style={styles.label}>{t('auth.whatsapp.phoneLabel')}</Text>
             <TextInput
@@ -187,7 +233,7 @@ export default function LoginScreen() {
             />
           </View>
         )}
-        <View style={styles.field}>
+        {useSms ? null : <View style={styles.field}>
           <Text style={styles.label}>{w('auth.password')}</Text>
           <View>
             <TextInput
@@ -217,9 +263,9 @@ export default function LoginScreen() {
           >
             <Text style={styles.forgotText}>{w('auth.login.forgotPassword')}</Text>
           </Pressable>
-        </View>
-        {!useWhatsApp ? <RememberMe checked={remember} onChange={setRemember} /> : null}
-        <Button title={useWhatsApp ? t('auth.whatsapp.sendCode') : w('auth.login.submit')} loading={busy} disabled={!identifier.trim() || !password} onPress={submit} />
+        </View>}
+        {!useWhatsApp && !useSms ? <RememberMe checked={remember} onChange={setRemember} /> : null}
+        <Button title={useSms ? t('auth.sms.sendCode') : useWhatsApp ? t('auth.whatsapp.sendCode') : w('auth.login.submit')} loading={busy} disabled={!canSubmit} onPress={submit} />
         <Text style={[styles.linkLine, styles.center]}>{w('auth.login.noAccount')} <Text style={styles.link} onPress={() => router.push('/auth/register')}>{w('auth.login.createOne')}</Text></Text>
         <Pressable accessibilityRole="link" onPress={() => router.push('/admin/login')} style={styles.adminLink} hitSlop={6}>
           <Ionicons name="shield-checkmark-outline" size={16} color={colors.muted} />

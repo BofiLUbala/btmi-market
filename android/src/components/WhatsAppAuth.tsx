@@ -28,16 +28,36 @@ export function useWhatsAppEnabled() {
   return enabled
 }
 
-/** "E-mail | WhatsApp" switch above the sign-in and sign-up forms. */
-export function ChannelSwitch({ value, onChange, label }: { value: VerificationChannel; onChange: (v: VerificationChannel) => void; label?: string }) {
+const CHANNEL_ICON = {
+  email: 'mail-outline',
+  whatsapp: 'logo-whatsapp',
+  sms: 'chatbubble-ellipses-outline',
+} as const
+
+/**
+ * "E-mail | WhatsApp | SMS" switch above the sign-in, sign-up and password
+ * forms. `options` lists the channels this screen can actually offer, so a
+ * server without a WhatsApp gateway or without Firebase simply shows fewer
+ * choices — and a single remaining choice is no choice at all, so nothing is
+ * drawn.
+ */
+export function ChannelSwitch({ value, onChange, label, options = ['email', 'whatsapp'] }: {
+  value: VerificationChannel
+  onChange: (v: VerificationChannel) => void
+  label?: string
+  options?: VerificationChannel[]
+}) {
   const { t } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
+  if (options.length < 2) return null
+  const labelFor = (c: VerificationChannel) =>
+    c === 'email' ? t('auth.email') : c === 'sms' ? t('auth.sms.channel') : 'WhatsApp'
   return (
     <View style={styles.channel}>
       {label ? <Text style={styles.channelLabel}>{label}</Text> : null}
       <View style={styles.switch} accessibilityRole="radiogroup">
-        {(['email', 'whatsapp'] as const).map((c) => {
+        {options.map((c) => {
           const selected = value === c
           return (
             <Pressable
@@ -48,8 +68,8 @@ export function ChannelSwitch({ value, onChange, label }: { value: VerificationC
               accessibilityState={{ checked: selected }}
               testID={`channel-${c}`}
             >
-              <Ionicons name={c === 'email' ? 'mail-outline' : 'logo-whatsapp'} size={18} color={selected ? colors.onGreen : colors.muted} />
-              <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{c === 'email' ? t('auth.email') : 'WhatsApp'}</Text>
+              <Ionicons name={CHANNEL_ICON[c]} size={18} color={selected ? colors.onGreen : colors.muted} />
+              <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{labelFor(c)}</Text>
             </Pressable>
           )
         })}

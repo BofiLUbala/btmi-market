@@ -41,7 +41,7 @@ const normalizeCustomer = (value: unknown): Customer => {
   return { ...base, total_orders: (object?.total_orders as number) ?? base.total_orders, total_purchased: (object?.total_purchased as number) ?? base.total_purchased }
 }
 
-export type VerificationChannel = 'email' | 'whatsapp'
+export type VerificationChannel = 'email' | 'whatsapp' | 'sms'
 
 export interface WhatsAppChallenge {
   challenge_id: string
@@ -67,6 +67,15 @@ export const authApi = {
   whatsappLogin: (phone: string, password: string) => post<WhatsAppChallenge>('/auth/whatsapp/login', { phone, password }),
   whatsappVerify: (challenge_id: string, code: string) => post<LoginResponse>('/auth/whatsapp/verify', { challenge_id, code }),
   whatsappResend: (challenge_id: string) => post<WhatsAppChallenge>('/auth/whatsapp/resend', { challenge_id }),
+  // SMS channel: Firebase sends the code and checks it on the device, so the
+  // only thing crossing the wire is the ID token it hands back. The server
+  // verifies that token and opens the session (or starts a password reset).
+  smsStatus: () => get<{ enabled: boolean }>('/auth/sms/status'),
+  /** Signs in, registering the number if no account holds it yet. */
+  smsSignIn: (id_token: string, first_name?: string, last_name?: string) =>
+    post<LoginResponse>('/auth/sms/signin', { id_token, first_name, last_name }),
+  /** A verified number buys a short-lived reset token for `resetPassword`. */
+  smsForgotPassword: (id_token: string) => post<{ reset_token: string }>('/auth/sms/forgot-password', { id_token }),
   resendActivation: (email: string) => post('/auth/resend-activation', { email }),
   reinitializeRegistration: (email: string) => post('/auth/reinitialize-registration', { email }),
   /** The link in the activation email. Answers with a session, so the account

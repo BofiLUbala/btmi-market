@@ -48,6 +48,7 @@ type AuthService struct {
 	emailService      *email.Service
 	otpRepo           *repository.WhatsAppOTPRepository
 	whatsapp          *whatsapp.Client
+	firebaseProjectID string
 	config            *config.Config
 	security          *notify.Security
 }

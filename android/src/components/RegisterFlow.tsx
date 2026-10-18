@@ -8,11 +8,14 @@ import * as ImagePicker from 'expo-image-picker'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { prepareAvatarUpload } from '../lib/imageUpload'
 import { useMutation } from '@tanstack/react-query'
-import { authApi, type VerificationChannel, type WhatsAppChallenge } from '../api'
+import { authApi, buyerApi, type VerificationChannel, type WhatsAppChallenge } from '../api'
 import { ApiError } from '../api/client'
 import { Button, Card, Field, SectionTitle } from './ui'
 import { ResendEmailButton } from './AuthFormParts'
 import { ChannelSwitch, WhatsAppCodeForm, challengeFromError, useWhatsAppEnabled, whatsappErrorMessage } from './WhatsAppAuth'
+import { SmsCodeForm, smsErrorMessage, useSmsEnabled } from './SmsAuth'
+import { PhoneInput } from './PhoneInput'
+import { sendSmsCode, type SmsChallenge } from '../lib/firebasePhone'
 import { SellerPolicyContent } from './SellerPolicyContent'
 import { useI18n } from '../store/i18n'
 import { useColors } from '../store/theme'
@@ -73,6 +76,17 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   const [challenge, setChallenge] = useState<WhatsAppChallenge | null>(null)
   const [challengeError, setChallengeError] = useState('')
   const useWhatsApp = whatsappEnabled && channel === 'whatsapp'
+  // Signing up by SMS: the number is the account, so no e-mail and no
+  // password are asked for. Firebase texts the code and the server
+  // registers the number once it checks out.
+  const smsEnabled = useSmsEnabled()
+  const bySms = smsEnabled && channel === 'sms'
+  const channels = useMemo<VerificationChannel[]>(
+    () => ['email', ...(whatsappEnabled ? ['whatsapp' as const] : []), ...(smsEnabled ? ['sms' as const] : [])],
+    [whatsappEnabled, smsEnabled]
+  )
+  const [smsChallenge, setSmsChallenge] = useState<SmsChallenge | null>(null)
+  const [smsBusy, setSmsBusy] = useState(false)
   const automaticLoginRunning = useRef(false)
   const wide = useAuthWide()
 
@@ -114,6 +128,9 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   function validateStep(currentStep: number): boolean {
     setError('')
     if (currentStep === 1) {
+      // By SMS there is nothing to check here: the number collected at
+      // step 2 is the whole identity, and the code is what proves it.
+      if (bySms) return true
       if (!email.trim() || !email.includes('@')) {
         setError(t('auth.register.fillAllFields'))
         return false
@@ -161,6 +178,48 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   function prevStep() {
     setError('')
     setStep((s) => Math.max(s - 1, 1) as 1 | 2 | 3 | 4)
+  }
+
+  /** Sends the sign-up code; the session is opened once it is entered. */
+  async function startSmsSignup() {
+    if (smsBusy || !phone) return
+    setError(''); setChallengeError(''); setSmsBusy(true)
+    try {
+      setSmsChallenge(await sendSmsCode(phone))
+    } catch (cause) {
+      setError(smsErrorMessage(cause, t))
+    } finally {
+      setSmsBusy(false)
+    }
+  }
+
+  /**
+   * The number is verified, so the account exists now. Everything the four
+   * steps collected is written to the fresh profile, because the sign-up call
+   * itself carries only the number and the name.
+   */
+  async function completeSmsSignup(idToken: string) {
+    const user = await useAuth.getState().signInWithSms(idToken, firstName.trim(), lastName.trim())
+    try {
+      await buyerApi.updateProfile({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: phone.trim(),
+        backup_phone: backupPhone.trim() || undefined,
+        country: 'DRC',
+        ...address,
+        address: [address.building_number, address.street, address.commune, address.city, address.province].filter(Boolean).join(', '),
+        latitude,
+        longitude,
+      })
+    } catch { /* the profile can be completed later from the account screen */ }
+    if (accountType === 'SELLER') {
+      await authApi.becomeSeller()
+      await useAuth.getState().refresh()
+    }
+    await uploadPendingPhoto()
+    await sellerIntent.clear()
+    router.replace(accountType === 'SELLER' || user.account_type === 'SELLER' ? '/seller/onboarding' : '/(buyer)/profile')
   }
 
   const register = useMutation({
@@ -247,6 +306,28 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   // Large screens: every state sits in the shared centred card; the inner
   // phone cards become plain groups so there is no card inside the card.
   const Box = wide ? FlatBox : Card
+
+  if (smsChallenge) {
+    const smsForm = (
+      <Box>
+        <SmsCodeForm
+          challenge={smsChallenge}
+          initialError={challengeError}
+          onToken={completeSmsSignup}
+          onBack={() => setSmsChallenge(null)}
+        />
+      </Box>
+    )
+    if (wide) return <AuthWideShell title={t('auth.whatsapp.created')}>{smsForm}</AuthWideShell>
+    return (
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+          <SectionTitle title={t('auth.whatsapp.created')} />
+          {smsForm}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    )
+  }
 
   if (challenge) {
     const codeForm = (
@@ -349,23 +430,27 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
         {/* Step 1: Account Credentials */}
         {step === 1 && (
           <Box>
-            <Field label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholder={t('auth.emailPlaceholder')} />
-            {whatsappEnabled ? (
+            {channels.length > 1 ? (
               <View style={{ gap: 6 }}>
-                <ChannelSwitch value={channel} onChange={setChannel} label={t('auth.whatsapp.confirmWith')} />
-                <Text style={styles.muted}>{useWhatsApp ? t('auth.whatsapp.confirmHintWhatsApp') : t('auth.whatsapp.confirmHintEmail')}</Text>
+                <ChannelSwitch value={channel} onChange={setChannel} options={channels} label={t('auth.whatsapp.confirmWith')} />
+                <Text style={styles.muted}>{bySms ? t('auth.sms.signupHint') : useWhatsApp ? t('auth.whatsapp.confirmHintWhatsApp') : t('auth.whatsapp.confirmHintEmail')}</Text>
               </View>
             ) : null}
-            <Field label={t('auth.password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" maxLength={64} />
-            <View>
-              {ruleLabels.map((label, index) => (
-                <Text key={label} style={[styles.rule, rules[index] && styles.success]}>{rules[index] ? '✓' : '○'} {label}</Text>
-              ))}
-            </View>
-            <Field label={t('auth.confirmPassword')} value={confirmation} onChangeText={setConfirmation} secureTextEntry autoComplete="new-password" maxLength={64} />
-            {confirmation.length > 0 ? (
-              <Text style={matches ? styles.success : styles.error}>{matches ? t('auth.passwordsMatch') : t('auth.passwordsMismatch')}</Text>
-            ) : null}
+            {bySms ? null : (
+              <>
+                <Field label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholder={t('auth.emailPlaceholder')} />
+                <Field label={t('auth.password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" maxLength={64} />
+                <View>
+                  {ruleLabels.map((label, index) => (
+                    <Text key={label} style={[styles.rule, rules[index] && styles.success]}>{rules[index] ? '✓' : '○'} {label}</Text>
+                  ))}
+                </View>
+                <Field label={t('auth.confirmPassword')} value={confirmation} onChangeText={setConfirmation} secureTextEntry autoComplete="new-password" maxLength={64} />
+                {confirmation.length > 0 ? (
+                  <Text style={matches ? styles.success : styles.error}>{matches ? t('auth.passwordsMatch') : t('auth.passwordsMismatch')}</Text>
+                ) : null}
+              </>
+            )}
             <Button title={`${t('auth.register.next')} →`} onPress={nextStep} />
           </Box>
         )}
@@ -387,8 +472,8 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
               <Field label={t('auth.middleName')} value={middleName} onChangeText={setMiddleName} autoCapitalize="words" autoComplete="additional-name" />
             )}
             <Field label={t('auth.lastName')} value={lastName} onChangeText={setLastName} autoCapitalize="words" autoComplete="family-name" />
-            <Field label={t('auth.phone')} value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" placeholder={t('auth.phonePlaceholder')} />
-            <Field label={t('auth.register.backupPhone')} value={backupPhone} onChangeText={setBackupPhone} keyboardType="phone-pad" placeholder={t('common.optional')} />
+            <PhoneInput label={t('auth.phone')} value={phone} onChange={setPhone} testID="register-phone" />
+            <PhoneInput label={t('auth.register.backupPhone')} value={backupPhone} onChange={setBackupPhone} testID="register-backup-phone" />
             <Pressable
               style={[styles.sellCard, alsoSell && styles.sellCardOn]}
               onPress={() => { setAlsoSell((v) => !v); setPolicyAccepted(false) }}
@@ -437,9 +522,9 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
 
             <View style={styles.summaryBlock}>
               <Text style={styles.summaryLabel}>{t('auth.register.accountDetails')}</Text>
-              <Text style={styles.summaryVal}>{email}</Text>
+              <Text style={styles.summaryVal}>{bySms ? phone : email}</Text>
               <Text style={styles.summaryVal}>{accountType === 'SELLER' ? t('auth.register.sellerAccount') : t('auth.register.buyerAccount')}</Text>
-              {whatsappEnabled ? <Text style={styles.summaryVal}>{t('auth.whatsapp.confirmWith')} : {useWhatsApp ? `WhatsApp (${phone})` : t('auth.email')}</Text> : null}
+              {channels.length > 1 ? <Text style={styles.summaryVal}>{t('auth.whatsapp.confirmWith')} : {bySms ? `SMS (${phone})` : useWhatsApp ? `WhatsApp (${phone})` : t('auth.email')}</Text> : null}
             </View>
 
             <View style={styles.summaryBlock}>
@@ -476,14 +561,14 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
 
             <View style={styles.btnRow}>
               <View style={styles.btnCol}>
-                <Button title={`← ${t('auth.register.back')}`} variant="outline" onPress={prevStep} disabled={register.isPending} />
+                <Button title={`← ${t('auth.register.back')}`} variant="outline" onPress={prevStep} disabled={register.isPending || smsBusy} />
               </View>
               <View style={[styles.btnCol, { flex: 1.5 }]}>
                 <Button
                   title={t('auth.register.submit')}
-                  loading={register.isPending}
-                  disabled={accountType === 'SELLER' && !policyAccepted}
-                  onPress={() => register.mutate()}
+                  loading={register.isPending || smsBusy}
+                  disabled={(accountType === 'SELLER' && !policyAccepted) || (bySms && !phone)}
+                  onPress={() => { if (bySms) void startSmsSignup(); else register.mutate() }}
                 />
               </View>
             </View>

@@ -159,6 +159,9 @@ func main() {
 	authService.SetEmployeeRepo(employeeRepo)
 	authService.SetSecurityAlerts(notify.NewSecurity(db, notifier, pushDispatcher.Store()))
 	authService.SetWhatsApp(repository.NewWhatsAppOTPRepository(db), whatsapp.NewClient(cfg))
+	// Firebase sends the SMS codes from the device; the server only verifies
+	// the ID token that comes back, so the project id is all it needs.
+	authService.SetFirebase(cfg.FirebaseProjectID)
 	businessService := service.NewBusinessService(userRepo, businessRepo, membershipRepo, db)
 	shopService := service.NewShopService(shopRepo, membershipRepo, db, asynqClient)
 	employeeService := service.NewEmployeeService(
@@ -433,6 +436,9 @@ func main() {
 			authGroup.POST("/whatsapp/login", authHandler.LoginWhatsApp)
 			authGroup.POST("/whatsapp/verify", authHandler.VerifyWhatsApp)
 			authGroup.POST("/whatsapp/resend", authHandler.ResendWhatsApp)
+			authGroup.GET("/sms/status", authHandler.SMSStatus)
+			authGroup.POST("/sms/signin", authHandler.SignInWithSMS)
+			authGroup.POST("/sms/forgot-password", authHandler.ForgotPasswordSMS)
 			authGroup.POST("/refresh", authHandler.Refresh)
 			authGroup.POST("/logout", authHandler.Logout)
 			authGroup.POST("/forgot-password", authHandler.ForgotPassword)

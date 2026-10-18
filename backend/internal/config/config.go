@@ -55,6 +55,11 @@ type Config struct {
 	WhatsAppPhoneNumberID    string
 	WhatsAppCloudAPIVersion  string
 	WhatsAppTemplateLanguage string
+	// Firebase project that signs the phone-auth ID tokens. Firebase sends
+	// the SMS from the device, so nothing but the project id is needed here —
+	// it is what the token's audience and issuer are checked against. Empty:
+	// the SMS channel is refused and clients are told not to offer it.
+	FirebaseProjectID string
 	// Push notifications. Web push needs a VAPID key pair: when
 	// VAPID_PRIVATE_KEY is empty one is generated once and kept in the
 	// database. Mobile push goes through Expo's push service, which needs the
@@ -114,6 +119,7 @@ func Load() *Config {
 		WhatsAppPhoneNumberID:      getEnv("WHATSAPP_PHONE_NUMBER_ID", ""),
 		WhatsAppCloudAPIVersion:    getEnv("WHATSAPP_CLOUD_API_VERSION", "v21.0"),
 		WhatsAppTemplateLanguage:   getEnv("WHATSAPP_TEMPLATE_LANGUAGE", "fr"),
+		FirebaseProjectID:          getEnv("FIREBASE_PROJECT_ID", ""),
 		PushEnabled:                getEnvBool("PUSH_ENABLED", true),
 		PushWebEnabled:             getEnvBool("PUSH_WEB_ENABLED", true),
 		PushExpoEnabled:            getEnvBool("PUSH_EXPO_ENABLED", true),

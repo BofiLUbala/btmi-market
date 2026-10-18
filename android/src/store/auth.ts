@@ -26,6 +26,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<User>
   /** Completes a WhatsApp sign-up or sign-in with the code received. */
   verifyWhatsApp: (challengeId: string, code: string) => Promise<User>
+  /** Opens a session from a number Firebase has just verified by SMS. */
+  signInWithSms: (idToken: string, firstName?: string, lastName?: string) => Promise<User>
   logout: () => Promise<void>
   setActiveBusiness: (business: Business | null) => void
   setActiveShop: (shopId: string | null) => void
@@ -88,6 +90,16 @@ export const useAuth = create<AuthState>((set) => ({
   },
   verifyWhatsApp: async (challengeId, code) => {
     const session = await authApi.whatsappVerify(challengeId, code)
+    await tokenStore.set(session.access_token, session.refresh_token)
+    const user = session.user ?? await authApi.me()
+    const seller = await loadSellerBusinesses(user)
+    set({ user, ready: true, ...seller })
+    return user
+  },
+  // Sign-in and sign-up are the same call here: the server registers a number
+  // nobody holds, which is why the names are passed along.
+  signInWithSms: async (idToken, firstName, lastName) => {
+    const session = await authApi.smsSignIn(idToken, firstName, lastName)
     await tokenStore.set(session.access_token, session.refresh_token)
     const user = session.user ?? await authApi.me()
     const seller = await loadSellerBusinesses(user)
