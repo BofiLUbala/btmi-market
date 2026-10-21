@@ -52,9 +52,11 @@ export default function LoginScreen() {
   // SMS asks for the number alone: the code is what proves the account, so
   // there is no password to type and none to forget.
   const useSms = smsEnabled && channel === 'sms'
+  // Two ways in and no more, matching the sign-up: an e-mail address, or a
+  // mobile number proved by the code Firebase texts to it.
   const channels = useMemo<VerificationChannel[]>(
-    () => ['email', ...(whatsappEnabled ? ['whatsapp' as const] : []), ...(smsEnabled ? ['sms' as const] : [])],
-    [whatsappEnabled, smsEnabled]
+    () => ['email', ...(smsEnabled ? ['sms' as const] : [])],
+    [smsEnabled]
   )
   const identifier = useWhatsApp || useSms ? phone : email
   const canSubmit = useSms ? !!phone : !!identifier.trim() && !!password

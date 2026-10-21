@@ -81,9 +81,11 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   // registers the number once it checks out.
   const smsEnabled = useSmsEnabled()
   const bySms = smsEnabled && channel === 'sms'
+  // Two ways in and no more: an e-mail address, or a mobile number proved by
+  // the code Firebase texts to it. WhatsApp is no longer offered.
   const channels = useMemo<VerificationChannel[]>(
-    () => ['email', ...(whatsappEnabled ? ['whatsapp' as const] : []), ...(smsEnabled ? ['sms' as const] : [])],
-    [whatsappEnabled, smsEnabled]
+    () => ['email', ...(smsEnabled ? ['sms' as const] : [])],
+    [smsEnabled]
   )
   const [smsChallenge, setSmsChallenge] = useState<SmsChallenge | null>(null)
   const [smsBusy, setSmsBusy] = useState(false)
@@ -128,13 +130,14 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
   function validateStep(currentStep: number): boolean {
     setError('')
     if (currentStep === 1) {
-      // By SMS there is nothing to check here: the number collected at
-      // step 2 is the whole identity, and the code is what proves it.
-      if (bySms) return true
-      // By WhatsApp the number is asked for on this step, so it is checked here.
-      if (useWhatsApp && !phone.trim()) {
-        setError(t('auth.register.fillAllFields'))
-        return false
+      // By SMS the number is the whole identity and the code is what proves
+      // it, so the number is all there is to check — no address, no password.
+      if (bySms) {
+        if (!phone.trim()) {
+          setError(t('auth.register.fillAllFields'))
+          return false
+        }
+        return true
       }
       if (!email.trim() || !email.includes('@')) {
         setError(t('auth.register.fillAllFields'))
@@ -441,12 +444,12 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
                 <Text style={styles.muted}>{bySms ? t('auth.sms.signupHint') : useWhatsApp ? t('auth.whatsapp.confirmHintWhatsApp') : t('auth.whatsapp.confirmHintEmail')}</Text>
               </View>
             ) : null}
-            {/* The code goes to this number, so it is asked for here rather
-                than two steps later; step 2 shows it again, already filled. */}
-            {useWhatsApp ? (
-              <PhoneInput label={t('auth.whatsapp.phoneLabel')} value={phone} onChange={setPhone} testID="register-channel-phone" />
-            ) : null}
-            {bySms ? null : (
+            {/* The identity being registered, and nothing else: an address or
+                a number. The number is asked for here, where the hint promises
+                the code; step 2 shows it again, already filled. */}
+            {bySms ? (
+              <PhoneInput label={t('auth.sms.phoneLabel')} value={phone} onChange={setPhone} testID="register-channel-phone" />
+            ) : (
               <>
                 <Field label={t('auth.email')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholder={t('auth.emailPlaceholder')} />
                 <Field label={t('auth.password')} value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" maxLength={64} />

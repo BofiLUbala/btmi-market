@@ -234,10 +234,11 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'auth.sms.codeSentTo': "Code sent by SMS to {phone}",
   'auth.sms.invalidPhone': "That number is not valid. Check the country code.",
   'auth.sms.quotaExceeded': "Too many messages sent right now. Try again later or use another method.",
-  'auth.sms.unavailable': "Sending by SMS is unavailable right now.",
+  'auth.sms.regionBlocked': "Sending by SMS is not open for this country yet. Please use your email address for now.",
+  'auth.sms.unavailable':"Sending by SMS is unavailable right now.",
   'auth.sms.verificationFailed': "The number could not be verified. Please start again.",
   'auth.sms.sendFailed': "The code could not be sent.",
-  'auth.sms.signupHint': "A 6-digit code will be sent by SMS to the number you give on the next step. No email address and no password are asked for.",
+  'auth.sms.signupHint': "A 6-digit code will be sent by SMS to the number below. No email address and no password are asked for.",
   'auth.sms.recoverWith': "Recover with",
   'auth.sms.recoverByPhoneBody': "Enter your number: you will get a code by SMS, then choose a new password.",
   // Phone field with its country-code picker.

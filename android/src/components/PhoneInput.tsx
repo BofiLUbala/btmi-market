@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   countryByIso,
   countryName,
@@ -43,7 +42,7 @@ export function PhoneInput({
   const { t, lang } = useI18n()
   const colors = useColors()
   const styles = useMemo(() => makeStyles(colors), [colors])
-  const insets = useSafeAreaInsets()
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions()
 
   const initial = useRef(value ? fromE164(value) : null).current
   const [country, setCountry] = useState<Country>(initial?.country ?? countryByIso(null))
@@ -79,6 +78,34 @@ export function PhoneInput({
 
   const results = useMemo(() => searchCountries(query, lang), [query, lang])
 
+  // The list hangs off the country button instead of taking the whole screen:
+  // the field stays visible, so it is clear what is being changed.
+  const anchorRef = useRef<View>(null)
+  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+
+  function openPicker() {
+    const node = anchorRef.current
+    if (!node) { setPickerOpen(true); return }
+    node.measureInWindow((x, y, width, height) => {
+      setAnchor({ x, y, width, height })
+      setPickerOpen(true)
+    })
+  }
+
+  const panelWidth = Math.min(320, screenWidth - 2 * spacing.md)
+  const gap = 6
+  const roomBelow = anchor ? screenHeight - (anchor.y + anchor.height) - gap - 8 : 0
+  const roomAbove = anchor ? anchor.y - gap - 8 : 0
+  // Flip above the field when the keyboard or the page bottom leaves no room.
+  const openUp = anchor ? roomBelow < 220 && roomAbove > roomBelow : false
+  const panelHeight = Math.max(180, Math.min(320, openUp ? roomAbove : roomBelow))
+  const panelLeft = anchor
+    ? Math.min(Math.max(spacing.md, anchor.x), Math.max(spacing.md, screenWidth - panelWidth - spacing.md))
+    : spacing.md
+  const panelTop = anchor
+    ? (openUp ? anchor.y - gap - panelHeight : anchor.y + anchor.height + gap)
+    : 100
+
   function choose(next: Country) {
     setCountry(next)
     setPickerOpen(false)
@@ -90,20 +117,22 @@ export function PhoneInput({
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.row}>
-        <Pressable
-          onPress={() => setPickerOpen(true)}
-          style={styles.country}
-          accessibilityRole="button"
-          accessibilityLabel={t('auth.phone.countryLabel')}
-          accessibilityHint={countryName(country, lang)}
-          testID={testID ? `${testID}-country` : 'phone-country'}
-        >
-          {/* The ISO code, not a flag: Android's system fonts have no flag
-              emoji, which would leave an empty box on most devices. */}
-          <Text style={styles.iso}>{country.iso}</Text>
-          <Text style={styles.dial}>+{country.dial}</Text>
-          <Ionicons name="chevron-down" size={14} color={colors.muted} />
-        </Pressable>
+        <View ref={anchorRef} collapsable={false}>
+          <Pressable
+            onPress={openPicker}
+            style={styles.country}
+            accessibilityRole="button"
+            accessibilityLabel={t('auth.phone.countryLabel')}
+            accessibilityHint={countryName(country, lang)}
+            testID={testID ? `${testID}-country` : 'phone-country'}
+          >
+            {/* The ISO code, not a flag: Android's system fonts have no flag
+                emoji, which would leave an empty box on most devices. */}
+            <Text style={styles.iso}>{country.iso}</Text>
+            <Text style={styles.dial}>+{country.dial}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.muted} />
+          </Pressable>
+        </View>
         <TextInput
           ref={numberRef}
           style={styles.number}
@@ -122,19 +151,18 @@ export function PhoneInput({
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Modal visible={pickerOpen} animationType="slide" onRequestClose={() => setPickerOpen(false)}>
-        <View style={[styles.sheet, { paddingTop: insets.top }]}>
-          <View style={styles.sheetHead}>
-            <Pressable
-              onPress={() => setPickerOpen(false)}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.close')}
-            >
-              <Ionicons name="close" size={24} color={colors.ink} />
-            </Pressable>
-            <Text style={styles.sheetTitle}>{t('auth.phone.chooseCountry')}</Text>
-          </View>
+      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
+        {/* Tapping anywhere off the panel closes it, the way a dropdown does. */}
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => setPickerOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+        />
+        <View
+          style={[styles.panel, { width: panelWidth, height: panelHeight, left: panelLeft, top: panelTop }]}
+          testID="phone-country-panel"
+        >
           <TextInput
             style={styles.search}
             value={query}
@@ -150,7 +178,7 @@ export function PhoneInput({
             data={results}
             keyExtractor={(item) => item.iso}
             keyboardShouldPersistTaps="handled"
-            initialNumToRender={20}
+            initialNumToRender={14}
             renderItem={({ item }) => {
               const selected = item.iso === country.iso
               return (
@@ -192,18 +220,22 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     backgroundColor: colors.surface2, paddingHorizontal: 16, color: colors.ink, fontSize: 16,
   },
   error: { color: colors.danger, fontSize: 13 },
-  sheet: { flex: 1, backgroundColor: colors.white },
-  sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  sheetTitle: { color: colors.ink, fontSize: 18, fontWeight: '700' },
-  search: {
-    marginHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 46, borderRadius: radius.sm,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2,
-    paddingHorizontal: 14, color: colors.ink, fontSize: 15,
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  // A small card hanging off the country button, not a full-screen sheet.
+  panel: {
+    position: 'absolute', backgroundColor: colors.white, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border, overflow: 'hidden', paddingTop: 8,
+    elevation: 8, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
   },
-  option: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.md, paddingVertical: 14 },
+  search: {
+    marginHorizontal: 8, marginBottom: 6, minHeight: 38, borderRadius: radius.sm,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2,
+    paddingHorizontal: 10, color: colors.ink, fontSize: 14,
+  },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 9 },
   optionSelected: { backgroundColor: colors.surface2 },
-  optionIso: { color: colors.muted, fontSize: 12, fontWeight: '700', width: 28 },
-  optionName: { flex: 1, color: colors.ink, fontSize: 15 },
-  optionDial: { color: colors.muted, fontSize: 14, fontWeight: '600' },
-  empty: { color: colors.muted, textAlign: 'center', padding: spacing.lg },
+  optionIso: { color: colors.muted, fontSize: 11, fontWeight: '700', width: 24 },
+  optionName: { flex: 1, color: colors.ink, fontSize: 14 },
+  optionDial: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  empty: { color: colors.muted, textAlign: 'center', padding: spacing.md, fontSize: 13 },
 })

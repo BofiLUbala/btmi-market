@@ -40,10 +40,19 @@ export function toSmsError(cause: unknown): SmsError {
       return new SmsError('OTP_EXPIRED')
     case 'auth/network-request-failed':
       return new SmsError('NETWORK_ERROR')
+    case 'auth/operation-not-allowed': {
+      // Firebase refuses whole countries until the project allows them
+      // (Authentication -> Settings -> SMS region policy). Saying only that
+      // SMS is "unavailable" sends everyone hunting for a fault in the app,
+      // when the number and the code are both fine and the country simply is
+      // not on the list. Firebase says which it is in the message.
+      const detail = String((cause as Error)?.message ?? '')
+      if (/region/i.test(detail)) return new SmsError('SMS_REGION_BLOCKED', detail)
+      return new SmsError('SMS_UNAVAILABLE')
+    }
     case 'auth/captcha-check-failed':
     case 'auth/missing-client-identifier':
     case 'auth/unauthorized-domain':
-    case 'auth/operation-not-allowed':
     case 'auth/app-not-authorized':
       return new SmsError('SMS_UNAVAILABLE')
   }

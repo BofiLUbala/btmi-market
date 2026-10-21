@@ -20,7 +20,12 @@ let statusPromise: Promise<boolean> | null = null
  * missing and the option stays hidden rather than failing on the first tap.
  */
 export function useSmsEnabled() {
-  const [enabled, setEnabled] = useState(false)
+  // Optimistic: a build carrying Firebase offers the choice straight away and
+  // gives it up only if the server answers that it has no project configured.
+  // Starting at `false` hid the choice behind a round trip, and on a slow link
+  // the sign-up page finished loading with no way to pick a number at all —
+  // the switch arrived ten seconds later, long after the reader had given up.
+  const [enabled, setEnabled] = useState(isFirebasePhoneAvailable)
   useEffect(() => {
     if (!isFirebasePhoneAvailable()) return
     let alive = true
@@ -43,6 +48,7 @@ export function smsErrorMessage(err: unknown, t: T): string {
     case 'OTP_EXPIRED': return t('auth.whatsapp.codeExpired')
     case 'RATE_LIMITED': return t('auth.whatsapp.rateLimited')
     case 'SMS_QUOTA_EXCEEDED': return t('auth.sms.quotaExceeded')
+    case 'SMS_REGION_BLOCKED': return t('auth.sms.regionBlocked')
     case 'SMS_UNAVAILABLE': return t('auth.sms.unavailable')
     case 'FIREBASE_TOKEN_INVALID':
     case 'FIREBASE_PHONE_MISSING': return t('auth.sms.verificationFailed')

@@ -243,10 +243,11 @@ export const fr = {
   'auth.sms.codeSentTo': "Code envoyé par SMS au {phone}",
   'auth.sms.invalidPhone': "Ce numéro n'est pas valide. Vérifiez l'indicatif du pays.",
   'auth.sms.quotaExceeded': "Trop de SMS envoyés pour le moment. Réessayez plus tard ou utilisez une autre méthode.",
-  'auth.sms.unavailable': "L'envoi par SMS est indisponible pour le moment.",
+  'auth.sms.regionBlocked': "L'envoi de SMS n'est pas encore ouvert pour ce pays. Utilisez votre adresse e-mail pour le moment.",
+  'auth.sms.unavailable':"L'envoi par SMS est indisponible pour le moment.",
   'auth.sms.verificationFailed': "La vérification du numéro a échoué. Recommencez.",
   'auth.sms.sendFailed': "Le code n'a pas pu être envoyé.",
-  'auth.sms.signupHint': "Un code à 6 chiffres sera envoyé par SMS au numéro indiqué à l'étape suivante. Aucune adresse e-mail ni mot de passe n'est demandé.",
+  'auth.sms.signupHint': "Un code à 6 chiffres sera envoyé par SMS au numéro ci-dessous. Aucune adresse e-mail ni mot de passe n'est demandé.",
   'auth.sms.recoverWith': "Récupérer avec",
   'auth.sms.recoverByPhoneBody': "Entrez votre numéro : vous recevrez un code par SMS, puis vous choisirez un nouveau mot de passe.",
   // Champ téléphone avec sélecteur d'indicatif.
