@@ -15,6 +15,16 @@ type T = ReturnType<typeof useI18n>['t']
 let statusPromise: Promise<boolean> | null = null
 
 /**
+ * Whether this build carries the native Firebase module, asked without ever
+ * raising: on a build that lacks it the lookup throws rather than returning
+ * false, and this is read during render, where a throw takes the whole screen
+ * down instead of merely hiding the SMS choice.
+ */
+function firebaseReady(): boolean {
+  try { return isFirebasePhoneAvailable() } catch { return false }
+}
+
+/**
  * Whether this screen may offer the SMS choice: the server has a Firebase
  * project configured *and* this build carries the native module. Either one
  * missing and the option stays hidden rather than failing on the first tap.
@@ -25,9 +35,9 @@ export function useSmsEnabled() {
   // Starting at `false` hid the choice behind a round trip, and on a slow link
   // the sign-up page finished loading with no way to pick a number at all —
   // the switch arrived ten seconds later, long after the reader had given up.
-  const [enabled, setEnabled] = useState(isFirebasePhoneAvailable)
+  const [enabled, setEnabled] = useState(firebaseReady)
   useEffect(() => {
-    if (!isFirebasePhoneAvailable()) return
+    if (!firebaseReady()) return
     let alive = true
     statusPromise ??= authApi.smsStatus().then((r) => !!r?.enabled).catch(() => {
       statusPromise = null
