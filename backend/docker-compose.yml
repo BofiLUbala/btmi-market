@@ -48,6 +48,9 @@ services:
       - OPENWA_API_KEY=${OPENWA_API_KEY:-}
       - OPENWA_SESSION_ID=${OPENWA_SESSION_ID:-}
       - WHATSAPP_DEFAULT_COUNTRY_CODE=${WHATSAPP_DEFAULT_COUNTRY_CODE:-243}
+      # SMS one-time codes through Firebase Phone Auth: the server only needs the
+      # (public) project id to check the ID tokens the app sends back.
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-tbk-market-fe46e}
       # Push notifications; see .env.example.
       - PUSH_ENABLED=${PUSH_ENABLED:-true}
       - PUSH_WEB_ENABLED=${PUSH_WEB_ENABLED:-true}
