@@ -196,23 +196,15 @@ export default function LoginScreen() {
             testID="login-phone"
           />
         ) : useWhatsApp ? (
-          <View style={styles.field}>
-            <Text style={styles.label}>{t('auth.whatsapp.phoneLabel')}</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              autoComplete="tel"
-              textContentType="telephoneNumber"
-              returnKeyType="next"
-              submitBehavior="submit"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              placeholder={t('auth.whatsapp.phonePlaceholder')}
-              placeholderTextColor={colors.faint}
-              testID="login-phone"
-            />
-          </View>
+          // Same picker as the SMS branch: the country code is chosen, never
+          // typed, so the number reaches the server as E.164 either way.
+          <PhoneInput
+            label={t('auth.whatsapp.phoneLabel')}
+            value={phone}
+            onChange={setPhone}
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            testID="login-phone"
+          />
         ) : (
           <View style={styles.field}>
             <Text style={styles.label}>{w('common.email')}</Text>

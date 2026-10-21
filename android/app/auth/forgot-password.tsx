@@ -51,7 +51,12 @@ export default function ForgotPassword() {
   const [challenge, setChallenge] = useState<SmsChallenge | null>(null)
   const [smsError, setSmsError] = useState('')
   const [sendingSms, setSendingSms] = useState(false)
-  const bySms = smsEnabled && channel === 'sms'
+  // The number is always entered through the picker, so the country code is
+  // never typed and the value matches the stored E.164 exactly. Firebase only
+  // decides *how* it is used: a texted code, or the reset link e-mailed to the
+  // address on the account that number belongs to.
+  const byPhone = channel === 'sms'
+  const bySms = smsEnabled && byPhone
 
   async function sendCode() {
     if (sendingSms || !phone) return
@@ -76,14 +81,14 @@ export default function ForgotPassword() {
     else { setChallenge(null); setSentTo(phone) }
   }
 
-  const switcher = smsEnabled ? (
+  const switcher = (
     <ChannelSwitch
       value={channel}
       onChange={(c) => { setChannel(c); setSmsError(''); request.reset() }}
       options={['email', 'sms']}
       label={t('auth.sms.recoverWith')}
     />
-  ) : null
+  )
 
   // The code entry takes over the whole screen once a code is on its way.
   if (bySms && challenge) {
@@ -105,12 +110,21 @@ export default function ForgotPassword() {
         label={t('auth.sms.phoneLabel')}
         value={phone}
         onChange={setPhone}
-        onSubmitEditing={() => void sendCode()}
+        onSubmitEditing={() => { if (bySms) void sendCode(); else if (phone) request.mutate(phone) }}
         autoFocus={!phone}
         testID="forgot-phone"
       />
       {smsError ? <Text style={styles.error}>{smsError}</Text> : null}
-      <Button title={t('auth.sms.sendCode')} loading={sendingSms} disabled={!phone} onPress={() => void sendCode()} />
+      {bySms ? (
+        <Button title={t('auth.sms.sendCode')} loading={sendingSms} disabled={!phone} onPress={() => void sendCode()} />
+      ) : (
+        // No Firebase: the number still finds the account, and the link goes
+        // to the e-mail address on it.
+        <>
+          <Button title={t('auth.sendLink')} loading={request.isPending} disabled={!phone} onPress={() => request.mutate(phone)} />
+          {request.isError && <ErrorState message={t('auth.forgotFailed')} />}
+        </>
+      )}
     </>
   )
 
@@ -145,7 +159,7 @@ export default function ForgotPassword() {
     }
     return <AuthWideShell title={t('auth.recoverAccount')} subtitle={bySms ? t('auth.sms.recoverByPhoneBody') : t('auth.recoverAccountBody')}>
       {switcher}
-      {bySms ? phoneForm : emailForm}
+      {byPhone ? phoneForm : emailForm}
       <Text style={[styles.link, styles.center]} onPress={() => router.canGoBack() ? router.back() : router.replace('/auth/login')}>{t('auth.backToSignIn')}</Text>
     </AuthWideShell>
   }
@@ -168,7 +182,7 @@ export default function ForgotPassword() {
     <Text style={styles.muted}>{bySms ? t('auth.sms.recoverByPhoneBody') : t('auth.recoverAccountBody')}</Text>
     <Card>
       {switcher}
-      {bySms ? phoneForm : emailForm}
+      {byPhone ? phoneForm : emailForm}
     </Card>
     <Text style={[styles.link, styles.center]} onPress={() => router.back()}>{t('auth.backToSignIn')}</Text>
   </KeyboardAwareScrollView>

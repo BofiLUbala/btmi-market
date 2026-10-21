@@ -131,6 +131,11 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
       // By SMS there is nothing to check here: the number collected at
       // step 2 is the whole identity, and the code is what proves it.
       if (bySms) return true
+      // By WhatsApp the number is asked for on this step, so it is checked here.
+      if (useWhatsApp && !phone.trim()) {
+        setError(t('auth.register.fillAllFields'))
+        return false
+      }
       if (!email.trim() || !email.includes('@')) {
         setError(t('auth.register.fillAllFields'))
         return false
@@ -435,6 +440,11 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
                 <ChannelSwitch value={channel} onChange={setChannel} options={channels} label={t('auth.register.signUpWith')} />
                 <Text style={styles.muted}>{bySms ? t('auth.sms.signupHint') : useWhatsApp ? t('auth.whatsapp.confirmHintWhatsApp') : t('auth.whatsapp.confirmHintEmail')}</Text>
               </View>
+            ) : null}
+            {/* The code goes to this number, so it is asked for here rather
+                than two steps later; step 2 shows it again, already filled. */}
+            {useWhatsApp ? (
+              <PhoneInput label={t('auth.whatsapp.phoneLabel')} value={phone} onChange={setPhone} testID="register-channel-phone" />
             ) : null}
             {bySms ? null : (
               <>

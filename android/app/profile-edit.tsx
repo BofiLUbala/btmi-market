@@ -6,6 +6,7 @@ import { buyerApi } from '../src/api'
 import { ApiError } from '../src/api/client'
 import { Button, ErrorState, Field, Loading } from '../src/components/ui'
 import { StructuredAddressFields, emptyStructuredAddress, isStructuredAddressComplete } from '../src/components/StructuredAddressFields'
+import { PhoneInput } from '../src/components/PhoneInput'
 import { useI18n } from '../src/store/i18n'
 import { useColors } from '../src/store/theme'
 import { radius, shadow, spacing, type Colors } from '../src/theme'
@@ -88,8 +89,10 @@ export default function EditProfileScreen() {
       <View style={styles.card}>
         <Field label={t('editProfile.firstName')} value={form.first_name} onChangeText={(v) => setForm((f) => ({ ...f, first_name: v }))} />
         <Field label={t('editProfile.lastName')} value={form.last_name} onChangeText={(v) => setForm((f) => ({ ...f, last_name: v }))} />
-        <Field label={t('editProfile.phone')} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} keyboardType="phone-pad" placeholder="+243 …" />
-        <Field label={t('editProfile.backupPhone')} value={form.backup_phone} onChangeText={(v) => setForm((f) => ({ ...f, backup_phone: v }))} keyboardType="phone-pad" placeholder={t('common.optional')} />
+        {/* Same picker as sign-up: this is the number sign-in and recovery
+            look up, so it has to keep its E.164 shape when edited. */}
+        <PhoneInput label={t('editProfile.phone')} value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} testID="profile-phone" />
+        <PhoneInput label={t('editProfile.backupPhone')} value={form.backup_phone} onChange={(v) => setForm((f) => ({ ...f, backup_phone: v }))} testID="profile-backup-phone" />
         <Field label={t('editProfile.country')} value={form.country} onChangeText={(v) => setForm((f) => ({ ...f, country: v }))} />
       </View>
 

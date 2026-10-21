@@ -45,8 +45,6 @@ export function PhoneInput({
   const styles = useMemo(() => makeStyles(colors), [colors])
   const insets = useSafeAreaInsets()
 
-  // Only the first value seeds the fields; after that this component owns the
-  // split, and echoing the parent back would fight the typing.
   const initial = useRef(value ? fromE164(value) : null).current
   const [country, setCountry] = useState<Country>(initial?.country ?? countryByIso(null))
   const [national, setNational] = useState(initial?.nationalNumber ?? '')
@@ -57,7 +55,27 @@ export function PhoneInput({
   // The parent owns the value; re-publish it whenever either half changes.
   const publish = useRef(onChange)
   publish.current = onChange
-  useEffect(() => { publish.current(toE164(country, national)) }, [country, national])
+  // What this field last sent up, so the echo of its own value can be told
+  // apart from a number that genuinely arrived from elsewhere.
+  const published = useRef<string | null>(null)
+
+  /**
+   * Adopt a value the parent set itself — a profile loaded from the server
+   * after the first render, or a form reset. The echo of what this field just
+   * published is skipped, so re-seeding never fights the typing.
+   */
+  useEffect(() => {
+    if (value === published.current) return
+    const next = value ? fromE164(value) : null
+    setCountry(next?.country ?? countryByIso(null))
+    setNational(next?.nationalNumber ?? '')
+  }, [value])
+
+  useEffect(() => {
+    const next = toE164(country, national)
+    published.current = next
+    publish.current(next)
+  }, [country, national])
 
   const results = useMemo(() => searchCountries(query, lang), [query, lang])
 
