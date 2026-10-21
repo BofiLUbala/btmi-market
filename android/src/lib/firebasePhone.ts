@@ -1,5 +1,7 @@
 /**
- * Phone sign-in by SMS, through Firebase.
+ * Phone sign-in by SMS, through Firebase — the Android and iOS version.
+ * The web version is firebasePhone.web.ts; both answer the screens with the
+ * same functions and the same errors (shared pieces: firebasePhoneCommon.ts).
  *
  * Firebase sends the message from the device and checks the code itself; what
  * we get back is an ID token, which the backend verifies (see
@@ -14,15 +16,9 @@
  * `/auth/sms/status` is what the screens ask before showing the option.
  */
 
-type ConfirmationResult = {
-  confirm: (code: string) => Promise<{ user: { getIdToken: () => Promise<string> } } | null>
-}
+import { SmsError, isE164, toSmsError, type ConfirmationResult, type SmsChallenge } from './firebasePhoneCommon'
 
-/** What a pending SMS looks like to the screens: opaque, with a resend. */
-export type SmsChallenge = {
-  phone: string
-  confirmation: ConfirmationResult
-}
+export { SmsError, type SmsChallenge }
 
 type FirebaseAuthModule = () => {
   signInWithPhoneNumber: (phone: string, forceResend?: boolean) => Promise<ConfirmationResult>
@@ -53,37 +49,6 @@ export function isFirebasePhoneAvailable(): boolean {
   return firebaseAuth() !== null
 }
 
-/** Errors the screens can translate; anything else keeps Firebase's own code. */
-export class SmsError extends Error {
-  constructor(public code: string, message?: string) {
-    super(message ?? code)
-    this.name = 'SmsError'
-  }
-}
-
-function toSmsError(cause: unknown): SmsError {
-  const code = (cause as { code?: string })?.code ?? ''
-  switch (code) {
-    case 'auth/invalid-phone-number':
-      return new SmsError('INVALID_PHONE')
-    case 'auth/too-many-requests':
-      return new SmsError('RATE_LIMITED')
-    case 'auth/quota-exceeded':
-      return new SmsError('SMS_QUOTA_EXCEEDED')
-    case 'auth/invalid-verification-code':
-      return new SmsError('OTP_INCORRECT')
-    case 'auth/code-expired':
-    case 'auth/session-expired':
-      return new SmsError('OTP_EXPIRED')
-    case 'auth/network-request-failed':
-      return new SmsError('NETWORK_ERROR')
-    case 'auth/captcha-check-failed':
-    case 'auth/missing-client-identifier':
-      return new SmsError('SMS_UNAVAILABLE')
-  }
-  return new SmsError(code || 'SMS_FAILED', (cause as Error)?.message)
-}
-
 /**
  * Asks Firebase to text a code to an E.164 number. On Android the check is
  * usually silent (Play Integrity), so no reCAPTCHA is shown; the returned
@@ -92,7 +57,7 @@ function toSmsError(cause: unknown): SmsError {
 export async function sendSmsCode(phoneE164: string, forceResend = false): Promise<SmsChallenge> {
   const auth = firebaseAuth()
   if (!auth) throw new SmsError('SMS_UNAVAILABLE')
-  if (!/^\+\d{7,15}$/.test(phoneE164)) throw new SmsError('INVALID_PHONE')
+  if (!isE164(phoneE164)) throw new SmsError('INVALID_PHONE')
   try {
     const confirmation = await auth().signInWithPhoneNumber(phoneE164, forceResend)
     return { phone: phoneE164, confirmation }

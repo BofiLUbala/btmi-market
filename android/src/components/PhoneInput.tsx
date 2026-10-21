@@ -167,7 +167,10 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   iso: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   dial: { color: colors.ink, fontSize: 16, fontWeight: '600' },
   number: {
-    flex: 1, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: colors.border,
+    // minWidth 0 lets the field shrink beside the country button; on the web a
+    // text input otherwise keeps its ~250px intrinsic width and spills off a
+    // phone-width screen.
+    flex: 1, minWidth: 0, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: colors.border,
     backgroundColor: colors.surface2, paddingHorizontal: 16, color: colors.ink, fontSize: 16,
   },
   error: { color: colors.danger, fontSize: 13 },

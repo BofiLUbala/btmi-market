@@ -132,6 +132,27 @@ export function StructuredAddressFields({ value, onChange }: { value: Structured
     return () => { active = false }
   }, [value.city_id])
 
+  // A form can open with names already filled in (sign-up starts on Kinshasa /
+  // Kinshasa / Gombe). The fields then look chosen, but "complete" needs the ids,
+  // so look each name up as its list arrives. An unknown name is left alone: the
+  // person picks it as usual.
+  const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+  useEffect(() => {
+    if (value.province_id || !value.province) return
+    const match = provinces.find(p => sameName(p.name, value.province))
+    if (match) onChange({ ...value, province_id: match.id, province: match.name })
+  }, [provinces, value.province, value.province_id])
+  useEffect(() => {
+    if (value.city_id || !value.city || !value.province_id) return
+    const match = cities.find(c => sameName(c.name, value.city))
+    if (match) onChange({ ...value, city_id: match.id, city: match.name })
+  }, [cities, value.city, value.city_id, value.province_id])
+  useEffect(() => {
+    if (value.commune_id || !value.commune || !value.city_id) return
+    const match = communes.find(c => sameName(c.name, value.commune))
+    if (match) onChange({ ...value, commune_id: match.id, commune: match.name })
+  }, [communes, value.commune, value.commune_id, value.city_id])
+
   return <>
     <PickerField
       label={t('structuredAddressFields.province')} value={value.province}

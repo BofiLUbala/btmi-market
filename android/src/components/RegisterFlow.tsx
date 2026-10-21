@@ -432,7 +432,7 @@ export function RegisterFlow({ accountType: initialAccountType }: { accountType:
           <Box>
             {channels.length > 1 ? (
               <View style={{ gap: 6 }}>
-                <ChannelSwitch value={channel} onChange={setChannel} options={channels} label={t('auth.whatsapp.confirmWith')} />
+                <ChannelSwitch value={channel} onChange={setChannel} options={channels} label={t('auth.register.signUpWith')} />
                 <Text style={styles.muted}>{bySms ? t('auth.sms.signupHint') : useWhatsApp ? t('auth.whatsapp.confirmHintWhatsApp') : t('auth.whatsapp.confirmHintEmail')}</Text>
               </View>
             ) : null}

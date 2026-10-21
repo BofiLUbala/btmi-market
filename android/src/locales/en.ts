@@ -226,7 +226,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'auth.whatsapp.confirmHintEmail': "An activation link will be sent to your e-mail address.",
   'auth.whatsapp.confirmHintWhatsApp': "A 6-digit code will be sent on WhatsApp to the primary phone number you enter.",
   // SMS channel (Firebase sends the code from the device).
-  'auth.sms.channel': "SMS",
+  'auth.sms.channel': "Mobile number",
+  'auth.register.signUpWith': "Sign up with",
   'auth.sms.phoneLabel': "Phone number",
   'auth.sms.sendCode': "Get the code by SMS",
   'auth.sms.codeTitle': "Enter the code sent by SMS",

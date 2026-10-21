@@ -235,7 +235,8 @@ export const fr = {
   'auth.whatsapp.confirmHintEmail': "Un lien d'activation sera envoyé à votre adresse e-mail.",
   'auth.whatsapp.confirmHintWhatsApp': "Un code à 6 chiffres sera envoyé sur WhatsApp au numéro principal indiqué.",
   // Canal SMS (Firebase envoie le code depuis l'appareil).
-  'auth.sms.channel': "SMS",
+  'auth.sms.channel': "Numéro de mobile",
+  'auth.register.signUpWith': "S’inscrire avec",
   'auth.sms.phoneLabel': "Numéro de téléphone",
   'auth.sms.sendCode': "Recevoir le code par SMS",
   'auth.sms.codeTitle': "Entrez le code reçu par SMS",
