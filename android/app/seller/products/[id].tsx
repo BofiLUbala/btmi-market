@@ -45,6 +45,8 @@ const toLocalInput = (iso?: string | null) => {
 }
 const discounted = (base: number, type: string | undefined, value: number) => type === 'PERCENTAGE' ? base * (1 - value / 100) : Math.max(0, base - value)
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export default function SellerProductDetailScreen() {
   const { t, lang } = useI18n()
   const colors = useColors()
@@ -54,7 +56,9 @@ export default function SellerProductDetailScreen() {
   const scopedShopId = typeof scopedShopParam === 'string' ? scopedShopParam : ''
   const activeBusiness = useAuth((s) => s.activeBusiness)
   const activeShop = useAuth((s) => s.activeShop)
-  const enabled = Boolean(activeBusiness && productId)
+  // /seller/products/new and other typos land here too: only an id is looked up.
+  const validId = UUID_RE.test(productId)
+  const enabled = Boolean(activeBusiness && validId)
 
   const product = useQuery({ queryKey: ['seller', 'product', productId], queryFn: () => sellerApi.product(activeBusiness!.id, productId), enabled })
   const variantsQ = useQuery({ queryKey: ['seller', 'variants', productId], queryFn: () => sellerApi.variants(activeBusiness!.id, productId), enabled })
@@ -333,6 +337,7 @@ export default function SellerProductDetailScreen() {
   }
 
   if (!activeBusiness) return <View style={styles.center}><Ionicons name="cube-outline" size={40} color={colors.muted} /><Text style={styles.h2}>{t('seller.noBusinessSelected')}</Text></View>
+  if (!validId) return <ErrorState message={t('seller.productDetail.notFound')} />
   if (product.isLoading || variantsQ.isLoading) return <Loading label={t('seller.productDetail.loading')} />
   if (product.isError) return <ErrorState message={product.error instanceof Error ? product.error.message : t('seller.productDetail.loadFailed')} retry={() => void product.refetch()} />
   if (!product.data) return <ErrorState message={t('seller.productDetail.notFound')} />

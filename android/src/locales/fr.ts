@@ -1635,6 +1635,7 @@ export const fr = {
   'admin.config.connectFailed': 'Échec de connexion à l’API admin',
   'admin.config.updateFailed': 'Échec de la mise à jour',
   'admin.config.lowRisk': 'Indicateurs à faible risque (bascule rapide)',
+  'admin.config.readOnly': 'Lecture seule : géré par le pôle {category}',
   'admin.config.noLowRisk': 'Aucun indicateur à faible risque trouvé.',
   'admin.config.highRisk': 'Indicateurs à haut risque (Web uniquement, lecture seule)',
   'admin.config.noHighRisk': 'Aucun indicateur à haut risque trouvé.',

@@ -100,6 +100,8 @@ export default function MobilePlatformConfigScreen() {
                 <View style={{ flex: 1, marginRight: 10 }}>
                   <Text style={styles.flagKey}>{f.key}</Text>
                   <Text style={styles.flagCategory}>{f.category} · {f.scope}</Text>
+                  {/* Every admin reads every flag; only the owning team writes it (HasPermission). */}
+                  {!f.can_write ? <Text style={styles.flagCategory}>🔒 {t('admin.config.readOnly', { category: f.category === 'GENERAL' ? 'DIRECTION' : f.category })}</Text> : null}
                 </View>
                 <Switch
                   value={f.enabled}

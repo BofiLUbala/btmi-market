@@ -16,6 +16,8 @@ import { confirmationActorKey, paymentStatusKey } from '../../src/lib/paymentSta
 import type { BuyerPayment, OrderDetail, OrderLine } from '../../src/types'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { AccountShell } from '../../src/components/AccountShell'
+import { OrdersSignInPrompt } from '../../src/components/OrdersSignInPrompt'
+import { useAuth } from '../../src/store/auth'
 
 // Port of web-app/src/pages/buyer/OrdersPage.tsx: every order is loaded with
 // its detail and payment (as web does), filtered by the same seven tabs, with
@@ -207,7 +209,12 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   footerCell: { minWidth: '28%', flexGrow: 1, gap: 2 },
 })
 
-/** Large screens: the account column on the left (AccountShell). */
+/**
+ * Large screens: the account column on the left (AccountShell). A guest gets
+ * the sign-in prompt, not the API's "Authorization header is required".
+ */
 export default function OrdersScreenRoute() {
+  const signedIn = useAuth((state) => Boolean(state.user))
+  if (!signedIn) return <OrdersSignInPrompt />
   return <AccountShell><OrdersScreen /></AccountShell>
 }
