@@ -65,7 +65,9 @@ export function smsErrorMessage(err: unknown, t: T): string {
     case 'ACCOUNT_SUSPENDED': return t('auth.whatsapp.suspended')
     case 'NETWORK_ERROR': return t('errors.network')
   }
-  return err instanceof ApiError ? err.message : t('auth.sms.sendFailed')
+  if (err instanceof ApiError) return err.message
+  // Development builds say which Firebase error it was, since the reader is the developer.
+  return __DEV__ && err instanceof SmsError ? `${t('auth.sms.sendFailed')} [${err.code}: ${err.message}]` : t('auth.sms.sendFailed')
 }
 
 /**

@@ -156,8 +156,9 @@ export function LiveCourierMap({ orderId, audience = 'user', refreshKey = 0, pre
         attributionControl: { compact: true },
         interactive: !preview,
       })
-    } catch {
+    } catch (error) {
       // No WebGL: the figures under the map still say where things are.
+      console.warn('[LiveCourierMap] map could not start', error)
       setMapError(true)
       return
     }

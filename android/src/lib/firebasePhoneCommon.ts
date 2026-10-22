@@ -50,6 +50,8 @@ export function toSmsError(cause: unknown): SmsError {
       if (/region/i.test(detail)) return new SmsError('SMS_REGION_BLOCKED', detail)
       return new SmsError('SMS_UNAVAILABLE')
     }
+    case 'auth/billing-not-enabled': // the Firebase project has no billing account yet
+    case 'auth/billing-not': // the same error as the native SDK reports it
     case 'auth/captcha-check-failed':
     case 'auth/missing-client-identifier':
     case 'auth/unauthorized-domain':

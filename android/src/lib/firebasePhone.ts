@@ -20,8 +20,12 @@ import { SmsError, isE164, toSmsError, type ConfirmationResult, type SmsChalleng
 
 export { SmsError, type SmsChallenge }
 
-type FirebaseAuthModule = () => {
-  signInWithPhoneNumber: (phone: string, forceResend?: boolean) => Promise<ConfirmationResult>
+// React Native Firebase 22+ speaks the modular API: `getAuth()` hands out the
+// auth instance and `signInWithPhoneNumber(auth, phone)` starts the SMS. The old
+// callable `auth()` namespace is gone from the package, so calling it throws.
+type FirebaseAuthModule = {
+  getAuth: () => unknown
+  signInWithPhoneNumber: (auth: unknown, phone: string) => Promise<ConfirmationResult>
 }
 
 let cached: FirebaseAuthModule | null | undefined
@@ -37,7 +41,8 @@ function firebaseAuth(): FirebaseAuthModule | null {
     // package is not installed.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('@react-native-firebase/auth')
-    cached = (mod?.default ?? mod) as FirebaseAuthModule
+    const usable = typeof mod?.getAuth === 'function' && typeof mod?.signInWithPhoneNumber === 'function'
+    cached = usable ? (mod as FirebaseAuthModule) : null
   } catch {
     cached = null
   }
@@ -59,9 +64,12 @@ export async function sendSmsCode(phoneE164: string, forceResend = false): Promi
   if (!auth) throw new SmsError('SMS_UNAVAILABLE')
   if (!isE164(phoneE164)) throw new SmsError('INVALID_PHONE')
   try {
-    const confirmation = await auth().signInWithPhoneNumber(phoneE164, forceResend)
+    // The modular call has no resend flag: asking again simply sends a fresh code.
+    void forceResend
+    const confirmation = await auth.signInWithPhoneNumber(auth.getAuth(), phoneE164)
     return { phone: phoneE164, confirmation }
   } catch (cause) {
+    if (__DEV__) console.warn('[firebasePhone] sendSmsCode failed', (cause as { code?: string })?.code, (cause as Error)?.message)
     throw toSmsError(cause)
   }
 }
