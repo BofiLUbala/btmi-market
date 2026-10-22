@@ -17,6 +17,7 @@
  */
 
 import { SmsError, isE164, toSmsError, type ConfirmationResult, type SmsChallenge } from './firebasePhoneCommon'
+import Constants from 'expo-constants'
 
 export { SmsError, type SmsChallenge }
 
@@ -36,6 +37,15 @@ let cached: FirebaseAuthModule | null | undefined
  */
 function firebaseAuth(): FirebaseAuthModule | null {
   if (cached !== undefined) return cached
+  // Expo Go ships no native Firebase, and merely requiring the package there
+  // starts an initialisation that throws from outside this try — surfacing a
+  // red "Native module NativeRNFBTurboApp is not registered" over whatever
+  // screen happened to ask. Nothing is wrong: this client simply cannot do
+  // SMS. Asking Constants first keeps the question from being asked at all.
+  if (Constants.appOwnership === 'expo') {
+    cached = null
+    return cached
+  }
   try {
     // Required lazily and by name so Metro does not fail the bundle when the
     // package is not installed.

@@ -39,8 +39,8 @@ Commande de test creee: 38b711e2-e75a-4adb-bdec-9461be031e18
 | 17 | /favorites | OK | etat vide correct |
 | 18 | /profile | OK | "Sign in / Create an account" (non connecte) |
 | 19 | /seller | OK | "No Business Selected / Sign in as seller" |
-| 20 | /orders | PARTIEL | n'affiche que la barre de recherche quand non connecte (pas d'invite a se connecter) |
-| 21 | /courier | BLOQUE EXPO GO | "Native module NativeRNFBTurboApp is not registered" (Firebase natif) |
+| 20 | /orders | **DEFAUT UX** | non connecte: affiche "Could not load - Authorization header is required", erreur technique brute au lieu d'une invite a se connecter |
+| 21 | /courier | **CORRIGE** | levait "Native module NativeRNFBTurboApp is not registered". firebaseAuth() court-circuite desormais le require sous Expo Go (Constants.appOwnership). Les 10 routes principales sont propres. |
 
 ## Constat majeur sur le test natif
 Expo Go ne contient NI le module Firebase NI MapLibre natif. Donc sur Expo Go :
