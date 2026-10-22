@@ -1264,7 +1264,7 @@ func (r *AdminFinanceRepository) ListRiskEvents(page, limit int, status string) 
 	query := fmt.Sprintf(`
 		SELECT 
 			re.id, re.event_type, re.severity, re.target_type, re.target_id,
-			COALESCE(u.first_name || ' ' || u.last_name, b.name, o.order_number, re.details->>'order_number', re.target_type) as target_name,
+			COALESCE(u.first_name || ' ' || u.last_name, b.name, NULLIF(o.order_number, ''), NULLIF(re.details->>'order_number', ''), re.target_type || ' ' || LEFT(re.target_id::text, 8), re.target_type) as target_name,
 			re.rule_code, COALESCE(re.details, '{}'::jsonb), re.status,
 			re.created_at, re.resolved_at, re.resolved_by
 		FROM risk_events re

@@ -34,7 +34,11 @@ var riskRules = []riskRule{
 				'hours_without_progress', ROUND(EXTRACT(EPOCH FROM NOW() - o.updated_at) / 3600))
 			FROM orders o
 			WHERE o.status NOT IN ('COMPLETED','CANCELLED','REJECTED','DELIVERED')
-			  AND o.updated_at < NOW() - make_interval(secs => ($1::text)::numeric * 3600)`,
+			  AND o.updated_at < NOW() - make_interval(secs => ($1::text)::numeric * 3600)
+			  -- A checkout the buyer left before choosing how to pay never reached
+			  -- the seller: nothing is stuck, nobody can move it.
+			  AND NOT (o.status = 'PENDING' AND o.buyer_profile_id IS NOT NULL AND NOT EXISTS (
+			      SELECT 1 FROM buyer_payments bp WHERE bp.order_id = o.id AND bp.status NOT IN ('CANCELLED','REFUNDED')))`,
 	},
 	{
 		code: "REPEATED_DISPUTES", eventType: "SELLER_DISPUTES", severity: "CRITICAL", targetType: "BUSINESS",
