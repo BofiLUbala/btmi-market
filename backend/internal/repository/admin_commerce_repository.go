@@ -14,6 +14,15 @@ import (
 	"github.com/lib/pq"
 )
 
+// stuckPendingSQL is a PENDING order the seller has left for over a day. A
+// marketplace order only reaches the seller once its checkout is complete
+// (requireCheckoutCompleteTx): one the buyer abandoned before choosing how to
+// pay is not waiting on anyone and is not counted. Orders a shop rang up for
+// its own customer have no buyer profile and no checkout.
+const stuckPendingSQL = `(o.status = 'PENDING' AND o.created_at < NOW() - INTERVAL '24 hours'
+	AND (o.buyer_profile_id IS NULL OR EXISTS (
+		SELECT 1 FROM buyer_payments bp WHERE bp.order_id = o.id AND bp.status NOT IN ('CANCELLED', 'REFUNDED'))))`
+
 type AdminCommerceRepository struct {
 	db *database.DB
 }
@@ -136,10 +145,10 @@ func (r *AdminCommerceRepository) GetOverview() (*models.CommerceOverviewStats, 
 	// Stuck orders (Pending > 24h, Preparing > 48h, OutForDelivery > 24h)
 	_ = r.db.QueryRow(`
 		SELECT COUNT(*)
-		FROM orders
-		WHERE (status = 'PENDING' AND created_at < NOW() - INTERVAL '24 hours')
-		   OR (status = 'PREPARING' AND preparing_at < NOW() - INTERVAL '48 hours')
-		   OR (status = 'OUT_FOR_DELIVERY' AND out_for_delivery_at < NOW() - INTERVAL '24 hours')
+		FROM orders o
+		WHERE ` + stuckPendingSQL + `
+		   OR (o.status = 'PREPARING' AND o.preparing_at < NOW() - INTERVAL '48 hours')
+		   OR (o.status = 'OUT_FOR_DELIVERY' AND o.out_for_delivery_at < NOW() - INTERVAL '24 hours')
 	`).Scan(&stats.StuckOrders)
 
 	// Stock anomalies
@@ -686,13 +695,13 @@ func (r *AdminCommerceRepository) ListOrders(status, deliveryMethod, shopID, bus
 			COALESCE(pay.payment_timing, ''), pay.paid_at,
 			o.created_at, o.updated_at,
 			CASE 
-				WHEN (o.status = 'PENDING' AND o.created_at < NOW() - INTERVAL '24 hours') THEN true
+				WHEN ` + stuckPendingSQL + ` THEN true
 				WHEN (o.status = 'PREPARING' AND o.preparing_at < NOW() - INTERVAL '48 hours') THEN true
 				WHEN (o.status = 'OUT_FOR_DELIVERY' AND o.out_for_delivery_at < NOW() - INTERVAL '24 hours') THEN true
 				ELSE false
 			END AS is_stuck,
 			CASE 
-				WHEN (o.status = 'PENDING' AND o.created_at < NOW() - INTERVAL '24 hours') THEN 'Pending acceptance for >24h'
+				WHEN ` + stuckPendingSQL + ` THEN 'Pending acceptance for >24h'
 				WHEN (o.status = 'PREPARING' AND o.preparing_at < NOW() - INTERVAL '48 hours') THEN 'Preparing for >48h'
 				WHEN (o.status = 'OUT_FOR_DELIVERY' AND o.out_for_delivery_at < NOW() - INTERVAL '24 hours') THEN 'In transit for >24h'
 				ELSE ''
