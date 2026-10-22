@@ -53,6 +53,14 @@ docker compose exec postgres pg_dump -U btmi_user btmi_market > backup.sql
    docker compose exec api ./create-superadmin -name "Your Name" -email you@example.com -password '<strong password>'
    ```
 
+   Or let the platform owner create it himself: put a one-time code in
+   `/opt/btmi-market/backend/.env` as `SUPER_ADMIN_SETUP_CODE=<long random code>`,
+   run `docker compose --profile edge up -d api`, and give him the code. In the
+   app, "Espace administration" then shows "Créer le compte super admin"; his
+   name, e-mail and password create the account, or replace the existing one,
+   since there is only ever one super admin. The code works once; set a new
+   value to hand the account over again.
+
 4. Update the GitHub secrets `SERVER_HOST`, `SERVER_USER` and `SERVER_SSH_KEY`
    (`cat ~/.ssh/github_deploy` on the server).
 5. Point tbk-z on duckdns.org at the new IP, put both names in `SITE_DOMAIN`,

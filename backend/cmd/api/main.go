@@ -337,6 +337,7 @@ func main() {
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
 
 	adminAuthHandler := adminhandlers.NewAuthHandler(adminAuthService, auditService)
+	adminSetupHandler := adminhandlers.NewSetupHandler(service.NewAdminSetupService(adminRepo, cfg.SuperAdminSetupCode), adminAuthService)
 	adminManagementHandler := adminhandlers.NewAdminManagementHandler(adminManagementService)
 	adminDirectionHandler := adminhandlers.NewDirectionHandler(adminDirectionService, auditService)
 
@@ -850,6 +851,15 @@ func main() {
 				adminAuthGroup.POST("/logout", adminAuthHandler.Logout)
 				adminAuthGroup.GET("/me", middleware.AdminAuthMiddleware(adminAuthService), adminAuthHandler.Me)
 				adminAuthGroup.PATCH("/me", middleware.AdminAuthMiddleware(adminAuthService), adminManagementHandler.UpdateOwnProfile)
+			}
+
+			// The owner sets up his own (single) SUPER_ADMIN account with the
+			// one-time SUPER_ADMIN_SETUP_CODE. Rate-limited per client so the
+			// code cannot be guessed by brute force.
+			adminSetupGroup := adminGroup.Group("/setup")
+			{
+				adminSetupGroup.GET("/status", adminSetupHandler.Status)
+				adminSetupGroup.POST("", middleware.RateLimitPerClient(0.05, 5), adminSetupHandler.Setup)
 			}
 
 			// Public admin invitation/activation endpoints. There is deliberately no

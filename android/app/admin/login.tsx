@@ -15,11 +15,20 @@ import { useAdminAuth } from '../../src/store/adminAuth'
 import { useI18n } from '../../src/store/i18n'
 import { KeyboardAwareScrollView } from '../../src/components/KeyboardAwareScrollView'
 import { RememberMe, useRememberedEmail } from '../../src/components/AuthFormParts'
+import { mobileAdminAuthApi } from '../../src/api/admin'
 
 export default function AdminLoginScreen() {
   const router = useRouter()
   const login = useAdminAuth((s) => s.login)
   const { t } = useI18n()
+
+  // The owner's first-time setup: offered only while the server holds an
+  // unused setup code (see backend AdminSetupService).
+  const [setupAvailable, setSetupAvailable] = useState(false)
+  const [settingUp, setSettingUp] = useState(false)
+  useEffect(() => {
+    mobileAdminAuthApi.setupStatus().then((s) => setSetupAvailable(!!s?.available)).catch(() => setSetupAvailable(false))
+  }, [])
 
   const { email, setEmail, remember, setRemember, prefilled, persist } = useRememberedEmail('admin')
   const passwordRef = useRef<TextInput>(null)
@@ -50,6 +59,8 @@ export default function AdminLoginScreen() {
       setSubmitting(false)
     }
   }
+
+  if (settingUp) return <SuperAdminSetup onBack={() => setSettingUp(false)} />
 
   return (
     <View style={{ flex: 1, backgroundColor: '#090d16' }}>
@@ -138,11 +149,110 @@ export default function AdminLoginScreen() {
             )}
           </TouchableOpacity>
 
+          {setupAvailable ? (
+            <Pressable onPress={() => setSettingUp(true)} accessibilityRole="button" style={{ marginTop: 18, alignItems: 'center' }}>
+              <Text style={{ color: '#93c5fd', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>{t('admin.setup.link')}</Text>
+            </Pressable>
+          ) : null}
+
           <TouchableOpacity
             style={{ marginTop: 20, alignItems: 'center' }}
             onPress={() => router.replace('/')}
           >
             <Text style={{ color: '#64748b', fontSize: 12 }}>{t('admin.login.returnToMarketplace')}</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAwareScrollView>
+    </View>
+  )
+}
+
+/**
+ * The owner creates the single super admin account himself with the one-time
+ * code from the technical team, then lands signed in on the dashboard.
+ */
+function SuperAdminSetup({ onBack }: { onBack: () => void }) {
+  const router = useRouter()
+  const setupSuperAdmin = useAdminAuth((s) => s.setupSuperAdmin)
+  const { t } = useI18n()
+  const [code, setCode] = useState('')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    if (!code.trim() || !name.trim() || !email.trim() || !password) {
+      setError(t('admin.setup.missing'))
+      return
+    }
+    if (password !== confirm) {
+      setError(t('admin.setup.mismatch'))
+      return
+    }
+    setError(null)
+    setSubmitting(true)
+    try {
+      await setupSuperAdmin({ setup_code: code.trim(), name: name.trim(), email: email.trim(), password })
+      router.replace('/admin' as never)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('admin.login.invalidCredentials'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const field = (label: string, input: React.ReactNode) => (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      {input}
+    </View>
+  )
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#090d16' }}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.card}>
+          <Text style={styles.title}>{t('admin.setup.title')}</Text>
+          <Text style={[styles.subtitle, { lineHeight: 18 }]}>{t('admin.setup.intro')}</Text>
+
+          {error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {field(t('admin.setup.codeLabel'), (
+            <TextInput style={styles.input} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#64748b" />
+          ))}
+          {field(t('admin.setup.nameLabel'), (
+            <TextInput style={styles.input} value={name} onChangeText={setName} autoComplete="name" textContentType="name" placeholder={t('admin.setup.namePlaceholder')} placeholderTextColor="#64748b" />
+          ))}
+          {field(t('admin.login.emailLabel'), (
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" textContentType="username" placeholder={t('admin.login.emailPlaceholder')} placeholderTextColor="#64748b" />
+          ))}
+          {field(t('admin.login.passwordLabel'), (
+            <View>
+              <TextInput style={[styles.input, { paddingRight: 44 }]} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" placeholderTextColor="#64748b" />
+              <Pressable style={styles.eye} onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')} hitSlop={8}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94a3b8" />
+              </Pressable>
+              <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 6, lineHeight: 15 }}>{t('admin.setup.passwordHint')}</Text>
+            </View>
+          ))}
+          {field(t('admin.setup.confirmLabel'), (
+            <TextInput style={styles.input} value={confirm} onChangeText={setConfirm} secureTextEntry={!showPassword} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" returnKeyType="go" onSubmitEditing={submit} placeholderTextColor="#64748b" />
+          ))}
+
+          <TouchableOpacity style={[styles.loginBtn, submitting && { opacity: 0.7 }]} onPress={submit} disabled={submitting}>
+            {submitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.loginBtnText}>{t('admin.setup.submit')}</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{ marginTop: 20, alignItems: 'center' }} onPress={onBack}>
+            <Text style={{ color: '#64748b', fontSize: 12 }}>{t('admin.setup.back')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
