@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import * as Location from 'expo-location'
-import { Camera, Map, Marker } from '@maplibre/maplibre-react-native'
+import { RoutePlanMap } from './RoutePlanMap'
 import { courierApi } from '../api'
 import { ApiError } from '../api/client'
 import { Button } from './ui'
@@ -130,10 +130,6 @@ export function CourierRoutePlanner({ orderId, deliveryAddress, pickupAddress, o
     } finally { setBusy('') }
   }
 
-  const chosen = (['start', 'destination'] as Target[]).map((k) => points[k]).filter(Boolean) as RoutePointInput[]
-  const camera = chosen.length > 1
-    ? { bounds: [Math.min(...chosen.map((p) => p.longitude)), Math.min(...chosen.map((p) => p.latitude)), Math.max(...chosen.map((p) => p.longitude)), Math.max(...chosen.map((p) => p.latitude))] as [number, number, number, number], padding: { top: 50, bottom: 50, left: 50, right: 50 }, maxZoom: 16 }
-    : { center: chosen[0] ? [chosen[0].longitude, chosen[0].latitude] as [number, number] : KINSHASA, zoom: chosen[0] ? 15 : 11 }
 
   const pointCard = (target: Target) => {
     const p = points[target]
@@ -187,16 +183,11 @@ export function CourierRoutePlanner({ orderId, deliveryAddress, pickupAddress, o
       <Text style={styles.title}>🧭 {tk('route.title')}</Text>
       {pointCard('start')}
       {pointCard('destination')}
-      <Map style={styles.map} mapStyle={MAP_STYLE} logo={false} attribution attributionPosition={{ bottom: 8, right: 8 }}
-        onPress={(e) => {
-          if (!picking) return
-          const [lng, lat] = e.nativeEvent.lngLat
-          setPoint(picking, { longitude: lng, latitude: lat, source: 'MAP', label: '' })
-        }}>
-        <Camera {...camera} duration={0} />
-        {points.start ? <Marker id="plan-start" lngLat={[points.start.longitude, points.start.latitude]}><View style={styles.startDot} /></Marker> : null}
-        {points.destination ? <Marker id="plan-dest" lngLat={[points.destination.longitude, points.destination.latitude]} anchor="bottom"><Text style={styles.pin}>📍</Text></Marker> : null}
-      </Map>
+      <RoutePlanMap
+        start={points.start ? [points.start.longitude, points.start.latitude] : null}
+        destination={points.destination ? [points.destination.longitude, points.destination.latitude] : null}
+        onPick={picking ? ([lng, lat]) => setPoint(picking, { longitude: lng, latitude: lat, source: 'MAP', label: '' }) : null}
+      />
       <View style={styles.confirm}>
         <Switch value={confirmed} disabled={!points.start || !points.destination} onValueChange={setConfirmed} />
         <Text style={[styles.small, { flex: 1 }]}>{tk('route.confirmCheck')}</Text>
