@@ -9,6 +9,7 @@ package tracking
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/btmi-ai-market/backend/internal/maps"
 
@@ -22,11 +23,23 @@ type buyerProfileLookup interface {
 	GetProfileByIDFromUser(userID uuid.UUID) (*models.BuyerProfile, error)
 }
 
+// addressResolver turns the place names TomTom reports into the ids the
+// delivery form stores. Optional: without it the names still come back and the
+// buyer picks the province, city and commune themselves.
+type addressResolver interface {
+	ResolveByNames(province, city, commune string) (*models.ResolvedAddress, error)
+}
+
 type LocationHandler struct {
 	locations     *service.CourierLocationService
 	routes        *service.DeliveryRouteService
 	buyerProfiles buyerProfileLookup
+	addresses     addressResolver
 }
+
+// SetLocationRepository wires the province/city/commune tables in, so a point
+// dropped on the map can fill the form's own fields and not just free text.
+func (h *LocationHandler) SetLocationRepository(r addressResolver) { h.addresses = r }
 
 func NewLocationHandler(locations *service.CourierLocationService, routes *service.DeliveryRouteService, buyerProfiles buyerProfileLookup) *LocationHandler {
 	return &LocationHandler{locations: locations, routes: routes, buyerProfiles: buyerProfiles}
@@ -162,6 +175,58 @@ func (h *LocationHandler) Geocode(c *gin.Context) {
 	default:
 		c.JSON(http.StatusOK, models.SuccessResponse{Message: "Candidates", Data: gin.H{"candidates": candidates}})
 	}
+}
+
+// GET .../reverse-geocode?lng=&lat=
+func (h *LocationHandler) ReverseGeocode(c *gin.Context) {
+	lng, errLng := strconv.ParseFloat(c.Query("lng"), 64)
+	lat, errLat := strconv.ParseFloat(c.Query("lat"), 64)
+	if errLng != nil || errLat != nil {
+		errResponse(c, http.StatusBadRequest, "INVALID_QUERY", "Coordonnées manquantes ou invalides")
+		return
+	}
+	place, err := h.routes.ReverseGeocode(lng, lat)
+	var invalid *service.ErrInvalidRoutePoint
+	switch {
+	case errors.As(err, &invalid):
+		errResponse(c, http.StatusBadRequest, "INVALID_QUERY", invalid.Error())
+	case errors.Is(err, maps.ErrNotConfigured):
+		errResponse(c, http.StatusServiceUnavailable, "MAPS_NOT_CONFIGURED", "La recherche d'adresse n'est pas configurée : saisissez l'adresse à la main")
+	case err != nil:
+		errResponse(c, http.StatusBadGateway, "GEOCODING_FAILED", "Recherche d'adresse indisponible : saisissez l'adresse à la main")
+	default:
+		// No address near the pin is a normal answer, not a failure: the point
+		// still stands on its own, and the form stays as the buyer left it.
+		c.JSON(http.StatusOK, models.SuccessResponse{Message: "Place", Data: gin.H{"place": h.withIDs(place)}})
+	}
+}
+
+// withIDs answers with the place TomTom named plus, where the names match a
+// row we know, the ids the form stores. A name that matches nothing is still
+// returned: it tells the buyer roughly where the pin landed even when the
+// commune is not one we deliver to, and leaving the id empty keeps the form
+// honest about what still has to be chosen by hand.
+func (h *LocationHandler) withIDs(place *maps.Place) gin.H {
+	if place == nil {
+		return nil
+	}
+	out := gin.H{
+		"label": place.Label, "building_number": place.BuildingNumber, "street": place.Street,
+		"commune": place.Commune, "city": place.City, "province": place.Province,
+		"latitude": place.Latitude, "longitude": place.Longitude, "offset_m": place.OffsetM,
+		"province_id": "", "city_id": "", "commune_id": "",
+	}
+	if h.addresses == nil {
+		return out
+	}
+	resolved, err := h.addresses.ResolveByNames(place.Province, place.City, place.Commune)
+	if err != nil || resolved == nil {
+		return out
+	}
+	out["province_id"], out["province"] = resolved.Province.ID.String(), resolved.Province.Name
+	out["city_id"], out["city"] = resolved.City.ID.String(), resolved.City.Name
+	out["commune_id"], out["commune"] = resolved.Commune.ID.String(), resolved.Commune.Name
+	return out
 }
 
 // PUT /api/v1/courier/missions/:id/route

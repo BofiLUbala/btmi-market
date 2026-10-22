@@ -365,6 +365,7 @@ func main() {
 	deliveryRouteService := service.NewDeliveryRouteService(repository.NewDeliveryRouteRepository(db), maps.NewClient(cfg.TomTomAPIKey))
 	courierLocationService.SetRouteService(deliveryRouteService)
 	courierLocationHandler := trackinghandlers.NewLocationHandler(courierLocationService, deliveryRouteService, buyerProfileService)
+	courierLocationHandler.SetLocationRepository(locationRepo)
 
 	router := gin.Default()
 
@@ -757,6 +758,7 @@ func main() {
 			courierProtected.GET("/missions/:id/live", courierLocationHandler.CourierLive)
 			courierProtected.PUT("/missions/:id/route", courierLocationHandler.CourierSetRoute)
 			courierProtected.GET("/geocode", courierLocationHandler.Geocode)
+			courierProtected.GET("/reverse-geocode", courierLocationHandler.ReverseGeocode)
 			courierProtected.GET("/history", courierHandler.GetHistory)
 			courierProtected.GET("/earnings", courierHandler.GetEarnings)
 			courierProtected.GET("/delivered-products", courierHandler.GetDeliveredProducts)
@@ -997,6 +999,7 @@ func main() {
 					commerceGroup.GET("/orders/:id/courier-location", courierLocationHandler.AdminCourierLocation)
 					commerceGroup.PUT("/orders/:id/route", courierLocationHandler.AdminSetRoute)
 					commerceGroup.GET("/geocode", courierLocationHandler.Geocode)
+					commerceGroup.GET("/reverse-geocode", courierLocationHandler.ReverseGeocode)
 					commerceGroup.GET("/orders/:id/conversation", commHandler.GetAdminOrderConversation)
 					commerceGroup.POST("/orders/:id/conversation/read", commHandler.AdminMarkChannelRead)
 					commerceGroup.POST("/orders/:id/intervene", commHandler.AdminIntervene)

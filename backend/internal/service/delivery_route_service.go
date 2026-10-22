@@ -37,6 +37,7 @@ type deliveryRouteStore interface {
 type routeProvider interface {
 	Configured() bool
 	Geocode(ctx context.Context, query string) ([]maps.Candidate, error)
+	ReverseGeocode(ctx context.Context, at maps.LngLat) (*maps.Place, error)
 	Route(ctx context.Context, from, to maps.LngLat, travelMode string) (*maps.Route, error)
 }
 
@@ -79,6 +80,18 @@ func (s *DeliveryRouteService) Geocode(query string) ([]maps.Candidate, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	return s.provider.Geocode(ctx, q)
+}
+
+// ReverseGeocode names the point someone dropped on the map, so the delivery
+// form can fill itself in from it. A point outside DR Congo is refused rather
+// than looked up: the only way to get one is a mis-typed coordinate.
+func (s *DeliveryRouteService) ReverseGeocode(lng, lat float64) (*maps.Place, error) {
+	if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
+		return nil, &ErrInvalidRoutePoint{Msg: "Coordonnées hors limites"}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	return s.provider.ReverseGeocode(ctx, maps.LngLat{lng, lat})
 }
 
 func offRouteThreshold(accuracy *float64) float64 {

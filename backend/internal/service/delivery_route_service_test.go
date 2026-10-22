@@ -42,6 +42,10 @@ type fakeRouter struct {
 }
 
 func (f *fakeRouter) Configured() bool { return true }
+func (f *fakeRouter) ReverseGeocode(context.Context, maps.LngLat) (*maps.Place, error) {
+	return nil, nil
+}
+
 func (f *fakeRouter) Geocode(context.Context, string) ([]maps.Candidate, error) {
 	return []maps.Candidate{{Label: "Boulevard du 30 Juin", Latitude: -4.30, Longitude: 15.30, Score: 0.88, Confident: true}}, nil
 }

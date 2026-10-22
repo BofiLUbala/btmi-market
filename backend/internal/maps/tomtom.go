@@ -89,6 +89,85 @@ func (c *Client) Geocode(ctx context.Context, query string) ([]Candidate, error)
 	return out, nil
 }
 
+// Place is an address read back from a point on the map, split into the parts
+// the delivery form keeps separately. Any part TomTom does not know for that
+// point comes back empty rather than guessed: an address filled in from the
+// map is still the buyer's to correct, and a wrong street is worse than a
+// blank one for the courier who has to find the door.
+type Place struct {
+	Label          string  `json:"label"`
+	BuildingNumber string  `json:"building_number"`
+	Street         string  `json:"street"`
+	Commune        string  `json:"commune"`
+	City           string  `json:"city"`
+	Province       string  `json:"province"`
+	Latitude       float64 `json:"latitude"`
+	Longitude      float64 `json:"longitude"`
+	// Metres between the point asked for and the address TomTom matched. The
+	// further away, the less the street name can be trusted for that door.
+	OffsetM float64 `json:"offset_m"`
+}
+
+// ReverseGeocode names the point a buyer or a courier dropped on the map.
+//
+// `radius` keeps the answer near the pin: without it TomTom will happily
+// return the nearest named road a kilometre away, which would put a confident
+// street name on a door that is nowhere near it.
+func (c *Client) ReverseGeocode(ctx context.Context, at LngLat) (*Place, error) {
+	if !c.Configured() {
+		return nil, ErrNotConfigured
+	}
+	q := url.Values{
+		"key":      {c.key},
+		"language": {"fr-FR"},
+		"radius":   {"120"},
+		"limit":    {"1"},
+		// Street-level: a house number is not mapped in Kinshasa, and asking
+		// for one only makes TomTom reach further for something to return.
+		"entityType":       {"Municipality,MunicipalitySubdivision"},
+		"returnSpeedLimit": {"false"},
+	}
+	u := fmt.Sprintf("%s/search/2/reverseGeocode/%.6f,%.6f.json?%s", c.base, at[1], at[0], q.Encode())
+	var body struct {
+		Addresses []struct {
+			Address struct {
+				StreetNumber       string `json:"streetNumber"`
+				StreetName         string `json:"streetName"`
+				MunicipalitySubdiv string `json:"municipalitySubdivision"`
+				Municipality       string `json:"municipality"`
+				CountrySubdivision string `json:"countrySubdivision"`
+				FreeformAddress    string `json:"freeformAddress"`
+			} `json:"address"`
+			Position string  `json:"position"`
+			Distance float64 `json:"routeDistanceInMeters"`
+		} `json:"addresses"`
+	}
+	if err := c.get(ctx, u, &body); err != nil {
+		return nil, err
+	}
+	if len(body.Addresses) == 0 {
+		return nil, nil
+	}
+	a := body.Addresses[0]
+	lat, lng := at[1], at[0]
+	// "lat,lon" — the matched point, which is what the parts describe.
+	if parts := strings.SplitN(a.Position, ",", 2); len(parts) == 2 {
+		fmt.Sscanf(parts[0], "%f", &lat)
+		fmt.Sscanf(parts[1], "%f", &lng)
+	}
+	return &Place{
+		Label:          a.Address.FreeformAddress,
+		BuildingNumber: a.Address.StreetNumber,
+		Street:         a.Address.StreetName,
+		Commune:        a.Address.MunicipalitySubdiv,
+		City:           a.Address.Municipality,
+		Province:       a.Address.CountrySubdivision,
+		Latitude:       lat,
+		Longitude:      lng,
+		OffsetM:        a.Distance,
+	}, nil
+}
+
 // Instruction is one navigation step, located by its distance from the start.
 type Instruction struct {
 	Message  string  `json:"message"`
