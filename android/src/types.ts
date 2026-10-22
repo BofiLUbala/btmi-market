@@ -312,6 +312,11 @@ export interface DeliveryRoute {
 }
 /** One geocoding answer; only `confident` ones are offered to pick. */
 export interface GeocodeCandidate { label: string; latitude: number; longitude: number; score: number; kind: string; confident: boolean }
+/** The address TomTom matched under a pin; the ids are empty when the name is not one we know. offset_m: pin-to-address distance. */
+export interface ReversePlace {
+  label: string; building_number: string; street: string; commune: string; city: string; province: string
+  province_id: string; city_id: string; commune_id: string; latitude: number; longitude: number; offset_m: number
+}
 /** One GPS point sent by the courier's phone. */
 export interface CourierLocationPoint { latitude: number; longitude: number; accuracy: number | null; heading: number | null; speed: number | null; captured_at: string }
 export interface BuyerPayment {

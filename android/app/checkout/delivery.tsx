@@ -232,7 +232,7 @@ export default function DeliveryScreen() {
             <>
               <StructuredAddressFields value={address} onChange={setAddress} />
               {isStructuredAddressComplete(address) ? <AddressSummary value={address} /> : <SmallText>{w('delivery.addressIncomplete')}</SmallText>}
-              <DeliveryPointPicker value={point} onChange={setPoint} onGesture={(active) => setScrollEnabled(!active)} />
+              <DeliveryPointPicker value={point} onChange={setPoint} onGesture={(active) => setScrollEnabled(!active)} address={address} onApplyAddress={setAddress} />
               <TouchableOpacity style={styles.checkbox} onPress={() => setSavePrimary(!savePrimary)} accessibilityRole="checkbox" accessibilityState={{ checked: savePrimary }}>
                 <View style={[styles.checkboxTick, savePrimary && styles.checkboxTickOn]}>
                   {savePrimary ? <Ionicons name="checkmark" size={14} color={colors.onGreen} /> : null}

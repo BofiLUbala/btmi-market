@@ -2875,6 +2875,8 @@ export const fr = {
   'deliveryPoint.myLocation': 'Ma position',
   'deliveryPoint.add': 'Ajouter le point exact',
   'deliveryPoint.manual': 'Point placé à la main',
+  'deliveryPoint.fillAddress': "Compléter l'adresse avec ce lieu",
+  'deliveryPoint.foundAt': 'Adresse la plus proche, à {meters} m du point',
   'deliveryPoint.approximate': 'Position approximative (± {meters} m) : déplacez la carte pour viser votre porte.',
   'deliveryPoint.deniedMap': 'Localisation refusée : déplacez la carte pour placer le repère vous-même.',
   'deliveryPoint.failedMap': 'Position introuvable : déplacez la carte pour placer le repère vous-même.',

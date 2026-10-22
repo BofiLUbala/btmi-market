@@ -58,15 +58,21 @@ export function DeliveryPointMap({
     }
     mapRef.current = map
 
-    // `originalEvent` is present only when a pointer caused the move, which is
-    // how a drag by hand is told apart from the camera easing to a new fix.
+    // A move the buyer started is told apart from the camera easing to a new
+    // fix by its start event, which carries `originalEvent`. The end event
+    // cannot be trusted for that: after a flick, the inertia glide that ends
+    // the drag fires `moveend` without one, and the pin was never taken.
+    let byHand = false
+    const start = (event: { originalEvent?: unknown }) => { if (event.originalEvent) byHand = true }
     const settle = (event: { originalEvent?: unknown }) => {
       const c = map.getCenter()
-      settleRef.current([c.lng, c.lat], !!event.originalEvent)
+      settleRef.current([c.lng, c.lat], byHand || !!event.originalEvent)
+      byHand = false
     }
     const failed = () => failedRef.current()
     const hold = () => gestureRef.current?.(true)
     const release = () => gestureRef.current?.(false)
+    map.on('movestart', start)
     map.on('moveend', settle)
     map.on('error', failed)
     // Keeps a scrolling parent still while the map is being dragged.
@@ -74,6 +80,7 @@ export function DeliveryPointMap({
     map.on('dragend', release)
 
     return () => {
+      map.off('movestart', start)
       map.off('moveend', settle)
       map.off('error', failed)
       dotRef.current?.remove()

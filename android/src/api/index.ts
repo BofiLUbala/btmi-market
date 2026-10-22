@@ -14,7 +14,7 @@ import type {
   SellerFinanceSummary, SellerSaleCommissionItem, SellerSaleCommissionDetail,
   SellerFinanceDashboard, SellerFinanceBreakdownItem, SellerFinanceTimeseriesPoint, SellerBreakdownGroup, SellerFinanceParams, SaleHistoryItem, SaleFinanceDetail,
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
-  TrackingResponse, CourierLocation, CourierLocationPoint, GeocodeCandidate, RoutePointInput, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
+  TrackingResponse, CourierLocation, CourierLocationPoint, GeocodeCandidate, ReversePlace, RoutePointInput, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
   ProductVideoResponse, SellerPayout, SellerPayoutAccount, CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
   HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct, ShopPurgePreview, ShopPurgeResult } from '../types'
 
@@ -450,6 +450,8 @@ export const courierApi = {
   live: (orderId: string) => get<CourierLocation>(`/courier/missions/${orderId}/live`),
   /** Candidate places for an address; nothing is chosen for the courier. */
   geocode: async (q: string) => (await get<{ candidates: GeocodeCandidate[] }>(`/courier/geocode?q=${encodeURIComponent(q)}`)).candidates ?? [],
+  /** The address under a point the courier placed by map or coordinates. */
+  reverseGeocode: async (lng: number, lat: number) => (await get<{ place: ReversePlace | null }>(`/courier/reverse-geocode?lng=${lng}&lat=${lat}`)).place ?? null,
   /** Road route between two points the courier confirmed on the map. */
   setRoute: (orderId: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true }) =>
     put<CourierLocation>(`/courier/missions/${orderId}/route`, body),
@@ -488,4 +490,6 @@ export const locationsApi = {
   provinces: async (): Promise<LocationProvince[]> => list<LocationProvince>(await get<unknown>('/locations/provinces')),
   cities: async (provinceId: string): Promise<LocationCity[]> => list<LocationCity>(await get<unknown>(`/locations/provinces/${provinceId}/cities`)),
   communes: async (cityId: string): Promise<LocationCommune[]> => list<LocationCommune>(await get<unknown>(`/locations/cities/${cityId}/communes`)),
+  /** The address under a pin, signed-in only; null when TomTom has none there. */
+  reverseGeocode: async (lng: number, lat: number) => (await get<{ place: ReversePlace | null }>(`/locations/reverse-geocode?lng=${lng}&lat=${lat}`)).place ?? null,
 }

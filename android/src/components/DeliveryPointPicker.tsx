@@ -8,6 +8,10 @@ import { useColors } from '../store/theme'
 import { radius, spacing, type Colors } from '../theme'
 import { useDevicePosition } from '../lib/useDevicePosition'
 import type { DeliveryPointMapProps } from './DeliveryPointMap'
+import type { StructuredAddressValue } from './StructuredAddressFields'
+import { locationsApi } from '../api'
+import { fillFromPlace, placeLine } from '../lib/reversePlace'
+import type { ReversePlace } from '../types'
 
 export interface DeliveryPoint { latitude: number; longitude: number; accuracy?: number | null }
 
@@ -58,11 +62,14 @@ function metresBetween(a: [number, number], b: [number, number]): number {
  * written address carries the delivery on its own. The position is only ever
  * read in the foreground, while this card is open.
  */
-export function DeliveryPointPicker({ value, onChange, onGesture }: {
+export function DeliveryPointPicker({ value, onChange, onGesture, address: form, onApplyAddress }: {
   value: DeliveryPoint | null
   onChange: (p: DeliveryPoint | null) => void
   /** Tells a scrolling parent to stop scrolling while a finger is on the map. */
   onGesture?: (active: boolean) => void
+  /** The written address beside the map: offered the place under the pin, empty fields only. */
+  address?: StructuredAddressValue
+  onApplyAddress?: (next: StructuredAddressValue) => void
 }) {
   const { t } = useI18n()
   const tk = (key: string, vars?: Record<string, string | number>) => t(key as TranslationKey, vars)
@@ -77,6 +84,7 @@ export function DeliveryPointPicker({ value, onChange, onGesture }: {
   const [handPlaced, setHandPlaced] = useState(false)
   const [mapOff, setMapOff] = useState(false)
   const [address, setAddress] = useState('')
+  const [place, setPlace] = useState<ReversePlace | null>(null)
   // Asked as soon as the card opens - that is what "the map loads itself" is.
   const { position: device, status: geo, refresh } = useDevicePosition({ enabled: open })
   const locating = geo === 'locating'
@@ -98,23 +106,39 @@ export function DeliveryPointPicker({ value, onChange, onGesture }: {
     onChange(device)
   }, [open, following, tooVague, device?.latitude, device?.longitude, device?.accuracy]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The street name under the pin, from the OS geocoder. It is unavailable in
-  // parts of the country, and the written address is the real one either way.
+  // The address under the pin: our TomTom lookup first, which also knows the
+  // province / city / commune ids the form stores; the OS geocoder otherwise
+  // (signed out, maps not configured), for the street name alone. The written
+  // address is the real one either way.
   useEffect(() => {
-    if (!open || !point) { setAddress(''); return }
+    if (!open || !point) { setAddress(''); setPlace(null); return }
     let cancelled = false
     const id = setTimeout(() => {
-      void Location.reverseGeocodeAsync({ latitude: point.latitude, longitude: point.longitude })
-        .then((hits) => {
+      void locationsApi.reverseGeocode(point.longitude, point.latitude)
+        .then((found) => {
           if (cancelled) return
-          const hit = hits[0]
-          const street = hit?.name || [hit?.streetNumber, hit?.street].filter(Boolean).join(' ')
-          setAddress([street, hit?.district || hit?.city].filter(Boolean).join(', '))
+          setPlace(found)
+          if (found) { setAddress(placeLine(found)); return }
+          setAddress('')
         })
-        .catch(() => { if (!cancelled) setAddress('') })
+        .catch(() => {
+          if (cancelled) return
+          setPlace(null)
+          return Location.reverseGeocodeAsync({ latitude: point.latitude, longitude: point.longitude })
+            .then((hits) => {
+              if (cancelled) return
+              const hit = hits[0]
+              const street = hit?.name || [hit?.streetNumber, hit?.street].filter(Boolean).join(' ')
+              setAddress([street, hit?.district || hit?.city].filter(Boolean).join(', '))
+            })
+            .catch(() => { if (!cancelled) setAddress('') })
+        })
     }, 600)
     return () => { cancelled = true; clearTimeout(id) }
   }, [open, point?.latitude, point?.longitude]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Offered, never applied on its own: a field the buyer typed stays theirs.
+  const fill = place && form && onApplyAddress ? fillFromPlace(form, place) : null
 
   // Pan or pinch: the pin is wherever the map centre now is. A pinch that left
   // the centre on the phone's own fix keeps that fix's accuracy.
@@ -131,6 +155,7 @@ export function DeliveryPointPicker({ value, onChange, onGesture }: {
     setFollowing(true)
     setHandPlaced(false)
     setAddress('')
+    setPlace(null)
     onChange(null)
   }
 
@@ -189,10 +214,15 @@ export function DeliveryPointPicker({ value, onChange, onGesture }: {
                     : point.accuracy != null ? t('deliveryPoint.addedWithAccuracy', { meters: Math.round(point.accuracy) })
                       : t('deliveryPoint.added')}
             </Text>
-            {address ? <Text style={styles.muted}>{address}</Text> : null}
+            {address ? <Text style={styles.muted} testID="delivery-point-place">{address}</Text> : null}
+            {place && place.offset_m > 25 ? <Text style={styles.muted}>{t('deliveryPoint.foundAt', { meters: Math.round(place.offset_m) })}</Text> : null}
           </View>
           <Button variant="outline" dense title={t('deliveryPoint.remove')} onPress={remove} />
         </View>
+      ) : null}
+
+      {open && fill ? (
+        <Button variant="outline" dense title={t('deliveryPoint.fillAddress')} onPress={() => onApplyAddress!(fill)} />
       ) : null}
 
       {message ? <Text style={styles.muted}>{message}</Text> : null}

@@ -836,6 +836,9 @@ func main() {
 			locationsGroup.GET("/provinces/:province_id/cities", locationHandler.ListCities)
 			locationsGroup.GET("/cities", locationHandler.ListAllCities)
 			locationsGroup.GET("/cities/:city_id/communes", locationHandler.ListCommunes)
+			// The address under the pin a buyer dropped at checkout. Signed-in and
+			// throttled: every call is a paid TomTom lookup.
+			locationsGroup.GET("/reverse-geocode", middleware.AuthMiddleware(authService), middleware.RateLimitPerClient(1, 10), courierLocationHandler.ReverseGeocode)
 		}
 
 		eventsGroup := api.Group("/events")

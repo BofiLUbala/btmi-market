@@ -2865,6 +2865,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'deliveryPoint.myLocation': 'My location',
   'deliveryPoint.add': 'Add the exact point',
   'deliveryPoint.manual': 'Pin placed by hand',
+  'deliveryPoint.fillAddress': 'Fill in the address from this place',
+  'deliveryPoint.foundAt': 'Nearest address, {meters} m from the pin',
   'deliveryPoint.approximate': 'Approximate position (± {meters} m): drag the map to aim at your door.',
   'deliveryPoint.deniedMap': 'Location refused: drag the map to place the pin yourself.',
   'deliveryPoint.failedMap': 'Position not found: drag the map to place the pin yourself.',
