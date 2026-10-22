@@ -58,5 +58,9 @@ export function toSmsError(cause: unknown): SmsError {
     case 'auth/app-not-authorized':
       return new SmsError('SMS_UNAVAILABLE')
   }
-  return new SmsError(code || 'SMS_FAILED', (cause as Error)?.message)
+  // The native SDK reports a project without billing as `auth/unknown` (or
+  // `auth/internal-error`), with Firebase's own reason only in the message.
+  const message = String((cause as Error)?.message ?? '')
+  if (/BILLING_NOT_ENABLED/i.test(message)) return new SmsError('SMS_UNAVAILABLE', message)
+  return new SmsError(code || 'SMS_FAILED', message)
 }
