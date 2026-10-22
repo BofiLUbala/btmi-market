@@ -11,6 +11,7 @@ import { useColors } from '../store/theme'
 import { radius, spacing, type Colors } from '../theme'
 import type { GeocodeCandidate, RoutePointInput } from '../types'
 import { MAP_STYLE } from '../lib/mapStyle'
+import { placeLine } from '../lib/reversePlace'
 import { ROUTE_SOURCE_KEYS, formatDistance, formatDuration, parseCoordinates } from '../lib/routeFormat'
 
 type Target = 'start' | 'destination'
@@ -75,6 +76,22 @@ export function CourierRoutePlanner({ orderId, deliveryAddress, pickupAddress, o
     setPoints((p) => ({ ...p, [target]: point }))
     setConfirmed(false)
     setDone('')
+    if (point && !point.label) void nameIt(target, point)
+  }
+
+  // A point tapped on the map or typed as coordinates has no name yet: give it
+  // the nearest address, unless the courier has moved it again meanwhile.
+  const nameIt = async (target: Target, point: RoutePointInput) => {
+    try {
+      const place = await courierApi.reverseGeocode(point.longitude, point.latitude)
+      if (!place) return
+      const label = placeLine(place)
+      setPoints((p) => {
+        const cur = p[target]
+        return cur && !cur.label && cur.latitude === point.latitude && cur.longitude === point.longitude
+          ? { ...p, [target]: { ...cur, label } } : p
+      })
+    } catch { /* the coordinates alone still stand */ }
   }
 
   const choose = async (target: Target, m: Method) => {
@@ -210,7 +227,8 @@ const makeStyles = (c: Colors) => StyleSheet.create({
   chipText: { color: c.ink, fontSize: 13 },
   chipTextOn: { color: c.white, fontWeight: '700' },
   row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  input: { borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 8, color: c.ink, fontSize: 14 },
+  // minWidth 0: a web <input> otherwise keeps its intrinsic width and pushes OK off the card.
+  input: { borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 8, color: c.ink, fontSize: 14, minWidth: 0 },
   candidate: { borderWidth: 1, borderColor: c.border, borderRadius: radius.sm, padding: 10 },
   candidateText: { color: c.ink, fontSize: 13 },
   map: { height: 260, width: '100%', borderRadius: radius.sm, overflow: 'hidden' },

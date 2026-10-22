@@ -266,6 +266,8 @@ export default function AdminOrderDetailScreen() {
                           {c.first_name} {c.last_name}
                         </Text>
                         <Text style={styles.muted}>{c.availability} · {c.transport_type}</Text>
+                        {/* Names repeat across couriers: the contact is what tells them apart. */}
+                        <Text style={styles.muted}>{[c.phone, c.email, c.service_zone].filter(Boolean).join(' · ')}</Text>
                       </Pressable>
                     ))}
                   </View>
