@@ -90,8 +90,14 @@ export const authApi = {
   resetPassword: (token: string, password: string, passwordConfirmation: string) => post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation }),
   me: () => get<User>('/auth/me'),
   logout: (refresh_token: string) => post('/auth/logout', { refresh_token }),
-  /** Erases the account after a password check (App Store rule 5.1.1(v)). */
-  deleteAccount: (password: string) => post('/auth/me/delete', { password }),
+  /** Sends the code that confirms erasing an account which has no password
+   *  (one registered from a phone number alone). */
+  requestDeleteAccountCode: () => post<WhatsAppChallenge>('/auth/me/delete/code', {}),
+  /** Erases the account (App Store rule 5.1.1(v)) once ownership is proved:
+   *  the password, or -- for an account that has none -- a code on its number.
+   *  `has_password` on the signed-in user says which one to send. */
+  deleteAccount: (proof: { password?: string; challenge_id?: string; code?: string }) =>
+    post('/auth/me/delete', proof),
   becomeSeller: () => post<User>('/auth/become-seller'),
   /** Opens the buyer space of this account (same e-mail / WhatsApp number). */
   becomeBuyer: () => post<User>('/auth/become-buyer'),

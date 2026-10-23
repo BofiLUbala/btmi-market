@@ -694,31 +694,87 @@ func (h *Handler) Logout(c *gin.Context) {
 	})
 }
 
-// DeleteAccount erases the signed-in user's account after a password check.
+// deleteAccountStatus maps the service's refusals. The one-time-code errors
+// are the ones the WhatsApp endpoints already answer with, so clients translate
+// a single set of codes whichever proof the account needs.
+func deleteAccountStatus(code string) int {
+	switch code {
+	case "PASSWORD_REQUIRED", "DELETION_CODE_REQUIRED":
+		return http.StatusBadRequest
+	case "INVALID_PASSWORD":
+		return http.StatusForbidden
+	case "OPEN_ORDERS", "OWNS_BUSINESS", "PHONE_NOT_VERIFIED":
+		return http.StatusConflict
+	case "USER_NOT_FOUND":
+		return http.StatusNotFound
+	}
+	return whatsappErrorStatus(code)
+}
+
+// RequestAccountDeletionCode sends the one-time code that confirms deleting an
+// account registered from a phone number alone: it has no password to ask for.
+func (h *Handler) RequestAccountDeletionCode(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.authError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
+		return
+	}
+	id := userID.(uuid.UUID)
+	// Every send costs a message on the shared gateway number.
+	if !h.allowWhatsApp("send|"+c.ClientIP(), whatsappSendLimit*2, whatsappSendWindow) ||
+		!h.allowWhatsApp("delete-code|"+id.String(), whatsappSendLimit, whatsappSendWindow) {
+		h.tooManyRequests(c)
+		return
+	}
+
+	challenge, err := h.authService.RequestAccountDeletionCode(id)
+	if err != nil {
+		code := err.Error()
+		status := deleteAccountStatus(code)
+		if status == http.StatusInternalServerError {
+			log.Printf("account deletion code %s: %v", id, err)
+			code = "INTERNAL_ERROR"
+		}
+		if code == "WHATSAPP_DELIVERY_FAILED" && challenge != nil {
+			c.JSON(status, gin.H{
+				"error": gin.H{"code": code, "message": code},
+				"data":  challenge,
+			})
+			return
+		}
+		h.authError(c, status, code, code)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{Message: "A confirmation code was sent to your WhatsApp.", Data: challenge})
+}
+
+// DeleteAccount erases the signed-in user's account once they have proved it is
+// theirs: their password, or -- for an account registered from a phone number
+// alone, which has none -- a code sent to that number.
 func (h *Handler) DeleteAccount(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		h.authError(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated")
 		return
 	}
+	// Nothing is required by the binding: which of the two proofs is needed
+	// depends on the account, and the service is what decides.
 	var req struct {
-		Password string `json:"password" binding:"required"`
+		Password    string `json:"password"`
+		ChallengeID string `json:"challenge_id"`
+		Code        string `json:"code"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "Password is required")
+		h.authError(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body: "+err.Error())
 		return
 	}
-	if err := h.authService.DeleteAccount(userID.(uuid.UUID), req.Password); err != nil {
-		status, code := http.StatusInternalServerError, "INTERNAL_ERROR"
-		switch err.Error() {
-		case "USER_NOT_FOUND":
-			status, code = http.StatusNotFound, "USER_NOT_FOUND"
-		case "INVALID_PASSWORD":
-			status, code = http.StatusForbidden, "INVALID_PASSWORD"
-		case "OPEN_ORDERS", "OWNS_BUSINESS":
-			status, code = http.StatusConflict, err.Error()
-		default:
-			log.Printf("delete account %s: %v", userID.(uuid.UUID), err)
+	id := userID.(uuid.UUID)
+	if err := h.authService.DeleteAccount(id, req.Password, req.ChallengeID, req.Code); err != nil {
+		code := err.Error()
+		status := deleteAccountStatus(code)
+		if status == http.StatusInternalServerError {
+			log.Printf("delete account %s: %v", id, err)
+			code = "INTERNAL_ERROR"
 		}
 		h.authError(c, status, code, code)
 		return

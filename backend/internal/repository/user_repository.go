@@ -27,8 +27,8 @@ func NewUserRepository(db *database.DB) *UserRepository {
 
 func (r *UserRepository) Create(user *models.User) error {
 	query := `
-		INSERT INTO users (id, first_name, middle_name, last_name, phone, email, password_hash, status, email_verified, account_type)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO users (id, first_name, middle_name, last_name, phone, email, password_hash, has_password, status, email_verified, account_type)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING created_at, updated_at
 	`
 
@@ -42,7 +42,7 @@ func (r *UserRepository) Create(user *models.User) error {
 
 	return r.db.QueryRow(query,
 		user.ID, user.FirstName, user.MiddleName, user.LastName,
-		user.Phone, nullableEmail(user.Email), user.PasswordHash,
+		user.Phone, nullableEmail(user.Email), user.PasswordHash, user.HasPassword,
 		user.Status, user.EmailVerified, user.AccountType,
 	).Scan(&user.CreatedAt, &user.UpdatedAt)
 }
@@ -59,14 +59,14 @@ func nullableEmail(email string) interface{} {
 
 func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, has_password, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
 		FROM users WHERE id = $1
 	`
 
 	user := &models.User{}
 	err := r.db.QueryRow(query, id).Scan(
 		&user.ID, &user.FirstName, &user.MiddleName, &user.LastName,
-		&user.Phone, &user.Email, &user.PasswordHash,
+		&user.Phone, &user.Email, &user.PasswordHash, &user.HasPassword,
 		&user.Status, &user.EmailVerified, &user.PhoneVerified, &user.AccountType, &user.AvatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 
@@ -82,14 +82,14 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, has_password, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
 		FROM users WHERE LOWER(email) = LOWER($1)
 	`
 
 	user := &models.User{}
 	err := r.db.QueryRow(query, email).Scan(
 		&user.ID, &user.FirstName, &user.MiddleName, &user.LastName,
-		&user.Phone, &user.Email, &user.PasswordHash,
+		&user.Phone, &user.Email, &user.PasswordHash, &user.HasPassword,
 		&user.Status, &user.EmailVerified, &user.PhoneVerified, &user.AccountType, &user.AvatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 
@@ -105,7 +105,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 
 func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	query := `
-		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
+		SELECT id, first_name, middle_name, last_name, phone, COALESCE(email, '') AS email, password_hash, has_password, status, email_verified, phone_verified, account_type, avatar_url, created_at, updated_at
 		FROM users
 		WHERE phone = $1
 		   OR RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 9) =
@@ -117,7 +117,7 @@ func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
 	user := &models.User{}
 	err := r.db.QueryRow(query, phone).Scan(
 		&user.ID, &user.FirstName, &user.MiddleName, &user.LastName,
-		&user.Phone, &user.Email, &user.PasswordHash,
+		&user.Phone, &user.Email, &user.PasswordHash, &user.HasPassword,
 		&user.Status, &user.EmailVerified, &user.PhoneVerified, &user.AccountType, &user.AvatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 
@@ -179,8 +179,12 @@ func (r *UserRepository) PhoneExists(phone string) (bool, error) {
 	return exists, err
 }
 
+// UpdatePassword stores a hash the account holder chose, so has_password
+// becomes true: a phone-only account that sets a password this way is from now
+// on deleted by typing it, not by a code (migration 121). Every caller --
+// change password, reset by e-mail, SetPassword -- funnels through here.
 func (r *UserRepository) UpdatePassword(id uuid.UUID, passwordHash string) error {
-	query := `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`
+	query := `UPDATE users SET password_hash = $1, has_password = TRUE, updated_at = NOW() WHERE id = $2`
 	_, err := r.db.Exec(query, passwordHash, id)
 	return err
 }
@@ -192,6 +196,7 @@ func (r *UserRepository) CreateWithPassword(user *models.User, password string) 
 		return err
 	}
 	user.PasswordHash = string(hash)
+	user.HasPassword = true
 	return r.Create(user)
 }
 
@@ -230,7 +235,7 @@ func (r *UserRepository) AnonymizeAccount(id uuid.UUID) error {
 	if _, err := tx.Exec(`
 		UPDATE users SET
 			first_name = 'Deleted', middle_name = '', last_name = 'account',
-			email = $2, phone = $3, password_hash = '!', avatar_url = NULL,
+			email = $2, phone = $3, password_hash = '!', has_password = TRUE, avatar_url = NULL,
 			status = 'DEACTIVATED', email_verified = FALSE, phone_verified = FALSE,
 			deleted_at = NOW(), updated_at = NOW()
 		WHERE id = $1`,

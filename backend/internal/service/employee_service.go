@@ -390,6 +390,7 @@ func (s *EmployeeService) AcceptEmployeeInvitation(req *models.AcceptEmployeeInv
 		Phone:         employee.Phone,
 		Email:         employee.Email,
 		PasswordHash:  string(hashedPassword),
+		HasPassword:   true,
 		Status:        models.UserStatusActive,
 		EmailVerified: true,
 		AccountType:   models.AccountTypeEmployee,
