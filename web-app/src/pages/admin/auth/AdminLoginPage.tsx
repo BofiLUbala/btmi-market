@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { adminAuthApi } from '@/api/admin'
 import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
 import { defaultRouteForRole } from '@/components/admin/adminNav'
@@ -18,6 +19,15 @@ export default function AdminLoginPage() {
   const [showForgotHelp, setShowForgotHelp] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // The owner's first-time setup: offered only while the server still holds an
+  // unused setup code (see backend AdminSetupService).
+  const [setupAvailable, setSetupAvailable] = useState(false)
+  useEffect(() => {
+    adminAuthApi.setupStatus()
+      .then((s) => setSetupAvailable(!!s?.available))
+      .catch(() => setSetupAvailable(false))
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -170,6 +180,12 @@ export default function AdminLoginPage() {
             {isSubmitting ? t('admin.login.authenticating') : t('admin.login.submit')}
           </button>
         </form>
+
+        {setupAvailable && (
+          <div className="admin-login-footer admin-login-setup">
+            <Link to="/admin/setup">{t('admin.setup.link')}</Link>
+          </div>
+        )}
 
         <div className="admin-login-footer">
           <a href="/">
