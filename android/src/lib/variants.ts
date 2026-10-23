@@ -27,7 +27,9 @@ function titleCase(key: string): string {
  */
 function isSharedCharacteristic(variants: { attributes?: Record<string, string> | null }[], key: string): boolean {
   const carried = variants.map((v) => (v.attributes ?? {})[key]?.trim()).filter(Boolean)
-  return carried.length >= 2 && new Set(carried).size === 1
+  // Every variant counts too, so a one-variant product's Model is not a choice.
+  // A lone value next to an empty legacy variant still is: it names that variant.
+  return (carried.length >= 2 || carried.length === variants.length) && new Set(carried).size === 1
 }
 
 export function buildAttributeGroups(variants: PublicVariant[]): AttributeGroup[] {

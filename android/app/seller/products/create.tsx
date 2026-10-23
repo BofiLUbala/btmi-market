@@ -694,8 +694,8 @@ export default function SellerProductCreateScreen() {
         <Field label={t('seller.productForm.costPriceOptional')} value={form.cost_price} onChangeText={(v) => setForm((f) => ({ ...f, cost_price: v }))} keyboardType="numeric" />
 
         <Text style={styles.subLabel}>{t('seller.productForm.selfRatingLabel')}</Text>
-        <View style={styles.stars}>
-          {[1, 2, 3, 4, 5].map((n) => <Pressable key={n} accessibilityRole="button" onPress={() => setSelfRating(n)}>
+        <View style={styles.stars} accessibilityRole="radiogroup" accessibilityLabel={t('seller.productForm.selfRatingLabel')}>
+          {[1, 2, 3, 4, 5].map((n) => <Pressable key={n} accessibilityRole="radio" accessibilityState={{ checked: n === selfRating }} accessibilityLabel={t('orderRating.starsLabel', { count: n })} hitSlop={6} onPress={() => setSelfRating(n)}>
             <Text style={[styles.star, n <= selfRating && styles.starActive]}>★</Text>
           </Pressable>)}
         </View>
