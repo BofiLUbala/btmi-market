@@ -32,6 +32,11 @@ type User struct {
 	Phone         string            `json:"phone" db:"phone"`
 	Email         string            `json:"email" db:"email"`
 	PasswordHash  string            `json:"-" db:"password_hash"`
+	// HasPassword is false for an account registered from a phone number
+	// alone: its hash comes from random bytes nobody kept, so there is no
+	// password to re-type. Clients read it to know which proof of ownership
+	// to ask for before deleting the account (migration 121).
+	HasPassword   bool              `json:"has_password" db:"has_password"`
 	Status        UserStatus        `json:"status" db:"status"`
 	EmailVerified bool              `json:"email_verified" db:"email_verified"`
 	PhoneVerified bool              `json:"phone_verified" db:"phone_verified"`

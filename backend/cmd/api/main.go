@@ -448,6 +448,7 @@ func main() {
 			authGroup.POST("/employee/invite/accept", authHandler.AcceptEmployeeInvitation)
 			authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
 			authGroup.POST("/me/avatar", middleware.AuthMiddleware(authService), authHandler.UploadAvatar)
+			authGroup.POST("/me/delete/code", middleware.AuthMiddleware(authService), authHandler.RequestAccountDeletionCode)
 			authGroup.POST("/me/delete", middleware.AuthMiddleware(authService), authHandler.DeleteAccount)
 			authGroup.POST("/become-seller", middleware.AuthMiddleware(authService), authHandler.BecomeSeller)
 			authGroup.POST("/become-buyer", middleware.AuthMiddleware(authService), authHandler.BecomeBuyer)

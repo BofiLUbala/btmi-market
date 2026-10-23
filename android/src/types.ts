@@ -15,6 +15,9 @@ export interface User {
     employee?: boolean
   }
   avatar_url?: string | null
+  /** False for an account registered from a phone number alone: it has no
+   *  password, so deleting it is confirmed by a code instead. */
+  has_password?: boolean
   created_at?: string
   middle_name?: string | null
   city?: string | null
