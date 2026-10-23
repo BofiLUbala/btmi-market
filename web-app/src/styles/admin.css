@@ -172,6 +172,10 @@
 .admin-login-footer { margin-top: 26px; text-align: center; }
 .admin-login-footer a { color: #64748b; font-size: .85rem; text-decoration: none; }
 .admin-login-footer a:hover { color: #cbd5e1; }
+/* First-time super admin setup: a real call to action, not a quiet footer link. */
+.admin-login-setup { margin-top: 18px; }
+.admin-login-setup a { color: #93c5fd; font-size: .9rem; font-weight: 650; }
+.admin-login-setup a:hover { color: #dbeafe; }
 
 @media (max-width: 640px) {
   .admin-login-page { align-items: flex-start; padding: 24px 16px; }

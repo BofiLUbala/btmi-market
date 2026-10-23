@@ -776,6 +776,21 @@ export const adminAuthApi = {
       false
     )
   },
+  /** Whether the one-time super admin setup code is configured and unused. */
+  setupStatus: async () => {
+    return adminApi<{ available: boolean }>('/admin/setup/status', {}, false)
+  },
+  /** Creates (or takes over) the single super admin account and signs it in. */
+  setup: async (body: { setup_code: string; name: string; email: string; password: string }) => {
+    return adminApi<{ access_token: string; refresh_token: string; admin: AdminUser }>(
+      '/admin/setup',
+      {
+        method: 'POST',
+        body: JSON.stringify(body)
+      },
+      false
+    )
+  },
   me: async () => {
     return adminApi<AdminUser>('/admin/auth/me')
   },
