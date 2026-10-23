@@ -110,6 +110,8 @@ type OrderStatusHistory struct {
 	OrderID   uuid.UUID   `json:"order_id" db:"order_id"`
 	Status    OrderStatus `json:"status" db:"status"`
 	ChangedBy *uuid.UUID  `json:"changed_by" db:"changed_by"`
+	// ChangedByName is who ChangedBy is, filled for the admin order view only.
+	ChangedByName string `json:"changed_by_name,omitempty" db:"-"`
 	Notes     string      `json:"notes" db:"notes"`
 	CreatedAt time.Time   `json:"created_at" db:"created_at"`
 }

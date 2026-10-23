@@ -95,10 +95,10 @@ Mobile: emulateur Pixel (Expo Go, Metro :8081).
 ### Constats NON corriges — decision necessaire (securite / produit)
 1. **Saisie manuelle du QR colis au retrait** : le champ attend le jeton signe complet (`tbk.d.<uuid>.<HMAC>`, ~90 car.), impossible a taper. Le seul code imprime lisible, `PKG-XXXXXXXX`, est refuse. Et le bouton "I picked it up" valide le retrait SANS scan. Le scan n'est donc pas une preuve aujourd'hui. A trancher : accepter PKG-xxxx, ou rendre le scan obligatoire.
 2. **Code de remise a l'acheteur = numero de commande BTMI-...**, que le livreur voit deja dans sa propre app. Il ne prouve pas que l'acheteur est present. A trancher : code a usage unique connu du seul acheteur ?
-3. Libelle du statut vendeur "Awaiting a courier" sur une commande qui attend d'abord SON acceptation.
-4. Historiques admin : acteur affiche en UUID brut ; "Shop ID" brut montre au vendeur.
-5. Consigne TomTom en francais quand l'interface est en anglais.
-6. Recap acheteur du haut : "Total due 39" sans la ligne frais de paiement 1 $.
+3. ~~Libelle statut vendeur~~ CORRIGE (23/10, session 2b) : le statut de livraison ne s'affiche que pour READY / READY_FOR_PICKUP / OUT_FOR_DELIVERY / HANDED_TO_PARTNER ; avant, ou apres refus/annulation, c'est le statut de la commande (des commandes REJECTED affichaient "Awaiting a courier").
+4. ~~UUID bruts~~ CORRIGE : historique admin = nom de l'acteur (utilisateur, employe ou admin) ou "System" ; detail vendeur = nom de la boutique au lieu du Shop ID.
+5. **Consignes TomTom en francais (NON corrige, decision)** : langue figee a fr-FR cote serveur. L'adapter demande de memoriser la langue par itineraire (migration) sinon le recalcul automatique repasse en francais en plein trajet ; tous les textes serveur sont deja en francais. A trancher.
+6. ~~Recap acheteur sans frais de paiement~~ CORRIGE : ligne "Payment markup" ajoutee ; 34 + 4 + 1 = 39.
 7. /admin/technical : bloc "Mapped Control Domains (Phase 4)" = texte de feuille de route sans fonction. Liste, rien supprime.
 8. Base de dev : 91 alertes ORDER_STUCK ouvertes sur des checkouts abandonnes (anciennes regles).
 

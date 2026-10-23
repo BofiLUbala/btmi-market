@@ -1626,6 +1626,8 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'admin.config.connectFailed': 'Failed to connect to Admin API',
   'admin.config.updateFailed': 'Update failed',
   'admin.config.lowRisk': 'Low-Risk Flags (Quick Toggle)',
+  'admin.orders.unknownActor': 'Unknown user',
+  'admin.orders.systemActor': 'System',
   'admin.config.readOnly': 'Read-only: owned by the {category} team',
   'admin.config.noLowRisk': 'No low-risk flags found.',
   'admin.config.highRisk': 'High-Risk Flags (Web-only, view only)',

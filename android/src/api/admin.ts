@@ -312,6 +312,7 @@ export interface AdminOrderStatusEvent {
   id: string
   status: string
   changed_by?: string
+  changed_by_name?: string
   notes: string
   created_at: string
 }

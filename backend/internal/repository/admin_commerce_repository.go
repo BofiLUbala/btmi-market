@@ -849,14 +849,21 @@ func (r *AdminCommerceRepository) GetOrderDetail(id uuid.UUID) (*models.AdminOrd
 
 	// Status history
 	histRows, err := r.db.Query(`
-		SELECT id, order_id, status, changed_by, notes, created_at
-		FROM order_status_history WHERE order_id = $1 ORDER BY created_at ASC
+		SELECT h.id, h.order_id, h.status, h.changed_by, h.notes, h.created_at,
+			COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''),
+			         NULLIF(TRIM(e.first_name || ' ' || e.last_name), ''),
+			         NULLIF(TRIM(a.first_name || ' ' || a.last_name), ''), '')
+		FROM order_status_history h
+		LEFT JOIN users u ON u.id = h.changed_by
+		LEFT JOIN employees e ON e.id = h.changed_by
+		LEFT JOIN admin_users a ON a.id = h.changed_by
+		WHERE h.order_id = $1 ORDER BY h.created_at ASC
 	`, id)
 	if err == nil {
 		defer histRows.Close()
 		for histRows.Next() {
 			h := &models.OrderStatusHistory{}
-			if err := histRows.Scan(&h.ID, &h.OrderID, &h.Status, &h.ChangedBy, &h.Notes, &h.CreatedAt); err == nil {
+			if err := histRows.Scan(&h.ID, &h.OrderID, &h.Status, &h.ChangedBy, &h.Notes, &h.CreatedAt, &h.ChangedByName); err == nil {
 				detail.StatusHistory = append(detail.StatusHistory, h)
 			}
 		}

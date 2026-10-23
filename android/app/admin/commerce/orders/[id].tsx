@@ -318,7 +318,7 @@ export default function AdminOrderDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.lineName}>{statusLabel(t, h.status)}</Text>
               {h.notes ? <Text style={styles.muted}>{h.notes}</Text> : null}
-              <Text style={styles.time}>{h.changed_by || '—'} · {new Date(h.created_at).toLocaleString(dateLocale())}</Text>
+              <Text style={styles.time}>{h.changed_by_name || (h.changed_by ? t('admin.orders.unknownActor') : t('admin.orders.systemActor'))} · {new Date(h.created_at).toLocaleString(dateLocale())}</Text>
             </View>
           </View>
         ))}

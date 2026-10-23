@@ -215,6 +215,7 @@ export default function SellerOrders() {
             expanded={expandedId === order.id}
             acting={actingId === order.id}
             businessName={activeBusiness.name}
+            shopName={group.shopName}
             onToggle={() => { setActionError(''); setExpandedId(expandedId === order.id ? null : order.id) }}
             onAction={(a) => {
               if (a.action === 'reject' || a.action === 'cancel') { setActionError(''); setReasonAsk({ order, kind: a.action }); return }
@@ -241,15 +242,19 @@ function Chip({ label, selected, onPress, styles }: { label: string; selected: b
   return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.chip, selected && styles.chipActive]}><Text style={[styles.chipText, selected && styles.chipTextActive]}>{label}</Text></Pressable>
 }
 
-function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, onConfirmReturn, styles }: {
-  order: SellerOrder; expanded: boolean; acting: boolean; businessName: string
+function OrderRow({ order, expanded, acting, businessName, shopName, onToggle, onAction, onConfirmReturn, styles }: {
+  order: SellerOrder; expanded: boolean; acting: boolean; businessName: string; shopName: string
   onToggle: () => void; onAction: (a: SellerAction) => void; onConfirmReturn: () => void; styles: S
 }) {
   const { t, lang } = useI18n()
   const colors = useColors()
   const actions = nextActions(order, t)
   const currency = order.currency || DEFAULT_CURRENCY
-  const displayStatus = order.delivery_status || order.status
+  // The delivery status only describes orders that are actually in delivery.
+  // Before that (waiting on the seller) or after a refusal/cancellation it is a
+  // leftover default: "Awaiting a courier" on a rejected order misled sellers.
+  const inDelivery = order.status === 'READY' || order.status === 'READY_FOR_PICKUP' || order.status === 'OUT_FOR_DELIVERY' || order.status === 'HANDED_TO_PARTNER'
+  const displayStatus = inDelivery ? order.delivery_status || order.status : order.status
   const tint = statusTint(displayStatus, colors)
   const detail = useQuery({ queryKey: ['seller', 'orderDetail', order.id], queryFn: () => sellerApi.order(order.id), enabled: expanded, retry: false })
   const payment = useQuery({
@@ -286,7 +291,7 @@ function OrderRow({ order, expanded, acting, businessName, onToggle, onAction, o
       <Text style={styles.small}><Text style={styles.strong}>{t('orders.deliveryLabel')}:</Text> {deliveryLabel(t, order.delivery_method) || '—'}</Text>
       <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.baseTotal')}:</Text> {formatMoney(order.base_total ?? order.final_total, currency)}</Text>
       {order.notes ? <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.notesLabel')}:</Text> {order.notes}</Text> : null}
-      <Text style={styles.small}><Text style={styles.strong}>{t('seller.orders.shopId')}:</Text> {order.shop_id}</Text>
+      <Text style={styles.small}><Text style={styles.strong}>{t('orders.shop')}:</Text> {shopName}</Text>
       {d ? <View style={styles.box}>
         <Text style={styles.strong}>{t('orders.deliveryLabel')}</Text>
         <Text style={styles.small}>{t('common.status')}: <Text style={styles.strong}>{d.delivery_status ? orderStatusLabel(d.delivery_status, t) : '—'}</Text></Text>
