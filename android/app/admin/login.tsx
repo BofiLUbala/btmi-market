@@ -183,6 +183,7 @@ function SuperAdminSetup({ onBack }: { onBack: () => void }) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [sentTo, setSentTo] = useState<string | null>(null)
 
   const submit = async () => {
     if (!code.trim() || !name.trim() || !email.trim() || !password) {
@@ -196,8 +197,7 @@ function SuperAdminSetup({ onBack }: { onBack: () => void }) {
     setError(null)
     setSubmitting(true)
     try {
-      await setupSuperAdmin({ setup_code: code.trim(), name: name.trim(), email: email.trim(), password })
-      router.replace('/admin' as never)
+      setSentTo(await setupSuperAdmin({ setup_code: code.trim(), name: name.trim(), email: email.trim(), password }))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('admin.login.invalidCredentials'))
     } finally {
@@ -211,6 +211,25 @@ function SuperAdminSetup({ onBack }: { onBack: () => void }) {
       {input}
     </View>
   )
+
+  if (sentTo) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#090d16' }}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
+            <Text style={styles.title}>{t('admin.setup.title')}</Text>
+            <View style={styles.sentBox}>
+              <Text style={styles.sentText}>{t('admin.setup.sent', { email: sentTo })}</Text>
+              <Text style={styles.sentHint}>{t('admin.setup.sentHint')}</Text>
+            </View>
+            <TouchableOpacity style={{ marginTop: 20, alignItems: 'center' }} onPress={onBack}>
+              <Text style={{ color: '#64748b', fontSize: 12 }}>{t('admin.setup.back')}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAwareScrollView>
+      </View>
+    )
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#090d16' }}>
@@ -313,6 +332,16 @@ const styles = StyleSheet.create({
     color: '#c7d2fe',
     lineHeight: 16,
   },
+  sentBox: {
+    backgroundColor: '#064e3b',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    borderRadius: 8,
+    padding: 14,
+    marginTop: 16,
+  },
+  sentText: { color: '#d1fae5', fontSize: 13, lineHeight: 19 },
+  sentHint: { color: '#a7f3d0', fontSize: 12, lineHeight: 17, marginTop: 8 },
   errorBox: {
     backgroundColor: '#450a0a',
     borderWidth: 1,

@@ -225,6 +225,45 @@ func (s *Service) SendAdminInvitationEmail(to, firstName, role, invitationURL st
 	return s.sendEmail(to, subject, body)
 }
 
+// BuildSuperAdminSetupURL points at the page where the owner confirms the
+// account he just asked for with the one-time setup code.
+func (s *Service) BuildSuperAdminSetupURL(token string) string {
+	return fmt.Sprintf("%s/admin/setup/activate?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
+}
+
+// SendSuperAdminSetupEmail carries the link that turns the pending super admin
+// account into the live one. Nothing else can activate it, so this address is
+// what proves the owner is who he says he is.
+func (s *Service) SendSuperAdminSetupEmail(to, firstName, setupURL string) error {
+	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
+		log.Printf("[DEV MODE] Super Admin Setup URL for %s (%s): %s", to, firstName, setupURL)
+		return nil
+	}
+
+	subject := "Activate your BTMI Market super admin account"
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Super Admin Activation</title>
+</head>
+<body>
+    <h2>Hello %s,</h2>
+    <p>Someone used the one-time setup code to claim the <strong>super admin</strong> account of the BTMI Market Control Center with this address.</p>
+    <p>Click below to activate the account. You will then sign in with the password you chose on the setup screen.</p>
+    <p><a href="%s" style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Activate the super admin account</a></p>
+    <p>Or copy and paste this link into your browser:</p>
+    <p>%s</p>
+    <p>This link expires in 24 hours and can only be used once. Activating it ends the previous super admin's access.</p>
+    <p>If this was not you, do not click the link and tell the technical team at once: someone holds the setup code.</p>
+</body>
+</html>
+`, firstName, setupURL, setupURL)
+
+	return s.sendEmail(to, subject, body)
+}
+
 func (s *Service) SendPasswordResetEmail(to, resetURL string) error {
 	if s.config.SMTPHost == "" || os.Getenv("E2E_TEST_MODE") == "true" {
 		log.Printf("[DEV MODE] Password Reset URL for %s: %s", to, resetURL)

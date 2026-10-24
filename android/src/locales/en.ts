@@ -1408,7 +1408,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'admin.login.returnToMarketplace': '← Return to Marketplace',
   'admin.setup.link': 'First-time setup? Create the super admin account',
   'admin.setup.title': 'Create the super admin account',
-  'admin.setup.intro': 'Enter the setup code you received from the technical team, then choose your own credentials. There is only one super admin: this account replaces the temporary access. The code works once.',
+  'admin.setup.intro': "Enter the setup code you received from the technical team, then choose your own credentials. We e-mail you a link that activates the account: it is what proves the address is yours. There is only one super admin, and the code works once.",
   'admin.setup.codeLabel': 'Setup code',
   'admin.setup.nameLabel': 'Full name',
   'admin.setup.namePlaceholder': 'First Last',
@@ -1416,8 +1416,12 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'admin.setup.passwordHint': 'At least 8 characters, with an uppercase letter, a lowercase letter, a digit and a special character.',
   'admin.setup.missing': 'Fill in every field.',
   'admin.setup.mismatch': 'The two passwords do not match.',
-  'admin.setup.submit': 'Create my account and sign in',
+  'admin.setup.submit': "Create my account and send the link",
   'admin.setup.back': '← Back to sign-in',
+  'admin.setup.sent': "Check {email}: we sent the link that activates the account.",
+  'admin.setup.sentHint': "The link works once and expires in 24 hours. Once you have followed it, sign in with the password you just chose.",
+  'apiError.INVALID_SETUP_LINK': "This activation link is not valid.",
+  'apiError.SETUP_LINK_EXPIRED': "This activation link has expired. Ask the technical team for a new setup code.",
 
   /* ── Admin: direction dashboard ─────────────────────────── */
   'admin.direction.searchFailedTitle': 'Search Failed',

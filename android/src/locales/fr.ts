@@ -1417,7 +1417,7 @@ export const fr = {
   'admin.login.returnToMarketplace': '← Retour au marché',
   'admin.setup.link': 'Première configuration ? Créer le compte super admin',
   'admin.setup.title': 'Créer le compte super admin',
-  'admin.setup.intro': "Saisissez le code de configuration reçu de l'équipe technique, puis choisissez vos propres identifiants. Il n'existe qu'un seul super admin : ce compte remplace l'accès provisoire. Le code ne sert qu'une fois.",
+  'admin.setup.intro': "Saisissez le code de configuration reçu de l’équipe technique, puis choisissez vos propres identifiants. Un lien d’activation vous est envoyé par e-mail : c’est lui qui prouve que l’adresse est bien la vôtre. Il n’existe qu’un seul super admin, et le code ne sert qu’une fois.",
   'admin.setup.codeLabel': 'Code de configuration',
   'admin.setup.nameLabel': 'Nom complet',
   'admin.setup.namePlaceholder': 'Prénom Nom',
@@ -1425,8 +1425,12 @@ export const fr = {
   'admin.setup.passwordHint': '8 caractères minimum, avec une majuscule, une minuscule, un chiffre et un caractère spécial.',
   'admin.setup.missing': 'Remplissez tous les champs.',
   'admin.setup.mismatch': 'Les deux mots de passe ne sont pas identiques.',
-  'admin.setup.submit': 'Créer mon compte et me connecter',
+  'admin.setup.submit': "Créer mon compte et envoyer le lien",
   'admin.setup.back': '← Retour à la connexion',
+  'admin.setup.sent': "Consultez {email} : le lien qui active le compte vient d’y être envoyé.",
+  'admin.setup.sentHint': "Le lien ne sert qu’une fois et expire dans 24 heures. Une fois suivi, connectez-vous avec le mot de passe que vous venez de choisir.",
+  'apiError.INVALID_SETUP_LINK': "Ce lien d’activation n’est pas valable.",
+  'apiError.SETUP_LINK_EXPIRED': "Ce lien d’activation a expiré. Demandez un nouveau code de configuration à l’équipe technique.",
 
   /* ── Admin : tableau de bord Direction ──────────────────── */
   'admin.direction.searchFailedTitle': 'Échec de la recherche',

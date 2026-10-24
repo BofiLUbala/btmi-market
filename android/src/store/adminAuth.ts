@@ -9,7 +9,9 @@ interface AdminAuthState {
   ready: boolean
   bootstrap: () => Promise<void>
   login: (email: string, password: string) => Promise<AdminUser>
-  setupSuperAdmin: (body: { setup_code: string; name: string; email: string; password: string }) => Promise<AdminUser>
+  /** Claims the super admin account; resolves with the address the activation
+   *  link was sent to. Nobody is signed in until that link is followed. */
+  setupSuperAdmin: (body: { setup_code: string; name: string; email: string; password: string }) => Promise<string>
   logout: () => Promise<void>
   hasRole: (allowedRoles: AdminRole[]) => boolean
   canAccessDashboard: (dashboard: 'direction' | 'commerce' | 'finance' | 'technical') => boolean
@@ -41,12 +43,8 @@ export const useAdminAuth = create<AdminAuthState>((set, get) => ({
     return session.admin
   },
   setupSuperAdmin: async (body) => {
-    const ready = await mobileAdminAuthApi.setup(body)
-    // The server signs the account in; if that step alone failed, sign in normally.
-    const session = ready?.access_token ? ready : await mobileAdminAuthApi.login(body.email.trim().toLowerCase(), body.password)
-    await adminTokenStore.set(session.access_token, session.refresh_token)
-    set({ admin: session.admin, role: session.admin.role, ready: true })
-    return session.admin
+    const sent = await mobileAdminAuthApi.setup(body)
+    return sent?.email ?? body.email.trim().toLowerCase()
   },
   logout: async () => {
     await releasePush('admin').catch(() => undefined)

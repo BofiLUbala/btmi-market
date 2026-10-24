@@ -1,9 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { adminAuthApi } from '@/api/admin'
-import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
-import { defaultRouteForRole } from '@/components/admin/adminNav'
 import { EyeIcon, EyeOffIcon } from '@/components/ui/Icons'
 
 /**
@@ -13,8 +11,6 @@ import { EyeIcon, EyeOffIcon } from '@/components/ui/Icons'
  * unavailable code sends the visitor back to the sign-in screen.
  */
 export default function AdminSetupPage() {
-  const { setupSuperAdmin } = useAdminAuth()
-  const navigate = useNavigate()
   const t = useT()
 
   const [available, setAvailable] = useState<boolean | null>(null)
@@ -26,6 +22,7 @@ export default function AdminSetupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [sentTo, setSentTo] = useState<string | null>(null)
 
   useEffect(() => {
     adminAuthApi.setupStatus()
@@ -47,13 +44,13 @@ export default function AdminSetupPage() {
     setError(null)
     setSubmitting(true)
     try {
-      const admin = await setupSuperAdmin({
+      const sent = await adminAuthApi.setup({
         setup_code: code.trim(),
         name: name.trim(),
         email: email.trim(),
         password,
       })
-      navigate(defaultRouteForRole(admin.role), { replace: true })
+      setSentTo(sent?.email ?? email.trim())
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('admin.login.invalidCredentials'))
     } finally {
@@ -70,7 +67,17 @@ export default function AdminSetupPage() {
           <p>{t('admin.setup.intro')}</p>
         </div>
 
-        {available === false ? (
+        {sentTo ? (
+          <>
+            <div className="admin-login-sent" role="status">
+              <p>{t('admin.setup.sent', { email: sentTo })}</p>
+              <p>{t('admin.setup.sentHint')}</p>
+            </div>
+            <div className="admin-login-footer">
+              <Link to="/admin/login">{t('admin.setup.back')}</Link>
+            </div>
+          </>
+        ) : available === false ? (
           <>
             <div className="admin-login-error" role="alert">
               {t('admin.setup.unavailable')}

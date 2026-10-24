@@ -780,13 +780,33 @@ export const adminAuthApi = {
   setupStatus: async () => {
     return adminApi<{ available: boolean }>('/admin/setup/status', {}, false)
   },
-  /** Creates (or takes over) the single super admin account and signs it in. */
+  /** Claims the single super admin account. The account stays pending until
+   *  the owner follows the link e-mailed to the address he gave here. */
   setup: async (body: { setup_code: string; name: string; email: string; password: string }) => {
-    return adminApi<{ access_token: string; refresh_token: string; admin: AdminUser }>(
+    return adminApi<{ email: string; first_super_admin: boolean }>(
       '/admin/setup',
       {
         method: 'POST',
         body: JSON.stringify(body)
+      },
+      false
+    )
+  },
+  /** Reads back who an activation link belongs to, for the activation page. */
+  setupVerify: async (token: string) => {
+    return adminApi<{ first_name: string; last_name: string; email: string; role: AdminRole }>(
+      `/admin/setup/verify?token=${encodeURIComponent(token)}`,
+      {},
+      false
+    )
+  },
+  /** Turns the pending super admin into the live one. */
+  setupActivate: async (token: string) => {
+    return adminApi<{ email: string }>(
+      '/admin/setup/activate',
+      {
+        method: 'POST',
+        body: JSON.stringify({ token })
       },
       false
     )
