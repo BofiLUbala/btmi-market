@@ -17,6 +17,8 @@ type fakeSetupRepo struct {
 	holder    bool // an active super admin exists already
 	admins    map[uuid.UUID]*models.AdminUser
 	cancelled int
+	issued    *repository.IssuedSetupCode
+	issuedHex string
 }
 
 func newFakeSetupRepo() *fakeSetupRepo {
@@ -53,6 +55,28 @@ func (f *fakeSetupRepo) ActivateSuperAdminClaim(pendingID uuid.UUID) error {
 	}
 	admin.Status = models.AdminStatusActive
 	f.holder = true
+	return nil
+}
+
+func (f *fakeSetupRepo) IssueSetupCode(codeHash string, createdBy uuid.UUID, expiresAt time.Time) error {
+	f.issuedHex = codeHash
+	f.issued = &repository.IssuedSetupCode{ID: uuid.New(), CreatedBy: &createdBy, CreatedAt: time.Now(), ExpiresAt: expiresAt}
+	return nil
+}
+
+func (f *fakeSetupRepo) LiveSetupCode() (*repository.IssuedSetupCode, error) {
+	if f.issued == nil || time.Now().After(f.issued.ExpiresAt) || f.claimed[f.issuedHex] {
+		return nil, nil
+	}
+	return f.issued, nil
+}
+
+func (f *fakeSetupRepo) SetupCodeIsLive(codeHash string) (bool, error) {
+	return f.issued != nil && f.issuedHex == codeHash && time.Now().Before(f.issued.ExpiresAt), nil
+}
+
+func (f *fakeSetupRepo) RevokeSetupCodes() error {
+	f.issued, f.issuedHex = nil, ""
 	return nil
 }
 
@@ -230,5 +254,91 @@ func TestAdminSetupExpiredLink(t *testing.T) {
 	}
 	if _, err := s.Activate(tokenOf(mailer.url)); !errors.Is(err, ErrSetupLinkExpired) {
 		t.Fatalf("expired link: got %v", err)
+	}
+}
+
+func TestGenerateSetupCodeShape(t *testing.T) {
+	seen := map[string]bool{}
+	for i := 0; i < 50; i++ {
+		code, err := GenerateSetupCode()
+		if err != nil {
+			t.Fatalf("generate: %v", err)
+		}
+		if len(code) != len("TBK-XXXX-XXXX-XXXX") || !strings.HasPrefix(code, "TBK-") {
+			t.Fatalf("unexpected shape: %q", code)
+		}
+		for _, c := range strings.ReplaceAll(code[4:], "-", "") {
+			if !strings.ContainsRune(setupCodeAlphabet, c) {
+				t.Fatalf("%q uses a character that reads badly: %q", code, c)
+			}
+		}
+		if seen[code] {
+			t.Fatalf("the same code came out twice: %q", code)
+		}
+		seen[code] = true
+	}
+}
+
+func TestSetupCodeIssuedFromTheConsole(t *testing.T) {
+	repo, invitations, mailer := newFakeSetupRepo(), newFakeInvitations(), &fakeMailer{}
+
+	// Nothing configured on the server and nothing issued: no setup on offer.
+	s := NewAdminSetupService(repo, invitations, mailer, "")
+	if s.Available() || s.Status().SetupIsOpen {
+		t.Fatal("setup must be closed with no code at all")
+	}
+	if _, _, err := s.Start("TBK-ABCD-EFGH-JKMN", "Jean Mukendi", "jean@tbk.cd", "Owner#2026pass"); !errors.Is(err, ErrSetupUnavailable) {
+		t.Fatalf("no code anywhere: got %v", err)
+	}
+
+	actor := uuid.New()
+	code, expiresAt, err := s.IssueCode(actor)
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	if time.Until(expiresAt) < 6*24*time.Hour {
+		t.Fatalf("a code should last about a week, got %v", time.Until(expiresAt))
+	}
+	if repo.issuedHex != HashToken(code) {
+		t.Fatal("only the hash of the code may be stored")
+	}
+
+	st := s.Status()
+	if !st.Issued || !st.SetupIsOpen || st.FromServer || st.ExpiresAt == nil {
+		t.Fatalf("status after issuing: %+v", st)
+	}
+	if !s.Available() {
+		t.Fatal("an issued code must open the setup")
+	}
+
+	if _, _, err := s.Start("TBK-WRONG-CODE", "Jean Mukendi", "jean@tbk.cd", "Owner#2026pass"); !errors.Is(err, ErrSetupCodeInvalid) {
+		t.Fatalf("wrong code against an issued one: got %v", err)
+	}
+
+	email, _, err := s.Start(code, "Jean Mukendi", "jean@tbk.cd", "Owner#2026pass")
+	if err != nil || email != "jean@tbk.cd" {
+		t.Fatalf("start with the issued code: email=%q err=%v", email, err)
+	}
+	if s.Available() {
+		t.Fatal("a spent code must close the setup")
+	}
+}
+
+func TestSetupCodeRevoked(t *testing.T) {
+	repo, invitations, mailer := newFakeSetupRepo(), newFakeInvitations(), &fakeMailer{}
+	s := NewAdminSetupService(repo, invitations, mailer, "")
+
+	code, _, err := s.IssueCode(uuid.New())
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	if err := s.RevokeCodes(); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	if s.Available() {
+		t.Fatal("a revoked code must close the setup")
+	}
+	if _, _, err := s.Start(code, "Jean Mukendi", "jean@tbk.cd", "Owner#2026pass"); err == nil {
+		t.Fatal("a revoked code must not open the setup")
 	}
 }
