@@ -137,7 +137,7 @@ export function CourierRoutePlanner({ orderId, deliveryAddress, pickupAddress, o
     setBusy('compute')
     setError('')
     try {
-      const res = await courierApi.setRoute(orderId, { start: points.start, destination: points.destination, confirmed: true })
+      const res = await courierApi.setRoute(orderId, { start: points.start, destination: points.destination, confirmed: true, language: lang })
       const r = res.route
       setDone(r ? tk('route.computed', { distance: formatDistance(r.route_length_m, lang), duration: formatDuration(r.remaining_s) }) : '')
       void live.refetch()

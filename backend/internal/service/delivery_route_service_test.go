@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ func (f *fakeRouteStore) Trail(uuid.UUID) ([]maps.LngLat, error) { return f.trai
 type fakeRouter struct {
 	calls    int
 	lastMode string
+	lastLang string
 }
 
 func (f *fakeRouter) Configured() bool { return true }
@@ -49,7 +51,8 @@ func (f *fakeRouter) ReverseGeocode(context.Context, maps.LngLat) (*maps.Place, 
 func (f *fakeRouter) Geocode(context.Context, string) ([]maps.Candidate, error) {
 	return []maps.Candidate{{Label: "Boulevard du 30 Juin", Latitude: -4.30, Longitude: 15.30, Score: 0.88, Confident: true}}, nil
 }
-func (f *fakeRouter) Route(_ context.Context, from, to maps.LngLat, mode string) (*maps.Route, error) {
+func (f *fakeRouter) Route(_ context.Context, from, to maps.LngLat, mode, lang string) (*maps.Route, error) {
+	f.lastLang = lang
 	f.calls++
 	f.lastMode = mode
 	l := maps.DistanceM(from, to)
@@ -175,5 +178,36 @@ func TestMaybeRerouteOnlyWhenOffRoute(t *testing.T) {
 	svc.MaybeReroute(store.ctx.OrderID, maps.LngLat{15.304, -4.3140}, f64(5))
 	if router.calls != calls+1 {
 		t.Error("rerouted again inside the cooldown")
+	}
+}
+
+func TestRouteLanguageIsKeptThroughReroute(t *testing.T) {
+	for _, tc := range []struct{ asked, want, label string }{
+		{"", "fr", "Recalculé"},
+		{"fr", "fr", "Recalculé"},
+		{"en", "en", "Recalculated"},
+		{"EN-gb", "en", "Recalculated"},
+		{"de", "fr", "Recalculé"}, // unknown: the platform's language
+	} {
+		svc, store, router, courier := routeFixture()
+		req := eastRequest()
+		req.Language = tc.asked
+		rt, err := svc.SetRoute(courier, "COURIER", store.ctx.OrderID, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if router.lastLang != tc.want || rt.Language != tc.want {
+			t.Errorf("asked %q: routed in %q, stored %q, want %q", tc.asked, router.lastLang, rt.Language, tc.want)
+		}
+		// The reroute has no request: it must reuse what the route stored.
+		router.lastLang = ""
+		store.route.ComputedAt = time.Now().Add(-time.Minute)
+		svc.MaybeReroute(store.ctx.OrderID, maps.LngLat{15.304, -4.3120}, f64(5))
+		if router.lastLang != tc.want {
+			t.Errorf("asked %q: reroute used %q, want %q", tc.asked, router.lastLang, tc.want)
+		}
+		if !strings.HasPrefix(store.route.Start.Label, tc.label) {
+			t.Errorf("asked %q: reroute label %q, want prefix %q", tc.asked, store.route.Start.Label, tc.label)
+		}
 	}
 }

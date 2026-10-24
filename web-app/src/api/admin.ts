@@ -1161,7 +1161,7 @@ export const adminCommerceApi = {
   /** Candidate places for an address; nothing is chosen for the caller. */
   geocode: (q: string) => adminApi<{ candidates: GeocodeCandidate[] }>(`/admin/commerce/geocode?q=${encodeURIComponent(q)}`).then((r) => r.candidates ?? []),
   /** Verify or correct a delivery's road route between two confirmed points. */
-  setRoute: (id: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true }) =>
+  setRoute: (id: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true; language?: string }) =>
     adminApi<CourierLocation>(`/admin/commerce/orders/${id}/route`, { method: 'PUT', body: JSON.stringify(body) }),
   getCourierLocation: async (id: string) => {
     return adminApi<CourierLocation>(`/admin/commerce/orders/${id}/courier-location`)

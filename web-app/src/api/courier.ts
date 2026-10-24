@@ -29,7 +29,7 @@ export const courierApi = {
   /** Candidate places for an address; nothing is chosen for the courier. */
   geocode: (q: string) => get<{ candidates: GeocodeCandidate[] }>(`/courier/geocode?q=${encodeURIComponent(q)}`).then((r) => r.candidates ?? []),
   /** Road route between two points the courier confirmed on the map. */
-  setRoute: (orderId: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true }) =>
+  setRoute: (orderId: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true; language?: string }) =>
     put<CourierLocation>(`/courier/missions/${orderId}/route`, body),
   /** Get the courier's profile information. */
   getProfile: () => get<CourierProfile>('/courier/profile'),

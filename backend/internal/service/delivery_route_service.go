@@ -38,7 +38,7 @@ type routeProvider interface {
 	Configured() bool
 	Geocode(ctx context.Context, query string) ([]maps.Candidate, error)
 	ReverseGeocode(ctx context.Context, at maps.LngLat) (*maps.Place, error)
-	Route(ctx context.Context, from, to maps.LngLat, travelMode string) (*maps.Route, error)
+	Route(ctx context.Context, from, to maps.LngLat, travelMode, lang string) (*maps.Route, error)
 }
 
 // Route tuning.
@@ -99,6 +99,21 @@ func offRouteThreshold(accuracy *float64) float64 {
 		return 2 * *accuracy
 	}
 	return OffRouteMinM
+}
+
+// routeLang reduces an app language to the two the route supports.
+func routeLang(lang string) string {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "en") {
+		return "en"
+	}
+	return "fr"
+}
+
+func rerouteLabel(lang string, awayM float64) string {
+	if lang == "en" {
+		return fmt.Sprintf("Recalculated %.0f m off the route", awayM)
+	}
+	return fmt.Sprintf("Recalculé à %.0f m de l'itinéraire", awayM)
 }
 
 func validatePoint(p models.RoutePointInput, allowed map[string]bool, what string) (*models.RoutePoint, error) {
@@ -166,7 +181,8 @@ func (s *DeliveryRouteService) SetRoute(actorID uuid.UUID, role string, orderID 
 	mode := maps.TravelModeFor(rc.TransportType)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	route, err := s.provider.Route(ctx, from, to, mode)
+	lang := routeLang(req.Language)
+	route, err := s.provider.Route(ctx, from, to, mode, lang)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +190,7 @@ func (s *DeliveryRouteService) SetRoute(actorID uuid.UUID, role string, orderID 
 	stored := &models.StoredRoute{
 		OrderID: orderID, Start: *start, Destination: *dest, TravelMode: mode,
 		Geometry: route.Geometry, LengthM: route.LengthM, DurationS: route.DurationS, Instructions: route.Instructions,
-		PlannedLengthM: route.LengthM, SetByUserID: &actor, SetByRole: role, ComputedAt: s.now(),
+		PlannedLengthM: route.LengthM, SetByUserID: &actor, SetByRole: role, Language: lang, ComputedAt: s.now(),
 	}
 	if err := s.store.SaveRoute(stored); err != nil {
 		return nil, err
@@ -205,13 +221,15 @@ func (s *DeliveryRouteService) MaybeReroute(orderID uuid.UUID, p maps.LngLat, ac
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	route, err := s.provider.Route(ctx, p, maps.LngLat{rt.Destination.Longitude, rt.Destination.Latitude}, rt.TravelMode)
+	// The route keeps the language it was planned in: there is no app here to ask.
+	lang := routeLang(rt.Language)
+	route, err := s.provider.Route(ctx, p, maps.LngLat{rt.Destination.Longitude, rt.Destination.Latitude}, rt.TravelMode, lang)
 	if err != nil {
 		log.Printf("delivery route: reroute %s failed: %v", orderID, err)
 		return
 	}
 	rt.Start = models.RoutePoint{Latitude: p[1], Longitude: p[0], Source: models.RoutePointReroute,
-		Label: fmt.Sprintf("Recalculé à %.0f m de l'itinéraire", proj.AwayM)}
+		Label: rerouteLabel(lang, proj.AwayM)}
 	rt.Geometry, rt.LengthM, rt.DurationS, rt.Instructions = route.Geometry, route.LengthM, route.DurationS, route.Instructions
 	rt.SetByUserID, rt.SetByRole = nil, "SYSTEM"
 	rt.RerouteCount++

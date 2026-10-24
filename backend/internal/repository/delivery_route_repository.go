@@ -67,12 +67,12 @@ func (r *DeliveryRouteRepository) GetRoute(orderID uuid.UUID) (*models.StoredRou
 		SELECT order_id, start_latitude, start_longitude, start_source, start_label,
 		       dest_latitude, dest_longitude, dest_source, dest_label, travel_mode,
 		       geometry, length_m, duration_s, instructions, planned_length_m,
-		       set_by_user_id, set_by_role, reroute_count, computed_at
+		       set_by_user_id, set_by_role, reroute_count, language, computed_at
 		FROM delivery_routes WHERE order_id = $1`, orderID).
 		Scan(&rt.OrderID, &rt.Start.Latitude, &rt.Start.Longitude, &rt.Start.Source, &rt.Start.Label,
 			&rt.Destination.Latitude, &rt.Destination.Longitude, &rt.Destination.Source, &rt.Destination.Label, &rt.TravelMode,
 			&geometry, &rt.LengthM, &rt.DurationS, &instructions, &rt.PlannedLengthM,
-			&setBy, &rt.SetByRole, &rt.RerouteCount, &rt.ComputedAt)
+			&setBy, &rt.SetByRole, &rt.RerouteCount, &rt.Language, &rt.ComputedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -107,8 +107,8 @@ func (r *DeliveryRouteRepository) SaveRoute(rt *models.StoredRoute) error {
 			(order_id, start_latitude, start_longitude, start_source, start_label,
 			 dest_latitude, dest_longitude, dest_source, dest_label, travel_mode,
 			 geometry, length_m, duration_s, instructions, planned_length_m,
-			 set_by_user_id, set_by_role, reroute_count, computed_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
+			 set_by_user_id, set_by_role, reroute_count, language, computed_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW())
 		ON CONFLICT (order_id) DO UPDATE SET
 			start_latitude = EXCLUDED.start_latitude, start_longitude = EXCLUDED.start_longitude,
 			start_source = EXCLUDED.start_source, start_label = EXCLUDED.start_label,
@@ -118,11 +118,11 @@ func (r *DeliveryRouteRepository) SaveRoute(rt *models.StoredRoute) error {
 			length_m = EXCLUDED.length_m, duration_s = EXCLUDED.duration_s,
 			instructions = EXCLUDED.instructions, planned_length_m = EXCLUDED.planned_length_m,
 			set_by_user_id = EXCLUDED.set_by_user_id, set_by_role = EXCLUDED.set_by_role,
-			reroute_count = EXCLUDED.reroute_count, computed_at = NOW()`,
+			reroute_count = EXCLUDED.reroute_count, language = EXCLUDED.language, computed_at = NOW()`,
 		rt.OrderID, rt.Start.Latitude, rt.Start.Longitude, rt.Start.Source, rt.Start.Label,
 		rt.Destination.Latitude, rt.Destination.Longitude, rt.Destination.Source, rt.Destination.Label, rt.TravelMode,
 		geometry, rt.LengthM, rt.DurationS, instructions, rt.PlannedLengthM,
-		rt.SetByUserID, rt.SetByRole, rt.RerouteCount)
+		rt.SetByUserID, rt.SetByRole, rt.RerouteCount, rt.Language)
 	return err
 }
 
