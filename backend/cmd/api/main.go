@@ -337,7 +337,7 @@ func main() {
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
 
 	adminAuthHandler := adminhandlers.NewAuthHandler(adminAuthService, auditService)
-	adminSetupHandler := adminhandlers.NewSetupHandler(service.NewAdminSetupService(adminRepo, adminInvitationRepo, emailService, cfg.SuperAdminSetupCode))
+	adminSetupHandler := adminhandlers.NewSetupHandler(service.NewAdminSetupService(adminRepo, adminInvitationRepo, emailService, cfg.SuperAdminSetupCode), auditService)
 	adminManagementHandler := adminhandlers.NewAdminManagementHandler(adminManagementService)
 	adminDirectionHandler := adminhandlers.NewDirectionHandler(adminDirectionService, auditService)
 
@@ -911,7 +911,13 @@ func main() {
 				adminUsersGroup := protectedAdmin.Group("/admin-users")
 				adminUsersGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
 				{
-					adminUsersGroup.GET("", adminManagementHandler.ListAdmins)
+					// The setup code that lets a new owner claim the super admin
+				// account: issued here, shown once, never stored in clear.
+				adminUsersGroup.GET("/setup-code", adminSetupHandler.CodeStatus)
+				adminUsersGroup.POST("/setup-code", middleware.RateLimitPerClient(0.2, 5), adminSetupHandler.IssueCode)
+				adminUsersGroup.DELETE("/setup-code", adminSetupHandler.RevokeCode)
+
+				adminUsersGroup.GET("", adminManagementHandler.ListAdmins)
 					adminUsersGroup.POST("/invite", adminManagementHandler.InviteAdmin)
 					adminUsersGroup.POST("/:id/resend-invitation", adminManagementHandler.ResendInvitation)
 					adminUsersGroup.POST("/:id/suspend", adminManagementHandler.SuspendAdmin)

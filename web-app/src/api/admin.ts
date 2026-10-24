@@ -861,6 +861,20 @@ export const adminUsersApi = {
       body: JSON.stringify(payload)
     })
   },
+  /** State of the code that lets a new owner claim the super admin account. */
+  setupCodeStatus: async () => {
+    return adminApi<{ issued: boolean; issued_at?: string; expires_at?: string; from_server: boolean; setup_is_open: boolean }>(
+      '/admin/admin-users/setup-code'
+    )
+  },
+  /** Issues a fresh code. The clear text comes back exactly once. */
+  issueSetupCode: async () => {
+    return adminApi<{ code: string; expires_at: string }>('/admin/admin-users/setup-code', { method: 'POST' })
+  },
+  /** Closes the open code without issuing another. */
+  revokeSetupCode: async () => {
+    return adminApi<{ message: string }>('/admin/admin-users/setup-code', { method: 'DELETE' })
+  },
   resendInvitation: async (id: string) => {
     return adminApi<{ message: string }>(`/admin/admin-users/${id}/resend-invitation`, { method: 'POST' })
   },

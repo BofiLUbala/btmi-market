@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/rand"
 	"crypto/subtle"
 	"errors"
 	"log"
@@ -23,12 +24,51 @@ var (
 	ErrSetupAlreadyActive = errors.New("ADMIN_ALREADY_ACTIVATED")
 )
 
-// setupLinkTTL is how long the owner has to open the activation e-mail.
-const setupLinkTTL = 24 * time.Hour
+// setupLinkTTL is how long the owner has to open the activation e-mail, and
+// setupCodeTTL how long a code issued from the console stays usable.
+const (
+	setupLinkTTL = 24 * time.Hour
+	setupCodeTTL = 7 * 24 * time.Hour
+)
+
+// setupCodeAlphabet leaves out the characters that are read wrong over the
+// phone: 0/O, 1/I/L, and anything lowercase.
+const setupCodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+// GenerateSetupCode draws a code the owner can be told out loud and type
+// without doubt: TBK-XXXX-XXXX-XXXX, 12 characters out of 31, which is about
+// 59 bits -- far beyond what the five-attempt rate limit allows anyone to try.
+func GenerateSetupCode() (string, error) {
+	out := make([]byte, 0, len("TBK-XXXX-XXXX-XXXX"))
+	out = append(out, 'T', 'B', 'K')
+	// Reject the tail of the byte range that would not divide evenly, so every
+	// character of the alphabet is equally likely.
+	const limit = 256 - (256 % len(setupCodeAlphabet))
+	buf := make([]byte, 1)
+	for i := 0; i < 12; i++ {
+		if i%4 == 0 {
+			out = append(out, '-')
+		}
+		for {
+			if _, err := rand.Read(buf); err != nil {
+				return "", err
+			}
+			if int(buf[0]) < limit {
+				out = append(out, setupCodeAlphabet[int(buf[0])%len(setupCodeAlphabet)])
+				break
+			}
+		}
+	}
+	return string(out), nil
+}
 
 // AdminSetupRepository is what the super admin setup needs from storage.
 type AdminSetupRepository interface {
 	IsSetupCodeClaimed(codeHash string) (bool, error)
+	IssueSetupCode(codeHash string, createdBy uuid.UUID, expiresAt time.Time) error
+	LiveSetupCode() (*repository.IssuedSetupCode, error)
+	SetupCodeIsLive(codeHash string) (bool, error)
+	RevokeSetupCodes() error
 	StartSuperAdminClaim(claim repository.SuperAdminClaim) (uuid.UUID, bool, error)
 	CancelSuperAdminClaim(pendingID uuid.UUID, codeHash string) error
 	ActivateSuperAdminClaim(pendingID uuid.UUID) error
@@ -65,8 +105,19 @@ func NewAdminSetupService(repo AdminSetupRepository, invitations SetupInvitation
 	return &AdminSetupService{repo: repo, invitations: invitations, mailer: mailer, code: strings.TrimSpace(code)}
 }
 
-// Available reports whether a setup code is configured and still unused.
+// Available reports whether any code can open the setup: the one the server
+// was started with, or one a super admin issued from the console.
 func (s *AdminSetupService) Available() bool {
+	if s.envCodeOpen() {
+		return true
+	}
+	live, err := s.repo.LiveSetupCode()
+	return err == nil && live != nil
+}
+
+// envCodeOpen reports whether SUPER_ADMIN_SETUP_CODE is set and unspent. It is
+// the bootstrap path: with no admin account yet, nobody can issue a code.
+func (s *AdminSetupService) envCodeOpen() bool {
 	if s.code == "" {
 		return false
 	}
@@ -74,15 +125,83 @@ func (s *AdminSetupService) Available() bool {
 	return err == nil && !used
 }
 
+// IssueCode hands out a fresh setup code, returning it in clear exactly once:
+// only its hash is kept. Any code that was live before is revoked.
+func (s *AdminSetupService) IssueCode(actorID uuid.UUID) (string, time.Time, error) {
+	code, err := GenerateSetupCode()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	expiresAt := time.Now().Add(setupCodeTTL)
+	if err := s.repo.IssueSetupCode(HashToken(code), actorID, expiresAt); err != nil {
+		return "", time.Time{}, err
+	}
+	return code, expiresAt, nil
+}
+
+// CodeStatus tells the console what it may show about the current code: when
+// it was issued and until when, never the code itself.
+type CodeStatus struct {
+	Issued      bool       `json:"issued"`
+	IssuedAt    *time.Time `json:"issued_at,omitempty"`
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
+	FromServer  bool       `json:"from_server"`
+	SetupIsOpen bool       `json:"setup_is_open"`
+}
+
+// Status describes the setup as the console sees it.
+func (s *AdminSetupService) Status() CodeStatus {
+	st := CodeStatus{FromServer: s.envCodeOpen()}
+	if live, err := s.repo.LiveSetupCode(); err == nil && live != nil {
+		st.Issued = true
+		st.IssuedAt = &live.CreatedAt
+		st.ExpiresAt = &live.ExpiresAt
+	}
+	st.SetupIsOpen = st.Issued || st.FromServer
+	return st
+}
+
+// RevokeCodes closes every code issued from the console.
+func (s *AdminSetupService) RevokeCodes() error {
+	return s.repo.RevokeSetupCodes()
+}
+
+// matchCode accepts the code the server was started with, or one a super
+// admin issued from the console, and returns the hash the claim is recorded
+// under. Nothing distinguishes the two afterwards: a code is a code.
+func (s *AdminSetupService) matchCode(code string) (string, error) {
+	typed := strings.TrimSpace(code)
+	if typed == "" {
+		return "", ErrSetupCodeInvalid
+	}
+	if s.code != "" && subtle.ConstantTimeCompare([]byte(typed), []byte(s.code)) == 1 {
+		return HashToken(s.code), nil
+	}
+
+	hash := HashToken(typed)
+	live, err := s.repo.SetupCodeIsLive(hash)
+	if err != nil {
+		return "", err
+	}
+	if live {
+		return hash, nil
+	}
+	if s.code == "" {
+		// Nothing is configured and nothing was issued: there is no setup to do.
+		if issued, err := s.repo.LiveSetupCode(); err == nil && issued == nil {
+			return "", ErrSetupUnavailable
+		}
+	}
+	return "", ErrSetupCodeInvalid
+}
+
 // Start checks the code and the owner's details, creates the pending super
 // admin and e-mails him the activation link. It returns the address the link
 // went to, and whether this is the platform's first super admin.
 func (s *AdminSetupService) Start(code, name, email, password string) (string, bool, error) {
-	if s.code == "" {
-		return "", false, ErrSetupUnavailable
-	}
-	if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(code)), []byte(s.code)) != 1 {
-		return "", false, ErrSetupCodeInvalid
+	codeHash, err := s.matchCode(code)
+	if err != nil {
+		return "", false, err
 	}
 
 	nameParts := strings.Fields(name)
@@ -106,7 +225,6 @@ func (s *AdminSetupService) Start(code, name, email, password string) (string, b
 		lastName = strings.Join(nameParts[1:], " ")
 	}
 
-	codeHash := HashToken(s.code)
 	pendingID, first, err := s.repo.StartSuperAdminClaim(repository.SuperAdminClaim{
 		CodeHash:     codeHash,
 		FirstName:    nameParts[0],
