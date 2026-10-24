@@ -127,7 +127,7 @@ export default function RoutePlanner({ orderId, as, deliveryAddress, pickupAddre
     setBusy('compute')
     setError('')
     try {
-      const body = { start: points.start, destination: points.destination, confirmed: true as const }
+      const body = { start: points.start, destination: points.destination, confirmed: true as const, language: lang }
       const res = as === 'admin' ? await adminCommerceApi.setRoute(orderId, body) : await courierApi.setRoute(orderId, body)
       const r = res.route
       setDone(r ? tk('route.computed', { distance: formatDistance(r.route_length_m, lang), duration: formatDuration(r.remaining_s) }) : '')

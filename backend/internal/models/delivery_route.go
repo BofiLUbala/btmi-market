@@ -32,6 +32,9 @@ type SetRouteRequest struct {
 	Start       RoutePointInput `json:"start" binding:"required"`
 	Destination RoutePointInput `json:"destination" binding:"required"`
 	Confirmed   bool            `json:"confirmed"`
+	// Language is the app language the courier reads the directions in ("fr"
+	// or "en"); anything else, or nothing, means French.
+	Language string `json:"language"`
 }
 
 // RoutePoint is a stored start or destination.
@@ -56,7 +59,9 @@ type StoredRoute struct {
 	SetByUserID    *uuid.UUID
 	SetByRole      string
 	RerouteCount   int
-	ComputedAt     time.Time
+	// Language the instructions were computed in; a reroute keeps it.
+	Language   string
+	ComputedAt time.Time
 }
 
 // RouteContext is what route planning needs from the order.

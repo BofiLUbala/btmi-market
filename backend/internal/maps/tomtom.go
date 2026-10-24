@@ -201,13 +201,22 @@ func TravelModeFor(transport string) string {
 	}
 }
 
-// Route asks for the fastest road route for the travel mode, with French
-// turn-by-turn instructions.
-func (c *Client) Route(ctx context.Context, from, to LngLat, travelMode string) (*Route, error) {
+// RouteLanguage is the TomTom language code for an app language: English for
+// "en", French for everything else (the platform's own language).
+func RouteLanguage(lang string) string {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(lang)), "en") {
+		return "en-GB"
+	}
+	return "fr-FR"
+}
+
+// Route asks for the fastest road route for the travel mode, with turn-by-turn
+// instructions in the app language (see RouteLanguage).
+func (c *Client) Route(ctx context.Context, from, to LngLat, travelMode, lang string) (*Route, error) {
 	if !c.Configured() {
 		return nil, ErrNotConfigured
 	}
-	q := url.Values{"key": {c.key}, "travelMode": {travelMode}, "instructionsType": {"text"}, "language": {"fr-FR"},
+	q := url.Values{"key": {c.key}, "travelMode": {travelMode}, "instructionsType": {"text"}, "language": {RouteLanguage(lang)},
 		"routeRepresentation": {"polyline"}, "traffic": {"true"}}
 	u := fmt.Sprintf("%s/routing/1/calculateRoute/%f,%f:%f,%f/json?%s", c.base, from[1], from[0], to[1], to[0], q.Encode())
 	var body struct {

@@ -459,7 +459,7 @@ export const courierApi = {
   /** The address under a point the courier placed by map or coordinates. */
   reverseGeocode: async (lng: number, lat: number) => (await get<{ place: ReversePlace | null }>(`/courier/reverse-geocode?lng=${lng}&lat=${lat}`)).place ?? null,
   /** Road route between two points the courier confirmed on the map. */
-  setRoute: (orderId: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true }) =>
+  setRoute: (orderId: string, body: { start: RoutePointInput; destination: RoutePointInput; confirmed: true; language?: string }) =>
     put<CourierLocation>(`/courier/missions/${orderId}/route`, body),
 
   /* handover at the door */
