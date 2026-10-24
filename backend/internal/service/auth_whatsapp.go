@@ -24,6 +24,9 @@ const (
 
 	otpPurposeSignup = "SIGNUP"
 	otpPurposeLogin  = "LOGIN"
+	// otpPurposeDeleteAccount is kept apart from the two above so a code sent
+	// to sign in cannot be replayed to erase the account (migration 121).
+	otpPurposeDeleteAccount = "DELETE_ACCOUNT"
 
 	otpTTL         = 10 * time.Minute
 	otpMaxAttempts = 5
@@ -212,6 +215,53 @@ func (s *AuthService) sendWhatsAppCode(user *models.User, purpose string) (*mode
 		return challenge, errors.New("WHATSAPP_DELIVERY_FAILED")
 	}
 	return challenge, nil
+}
+
+// consumeOTP checks a code the caller already knows the owner of, and spends
+// it. The rules are the ones VerifyWhatsAppCode applies -- one use, five
+// attempts, ten minutes -- with two more: the challenge has to belong to this
+// user and to have been sent for this purpose, so a login code cannot be
+// handed to an endpoint that expects a deletion code. It opens no session;
+// the caller decides what the proof unlocks.
+func (s *AuthService) consumeOTP(userID uuid.UUID, purpose, challengeID, code string) error {
+	if s.otpRepo == nil {
+		return errors.New("WHATSAPP_UNAVAILABLE")
+	}
+	id, err := uuid.Parse(strings.TrimSpace(challengeID))
+	if err != nil {
+		return errors.New("OTP_INVALID")
+	}
+	ch, err := s.otpRepo.GetByID(id)
+	if err != nil {
+		return errors.New("OTP_INVALID")
+	}
+	if ch.UserID != userID || ch.Purpose != purpose {
+		return errors.New("OTP_INVALID")
+	}
+	if ch.UsedAt != nil {
+		return errors.New("OTP_ALREADY_USED")
+	}
+	if ch.Attempts >= otpMaxAttempts {
+		return errors.New("OTP_TOO_MANY_ATTEMPTS")
+	}
+	if time.Now().After(ch.ExpiresAt) {
+		return errors.New("OTP_EXPIRED")
+	}
+
+	expected := hashOTP(ch.ID, strings.TrimSpace(code))
+	if subtle.ConstantTimeCompare([]byte(expected), []byte(ch.CodeHash)) != 1 {
+		attempts, err := s.otpRepo.IncrementAttempts(ch.ID)
+		if err == nil && attempts >= otpMaxAttempts {
+			return errors.New("OTP_TOO_MANY_ATTEMPTS")
+		}
+		return errors.New("OTP_INCORRECT")
+	}
+	if ok, err := s.otpRepo.MarkUsed(ch.ID); err != nil {
+		return err
+	} else if !ok {
+		return errors.New("OTP_ALREADY_USED")
+	}
+	return nil
 }
 
 func generateOTP() (string, error) {

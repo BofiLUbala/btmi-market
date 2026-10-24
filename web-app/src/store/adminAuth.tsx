@@ -25,9 +25,6 @@ interface AdminAuthState {
   loading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<AdminUser>
-  /** First-time setup: the owner claims the single SUPER_ADMIN account with the
-   *  one-time setup code and is signed in straight away. */
-  setupSuperAdmin: (body: { setup_code: string; name: string; email: string; password: string }) => Promise<AdminUser>
   logout: () => Promise<void>
   hasRole: (roles: AdminRole[]) => boolean
   canAccessDashboard: (dashboard: 'direction' | 'commerce' | 'finance' | 'technical') => boolean
@@ -104,18 +101,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     return res.admin
   }, [])
 
-  const setupSuperAdmin = useCallback(async (body: { setup_code: string; name: string; email: string; password: string }): Promise<AdminUser> => {
-    const ready = await adminAuthApi.setup(body)
-    // The server signs the new account in; if only that step failed, sign in normally.
-    const session = ready?.access_token
-      ? ready
-      : await adminAuthApi.login(body.email.trim().toLowerCase(), body.password)
-    adminTokenStore.set(session.access_token, session.refresh_token)
-    setAdmin(session.admin)
-    setLoading(false)
-    return session.admin
-  }, [])
-
   const logout = useCallback(async () => {
     setLoading(true)
     try {
@@ -162,12 +147,11 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     loading,
     isAuthenticated,
     login,
-    setupSuperAdmin,
     logout,
     hasRole,
     canAccessDashboard,
     applyAdmin,
-  }), [admin, role, loading, isAuthenticated, login, setupSuperAdmin, logout, hasRole, canAccessDashboard, applyAdmin])
+  }), [admin, role, loading, isAuthenticated, login, logout, hasRole, canAccessDashboard, applyAdmin])
 
   return (
     <AdminAuthContext.Provider value={value}>

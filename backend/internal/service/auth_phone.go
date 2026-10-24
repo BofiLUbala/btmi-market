@@ -82,6 +82,9 @@ func (s *AuthService) createPhoneOnlyUser(phone, firstName, lastName string) (*m
 		Phone:        phone,
 		Email:        "",
 		PasswordHash: string(hash),
+		// No password the holder could type: deletion asks for a code on
+		// this number instead (migration 121).
+		HasPassword:  false,
 		Status:       models.UserStatusPendingVerification,
 		AccountType:  models.AccountTypeBuyer,
 	}

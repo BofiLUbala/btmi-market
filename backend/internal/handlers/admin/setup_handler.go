@@ -13,15 +13,15 @@ import (
 )
 
 // SetupHandler serves the super admin's own account setup: the owner enters
-// the one-time code he was given, his name, e-mail and password, and is signed
-// in straight away. See service.AdminSetupService.
+// the one-time code he was given with his name, e-mail and password, then
+// activates the account from the link e-mailed to that address.
+// See service.AdminSetupService.
 type SetupHandler struct {
 	setup *service.AdminSetupService
-	auth  *service.AdminAuthService
 }
 
-func NewSetupHandler(setup *service.AdminSetupService, auth *service.AdminAuthService) *SetupHandler {
-	return &SetupHandler{setup: setup, auth: auth}
+func NewSetupHandler(setup *service.AdminSetupService) *SetupHandler {
+	return &SetupHandler{setup: setup}
 }
 
 type superAdminSetupRequest struct {
@@ -29,6 +29,10 @@ type superAdminSetupRequest struct {
 	Name      string `json:"name" binding:"required"`
 	Email     string `json:"email" binding:"required"`
 	Password  string `json:"password" binding:"required"`
+}
+
+type superAdminActivateRequest struct {
+	Token string `json:"token" binding:"required"`
 }
 
 func setupError(c *gin.Context, status int, code string) {
@@ -40,12 +44,36 @@ func setupError(c *gin.Context, status int, code string) {
 	})
 }
 
+// failSetup maps a service error onto the status and code the console shows.
+func failSetup(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, service.ErrSetupUnavailable), errors.Is(err, repository.ErrSetupCodeUsed):
+		setupError(c, http.StatusGone, "SETUP_UNAVAILABLE")
+	case errors.Is(err, service.ErrSetupCodeInvalid):
+		setupError(c, http.StatusForbidden, "SETUP_CODE_INVALID")
+	case errors.Is(err, service.ErrSetupLinkInvalid):
+		setupError(c, http.StatusBadRequest, "INVALID_SETUP_LINK")
+	case errors.Is(err, service.ErrSetupLinkExpired):
+		setupError(c, http.StatusGone, "SETUP_LINK_EXPIRED")
+	case errors.Is(err, service.ErrSetupAlreadyActive):
+		setupError(c, http.StatusConflict, "ADMIN_ALREADY_ACTIVATED")
+	case errors.Is(err, repository.ErrAdminEmailTaken):
+		setupError(c, http.StatusConflict, "EMAIL_ALREADY_EXISTS")
+	case strings.ToUpper(err.Error()) == err.Error() && !strings.ContainsAny(err.Error(), " :"):
+		setupError(c, http.StatusBadRequest, err.Error())
+	default:
+		log.Printf("[admin-setup] %v", err)
+		setupError(c, http.StatusInternalServerError, "INTERNAL_ERROR")
+	}
+}
+
 // Status tells the sign-in screen whether to offer the setup.
 func (h *SetupHandler) Status(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"available": h.setup.Available()})
 }
 
-// Setup creates or takes over the super admin account, then signs it in.
+// Setup spends the code on a pending super admin and e-mails the activation
+// link. The account is not usable until that link is followed.
 func (h *SetupHandler) Setup(c *gin.Context) {
 	var req superAdminSetupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -53,32 +81,50 @@ func (h *SetupHandler) Setup(c *gin.Context) {
 		return
 	}
 
-	email, created, err := h.setup.Claim(req.SetupCode, req.Name, req.Email, req.Password)
-	switch {
-	case err == nil:
-	case errors.Is(err, service.ErrSetupUnavailable), errors.Is(err, repository.ErrSetupCodeUsed):
-		setupError(c, http.StatusGone, "SETUP_UNAVAILABLE")
-		return
-	case errors.Is(err, service.ErrSetupCodeInvalid):
-		setupError(c, http.StatusForbidden, "SETUP_CODE_INVALID")
-		return
-	case errors.Is(err, repository.ErrAdminEmailTaken):
-		setupError(c, http.StatusConflict, "EMAIL_ALREADY_EXISTS")
-		return
-	case strings.ToUpper(err.Error()) == err.Error() && !strings.ContainsAny(err.Error(), " :"):
-		setupError(c, http.StatusBadRequest, err.Error())
-		return
-	default:
-		log.Printf("[admin-setup] claim failed: %v", err)
-		setupError(c, http.StatusInternalServerError, "INTERNAL_ERROR")
+	email, first, err := h.setup.Start(req.SetupCode, req.Name, req.Email, req.Password)
+	if err != nil {
+		failSetup(c, err)
 		return
 	}
 
-	resp, err := h.auth.Login(email, req.Password, c.ClientIP(), c.GetHeader("User-Agent"))
+	c.JSON(http.StatusAccepted, models.SuccessResponse{
+		Message: "Activation link sent",
+		Data:    gin.H{"email": email, "first_super_admin": first},
+	})
+}
+
+// VerifyActivation lets the activation page show who the link belongs to
+// before the owner confirms.
+func (h *SetupHandler) VerifyActivation(c *gin.Context) {
+	admin, err := h.setup.Verify(c.Query("token"))
 	if err != nil {
-		// The account is set up; only the automatic sign-in failed.
-		c.JSON(http.StatusCreated, models.SuccessResponse{Message: "Super admin account ready", Data: gin.H{"created": created}})
+		failSetup(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Super admin account ready", Data: resp})
+	c.JSON(http.StatusOK, models.SuccessResponse{Data: gin.H{
+		"first_name": admin.FirstName,
+		"last_name":  admin.LastName,
+		"email":      admin.Email,
+		"role":       admin.Role,
+	}})
+}
+
+// Activate makes the pending account the one super admin. The owner then signs
+// in with the password he chose on the setup screen.
+func (h *SetupHandler) Activate(c *gin.Context) {
+	var req superAdminActivateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		setupError(c, http.StatusBadRequest, "INVALID_INPUT")
+		return
+	}
+
+	admin, err := h.setup.Activate(req.Token)
+	if err != nil {
+		failSetup(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, models.SuccessResponse{
+		Message: "Super admin account ready",
+		Data:    gin.H{"email": admin.Email},
+	})
 }

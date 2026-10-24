@@ -16,6 +16,7 @@ import { AdminHomeRedirect } from '@/components/admin/AdminHomeRedirect'
 import AdminLoginPage from '@/pages/admin/auth/AdminLoginPage'
 import AdminActivatePage from '@/pages/admin/auth/AdminActivatePage'
 import AdminSetupPage from '@/pages/admin/auth/AdminSetupPage'
+import AdminSetupActivatePage from '@/pages/admin/auth/AdminSetupActivatePage'
 import DirectionDashboardPage from '@/pages/admin/direction/DirectionDashboardPage'
 import AdminUsersPage from '@/pages/admin/direction/AdminUsersPage'
 import CommerceDashboardPage from '@/pages/admin/commerce/CommerceDashboardPage'
@@ -100,6 +101,7 @@ export default function App() {
                 <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route path="/admin/setup" element={<AdminSetupPage />} />
               </Route>
+              <Route path="/admin/setup/activate" element={<AdminSetupActivatePage />} />
               <Route path="/admin/activate" element={<AdminActivatePage />} />
 
               <Route element={<RequireAdminAuth />}>

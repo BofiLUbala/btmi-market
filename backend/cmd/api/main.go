@@ -337,7 +337,7 @@ func main() {
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
 
 	adminAuthHandler := adminhandlers.NewAuthHandler(adminAuthService, auditService)
-	adminSetupHandler := adminhandlers.NewSetupHandler(service.NewAdminSetupService(adminRepo, cfg.SuperAdminSetupCode), adminAuthService)
+	adminSetupHandler := adminhandlers.NewSetupHandler(service.NewAdminSetupService(adminRepo, adminInvitationRepo, emailService, cfg.SuperAdminSetupCode))
 	adminManagementHandler := adminhandlers.NewAdminManagementHandler(adminManagementService)
 	adminDirectionHandler := adminhandlers.NewDirectionHandler(adminDirectionService, auditService)
 
@@ -448,6 +448,7 @@ func main() {
 			authGroup.POST("/employee/invite/accept", authHandler.AcceptEmployeeInvitation)
 			authGroup.GET("/me", middleware.AuthMiddleware(authService), authHandler.Me)
 			authGroup.POST("/me/avatar", middleware.AuthMiddleware(authService), authHandler.UploadAvatar)
+			authGroup.POST("/me/delete/code", middleware.AuthMiddleware(authService), authHandler.RequestAccountDeletionCode)
 			authGroup.POST("/me/delete", middleware.AuthMiddleware(authService), authHandler.DeleteAccount)
 			authGroup.POST("/become-seller", middleware.AuthMiddleware(authService), authHandler.BecomeSeller)
 			authGroup.POST("/become-buyer", middleware.AuthMiddleware(authService), authHandler.BecomeBuyer)
@@ -865,6 +866,10 @@ func main() {
 			{
 				adminSetupGroup.GET("/status", adminSetupHandler.Status)
 				adminSetupGroup.POST("", middleware.RateLimitPerClient(0.05, 5), adminSetupHandler.Setup)
+				// The account only becomes the holder once the owner follows the
+				// link e-mailed to the address he typed.
+				adminSetupGroup.GET("/verify", adminSetupHandler.VerifyActivation)
+				adminSetupGroup.POST("/activate", middleware.RateLimitPerClient(0.2, 10), adminSetupHandler.Activate)
 			}
 
 			// Public admin invitation/activation endpoints. There is deliberately no
