@@ -51,6 +51,8 @@ export default function AdminLoginPage() {
       let msg = t('admin.login.invalidCredentials')
       if (rawMsg === 'ADMIN_ACCOUNT_SUSPENDED') {
         msg = t('admin.login.accountSuspended')
+      } else if (rawMsg === 'ADMIN_ACCOUNT_PENDING') {
+        msg = t('admin.login.accountPending')
       } else if (rawMsg && rawMsg !== 'INVALID_CREDENTIALS' && rawMsg !== 'UNAUTHORIZED') {
         msg = rawMsg
       }

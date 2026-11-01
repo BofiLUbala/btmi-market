@@ -2994,6 +2994,7 @@ export const fr = {
   'apiError.ACTOR_NOT_ALLOWED': "Vous ne pouvez pas effectuer cette étape.",
   'apiError.ADDRESS_REQUIRED': "La province, la rue et le numéro de parcelle sont obligatoires.",
   'apiError.ADDRESS_TOO_LONG': "L'adresse est trop longue.",
+  'apiError.ADMIN_ACCOUNT_PENDING': "Ce compte administrateur n’est pas encore actif. Ouvrez le lien d’activation envoyé par e-mail.",
   'apiError.ADMIN_ACCOUNT_SUSPENDED': "Ce compte administrateur est suspendu.",
   'apiError.ADMIN_ALREADY_ACTIVATED': "Ce compte administrateur est déjà activé.",
   'apiError.ADMIN_ALREADY_ACTIVE': "Ce compte administrateur est déjà actif.",

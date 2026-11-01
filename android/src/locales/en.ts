@@ -2984,6 +2984,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'apiError.ACTOR_NOT_ALLOWED': "You are not allowed to perform this step.",
   'apiError.ADDRESS_REQUIRED': "Province, street and building number are required.",
   'apiError.ADDRESS_TOO_LONG': "The address is too long.",
+  'apiError.ADMIN_ACCOUNT_PENDING': "This administrator account is not active yet. Open the activation link sent by e-mail.",
   'apiError.ADMIN_ACCOUNT_SUSPENDED': "This administrator account is suspended.",
   'apiError.ADMIN_ALREADY_ACTIVATED': "This administrator account is already activated.",
   'apiError.ADMIN_ALREADY_ACTIVE': "This administrator account is already active.",

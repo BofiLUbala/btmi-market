@@ -3233,6 +3233,7 @@ export const fr = {
 
   /* ── Admin : authentification + direction ────────────────── */
   'admin.login.invalidCredentials': 'Identifiants administrateur invalides',
+  'admin.login.accountPending': "Ce compte n’est pas encore actif. Ouvrez le lien d’activation reçu par e-mail, puis reconnectez-vous.",
   'admin.login.accountSuspended': 'Votre compte administrateur est suspendu. Veuillez contacter la direction.',
   'admin.login.forgotHelp': 'Les accès administration ne se réinitialisent pas par e-mail : demandez à un super administrateur de réinitialiser votre mot de passe.',
   'admin.login.title': 'Centre de contrôle TBK',
@@ -3923,6 +3924,7 @@ export const fr = {
   'apiError.ACTOR_NOT_ALLOWED': "Vous ne pouvez pas effectuer cette étape.",
   'apiError.ADDRESS_REQUIRED': "La province, la rue et le numéro de parcelle sont obligatoires.",
   'apiError.ADDRESS_TOO_LONG': "L'adresse est trop longue.",
+  'apiError.ADMIN_ACCOUNT_PENDING': "Ce compte administrateur n’est pas encore actif. Ouvrez le lien d’activation envoyé par e-mail.",
   'apiError.ADMIN_ACCOUNT_SUSPENDED': "Ce compte administrateur est suspendu.",
   'apiError.ADMIN_ALREADY_ACTIVATED': "Ce compte administrateur est déjà activé.",
   'apiError.ADMIN_ALREADY_ACTIVE': "Ce compte administrateur est déjà actif.",

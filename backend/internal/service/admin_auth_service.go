@@ -81,6 +81,11 @@ func (s *AdminAuthService) Login(email, password, ipAddress, userAgent string) (
 
 	if admin.Status != models.AdminStatusActive {
 		s.recordLoginFailure(email, "ACCOUNT_"+string(admin.Status), &admin.ID, ipAddress, userAgent)
+		// The password is right, so saying the account still waits for its
+		// activation link leaks nothing and sends the owner to the e-mail.
+		if admin.Status == models.AdminStatusPending {
+			return nil, errors.New("ADMIN_ACCOUNT_PENDING")
+		}
 		return nil, errors.New("ADMIN_ACCOUNT_SUSPENDED")
 	}
 

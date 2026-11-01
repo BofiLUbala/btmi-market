@@ -3305,6 +3305,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
 
   /* ── Admin: auth + direction ──────────────────────────────── */
   'admin.login.invalidCredentials': 'Invalid administrator credentials',
+  'admin.login.accountPending': 'This account is not active yet. Open the activation link we e-mailed you, then sign in again.',
   'admin.login.accountSuspended': 'Your administrator account is suspended. Please contact management.',
   'admin.login.forgotHelp': 'Administration access is not reset by e-mail: ask a super admin to reset your password.',
   'admin.login.title': 'TBK Control Center',
@@ -3995,6 +3996,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'apiError.ACTOR_NOT_ALLOWED': "You are not allowed to perform this step.",
   'apiError.ADDRESS_REQUIRED': "Province, street and building number are required.",
   'apiError.ADDRESS_TOO_LONG': "The address is too long.",
+  'apiError.ADMIN_ACCOUNT_PENDING': "This administrator account is not active yet. Open the activation link sent by e-mail.",
   'apiError.ADMIN_ACCOUNT_SUSPENDED': "This administrator account is suspended.",
   'apiError.ADMIN_ALREADY_ACTIVATED': "This administrator account is already activated.",
   'apiError.ADMIN_ALREADY_ACTIVE': "This administrator account is already active.",
