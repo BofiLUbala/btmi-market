@@ -6,15 +6,14 @@ import { EyeIcon, EyeOffIcon } from '@/components/ui/Icons'
 
 /**
  * First-time setup: the owner creates the single SUPER_ADMIN account himself
- * with the one-time code from the technical team, then lands signed in on the
- * dashboard. The backend only serves this while the code is unused, so an
- * unavailable code sends the visitor back to the sign-in screen.
+ * then lands signed in on the
+ * dashboard. The backend only serves this while no super admin is active, so
+ * an unavailable setup sends the visitor back to the sign-in screen.
  */
 export default function AdminSetupPage() {
   const t = useT()
 
   const [available, setAvailable] = useState<boolean | null>(null)
-  const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -32,7 +31,7 @@ export default function AdminSetupPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!code.trim() || !name.trim() || !email.trim() || !password) {
+    if (!name.trim() || !email.trim() || !password) {
       setError(t('admin.setup.missing'))
       return
     }
@@ -45,7 +44,6 @@ export default function AdminSetupPage() {
     setSubmitting(true)
     try {
       const sent = await adminAuthApi.setup({
-        setup_code: code.trim(),
         name: name.trim(),
         email: email.trim(),
         password,
@@ -95,21 +93,6 @@ export default function AdminSetupPage() {
             )}
 
             <form onSubmit={handleSubmit}>
-              <div className="admin-login-field">
-                <label htmlFor="admin-setup-code">{t('admin.setup.codeLabel')}</label>
-                <input
-                  id="admin-setup-code"
-                  type="text"
-                  autoComplete="one-time-code"
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  required
-                  className="admin-login-input"
-                />
-              </div>
-
               <div className="admin-login-field">
                 <label htmlFor="admin-setup-name">{t('admin.setup.nameLabel')}</label>
                 <input

@@ -53,13 +53,11 @@ docker compose exec postgres pg_dump -U btmi_user btmi_market > backup.sql
    docker compose exec api ./create-superadmin -name "Your Name" -email you@example.com -password '<strong password>'
    ```
 
-   Or let the platform owner create it himself: put a one-time code in
-   `/opt/btmi-market/backend/.env` as `SUPER_ADMIN_SETUP_CODE=<long random code>`,
-   run `docker compose --profile edge up -d api`, and give him the code. In the
-   app, "Espace administration" then shows "Créer le compte super admin"; his
-   name, e-mail and password create the account, or replace the existing one,
-   since there is only ever one super admin. The code works once; set a new
-   value to hand the account over again.
+   Or let the platform owner create it himself: while no super admin is
+   active, "Espace administration" shows "Créer le compte super admin". His
+   name, e-mail and password create a pending account, and the link e-mailed
+   to that address (`SMTP_*` must be set) activates it. Once a super admin is
+   active the page closes; use `create-superadmin -update` to move the account.
 
 4. Update the GitHub secrets `SERVER_HOST`, `SERVER_USER` and `SERVER_SSH_KEY`
    (`cat ~/.ssh/github_deploy` on the server).

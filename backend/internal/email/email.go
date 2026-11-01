@@ -226,7 +226,7 @@ func (s *Service) SendAdminInvitationEmail(to, firstName, role, invitationURL st
 }
 
 // BuildSuperAdminSetupURL points at the page where the owner confirms the
-// account he just asked for with the one-time setup code.
+// account he just asked for on the setup page.
 func (s *Service) BuildSuperAdminSetupURL(token string) string {
 	return fmt.Sprintf("%s/admin/setup/activate?token=%s", strings.TrimRight(s.config.FrontendURL, "/"), token)
 }
@@ -250,13 +250,13 @@ func (s *Service) SendSuperAdminSetupEmail(to, firstName, setupURL string) error
 </head>
 <body>
     <h2>Hello %s,</h2>
-    <p>Someone used the one-time setup code to claim the <strong>super admin</strong> account of the BTMI Market Control Center with this address.</p>
+    <p>Someone asked to create the <strong>super admin</strong> account of the BTMI Market Control Center with this address.</p>
     <p>Click below to activate the account. You will then sign in with the password you chose on the setup screen.</p>
     <p><a href="%s" style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Activate the super admin account</a></p>
     <p>Or copy and paste this link into your browser:</p>
     <p>%s</p>
     <p>This link expires in 24 hours and can only be used once. Activating it ends the previous super admin's access.</p>
-    <p>If this was not you, do not click the link and tell the technical team at once: someone holds the setup code.</p>
+    <p>If this was not you, do not click the link and tell the technical team at once: someone used your address on the setup page.</p>
 </body>
 </html>
 `, firstName, setupURL, setupURL)

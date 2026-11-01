@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"github.com/btmi-ai-market/backend/internal/models"
 	"github.com/btmi-ai-market/backend/internal/repository"
 	"github.com/btmi-ai-market/backend/internal/service"
@@ -15,23 +13,20 @@ import (
 )
 
 // SetupHandler serves the super admin's own account setup: the owner enters
-// the one-time code he was given with his name, e-mail and password, then
-// activates the account from the link e-mailed to that address.
-// See service.AdminSetupService.
+// his name, e-mail and password, then activates the account from the link
+// e-mailed to that address. See service.AdminSetupService.
 type SetupHandler struct {
-	setup        *service.AdminSetupService
-	auditService *service.AuditService
+	setup *service.AdminSetupService
 }
 
-func NewSetupHandler(setup *service.AdminSetupService, auditService *service.AuditService) *SetupHandler {
-	return &SetupHandler{setup: setup, auditService: auditService}
+func NewSetupHandler(setup *service.AdminSetupService) *SetupHandler {
+	return &SetupHandler{setup: setup}
 }
 
 type superAdminSetupRequest struct {
-	SetupCode string `json:"setup_code" binding:"required"`
-	Name      string `json:"name" binding:"required"`
-	Email     string `json:"email" binding:"required"`
-	Password  string `json:"password" binding:"required"`
+	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 type superAdminActivateRequest struct {
@@ -50,10 +45,8 @@ func setupError(c *gin.Context, status int, code string) {
 // failSetup maps a service error onto the status and code the console shows.
 func failSetup(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, service.ErrSetupUnavailable), errors.Is(err, repository.ErrSetupCodeUsed):
+	case errors.Is(err, service.ErrSetupUnavailable), errors.Is(err, repository.ErrSetupClosed):
 		setupError(c, http.StatusGone, "SETUP_UNAVAILABLE")
-	case errors.Is(err, service.ErrSetupCodeInvalid):
-		setupError(c, http.StatusForbidden, "SETUP_CODE_INVALID")
 	case errors.Is(err, service.ErrSetupLinkInvalid):
 		setupError(c, http.StatusBadRequest, "INVALID_SETUP_LINK")
 	case errors.Is(err, service.ErrSetupLinkExpired):
@@ -75,8 +68,7 @@ func (h *SetupHandler) Status(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"available": h.setup.Available()})
 }
 
-// Setup spends the code on a pending super admin and e-mails the activation
-// link. The account is not usable until that link is followed.
+// Setup creates the pending super admin and e-mails the activation link. The account is not usable until that link is followed.
 func (h *SetupHandler) Setup(c *gin.Context) {
 	var req superAdminSetupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -84,7 +76,7 @@ func (h *SetupHandler) Setup(c *gin.Context) {
 		return
 	}
 
-	email, first, err := h.setup.Start(req.SetupCode, req.Name, req.Email, req.Password)
+	email, err := h.setup.Start(req.Name, req.Email, req.Password)
 	if err != nil {
 		failSetup(c, err)
 		return
@@ -92,7 +84,7 @@ func (h *SetupHandler) Setup(c *gin.Context) {
 
 	c.JSON(http.StatusAccepted, models.SuccessResponse{
 		Message: "Activation link sent",
-		Data:    gin.H{"email": email, "first_super_admin": first},
+		Data:    gin.H{"email": email},
 	})
 }
 
@@ -130,52 +122,4 @@ func (h *SetupHandler) Activate(c *gin.Context) {
 		Message: "Super admin account ready",
 		Data:    gin.H{"email": admin.Email},
 	})
-}
-
-// CodeStatus is what the Admin Users page shows about the current setup code:
-// whether one is open and until when, never the code itself.
-func (h *SetupHandler) CodeStatus(c *gin.Context) {
-	c.JSON(http.StatusOK, models.SuccessResponse{Data: h.setup.Status()})
-}
-
-// IssueCode hands the super admin a fresh code to pass on, shown once.
-func (h *SetupHandler) IssueCode(c *gin.Context) {
-	actorID := c.MustGet("admin_id").(uuid.UUID)
-	code, expiresAt, err := h.setup.IssueCode(actorID)
-	if err != nil {
-		log.Printf("[admin-setup] issuing a code failed: %v", err)
-		setupError(c, http.StatusInternalServerError, "INTERNAL_ERROR")
-		return
-	}
-
-	h.audit(c, actorID, "SUPER_ADMIN_SETUP_CODE_ISSUED", "Issued a super admin setup code")
-	c.JSON(http.StatusCreated, models.SuccessResponse{
-		Message: "Setup code issued",
-		Data:    gin.H{"code": code, "expires_at": expiresAt},
-	})
-}
-
-// RevokeCode closes the open code without issuing another.
-func (h *SetupHandler) RevokeCode(c *gin.Context) {
-	actorID := c.MustGet("admin_id").(uuid.UUID)
-	if err := h.setup.RevokeCodes(); err != nil {
-		log.Printf("[admin-setup] revoking the code failed: %v", err)
-		setupError(c, http.StatusInternalServerError, "INTERNAL_ERROR")
-		return
-	}
-
-	h.audit(c, actorID, "SUPER_ADMIN_SETUP_CODE_REVOKED", "Revoked the super admin setup code")
-	c.JSON(http.StatusOK, models.SuccessResponse{Message: "Setup code revoked"})
-}
-
-// audit records who opened or closed the door to the super admin account. The
-// code never appears in the trail.
-func (h *SetupHandler) audit(c *gin.Context, actorID uuid.UUID, action, reason string) {
-	if h.auditService == nil {
-		return
-	}
-	role, _ := c.Get("admin_role")
-	actorRole, _ := role.(models.AdminRole)
-	_ = h.auditService.Record(actorID, actorRole, action, "admin_user", actorID.String(), reason,
-		nil, nil, c.ClientIP(), c.GetHeader("User-Agent"))
 }

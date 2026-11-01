@@ -1408,8 +1408,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'admin.login.returnToMarketplace': '← Return to Marketplace',
   'admin.setup.link': 'First-time setup? Create the super admin account',
   'admin.setup.title': 'Create the super admin account',
-  'admin.setup.intro': "Enter the setup code you received from the technical team, then choose your own credentials. We e-mail you a link that activates the account: it is what proves the address is yours. There is only one super admin, and the code works once.",
-  'admin.setup.codeLabel': 'Setup code',
+  'admin.setup.intro': "Choose your super admin credentials. We e-mail you a link that activates the account: it is what proves the address is yours. There is only one super admin.",
   'admin.setup.nameLabel': 'Full name',
   'admin.setup.namePlaceholder': 'First Last',
   'admin.setup.confirmLabel': 'Confirm password',
@@ -1421,7 +1420,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'admin.setup.sent': "Check {email}: we sent the link that activates the account.",
   'admin.setup.sentHint': "The link works once and expires in 24 hours. Once you have followed it, sign in with the password you just chose.",
   'apiError.INVALID_SETUP_LINK': "This activation link is not valid.",
-  'apiError.SETUP_LINK_EXPIRED': "This activation link has expired. Ask the technical team for a new setup code.",
+  'apiError.SETUP_LINK_EXPIRED': "This activation link has expired. Start the account creation again to get a new one.",
 
   /* ── Admin: direction dashboard ─────────────────────────── */
   'admin.direction.searchFailedTitle': 'Search Failed',
@@ -3055,8 +3054,7 @@ export const en: Partial<Record<keyof typeof fr, string>> = {
   'apiError.DUPLICATE_VARIANT_COMBINATION': "This combination of attributes already exists for this product. Use a different combination.",
   'apiError.EARNINGS_FAILED': "Could not load earnings.",
   'apiError.EMAIL_ALREADY_EXISTS': "An account already exists with this email.",
-  'apiError.SETUP_CODE_INVALID': 'This setup code is not valid.',
-  'apiError.SETUP_UNAVAILABLE': 'Super admin setup is no longer available: this code has already been used. Ask the technical team for a new code.',
+  'apiError.SETUP_UNAVAILABLE': "The super admin account is already set up. Sign in instead.",
   'apiError.NAME_REQUIRED': 'The name is required.',
   'apiError.INVALID_EMAIL': 'The e-mail address is not valid.',
   'apiError.EMAIL_CONFIRMATION_MISMATCH': "The email addresses do not match.",

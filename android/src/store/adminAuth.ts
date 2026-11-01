@@ -11,7 +11,7 @@ interface AdminAuthState {
   login: (email: string, password: string) => Promise<AdminUser>
   /** Claims the super admin account; resolves with the address the activation
    *  link was sent to. Nobody is signed in until that link is followed. */
-  setupSuperAdmin: (body: { setup_code: string; name: string; email: string; password: string }) => Promise<string>
+  setupSuperAdmin: (body: { name: string; email: string; password: string }) => Promise<string>
   logout: () => Promise<void>
   hasRole: (allowedRoles: AdminRole[]) => boolean
   canAccessDashboard: (dashboard: 'direction' | 'commerce' | 'finance' | 'technical') => boolean

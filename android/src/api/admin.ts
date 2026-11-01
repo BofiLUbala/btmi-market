@@ -192,14 +192,14 @@ export const mobileAdminAuthApi = {
       false
     )
   },
-  /** Whether the one-time super admin setup code is configured and unused. */
+  /** Whether the super admin setup is open: true until a super admin is active. */
   setupStatus: async () => {
     return adminApi<{ available: boolean }>('/admin/setup/status', {}, false)
   },
   /** Claims the single super admin account. It stays pending until the owner
    *  follows the link e-mailed to the address he gave here. */
-  setup: async (body: { setup_code: string; name: string; email: string; password: string }) => {
-    return adminApi<{ email: string; first_super_admin: boolean }>(
+  setup: async (body: { name: string; email: string; password: string }) => {
+    return adminApi<{ email: string }>(
       '/admin/setup',
       { method: 'POST', body: JSON.stringify(body) },
       false

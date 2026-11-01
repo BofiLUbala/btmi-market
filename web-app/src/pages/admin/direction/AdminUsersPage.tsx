@@ -4,7 +4,6 @@ import { useAdminAuth } from '@/store/adminAuth'
 import { useT } from '@/store/i18n'
 import { dateLocale } from '@/lib/format'
 import { AdminStatusBadge as StatusBadge } from '@/components/admin/AdminStatusBadge'
-import { SetupCodeCard } from '@/components/admin/SetupCodeCard'
 
 const INVITABLE_ROLES: AdminRole[] = ['DIRECTION_ADMIN', 'COMMERCE_ADMIN', 'FINANCE_SUPPORT_ADMIN', 'TECHNICAL_ADMIN']
 
@@ -182,8 +181,6 @@ export default function AdminUsersPage() {
           + {t('admin.users.inviteAdmin')}
         </button>
       </div>
-
-      <SetupCodeCard />
 
       {banner && (
         <div style={{

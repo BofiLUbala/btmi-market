@@ -22,8 +22,8 @@ export default function AdminLoginScreen() {
   const login = useAdminAuth((s) => s.login)
   const { t } = useI18n()
 
-  // The owner's first-time setup: offered only while the server holds an
-  // unused setup code (see backend AdminSetupService).
+  // The owner's first-time setup: offered only while the platform has no
+  // active super admin (see backend AdminSetupService).
   const [setupAvailable, setSetupAvailable] = useState(false)
   const [settingUp, setSettingUp] = useState(false)
   useEffect(() => {
@@ -168,14 +168,12 @@ export default function AdminLoginScreen() {
 }
 
 /**
- * The owner creates the single super admin account himself with the one-time
- * code from the technical team, then lands signed in on the dashboard.
+ * The owner creates the single super admin account himself, then lands signed in on the dashboard.
  */
 function SuperAdminSetup({ onBack }: { onBack: () => void }) {
   const router = useRouter()
   const setupSuperAdmin = useAdminAuth((s) => s.setupSuperAdmin)
   const { t } = useI18n()
-  const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -186,7 +184,7 @@ function SuperAdminSetup({ onBack }: { onBack: () => void }) {
   const [sentTo, setSentTo] = useState<string | null>(null)
 
   const submit = async () => {
-    if (!code.trim() || !name.trim() || !email.trim() || !password) {
+    if (!name.trim() || !email.trim() || !password) {
       setError(t('admin.setup.missing'))
       return
     }
@@ -197,7 +195,7 @@ function SuperAdminSetup({ onBack }: { onBack: () => void }) {
     setError(null)
     setSubmitting(true)
     try {
-      setSentTo(await setupSuperAdmin({ setup_code: code.trim(), name: name.trim(), email: email.trim(), password }))
+      setSentTo(await setupSuperAdmin({ name: name.trim(), email: email.trim(), password }))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('admin.login.invalidCredentials'))
     } finally {
@@ -244,9 +242,6 @@ function SuperAdminSetup({ onBack }: { onBack: () => void }) {
             </View>
           )}
 
-          {field(t('admin.setup.codeLabel'), (
-            <TextInput style={styles.input} value={code} onChangeText={setCode} autoCapitalize="characters" autoCorrect={false} placeholderTextColor="#64748b" />
-          ))}
           {field(t('admin.setup.nameLabel'), (
             <TextInput style={styles.input} value={name} onChangeText={setName} autoComplete="name" textContentType="name" placeholder={t('admin.setup.namePlaceholder')} placeholderTextColor="#64748b" />
           ))}

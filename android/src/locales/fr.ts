@@ -1417,8 +1417,7 @@ export const fr = {
   'admin.login.returnToMarketplace': '← Retour au marché',
   'admin.setup.link': 'Première configuration ? Créer le compte super admin',
   'admin.setup.title': 'Créer le compte super admin',
-  'admin.setup.intro': "Saisissez le code de configuration reçu de l’équipe technique, puis choisissez vos propres identifiants. Un lien d’activation vous est envoyé par e-mail : c’est lui qui prouve que l’adresse est bien la vôtre. Il n’existe qu’un seul super admin, et le code ne sert qu’une fois.",
-  'admin.setup.codeLabel': 'Code de configuration',
+  'admin.setup.intro': "Choisissez vos identifiants de super admin. Un lien d’activation vous est envoyé par e-mail : c’est lui qui prouve que l’adresse est bien la vôtre. Il n’existe qu’un seul super admin.",
   'admin.setup.nameLabel': 'Nom complet',
   'admin.setup.namePlaceholder': 'Prénom Nom',
   'admin.setup.confirmLabel': 'Confirmer le mot de passe',
@@ -1430,7 +1429,7 @@ export const fr = {
   'admin.setup.sent': "Consultez {email} : le lien qui active le compte vient d’y être envoyé.",
   'admin.setup.sentHint': "Le lien ne sert qu’une fois et expire dans 24 heures. Une fois suivi, connectez-vous avec le mot de passe que vous venez de choisir.",
   'apiError.INVALID_SETUP_LINK': "Ce lien d’activation n’est pas valable.",
-  'apiError.SETUP_LINK_EXPIRED': "Ce lien d’activation a expiré. Demandez un nouveau code de configuration à l’équipe technique.",
+  'apiError.SETUP_LINK_EXPIRED': "Ce lien d’activation a expiré. Recommencez la création du compte pour en recevoir un nouveau.",
 
   /* ── Admin : tableau de bord Direction ──────────────────── */
   'admin.direction.searchFailedTitle': 'Échec de la recherche',
@@ -3065,8 +3064,7 @@ export const fr = {
   'apiError.DUPLICATE_VARIANT_COMBINATION': "Cette combinaison de caractéristiques existe déjà pour ce produit. Utilisez une combinaison différente.",
   'apiError.EARNINGS_FAILED': "Impossible de charger les gains.",
   'apiError.EMAIL_ALREADY_EXISTS': "Un compte existe déjà avec cet e-mail.",
-  'apiError.SETUP_CODE_INVALID': "Ce code de configuration n'est pas valide.",
-  'apiError.SETUP_UNAVAILABLE': "La configuration du super admin n'est plus disponible : ce code a déjà servi. Demandez un nouveau code à l'équipe technique.",
+  'apiError.SETUP_UNAVAILABLE': "Le compte super admin est déjà configuré. Connectez-vous.",
   'apiError.NAME_REQUIRED': 'Le nom est obligatoire.',
   'apiError.INVALID_EMAIL': "L'adresse e-mail n'est pas valide.",
   'apiError.EMAIL_CONFIRMATION_MISMATCH': "Les adresses e-mail ne correspondent pas.",

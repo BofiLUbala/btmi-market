@@ -20,8 +20,8 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // The owner's first-time setup: offered only while the server still holds an
-  // unused setup code (see backend AdminSetupService).
+  // The owner's first-time setup: offered only while the server has no
+  // active super admin yet (see backend AdminSetupService).
   const [setupAvailable, setSetupAvailable] = useState(false)
   useEffect(() => {
     adminAuthApi.setupStatus()

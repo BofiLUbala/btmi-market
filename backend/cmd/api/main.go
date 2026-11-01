@@ -337,7 +337,7 @@ func main() {
 	adminPhase5Service := service.NewAdminPhase5Service(db.DB, auditService)
 
 	adminAuthHandler := adminhandlers.NewAuthHandler(adminAuthService, auditService)
-	adminSetupHandler := adminhandlers.NewSetupHandler(service.NewAdminSetupService(adminRepo, adminInvitationRepo, emailService, cfg.SuperAdminSetupCode), auditService)
+	adminSetupHandler := adminhandlers.NewSetupHandler(service.NewAdminSetupService(adminRepo, adminInvitationRepo, emailService))
 	adminManagementHandler := adminhandlers.NewAdminManagementHandler(adminManagementService)
 	adminDirectionHandler := adminhandlers.NewDirectionHandler(adminDirectionService, auditService)
 
@@ -859,9 +859,9 @@ func main() {
 				adminAuthGroup.PATCH("/me", middleware.AdminAuthMiddleware(adminAuthService), adminManagementHandler.UpdateOwnProfile)
 			}
 
-			// The owner sets up his own (single) SUPER_ADMIN account with the
-			// one-time SUPER_ADMIN_SETUP_CODE. Rate-limited per client so the
-			// code cannot be guessed by brute force.
+			// The owner sets up his own (single) SUPER_ADMIN account while the
+			// platform has none. Rate-limited per client so the activation
+			// e-mail cannot be used to flood an inbox.
 			adminSetupGroup := adminGroup.Group("/setup")
 			{
 				adminSetupGroup.GET("/status", adminSetupHandler.Status)
@@ -911,13 +911,7 @@ func main() {
 				adminUsersGroup := protectedAdmin.Group("/admin-users")
 				adminUsersGroup.Use(middleware.RequireAdminRoles(models.AdminRoleSuperAdmin))
 				{
-					// The setup code that lets a new owner claim the super admin
-				// account: issued here, shown once, never stored in clear.
-				adminUsersGroup.GET("/setup-code", adminSetupHandler.CodeStatus)
-				adminUsersGroup.POST("/setup-code", middleware.RateLimitPerClient(0.2, 5), adminSetupHandler.IssueCode)
-				adminUsersGroup.DELETE("/setup-code", adminSetupHandler.RevokeCode)
-
-				adminUsersGroup.GET("", adminManagementHandler.ListAdmins)
+					adminUsersGroup.GET("", adminManagementHandler.ListAdmins)
 					adminUsersGroup.POST("/invite", adminManagementHandler.InviteAdmin)
 					adminUsersGroup.POST("/:id/resend-invitation", adminManagementHandler.ResendInvitation)
 					adminUsersGroup.POST("/:id/suspend", adminManagementHandler.SuspendAdmin)

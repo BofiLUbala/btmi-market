@@ -776,14 +776,14 @@ export const adminAuthApi = {
       false
     )
   },
-  /** Whether the one-time super admin setup code is configured and unused. */
+  /** Whether the super admin setup is open: true until a super admin is active. */
   setupStatus: async () => {
     return adminApi<{ available: boolean }>('/admin/setup/status', {}, false)
   },
   /** Claims the single super admin account. The account stays pending until
    *  the owner follows the link e-mailed to the address he gave here. */
-  setup: async (body: { setup_code: string; name: string; email: string; password: string }) => {
-    return adminApi<{ email: string; first_super_admin: boolean }>(
+  setup: async (body: { name: string; email: string; password: string }) => {
+    return adminApi<{ email: string }>(
       '/admin/setup',
       {
         method: 'POST',
@@ -860,20 +860,6 @@ export const adminUsersApi = {
       method: 'POST',
       body: JSON.stringify(payload)
     })
-  },
-  /** State of the code that lets a new owner claim the super admin account. */
-  setupCodeStatus: async () => {
-    return adminApi<{ issued: boolean; issued_at?: string; expires_at?: string; from_server: boolean; setup_is_open: boolean }>(
-      '/admin/admin-users/setup-code'
-    )
-  },
-  /** Issues a fresh code. The clear text comes back exactly once. */
-  issueSetupCode: async () => {
-    return adminApi<{ code: string; expires_at: string }>('/admin/admin-users/setup-code', { method: 'POST' })
-  },
-  /** Closes the open code without issuing another. */
-  revokeSetupCode: async () => {
-    return adminApi<{ message: string }>('/admin/admin-users/setup-code', { method: 'DELETE' })
   },
   resendInvitation: async (id: string) => {
     return adminApi<{ message: string }>(`/admin/admin-users/${id}/resend-invitation`, { method: 'POST' })
