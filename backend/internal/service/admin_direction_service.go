@@ -167,7 +167,9 @@ func (s *AdminDirectionService) ListUsers(search, accountType, status string, li
 
 	query := fmt.Sprintf(`
 		SELECT 
-			u.id, u.first_name, u.middle_name, u.last_name, u.phone, u.email,
+			u.id, u.first_name, u.middle_name, u.last_name, u.phone,
+			-- A phone-only account has no e-mail (migration 118).
+			COALESCE(u.email, ''),
 			u.status, u.email_verified, u.account_type, u.created_at,
 			COALESCE(b.b_count, 0) AS business_count,
 			COALESCE(s.s_count, 0) AS shop_count,
