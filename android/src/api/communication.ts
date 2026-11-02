@@ -9,6 +9,8 @@ export type SenderType =
   | 'SYSTEM'
 
 export type NotificationType =
+  | 'NEW_LOGIN'
+  | 'PASSWORD_CHANGED'
   | 'NEW_ORDER'
   | 'ORDER_ACCEPTED'
   | 'ORDER_REJECTED'

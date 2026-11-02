@@ -422,6 +422,13 @@ export type CourierAvailability = 'AVAILABLE' | 'BUSY' | 'UNAVAILABLE'
 export interface CourierProfile {
   status: string; availability: CourierAvailability; first_name?: string; last_name?: string
   transport_type?: string; service_zone?: string; completed_today?: number; total_deliveries?: number
+  email?: string; phone?: string; vehicle_info?: string | null
+  province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
+}
+/** PATCH /courier/profile: only the fields sent change. */
+export interface CourierProfileUpdate {
+  phone?: string; transport_type?: string; vehicle_info?: string; service_zone?: string
+  province?: string; city?: string; commune?: string; street?: string; building_number?: string; landmark?: string
 }
 /** GET /courier/earnings: what the courier collected and delivered on one Kinshasa day. */
 export interface CourierEarnings {

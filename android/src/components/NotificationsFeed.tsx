@@ -202,6 +202,13 @@ export function NotificationsFeed({ audience, space, unreadQueryKey, onBack }: {
   const renderRow = ({ item: row }: { item: Row }) => {
     if (row.kind === 'header') return <Text style={styles.groupLabel}>{row.label}</Text>
     const item = row.item
+    // Security alerts are stored in French by the server: show them in the
+    // reader's language, with the device and the time they carry.
+    const alert = item.type === 'NEW_LOGIN' || item.type === 'PASSWORD_CHANGED' ? item.type : null
+    const title = alert ? t(`notifications.type.${alert}.title`) : item.title
+    const body = alert
+      ? t(`notifications.type.${alert}.body`, { device: String(item.metadata?.device ?? '—').replace(' sur ', ' · '), date: formatDateTime(item.created_at) })
+      : item.body
     return (
       <TouchableOpacity style={[styles.itemCard, item.is_read && styles.itemCardRead]} onPress={() => void handleItemPress(item)} activeOpacity={0.7}>
         <View style={[styles.iconContainer, item.is_read ? styles.iconContainerRead : styles.iconContainerUnread]}>
@@ -209,10 +216,10 @@ export function NotificationsFeed({ audience, space, unreadQueryKey, onBack }: {
         </View>
         <View style={styles.contentContainer}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, !item.is_read && styles.titleUnread]} numberOfLines={1}>{item.title}</Text>
+            <Text style={[styles.title, !item.is_read && styles.titleUnread]} numberOfLines={1}>{title}</Text>
             {!item.is_read ? <View style={styles.unreadDot} /> : null}
           </View>
-          <Text style={styles.bodyText} numberOfLines={2}>{item.body}</Text>
+          <Text style={styles.bodyText} numberOfLines={2}>{body}</Text>
           <Text style={styles.dateText}>{formatDateTime(item.created_at)}</Text>
         </View>
       </TouchableOpacity>

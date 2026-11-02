@@ -73,7 +73,7 @@ export default function CourierProfileScreen() {
         </View>
 
         <View style={styles.list}>
-          <Item icon="person-outline" title={t('courierUi.profile.myInfo')} onPress={() => router.push('/profile-edit')} />
+          <Item icon="person-outline" title={t('courierUi.profile.myInfo')} onPress={() => router.push('/courier/info')} />
           <Item icon="bicycle-outline" title={t('courierUi.profile.vehicle')} subtitle={vehicle} />
           <Item icon="settings-outline" title={t('courierUi.profile.settings')} subtitle={t('courierUi.profile.settingsBody')} onPress={settings} />
           <Item icon="headset-outline" title={t('courierUi.assistance.title')} onPress={() => router.push('/courier/assistance')} />

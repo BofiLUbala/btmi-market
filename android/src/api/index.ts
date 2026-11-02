@@ -16,7 +16,7 @@ import type {
   QRScanRequest, QRScanResponse, ProductVerification, OrderItemQRResolution, OrderItemQR, VariantInventoryRow,
   TrackingResponse, CourierLocation, CourierLocationPoint, GeocodeCandidate, ReversePlace, RoutePointInput, UpdateCustomerRequest, UpdateEmployeeRequest, UpdateShopRequest, UpdateVariantRequest, User, PackageQR,
   ProductVideoResponse, SellerPayout, SellerPayoutAccount, CartLineInput, CartPreview, CheckoutCreated, PaymentProviderCode, PaymentInitiation, HandoverState, HandoverLineAcknowledgement,
-  HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct, ShopPurgePreview, ShopPurgeResult } from '../types'
+  HandoverVerificationResult, ConfirmCashResponse, CourierMission, CourierProfile, CourierProfileUpdate, CourierAvailability, CourierHistoryItem, CourierEarnings, CourierDeliveredProduct, ShopPurgePreview, ShopPurgeResult } from '../types'
 
 /** Query string from defined params only, in the web client's style. */
 const qs = (params?: object) => {
@@ -423,6 +423,8 @@ export const courierApi = {
 
   /** 404 for accounts that are not couriers; used to show the courier space. */
   profile: () => get<CourierProfile>('/courier/profile'),
+  /** The courier's own details: phone, vehicle, zone and address (names are not editable here). */
+  updateProfile: (body: CourierProfileUpdate) => patch<CourierProfile>('/courier/profile', body),
   /** AVAILABLE / UNAVAILABLE; the backend refuses it for a non-active courier. */
   updateAvailability: (availability: CourierAvailability) => patch('/courier/availability', { availability }),
   history: async (limit = 50) => list<CourierHistoryItem>(await get<unknown>(`/courier/history?limit=${limit}`)),

@@ -117,7 +117,7 @@ function RootNavigator() {
         <Stack.Screen name="orders/[id]" options={{ header: storeHeader, title: t('orders.detailTitle') }} />
         <Stack.Screen name="orders/live" options={{ title: t('liveMap.follow') }} />
         <Stack.Screen name="tracking" options={{ header: storeHeader, title: t('track.title') }} />
-        <Stack.Screen name="notifications" options={{ header: storeHeader, title: t('notifications.title') }} />
+        <Stack.Screen name="notifications" options={({ route }) => ({ header: storeHeader, headerShown: (route.params as { space?: string } | undefined)?.space !== 'courier', title: t('notifications.title') })} />
         <Stack.Screen name="notification-settings" options={{ title: t('notifSettings.title') }} />
         <Stack.Screen name="help" options={{ header: storeHeader, title: t('help.title') }} />
         <Stack.Screen name="privacy" options={{ header: storeHeader, title: t('account.privacyPolicy') }} />
